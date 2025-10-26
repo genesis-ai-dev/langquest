@@ -25,7 +25,7 @@ import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function ForgotPasswordView2({
+export default function ForgotPasswordView({
   onNavigate,
   sharedAuthInfo
 }: {
@@ -82,7 +82,7 @@ export default function ForgotPasswordView2({
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('resetPassword')}</Text>
         </View>
-        <LanguageSelect />
+        <LanguageSelect uiReadyOnly />
         <View className="flex flex-col items-center gap-4">
           <Icon as={LockIcon} size={32} />
 

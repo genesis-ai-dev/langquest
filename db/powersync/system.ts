@@ -1,3 +1,4 @@
+'use no memo';
 import '@azure/core-asynciterator-polyfill';
 import type {
   DrizzleTableWithPowerSyncOptions,
@@ -43,6 +44,7 @@ import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
+import { getDefaultOpMetadata } from './opMetadata';
 
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
@@ -84,6 +86,10 @@ export class System {
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
   private attachmentQueueInitPromise: Promise<void> | null = null;
+
+  // Migration state
+  public migrationNeeded = false;
+  private migratingNow = false;
 
   constructor() {
     // Prevent multiple instantiation
@@ -133,7 +139,9 @@ export class System {
             acc[key] = {
               tableDefinition: table,
               options: {
-                viewName: `${key}_synced`
+                viewName: `${key}_synced`,
+                trackMetadata: true,
+                ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
             return acc;
@@ -180,7 +188,8 @@ export class System {
             acc[key] = {
               tableDefinition: localTable,
               options: {
-                localOnly: true
+                localOnly: true,
+                ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
           }
@@ -228,15 +237,77 @@ export class System {
         logger: Logger
       });
     }
-    this.db = wrapPowerSyncWithDrizzle(this.powersync, {
+
+    const rawDb = wrapPowerSyncWithDrizzle(this.powersync, {
       schema: drizzleSchema
     });
+
+    function stamp(val: unknown) {
+      const tag = getDefaultOpMetadata();
+      if (Array.isArray(val)) {
+        return val.map((v) =>
+          v && typeof v === 'object' && (v as any)._metadata === undefined
+            ? { ...(v as any), _metadata: tag }
+            : v
+        );
+      }
+      if (
+        val &&
+        typeof val === 'object' &&
+        (val as any)._metadata === undefined
+      ) {
+        return { ...(val as any), _metadata: tag };
+      }
+      return val;
+    }
+
+    // Capture PowerSync instance for migrations
+    const powersyncInstance = this.powersync;
+
+    const dbWithMetadata = new Proxy(rawDb as any, {
+      get(target: any, prop: any, receiver: any) {
+        // Expose raw PowerSync for migrations that need to alter tables
+        if (prop === 'rawPowerSync') {
+          return powersyncInstance;
+        }
+        if (prop === 'insert') {
+          return (table: any) => {
+            const builder = target.insert(table);
+            return new Proxy(builder, {
+              get(b, m) {
+                if (m === 'values') {
+                  return (v: any) => b.values(stamp(v));
+                }
+                return Reflect.get(b, m);
+              }
+            });
+          };
+        }
+        if (prop === 'update') {
+          return (table: any) => {
+            const builder = target.update(table);
+            return new Proxy(builder, {
+              get(b, m) {
+                if (m === 'set') {
+                  return (v: any) => b.set(stamp(v));
+                }
+                return Reflect.get(b, m);
+              }
+            });
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      }
+    }) as typeof rawDb;
+
+    this.db = dbWithMetadata;
 
     if (AppConfig.supabaseBucket) {
       this.permAttachmentQueue = new PermAttachmentQueue({
         powersync: this.powersync,
         storage: this.storage,
         db: this.db,
+        supabaseConnector: this.supabaseConnector,
         attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
         cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
         // eslint-disable-next-line
@@ -358,11 +429,58 @@ export class System {
       if (!this.initialized) {
         console.log('Initializing PowerSync...');
         await this.powersync.init();
-        // Freeze the object to prevent further modifications
-        // Object.freeze(this);
-        // After initializing the DB schema, create union views on top of
-        // <table>_synced and <table>_local for all app tables
+
+        // Create union views FIRST - they expose _metadata column from Drizzle schema
+        // This allows migrations to query and update _metadata through the views
+        console.log('[System] Creating union views...');
         await this.createUnionViews();
+
+        // CRITICAL: Check server schema version FIRST
+        // This ensures client and server schemas are compatible before proceeding
+        console.log('[System] Checking server schema version...');
+        try {
+          const { checkAppUpgradeNeeded } = await import(
+            '../schemaVersionService'
+          );
+          await checkAppUpgradeNeeded(this.db, this.supabaseConnector.client);
+          console.log('[System] ✓ Server schema version is compatible');
+        } catch (error) {
+          // AppUpgradeNeededError will be thrown and caught by outer try/catch
+          throw error;
+        }
+
+        // CRITICAL: Check if migrations are needed AFTER creating union views
+        // Now we can query _metadata through the views (will be NULL for old records)
+        console.log('[System] Checking for schema migrations...');
+
+        // TEMPORARY: Reset metadata for testing migration
+        // TODO: REMOVE THIS AFTER TESTING
+        // console.log('[System] ⚠️  TESTING: Resetting metadata to 1.0 to force migration...');
+        // const { resetMetadataVersionForTesting } = await import('../migrations/utils');
+        // await resetMetadataVersionForTesting(this.db, '1.0');
+        // console.log('[System] ✓ Metadata reset complete');
+
+        const { checkNeedsMigration, MigrationNeededError } = await import(
+          '../migrations/index'
+        );
+        const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+        // Use Drizzle-wrapped db to query through views (not raw PowerSync)
+        const needsMigration = await checkNeedsMigration(
+          this.db,
+          APP_SCHEMA_VERSION
+        );
+
+        if (needsMigration) {
+          console.log(
+            '[System] ⚠️  Migration needed - blocking initialization'
+          );
+          this.migrationNeeded = true;
+          // Throw specific error to signal UI needs to show migration screen
+          throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
+        }
+
+        console.log('[System] ✓ Schema is up to date');
       }
 
       // If we're already connected, check if we need to reconnect
@@ -1052,6 +1170,89 @@ export class System {
       console.error('Error during system cleanup:', error);
     }
   }
+
+  /**
+   * Run schema migrations with progress callback
+   * Called from MigrationScreen when user needs to migrate data
+   *
+   * @param onProgress - Callback for progress updates (current, total, step)
+   */
+  async runMigrations(
+    onProgress?: (current: number, total: number, step: string) => void
+  ): Promise<void> {
+    if (this.migratingNow) {
+      console.warn('[System] Migration already in progress');
+      return;
+    }
+
+    try {
+      this.migratingNow = true;
+      console.log('[System] Starting migration process...');
+
+      // Dynamic import to avoid circular dependencies
+      const { runMigrations, checkNeedsMigration, getMinimumSchemaVersion } =
+        await import('../migrations/index');
+      const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+      // Double-check that migration is still needed
+      // Use Drizzle-wrapped db to query through views
+      const stillNeeded = await checkNeedsMigration(
+        this.db,
+        APP_SCHEMA_VERSION
+      );
+
+      if (!stillNeeded) {
+        console.log(
+          '[System] No migration needed (already at current version)'
+        );
+        this.migrationNeeded = false;
+        return;
+      }
+
+      // Get the actual current version from database
+      // This will return '0.0' for unversioned data, or the actual minimum version found
+      const currentVersion = (await getMinimumSchemaVersion(this.db)) || '0.0';
+      console.log(
+        `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
+      );
+
+      // Use Drizzle-wrapped db for migration operations (queries through views)
+      const result = await runMigrations(
+        this.db,
+        currentVersion, // Start from actual current version
+        APP_SCHEMA_VERSION,
+        onProgress
+      );
+
+      if (!result.success) {
+        throw new Error(`Migration failed: ${result.errors.join(', ')}`);
+      }
+
+      console.log('[System] ✓ Migration completed successfully');
+      this.migrationNeeded = false;
+    } catch (error) {
+      console.error('[System] Migration failed:', error);
+      throw error;
+    } finally {
+      this.migratingNow = false;
+    }
+  }
+
+  /**
+   * Reset system state after migration completes
+   * Allows re-initialization with new schema
+   */
+  resetForMigration(): void {
+    console.log('[System] Resetting for migration...');
+    this.migrationNeeded = false;
+    this.initialized = false;
+    this.connecting = false;
+    this.connectionPromise = null;
+
+    // This will cause useAuth to re-run system.init()
+    // which will now pass the migration check
+    useLocalStore.getState().setSystemReady(false);
+  }
 }
 
 // Create and export the system singleton safely
@@ -1072,7 +1273,53 @@ export function getSystem(): System {
 // Create a proxy that provides helpful error messages if accessed too early
 export const system = new Proxy({} as System, {
   get(_target, prop, _receiver) {
+    // Silently handle React internal properties and common inspection properties
+    // React Compiler and DevTools will check these
+    const inspectionProps = new Set([
+      '$$typeof', // React element type marker
+      '_reactInternals', // React internals
+      'toJSON', // JSON serialization
+      'then', // Promise detection
+      'constructor', // Constructor inspection
+      Symbol.toStringTag, // Object.prototype.toString
+      Symbol.iterator // Iterator protocol
+    ]);
+
+    if (inspectionProps.has(prop)) {
+      return undefined;
+    }
+
+    // Allow checking initialization state without throwing
+    if (
+      prop === 'isInitialized' ||
+      prop === 'isPowerSyncInitialized' ||
+      prop === 'areAttachmentQueuesReady' ||
+      prop === 'init' ||
+      prop === 'migrationNeeded' ||
+      prop === 'runMigrations' ||
+      prop === 'resetForMigration'
+    ) {
+      const instance = getSystem();
+      const value = instance[prop as keyof System];
+      if (typeof value === 'function') {
+        return value.bind(instance);
+      }
+      return value;
+    }
+
     const instance = getSystem();
+
+    // Check if we're trying to access a critical property before initialization
+    if (
+      !instance.isPowerSyncInitialized() &&
+      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')
+    ) {
+      console.warn(
+        `[System] Attempted to access '${String(prop)}' before PowerSync initialization. ` +
+          `This may cause undefined errors. Call await system.init() first.`
+      );
+    }
+
     const value = instance[prop as keyof System];
     if (typeof value === 'function') {
       return value.bind(instance);

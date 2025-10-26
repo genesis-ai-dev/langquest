@@ -16,6 +16,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   getLocalAttachmentUriWithOPFS,
@@ -28,7 +29,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, InteractionManager, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useVADRecording } from '../hooks/useVADRecording';
@@ -37,6 +39,7 @@ import { AssetCard } from './AssetCard';
 import { RecordingControls } from './RecordingControls';
 import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
+import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
 const USE_INSERTION_WHEEL = true;
@@ -68,14 +71,22 @@ const RecordingViewSimplified = ({
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
+  const insets = useSafeAreaInsets();
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVADLocked, setIsVADLocked] = React.useState(false);
 
-  // VAD settings
-  const [vadThreshold, _setVadThreshold] = React.useState(0.06);
-  const [vadSilenceDuration, _setVadSilenceDuration] = React.useState(1000);
+  // VAD settings - persisted in local store for consistent UX
+  // These settings are automatically saved to AsyncStorage and restored on app restart
+  // Default: threshold=0.03 (normal sensitivity), silenceDuration=1000ms (1 second pause)
+  const vadThreshold = useLocalStore((state) => state.vadThreshold);
+  const setVadThreshold = useLocalStore((state) => state.setVadThreshold);
+  const vadSilenceDuration = useLocalStore((state) => state.vadSilenceDuration);
+  const setVadSilenceDuration = useLocalStore(
+    (state) => state.setVadSilenceDuration
+  );
+  const [showVADSettings, setShowVADSettings] = React.useState(false);
 
   // Track current recording order index
   const currentRecordingOrderRef = React.useRef<number>(0);
@@ -500,13 +511,15 @@ const RecordingViewSimplified = ({
         }
 
         // Generate name immediately and reserve it to prevent duplicates
-        // Use total count (existing + pending) for simple sequential naming
-        const nextNumber =
-          assets.length + pendingAssetNamesRef.current.size + 1;
+        // In VAD mode: Use the VAD counter which is already incremented per segment
+        // In manual mode: Use total count (existing + pending) for simple sequential naming
+        const nextNumber = isVADLocked
+          ? targetOrder + 1 // VAD: use order_index + 1 for naming (order is 0-based, names are 1-based)
+          : assets.length + pendingAssetNamesRef.current.size + 1;
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
         console.log(
-          `🏷️ Reserved name: ${assetName} (asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size})`
+          `🏷️ Reserved name: ${assetName} (${isVADLocked ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
         );
 
         // Save audio file locally
@@ -542,7 +555,7 @@ const RecordingViewSimplified = ({
         // Invalidate queries to refresh asset list
         if (!isVADLocked) {
           await queryClient.invalidateQueries({
-            queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+            queryKey: ['assets', 'by-quest', currentQuestId],
             exact: false
           });
         }
@@ -560,7 +573,8 @@ const RecordingViewSimplified = ({
       currentProject,
       currentUser,
       queryClient,
-      isVADLocked
+      isVADLocked,
+      assets
     ]
   );
 
@@ -592,7 +606,12 @@ const RecordingViewSimplified = ({
   );
 
   // Hook up native VAD recording
-  const { currentEnergy, isRecording: isVADRecording } = useVADRecording({
+  const {
+    currentEnergy,
+    isRecording: isVADRecording,
+    energyShared,
+    isRecordingShared
+  } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
     isVADActive: isVADLocked,
@@ -605,7 +624,7 @@ const RecordingViewSimplified = ({
   React.useEffect(() => {
     if (!isVADLocked) {
       void queryClient.invalidateQueries({
-        queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+        queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
       });
     }
@@ -670,203 +689,241 @@ const RecordingViewSimplified = ({
     }
   }, [assetIds, assetMetadata]);
 
-  // Load segment counts and durations in background without blocking initial render
+  // OPTIMIZED: Load segment counts and durations in batches after UI is idle
+  // This prevents blocking the UI thread during initial render and animations
   React.useEffect(() => {
-    const controller = new AbortController();
+    // Early exit if no assets to load (prevents effect from running constantly)
+    const assetsToLoad = assetMetadata.filter(
+      (id) => !loadedAssetIdsRef.current.has(id)
+    );
 
-    void (async () => {
-      try {
-        // Dynamically import Audio only when needed
-        const { Audio } = await import('expo-av');
+    if (assetsToLoad.length === 0) {
+      // Nothing new to load - don't even start the async work
+      return;
+    }
 
-        // Find assets that need loading
-        const assetsToLoad = assetMetadata.filter(
-          (id) => !loadedAssetIdsRef.current.has(id)
-        );
+    // Defer until animations complete
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      const controller = new AbortController();
 
-        if (assetsToLoad.length === 0) {
-          console.log('📊 No assets need loading (all cached)');
-          return; // Nothing new to load
+      // Process assets in batches to prevent blocking
+      const processBatch = async (startIdx: number) => {
+        if (controller.signal.aborted) return;
+
+        const BATCH_SIZE = 5; // Process 5 assets at a time
+        const batch = assetsToLoad.slice(startIdx, startIdx + BATCH_SIZE);
+
+        if (batch.length === 0) {
+          // All done!
+          console.log('✅ Finished loading all asset metadata');
+          return;
         }
 
         console.log(
-          `📊 Loading segment counts for ${assetsToLoad.length} asset(s)`
+          `📊 Loading batch ${Math.floor(startIdx / BATCH_SIZE) + 1}: ${batch.length} assets (${startIdx + 1}-${startIdx + batch.length} of ${assetsToLoad.length})`
         );
 
-        const newCounts = new Map<string, number>();
-        const newDurations = new Map<string, number>();
+        try {
+          // Dynamically import Audio only when needed
+          const { Audio } = await import('expo-av');
 
-        for (const assetId of assetsToLoad) {
-          if (controller.signal.aborted) break;
+          const newCounts = new Map<string, number>();
+          const newDurations = new Map<string, number>();
 
-          try {
-            // Query asset_content_link to get audio segments
-            // ARCHITECTURE EXPLANATION:
-            // - Each asset can have multiple segments (merged assets)
-            // - Each segment is one row in asset_content_link
-            // - Each segment can have one or more audio files in its audio[] array
-            //
-            // COUNTS:
-            // - Segment count = number of content_link rows
-            // - Audio file count = total audio files across all segments
-            // - Duration = sum of all audio files' durations
-            const contentLinks =
-              await system.db.query.asset_content_link.findMany({
-                columns: {
-                  id: true,
-                  audio: true
-                },
-                where: eq(asset_content_link.asset_id, assetId),
-                orderBy: asc(asset_content_link.created_at)
-              });
+          for (const assetId of batch) {
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            if (controller.signal.aborted) break;
 
-            // DEBUG: Log raw query result
-            console.log(
-              `🔎 Query result for asset ${assetId.slice(0, 8)}:`,
-              contentLinks.length,
-              'rows found'
-            );
-            if (contentLinks.length > 0) {
+            try {
+              // Query asset_content_link to get audio segments
+              // ARCHITECTURE EXPLANATION:
+              // - Each asset can have multiple segments (merged assets)
+              // - Each segment is one row in asset_content_link
+              // - Each segment can have one or more audio files in its audio[] array
+              //
+              // COUNTS:
+              // - Segment count = number of content_link rows
+              // - Audio file count = total audio files across all segments
+              // - Duration = sum of all audio files' durations
+              const contentLinks =
+                await system.db.query.asset_content_link.findMany({
+                  columns: {
+                    id: true,
+                    audio: true
+                  },
+                  where: eq(asset_content_link.asset_id, assetId),
+                  orderBy: asc(asset_content_link.created_at)
+                });
+
+              // DEBUG: Log raw query result
               console.log(
-                `   First row ID: ${contentLinks[0]?.id.slice(0, 8)}, audio count: ${contentLinks[0]?.audio?.length ?? 0}`
+                `🔎 Query result for asset ${assetId.slice(0, 8)}:`,
+                contentLinks.length,
+                'rows found'
               );
-              if (contentLinks.length > 1) {
+              if (contentLinks.length > 0) {
                 console.log(
-                  `   Second row ID: ${contentLinks[1]?.id.slice(0, 8)}, audio count: ${contentLinks[1]?.audio?.length ?? 0}`
+                  `   First row ID: ${contentLinks[0]?.id.slice(0, 8)}, audio count: ${contentLinks[0]?.audio?.length ?? 0}`
+                );
+                if (contentLinks.length > 1) {
+                  console.log(
+                    `   Second row ID: ${contentLinks[1]?.id.slice(0, 8)}, audio count: ${contentLinks[1]?.audio?.length ?? 0}`
+                  );
+                }
+              } else {
+                console.warn(
+                  `⚠️ NO content_link rows found for asset ${assetId.slice(0, 8)}!`
                 );
               }
-            } else {
-              console.warn(
-                `⚠️ NO content_link rows found for asset ${assetId.slice(0, 8)}!`
+
+              // SEGMENT COUNT: Number of content_link rows (each row = one segment)
+              const segmentCount = contentLinks.length || 1;
+              newCounts.set(assetId, segmentCount);
+
+              // DEBUG: Log segment count for this asset
+              console.log(
+                `🔍 Asset ${assetId.slice(0, 8)} segment count: ${segmentCount} ${segmentCount > 1 ? '✅ MULTI-SEGMENT' : '(single)'}`
               );
-            }
 
-            // SEGMENT COUNT: Number of content_link rows (each row = one segment)
-            const segmentCount = contentLinks.length || 1;
-            newCounts.set(assetId, segmentCount);
+              // AUDIO FILES: Extract all audio file references from all segments
+              // This flattens the audio arrays from all content_link rows
+              const audioValues = contentLinks
+                .flatMap((link) => link.audio ?? [])
+                .filter((value): value is string => !!value);
 
-            // DEBUG: Log segment count for this asset
-            console.log(
-              `🔍 Asset ${assetId.slice(0, 8)} segment count: ${segmentCount} ${segmentCount > 1 ? '✅ MULTI-SEGMENT' : '(single)'}`
-            );
+              // DEBUG: Log audio values found
+              console.log(
+                `🎵 Asset ${assetId.slice(0, 8)} has ${audioValues.length} audio file(s) across ${segmentCount} segment(s) - loading durations...`
+              );
 
-            // AUDIO FILES: Extract all audio file references from all segments
-            // This flattens the audio arrays from all content_link rows
-            const audioValues = contentLinks
-              .flatMap((link) => link.audio ?? [])
-              .filter((value): value is string => !!value);
+              // DURATION: Load and sum all audio file durations
+              let totalDuration = 0;
 
-            // DEBUG: Log audio values found
-            console.log(
-              `🎵 Asset ${assetId.slice(0, 8)} has ${audioValues.length} audio file(s) across ${segmentCount} segment(s) - loading durations...`
-            );
+              for (const audioValue of audioValues) {
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                if (controller.signal.aborted) break;
 
-            // DURATION: Load and sum all audio file durations
-            let totalDuration = 0;
-
-            for (const audioValue of audioValues) {
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-              if (controller.signal.aborted) break;
-
-              try {
-                // Get the full URI for this audio
-                let audioUri: string | null = null;
-                if (audioValue.startsWith('local/')) {
-                  audioUri = getLocalAttachmentUriWithOPFS(audioValue);
-                } else if (audioValue.startsWith('file://')) {
-                  audioUri = audioValue;
-                } else if (system.permAttachmentQueue) {
-                  // It's an attachment ID
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-                    [audioValue]
-                  );
-                  if (attachment?.local_uri) {
-                    audioUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
+                try {
+                  // Get the full URI for this audio
+                  let audioUri: string | null = null;
+                  if (audioValue.startsWith('local/')) {
+                    audioUri = getLocalAttachmentUriWithOPFS(audioValue);
+                  } else if (audioValue.startsWith('file://')) {
+                    audioUri = audioValue;
+                  } else if (system.permAttachmentQueue) {
+                    // It's an attachment ID
+                    const attachment = await system.powersync.getOptional<{
+                      id: string;
+                      local_uri: string | null;
+                    }>(
+                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
+                      [audioValue]
                     );
+                    if (attachment?.local_uri) {
+                      audioUri = system.permAttachmentQueue.getLocalUri(
+                        attachment.local_uri
+                      );
+                    }
                   }
-                }
 
-                if (audioUri) {
-                  // Load audio file to get duration
-                  const { sound } = await Audio.Sound.createAsync({
-                    uri: audioUri
-                  });
-                  const status = await sound.getStatusAsync();
-                  await sound.unloadAsync();
+                  if (audioUri) {
+                    // Load audio file to get duration
+                    const { sound } = await Audio.Sound.createAsync({
+                      uri: audioUri
+                    });
+                    const status = await sound.getStatusAsync();
+                    await sound.unloadAsync();
 
-                  if (status.isLoaded && status.durationMillis) {
-                    totalDuration += status.durationMillis;
+                    if (status.isLoaded && status.durationMillis) {
+                      totalDuration += status.durationMillis;
+                    }
                   }
+                } catch (err) {
+                  // Skip this segment if we can't load it
+                  console.warn(`Failed to load duration for segment:`, err);
                 }
-              } catch (err) {
-                // Skip this segment if we can't load it
-                console.warn(`Failed to load duration for segment:`, err);
               }
+
+              if (totalDuration > 0) {
+                newDurations.set(assetId, totalDuration);
+                console.log(
+                  `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
+                );
+              } else {
+                console.log(
+                  `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
+                );
+              }
+
+              loadedAssetIdsRef.current.add(assetId);
+            } catch (err) {
+              // If query fails for any asset, default to 1 segment
+              console.warn(`Failed to load data for asset ${assetId}:`, err);
+              newCounts.set(assetId, 1);
+              loadedAssetIdsRef.current.add(assetId);
+            }
+          }
+
+          if (!controller.signal.aborted) {
+            if (newCounts.size > 0) {
+              // Merge with existing counts
+              setAssetSegmentCounts((prev) => {
+                const merged = new Map(prev);
+                for (const [id, count] of newCounts) {
+                  merged.set(id, count);
+                }
+                return merged;
+              });
+              console.log(
+                `✅ Batch loaded segment counts for ${newCounts.size} asset${newCounts.size > 1 ? 's' : ''}`
+              );
             }
 
-            if (totalDuration > 0) {
-              newDurations.set(assetId, totalDuration);
+            if (newDurations.size > 0) {
+              // Merge with existing durations
+              setAssetDurations((prev) => {
+                const merged = new Map(prev);
+                for (const [id, duration] of newDurations) {
+                  merged.set(id, duration);
+                }
+                return merged;
+              });
               console.log(
-                `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
-              );
-            } else {
-              console.log(
-                `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
+                `✅ Batch loaded durations for ${newDurations.size} asset${newDurations.size > 1 ? 's' : ''}`
               );
             }
 
-            loadedAssetIdsRef.current.add(assetId);
-          } catch (err) {
-            // If query fails for any asset, default to 1 segment
-            console.warn(`Failed to load data for asset ${assetId}:`, err);
-            newCounts.set(assetId, 1);
-            loadedAssetIdsRef.current.add(assetId);
+            // Schedule next batch with a frame delay to keep UI responsive
+            setTimeout(() => {
+              void processBatch(startIdx + BATCH_SIZE);
+            }, 16); // One frame delay (60fps)
+          }
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            console.error('Failed to load asset metadata batch:', error);
+            // Continue with next batch even if this one failed
+            setTimeout(() => {
+              void processBatch(startIdx + BATCH_SIZE);
+            }, 16);
           }
         }
+      };
 
-        if (!controller.signal.aborted) {
-          if (newCounts.size > 0) {
-            // Merge with existing counts
-            setAssetSegmentCounts((prev) => {
-              const merged = new Map(prev);
-              for (const [id, count] of newCounts) {
-                merged.set(id, count);
-              }
-              return merged;
-            });
-            console.log(
-              `✅ Loaded segment counts for ${newCounts.size} asset${newCounts.size > 1 ? 's' : ''}`
-            );
-          }
+      // Start processing from first batch
+      void processBatch(0);
 
-          if (newDurations.size > 0) {
-            // Merge with existing durations
-            setAssetDurations((prev) => {
-              const merged = new Map(prev);
-              for (const [id, duration] of newDurations) {
-                merged.set(id, duration);
-              }
-              return merged;
-            });
-            console.log(
-              `✅ Loaded durations for ${newDurations.size} asset${newDurations.size > 1 ? 's' : ''}`
-            );
-          }
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error('Failed to load asset metadata:', error);
-        }
-      }
-    })();
+      return () => {
+        controller.abort();
+      };
+    });
 
-    return () => controller.abort();
-  }, [assetMetadata]); // Depend on assetMetadata array (changes when assets change)
+    return () => {
+      interactionHandle.cancel();
+    };
+    // Depend on assetIds string (only changes when asset IDs change, not on every render)
+    // This prevents the effect from running hundreds of times when array reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetIds]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)
@@ -877,7 +934,7 @@ const RecordingViewSimplified = ({
       try {
         await audioSegmentService.deleteAudioSegment(assetId);
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          queryKey: ['assets', 'by-quest', currentQuestId],
           exact: false
         });
       } catch (e) {
@@ -933,7 +990,7 @@ const RecordingViewSimplified = ({
         });
 
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          queryKey: ['assets', 'by-quest', currentQuestId],
           exact: false
         });
       } catch (e) {
@@ -1009,13 +1066,7 @@ const RecordingViewSimplified = ({
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
-                  queryKey: [
-                    'assets',
-                    'infinite',
-                    'by-quest',
-                    currentQuestId,
-                    ''
-                  ],
+                  queryKey: ['assets', 'by-quest', currentQuestId],
                   exact: false
                 });
 
@@ -1067,13 +1118,7 @@ const RecordingViewSimplified = ({
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
-                  queryKey: [
-                    'assets',
-                    'infinite',
-                    'by-quest',
-                    currentQuestId,
-                    ''
-                  ],
+                  queryKey: ['assets', 'by-quest', currentQuestId],
                   exact: false
                 });
 
@@ -1118,7 +1163,7 @@ const RecordingViewSimplified = ({
 
         // Invalidate queries to refresh the list
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'infinite', 'by-quest', currentQuestId, ''],
+          queryKey: ['assets', 'by-quest', currentQuestId],
           exact: false
         });
 
@@ -1158,8 +1203,8 @@ const RecordingViewSimplified = ({
   ]);
 
   // Memoized render function for LegendList
-  // CRITICAL: audioContext.position is NOT a dependency here to prevent 10+ re-renders per second
-  // Progress updates are handled inside AssetCard via Reanimated (native thread)
+  // OPTIMIZED: No audioContext.position dependency - progress now uses SharedValues!
+  // This eliminates 10 re-renders/second during audio playback
   const renderAssetItem = React.useCallback(
     ({ item, index }: { item: UIAsset; index: number }) => {
       const isThisAssetPlaying =
@@ -1167,14 +1212,6 @@ const RecordingViewSimplified = ({
       const isSelected = selectedAssetIds.has(item.id);
       const canMergeDown =
         index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
-
-      // Calculate progress percentage (0-100) for this asset when playing
-      // Note: This will update when audioContext.position changes, but won't re-render
-      // the entire list thanks to React.memo on AssetCard
-      const progress =
-        isThisAssetPlaying && audioContext.duration > 0
-          ? (audioContext.position / audioContext.duration) * 100
-          : undefined;
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
@@ -1186,7 +1223,6 @@ const RecordingViewSimplified = ({
           isSelected={isSelected}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
-          progress={progress}
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
@@ -1212,8 +1248,8 @@ const RecordingViewSimplified = ({
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
-      audioContext.position, // Keep this - but React.memo on AssetCard will prevent unnecessary re-renders
-      audioContext.duration,
+      // audioContext.position REMOVED - uses SharedValues now!
+      // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
       isSelectionMode,
       assets,
@@ -1227,8 +1263,8 @@ const RecordingViewSimplified = ({
   );
 
   // Memoized children for ArrayInsertionWheel
-  // CRITICAL: audioContext.position is NOT a dependency to prevent re-creating all children 10+ times per second
-  // Progress updates are handled inside AssetCard via Reanimated (native thread)
+  // OPTIMIZED: No audioContext.position/duration dependencies - progress now uses SharedValues!
+  // This eliminates re-creating all children 10+ times per second during audio playback
   const wheelChildren = React.useMemo(() => {
     return assetsForLegendList.map((item, index) => {
       const isThisAssetPlaying =
@@ -1237,15 +1273,6 @@ const RecordingViewSimplified = ({
       const canMergeDown =
         index < assetsForLegendList.length - 1 &&
         assetsForLegendList[index + 1]?.source !== 'cloud';
-
-      // Calculate progress percentage (0-100) for this asset when playing
-      // Note: audioContext.position IS used here for calculation, but it's NOT in the memo deps
-      // This means we calculate with potentially stale values, but AssetCard uses Reanimated
-      // for smooth progress, so the occasional stale value won't cause visual issues
-      const progress =
-        isThisAssetPlaying && audioContext.duration > 0
-          ? (audioContext.position / audioContext.duration) * 100
-          : undefined;
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
@@ -1258,7 +1285,6 @@ const RecordingViewSimplified = ({
           isSelected={isSelected}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
-          progress={progress}
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
@@ -1285,8 +1311,8 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
-    // audioContext.position removed - prevents re-creating all children on every position update
-    audioContext.duration,
+    // audioContext.position REMOVED - uses SharedValues now!
+    // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,
     isSelectionMode,
     stableHandlePlayAsset,
@@ -1375,7 +1401,7 @@ const RecordingViewSimplified = ({
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0">
         {isSelectionMode ? (
-          <View className="px-4">
+          <View className="px-4" style={{ paddingBottom: insets.bottom }}>
             <SelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
@@ -1393,8 +1419,11 @@ const RecordingViewSimplified = ({
             onLayout={setFooterHeight}
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}
+            onSettingsPress={() => setShowVADSettings(true)}
             currentEnergy={currentEnergy}
             vadThreshold={vadThreshold}
+            energyShared={energyShared}
+            isRecordingShared={isRecordingShared}
           />
         )}
       </View>
@@ -1405,6 +1434,17 @@ const RecordingViewSimplified = ({
         currentName={renameAssetName}
         onClose={() => setShowRenameModal(false)}
         onSave={handleSaveRename}
+      />
+
+      {/* VAD Settings Drawer */}
+      <VADSettingsDrawer
+        isOpen={showVADSettings}
+        onOpenChange={setShowVADSettings}
+        threshold={vadThreshold}
+        onThresholdChange={setVadThreshold}
+        silenceDuration={vadSilenceDuration}
+        onSilenceDurationChange={setVadSilenceDuration}
+        isVADLocked={isVADLocked}
       />
     </View>
   );

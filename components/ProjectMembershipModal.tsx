@@ -1,38 +1,36 @@
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile } from '@/db/drizzleSchema';
 import {
   invite,
   profile_project_link,
-  project as projectTable
+  project as projectTable,
+  request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 
@@ -99,11 +97,27 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     'withdraw_invite_button'
   );
 
-  const [activeTab, setActiveTab] = useState<'members' | 'invited'>('members');
+  const [activeTab, setActiveTab] = useState<
+    'members' | 'invited' | 'requests'
+  >('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Resolve the local tables for updates (PowerSync requires local table updates)
+  const inviteLocal = useMemo(
+    () => resolveTable('invite', { localOverride: true }),
+    []
+  );
+  const requestLocal = useMemo(
+    () => resolveTable('request', { localOverride: true }),
+    []
+  );
+  const profileProjectLinkLocal = useMemo(
+    () => resolveTable('profile_project_link', { localOverride: true }),
+    []
+  );
 
   // Guard clause: Don't render if currentUser is null
   if (!currentUser) {
@@ -187,7 +201,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           id: profile.id,
           email: profile.email || '',
           name: profile.username || profile.email || '',
-          role: link.membership as 'owner' | 'member',
+          role: link.membership,
           active: true
         };
       })
@@ -293,6 +307,55 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
     return true;
   });
+
+  // Query for pending membership requests (owners only)
+  const { data: requestsData = [] } = useHybridData({
+    dataType: 'project-requests',
+    queryKeyParams: [projectId],
+
+    offlineQuery: toCompilableQuery(
+      db.query.request.findMany({
+        where: and(
+          eq(request.project_id, projectId),
+          eq(request.status, 'pending'),
+          eq(request.active, true)
+        )
+      })
+    ),
+
+    enableOfflineQuery: sendInvitePermissions.hasAccess // Only fetch if user can manage
+  });
+
+  // Get requester profile IDs
+  const requesterIds = React.useMemo(() => {
+    return [...new Set(requestsData.map((r) => r.sender_profile_id))];
+  }, [requestsData]);
+
+  // Query for requester profiles
+  const { data: requesterProfiles = [] } = useHybridData<
+    typeof profile.$inferSelect
+  >({
+    dataType: 'requester-profiles',
+    queryKeyParams: [...requesterIds],
+
+    offlineQuery:
+      requesterIds.length > 0
+        ? toCompilableQuery(
+            db.query.profile.findMany({
+              where: (profile, { inArray }) => inArray(profile.id, requesterIds)
+            })
+          )
+        : 'SELECT * FROM profile WHERE 1=0'
+  });
+
+  // Create requester profile map
+  const requesterProfileMap = React.useMemo(() => {
+    const map: Record<string, typeof profile.$inferSelect> = {};
+    requesterProfiles.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [requesterProfiles]);
 
   // Check if current user is an owner (keep for compatibility with leave project logic)
   const _currentUserMembership = members.find((m) => m.id === currentUser.id);
@@ -416,22 +479,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const invitation = invitations.find((i) => i.id === inviteId);
 
       await db
-        .update(invite)
+        .update(inviteLocal)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite.id, inviteId));
+        .where(eq(inviteLocal.id, inviteId));
 
       // Also deactivate any profile_project_link if exists
       if (invitation?.receiver_profile_id) {
         await db
-          .update(profile_project_link)
+          .update(profileProjectLinkLocal)
           .set({ active: false, last_updated: new Date().toISOString() })
           .where(
             and(
               eq(
-                profile_project_link.profile_id,
+                profileProjectLinkLocal.profile_id,
                 invitation.receiver_profile_id
               ),
-              eq(profile_project_link.project_id, projectId)
+              eq(profileProjectLinkLocal.project_id, projectId)
             )
           );
       }
@@ -452,14 +515,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
         // Update existing invitation to pending and increment count
         await db
-          .update(invite)
+          .update(inviteLocal)
           .set({
             status: 'pending',
             count: (invitation.count || 0) + 1,
             last_updated: new Date().toISOString(),
             sender_profile_id: currentUser.id // Update sender in case it's different
           })
-          .where(eq(invite.id, inviteId));
+          .where(eq(inviteLocal.id, inviteId));
 
         // void refetchInvitations(); // Removed refetch
         Alert.alert(t('success'), t('invitationResent'));
@@ -470,6 +533,115 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       console.error('Error resending invitation:', error);
       Alert.alert(t('error'), t('failedToResendInvitation'));
     }
+  };
+
+  const handleApproveRequest = (
+    requestId: string,
+    senderId: string,
+    senderName: string
+  ) => {
+    Alert.alert(
+      t('confirmApprove'),
+      t('confirmApproveMessage', { name: senderName }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('confirm'),
+          onPress: () => {
+            void (async () => {
+              setIsSubmitting(true);
+              try {
+                // Update request status to accepted
+                await db
+                  .update(requestLocal)
+                  .set({
+                    status: 'accepted',
+                    last_updated: new Date().toISOString()
+                  })
+                  .where(eq(requestLocal.id, requestId));
+
+                // Create or update profile_project_link
+                const existingLink = await db
+                  .select()
+                  .from(profile_project_link)
+                  .where(
+                    and(
+                      eq(profile_project_link.profile_id, senderId),
+                      eq(profile_project_link.project_id, projectId)
+                    )
+                  );
+
+                if (existingLink.length > 0) {
+                  await db
+                    .update(profileProjectLinkLocal)
+                    .set({
+                      active: true,
+                      membership: 'member',
+                      last_updated: new Date().toISOString()
+                    })
+                    .where(
+                      and(
+                        eq(profileProjectLinkLocal.profile_id, senderId),
+                        eq(profileProjectLinkLocal.project_id, projectId)
+                      )
+                    );
+                } else {
+                  await db.insert(profileProjectLinkLocal).values({
+                    id: `${senderId}_${projectId}`,
+                    profile_id: senderId,
+                    project_id: projectId,
+                    membership: 'member',
+                    active: true
+                  });
+                }
+
+                Alert.alert(t('success'), t('requestApproved'));
+              } catch (error) {
+                console.error('Error approving request:', error);
+                Alert.alert(t('error'), t('failedToApproveRequest'));
+              } finally {
+                setIsSubmitting(false);
+              }
+            })();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDenyRequest = (requestId: string, senderName: string) => {
+    Alert.alert(
+      t('confirmDeny'),
+      t('confirmDenyMessage', { name: senderName }),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('confirm'),
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setIsSubmitting(true);
+              try {
+                await db
+                  .update(requestLocal)
+                  .set({
+                    status: 'declined',
+                    last_updated: new Date().toISOString()
+                  })
+                  .where(eq(requestLocal.id, requestId));
+
+                Alert.alert(t('success'), t('requestDenied'));
+              } catch (error) {
+                console.error('Error denying request:', error);
+                Alert.alert(t('error'), t('failedToDenyRequest'));
+              } finally {
+                setIsSubmitting(false);
+              }
+            })();
+          }
+        }
+      ]
+    );
   };
 
   const handleSendInvitation = async () => {
@@ -541,7 +713,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 : existingInvite.count || 0;
 
             await db
-              .update(invite)
+              .update(inviteLocal)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
@@ -549,7 +721,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 last_updated: new Date().toISOString(),
                 sender_profile_id: currentUser.id // Update sender in case it's different
               })
-              .where(eq(invite.id, existingInvite.id));
+              .where(eq(inviteLocal.id, existingInvite.id));
 
             setInviteEmail('');
             setInviteAsOwner(false);
@@ -570,7 +742,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       // Create new invitation
-      await db.insert(resolveTable('invite')).values({
+      await db.insert(inviteLocal).values({
         sender_profile_id: currentUser.id,
         email: inviteEmail,
         project_id: projectId,
@@ -598,38 +770,44 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     const isCurrentUser = member.id === currentUser.id;
 
     return (
-      <View key={member.id} style={styles.memberItem}>
-        <View style={styles.memberInfo}>
-          <View style={styles.memberAvatar}>
-            <Text style={styles.memberAvatarText}>
+      <View
+        key={member.id}
+        className="flex-row items-center justify-between border-b border-border py-3"
+      >
+        <View className="flex-1 flex-row items-center">
+          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
+            <Text className="font-semibold text-primary-foreground">
               {(member.name || member.email).charAt(0).toUpperCase()}
             </Text>
           </View>
-          <View style={styles.memberDetails}>
-            <View style={styles.memberNameRow}>
-              <Text style={styles.memberName}>
+          <View className="flex-1">
+            <View className="flex-row items-center gap-1">
+              <Text variant="large" className="font-semibold">
                 {member.name || member.email} {isCurrentUser && `(${t('you')})`}
               </Text>
               {member.role === 'owner' ? (
-                <Ionicons name="ribbon" size={16} color={colors.primary} />
+                <Ionicons name="ribbon" size={16} className="text-primary" />
               ) : (
                 <Ionicons
                   name="person"
                   size={16}
-                  color={colors.textSecondary}
+                  className="text-muted-foreground"
                 />
               )}
             </View>
-            <Text style={styles.memberEmail}>{member.email}</Text>
+            <Text variant="small" className="mt-0.5 text-muted-foreground">
+              {member.email}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.memberActions}>
+        <View className="flex-row gap-1">
           {!isCurrentUser && (
             <>
               {member.role === 'member' && promotePermissions.hasAccess && (
-                <TouchableOpacity
-                  style={styles.iconButton}
+                <Button
+                  variant="outline"
+                  size="icon-sm"
                   onPress={() =>
                     handlePromoteToOwner(member.id, member.name || member.email)
                   }
@@ -637,13 +815,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <Ionicons
                     name="ribbon-outline"
                     size={20}
-                    color={colors.primary}
+                    className="text-primary"
                   />
-                </TouchableOpacity>
+                </Button>
               )}
               {member.role === 'member' && removePermissions.hasAccess && (
-                <TouchableOpacity
-                  style={styles.iconButton}
+                <Button
+                  variant="outline"
+                  size="icon-sm"
                   onPress={() =>
                     handleRemoveMember(member.id, member.name || member.email)
                   }
@@ -651,19 +830,24 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <Ionicons
                     name="trash-outline"
                     size={20}
-                    color={colors.error}
+                    className="text-destructive"
                   />
-                </TouchableOpacity>
+                </Button>
               )}
             </>
           )}
           {isCurrentUser && (
-            <TouchableOpacity
-              style={styles.iconButton}
+            <Button
+              variant="outline"
+              size="icon-sm"
               onPress={handleLeaveProject}
             >
-              <Ionicons name="exit-outline" size={20} color={colors.error} />
-            </TouchableOpacity>
+              <Ionicons
+                name="exit-outline"
+                size={20}
+                className="text-destructive"
+              />
+            </Button>
           )}
         </View>
       </View>
@@ -686,75 +870,150 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusVariant = (
+      status: string
+    ): 'default' | 'secondary' | 'destructive' | 'outline' => {
       switch (status) {
         case 'pending':
-          return colors.primaryLight;
+          return 'default';
         case 'expired':
         case 'declined':
         case 'withdrawn':
-          return colors.disabled;
+          return 'secondary';
         default:
-          return colors.backgroundSecondary;
+          return 'outline';
       }
     };
 
     return (
-      <View key={invitation.id} style={styles.memberItem}>
-        <View style={styles.memberInfo}>
-          <View style={styles.memberAvatar}>
-            <Text style={styles.memberAvatarText}>
+      <View
+        key={invitation.id}
+        className="flex-row items-center justify-between border-b border-border py-3"
+      >
+        <View className="flex-1 flex-row items-center">
+          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
+            <Text className="font-semibold text-primary-foreground">
               {invitation.email.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <View style={styles.memberDetails}>
-            <View style={styles.memberNameRow}>
-              <Text style={styles.memberName}>{invitation.email}</Text>
+          <View className="flex-1">
+            <View className="flex-row items-center gap-1">
+              <Text variant="large" className="font-semibold">
+                {invitation.email}
+              </Text>
               {invitation.role === 'owner' && (
-                <Ionicons name="ribbon" size={16} color={colors.primary} />
+                <Ionicons name="ribbon" size={16} className="text-primary" />
               )}
             </View>
-            <View
-              style={[
-                styles.invitedTag,
-                { backgroundColor: getStatusColor(invitation.status) }
-              ]}
+            <Badge
+              variant={getStatusVariant(invitation.status)}
+              className="mt-1 self-start"
             >
-              <Text style={styles.invitedTagText}>
-                {getStatusDisplay(invitation.status)}
-              </Text>
-            </View>
+              <Text variant="small">{getStatusDisplay(invitation.status)}</Text>
+            </Badge>
           </View>
         </View>
 
-        <View style={styles.memberActions}>
+        <View className="flex-row gap-1">
           {withdrawInvitePermissions.hasAccess &&
             invitation.status === 'expired' && (
-              <TouchableOpacity
-                style={styles.iconButton}
+              <Button
+                variant="outline"
+                size="icon-sm"
                 onPress={() => void handleResendInvitation(invitation.id)}
               >
                 <Ionicons
                   name="refresh-outline"
                   size={20}
-                  color={colors.primary}
+                  className="text-primary"
                 />
-              </TouchableOpacity>
+              </Button>
             )}
           {withdrawInvitePermissions.hasAccess &&
             invitation.status === 'pending' && (
-              <TouchableOpacity
-                style={styles.iconButton}
+              <Button
+                variant="outline"
+                size="icon-sm"
                 onPress={() => void handleWithdrawInvitation(invitation.id)}
               >
                 <Ionicons
                   name="close-circle-outline"
                   size={20}
-                  color={colors.error}
+                  className="text-destructive"
                 />
-              </TouchableOpacity>
+              </Button>
             )}
         </View>
+      </View>
+    );
+  };
+
+  const renderRequest = (req: typeof request.$inferSelect) => {
+    const requester = requesterProfileMap[req.sender_profile_id];
+    if (!requester) return null;
+
+    return (
+      <View
+        key={req.id}
+        className="flex-row items-center justify-between border-b border-border py-3"
+      >
+        <View className="flex-1 flex-row items-center">
+          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
+            <Text className="font-semibold text-primary-foreground">
+              {(requester.username || requester.email || '?')
+                .charAt(0)
+                .toUpperCase()}
+            </Text>
+          </View>
+          <View className="flex-1">
+            <Text variant="large" className="font-semibold">
+              {requester.username || requester.email}
+            </Text>
+            {requester.email && (
+              <Text variant="small" className="mt-0.5 text-muted-foreground">
+                {requester.email}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {sendInvitePermissions.hasAccess && (
+          <View className="flex-row gap-1">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onPress={() =>
+                handleApproveRequest(
+                  req.id,
+                  req.sender_profile_id,
+                  requester.username || requester.email || ''
+                )
+              }
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                className="text-green-600"
+              />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onPress={() =>
+                handleDenyRequest(
+                  req.id,
+                  requester.username || requester.email || ''
+                )
+              }
+            >
+              <Ionicons
+                name="close-circle"
+                size={20}
+                className="text-destructive"
+              />
+            </Button>
+          </View>
+        )}
       </View>
     );
   };
@@ -771,21 +1030,19 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <View style={styles.modalWrapper}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={sharedStyles.modalTitle}>{t('projectMembers')}</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
+        <View className="flex-1 items-center justify-center bg-black/50">
+          <View className="h-[70%] max-h-[600px] w-[90%] rounded-lg bg-background p-6">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text variant="h3">{t('projectMembers')}</Text>
+              <Pressable className="p-1" onPress={onClose}>
+                <Ionicons name="close" size={24} className="text-foreground" />
+              </Pressable>
             </View>
 
-            <View style={styles.modalBody}>
+            <View className="flex-1 overflow-hidden">
               {projectLoading ? (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.loadingText}>
-                    {t('loadingProjectDetails')}
-                  </Text>
+                <View className="flex-1 items-center justify-center">
+                  <Text>{t('loadingProjectDetails')}</Text>
                 </View>
               ) : (
                 <PrivateAccessGate
@@ -795,138 +1052,157 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   action="view_membership"
                   inline={true}
                 >
-                  <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.tab,
-                        activeTab === 'members' && styles.activeTab
-                      ]}
-                      onPress={() => setActiveTab('members')}
-                    >
-                      <Text
-                        style={[
-                          styles.tabText,
-                          activeTab === 'members' && styles.activeTabText
-                        ]}
+                  {/* Tabs Header */}
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(value) =>
+                      setActiveTab(value as 'members' | 'invited' | 'requests')
+                    }
+                  >
+                    <TabsList className="mb-2 w-full">
+                      <TabsTrigger value="members" className="flex-1">
+                        <Text>
+                          {t('members')} ({sortedMembers.length})
+                        </Text>
+                      </TabsTrigger>
+                      <TabsTrigger value="invited" className="flex-1">
+                        <Text>
+                          {t('invited')} ({visibleInvitations.length})
+                        </Text>
+                      </TabsTrigger>
+                      {sendInvitePermissions.hasAccess && (
+                        <TabsTrigger value="requests" className="flex-1">
+                          <Text>
+                            {t('requests')} ({requestsData.length})
+                          </Text>
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
+                  </Tabs>
+
+                  {/* Tab Content - Manual switching for better control */}
+                  <View className="min-h-0 flex-1">
+                    {activeTab === 'members' && (
+                      <ScrollView
+                        className="flex-1"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
                       >
-                        {t('members')} ({sortedMembers.length})
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.tab,
-                        activeTab === 'invited' && styles.activeTab
-                      ]}
-                      onPress={() => setActiveTab('invited')}
-                    >
-                      <Text
-                        style={[
-                          styles.tabText,
-                          activeTab === 'invited' && styles.activeTabText
-                        ]}
+                        {sortedMembers.length > 0 ? (
+                          sortedMembers.map(renderMember)
+                        ) : (
+                          <Text className="py-6 text-center text-muted-foreground">
+                            {t('noMembers')}
+                          </Text>
+                        )}
+                      </ScrollView>
+                    )}
+
+                    {activeTab === 'invited' && (
+                      <ScrollView
+                        className="flex-1"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
                       >
-                        {t('invited')} ({visibleInvitations.length})
-                      </Text>
-                    </TouchableOpacity>
+                        {visibleInvitations.length > 0 ? (
+                          visibleInvitations.map(renderInvitation)
+                        ) : (
+                          <Text className="py-6 text-center text-muted-foreground">
+                            {t('noInvitations')}
+                          </Text>
+                        )}
+                      </ScrollView>
+                    )}
+
+                    {activeTab === 'requests' && (
+                      <ScrollView
+                        className="flex-1"
+                        contentContainerStyle={{
+                          paddingBottom: 16,
+                          paddingHorizontal: 16
+                        }}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {requestsData.length > 0 ? (
+                          requestsData.map(renderRequest)
+                        ) : (
+                          <Text className="py-6 text-center text-muted-foreground">
+                            {t('noPendingRequests')}
+                          </Text>
+                        )}
+                      </ScrollView>
+                    )}
                   </View>
 
-                  <ScrollView
-                    style={styles.membersList}
-                    contentContainerStyle={styles.membersListContent}
-                    showsVerticalScrollIndicator={true}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {activeTab === 'members' ? (
-                      sortedMembers.length > 0 ? (
-                        sortedMembers.map(renderMember)
-                      ) : (
-                        <Text style={styles.emptyText}>{t('noMembers')}</Text>
-                      )
-                    ) : visibleInvitations.length > 0 ? (
-                      visibleInvitations.map(renderInvitation)
-                    ) : (
-                      <Text style={styles.emptyText}>{t('noInvitations')}</Text>
-                    )}
-                  </ScrollView>
-
-                  <View style={styles.inviteSection}>
+                  {/* Invite Section */}
+                  <View className="border-t border-border p-4">
                     {sendInvitePermissions.hasAccess ? (
                       <>
-                        <Text style={styles.inviteTitle}>
+                        <Text variant="large" className="mb-2">
                           {t('inviteMembers')}
                         </Text>
-                        <TextInput
-                          style={styles.input}
+                        <Input
                           placeholder={t('email')}
-                          placeholderTextColor={colors.textSecondary}
                           value={inviteEmail}
                           onChangeText={setInviteEmail}
                           keyboardType="email-address"
                           autoCapitalize="none"
+                          className="mb-2"
                         />
-                        <View style={styles.checkboxContainer}>
-                          <TouchableOpacity
-                            style={styles.checkboxRow}
+                        <View className="mb-2 flex-row items-center justify-between">
+                          <Pressable
+                            className="flex-row items-center"
                             onPress={() => setInviteAsOwner(!inviteAsOwner)}
                           >
-                            <View
-                              style={[
-                                styles.checkbox,
-                                inviteAsOwner && styles.checkboxChecked
-                              ]}
-                            >
-                              {inviteAsOwner && (
-                                <Ionicons
-                                  name="checkmark"
-                                  size={16}
-                                  color={colors.buttonText}
-                                />
-                              )}
-                            </View>
-                            <Text style={styles.checkboxLabel}>
-                              {t('inviteAsOwner')}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.tooltipButton}
+                            <Checkbox
+                              checked={inviteAsOwner}
+                              onCheckedChange={setInviteAsOwner}
+                            />
+                            <Label className="ml-2">{t('inviteAsOwner')}</Label>
+                          </Pressable>
+                          <Pressable
+                            className="p-1"
                             onPress={() => setShowTooltip(!showTooltip)}
                           >
                             <Ionicons
                               name="help-circle-outline"
                               size={20}
-                              color={colors.primary}
+                              className="text-primary"
                             />
-                          </TouchableOpacity>
+                          </Pressable>
                         </View>
                         {showTooltip && (
-                          <View style={styles.tooltip}>
-                            <Text style={styles.tooltipText}>
-                              {t('ownerTooltip')}
-                            </Text>
+                          <View className="mb-2 rounded-md bg-muted p-2">
+                            <Text variant="small">{t('ownerTooltip')}</Text>
                           </View>
                         )}
-                        <TouchableOpacity
-                          style={[
-                            sharedStyles.button,
-                            !isInviteButtonEnabled &&
-                              styles.inviteButtonDisabled
-                          ]}
+                        <Button
                           onPress={handleSendInvitation}
                           disabled={!isInviteButtonEnabled || isSubmitting}
+                          loading={isSubmitting}
                         >
-                          <Text style={sharedStyles.buttonText}>
+                          <Text>
                             {isSubmitting ? t('sending') : t('sendInvitation')}
                           </Text>
-                        </TouchableOpacity>
+                        </Button>
                       </>
                     ) : (
-                      <View style={styles.ownerOnlyMessage}>
+                      <View className="items-center justify-center gap-2 py-6">
                         <Ionicons
                           name="ribbon"
                           size={24}
-                          color={colors.textSecondary}
+                          className="text-muted-foreground"
                         />
-                        <Text style={styles.ownerOnlyText}>
+                        <Text className="text-center leading-5 text-muted-foreground">
                           {t('onlyOwnersCanInvite')}
                         </Text>
                       </View>
@@ -941,224 +1217,3 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  modalWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)'
-  },
-  modalContainer: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.large,
-    width: '90%',
-    height: '70%',
-    maxHeight: 600
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  modalBody: {
-    flex: 1,
-    overflow: 'hidden'
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder,
-    marginBottom: spacing.small
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: spacing.medium,
-    alignItems: 'center',
-    backgroundColor: 'transparent'
-  },
-  activeTab: {
-    backgroundColor: colors.primaryLight,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary
-  },
-  tabText: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary
-  },
-  activeTabText: {
-    color: colors.text,
-    fontWeight: '600'
-  },
-  membersList: {
-    flex: 1
-  },
-  membersListContent: {
-    paddingBottom: spacing.medium,
-    paddingHorizontal: spacing.medium
-  },
-  memberItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  memberInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.small
-  },
-  memberAvatarText: {
-    color: colors.buttonText,
-    fontSize: fontSizes.medium,
-    fontWeight: 'bold'
-  },
-  memberDetails: {
-    flex: 1
-  },
-  memberNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsmall
-  },
-  memberName: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text
-  },
-  memberEmail: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary,
-    marginTop: 2
-  },
-  invitedTag: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.small,
-    paddingVertical: spacing.xsmall,
-    borderRadius: borderRadius.small,
-    marginTop: spacing.xsmall,
-    alignSelf: 'flex-start'
-  },
-  invitedTagText: {
-    fontSize: fontSizes.xsmall,
-    color: colors.text,
-    fontWeight: '500'
-  },
-  memberActions: {
-    flexDirection: 'row',
-    gap: spacing.xsmall
-  },
-  iconButton: {
-    padding: spacing.xsmall,
-    borderRadius: borderRadius.small,
-    borderWidth: 1,
-    borderColor: colors.inputBorder
-  },
-  inviteSection: {
-    padding: spacing.medium,
-    borderTopWidth: 1,
-    borderTopColor: colors.inputBorder
-  },
-  inviteTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.small
-  },
-  input: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    color: colors.text,
-    fontSize: fontSizes.medium,
-    marginBottom: spacing.small,
-    borderWidth: 1,
-    borderColor: colors.inputBorder
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.small
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: borderRadius.small,
-    marginRight: spacing.xsmall,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary
-  },
-  checkboxLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  tooltipButton: {
-    padding: spacing.xsmall
-  },
-  tooltip: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    marginBottom: spacing.small
-  },
-  tooltipText: {
-    fontSize: fontSizes.small,
-    color: colors.text
-  },
-  inviteButtonDisabled: {
-    backgroundColor: colors.disabled
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontSize: fontSizes.medium,
-    paddingVertical: spacing.large
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  loadingText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  ownerOnlyMessage: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.large,
-    gap: spacing.small
-  },
-  ownerOnlyText: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20
-  }
-});

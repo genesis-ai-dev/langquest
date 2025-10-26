@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   profile_project_link,
@@ -8,13 +10,6 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -22,14 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
   Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
@@ -87,6 +79,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
+
+  // Resolve the local tables for updates (PowerSync requires local table updates)
+  const requestLocal = useMemo(
+    () => resolveTable('request', { localOverride: true }),
+    []
+  );
 
   // Query for existing membership request using useHybridData
   const { data: existingRequests } = useHybridData({
@@ -220,16 +218,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       if (existingRequest) {
         // Update existing request
         await db
-          .update(request)
+          .update(requestLocal)
           .set({
             status: 'pending',
             count: (existingRequest.count || 0) + 1,
             last_updated: new Date().toISOString()
           })
-          .where(eq(request.id, existingRequest.id));
+          .where(eq(requestLocal.id, existingRequest.id));
       } else {
         // Create new request
-        await db.insert(resolveTable('request')).values({
+        await db.insert(requestLocal).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',
@@ -262,12 +260,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             setIsSubmitting(true);
             try {
               await db
-                .update(request)
+                .update(requestLocal)
                 .set({
                   status: 'withdrawn',
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request.id, existingRequest.id));
+                .where(eq(requestLocal.id, existingRequest.id));
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);
@@ -346,33 +344,31 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     if (!currentUser) {
       return (
         <>
-          <View
-            style={
-              modal ? styles.modalIconContainer : styles.inlineIconContainer
-            }
-          >
-            <Ionicons name="lock-closed" size={48} color={colors.primary} />
+          <View className={modal ? 'mb-4 items-center' : 'mb-4 items-center'}>
+            <Ionicons name="lock-closed" size={48} className="text-primary" />
           </View>
           {modal ? (
             <>
-              <Text style={styles.modalDescription}>
+              <Text className="mb-4 text-center leading-5">
                 {t('privateProjectNotLoggedIn')}
               </Text>
-              <View style={styles.infoBox}>
+              <View className="mb-6 flex-row items-start gap-2 rounded-md bg-primary/10 p-4">
                 <Ionicons
                   name="information-circle"
                   size={20}
-                  color={colors.primary}
+                  className="text-primary"
                 />
-                <Text style={styles.infoText}>
+                <Text variant="small" className="flex-1 leading-5">
                   {t('privateProjectLoginRequired')}
                 </Text>
               </View>
             </>
           ) : (
             <>
-              <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
-              <Text style={styles.inlineDescription}>
+              <Text variant="h4" className="text-center">
+                {getActionTitle()}
+              </Text>
+              <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                 {t('privateProjectNotLoggedInInline')}
               </Text>
             </>
@@ -385,49 +381,43 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       case 'pending':
         return (
           <>
-            <View
-              style={
-                modal ? styles.modalStatusContainer : styles.inlineIconContainer
-              }
-            >
-              <Ionicons name="time-outline" size={48} color={colors.primary} />
+            <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
+              <Ionicons
+                name="time-outline"
+                size={48}
+                className="text-primary"
+              />
               {modal && (
-                <Text style={styles.statusTitle}>{t('requestPending')}</Text>
+                <Text variant="h4" className="mb-2 mt-4">
+                  {t('requestPending')}
+                </Text>
               )}
             </View>
             {modal ? (
-              <Text style={styles.modalDescription}>
+              <Text className="mb-4 text-center leading-5">
                 {t('requestPendingInline')}
               </Text>
             ) : (
               <>
-                <Text style={styles.inlineTitle}>
+                <Text variant="h4" className="text-center">
                   {getActionTitle()} - {t('requestPending')}
                 </Text>
-                <Text style={styles.inlineDescription}>
+                <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                   {t('requestPendingInline')}
                 </Text>
               </>
             )}
-            <TouchableOpacity
-              style={
-                modal
-                  ? [sharedStyles.button, styles.withdrawButton]
-                  : [styles.inlineButton, styles.withdrawButton]
-              }
+            <Button
+              variant="destructive"
               onPress={handleWithdrawRequest}
               disabled={isSubmitting}
+              loading={isSubmitting}
+              className={!modal ? 'mt-4' : ''}
             >
-              <Text
-                style={
-                  modal
-                    ? [sharedStyles.buttonText, styles.withdrawButtonText]
-                    : [styles.inlineButtonText, styles.withdrawButtonText]
-                }
-              >
+              <Text>
                 {isSubmitting ? t('withdrawing') : t('withdrawRequest')}
               </Text>
-            </TouchableOpacity>
+            </Button>
           </>
         );
 
@@ -435,22 +425,20 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         const attemptsLeft = 4 - (existingRequest?.count || 0);
         return (
           <>
-            <View
-              style={
-                modal ? styles.modalStatusContainer : styles.inlineIconContainer
-              }
-            >
+            <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
               <Ionicons
                 name="alert-circle-outline"
                 size={48}
-                color={colors.alert}
+                className="text-yellow-500"
               />
               {modal && (
-                <Text style={styles.statusTitle}>{t('requestExpired')}</Text>
+                <Text variant="h4" className="mb-2 mt-4">
+                  {t('requestExpired')}
+                </Text>
               )}
             </View>
             {modal ? (
-              <Text style={styles.modalDescription}>
+              <Text className="mb-4 text-center leading-5">
                 {attemptsLeft > 0
                   ? t('requestExpiredAttemptsRemaining', {
                       attempts: attemptsLeft,
@@ -460,10 +448,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               </Text>
             ) : (
               <>
-                <Text style={styles.inlineTitle}>
+                <Text variant="h4" className="text-center">
                   {getActionTitle()} - {t('requestExpired')}
                 </Text>
-                <Text style={styles.inlineDescription}>
+                <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                   {attemptsLeft > 0
                     ? t('requestExpiredInline', {
                         attempts: attemptsLeft,
@@ -474,19 +462,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               </>
             )}
             {attemptsLeft > 0 && (
-              <TouchableOpacity
-                style={modal ? sharedStyles.button : styles.inlineButton}
+              <Button
                 onPress={handleRequestMembership}
                 disabled={isSubmitting}
+                loading={isSubmitting}
+                className={!modal ? 'mt-4' : ''}
               >
-                <Text
-                  style={
-                    modal ? sharedStyles.buttonText : styles.inlineButtonText
-                  }
-                >
+                <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
                 </Text>
-              </TouchableOpacity>
+              </Button>
             )}
           </>
         );
@@ -496,32 +481,30 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         const attemptsLeft = 3 - (existingRequest?.count || 0);
         return (
           <>
-            <View
-              style={
-                modal ? styles.modalStatusContainer : styles.inlineIconContainer
-              }
-            >
+            <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
               <Ionicons
                 name="close-circle-outline"
                 size={48}
-                color={colors.error}
+                className="text-destructive"
               />
               {modal && (
-                <Text style={styles.statusTitle}>{t('requestDeclined')}</Text>
+                <Text variant="h4" className="mb-2 mt-4">
+                  {t('requestDeclined')}
+                </Text>
               )}
             </View>
             {modal ? (
-              <Text style={styles.modalDescription}>
+              <Text className="mb-4 text-center leading-5">
                 {attemptsLeft > 0
                   ? t('requestDeclinedCanRetry', { attempts: attemptsLeft })
                   : t('requestDeclinedNoRetry')}
               </Text>
             ) : (
               <>
-                <Text style={styles.inlineTitle}>
+                <Text variant="h4" className="text-center">
                   {getActionTitle()} - {t('requestDeclined')}
                 </Text>
-                <Text style={styles.inlineDescription}>
+                <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                   {attemptsLeft > 0
                     ? t('requestDeclinedInline', {
                         attempts: attemptsLeft,
@@ -532,19 +515,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               </>
             )}
             {attemptsLeft > 0 && (
-              <TouchableOpacity
-                style={modal ? sharedStyles.button : styles.inlineButton}
+              <Button
                 onPress={handleRequestMembership}
                 disabled={isSubmitting}
+                loading={isSubmitting}
+                className={!modal ? 'mt-4' : ''}
               >
-                <Text
-                  style={
-                    modal ? sharedStyles.buttonText : styles.inlineButtonText
-                  }
-                >
+                <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
                 </Text>
-              </TouchableOpacity>
+              </Button>
             )}
           </>
         );
@@ -553,47 +533,42 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       case 'withdrawn':
         return (
           <>
-            <View
-              style={
-                modal ? styles.modalStatusContainer : styles.inlineIconContainer
-              }
-            >
+            <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
               <Ionicons
                 name="remove-circle-outline"
                 size={48}
-                color={colors.textSecondary}
+                className="text-muted-foreground"
               />
               {modal && (
-                <Text style={styles.statusTitle}>{t('requestWithdrawn')}</Text>
+                <Text variant="h4" className="mb-2 mt-4">
+                  {t('requestWithdrawn')}
+                </Text>
               )}
             </View>
             {modal ? (
-              <Text style={styles.modalDescription}>
+              <Text className="mb-4 text-center leading-5">
                 {t('requestWithdrawnInline')}
               </Text>
             ) : (
               <>
-                <Text style={styles.inlineTitle}>
+                <Text variant="h4" className="text-center">
                   {getActionTitle()} - {t('requestWithdrawnTitle')}
                 </Text>
-                <Text style={styles.inlineDescription}>
+                <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                   {t('requestWithdrawnInline')}
                 </Text>
               </>
             )}
-            <TouchableOpacity
-              style={modal ? sharedStyles.button : styles.inlineButton}
+            <Button
               onPress={handleRequestMembership}
               disabled={isSubmitting}
+              loading={isSubmitting}
+              className={!modal ? 'mt-4' : ''}
             >
-              <Text
-                style={
-                  modal ? sharedStyles.buttonText : styles.inlineButtonText
-                }
-              >
+              <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
               </Text>
-            </TouchableOpacity>
+            </Button>
           </>
         );
 
@@ -601,36 +576,37 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         // No existing request
         return (
           <>
-            <View
-              style={
-                modal ? styles.modalIconContainer : styles.inlineIconContainer
-              }
-            >
-              <Ionicons name="lock-closed" size={48} color={colors.primary} />
+            <View className={modal ? 'mb-4 items-center' : 'mb-4 items-center'}>
+              <Ionicons name="lock-closed" size={48} className="text-primary" />
             </View>
             {modal ? (
               <>
-                <Text style={styles.modalDescription}>
+                <Text className="mb-4 text-center leading-5">
                   {getActionMessage()}
                 </Text>
-                <View style={styles.infoBox}>
+                <View className="mb-6 flex-row items-start gap-2 rounded-md bg-primary/10 p-4">
                   <Ionicons
                     name="information-circle"
                     size={20}
-                    color={colors.primary}
+                    className="text-primary"
                   />
-                  <Text style={styles.infoText}>{t('privateProjectInfo')}</Text>
+                  <Text variant="small" className="flex-1 leading-5">
+                    {t('privateProjectInfo')}
+                  </Text>
                 </View>
 
                 {/* Download status indicator */}
                 {isProjectDownloaded && (
-                  <View style={styles.downloadStatusBox}>
+                  <View className="mb-6 flex-row items-center gap-2 rounded-md bg-green-50 p-4 dark:bg-green-900/20">
                     <Ionicons
                       name="cloud-download"
                       size={20}
-                      color={colors.success}
+                      className="text-green-600"
                     />
-                    <Text style={styles.downloadStatusText}>
+                    <Text
+                      variant="small"
+                      className="flex-1 leading-5 text-green-600"
+                    >
                       {t('projectDownloaded')}
                     </Text>
                   </View>
@@ -638,25 +614,24 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               </>
             ) : (
               <>
-                <Text style={styles.inlineTitle}>{getActionTitle()}</Text>
-                <Text style={styles.inlineDescription}>
+                <Text variant="h4" className="text-center">
+                  {getActionTitle()}
+                </Text>
+                <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                   {getActionMessage()}
                 </Text>
               </>
             )}
-            <TouchableOpacity
-              style={modal ? sharedStyles.button : styles.inlineButton}
+            <Button
               onPress={handleRequestMembership}
               disabled={isSubmitting}
+              loading={isSubmitting}
+              className={!modal ? 'mt-4' : ''}
             >
-              <Text
-                style={
-                  modal ? sharedStyles.buttonText : styles.inlineButtonText
-                }
-              >
+              <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
               </Text>
-            </TouchableOpacity>
+            </Button>
           </>
         );
     }
@@ -672,46 +647,38 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         onRequestClose={onClose}
       >
         <TouchableWithoutFeedback onPress={onClose}>
-          <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
+          <Pressable
+            className="flex-1 items-center justify-center bg-black/50"
+            onPress={onClose}
+          >
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={[sharedStyles.modal, styles.modalContainer]}>
-                <View style={styles.header}>
-                  <Text style={sharedStyles.modalTitle}>
-                    {t('privateProject')}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
+              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text variant="h3">{t('privateProject')}</Text>
+                  <Pressable className="p-1" onPress={onClose}>
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      className="text-foreground"
+                    />
+                  </Pressable>
                 </View>
 
-                <Text style={styles.projectName}>{projectName}</Text>
+                <Text variant="large" className="mb-4 text-center">
+                  {projectName}
+                </Text>
 
                 {renderContent()}
 
                 {showViewProjectButton !== false && onBypass && (
-                  <TouchableOpacity
-                    style={[sharedStyles.button, styles.viewProjectButton]}
-                    onPress={handleBypass}
-                  >
-                    <Text style={sharedStyles.buttonText}>
-                      {viewProjectButtonText || t('viewProject')}
-                    </Text>
-                  </TouchableOpacity>
+                  <Button className="mb-2 mt-2" onPress={handleBypass}>
+                    <Text>{viewProjectButtonText || t('viewProject')}</Text>
+                  </Button>
                 )}
 
-                <TouchableOpacity
-                  style={[sharedStyles.button, styles.cancelButton]}
-                  onPress={onClose}
-                >
-                  <Text
-                    style={[sharedStyles.buttonText, styles.cancelButtonText]}
-                  >
-                    {t('goBack')}
-                  </Text>
-                </TouchableOpacity>
+                <Button variant="secondary" className="mt-2" onPress={onClose}>
+                  <Text>{t('goBack')}</Text>
+                </Button>
               </View>
             </TouchableWithoutFeedback>
           </Pressable>
@@ -722,7 +689,11 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   // Render inline content when access is denied
   if (inline && !hasAccess) {
-    return <View style={styles.inlineContainer}>{renderContent()}</View>;
+    return (
+      <View className="min-h-[300px] w-full items-center justify-center p-6">
+        {renderContent()}
+      </View>
+    );
   }
 
   // If has access and children provided, render children
@@ -744,54 +715,52 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           >
             <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
               <Pressable
-                style={sharedStyles.modalOverlay}
+                className="flex-1 items-center justify-center bg-black/50"
                 onPress={() => setShowModal(false)}
               >
                 <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                  <View style={[sharedStyles.modal, styles.modalContainer]}>
-                    <View style={styles.header}>
-                      <Text style={sharedStyles.modalTitle}>
-                        {t('privateProject')}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.closeButton}
+                  <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+                    <View className="mb-4 flex-row items-center justify-between">
+                      <Text variant="h3">{t('privateProject')}</Text>
+                      <Pressable
+                        className="p-1"
                         onPress={() => setShowModal(false)}
                       >
-                        <Ionicons name="close" size={24} color={colors.text} />
-                      </TouchableOpacity>
+                        <Ionicons
+                          name="close"
+                          size={24}
+                          className="text-foreground"
+                        />
+                      </Pressable>
                     </View>
 
-                    <Text style={styles.projectName}>{projectName}</Text>
+                    <Text variant="large" className="mb-4 text-center">
+                      {projectName}
+                    </Text>
 
                     {renderContent()}
 
                     {allowBypass && onBypass && (
-                      <TouchableOpacity
-                        style={[sharedStyles.button, styles.viewProjectButton]}
+                      <Button
+                        className="mb-2 mt-2"
                         onPress={() => {
                           setShowModal(false);
                           onBypass();
                         }}
                       >
-                        <Text style={sharedStyles.buttonText}>
+                        <Text>
                           {viewProjectButtonText || t('downloadAnyway')}
                         </Text>
-                      </TouchableOpacity>
+                      </Button>
                     )}
 
-                    <TouchableOpacity
-                      style={[sharedStyles.button, styles.cancelButton]}
+                    <Button
+                      variant="secondary"
+                      className="mt-2"
                       onPress={() => setShowModal(false)}
                     >
-                      <Text
-                        style={[
-                          sharedStyles.buttonText,
-                          styles.cancelButtonText
-                        ]}
-                      >
-                        {t('goBack')}
-                      </Text>
-                    </TouchableOpacity>
+                      <Text>{t('goBack')}</Text>
+                    </Button>
                   </View>
                 </TouchableWithoutFeedback>
               </Pressable>
@@ -805,9 +774,9 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   // Default: render nothing if has access, show modal trigger if not
   return hasAccess ? null : (
     <>
-      <TouchableOpacity onPress={() => setShowModal(true)}>
-        <Ionicons name="lock-closed" size={24} color={colors.text} />
-      </TouchableOpacity>
+      <Pressable onPress={() => setShowModal(true)}>
+        <Ionicons name="lock-closed" size={24} className="text-foreground" />
+      </Pressable>
       <Modal
         visible={showModal}
         transparent
@@ -816,37 +785,38 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       >
         <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
           <Pressable
-            style={sharedStyles.modalOverlay}
+            className="flex-1 items-center justify-center bg-black/50"
             onPress={() => setShowModal(false)}
           >
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={[sharedStyles.modal, styles.modalContainer]}>
-                <View style={styles.header}>
-                  <Text style={sharedStyles.modalTitle}>
-                    {t('privateProject')}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
+              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text variant="h3">{t('privateProject')}</Text>
+                  <Pressable
+                    className="p-1"
                     onPress={() => setShowModal(false)}
                   >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      className="text-foreground"
+                    />
+                  </Pressable>
                 </View>
 
-                <Text style={styles.projectName}>{projectName}</Text>
+                <Text variant="large" className="mb-4 text-center">
+                  {projectName}
+                </Text>
 
                 {renderContent()}
 
-                <TouchableOpacity
-                  style={[sharedStyles.button, styles.cancelButton]}
+                <Button
+                  variant="secondary"
+                  className="mt-2"
                   onPress={() => setShowModal(false)}
                 >
-                  <Text
-                    style={[sharedStyles.buttonText, styles.cancelButtonText]}
-                  >
-                    {t('goBack')}
-                  </Text>
-                </TouchableOpacity>
+                  <Text>{t('goBack')}</Text>
+                </Button>
               </View>
             </TouchableWithoutFeedback>
           </Pressable>
@@ -855,202 +825,3 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  // Modal styles
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  projectName: {
-    fontSize: fontSizes.large,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: spacing.medium
-  },
-  modalIconContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  modalDescription: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: spacing.medium,
-    lineHeight: 22
-  },
-  modalStatusContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.large
-  },
-  statusTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.medium,
-    marginBottom: spacing.small
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing.large,
-    gap: spacing.small
-  },
-  infoText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.text,
-    lineHeight: 20
-  },
-  downloadStatusBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.1)', // success color with transparency
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing.large,
-    gap: spacing.small
-  },
-  downloadStatusText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.success,
-    lineHeight: 20
-  },
-  withdrawButton: {
-    backgroundColor: colors.error,
-    marginBottom: spacing.small
-  },
-  withdrawButtonText: {
-    color: colors.buttonText
-  },
-  cancelButton: {
-    backgroundColor: colors.backgroundSecondary,
-    marginTop: spacing.small
-  },
-  cancelButtonText: {
-    color: colors.text
-  },
-  viewProjectButton: {
-    backgroundColor: colors.primary,
-    marginTop: spacing.small,
-    marginBottom: spacing.small
-  },
-
-  // Inline styles
-  inlineContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.large,
-    minHeight: 300,
-    width: '100%'
-  },
-  inlineIconContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  inlineTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.small,
-    textAlign: 'center'
-  },
-  inlineDescription: {
-    fontSize: fontSizes.medium,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.large,
-    lineHeight: 22,
-    paddingHorizontal: spacing.medium
-  },
-  inlineButton: {
-    padding: spacing.medium,
-    backgroundColor: colors.primary,
-    borderRadius: 5,
-    marginTop: spacing.medium
-  },
-  inlineButtonText: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.background,
-    textAlign: 'center'
-  },
-  downloadSection: {
-    marginTop: spacing.medium,
-    marginBottom: spacing.large
-  },
-  downloadToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.small
-  },
-  downloadLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    flex: 1
-  },
-  warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.small,
-    backgroundColor: 'rgba(202, 89, 229, 0.1)', // alert color with transparency
-    padding: spacing.small,
-    borderRadius: borderRadius.small
-  },
-  warningText: {
-    fontSize: fontSizes.small,
-    color: colors.alert,
-    flex: 1,
-    lineHeight: 16
-  },
-  inlineDownloadSection: {
-    width: '100%',
-    maxWidth: 400,
-    marginTop: spacing.medium,
-    marginBottom: spacing.large,
-    paddingHorizontal: spacing.medium
-  },
-  inlineDownloadToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.small,
-    width: '100%'
-  },
-  inlineDownloadLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    flex: 1,
-    marginRight: spacing.small
-  },
-  inlineWarningContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.small,
-    backgroundColor: 'rgba(202, 89, 229, 0.1)',
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    width: '100%'
-  },
-  inlineWarningText: {
-    fontSize: fontSizes.small,
-    color: colors.alert,
-    flex: 1,
-    lineHeight: 16
-  }
-});

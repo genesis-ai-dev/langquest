@@ -5,26 +5,19 @@ import {
 } from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
+import { Alert, View } from 'react-native';
 import { SwitchBox } from './SwitchBox';
+import { Button } from './ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from './ui/drawer';
+import { Icon } from './ui/icon';
 
 interface ProjectSettingsModalProps {
   isVisible: boolean;
@@ -124,120 +117,55 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={[sharedStyles.modal, styles.modalContainer]}>
-              <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>
-                  {t('projectSettings')}
-                </Text>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+    <Drawer open={isVisible} onOpenChange={onClose} snapPoints={['60%', '90%']}>
+      <DrawerContent className="bg-background px-4 pb-4">
+        <DrawerHeader className="flex-row items-center justify-between">
+          <DrawerTitle>{t('projectSettings')}</DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="icon">
+              <Icon as={XIcon} size={24} />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
 
-              <SwitchBox
-                title={t('privateProject')}
-                description={
-                  projectData?.private
-                    ? t('privateProjectDescription')
-                    : t('publicProjectDescription')
-                }
-                value={projectData?.private ?? false}
-                onChange={() => handleToggleStatus('private')}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
+        <View className="flex-1 gap-4">
+          <SwitchBox
+            title={t('privateProject')}
+            description={
+              projectData?.private
+                ? t('privateProjectDescription')
+                : t('publicProjectDescription')
+            }
+            value={projectData?.private ?? false}
+            onChange={() => handleToggleStatus('private')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
 
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  projectData?.visible
-                    ? t('visibleProjectDescription')
-                    : t('invisibleProjectDescription')
-                }
-                value={projectData?.visible ?? false}
-                onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              projectData?.visible
+                ? t('visibleProjectDescription')
+                : t('invisibleProjectDescription')
+            }
+            value={projectData?.visible ?? false}
+            onChange={() => handleToggleStatus('visible')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
 
-              <SwitchBox
-                title={t('active')}
-                description={
-                  projectData?.active
-                    ? t('activeProjectDescription')
-                    : t('inactiveProjectDescription')
-                }
-                value={projectData?.active ?? false}
-                onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+          <SwitchBox
+            title={t('active')}
+            description={
+              projectData?.active
+                ? t('activeProjectDescription')
+                : t('inactiveProjectDescription')
+            }
+            value={projectData?.active ?? false}
+            onChange={() => handleToggleStatus('active')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
+        </View>
+      </DrawerContent>
+    </Drawer>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  infoText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.text,
-    lineHeight: 20
-  }
-});

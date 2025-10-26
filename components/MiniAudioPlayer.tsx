@@ -13,17 +13,27 @@ interface MiniAudioPlayerProps {
 export default function MiniAudioPlayer({
   audioSegments,
   id,
-  title
+  title: _title
 }: MiniAudioPlayerProps) {
-  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
+  const {
+    playSound,
+    playSoundSequence,
+    stopCurrentSound,
+    isPlaying,
+    currentAudioId
+  } = useAudio();
 
   const handlePlayPause = async () => {
     if (isPlaying && currentAudioId === id) {
       // Currently playing this audio, so stop it
       await stopCurrentSound();
     } else {
-      // Either no audio is playing, or a different one is playing
-      await playSound(audioSegments[0]!, title);
+      // Handle single or multiple audio segments
+      if (audioSegments.length === 1 && audioSegments[0]) {
+        await playSound(audioSegments[0], id);
+      } else if (audioSegments.length > 1) {
+        await playSoundSequence(audioSegments, id);
+      }
     }
   };
 

@@ -5,6 +5,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -16,7 +17,7 @@ import {
   Plus
 } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 type Quest = typeof questTable.$inferSelect;
 
@@ -25,6 +26,7 @@ export interface QuestTreeRowProps {
   depth: number;
   hasChildren: boolean;
   isOpen: boolean;
+  canCreateNew: boolean;
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
@@ -35,14 +37,47 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   depth,
   hasChildren,
   isOpen,
+  canCreateNew,
   onToggleExpand,
   onAddChild,
   onDownloadClick
 }) => {
   const { goToQuest, currentProjectId } = useAppNavigation();
   const { currentUser } = useAuth();
+  const { t } = useLocalization();
 
-  console.log('quest', quest);
+  const handleQuestPress = () => {
+    // Check if quest is downloaded before allowing navigation
+    const questWithDownload = quest as Quest & {
+      download_profiles?: string[] | null;
+    };
+    const isDownloaded =
+      questWithDownload.download_profiles?.includes(currentUser?.id || '') ??
+      false;
+    const isCloudQuest = quest.source === 'cloud';
+
+    if (isCloudQuest && !isDownloaded) {
+      Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('downloadNow'),
+          onPress: () => {
+            if (onDownloadClick) {
+              onDownloadClick(quest.id);
+            }
+          }
+        }
+      ]);
+      return;
+    }
+
+    // Quest is downloaded or local, navigate to it
+    goToQuest({
+      id: quest.id,
+      project_id: currentProjectId!,
+      name: quest.name
+    });
+  };
 
   const Component = hasChildren ? Pressable : View;
   return (
@@ -75,16 +110,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         )}
         <Icon as={FolderIcon} className="mr-2 text-muted-foreground" />
       </View>
-      <Pressable
-        className="flex-1 overflow-hidden"
-        onPress={() =>
-          goToQuest({
-            id: quest.id,
-            project_id: currentProjectId!,
-            name: quest.name
-          })
-        }
-      >
+      <Pressable className="flex-1 overflow-hidden" onPress={handleQuestPress}>
         <View className="flex flex-1 flex-row items-center gap-2">
           <View>
             <Text numberOfLines={1}>{quest.name}</Text>
@@ -118,14 +144,16 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           />
         )}
       </View>
-      <Button
-        size="icon"
-        variant="outline"
-        className="ml-2 size-7"
-        onPress={() => onAddChild(quest.id)}
-      >
-        <Icon as={Plus} />
-      </Button>
+      {canCreateNew && (
+        <Button
+          size="icon"
+          variant="outline"
+          className="ml-2 size-7"
+          onPress={() => onAddChild(quest.id)}
+        >
+          <Icon as={Plus} />
+        </Button>
+      )}
     </View>
   );
 };

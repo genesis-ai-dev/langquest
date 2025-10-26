@@ -24,6 +24,8 @@ interface DownloadIndicatorProps {
     totalQuests?: number;
   };
   className?: string;
+  // Override default icon color logic
+  iconColor?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
@@ -35,7 +37,8 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   showProgress = false,
   downloadType,
   stats,
-  className
+  className,
+  iconColor
 }) => {
   const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isFlaggedForDownload;
@@ -84,20 +87,20 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     if (isFlaggedForDownload) {
       return {
         Icon: CircleCheckIcon,
-        className: 'text-primary'
+        className: iconColor || 'text-primary'
       };
     }
 
     if (showProgress && progressPercentage > 0) {
       return {
         Icon: CircleArrowDownIcon,
-        className: 'text-accent'
+        className: iconColor || 'text-accent'
       };
     }
 
     return {
       Icon: CircleArrowDownIcon,
-      className: isDisabled ? 'text-muted' : 'text-foreground'
+      className: iconColor || (isDisabled ? 'text-muted' : 'text-foreground')
     };
   };
 

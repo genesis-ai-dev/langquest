@@ -39,6 +39,8 @@ import type {
   quest_synced,
   tag_synced
 } from './drizzleSchemaSynced';
+import type { OpMetadata } from './powersync/opMetadata';
+import { getDefaultOpMetadata } from './powersync/opMetadata';
 
 // good types:
 // export const pgBaseTable = <
@@ -107,7 +109,11 @@ const syncedColumns = {
 
 const localColumns = {
   ...baseColumns,
-  source: text({ enum: sourceOptions }).default('local').notNull()
+  source: text({ enum: sourceOptions }).default('local').notNull(),
+  // We need to manually add the metadata for the local columns because you cannot simply track metadata on non-syncing tables using PowerSync.
+  _metadata: text({ mode: 'json' })
+    .$type<OpMetadata>()
+    .$defaultFn(() => getDefaultOpMetadata())
   // draft: int({ mode: 'boolean' }).notNull().default(true)
 };
 

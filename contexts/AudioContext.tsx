@@ -1,5 +1,7 @@
 import { Audio } from 'expo-av';
 import React, { createContext, useContext, useRef, useState } from 'react';
+import type { SharedValue } from 'react-native-reanimated';
+import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
 
 interface AudioContextType {
   playSound: (uri: string, audioId?: string) => Promise<void>;
@@ -7,9 +9,12 @@ interface AudioContextType {
   stopCurrentSound: () => Promise<void>;
   isPlaying: boolean;
   currentAudioId: string | null;
-  position: number;
-  duration: number;
+  position: number; // Keep for backward compatibility
+  duration: number; // Keep for backward compatibility
   setPosition: (position: number) => Promise<void>;
+  // NEW: SharedValues for high-performance UI updates
+  positionShared: SharedValue<number>;
+  durationShared: SharedValue<number>;
 }
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -19,6 +24,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [currentAudioId, setCurrentAudioId] = useState<string | null>(null);
   const [position, setPositionState] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // NEW: Reanimated SharedValues for high-performance position tracking
+  const positionShared = useSharedValue(0);
+  const durationShared = useSharedValue(0);
+  const cumulativePositionShared = useSharedValue(0); // SharedValue for worklet access
+
   const soundRef = useRef<Audio.Sound | null>(null);
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null
@@ -26,7 +37,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const sequenceQueue = useRef<string[]>([]);
   const currentSequenceIndex = useRef<number>(0);
   const segmentDurations = useRef<number[]>([]); // Track duration of each segment
-  const cumulativePosition = useRef<number>(0); // Track total position across segments
+  const isTrackingPosition = useRef(false);
 
   // Clear the position update interval
   const clearPositionInterval = () => {
@@ -39,6 +50,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Start updating position at regular intervals when playing
   const startPositionTracking = () => {
     clearPositionInterval();
+    isTrackingPosition.current = true;
 
     positionUpdateInterval.current = setInterval(() => {
       if (soundRef.current) {
@@ -50,7 +62,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               cumulativeDuration += segmentDurations.current[i] || 0;
             }
             const totalPosition = cumulativeDuration + status.positionMillis;
-            cumulativePosition.current = totalPosition;
+            cumulativePositionShared.value = totalPosition; // Update SharedValue
             setPositionState(totalPosition);
           }
         });
@@ -58,14 +70,30 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }, 100); // Update every 100ms for smoother animation
   };
 
+  // NEW: Frame callback for high-performance SharedValue updates
+  // This runs on the UI thread at 60fps for buttery smooth progress bars
+  useFrameCallback(() => {
+    'worklet';
+    // Only update if actively tracking position
+    // The isTrackingPosition check prevents updates after cleanup
+    if (!isTrackingPosition.current) {
+      return;
+    }
+
+    // Copy cumulative position to the main position SharedValue
+    // This runs at 60fps on UI thread for buttery smooth progress bars!
+    positionShared.value = cumulativePositionShared.value;
+  });
+
   const stopCurrentSound = async () => {
     clearPositionInterval();
+    isTrackingPosition.current = false;
 
     // Reset sequence state
     sequenceQueue.current = [];
     currentSequenceIndex.current = 0;
     segmentDurations.current = [];
-    cumulativePosition.current = 0;
+    cumulativePositionShared.value = 0;
 
     if (soundRef.current) {
       await soundRef.current.stopAsync();
@@ -75,6 +103,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setCurrentAudioId(null);
       setPositionState(0);
       setDuration(0);
+
+      // Reset SharedValues
+      positionShared.value = 0;
+      durationShared.value = 0;
     }
   };
 
@@ -82,6 +114,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (soundRef.current && isPlaying) {
       await soundRef.current.setPositionAsync(newPosition);
       setPositionState(newPosition);
+      cumulativePositionShared.value = newPosition;
+      positionShared.value = newPosition; // Update SharedValue
     }
   };
 
@@ -97,7 +131,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       sequenceQueue.current = [];
       currentSequenceIndex.current = 0;
       segmentDurations.current = [];
-      cumulativePosition.current = 0;
+      cumulativePositionShared.value = 0;
     }
   };
 
@@ -172,6 +206,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           0
         );
         setDuration(totalDuration);
+        durationShared.value = totalDuration; // Update SharedValue
 
         console.log(
           '⏱️ Segment duration:',
@@ -203,6 +238,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         if (status.didJustFinish) {
           console.log('🏁 Sound finished playing');
           clearPositionInterval();
+          isTrackingPosition.current = false;
           void sound.unloadAsync();
           soundRef.current = null;
 
@@ -216,6 +252,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             setIsPlaying(false);
             setCurrentAudioId(null);
             setPositionState(0);
+            positionShared.value = 0;
+            durationShared.value = 0;
           }
         }
       });
@@ -239,7 +277,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     sequenceQueue.current = uris;
     currentSequenceIndex.current = 0;
     segmentDurations.current = new Array<number>(uris.length).fill(0);
-    cumulativePosition.current = 0;
+    cumulativePositionShared.value = 0;
 
     // Preload all segment durations for accurate total duration
     // This helps calculate progress correctly from the start
@@ -260,6 +298,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       );
       console.log(`⏱️ Preloaded total duration: ${totalDuration}ms`);
       setDuration(totalDuration);
+      durationShared.value = totalDuration; // Update SharedValue
     } catch (error) {
       console.warn(
         '⚠️ Failed to preload durations, will calculate on the fly:',
@@ -291,7 +330,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         currentAudioId,
         position,
         duration,
-        setPosition
+        setPosition,
+        positionShared,
+        durationShared
       }}
     >
       {children}

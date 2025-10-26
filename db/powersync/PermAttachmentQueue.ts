@@ -1,4 +1,3 @@
-import { system } from '@/db/powersync/system';
 import {
   getFileInfo,
   getFileName,
@@ -18,6 +17,7 @@ import {
   asset_synced
 } from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
+import type { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -28,14 +28,17 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   //   asset_id: string;
   //   active: boolean;
   // }[] = [];
+  private supabaseConnector: SupabaseConnector;
 
   constructor(
     options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      supabaseConnector: SupabaseConnector;
     }
   ) {
     super(options);
     // this.db = options.db;
+    this.supabaseConnector = options.supabaseConnector;
   }
 
   getLocalUri(filePath: string) {
@@ -44,7 +47,7 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
 
   async getCurrentUserId() {
     // Get user from Supabase auth session
-    const session = await system.supabaseConnector.client.auth.getSession();
+    const session = await this.supabaseConnector.client.auth.getSession();
     return session.data.session?.user.id || null;
   }
 
@@ -53,7 +56,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('PermAttachmentQueue init');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
@@ -67,8 +69,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log('onAttachmentIdsChange in PERM ATTACHMENT QUEUE');
-
     // Use the getCurrentUserId method instead of getCurrentUser
     void this.getCurrentUserId().then((currentUserId) => {
       if (!currentUserId) {
@@ -114,11 +114,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           }
         );
 
-        console.log(
-          'RYDER: about to call onUpdate with ',
-          uniqueAttachments.length,
-          'attachments'
-        );
         // Tell PowerSync which attachments to keep synced
         onUpdate(uniqueAttachments);
       }
@@ -134,7 +129,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async deleteFromQueue(attachmentId: string): Promise<void> {
-    console.log('deleteFromQueue in PermAttachmentQueue', attachmentId);
     const record = await this.record(attachmentId);
     if (record) {
       await this.delete(record);
@@ -145,7 +139,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     const photoAttachment = await this.newAttachmentRecord({
       id: getFileName(base64Data)!
     });
-    console.log('photoAttachment');
     const localUri = this.getLocalUri(photoAttachment.local_uri!);
     const fileInfo = await getFileInfo(localUri);
     if (fileInfo.exists) {
@@ -160,23 +153,18 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
     const recordId = getFileName(tempUri)!;
-    console.log('saveAudio recordId', recordId);
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId
     });
 
-    console.log('saveAudio', audioAttachment);
     const localUri = this.getLocalUri(audioAttachment.local_uri!);
     const fileInfo = await getFileInfo(tempUri);
 
     if (fileInfo.exists) {
-      console.log('moving file to local uri');
       await moveFile(tempUri, localUri);
       audioAttachment.size = fileInfo.size;
-      console.log('file moved to local uri', localUri, fileInfo.size);
     }
 
-    console.log('saving to queue', JSON.stringify(audioAttachment, null, 2));
     return this.saveToQueue(audioAttachment, tx);
   }
 

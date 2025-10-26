@@ -52,6 +52,20 @@ export const localizations = {
     spanish: 'Opciones',
     brazilian_portuguese: 'Opções'
   },
+  membersOnlyCreate: {
+    english: 'Only project members can create content',
+    spanish: 'Solo los miembros del proyecto pueden crear contenido',
+    brazilian_portuguese: 'Apenas membros do projeto podem criar conteúdo',
+    tok_pisin: 'Tasol ol memba bilong projek inap mekim nupela samting',
+    indonesian: 'Hanya anggota proyek yang dapat membuat konten'
+  },
+  membersOnlyPublish: {
+    english: 'Only project members can publish',
+    spanish: 'Solo los miembros del proyecto pueden publicar',
+    brazilian_portuguese: 'Apenas membros do projeto podem publicar',
+    tok_pisin: 'Tasol ol memba bilong projek inap putim i go long olgeta',
+    indonesian: 'Hanya anggota proyek yang dapat mempublikasikan'
+  },
   apply: {
     english: 'Apply',
     spanish: 'Aplicar',
@@ -205,6 +219,149 @@ export const localizations = {
     tok_pisin: 'Painimaut long Quest Data',
     indonesian: 'Menemukan Data Quest'
   },
+  offloadQuest: {
+    english: 'Offload Quest',
+    spanish: 'Descargar Quest',
+    brazilian_portuguese: 'Descarregar Quest',
+    tok_pisin: 'Rausim Quest',
+    indonesian: 'Lepas Quest'
+  },
+  offloadQuestDescription: {
+    english: 'Remove local data to free up storage',
+    spanish: 'Eliminar datos locales para liberar almacenamiento',
+    brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
+    tok_pisin: 'Rausim data long freeup storage',
+    indonesian: 'Hapus data lokal untuk membebaskan penyimpanan'
+  },
+  verifyingCloudData: {
+    english: 'Verifying data in cloud...',
+    spanish: 'Verificando datos en la nube...',
+    brazilian_portuguese: 'Verificando dados na nuvem...',
+    tok_pisin: 'Checkim data long klaud...',
+    indonesian: 'Memverifikasi data di cloud...'
+  },
+  pendingUploadsDetected: {
+    english: 'Pending uploads detected',
+    spanish: 'Se detectaron cargas pendientes',
+    brazilian_portuguese: 'Uploads pendentes detectados',
+    tok_pisin: 'Painimaut sampela hap i no go yet',
+    indonesian: 'Mendeteksi upload tertunda'
+  },
+  pendingUploadsMessage: {
+    english:
+      'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
+    spanish:
+      'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
+    brazilian_portuguese:
+      'Aguarde todos os uploads para a nuvem antes de descarregar. Conecte-se à internet e aguarde a sincronização completar.',
+    tok_pisin:
+      'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
+    indonesian:
+      'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
+  },
+  readyToOffload: {
+    english: 'Ready to offload',
+    spanish: 'Listo para descargar',
+    brazilian_portuguese: 'Pronto para descarregar',
+    tok_pisin: 'Redi long rausim',
+    indonesian: 'Siap untuk melepas'
+  },
+  offloadWarning: {
+    english:
+      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
+    spanish:
+      'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
+    brazilian_portuguese:
+      'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
+    tok_pisin:
+      'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
+    indonesian:
+      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
+  },
+  storageToFree: {
+    english: 'Storage to Free',
+    spanish: 'Almacenamiento para Liberar',
+    brazilian_portuguese: 'Armazenamento a Liberar',
+    tok_pisin: 'Storage Long Freeup',
+    indonesian: 'Penyimpanan yang Dibebaskan'
+  },
+  continueToOffload: {
+    english: 'Offload from Device',
+    spanish: 'Descargar del Dispositivo',
+    brazilian_portuguese: 'Descarregar do Dispositivo',
+    tok_pisin: 'Rausim long Mashin',
+    indonesian: 'Lepas dari Perangkat'
+  },
+  offloadingQuest: {
+    english: 'Offloading quest...',
+    spanish: 'Descargando quest...',
+    brazilian_portuguese: 'Descarregando quest...',
+    tok_pisin: 'Rausim quest...',
+    indonesian: 'Melepas quest...'
+  },
+  offloadComplete: {
+    english: 'Quest offloaded successfully',
+    spanish: 'Quest descargada con éxito',
+    brazilian_portuguese: 'Quest descarregada com sucesso',
+    tok_pisin: 'Quest i rausim orait',
+    indonesian: 'Quest berhasil dilepas'
+  },
+  offloadError: {
+    english: 'Failed to offload quest',
+    spanish: 'Error al descargar quest',
+    brazilian_portuguese: 'Falha ao descarregar quest',
+    tok_pisin: 'Pasin long rausim quest i no inap',
+    indonesian: 'Gagal melepas quest'
+  },
+  cannotOffloadErrors: {
+    english: 'Cannot offload - errors detected',
+    spanish: 'No se puede descargar - errores detectados',
+    brazilian_portuguese: 'Não é possível descarregar - erros detectados',
+    tok_pisin: 'No inap rausim - painimaut sampela rong',
+    indonesian: 'Tidak dapat melepas - kesalahan terdeteksi'
+  },
+  allDataVerifiedInCloud: {
+    english: 'All data verified in cloud',
+    spanish: 'Todos los datos verificados en la nube',
+    brazilian_portuguese: 'Todos os dados verificados na nuvem',
+    tok_pisin: 'Olgeta data i stret long klaud',
+    indonesian: 'Semua data terverifikasi di cloud'
+  },
+  checkingPendingChanges: {
+    english: 'Checking for pending changes...',
+    spanish: 'Verificando cambios pendientes...',
+    brazilian_portuguese: 'Verificando alterações pendentes...',
+    tok_pisin: 'Checkim sampela senis i no go yet...',
+    indonesian: 'Memeriksa perubahan tertunda...'
+  },
+  verifyingDatabaseRecords: {
+    english: 'Verifying database records',
+    spanish: 'Verificando registros de base de datos',
+    brazilian_portuguese: 'Verificando registros do banco de dados',
+    tok_pisin: 'Checkim ol rekod long database',
+    indonesian: 'Memverifikasi catatan database'
+  },
+  verifyingAttachments: {
+    english: 'Verifying attachments',
+    spanish: 'Verificando archivos adjuntos',
+    brazilian_portuguese: 'Verificando anexos',
+    tok_pisin: 'Checkim ol fail i pas long',
+    indonesian: 'Memverifikasi lampiran'
+  },
+  waitingForUploads: {
+    english: 'Waiting for Uploads',
+    spanish: 'Esperando Cargas',
+    brazilian_portuguese: 'Aguardando Uploads',
+    tok_pisin: 'Wetim Upload',
+    indonesian: 'Menunggu Upload'
+  },
+  cannotOffload: {
+    english: 'Cannot Offload',
+    spanish: 'No se puede Descargar',
+    brazilian_portuguese: 'Não é possível Descarregar',
+    tok_pisin: 'No Inap Rausim',
+    indonesian: 'Tidak dapat Melepas'
+  },
   analyzingRelatedRecords: {
     english: 'Analyzing related records...',
     spanish: 'Analizando registros relacionados...',
@@ -237,6 +394,18 @@ export const localizations = {
       'Sampela problem i kamap taim long painimaut. Yu ken download yet ol records we mipela painimaut.',
     indonesian:
       'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
+  },
+  questNotFoundInCloud: {
+    english:
+      'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.',
+    spanish:
+      'La misión no se encontró en la base de datos de la nube. Puede que solo exista localmente o que no tenga permiso para acceder a ella. Intenta actualizar la página o contacta al soporte si este problema persiste.',
+    brazilian_portuguese:
+      'A missão não foi encontrada na base de dados da nuvem. Pode existir localmente ou você pode não ter permissão para acessá-la. Tente atualizar a página ou contate o suporte se este problema persistir.',
+    tok_pisin:
+      'Quest i no gat long cloud database. I may only exist long local o yu no have permission long access it. Plis refresh page o contact support long this persists.',
+    indonesian:
+      'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.'
   },
   discovering: {
     english: 'Discovering...',
@@ -580,6 +749,20 @@ export const localizations = {
     tok_pisin: 'I no inap publish long no gat internet',
     indonesian: 'Tidak dapat memublikasikan saat offline'
   },
+  chapters: {
+    english: 'Chapters',
+    spanish: 'Capítulos',
+    brazilian_portuguese: 'Capítulos',
+    tok_pisin: 'Chapter',
+    indonesian: 'Bab'
+  },
+  chapter: {
+    english: 'Chapter',
+    spanish: 'Capítulo',
+    brazilian_portuguese: 'Capítulo',
+    tok_pisin: 'Chapter',
+    indonesian: 'Bab'
+  },
   publishChapter: {
     english: 'Publish Chapter',
     spanish: 'Publicar Capítulo',
@@ -701,6 +884,27 @@ export const localizations = {
     brazilian_portuguese: 'Por favor, selecione um idioma',
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
+  },
+  searchLanguages: {
+    english: 'Search languages...',
+    spanish: 'Buscar idiomas...',
+    brazilian_portuguese: 'Pesquisar idiomas...',
+    tok_pisin: 'Painim ol tokples...',
+    indonesian: 'Cari bahasa...'
+  },
+  noLanguagesFound: {
+    english: 'No languages found',
+    spanish: 'No se encontraron idiomas',
+    brazilian_portuguese: 'Nenhum idioma encontrado',
+    tok_pisin: 'I no gat tokples',
+    indonesian: 'Tidak ada bahasa ditemukan'
+  },
+  typeToSearch: {
+    english: 'Type at least {min} characters to search',
+    spanish: 'Escriba al menos {min} caracteres para buscar',
+    brazilian_portuguese: 'Digite pelo menos {min} caracteres para pesquisar',
+    tok_pisin: 'Raitim {min} leta bipo painim',
+    indonesian: 'Ketik setidaknya {min} karakter untuk mencari'
   },
   selectTemplate: {
     english: 'Please select a template',
@@ -3898,6 +4102,306 @@ export const localizations = {
     tok_pisin:
       'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
     indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
+  },
+  requests: {
+    english: 'Requests',
+    spanish: 'Solicitudes',
+    brazilian_portuguese: 'Solicitações',
+    tok_pisin: 'Ol askim',
+    indonesian: 'Permintaan'
+  },
+  noPendingRequests: {
+    english: 'No pending membership requests',
+    spanish: 'No hay solicitudes de membresía pendientes',
+    brazilian_portuguese: 'Sem solicitações de adesão pendentes',
+    tok_pisin: 'I no gat askim i stap',
+    indonesian: 'Tidak ada permintaan keanggotaan tertunda'
+  },
+  confirmApprove: {
+    english: 'Approve Request',
+    spanish: 'Aprobar Solicitud',
+    brazilian_portuguese: 'Aprovar Solicitação',
+    tok_pisin: 'Orait long askim',
+    indonesian: 'Setujui Permintaan'
+  },
+  confirmApproveMessage: {
+    english: 'Add {name} as a member of this project?',
+    spanish: '¿Agregar a {name} como miembro de este proyecto?',
+    brazilian_portuguese: 'Adicionar {name} como membro deste projeto?',
+    tok_pisin: 'Putim {name} i kamap memba bilong projek?',
+    indonesian: 'Tambahkan {name} sebagai anggota proyek ini?'
+  },
+  requestApproved: {
+    english: 'Request approved',
+    spanish: 'Solicitud aprobada',
+    brazilian_portuguese: 'Solicitação aprovada',
+    tok_pisin: 'Askim i orait',
+    indonesian: 'Permintaan disetujui'
+  },
+  confirmDeny: {
+    english: 'Deny Request',
+    spanish: 'Rechazar Solicitud',
+    brazilian_portuguese: 'Negar Solicitação',
+    tok_pisin: 'Tambu askim',
+    indonesian: 'Tolak Permintaan'
+  },
+  confirmDenyMessage: {
+    english: 'Deny membership request from {name}?',
+    spanish: '¿Rechazar solicitud de membresía de {name}?',
+    brazilian_portuguese: 'Negar solicitação de adesão de {name}?',
+    tok_pisin: 'Tambu askim bilong {name}?',
+    indonesian: 'Tolak permintaan keanggotaan dari {name}?'
+  },
+  requestDenied: {
+    english: 'Request denied',
+    spanish: 'Solicitud rechazada',
+    brazilian_portuguese: 'Solicitação negada',
+    tok_pisin: 'Askim i tambu',
+    indonesian: 'Permintaan ditolak'
+  },
+  failedToApproveRequest: {
+    english: 'Failed to approve request',
+    spanish: 'Error al aprobar solicitud',
+    brazilian_portuguese: 'Falha ao aprovar solicitação',
+    tok_pisin: 'Askim i no inap orait',
+    indonesian: 'Gagal menyetujui permintaan'
+  },
+  failedToDenyRequest: {
+    english: 'Failed to deny request',
+    spanish: 'Error al rechazar solicitud',
+    brazilian_portuguese: 'Falha ao negar solicitação',
+    tok_pisin: 'Askim i no inap tambu',
+    indonesian: 'Gagal menolak permintaan'
+  },
+  downloadQuestToView: {
+    english: 'This quest must be downloaded before you can view it.',
+    spanish: 'Este quest debe descargarse antes de poder verlo.',
+    brazilian_portuguese: 'Esta quest deve ser baixada antes de visualizá-la.',
+    tok_pisin: 'Yu mas daunim dispela quest pastaim long lukim.',
+    indonesian: 'Quest ini harus diunduh sebelum Anda dapat melihatnya.'
+  },
+  downloadNow: {
+    english: 'Download Now',
+    spanish: 'Descargar Ahora',
+    brazilian_portuguese: 'Baixar Agora',
+    tok_pisin: 'Daunim nau',
+    indonesian: 'Unduh Sekarang'
+  },
+  vadTitle: {
+    english: 'Voice Activity',
+    spanish: 'Actividad de Voz',
+    brazilian_portuguese: 'Atividade de Voz',
+    tok_pisin: 'Wok bilong vois',
+    indonesian: 'Aktivitas Suara'
+  },
+  vadDescription: {
+    english: 'Records automatically when you speak',
+    spanish: 'Graba automáticamente cuando hablas',
+    brazilian_portuguese: 'Grava automaticamente quando você fala',
+    tok_pisin: 'Em i save record pastaim taim yu toktok',
+    indonesian: 'Merekam otomatis saat Anda berbicara'
+  },
+  vadCurrentLevel: {
+    english: 'Current Level',
+    spanish: 'Nivel Actual',
+    brazilian_portuguese: 'Nível Atual',
+    tok_pisin: 'Level nau',
+    indonesian: 'Level Saat Ini'
+  },
+  vadRecordingNow: {
+    english: 'Recording',
+    spanish: 'Grabando',
+    brazilian_portuguese: 'Gravando',
+    tok_pisin: 'I save nau',
+    indonesian: 'Merekam'
+  },
+  vadWaiting: {
+    english: 'Waiting',
+    spanish: 'Esperando',
+    brazilian_portuguese: 'Aguardando',
+    tok_pisin: 'Wetim',
+    indonesian: 'Menunggu'
+  },
+  vadThreshold: {
+    english: 'Sensitivity',
+    spanish: 'Sensibilidad',
+    brazilian_portuguese: 'Sensibilidade',
+    tok_pisin: 'Strong bilong harim',
+    indonesian: 'Sensitivitas'
+  },
+  vadSilenceDuration: {
+    english: 'Pause Length',
+    spanish: 'Duración de Pausa',
+    brazilian_portuguese: 'Duração da Pausa',
+    tok_pisin: 'Taim bilong pas',
+    indonesian: 'Durasi Jeda'
+  },
+  vadSilenceDescription: {
+    english: 'How long to wait before stopping',
+    spanish: 'Tiempo de espera antes de detener',
+    brazilian_portuguese: 'Quanto tempo esperar antes de parar',
+    tok_pisin: 'Hamas taim bipo em i stop',
+    indonesian: 'Berapa lama menunggu sebelum berhenti'
+  },
+  vadSensitive: {
+    english: 'Sensitive',
+    spanish: 'Sensible',
+    brazilian_portuguese: 'Sensível',
+    tok_pisin: 'I harim gut',
+    indonesian: 'Sensitif'
+  },
+  vadNormal: {
+    english: 'Normal',
+    spanish: 'Normal',
+    brazilian_portuguese: 'Normal',
+    tok_pisin: 'Nambawan',
+    indonesian: 'Normal'
+  },
+  vadLoud: {
+    english: 'Loud',
+    spanish: 'Alto',
+    brazilian_portuguese: 'Alto',
+    tok_pisin: 'Bikpela nois',
+    indonesian: 'Keras'
+  },
+  vadVerySensitive: {
+    english: 'Very Sensitive',
+    spanish: 'Muy Sensible',
+    brazilian_portuguese: 'Muito Sensível',
+    tok_pisin: 'I harim tumas',
+    indonesian: 'Sangat Sensitif'
+  },
+  vadLoudOnly: {
+    english: 'Loud Only',
+    spanish: 'Solo Alto',
+    brazilian_portuguese: 'Apenas Alto',
+    tok_pisin: 'Bikpela nois tasol',
+    indonesian: 'Keras Saja'
+  },
+  vadVeryLoud: {
+    english: 'Very Loud',
+    spanish: 'Muy Alto',
+    brazilian_portuguese: 'Muito Alto',
+    tok_pisin: 'Bikpela nois tumas',
+    indonesian: 'Sangat Keras'
+  },
+  vadQuickSegments: {
+    english: 'Quick',
+    spanish: 'Rápido',
+    brazilian_portuguese: 'Rápido',
+    tok_pisin: 'Kwik',
+    indonesian: 'Cepat'
+  },
+  vadBalanced: {
+    english: 'Balanced',
+    spanish: 'Equilibrado',
+    brazilian_portuguese: 'Equilibrado',
+    tok_pisin: 'Naispela',
+    indonesian: 'Seimbang'
+  },
+  vadCompleteThoughts: {
+    english: 'Complete',
+    spanish: 'Completo',
+    brazilian_portuguese: 'Completo',
+    tok_pisin: 'Olgeta',
+    indonesian: 'Lengkap'
+  },
+  vadHelpTitle: {
+    english: 'How It Works',
+    spanish: 'Cómo Funciona',
+    brazilian_portuguese: 'Como Funciona',
+    tok_pisin: 'Olsem wanem em i wok',
+    indonesian: 'Cara Kerja'
+  },
+  vadHelpAutomatic: {
+    english: 'Starts when you speak. Stops when you pause.',
+    spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
+    brazilian_portuguese:
+      'Inicia quando você fala. Para quando você faz uma pausa.',
+    tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
+    indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
+  },
+  vadHelpSensitivity: {
+    english: 'Lower sensitivity picks up quiet speech.',
+    spanish: 'Menor sensibilidad capta el habla tranquila.',
+    brazilian_portuguese: 'Menor sensibilidade capta fala baixa.',
+    tok_pisin: 'Liklik strong i harim smol toktok.',
+    indonesian: 'Sensitivitas rendah menangkap suara pelan.'
+  },
+  vadHelpPause: {
+    english: 'Shorter pause splits faster. Longer captures everything.',
+    spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
+    brazilian_portuguese:
+      'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
+    tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
+    indonesian:
+      'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+  },
+  appUpgradeRequired: {
+    english: 'App Upgrade Required',
+    spanish: 'Actualización de App Requerida',
+    brazilian_portuguese: 'Atualização do App Necessária',
+    tok_pisin: 'Yu mas upgreidim app',
+    indonesian: 'Pembaruan Aplikasi Diperlukan'
+  },
+  appUpgradeServerAhead: {
+    english:
+      'A new version of the app is required to access the latest features. Please update to continue.',
+    spanish:
+      'Se requiere una nueva versión de la aplicación para acceder a las últimas funciones. Por favor actualice para continuar.',
+    brazilian_portuguese:
+      'Uma nova versão do aplicativo é necessária para acessar os recursos mais recentes. Por favor, atualize para continuar.',
+    tok_pisin:
+      'Yu mas kisim nupela version bilong app long usim ol nupela samting. Plis upgreidim long go het.',
+    indonesian:
+      'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.'
+  },
+  appUpgradeServerBehind: {
+    english:
+      'Your app version is newer than the server. Please contact support or wait for the server to be updated.',
+    spanish:
+      'Su versión de la aplicación es más nueva que el servidor. Por favor contacte al soporte o espere a que se actualice el servidor.',
+    brazilian_portuguese:
+      'Sua versão do aplicativo é mais recente que o servidor. Por favor, entre em contato com o suporte ou aguarde a atualização do servidor.',
+    tok_pisin:
+      'Version bilong app bilong yu i nupela moa long server. Plis contactim support o wetim server i upgreidim.',
+    indonesian:
+      'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.'
+  },
+  upgradeToVersion: {
+    english: 'Please upgrade to version {version}',
+    spanish: 'Por favor actualice a la versión {version}',
+    brazilian_portuguese: 'Por favor atualize para a versão {version}',
+    tok_pisin: 'Plis upgreidim long version {version}',
+    indonesian: 'Silakan perbarui ke versi {version}'
+  },
+  currentVersion: {
+    english: 'Current Version',
+    spanish: 'Versión Actual',
+    brazilian_portuguese: 'Versão Atual',
+    tok_pisin: 'Version nau',
+    indonesian: 'Versi Saat Ini'
+  },
+  requiredVersion: {
+    english: 'Required Version',
+    spanish: 'Versión Requerida',
+    brazilian_portuguese: 'Versão Necessária',
+    tok_pisin: 'Version yu mas gat',
+    indonesian: 'Versi yang Diperlukan'
+  },
+  upgradeApp: {
+    english: 'Upgrade App',
+    spanish: 'Actualizar App',
+    brazilian_portuguese: 'Atualizar App',
+    tok_pisin: 'Upgreidim App',
+    indonesian: 'Perbarui Aplikasi'
+  },
+  checkingSchemaVersion: {
+    english: 'Checking schema compatibility...',
+    spanish: 'Verificando compatibilidad del esquema...',
+    brazilian_portuguese: 'Verificando compatibilidade do esquema...',
+    tok_pisin: 'Checkim schema compatibility...',
+    indonesian: 'Memeriksa kompatibilitas skema...'
   }
 } as const;
 

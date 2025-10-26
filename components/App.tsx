@@ -5,11 +5,13 @@ import { initializeNetwork } from '@/store/networkStore';
 import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppUpgradeScreen } from '@/components/AppUpgradeScreen';
 import LoadingView from '@/components/LoadingView';
+import { MigrationScreen } from '@/components/MigrationScreen';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
-import ResetPasswordView2 from '@/views/ResetPasswordView2';
+import ResetPasswordView from '@/views/ResetPasswordView';
 import { useRouter } from 'expo-router';
 
 // Wrapper component to provide consistent gradient background
@@ -26,7 +28,15 @@ function AppWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isLoading, isAuthenticated, sessionType, isSystemReady } = useAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    sessionType,
+    isSystemReady,
+    migrationNeeded,
+    appUpgradeNeeded,
+    upgradeError
+  } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const router = useRouter();
 
@@ -70,6 +80,29 @@ export default function App() {
     );
   }
 
+  // CRITICAL: App upgrade required - block everything until user upgrades
+  // This takes precedence over migration since the app version is incompatible
+  if (appUpgradeNeeded && upgradeError) {
+    return (
+      <AppWrapper>
+        <AppUpgradeScreen
+          localVersion={upgradeError.localVersion}
+          serverVersion={upgradeError.serverVersion}
+          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+        />
+      </AppWrapper>
+    );
+  }
+
+  // CRITICAL: Migration required - block everything until migration completes
+  if (migrationNeeded) {
+    return (
+      <AppWrapper>
+        <MigrationScreen />
+      </AppWrapper>
+    );
+  }
+
   // Authenticated but system still initializing
   if (!isSystemReady) {
     return (
@@ -83,7 +116,7 @@ export default function App() {
   if (sessionType === 'password-reset') {
     return (
       <AppWrapper>
-        <ResetPasswordView2 />
+        <ResetPasswordView />
       </AppWrapper>
     );
   }

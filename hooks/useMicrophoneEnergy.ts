@@ -1,5 +1,7 @@
 import { Audio } from 'expo-av';
 import { useCallback, useEffect, useState } from 'react';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import type { VADResult } from '../modules/microphone-energy';
 import MicrophoneEnergyModule from '../modules/microphone-energy';
 
@@ -16,6 +18,8 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   clearError: () => void;
   startSegment: (options?: { prerollMs?: number }) => Promise<void>;
   stopSegment: () => Promise<string | null>;
+  // NEW: SharedValue for high-performance UI updates
+  energyShared: SharedValue<number>;
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergy {
@@ -25,12 +29,17 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     error: null
   });
 
+  // NEW: SharedValue for high-performance UI updates (no re-renders!)
+  const energyShared = useSharedValue(0);
+
   // Setup event listeners
   useEffect(() => {
     const energySubscription = MicrophoneEnergyModule.addListener(
       'onEnergyResult',
       (result: VADResult) => {
-        // Update state silently - no logging unless there's an error
+        // Update SharedValue first (for UI - no re-render)
+        energyShared.value = result.energy;
+        // Update state silently for logic that needs it
         setState((prev) => ({ ...prev, energyResult: result }));
       }
     );
@@ -140,6 +149,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     stopEnergyDetection,
     clearError,
     startSegment,
-    stopSegment
+    stopSegment,
+    energyShared
   };
 }

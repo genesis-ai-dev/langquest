@@ -310,7 +310,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     try {
       for (const op of transaction.crud) {
         lastOp = op;
-        const table = this.client.from(op.table);
+        // Default metadata if none was stamped (covers any raw SQL writes)
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { getDefaultOpMetadata } = require('../powersync/opMetadata') as {
+          getDefaultOpMetadata: () => string;
+        };
+        const metadata = (op as any).metadata ?? getDefaultOpMetadata();
+        console.log('metadata: ', metadata);
         let result: PostgrestSingleResponse<unknown> | null = null;
         let record;
 
@@ -430,9 +436,15 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
               );
             }
 
-            console.log('Record:', record);
-
-            result = await table.upsert(record, upsertOptions);
+            result = await this.client.rpc('apply_table_mutation', {
+              p_op: 'put',
+              p_table_name: op.table,
+              p_record: record,
+              p_client_meta: { metadata }
+            });
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
+            }
             break;
           }
 
@@ -440,22 +452,39 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             // Process array fields for PATCH operations
             const patchData = processArrayFields(opData);
 
-            if (isCompositeTable && patchData) {
-              result = await table.update(patchData).match(compositeKeys);
-            } else {
-              result = await table.update(patchData).eq('id', op.id);
+            const recordForPatch = isCompositeTable
+              ? { ...compositeKeys, ...(patchData ?? {}) }
+              : { id: op.id, ...(patchData ?? {}) };
+
+            result = await this.client.rpc('apply_table_mutation', {
+              p_op: 'patch',
+              p_table_name: op.table,
+              p_record: recordForPatch,
+              p_client_meta: { metadata }
+            });
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
             }
             break;
           }
 
-          case UpdateType.DELETE:
-            if (isCompositeTable) {
-              result = await table.delete().match(compositeKeys);
-            } else {
-              result = await table.delete().eq('id', op.id);
-            }
+          case UpdateType.DELETE: {
+            const recordForDelete = isCompositeTable
+              ? compositeKeys
+              : { id: op.id };
+
+            result = await this.client.rpc('apply_table_mutation', {
+              p_op: 'delete',
+              p_table_name: op.table,
+              p_record: recordForDelete,
+              p_client_meta: { metadata }
+            });
             console.log('delete result', result);
+            if ('data' in result && typeof result.data === 'string') {
+              console.log('[apply_table_mutation logs]', result.data);
+            }
             break;
+          }
         }
 
         if (result.error) {

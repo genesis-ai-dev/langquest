@@ -224,6 +224,7 @@ const DrawerContent = React.forwardRef<
       handleComponent={() => <PortalHost name="drawer-handle-host" />}
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
       enablePanDownToClose={true}
+      enableContentPanningGesture={false}
       enableOverDrag={false}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"

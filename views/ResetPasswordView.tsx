@@ -1,444 +1,145 @@
-import { PasswordInput } from '@/components/PasswordInput';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-interface ResetPasswordFormData {
-  password: string;
-  confirmPassword: string;
-}
+import { safeNavigate } from '@/utils/sharedUtils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { LockIcon } from 'lucide-react-native';
+import { useForm } from 'react-hook-form';
+import { Alert, Keyboard, View } from 'react-native';
+import { z } from 'zod';
 
 export default function ResetPasswordView() {
-  const { supabaseConnector } = system;
-  const { t } = useLocalization();
   const { signOut } = useAuth();
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const { t } = useLocalization();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    formState: { errors }
-  } = useForm<ResetPasswordFormData>({
-    defaultValues: {
-      password: '',
-      confirmPassword: ''
+  const formSchema = z
+    .object({
+      password: z
+        .string(t('passwordRequired'))
+        .min(6, t('passwordMinLength'))
+        .trim(),
+      confirmPassword: z.string(t('confirmPassword')).trim()
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: t('passwordsNoMatch'),
+      path: ['confirmPassword']
+    });
+
+  const { mutateAsync: updatePassword, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      const { error } = await system.supabaseConnector.client.auth.updateUser({
+        password: data.password.trim()
+      });
+
+      if (error) throw error;
+
+      Keyboard.dismiss();
+
+      Alert.alert(t('success'), t('passwordResetSuccess'), [
+        {
+          text: t('ok'),
+          // Sign out and let auth context handle navigation to sign in
+          // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
+          // at next page.
+          onPress: () => safeNavigate(() => void signOut())
+        }
+      ]);
+
+      // Reset form
+      form.reset();
+    },
+    onError: (error) => {
+      Alert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('passwordUpdateFailed')
+      );
     }
   });
 
-  // Listen for PASSWORD_RECOVERY auth event
-  // useEffect(() => {
-  //   console.log('[ResetPasswordView] Setting up auth state listener');
-
-  //   // First, let's test if the Supabase client is working
-  //   console.log('[ResetPasswordView] Testing Supabase client...');
-  //   console.log(
-  //     '[ResetPasswordView] Has auth client:',
-  //     !!supabaseConnector.client.auth
-  //   );
-  //   console.log(
-  //     '[ResetPasswordView] Supabase client exists:',
-  //     !!supabaseConnector.client
-  //   );
-
-  //   let mounted = true;
-
-  //   const { data: authListener } =
-  //     supabaseConnector.client.auth.onAuthStateChange((event, _session) => {
-  //       if (!mounted) return;
-  //       console.log('[ResetPasswordView] Auth event:', event);
-  //       if (event === 'PASSWORD_RECOVERY') {
-  //         console.log('[ResetPasswordView] PASSWORD_RECOVERY event detected');
-  //         // setIsRecoverySession(true); // This line is removed
-  //       }
-  //     });
-
-  //   // Check if we already have a recovery session with timeout
-  //   const checkSession = async () => {
-  //     try {
-  //       console.log('[ResetPasswordView] Checking session...');
-
-  //       // Create a timeout promise
-  //       let timeoutId: NodeJS.Timeout;
-  //       const timeoutPromise = new Promise<never>((_, reject) => {
-  //         timeoutId = setTimeout(
-  //           () => reject(new Error('getSession timed out')),
-  //           5000
-  //         );
-  //       });
-
-  //       try {
-  //         const result = await Promise.race([
-  //           supabaseConnector.client.auth.getSession(),
-  //           timeoutPromise
-  //         ]);
-
-  //         clearTimeout(timeoutId!);
-
-  //         if (!mounted) return;
-
-  //         const {
-  //           data: { session }
-  //         } = result;
-
-  //         if (session) {
-  //           console.log('[ResetPasswordView] Current session check:', {
-  //             hasSession: true,
-  //             userEmail: session.user.email,
-  //             recoveryAt: session.user.recovery_sent_at,
-  //             lastSignIn: session.user.last_sign_in_at,
-  //             emailConfirmed: session.user.email_confirmed_at
-  //           });
-
-  //           // If we have a session with recovery_sent_at, treat it as a recovery session
-  //           if (session.user.recovery_sent_at) {
-  //             console.log(
-  //               '[ResetPasswordView] Session has recovery_sent_at, marking as recovery session'
-  //             );
-  //             // setIsRecoverySession(true); // This line is removed
-  //           }
-  //         } else {
-  //           console.log('[ResetPasswordView] No session found');
-  //         }
-  //       } catch (error) {
-  //         clearTimeout(timeoutId!);
-  //         throw error;
-  //       }
-  //     } catch (error) {
-  //       console.error('[ResetPasswordView] Error checking session:', error);
-  //       if (error instanceof Error && error.message.includes('timed out')) {
-  //         console.error('[ResetPasswordView] getSession call timed out!');
-  //       }
-  //     }
-  //   };
-
-  //   void checkSession();
-
-  //   return () => {
-  //     mounted = false;
-  //     authListener.subscription.unsubscribe();
-  //   };
-  // }, [supabaseConnector.client.auth]);
-
-  const onSubmit = async (data: ResetPasswordFormData) => {
-    console.log('[ResetPasswordView] onSubmit called');
-    console.log('[ResetPasswordView] Password length:', data.password.length);
-    setIsUpdatingPassword(true);
-
-    try {
-      console.log('[ResetPasswordView] Starting password update...');
-
-      // Skip the session check - we know we have a session because we're here
-      // Just try to update the password directly
-      console.log('[ResetPasswordView] Attempting direct password update...');
-
-      const startTime = Date.now();
-
-      // Create a timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error('Password update timed out after 10 seconds')),
-          10000
-        );
-      });
-
-      try {
-        // Just try the update directly
-        console.log('[ResetPasswordView] Calling updateUser...');
-        // Why can't I update the user here?
-        // Log details of the user with auth.getUser()
-        const user = await supabaseConnector.client.auth.getUser();
-        console.log('[ResetPasswordView] User details:', user);
-        const updatePromise = supabaseConnector.client.auth.updateUser({
-          password: data.password.trim()
-        });
-
-        console.log(
-          '[ResetPasswordView] Update request sent, waiting for response...'
-        );
-
-        const { data: updateData, error } = await Promise.race([
-          updatePromise,
-          timeoutPromise
-        ]);
-
-        const duration = Date.now() - startTime;
-        console.log('[ResetPasswordView] Update completed in', duration, 'ms');
-
-        console.log('[ResetPasswordView] Update response:', {
-          success: !error,
-          error: error?.message,
-          errorCode: error?.code,
-          errorStatus: error?.status,
-          hasData: !!updateData
-        });
-
-        if (error) {
-          console.error('[ResetPasswordView] Password update error details:', {
-            message: error.message,
-            code: error.code,
-            status: error.status,
-            name: error.name,
-            fullError: JSON.stringify(error)
-          });
-
-          // Check for specific error types
-          if (
-            error.message.includes('expired') ||
-            error.message.includes('invalid')
-          ) {
-            Alert.alert(
-              t('error'),
-              t('sessionExpired') ||
-                'Your password reset link has expired. Please request a new one.',
-              [{ text: t('ok') }]
-            );
-            await signOut();
-            return;
-          }
-
-          // Check for reauthentication needed error
-          if (
-            error.code === 'reauthentication_needed' ||
-            error.message.includes('reauthentication')
-          ) {
-            Alert.alert(
-              t('error'),
-              'Password update requires reauthentication. Please try again.',
-              [{ text: t('ok') }]
-            );
-            return;
-          }
-
-          throw error;
-        }
-
-        console.log('[ResetPasswordView] Password updated successfully');
-
-        // After successful password update, sign out and redirect to login
-        Alert.alert(t('success'), t('passwordResetSuccess'), [
-          {
-            text: t('ok'),
-            onPress: () => {
-              console.log('[ResetPasswordView] Signing out...');
-              // Use the signOut from auth context which handles all cleanup
-              void signOut();
-            }
-          }
-        ]);
-      } catch (timeoutError) {
-        if (
-          timeoutError instanceof Error &&
-          timeoutError.message.includes('timed out')
-        ) {
-          console.error('[ResetPasswordView] Password update timed out');
-          Alert.alert(
-            t('error'),
-            'The password update is taking too long. This might be a network issue. Please check your connection and try again.',
-            [{ text: t('ok') }]
-          );
-          return;
-        }
-        throw timeoutError;
-      }
-    } catch (error) {
-      console.error('[ResetPasswordView] Error in onSubmit:', error);
-      Alert.alert(
-        t('error'),
-        error instanceof Error
-          ? error.message
-          : 'Password update failed. Please try again.'
-      );
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    disabled: isPending
+  });
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+    <Form {...form}>
+      <View className="m-safe flex flex-col gap-4 p-6">
+        <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('createNewPassword')}</Text>
+        </View>
+
+        <View className="flex w-full flex-1 flex-col gap-4">
+          <Icon as={LockIcon} size={32} className="mx-auto" />
+
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="newPassword"
+                    autoComplete="new-password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('newPassword')}
+                    secureTextEntry
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="newPassword"
+                    autoComplete="new-password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('confirmPassword')}
+                    secureTextEntry
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            onPress={form.handleSubmit((data) => updatePassword(data))}
+            disabled={isPending}
+            className="mt-4"
           >
-            <View
-              style={[
-                sharedStyles.container,
-                { backgroundColor: 'transparent', gap: spacing.medium }
-              ]}
-            >
-              <View style={{ alignItems: 'center', width: '100%' }}>
-                <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>
-                  {t('createNewPassword')}
-                </Text>
-              </View>
-
-              {/* Form section */}
-              <View
-                style={{
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: spacing.medium
-                }}
-              >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={32}
-                  color={colors.text}
-                />
-
-                <View style={{ gap: spacing.medium, width: '100%' }}>
-                  {/* New Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="password"
-                      rules={{
-                        required: t('passwordRequired'),
-                        minLength: {
-                          value: 6,
-                          message: t('passwordMinLength')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('newPassword')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.password && (
-                      <Text style={styles.errorText}>
-                        {errors.password.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Confirm Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="confirmPassword"
-                      rules={{
-                        required: t('confirmPassword'),
-                        validate: (value) =>
-                          value === watch('password') || t('passwordsNoMatch')
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('confirmPassword')}
-                            placeholderTextColor={colors.text}
-                            value={value || ''}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.confirmPassword && (
-                      <Text style={styles.errorText}>
-                        {errors.confirmPassword.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Submit button */}
-                  <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center',
-                        opacity: isUpdatingPassword ? 0.7 : 1
-                      }
-                    ]}
-                    onPress={handleSubmit(onSubmit)}
-                    disabled={isUpdatingPassword}
-                  >
-                    {isUpdatingPassword ? (
-                      <ActivityIndicator color={colors.background} />
-                    ) : (
-                      <Text style={sharedStyles.buttonText}>
-                        {t('updatePassword')}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+            <Text>{t('updatePassword')}</Text>
+          </Button>
+        </View>
+      </View>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    alignSelf: 'flex-start'
-  }
-});

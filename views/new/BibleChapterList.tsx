@@ -11,16 +11,18 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { HardDriveIcon } from 'lucide-react-native';
+import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
 import { useItemDownloadStatus } from './useHybridData';
 
 interface BibleChapterListProps {
@@ -41,12 +43,13 @@ const ChapterSkeleton = () => (
 // Helper component to handle individual chapter download state
 function ChapterButton({
   chapterNum,
-  verseCount,
+  verseCount: _verseCount,
   existingChapter,
   isCreatingThis,
   onPress,
   disabled,
-  onDownloadClick
+  onDownloadClick,
+  canCreateNew
 }: {
   chapterNum: number;
   verseCount: number;
@@ -62,6 +65,7 @@ function ChapterButton({
   onPress: () => void;
   disabled: boolean;
   onDownloadClick: (questId: string) => void;
+  canCreateNew: boolean;
 }) {
   const { currentUser } = useAuth();
   const exists = !!existingChapter;
@@ -110,7 +114,9 @@ function ChapterButton({
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={disabled || needsDownload}
+        disabled={
+          disabled || needsDownload || (!existingChapter && !canCreateNew)
+        }
       >
         {isCreatingThis ? (
           <ActivityIndicator size="small" color={primaryColor} />
@@ -126,10 +132,9 @@ function ChapterButton({
                   isLoading={false}
                   onPress={handleDownloadToggle}
                   size={16}
-                  // Always use neutral/foreground for indicator to be visible
-                  className={
+                  iconColor={
                     hasSyncedCopy || hasLocalCopy
-                      ? 'text-card-foreground'
+                      ? 'text-secondary'
                       : 'text-foreground'
                   }
                 />
@@ -149,6 +154,15 @@ function ChapterButton({
           </View>
         )}
       </Button>
+
+      {/* Overlay to make entire button pressable for download when needed */}
+      {needsDownload && !disabled && (
+        <TouchableOpacity
+          onPress={handleDownloadToggle}
+          className="absolute inset-0"
+          activeOpacity={0.7}
+        />
+      )}
     </View>
   );
 }
@@ -162,6 +176,11 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const book = getBibleBook(bookId);
   const bookIconSource = BOOK_ICON_MAP[bookId];
   const primaryColor = useThemeColor('primary');
+  const { t } = useLocalization();
+
+  // Check user permissions for creating chapters
+  const { membership } = useUserPermissions(projectId, 'open_project');
+  const canCreateNew = membership === 'member' || membership === 'owner';
 
   // Query existing chapters using parent-child relationship
   const {
@@ -213,7 +232,10 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({
     mutationFn: async () => {
-      if (!currentUser?.id || !discoveryState.discoveredIds) {
+      if (
+        !currentUser?.id ||
+        discoveryState.discoveredIds.questIds.length === 0
+      ) {
         throw new Error('Missing user or discovered IDs');
       }
 
@@ -300,7 +322,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     );
   }
 
-  const handleChapterPress = async (chapterNum: number) => {
+  const handleChapterPress = (chapterNum: number) => {
     // Prevent any action while loading or creating
     if (isLoadingChapters || isCreating || creatingChapter === chapterNum) {
       return;
@@ -312,7 +334,22 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     );
 
     if (existingChapter) {
-      // Chapter exists, just navigate to it
+      // Check if chapter is downloaded before allowing navigation
+      const isDownloaded = existingChapter.download_profiles?.includes(
+        currentUser?.id || ''
+      );
+      const isCloudQuest = existingChapter.source === 'cloud';
+
+      if (isCloudQuest && !isDownloaded) {
+        // Directly trigger download flow for cloud-only quests
+        console.log(
+          `📥 Cloud quest not downloaded, triggering download: ${existingChapter.id}`
+        );
+        handleDownloadClick(existingChapter.id);
+        return;
+      }
+
+      // Chapter exists and is downloaded (or local), navigate to it
       console.log(`📖 Opening existing chapter: ${existingChapter.id}`);
       goToQuest({
         id: existingChapter.id,
@@ -322,35 +359,56 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       return;
     }
 
-    // Chapter doesn't exist, create it
-    setCreatingChapter(chapterNum);
-
-    try {
-      console.log(`📖 Creating new chapter: ${book.name} ${chapterNum}`);
-
-      const result = await createChapter({
-        projectId,
-        bookId,
-        chapter: chapterNum,
-        targetLanguageId: project.target_language_id
-      });
-
-      console.log(
-        `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
-      );
-
-      // Navigate to assets view
-      goToQuest({
-        id: result.questId,
-        project_id: projectId,
-        name: result.questName
-      });
-    } catch (error) {
-      console.error('Failed to create chapter:', error);
-      // TODO: Show error toast or something to user
-    } finally {
-      setCreatingChapter(null);
+    // Chapter doesn't exist - check permissions
+    if (!canCreateNew) {
+      Alert.alert(t('error'), t('membersOnlyCreate'));
+      return;
     }
+
+    // Chapter doesn't exist - show confirmation dialog
+    Alert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('confirm'),
+        onPress: () => {
+          void (async () => {
+            setCreatingChapter(chapterNum);
+
+            try {
+              console.log(
+                `📖 Creating new chapter: ${book.name} ${chapterNum}`
+              );
+
+              const result = await createChapter({
+                projectId,
+                bookId,
+                chapter: chapterNum,
+                targetLanguageId: project.target_language_id
+              });
+
+              console.log(
+                `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
+              );
+
+              // Navigate to assets view
+              goToQuest({
+                id: result.questId,
+                project_id: projectId,
+                name: result.questName
+              });
+            } catch (error) {
+              console.error('Failed to create chapter:', error);
+              // TODO: Show error toast or something to user
+            } finally {
+              setCreatingChapter(null);
+            }
+          })();
+        }
+      }
+    ]);
   };
 
   // Generate array of chapter numbers with metadata
@@ -371,6 +429,10 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     };
   });
 
+  // Check if we should show empty state
+  const hasNoChapters = existingChapters.length === 0;
+  const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
+
   return (
     <View className="flex-1">
       <View className="flex-1 flex-col gap-6">
@@ -388,13 +450,29 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           <View className="flex-col">
             <Text variant="h3">{book.name}</Text>
             <Text className="text-sm text-muted-foreground">
-              {book.chapters} chapters
+              {book.chapters} {t('chapters')}
             </Text>
           </View>
         </View>
 
-        {/* Chapter Grid */}
-        {isLoadingChapters ? (
+        {/* Empty State */}
+        {showEmptyState ? (
+          <View className="flex-1 items-center justify-center gap-4 px-6">
+            <Icon
+              as={BookOpenIcon}
+              size={48}
+              className="text-muted-foreground"
+            />
+            <View className="flex-col items-center gap-2">
+              <Text variant="h4" className="text-center">
+                {t('noQuestsAvailable')}
+              </Text>
+              <Text className="text-center text-muted-foreground">
+                {t('noContentAvailable')}
+              </Text>
+            </View>
+          </View>
+        ) : isLoadingChapters ? (
           <LegendList
             data={chapters.slice(0, 32)}
             keyExtractor={(item) => item.id.toString()}
@@ -413,17 +491,20 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
             contentContainerStyle={{ paddingHorizontal: 8 }}
             columnWrapperStyle={{ gap: 8 }}
             recycleItems
-            renderItem={({ item }) => (
-              <ChapterButton
-                chapterNum={item.chapterNum}
-                verseCount={item.verseCount}
-                existingChapter={item.existingChapter}
-                isCreatingThis={item.isCreatingThis}
-                onPress={() => handleChapterPress(item.chapterNum)}
-                disabled={Boolean(isCreating || isLoadingChapters)}
-                onDownloadClick={handleDownloadClick}
-              />
-            )}
+            renderItem={({ item }) =>
+              (item.existingChapter || canCreateNew) && (
+                <ChapterButton
+                  chapterNum={item.chapterNum}
+                  verseCount={item.verseCount}
+                  existingChapter={item.existingChapter}
+                  isCreatingThis={item.isCreatingThis}
+                  onPress={() => handleChapterPress(item.chapterNum)}
+                  disabled={Boolean(isCreating || isLoadingChapters)}
+                  onDownloadClick={handleDownloadClick}
+                  canCreateNew={canCreateNew}
+                />
+              )
+            }
           />
         )}
       </View>

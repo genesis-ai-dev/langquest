@@ -12,6 +12,8 @@
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import MicrophoneEnergyModule from '@/modules/microphone-energy';
 import React from 'react';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 interface UseVADRecordingProps {
   threshold: number;
@@ -23,8 +25,10 @@ interface UseVADRecordingProps {
 }
 
 interface UseVADRecordingReturn {
-  currentEnergy: number;
-  isRecording: boolean;
+  currentEnergy: number; // Keep for backward compat
+  isRecording: boolean; // Keep for React components
+  energyShared: SharedValue<number>; // For UI performance
+  isRecordingShared: SharedValue<boolean>; // NEW: For instant UI updates
 }
 
 export function useVADRecording({
@@ -35,10 +39,19 @@ export function useVADRecording({
   onSegmentComplete,
   isManualRecording
 }: UseVADRecordingProps): UseVADRecordingReturn {
-  const { isActive, energyResult, startEnergyDetection, stopEnergyDetection } =
-    useMicrophoneEnergy();
+  const {
+    isActive,
+    energyResult,
+    startEnergyDetection,
+    stopEnergyDetection,
+    energyShared
+  } = useMicrophoneEnergy();
 
   const [isRecording, setIsRecording] = React.useState(false);
+
+  // NEW: SharedValue for INSTANT UI updates (bypasses React render cycle)
+  // This updates synchronously when native VAD fires events - NO LAG!
+  const isRecordingShared = useSharedValue(false);
 
   // Stable refs for callbacks
   const onSegmentStartRef = React.useRef(onSegmentStart);
@@ -104,6 +117,12 @@ export function useVADRecording({
       'onSegmentStart', // Type will be available after native module rebuild
       () => {
         console.log('🎬 Native VAD: Segment starting');
+
+        // CRITICAL: Update SharedValue FIRST for instant UI response (< 5ms)
+        // This bypasses React's render cycle entirely!
+        isRecordingShared.value = true;
+
+        // Then update React state (for non-perf-critical components)
         setIsRecording(true);
         segmentStartTimeRef.current = Date.now();
 
@@ -117,6 +136,7 @@ export function useVADRecording({
             console.log(
               '⚠️ Native VAD: Segment timeout - likely discarded, cleaning up'
             );
+            isRecordingShared.value = false;
             setIsRecording(false);
             segmentStartTimeRef.current = null;
             // Notify parent with empty URI to trigger cleanup
@@ -137,6 +157,9 @@ export function useVADRecording({
           payload.uri,
           `(${payload.duration}ms)`
         );
+
+        // CRITICAL: Update SharedValue FIRST for instant UI response
+        isRecordingShared.value = false;
 
         // Clear timeout since we got a proper completion
         if (segmentTimeoutRef.current) {
@@ -161,6 +184,8 @@ export function useVADRecording({
 
   return {
     currentEnergy,
-    isRecording
+    isRecording,
+    energyShared,
+    isRecordingShared // NEW: For instant waveform updates
   };
 }

@@ -20,6 +20,7 @@
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
@@ -47,7 +48,7 @@ interface AssetCardProps {
   isSelected: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
-  progress?: number; // 0-100 percentage
+  // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
   onPress: () => void;
@@ -92,7 +93,6 @@ function AssetCardInternal({
   isSelected,
   isSelectionMode,
   isPlaying,
-  progress,
   duration,
   segmentCount,
   onPress,
@@ -100,6 +100,8 @@ function AssetCardInternal({
   onPlay,
   onRename
 }: AssetCardProps) {
+  const audioContext = useAudio();
+
   // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
   const isLocal = asset.source === 'local';
   // Renameable = local and not currently saving
@@ -116,33 +118,28 @@ function AssetCardInternal({
   // REANIMATED ANIMATIONS (Run on native thread for better performance)
   // ============================================================================
 
-  // Progress animation (0-100)
-  const animatedProgress = useSharedValue(0);
+  // NEW: Calculate progress from SharedValues (no re-renders!)
+  // This runs entirely on the UI thread at 60fps
+  const animatedProgress = useDerivedValue(() => {
+    'worklet';
+    if (!isPlaying) return 0;
 
-  // Update progress with smooth animation
-  React.useEffect(() => {
-    if (!isPlaying || progress === undefined) {
-      // Reset when not playing
-      animatedProgress.value = withTiming(0, {
-        duration: 200,
-        easing: Easing.out(Easing.ease)
-      });
-    } else {
-      // Smooth animation to current progress
-      // Multi-segment assets get slightly faster animations
-      const baseSpeed = segmentCount && segmentCount > 1 ? 400 : 500;
-      animatedProgress.value = withTiming(progress, {
-        duration: baseSpeed,
-        easing: Easing.linear
-      });
-    }
-  }, [progress, isPlaying, animatedProgress, segmentCount]);
+    const pos = audioContext.positionShared.value;
+    const dur = audioContext.durationShared.value;
+
+    if (dur <= 0) return 0;
+
+    // Calculate progress percentage (0-100)
+    const progressPercent = (pos / dur) * 100;
+    return Math.min(100, Math.max(0, progressPercent));
+  }, [isPlaying]);
 
   // Progress bar style (interpolate to slightly lead at the end)
   const progressBarStyle = useAnimatedStyle(() => {
     'worklet';
+    const progress = animatedProgress.value;
     const width = interpolate(
-      animatedProgress.value,
+      progress,
       [0, 95, 100],
       [0, 97, 100],
       Extrapolation.CLAMP
@@ -229,7 +226,7 @@ function AssetCardInternal({
       )}
 
       {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
-      {isPlaying && progress !== undefined && (
+      {isPlaying && (
         <View
           style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
           pointerEvents="none"
@@ -310,6 +307,9 @@ function AssetCardInternal({
 /**
  * Memoized AssetCard to prevent unnecessary re-renders
  * Only re-renders when props actually change
+ *
+ * OPTIMIZATION: progress removed from comparison - now uses SharedValues
+ * This eliminates 10 re-renders/second during audio playback!
  */
 export const AssetCard = React.memo(AssetCardInternal, (prev, next) => {
   // Custom equality check - only re-render if these props change
@@ -321,7 +321,7 @@ export const AssetCard = React.memo(AssetCardInternal, (prev, next) => {
     prev.isSelected === next.isSelected &&
     prev.isSelectionMode === next.isSelectionMode &&
     prev.isPlaying === next.isPlaying &&
-    prev.progress === next.progress &&
+    // prev.progress removed - uses SharedValues now!
     prev.duration === next.duration &&
     prev.segmentCount === next.segmentCount &&
     prev.canMergeDown === next.canMergeDown &&

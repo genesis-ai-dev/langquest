@@ -209,7 +209,6 @@ export async function downloadRecord(
 
       if (!downloadTree) throw new Error('No download tree found.');
 
-      console.log('RYDER5', { downloaded });
       const isCurrentlyDownloaded =
         downloaded ??
         (await getDownloadStatus(recordTable, recordId, currentUser.id));

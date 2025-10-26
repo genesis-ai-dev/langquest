@@ -16,6 +16,8 @@ import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface RecordingControlsProps {
   isRecording: boolean;
@@ -33,8 +35,10 @@ interface RecordingControlsProps {
   onVADLockChange?: (locked: boolean) => void;
   onSettingsPress?: () => void;
   // VAD visual feedback (native module handles recording)
-  currentEnergy?: number;
+  currentEnergy?: number; // Keep for backward compat
   vadThreshold?: number;
+  energyShared?: SharedValue<number>; // For UI performance
+  isRecordingShared?: SharedValue<boolean>; // NEW: For instant waveform updates
 }
 
 export const RecordingControls = React.memo(
@@ -49,10 +53,35 @@ export const RecordingControls = React.memo(
     onVADLockChange,
     onSettingsPress,
     currentEnergy,
-    vadThreshold
+    vadThreshold,
+    energyShared,
+    isRecordingShared
   }: RecordingControlsProps) {
     const { t } = useLocalization();
     const [hasPermission, setHasPermission] = useState<boolean>(true);
+    const insets = useSafeAreaInsets();
+
+    // Fallback SharedValues for backward compatibility
+    const { useSharedValue } = require('react-native-reanimated');
+    const fallbackEnergyShared = useSharedValue(currentEnergy ?? 0);
+    const fallbackIsRecordingShared = useSharedValue(isRecording);
+
+    // Update fallbacks if not provided (backward compat)
+    useEffect(() => {
+      if (!energyShared && currentEnergy !== undefined) {
+        fallbackEnergyShared.value = currentEnergy;
+      }
+      if (!isRecordingShared) {
+        fallbackIsRecordingShared.value = isRecording;
+      }
+    }, [
+      currentEnergy,
+      energyShared,
+      fallbackEnergyShared,
+      isRecording,
+      isRecordingShared,
+      fallbackIsRecordingShared
+    ]);
 
     // Check permissions after render
     useEffect(() => {
@@ -71,6 +100,7 @@ export const RecordingControls = React.memo(
       return (
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+          style={{ paddingBottom: insets.bottom }}
           onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
         >
           <View className="flex w-full items-center justify-center py-6">
@@ -94,14 +124,15 @@ export const RecordingControls = React.memo(
     return (
       <View
         className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
+        style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
         {/* Waveform visualization above controls */}
         <WaveformVisualization
           isVisible={isVADLocked ?? false}
-          currentEnergy={currentEnergy ?? 0}
+          energyShared={energyShared ?? fallbackEnergyShared}
           vadThreshold={vadThreshold ?? 0.03}
-          isRecording={isRecording}
+          isRecordingShared={isRecordingShared ?? fallbackIsRecordingShared}
           barCount={60}
           maxHeight={24}
         />
@@ -144,12 +175,17 @@ export const RecordingControls = React.memo(
   },
   // **OPTIMIZATION: Custom equality check - only re-render for critical prop changes**
   (prevProps, nextProps) => {
+    // FIX: Allow immediate re-render when VAD lock changes for responsive cancel button
+    if (prevProps.isVADLocked !== nextProps.isVADLocked) {
+      return false; // Force re-render immediately on VAD lock change
+    }
+
     // Re-render ONLY if these props change:
     // Note: We DO pass currentEnergy through now, but the ring buffer
     // implementation handles the frequent updates efficiently on the UI thread
     return (
       prevProps.isRecording === nextProps.isRecording &&
-      prevProps.isVADLocked === nextProps.isVADLocked &&
+      // isVADLocked already checked above
       prevProps.onRecordingStart === nextProps.onRecordingStart &&
       prevProps.onRecordingStop === nextProps.onRecordingStop &&
       prevProps.onRecordingComplete === nextProps.onRecordingComplete &&

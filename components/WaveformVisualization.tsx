@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming
@@ -53,18 +54,18 @@ WaveformBar.displayName = 'WaveformBar';
 
 interface WaveformVisualizationProps {
   isVisible: boolean;
-  currentEnergy: number;
+  energyShared: SharedValue<number>; // OPTIMIZED: SharedValue instead of number
   vadThreshold: number;
-  isRecording: boolean;
+  isRecordingShared: SharedValue<boolean>; // OPTIMIZED: SharedValue for instant updates
   barCount?: number;
   maxHeight?: number;
 }
 
 export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
   isVisible,
-  currentEnergy,
+  energyShared,
   vadThreshold,
-  isRecording,
+  isRecordingShared, // Now a SharedValue - NO SYNC NEEDED!
   barCount = 60,
   maxHeight = 24
 }) => {
@@ -92,33 +93,32 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
     };
   });
 
-  // Update ring buffer when energy changes
-  useEffect(() => {
-    if (!isVisible) return;
+  // OPTIMIZED: Update ring buffer using worklet (runs on UI thread!)
+  // This eliminates JS thread blocking from shifting 60 bars on every energy update
+  useAnimatedReaction(
+    () => energyShared.value,
+    (currentEnergy) => {
+      'worklet';
+      if (!isVisible) return;
 
-    const normalizedEnergy = Math.max(
-      0.01,
-      Math.min(1, currentEnergy / (vadThreshold * 3))
-    );
+      const normalizedEnergy = Math.max(
+        0.01,
+        Math.min(1, currentEnergy / (vadThreshold * 3))
+      );
 
-    // Shift all values left
-    for (let i = 0; i < barCount - 1; i++) {
-      waveformBars[i]!.value = waveformBars[i + 1]!.value;
-      waveformRecordingState[i]!.value = waveformRecordingState[i + 1]!.value;
-    }
+      // Shift all values left (runs on UI thread - no JS bridge!)
+      for (let i = 0; i < barCount - 1; i++) {
+        waveformBars[i]!.value = waveformBars[i + 1]!.value;
+        waveformRecordingState[i]!.value = waveformRecordingState[i + 1]!.value;
+      }
 
-    // Add new value on the right with current recording state
-    waveformBars[barCount - 1]!.value = normalizedEnergy;
-    waveformRecordingState[barCount - 1]!.value = isRecording;
-  }, [
-    currentEnergy,
-    isVisible,
-    vadThreshold,
-    isRecording,
-    barCount,
-    waveformBars,
-    waveformRecordingState
-  ]);
+      // Add new value on the right with current recording state (from SharedValue!)
+      waveformBars[barCount - 1]!.value = normalizedEnergy;
+      waveformRecordingState[barCount - 1]!.value = isRecordingShared.value;
+    },
+    [isVisible, vadThreshold, barCount]
+    // isRecording removed from deps - we use SharedValue now which updates without recreation
+  );
 
   // Reset when hidden
   useEffect(() => {

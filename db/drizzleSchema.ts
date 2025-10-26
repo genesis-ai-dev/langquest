@@ -1,6 +1,7 @@
 import { relations, sql } from 'drizzle-orm';
 // import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { sqliteView, text } from 'drizzle-orm/sqlite-core';
+import { APP_SCHEMA_VERSION } from './constants';
 import {
   createAssetContentLinkTable,
   createAssetTable,
@@ -30,7 +31,7 @@ import {
 // see the official PowerSync documentation for the correct column types:
 // https://docs.powersync.com/usage/sync-rules/types#types
 
-// columns moved to ./drizzleSchemaColumns
+export { APP_SCHEMA_VERSION };
 
 export const profile = createProfileTable('merged');
 

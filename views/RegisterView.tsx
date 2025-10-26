@@ -1,12 +1,14 @@
 import { LanguageSelect } from '@/components/LanguageSelect';
 import { PasswordInput } from '@/components/PasswordInput';
-import { system } from '@/db/powersync/system';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
+import { safeNavigate } from '@/utils/sharedUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -32,18 +34,32 @@ interface RegisterFormData {
 
 const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
 
-export default function RegisterView() {
-  const { supabaseConnector } = system;
+export default function RegisterView({
+  onNavigate,
+  sharedAuthInfo
+}: {
+  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
+  sharedAuthInfo?: SharedAuthInfo;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { signUp } = useAuth();
   const { t } = useLocalization();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const setAuthView = useLocalStore((state) => state.setAuthView);
-  const [isRegistering, setIsRegistering] = useState(false);
+
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      reset({
+        email: sharedAuthInfo.email || ''
+      });
+    }
+  }, [sharedAuthInfo?.email]);
 
   const {
     control,
     handleSubmit,
     watch,
+    reset,
     formState: { errors }
   } = useForm<RegisterFormData>({
     defaultValues: {
@@ -56,63 +72,41 @@ export default function RegisterView() {
   });
 
   const onSubmit = async (data: RegisterFormData) => {
-    setIsRegistering(true);
+    setIsLoading(true);
     try {
-      const {
-        data: { session },
-        error: sessionError
-      } = await supabaseConnector.client.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) {
-        const { error: anonError } =
-          await supabaseConnector.client.auth.signInAnonymously();
-        if (anonError) throw anonError;
-      }
+      const { error } = await signUp(
+        data.email.toLowerCase().trim(),
+        data.password.trim(),
+        {
+          username: data.username.trim(),
+          terms_accepted: data.termsAccepted,
+          terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
+          ui_language:
+            currentLanguage?.english_name?.toLowerCase() || 'english',
+          ui_language_id: currentLanguage?.id,
+          email_verified: false
+        }
+      );
 
-      if (!data.termsAccepted) {
-        Alert.alert(t('error'), t('termsRequired'));
-        return;
-      }
+      if (error) throw error;
 
-      if (!data.email || !data.username) {
-        Alert.alert(t('error'), 'Required fields are missing');
-        return;
-      }
-
-      // Update the anonymous user with credentials
-      const { error: authError } =
-        await supabaseConnector.client.auth.updateUser({
-          email: data.email.trim(),
-          password: data.password.trim(),
-          data: {
-            username: data.username.trim(),
-            ui_language_id: currentLanguage?.id,
-            ui_language:
-              currentLanguage?.english_name?.toLowerCase() || 'english',
-            terms_accepted: data.termsAccepted,
-            terms_accepted_at: dateTermsAccepted
-          }
-        });
-
-      if (authError) {
-        throw authError;
-      }
-
-      console.log('User updated with terms acceptance in auth metadata');
-
-      // Email confirmation is required
-      Alert.alert(t('success'), t('checkEmail'), [
-        { text: 'OK', onPress: () => setAuthView('sign-in') }
-      ]);
-      return;
+      // Success
+      // Alert.alert(
+      //   t('success') || 'Success',
+      //   t('checkEmail') || 'Please check your email to confirm your account',
+      //   [{ text: t('ok') || 'OK', onPress: () => safeNavigate(() =>onNavigate('sign-in', { email: watch('email')}) })]
+      // );
+      // Reset form
+      reset();
     } catch (error) {
-      console.error('Error registering user:', error);
       Alert.alert(
-        t('error'),
-        error instanceof Error ? error.message : t('registrationFail')
+        t('error') || 'Error',
+        error instanceof Error
+          ? error.message
+          : t('registrationFail') || 'Registration failed'
       );
     } finally {
-      setIsRegistering(false);
+      setIsLoading(false);
     }
   };
 
@@ -139,7 +133,7 @@ export default function RegisterView() {
               <View style={{ alignItems: 'center', width: '100%' }}>
                 <Text style={sharedStyles.appTitle}>LangQuest</Text>
                 <Text style={sharedStyles.subtitle}>
-                  {t('newUserRegistration')}
+                  {t('newUserRegistration') || 'New User Registration'}
                 </Text>
               </View>
 
@@ -169,10 +163,13 @@ export default function RegisterView() {
                       control={control}
                       name="username"
                       rules={{
-                        required: t('usernameRequired'),
+                        required:
+                          t('usernameRequired') || 'Username is required',
                         minLength: {
                           value: 3,
-                          message: t('usernameRequired')
+                          message:
+                            t('usernameRequired') ||
+                            'Username must be at least 3 characters'
                         }
                       }}
                       render={({ field: { onChange, value } }) => (
@@ -194,7 +191,7 @@ export default function RegisterView() {
                           />
                           <TextInput
                             style={{ flex: 1, color: colors.text }}
-                            placeholder={t('username')}
+                            placeholder={t('username') || 'Username'}
                             placeholderTextColor={colors.text}
                             value={value}
                             onChangeText={onChange}
@@ -216,10 +213,11 @@ export default function RegisterView() {
                       control={control}
                       name="email"
                       rules={{
-                        required: t('emailRequired'),
+                        required: t('emailRequired') || 'Email is required',
                         pattern: {
                           value: EMAIL_REGEX,
-                          message: t('emailRequired')
+                          message:
+                            t('emailRequired') || 'Please enter a valid email'
                         }
                       }}
                       render={({ field: { onChange, value } }) => (
@@ -241,7 +239,9 @@ export default function RegisterView() {
                           />
                           <TextInput
                             style={{ flex: 1, color: colors.text }}
-                            placeholder={t('enterYourEmail')}
+                            placeholder={
+                              t('enterYourEmail') || 'Enter your email'
+                            }
                             placeholderTextColor={colors.text}
                             value={value}
                             onChangeText={onChange}
@@ -265,10 +265,13 @@ export default function RegisterView() {
                       control={control}
                       name="password"
                       rules={{
-                        required: t('passwordRequired'),
+                        required:
+                          t('passwordRequired') || 'Password is required',
                         minLength: {
                           value: 6,
-                          message: t('passwordMinLength')
+                          message:
+                            t('passwordMinLength') ||
+                            'Password must be at least 6 characters'
                         }
                       }}
                       render={({ field: { onChange, value } }) => (
@@ -290,7 +293,7 @@ export default function RegisterView() {
                           />
                           <PasswordInput
                             style={{ flex: 1, color: colors.text }}
-                            placeholder={t('password')}
+                            placeholder={t('password') || 'Password'}
                             placeholderTextColor={colors.text}
                             value={value}
                             onChangeText={onChange}
@@ -311,9 +314,13 @@ export default function RegisterView() {
                       control={control}
                       name="confirmPassword"
                       rules={{
-                        required: t('confirmPassword'),
+                        required:
+                          t('confirmPassword') ||
+                          'Please confirm your password',
                         validate: (value) =>
-                          value === watch('password') || t('passwordsNoMatch')
+                          value === watch('password') ||
+                          t('passwordsNoMatch') ||
+                          'Passwords do not match'
                       }}
                       render={({ field: { onChange, value } }) => (
                         <View
@@ -334,7 +341,9 @@ export default function RegisterView() {
                           />
                           <PasswordInput
                             style={{ flex: 1, color: colors.text }}
-                            placeholder={t('confirmPassword')}
+                            placeholder={
+                              t('confirmPassword') || 'Confirm Password'
+                            }
                             placeholderTextColor={colors.text}
                             value={value || ''}
                             onChangeText={onChange}
@@ -361,6 +370,11 @@ export default function RegisterView() {
                     <Controller
                       control={control}
                       name="termsAccepted"
+                      rules={{
+                        required:
+                          t('termsRequired') ||
+                          'You must agree to the Terms and Privacy'
+                      }}
                       render={({ field: { onChange, value } }) => (
                         <TouchableOpacity
                           style={{
@@ -370,26 +384,27 @@ export default function RegisterView() {
                           }}
                           onPress={() => onChange(!value)}
                         >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              value ? styles.checkboxChecked : null
-                            ]}
-                          >
+                          <View style={[styles.checkbox]}>
                             {value && (
                               <Ionicons
                                 name="checkmark"
                                 size={16}
-                                color={colors.background}
+                                color={colors.text}
                               />
                             )}
                           </View>
                           <Text style={{ color: colors.text, fontSize: 14 }}>
-                            {t('agreeToTerms')}
+                            {t('agreeToTerms') ||
+                              'I accept the terms and conditions'}
                           </Text>
                         </TouchableOpacity>
                       )}
                     />
+                    {errors.termsAccepted && (
+                      <Text style={styles.errorText}>
+                        {errors.termsAccepted.message}
+                      </Text>
+                    )}
                   </View>
 
                   {/* Submit button */}
@@ -403,13 +418,13 @@ export default function RegisterView() {
                       }
                     ]}
                     onPress={handleSubmit(onSubmit)}
-                    disabled={isRegistering}
+                    disabled={isLoading}
                   >
-                    {isRegistering ? (
+                    {isLoading ? (
                       <ActivityIndicator color={colors.background} />
                     ) : (
                       <Text style={sharedStyles.buttonText}>
-                        {t('register')}
+                        {t('register') || 'Register'}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -417,7 +432,11 @@ export default function RegisterView() {
                   {/* Sign in link */}
                   <View style={{ alignItems: 'center', gap: spacing.medium }}>
                     <TouchableOpacity
-                      onPress={() => setAuthView('sign-in')}
+                      onPress={() =>
+                        safeNavigate(() =>
+                          onNavigate('sign-in', { email: watch('email') })
+                        )
+                      }
                       style={[
                         {
                           paddingVertical: spacing.small,
@@ -432,7 +451,8 @@ export default function RegisterView() {
                       <Text
                         style={[sharedStyles.link, { textAlign: 'center' }]}
                       >
-                        {t('returningHero')}
+                        {t('returningHero') ||
+                          'Already have an account? Sign In'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -460,8 +480,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center'
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary
   }
+  // checkboxChecked: {
+  //   backgroundColor: colors.primary
+  // },
 });

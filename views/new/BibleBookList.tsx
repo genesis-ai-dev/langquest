@@ -1,25 +1,30 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
-import { BOOK_EMOJIS, BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
-import { useThemeColor } from '@/utils/styleUtils';
+import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
+import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Dimensions, Image, View } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
   onBookSelect: (bookId: string) => void;
+  existingBookIds?: Set<string>;
+  canCreateNew?: boolean;
 }
 
 export function BibleBookList({
   projectId: _projectId,
-  onBookSelect
+  onBookSelect,
+  existingBookIds,
+  canCreateNew = false
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
-
   // Responsive: calculate how many fit per row
   const screenWidth = Dimensions.get('window').width;
   const buttonWidth = 110;
@@ -39,29 +44,35 @@ export function BibleBookList({
     book: { id: string; chapters: number },
     testament: 'old' | 'new'
   ) => {
-    const emoji = BOOK_EMOJIS[book.id] || '📖';
     const iconSource = BOOK_ICON_MAP[book.id];
+    const bookExists = existingBookIds?.has(book.id);
+    const isDisabled = !bookExists && !canCreateNew;
+
+    if (!bookExists && isDisabled) {
+      return;
+    }
 
     return (
       <Button
         key={book.id}
-        variant="outline"
-        className="flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 p-3"
-        onPress={() => onBookSelect(book.id)}
-      >
-        {iconSource ? (
-          <Image
-            source={iconSource}
-            style={{
-              width: 80,
-              height: 80,
-              tintColor: testament === 'old' ? primaryColor : secondaryColor
-            }}
-            resizeMode="contain"
-          />
-        ) : (
-          <Text className="text-4xl">{emoji}</Text>
+        variant={bookExists ? 'outline' : 'ghost'}
+        className={cn(
+          'relative flex h-[140px] w-[110px] flex-col items-center justify-center gap-2 p-3',
+          !bookExists && 'border-dashed',
+          isDisabled && 'opacity-30'
         )}
+        onPress={() => onBookSelect(book.id)}
+        disabled={isDisabled}
+      >
+        <Image
+          source={iconSource}
+          style={{
+            width: 80,
+            height: 80,
+            tintColor: testament === 'old' ? primaryColor : secondaryColor
+          }}
+          resizeMode="contain"
+        />
         <View className="flex-col items-center gap-0.5">
           <Text
             className="text-xs font-bold uppercase"
@@ -69,10 +80,18 @@ export function BibleBookList({
           >
             {book.id}
           </Text>
-          <Text className="text-[10px] text-muted-foreground">
-            {book.chapters} ch
+          <Text className="text-xxs text-muted-foreground">
+            {book.chapters}
           </Text>
         </View>
+        {/* Add plus icon for createable books */}
+        {!bookExists && canCreateNew && (
+          <Icon
+            as={PlusCircleIcon}
+            size={14}
+            className="absolute -right-1 -top-1 text-primary"
+          />
+        )}
       </Button>
     );
   };
@@ -126,6 +145,12 @@ export function BibleBookListSkeleton() {
 
   return (
     <View className="flex-1">
+      {/* Header skeleton matching actual book list header */}
+      <View className="flex-row items-center justify-start gap-3 p-4">
+        <Skeleton className="rounded-lg" style={{ width: 48, height: 48 }} />
+        <Skeleton className="rounded-lg" style={{ width: 200, height: 32 }} />
+      </View>
+
       <LegendList
         data={skeletonBooks}
         keyExtractor={(item) => item.id}
@@ -143,21 +168,6 @@ export function BibleBookListSkeleton() {
             style={{ width: buttonWidth, height: 140 }}
           />
         )}
-        ListHeaderComponent={
-          <View style={{ width: availableWidth, paddingVertical: 16 }}>
-            <Skeleton style={{ width: 200, height: 24 }} />
-          </View>
-        }
-        // renderSectionHeader={(index) => {
-        //   if (index === 39) {
-        //     return (
-        //       <View style={{ width: availableWidth, paddingVertical: 32 }}>
-        //         <Skeleton style={{ width: 200, height: 24 }} />
-        //       </View>
-        //     );
-        //   }
-        //   return null;
-        // }}
       />
     </View>
   );

@@ -27,7 +27,6 @@ export async function deleteIfExists(uri: string | null | undefined) {
 }
 
 export async function getFileInfo(uri: string | null | undefined) {
-  console.log('getFileInfo', getFileName(uri ?? ''));
   return await FileSystem.getInfoAsync(uri ?? '');
 }
 

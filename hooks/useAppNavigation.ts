@@ -13,6 +13,7 @@ export interface NavigationState {
   projectId?: string;
   projectName?: string;
   projectTemplate?: string | null;
+  bookId?: string; // For Bible projects - which book is being viewed
   questId?: string;
   questName?: string;
   assetId?: string;
@@ -161,12 +162,13 @@ export function useAppNavigation() {
       ) {
         goBackToView('assets');
       } else {
-        // Navigate fresh
+        // Navigate fresh, preserving bookId from current state (for Bible navigation)
         navigate({
           view: 'assets',
           questId: questData.id,
           questName: questData.name,
-          projectId: questData.project_id
+          projectId: questData.project_id,
+          bookId: currentState.bookId // Preserve bookId for back navigation
         });
       }
     },
@@ -203,7 +205,8 @@ export function useAppNavigation() {
         assetId: assetData.id,
         assetName: assetData.name,
         projectId: targetProjectId,
-        questId: targetQuestId
+        questId: targetQuestId,
+        bookId: currentState.bookId // Preserve bookId for back navigation
       });
     },
     [navigate, currentState, addRecentAsset]
@@ -286,6 +289,7 @@ export function useAppNavigation() {
     currentAssetId: currentState.assetId,
     currentProjectName: currentState.projectName,
     currentProjectTemplate: currentState.projectTemplate,
+    currentBookId: currentState.bookId,
     currentQuestName: currentState.questName,
     currentAssetName: currentState.assetName,
 
@@ -316,6 +320,7 @@ export function useCurrentNavigation() {
     currentAssetId,
     currentProjectName,
     currentProjectTemplate,
+    currentBookId,
     currentQuestName,
     currentAssetName
   } = useAppNavigation();
@@ -361,6 +366,7 @@ export function useCurrentNavigation() {
     currentQuest,
     currentAsset,
     currentProjectTemplate,
+    currentBookId,
     currentQuestName,
     currentAssetName,
     currentProjectName

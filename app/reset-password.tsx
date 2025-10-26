@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import ResetPasswordView2 from '@/views/ResetPasswordView2';
+import ResetPasswordView from '@/views/ResetPasswordView';
 import { Redirect } from 'expo-router';
 
 export default function ResetPasswordRoute() {
@@ -12,7 +12,7 @@ export default function ResetPasswordRoute() {
 
   // If this is a password reset session, show the reset view
   if (sessionType === 'password-reset') {
-    return <ResetPasswordView2 />;
+    return <ResetPasswordView />;
   }
 
   // Otherwise redirect to the main app

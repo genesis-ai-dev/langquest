@@ -27,12 +27,13 @@ function Slider({
   return (
     <SliderPrimitive.Root
       className={cn(
-        'relative h-10 touch-none select-none justify-center aria-disabled:opacity-50',
+        'relative h-14 touch-none select-none justify-center aria-disabled:opacity-50',
         className
       )}
       {...props}
     >
-      <SliderPrimitive.Track className="relative h-1.5 overflow-hidden rounded-full bg-muted">
+      {/* Larger track for easier touch */}
+      <SliderPrimitive.Track className="relative h-3 overflow-hidden rounded-full bg-muted">
         {Platform.OS === 'web' ? (
           <SliderPrimitive.Range
             className="h-full rounded-full rounded-r-none bg-primary transition-all"
@@ -45,7 +46,7 @@ function Slider({
 
       {Platform.OS === 'web' ? (
         <SliderPrimitive.Thumb
-          className="focus-visible:outline-hidden native:absolute size-4 shrink-0 -translate-x-2 rounded-full border border-primary bg-background shadow-sm ring-ring/50 transition-colors hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none"
+          className="focus-visible:outline-hidden native:absolute size-6 shrink-0 -translate-x-3 rounded-full border-2 border-primary bg-background shadow-md ring-ring/50 transition-colors hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none"
           style={{ left: `${percent}%` }}
         />
       ) : (
@@ -104,8 +105,10 @@ function NativeThumb({ percent }: NativeIndicatorProps) {
     <SliderPrimitive.Thumb asChild>
       <Animated.View
         style={animatedStyle}
+        // Larger touch area for better UX (44x44 is iOS recommended minimum)
+        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
         className={cn(
-          'focus-visible:outline-hidden native:absolute size-4 shrink-0 -translate-x-2 rounded-full border border-primary bg-background shadow-sm ring-ring/50',
+          'focus-visible:outline-hidden native:absolute size-6 shrink-0 -translate-x-3 rounded-full border-2 border-primary bg-background shadow-md ring-ring/50',
           'transition-colors hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none'
         )}
       />
