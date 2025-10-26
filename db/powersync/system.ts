@@ -1,4 +1,4 @@
-"use no memo"
+'use no memo';
 import '@azure/core-asynciterator-polyfill';
 import type {
   DrizzleTableWithPowerSyncOptions,
@@ -251,7 +251,11 @@ export class System {
             : v
         );
       }
-      if (val && typeof val === 'object' && (val as any)._metadata === undefined) {
+      if (
+        val &&
+        typeof val === 'object' &&
+        (val as any)._metadata === undefined
+      ) {
         return { ...(val as any), _metadata: tag };
       }
       return val;
@@ -259,7 +263,7 @@ export class System {
 
     // Capture PowerSync instance for migrations
     const powersyncInstance = this.powersync;
-    
+
     const dbWithMetadata = new Proxy(rawDb as any, {
       get(target: any, prop: any, receiver: any) {
         // Expose raw PowerSync for migrations that need to alter tables
@@ -435,7 +439,9 @@ export class System {
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
         try {
-          const { checkAppUpgradeNeeded } = await import('../schemaVersionService');
+          const { checkAppUpgradeNeeded } = await import(
+            '../schemaVersionService'
+          );
           await checkAppUpgradeNeeded(this.db, this.supabaseConnector.client);
           console.log('[System] ✓ Server schema version is compatible');
         } catch (error) {
@@ -446,14 +452,14 @@ export class System {
         // CRITICAL: Check if migrations are needed AFTER creating union views
         // Now we can query _metadata through the views (will be NULL for old records)
         console.log('[System] Checking for schema migrations...');
-        
+
         // TEMPORARY: Reset metadata for testing migration
         // TODO: REMOVE THIS AFTER TESTING
         // console.log('[System] ⚠️  TESTING: Resetting metadata to 1.0 to force migration...');
         // const { resetMetadataVersionForTesting } = await import('../migrations/utils');
         // await resetMetadataVersionForTesting(this.db, '1.0');
         // console.log('[System] ✓ Metadata reset complete');
-        
+
         const { checkNeedsMigration, MigrationNeededError } = await import(
           '../migrations/index'
         );
@@ -466,7 +472,9 @@ export class System {
         );
 
         if (needsMigration) {
-          console.log('[System] ⚠️  Migration needed - blocking initialization');
+          console.log(
+            '[System] ⚠️  Migration needed - blocking initialization'
+          );
           this.migrationNeeded = true;
           // Throw specific error to signal UI needs to show migration screen
           throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
@@ -1166,7 +1174,7 @@ export class System {
   /**
    * Run schema migrations with progress callback
    * Called from MigrationScreen when user needs to migrate data
-   * 
+   *
    * @param onProgress - Callback for progress updates (current, total, step)
    */
   async runMigrations(
@@ -1182,9 +1190,8 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, checkNeedsMigration, getMinimumSchemaVersion } = await import(
-        '../migrations/index'
-      );
+      const { runMigrations, checkNeedsMigration, getMinimumSchemaVersion } =
+        await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Double-check that migration is still needed
@@ -1195,15 +1202,19 @@ export class System {
       );
 
       if (!stillNeeded) {
-        console.log('[System] No migration needed (already at current version)');
+        console.log(
+          '[System] No migration needed (already at current version)'
+        );
         this.migrationNeeded = false;
         return;
       }
 
       // Get the actual current version from database
       // This will return '0.0' for unversioned data, or the actual minimum version found
-      const currentVersion = await getMinimumSchemaVersion(this.db) || '0.0';
-      console.log(`[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`);
+      const currentVersion = (await getMinimumSchemaVersion(this.db)) || '0.0';
+      console.log(
+        `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
+      );
 
       // Use Drizzle-wrapped db for migration operations (queries through views)
       const result = await runMigrations(
@@ -1214,9 +1225,7 @@ export class System {
       );
 
       if (!result.success) {
-        throw new Error(
-          `Migration failed: ${result.errors.join(', ')}`
-        );
+        throw new Error(`Migration failed: ${result.errors.join(', ')}`);
       }
 
       console.log('[System] ✓ Migration completed successfully');
@@ -1263,18 +1272,17 @@ export function getSystem(): System {
 
 // Create a proxy that provides helpful error messages if accessed too early
 export const system = new Proxy({} as System, {
-
   get(_target, prop, _receiver) {
     // Silently handle React internal properties and common inspection properties
     // React Compiler and DevTools will check these
     const inspectionProps = new Set([
-      '$$typeof',           // React element type marker
-      '_reactInternals',    // React internals
-      'toJSON',            // JSON serialization
-      'then',              // Promise detection
-      'constructor',       // Constructor inspection
-      Symbol.toStringTag,  // Object.prototype.toString
-      Symbol.iterator      // Iterator protocol
+      '$$typeof', // React element type marker
+      '_reactInternals', // React internals
+      'toJSON', // JSON serialization
+      'then', // Promise detection
+      'constructor', // Constructor inspection
+      Symbol.toStringTag, // Object.prototype.toString
+      Symbol.iterator // Iterator protocol
     ]);
 
     if (inspectionProps.has(prop)) {
@@ -1282,10 +1290,15 @@ export const system = new Proxy({} as System, {
     }
 
     // Allow checking initialization state without throwing
-    if (prop === 'isInitialized' || prop === 'isPowerSyncInitialized' ||
-      prop === 'areAttachmentQueuesReady' || prop === 'init' ||
-      prop === 'migrationNeeded' || prop === 'runMigrations' ||
-      prop === 'resetForMigration') {
+    if (
+      prop === 'isInitialized' ||
+      prop === 'isPowerSyncInitialized' ||
+      prop === 'areAttachmentQueuesReady' ||
+      prop === 'init' ||
+      prop === 'migrationNeeded' ||
+      prop === 'runMigrations' ||
+      prop === 'resetForMigration'
+    ) {
       const instance = getSystem();
       const value = instance[prop as keyof System];
       if (typeof value === 'function') {
@@ -1297,11 +1310,13 @@ export const system = new Proxy({} as System, {
     const instance = getSystem();
 
     // Check if we're trying to access a critical property before initialization
-    if (!instance.isPowerSyncInitialized() &&
-      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')) {
+    if (
+      !instance.isPowerSyncInitialized() &&
+      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')
+    ) {
       console.warn(
         `[System] Attempted to access '${String(prop)}' before PowerSync initialization. ` +
-        `This may cause undefined errors. Call await system.init() first.`
+          `This may cause undefined errors. Call await system.init() first.`
       );
     }
 

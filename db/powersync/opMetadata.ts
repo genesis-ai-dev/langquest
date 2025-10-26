@@ -14,5 +14,3 @@ export function getDefaultOpMetadata(): OpMetadata {
     schema_version: APP_SCHEMA_VERSION
   };
 }
-
-

@@ -170,7 +170,10 @@ export function MigrationScreen() {
             <Text className="mb-2 text-sm font-semibold text-foreground">
               Error Details:
             </Text>
-            <Text className="font-mono text-xs text-destructive-foreground" style={{ color: '#76111b' }}>
+            <Text
+              className="font-mono text-xs text-destructive-foreground"
+              style={{ color: '#76111b' }}
+            >
               {error}
             </Text>
           </View>
@@ -261,4 +264,3 @@ export function MigrationScreenMinimal() {
     </View>
   );
 }
-

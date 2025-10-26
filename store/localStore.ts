@@ -87,11 +87,11 @@ export interface LocalState {
 
   // Authentication view state
   authView:
-  | 'sign-in'
-  | 'register'
-  | 'forgot-password'
-  | 'reset-password'
-  | null;
+    | 'sign-in'
+    | 'register'
+    | 'forgot-password'
+    | 'reset-password'
+    | null;
   setAuthView: (
     view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
   ) => void;
