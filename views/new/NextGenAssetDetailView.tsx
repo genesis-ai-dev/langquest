@@ -245,7 +245,8 @@ export default function NextGenAssetDetailView() {
 
       return content.audio
         .filter(
-          (audioValue: unknown): audioValue is string => typeof audioValue === 'string'
+          (audioValue: unknown): audioValue is string =>
+            typeof audioValue === 'string'
         )
         .map((audioValue: string) => {
           // Handle direct local URIs (from recording view before publish)

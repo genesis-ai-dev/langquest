@@ -111,7 +111,9 @@ const localColumns = {
   ...baseColumns,
   source: text({ enum: sourceOptions }).default('local').notNull(),
   // We need to manually add the metadata for the local columns because you cannot simply track metadata on non-syncing tables using PowerSync.
-  _metadata: text({ mode: 'json' }).$type<OpMetadata>().$defaultFn(() => getDefaultOpMetadata()),
+  _metadata: text({ mode: 'json' })
+    .$type<OpMetadata>()
+    .$defaultFn(() => getDefaultOpMetadata())
   // draft: int({ mode: 'boolean' }).notNull().default(true)
 };
 
@@ -120,22 +122,22 @@ export function getBaseColumns<T extends TableSource>(
 ): T extends 'local'
   ? typeof localColumns
   : T extends 'merged'
-  ? typeof syncedColumns & typeof localColumns
-  : typeof syncedColumns {
+    ? typeof syncedColumns & typeof localColumns
+    : typeof syncedColumns {
   return (
     source === 'local'
       ? localColumns
       : source === 'merged'
         ? {
-          ...syncedColumns,
-          ...localColumns
-        }
+            ...syncedColumns,
+            ...localColumns
+          }
         : syncedColumns
   ) as T extends 'local'
     ? typeof localColumns
     : T extends 'merged'
-    ? typeof syncedColumns & typeof localColumns
-    : typeof syncedColumns;
+      ? typeof syncedColumns & typeof localColumns
+      : typeof syncedColumns;
 }
 
 export function getTableColumns<T extends TableSource>(source: T) {

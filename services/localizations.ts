@@ -248,11 +248,16 @@ export const localizations = {
     indonesian: 'Mendeteksi upload tertunda'
   },
   pendingUploadsMessage: {
-    english: 'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
-    spanish: 'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
-    brazilian_portuguese: 'Aguarde todos os uploads para a nuvem antes de descarregar. Conecte-se à internet e aguarde a sincronização completar.',
-    tok_pisin: 'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
-    indonesian: 'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
+    english:
+      'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
+    spanish:
+      'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
+    brazilian_portuguese:
+      'Aguarde todos os uploads para a nuvem antes de descarregar. Conecte-se à internet e aguarde a sincronização completar.',
+    tok_pisin:
+      'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
+    indonesian:
+      'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
   },
   readyToOffload: {
     english: 'Ready to offload',
@@ -262,11 +267,16 @@ export const localizations = {
     indonesian: 'Siap untuk melepas'
   },
   offloadWarning: {
-    english: 'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
-    spanish: 'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
-    brazilian_portuguese: 'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
-    tok_pisin: 'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
-    indonesian: 'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
+    english:
+      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
+    spanish:
+      'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
+    brazilian_portuguese:
+      'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
+    tok_pisin:
+      'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
+    indonesian:
+      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
   },
   storageToFree: {
     english: 'Storage to Free',
@@ -386,11 +396,16 @@ export const localizations = {
       'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
   },
   questNotFoundInCloud: {
-    english: 'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.',
-    spanish: 'La misión no se encontró en la base de datos de la nube. Puede que solo exista localmente o que no tenga permiso para acceder a ella. Intenta actualizar la página o contacta al soporte si este problema persiste.',
-    brazilian_portuguese: 'A missão não foi encontrada na base de dados da nuvem. Pode existir localmente ou você pode não ter permissão para acessá-la. Tente atualizar a página ou contate o suporte se este problema persistir.',
-    tok_pisin: 'Quest i no gat long cloud database. I may only exist long local o yu no have permission long access it. Plis refresh page o contact support long this persists.',
-    indonesian: 'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.'
+    english:
+      'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.',
+    spanish:
+      'La misión no se encontró en la base de datos de la nube. Puede que solo exista localmente o que no tenga permiso para acceder a ella. Intenta actualizar la página o contacta al soporte si este problema persiste.',
+    brazilian_portuguese:
+      'A missão não foi encontrada na base de dados da nuvem. Pode existir localmente ou você pode não ter permissão para acessá-la. Tente atualizar a página ou contate o suporte se este problema persistir.',
+    tok_pisin:
+      'Quest i no gat long cloud database. I may only exist long local o yu no have permission long access it. Plis refresh page o contact support long this persists.',
+    indonesian:
+      'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.'
   },
   discovering: {
     english: 'Discovering...',
@@ -4301,7 +4316,8 @@ export const localizations = {
   vadHelpAutomatic: {
     english: 'Starts when you speak. Stops when you pause.',
     spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
-    brazilian_portuguese: 'Inicia quando você fala. Para quando você faz uma pausa.',
+    brazilian_portuguese:
+      'Inicia quando você fala. Para quando você faz uma pausa.',
     tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
     indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
   },
@@ -4315,9 +4331,11 @@ export const localizations = {
   vadHelpPause: {
     english: 'Shorter pause splits faster. Longer captures everything.',
     spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
-    brazilian_portuguese: 'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
+    brazilian_portuguese:
+      'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
     tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
-    indonesian: 'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+    indonesian:
+      'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
   },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
@@ -4327,18 +4345,28 @@ export const localizations = {
     indonesian: 'Pembaruan Aplikasi Diperlukan'
   },
   appUpgradeServerAhead: {
-    english: 'A new version of the app is required to access the latest features. Please update to continue.',
-    spanish: 'Se requiere una nueva versión de la aplicación para acceder a las últimas funciones. Por favor actualice para continuar.',
-    brazilian_portuguese: 'Uma nova versão do aplicativo é necessária para acessar os recursos mais recentes. Por favor, atualize para continuar.',
-    tok_pisin: 'Yu mas kisim nupela version bilong app long usim ol nupela samting. Plis upgreidim long go het.',
-    indonesian: 'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.'
+    english:
+      'A new version of the app is required to access the latest features. Please update to continue.',
+    spanish:
+      'Se requiere una nueva versión de la aplicación para acceder a las últimas funciones. Por favor actualice para continuar.',
+    brazilian_portuguese:
+      'Uma nova versão do aplicativo é necessária para acessar os recursos mais recentes. Por favor, atualize para continuar.',
+    tok_pisin:
+      'Yu mas kisim nupela version bilong app long usim ol nupela samting. Plis upgreidim long go het.',
+    indonesian:
+      'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.'
   },
   appUpgradeServerBehind: {
-    english: 'Your app version is newer than the server. Please contact support or wait for the server to be updated.',
-    spanish: 'Su versión de la aplicación es más nueva que el servidor. Por favor contacte al soporte o espere a que se actualice el servidor.',
-    brazilian_portuguese: 'Sua versão do aplicativo é mais recente que o servidor. Por favor, entre em contato com o suporte ou aguarde a atualização do servidor.',
-    tok_pisin: 'Version bilong app bilong yu i nupela moa long server. Plis contactim support o wetim server i upgreidim.',
-    indonesian: 'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.'
+    english:
+      'Your app version is newer than the server. Please contact support or wait for the server to be updated.',
+    spanish:
+      'Su versión de la aplicación es más nueva que el servidor. Por favor contacte al soporte o espere a que se actualice el servidor.',
+    brazilian_portuguese:
+      'Sua versão do aplicativo é mais recente que o servidor. Por favor, entre em contato com o suporte ou aguarde a atualização do servidor.',
+    tok_pisin:
+      'Version bilong app bilong yu i nupela moa long server. Plis contactim support o wetim server i upgreidim.',
+    indonesian:
+      'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.'
   },
   upgradeToVersion: {
     english: 'Please upgrade to version {version}',

@@ -135,4 +135,3 @@ export function AppUpgradeScreen({
     </View>
   );
 }
-
