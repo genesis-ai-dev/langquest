@@ -80,10 +80,13 @@ export interface LocalState {
   // VAD (Voice Activity Detection) settings
   // vadThreshold: 0.005-0.1 (lower = more sensitive, picks up quiet speech)
   // vadSilenceDuration: 500-3000ms (how long to wait before stopping recording)
+  // vadDisplayMode: 'fullscreen' = waveform takes over screen, 'footer' = small waveform in footer
   vadThreshold: number;
   setVadThreshold: (threshold: number) => void;
   vadSilenceDuration: number;
   setVadSilenceDuration: (duration: number) => void;
+  vadDisplayMode: 'fullscreen' | 'footer';
+  setVadDisplayMode: (mode: 'fullscreen' | 'footer') => void;
 
   // Authentication view state
   authView:
@@ -178,8 +181,9 @@ export const useLocalStore = create<LocalState>()(
       showHiddenContent: false,
 
       // VAD settings (defaults)
-      vadThreshold: 0.03, // Normal sensitivity
+      vadThreshold: 0.085, // 8.5% sensitivity
       vadSilenceDuration: 1000, // 1 second pause
+      vadDisplayMode: 'fullscreen', // Default to fullscreen mode
 
       // Authentication view state
       authView: null,
@@ -249,6 +253,7 @@ export const useLocalStore = create<LocalState>()(
       setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
       setVadSilenceDuration: (duration) =>
         set({ vadSilenceDuration: duration }),
+      setVadDisplayMode: (mode) => set({ vadDisplayMode: mode }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>

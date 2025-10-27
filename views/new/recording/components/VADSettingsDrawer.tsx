@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { HelpCircle, Minus, Plus } from 'lucide-react-native';
+import { HelpCircle, Maximize2, Minus, Plus, RectangleHorizontal } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
@@ -36,6 +36,8 @@ interface VADSettingsDrawerProps {
   silenceDuration: number;
   onSilenceDurationChange: (duration: number) => void;
   isVADLocked?: boolean; // Don't stop detection if VAD is locked
+  displayMode: 'fullscreen' | 'footer';
+  onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
 }
 
 export function VADSettingsDrawer({
@@ -45,7 +47,9 @@ export function VADSettingsDrawer({
   onThresholdChange,
   silenceDuration,
   onSilenceDurationChange,
-  isVADLocked = false
+  isVADLocked = false,
+  displayMode,
+  onDisplayModeChange
 }: VADSettingsDrawerProps) {
   const { isActive, energyResult, startEnergyDetection, stopEnergyDetection } =
     useMicrophoneEnergy();
@@ -178,6 +182,64 @@ export function VADSettingsDrawer({
               </Text>
             </View>
           )}
+
+          {/* Display Mode Selection */}
+          <View className="gap-3">
+            <View>
+              <Text className="text-sm font-medium text-foreground">
+                {t('vadDisplayMode')}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t('vadDisplayDescription')}
+              </Text>
+            </View>
+
+            <View className="flex-row gap-3">
+              {/* Full Screen Option */}
+              <Button
+                variant={displayMode === 'fullscreen' ? 'default' : 'outline'}
+                onPress={() => onDisplayModeChange('fullscreen')}
+                className="flex-1 h-24 flex-col gap-2"
+              >
+                <Icon 
+                  as={Maximize2} 
+                  size={28} 
+                  className={displayMode === 'fullscreen' ? 'text-primary-foreground' : 'text-foreground'}
+                />
+                <Text 
+                  className={`text-sm font-medium ${
+                    displayMode === 'fullscreen' 
+                      ? 'text-primary-foreground' 
+                      : 'text-foreground'
+                  }`}
+                >
+                  {t('vadFullScreen')}
+                </Text>
+              </Button>
+
+              {/* Footer Option */}
+              <Button
+                variant={displayMode === 'footer' ? 'default' : 'outline'}
+                onPress={() => onDisplayModeChange('footer')}
+                className="flex-1 h-24 flex-col gap-2"
+              >
+                <Icon 
+                  as={RectangleHorizontal} 
+                  size={28} 
+                  className={displayMode === 'footer' ? 'text-primary-foreground' : 'text-foreground'}
+                />
+                <Text 
+                  className={`text-sm font-medium ${
+                    displayMode === 'footer' 
+                      ? 'text-primary-foreground' 
+                      : 'text-foreground'
+                  }`}
+                >
+                  {t('vadFooter')}
+                </Text>
+              </Button>
+            </View>
+          </View>
 
           {/* Live Energy Visualization */}
           <View className="gap-3">

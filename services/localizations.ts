@@ -4327,6 +4327,41 @@ export const localizations = {
     tok_pisin: 'Olgeta',
     indonesian: 'Lengkap'
   },
+  vadDisplayMode: {
+    english: 'Display Mode',
+    spanish: 'Modo de Visualización',
+    brazilian_portuguese: 'Modo de Exibição',
+    tok_pisin: 'Kaim bilong lukim',
+    indonesian: 'Mode Tampilan'
+  },
+  vadFullScreen: {
+    english: 'Full Screen',
+    spanish: 'Pantalla Completa',
+    brazilian_portuguese: 'Tela Cheia',
+    tok_pisin: 'Fulap skrin',
+    indonesian: 'Layar Penuh'
+  },
+  vadFooter: {
+    english: 'Footer',
+    spanish: 'Pie de Página',
+    brazilian_portuguese: 'Rodapé',
+    tok_pisin: 'Asdaun',
+    indonesian: 'Footer'
+  },
+  vadDisplayDescription: {
+    english: 'Choose how the waveform appears when recording',
+    spanish: 'Elige cómo aparece la forma de onda al grabar',
+    brazilian_portuguese: 'Escolha como a forma de onda aparece ao gravar',
+    tok_pisin: 'Makim olsem wanem wevpom i kamap taim yu save record',
+    indonesian: 'Pilih bagaimana bentuk gelombang muncul saat merekam'
+  },
+  vadCancel: {
+    english: 'Cancel Recording',
+    spanish: 'Cancelar Grabación',
+    brazilian_portuguese: 'Cancelar Gravação',
+    tok_pisin: 'Stopim rekod',
+    indonesian: 'Batalkan Rekaman'
+  },
   vadHelpTitle: {
     english: 'How It Works',
     spanish: 'Cómo Funciona',
