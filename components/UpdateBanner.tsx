@@ -4,20 +4,35 @@ import { colors } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 export function UpdateBanner() {
   const { t } = useLocalization();
-  const { updateInfo, isDownloadingUpdate, downloadUpdate } = useExpoUpdates();
+  const {
+    updateInfo,
+    isDownloadingUpdate,
+    downloadUpdate,
+    downloadError,
+    dismissBanner
+  } = useExpoUpdates();
 
   if (!updateInfo?.isUpdateAvailable) {
     return null;
   }
+
+  const handleDownload = async () => {
+    try {
+      await downloadUpdate();
+    } catch (error) {
+      console.error('[UpdateBanner] Download failed:', error);
+      // Error is tracked in downloadError, will show in UI
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -27,19 +42,37 @@ export function UpdateBanner() {
           size={20}
           color={colors.primary}
         />
-        <Text style={styles.text}>{t('updateAvailable')}</Text>
+        <View style={styles.textContainer}>
+          <Text style={styles.text}>
+            {downloadError ? t('updateFailed') : t('updateAvailable')}
+          </Text>
+          {downloadError && (
+            <Text style={styles.errorText}>{t('updateErrorTryAgain')}</Text>
+          )}
+        </View>
       </View>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => downloadUpdate()}
-        disabled={isDownloadingUpdate}
-      >
-        {isDownloadingUpdate ? (
-          <ActivityIndicator size="small" color={colors.buttonText} />
-        ) : (
-          <Text style={styles.buttonText}>{t('updateNow')}</Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleDownload}
+          disabled={isDownloadingUpdate}
+        >
+          {isDownloadingUpdate ? (
+            <ActivityIndicator size="small" color={colors.buttonText} />
+          ) : (
+            <Text style={styles.buttonText}>
+              {downloadError ? t('retry') : t('updateNow')}
+            </Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.dismissButton}
+          onPress={dismissBanner}
+          disabled={isDownloadingUpdate}
+        >
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -57,11 +90,25 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 8,
+    flex: 1
+  },
+  textContainer: {
+    flex: 1
   },
   text: {
     color: colors.text,
     fontSize: 14
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 2
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
   },
   button: {
     backgroundColor: colors.primary,
@@ -73,5 +120,8 @@ const styles = StyleSheet.create({
     color: colors.buttonText,
     fontSize: 14,
     fontWeight: '500'
+  },
+  dismissButton: {
+    padding: 4
   }
 });

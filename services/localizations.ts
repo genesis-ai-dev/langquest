@@ -3332,6 +3332,27 @@ export const localizations = {
     tok_pisin: 'Update Nau',
     indonesian: 'Perbarui Sekarang'
   },
+  updateFailed: {
+    english: 'Update failed',
+    spanish: 'Actualización fallida',
+    brazilian_portuguese: 'Atualização falhou',
+    tok_pisin: 'Update i pundaun',
+    indonesian: 'Pembaruan gagal'
+  },
+  updateErrorTryAgain: {
+    english: 'Please try again or dismiss',
+    spanish: 'Por favor intente nuevamente o descarte',
+    brazilian_portuguese: 'Por favor tente novamente ou descarte',
+    tok_pisin: 'Traim gen o rausim',
+    indonesian: 'Silakan coba lagi atau abaikan'
+  },
+  retry: {
+    english: 'Retry',
+    spanish: 'Reintentar',
+    brazilian_portuguese: 'Tentar novamente',
+    tok_pisin: 'Traim gen',
+    indonesian: 'Coba lagi'
+  },
   enterCommentOptional: {
     english: 'Enter your comment (optional)',
     spanish: 'Escribe tu comentario (opcional)',

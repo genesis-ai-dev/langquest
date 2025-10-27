@@ -24,6 +24,7 @@ import ProjectDirectoryView from '@/views/new/ProjectDirectoryView';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { StatusProvider } from '@/contexts/StatusContext';
 
 export default function AppView() {
@@ -76,6 +77,9 @@ export default function AppView() {
           <AppHeader
             drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
           />
+
+          {/* OTA Update Banner */}
+          <UpdateBanner />
 
           {/* Current View */}
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
