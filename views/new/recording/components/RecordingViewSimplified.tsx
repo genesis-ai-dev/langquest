@@ -8,9 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
-    asset,
-    asset_content_link,
-    quest_asset_link
+  asset,
+  asset_content_link,
+  quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -19,8 +19,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-    getLocalAttachmentUriWithOPFS,
-    saveAudioLocally
+  getLocalAttachmentUriWithOPFS,
+  saveAudioLocally
 } from '@/utils/fileUtils';
 import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';

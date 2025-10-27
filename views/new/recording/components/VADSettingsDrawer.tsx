@@ -5,27 +5,33 @@
 
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerDescription,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { HelpCircle, Maximize2, Minus, Plus, RectangleHorizontal } from 'lucide-react-native';
+import {
+  HelpCircle,
+  Maximize2,
+  Minus,
+  Plus,
+  RectangleHorizontal
+} from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withTiming
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 
 interface VADSettingsDrawerProps {
@@ -199,17 +205,21 @@ export function VADSettingsDrawer({
               <Button
                 variant={displayMode === 'fullscreen' ? 'default' : 'outline'}
                 onPress={() => onDisplayModeChange('fullscreen')}
-                className="flex-1 h-24 flex-col gap-2"
+                className="h-24 flex-1 flex-col gap-2"
               >
-                <Icon 
-                  as={Maximize2} 
-                  size={28} 
-                  className={displayMode === 'fullscreen' ? 'text-primary-foreground' : 'text-foreground'}
+                <Icon
+                  as={Maximize2}
+                  size={28}
+                  className={
+                    displayMode === 'fullscreen'
+                      ? 'text-primary-foreground'
+                      : 'text-foreground'
+                  }
                 />
-                <Text 
+                <Text
                   className={`text-sm font-medium ${
-                    displayMode === 'fullscreen' 
-                      ? 'text-primary-foreground' 
+                    displayMode === 'fullscreen'
+                      ? 'text-primary-foreground'
                       : 'text-foreground'
                   }`}
                 >
@@ -221,17 +231,21 @@ export function VADSettingsDrawer({
               <Button
                 variant={displayMode === 'footer' ? 'default' : 'outline'}
                 onPress={() => onDisplayModeChange('footer')}
-                className="flex-1 h-24 flex-col gap-2"
+                className="h-24 flex-1 flex-col gap-2"
               >
-                <Icon 
-                  as={RectangleHorizontal} 
-                  size={28} 
-                  className={displayMode === 'footer' ? 'text-primary-foreground' : 'text-foreground'}
+                <Icon
+                  as={RectangleHorizontal}
+                  size={28}
+                  className={
+                    displayMode === 'footer'
+                      ? 'text-primary-foreground'
+                      : 'text-foreground'
+                  }
                 />
-                <Text 
+                <Text
                   className={`text-sm font-medium ${
-                    displayMode === 'footer' 
-                      ? 'text-primary-foreground' 
+                    displayMode === 'footer'
+                      ? 'text-primary-foreground'
                       : 'text-foreground'
                   }`}
                 >

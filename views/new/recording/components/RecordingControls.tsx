@@ -121,45 +121,45 @@ export const RecordingControls = React.memo(
         style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
-          {/* Waveform visualization above controls - only visible in footer mode */}
-          <WaveformVisualization
-            isVisible={isVADLocked ?? false}
-            energyShared={energyShared ?? fallbackEnergyShared}
-            vadThreshold={vadThreshold ?? 0.085}
-            isRecordingShared={isRecordingShared ?? fallbackIsRecordingShared}
-            barCount={60}
-            maxHeight={24}
-          />
+        {/* Waveform visualization above controls - only visible in footer mode */}
+        <WaveformVisualization
+          isVisible={isVADLocked ?? false}
+          energyShared={energyShared ?? fallbackEnergyShared}
+          vadThreshold={vadThreshold ?? 0.085}
+          isRecordingShared={isRecordingShared ?? fallbackIsRecordingShared}
+          barCount={60}
+          maxHeight={24}
+        />
 
-          {/* Controls row */}
-          <View className="flex-row items-center justify-between px-4 py-2">
-            {/* Settings button on the left */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onPress={onSettingsPress}
-              className="h-20 w-20"
-            >
-              <Icon as={Settings} size={24} />
-            </Button>
+        {/* Controls row */}
+        <View className="flex-row items-center justify-between px-4 py-2">
+          {/* Settings button on the left */}
+          <Button
+            variant="ghost"
+            size="lg"
+            onPress={onSettingsPress}
+            className="h-20 w-20"
+          >
+            <Icon as={Settings} size={24} />
+          </Button>
 
-            {/* Recorder in center - takes remaining space */}
-            <View className="flex-1 items-center">
-              <WalkieTalkieRecorder
-                onRecordingComplete={onRecordingComplete}
-                onRecordingStart={onRecordingStart}
-                onRecordingStop={onRecordingStop}
-                onRecordingDiscarded={onRecordingDiscarded}
-                onWaveformUpdate={undefined}
-                isRecording={isRecording}
-                isVADLocked={isVADLocked}
-                onVADLockChange={onVADLockChange}
-                // Energy values passed directly - ring buffer handles updates efficiently
-                currentEnergy={currentEnergy}
-                vadThreshold={vadThreshold}
-                canRecord={hasPermission}
-              />
-            </View>
+          {/* Recorder in center - takes remaining space */}
+          <View className="flex-1 items-center">
+            <WalkieTalkieRecorder
+              onRecordingComplete={onRecordingComplete}
+              onRecordingStart={onRecordingStart}
+              onRecordingStop={onRecordingStop}
+              onRecordingDiscarded={onRecordingDiscarded}
+              onWaveformUpdate={undefined}
+              isRecording={isRecording}
+              isVADLocked={isVADLocked}
+              onVADLockChange={onVADLockChange}
+              // Energy values passed directly - ring buffer handles updates efficiently
+              currentEnergy={currentEnergy}
+              vadThreshold={vadThreshold}
+              canRecord={hasPermission}
+            />
+          </View>
 
           {/* Spacer to balance layout */}
           <View className="h-20 w-20" />

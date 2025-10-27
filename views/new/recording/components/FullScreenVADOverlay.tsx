@@ -12,9 +12,9 @@ import { X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
-    FadeIn,
-    FadeOut,
-    type SharedValue
+  FadeIn,
+  FadeOut,
+  type SharedValue
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -46,11 +46,11 @@ export function FullScreenVADOverlay({
       exiting={FadeOut.duration(200)}
       className="absolute inset-0 z-50 flex items-center justify-center bg-background"
     >
-      <View className="flex-1 w-full items-center justify-center px-8">
+      <View className="w-full flex-1 items-center justify-center px-8">
         {/* Large waveform visualization */}
-        <Animated.View 
+        <Animated.View
           entering={FadeIn.duration(300).delay(50)}
-          className="w-full mb-8"
+          className="mb-8 w-full"
         >
           <WaveformVisualization
             isVisible={true}
@@ -64,13 +64,13 @@ export function FullScreenVADOverlay({
 
         {/* Status text */}
         <Animated.View entering={FadeIn.duration(300).delay(100)}>
-          <Text className="text-xl font-medium text-muted-foreground text-center mb-12">
+          <Text className="mb-12 text-center text-xl font-medium text-muted-foreground">
             {t('vadRecordingNow')}
           </Text>
         </Animated.View>
 
         {/* Cancel button */}
-        <Animated.View 
+        <Animated.View
           entering={FadeIn.duration(300).delay(150)}
           exiting={FadeOut.duration(200)}
         >
@@ -78,7 +78,7 @@ export function FullScreenVADOverlay({
             variant="destructive"
             size="lg"
             onPress={onCancel}
-            className="w-64 h-16"
+            className="h-16 w-64"
             style={{ marginBottom: insets.bottom + 32 }}
           >
             <Icon as={X} size={24} className="mr-2" />
@@ -91,4 +91,3 @@ export function FullScreenVADOverlay({
     </Animated.View>
   );
 }
-
