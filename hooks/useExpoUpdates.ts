@@ -1,8 +1,58 @@
+import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Updates from 'expo-updates';
+import { useEffect, useRef } from 'react';
+
+const DISMISSAL_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 export function useExpoUpdates() {
   const queryClient = useQueryClient();
+  const dismissedUpdateTimestamp = useLocalStore(
+    (state) => state.dismissedUpdateTimestamp
+  );
+  const dismissedUpdateVersion = useLocalStore(
+    (state) => state.dismissedUpdateVersion
+  );
+  const dismissUpdate = useLocalStore((state) => state.dismissUpdate);
+  const resetUpdateDismissal = useLocalStore(
+    (state) => state.resetUpdateDismissal
+  );
+
+  // Set up a timer to invalidate query when dismissal expires
+  // More performant than constant polling
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If dismissed, set a timer for when it should reappear
+    if (dismissedUpdateTimestamp) {
+      const timeSinceDismissal = Date.now() - dismissedUpdateTimestamp;
+      const timeRemaining = DISMISSAL_DURATION - timeSinceDismissal;
+
+      if (timeRemaining > 0) {
+        console.log(
+          '[Updates] Setting timer to reappear in',
+          Math.round(timeRemaining / 1000 / 60),
+          'minutes'
+        );
+        timerRef.current = setTimeout(() => {
+          console.log('[Updates] Dismissal expired! Checking for updates');
+          void queryClient.invalidateQueries({ queryKey: ['updates'] });
+        }, timeRemaining);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [dismissedUpdateTimestamp, queryClient]);
 
   const {
     data: updateInfo,
@@ -29,8 +79,8 @@ export function useExpoUpdates() {
     // Check for updates less frequently
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    // Only check when online
-    enabled: navigator.onLine
+    // expo-updates handles offline gracefully, so always enable
+    retry: false // Don't retry on failure, check will happen again after staleTime
   });
 
   const downloadUpdateMutation = useMutation({
@@ -46,12 +96,55 @@ export function useExpoUpdates() {
     }
   });
 
+  // Determine if we should show the update banner
+  const shouldShowBanner = () => {
+    if (!updateInfo?.isUpdateAvailable) {
+      return false;
+    }
+
+    // Get current update version (use id as version identifier)
+    const currentUpdateVersion =
+      (updateInfo.manifest as { id?: string })?.id || 'unknown';
+
+    // Never dismissed - show banner
+    if (!dismissedUpdateTimestamp || !dismissedUpdateVersion) {
+      return true;
+    }
+
+    // New version available (different from dismissed) - show banner
+    if (currentUpdateVersion !== dismissedUpdateVersion) {
+      return true;
+    }
+
+    // Same version but 24 hours passed - show banner again
+    const timeSinceDismissal = Date.now() - dismissedUpdateTimestamp;
+    if (timeSinceDismissal >= DISMISSAL_DURATION) {
+      return true;
+    }
+
+    // Still within dismissal period for this version
+    return false;
+  };
+
+  // Handle dismissal
+  const handleDismiss = () => {
+    const currentUpdateVersion =
+      (updateInfo?.manifest as { id?: string })?.id || 'unknown';
+    dismissUpdate(currentUpdateVersion);
+  };
+
   return {
-    updateInfo,
+    updateInfo: {
+      ...updateInfo,
+      isUpdateAvailable: shouldShowBanner()
+    },
     isLoading,
     checkForUpdate,
     downloadUpdate: downloadUpdateMutation.mutateAsync,
     isDownloadingUpdate: downloadUpdateMutation.isPending,
+    downloadError: downloadUpdateMutation.error,
+    dismissBanner: handleDismiss,
+    resetDismissal: resetUpdateDismissal,
     error
   };
 }

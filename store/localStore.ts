@@ -120,6 +120,12 @@ export interface LocalState {
     uploadTotal: number;
   };
 
+  // OTA Update dismissal tracking
+  dismissedUpdateTimestamp: number | null;
+  dismissedUpdateVersion: string | null;
+  dismissUpdate: (version: string) => void;
+  resetUpdateDismissal: () => void;
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
@@ -202,6 +208,20 @@ export const useLocalStore = create<LocalState>()(
         uploadCurrent: 0,
         uploadTotal: 0
       },
+
+      // OTA Update dismissal tracking
+      dismissedUpdateTimestamp: null,
+      dismissedUpdateVersion: null,
+      dismissUpdate: (version) =>
+        set({
+          dismissedUpdateTimestamp: Date.now(),
+          dismissedUpdateVersion: version
+        }),
+      resetUpdateDismissal: () =>
+        set({
+          dismissedUpdateTimestamp: null,
+          dismissedUpdateVersion: null
+        }),
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
