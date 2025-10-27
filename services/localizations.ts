@@ -2751,6 +2751,62 @@ export const localizations = {
     tok_pisin: 'i no connect',
     indonesian: 'terputus'
   },
+  syncingAttachments: {
+    english: 'syncing attachments',
+    spanish: 'sincronizando archivos adjuntos',
+    brazilian_portuguese: 'sincronizando anexos',
+    tok_pisin: 'i sync ol attachment',
+    indonesian: 'mengosinkronkan lampiran'
+  },
+  attachmentSync: {
+    english: 'attachment sync',
+    spanish: 'sincronización de archivos adjuntos',
+    brazilian_portuguese: 'sincronização de anexos',
+    tok_pisin: 'attachment sync',
+    indonesian: 'sinkron lampiran'
+  },
+  databaseSyncError: {
+    english: 'database sync error',
+    spanish: 'error de sincronización de base de datos',
+    brazilian_portuguese: 'erro de sincronização de banco de dados',
+    tok_pisin: 'database sync i gat problem',
+    indonesian: 'kesalahan sinkron basis data'
+  },
+  attachmentSyncError: {
+    english: 'attachment sync error',
+    spanish: 'error de sincronización de archivos adjuntos',
+    brazilian_portuguese: 'erro de sincronização de anexos',
+    tok_pisin: 'attachment sync i gat problem',
+    indonesian: 'kesalahan sinkron lampiran'
+  },
+  uploadingData: {
+    english: 'uploading data',
+    spanish: 'subiendo datos',
+    brazilian_portuguese: 'enviando dados',
+    tok_pisin: 'i upload data',
+    indonesian: 'mengunggah data'
+  },
+  downloadingData: {
+    english: 'downloading data',
+    spanish: 'descargando datos',
+    brazilian_portuguese: 'baixando dados',
+    tok_pisin: 'i download data',
+    indonesian: 'mengunduh data'
+  },
+  syncError: {
+    english: 'sync error',
+    spanish: 'error de sincronización',
+    brazilian_portuguese: 'erro de sincronização',
+    tok_pisin: 'sync i gat problem',
+    indonesian: 'kesalahan sinkron'
+  },
+  tapForDetails: {
+    english: 'tap for details',
+    spanish: 'toca para ver detalles',
+    brazilian_portuguese: 'toque para detalhes',
+    tok_pisin: 'presim long lukim moa',
+    indonesian: 'ketuk untuk detail'
+  },
   downloadComplete: {
     english: 'download complete',
     spanish: 'descarga completa',

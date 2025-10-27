@@ -2,13 +2,20 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { AttachmentState } from '@powersync/attachments';
-import { ChevronRight, CloudOff, Menu, RefreshCw } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  ChevronRight,
+  CloudOff,
+  Menu,
+  RefreshCw
+} from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -31,9 +38,15 @@ export default function AppHeader({
   } = useAppNavigation();
 
   // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  const { t } = useLocalization();
   const { totalCount: notificationCount } = useNotifications();
-  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
-    useSyncState();
+  const {
+    isDownloadOperationInProgress,
+    isUpdateInProgress,
+    isConnecting,
+    downloadError,
+    uploadError
+  } = useSyncState();
 
   // Get attachment states to monitor download queue
   const { attachmentStates } = useAttachmentStates([]);
@@ -53,12 +66,20 @@ export default function AppHeader({
     return false;
   }, [attachmentStates]);
 
+  const hasSyncError = !!(downloadError || uploadError);
   const isSyncing =
     isDownloadOperationInProgress ||
     isUpdateInProgress ||
     isConnecting ||
     hasDownloadsInProgress;
   const isConnected = useNetworkStatus();
+
+  // Handler for sync error tap
+  const handleSyncErrorTap = () => {
+    const errorMessage =
+      downloadError?.message || uploadError?.message || t('syncError');
+    Alert.alert(t('syncError'), errorMessage);
+  };
 
   // Animation for sync indicator
   const spinValue = useSharedValue(0);
@@ -158,6 +179,15 @@ export default function AppHeader({
               <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
                 <Icon as={CloudOff} size={10} className="text-white" />
               </View>
+            ) : hasSyncError ? (
+              <Pressable
+                onPress={handleSyncErrorTap}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
+                  <Icon as={AlertTriangle} size={10} className="text-white" />
+                </View>
+              </Pressable>
             ) : isSyncing ? (
               <Animated.View
                 style={spinStyle}

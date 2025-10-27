@@ -27,8 +27,12 @@ import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
 import type { LucideIcon } from 'lucide-react-native';
 import {
+  AlertTriangle,
   BellIcon,
+  CloudDownload,
+  CloudUpload,
   CloudUploadIcon,
+  Download,
   HomeIcon,
   LogOutIcon,
   SaveIcon,
@@ -43,6 +47,7 @@ import {
   Platform,
   View
 } from 'react-native';
+import { IndeterminateProgressBar } from './IndeterminateProgressBar';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
@@ -596,36 +601,55 @@ export default function AppDrawer({
             className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
             onPress={logPowerSyncStatus}
           >
-            <Text className="text-center text-sm font-medium text-foreground">
-              {!isConnected
-                ? `${throttledProgress.synced} ${t('filesDownloaded')}`
-                : throttledProgress.hasActivity
-                  ? `${t('downloading')} ${throttledProgress.downloading + throttledProgress.queued} ${t('files')}...`
-                  : powersyncStatus?.connected
-                    ? powersyncStatus.dataFlowStatus.downloading
-                      ? t('syncingDatabase')
-                      : powersyncStatus.hasSynced
-                        ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
-                        : t('notSynced')
-                    : powersyncStatus?.connecting
-                      ? t('connecting')
-                      : t('disconnected')}
-            </Text>
+            {/* Database sync errors */}
+            {(powersyncStatus?.dataFlowStatus.downloadError ||
+              powersyncStatus?.dataFlowStatus.uploadError) && (
+              <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
+                <Icon
+                  as={AlertTriangle}
+                  size={16}
+                  className="text-destructive"
+                />
+                <Text className="flex-1 text-sm text-destructive">
+                  {t('databaseSyncError')}
+                </Text>
+              </View>
+            )}
 
-            {/* Progress bar for download progress */}
-            {(powersyncStatus?.downloadProgress ||
-              throttledProgress.hasActivity) && (
-              <View className="flex flex-col gap-2">
-                <Progress
-                  value={
-                    throttledProgress.hasActivity
-                      ? throttledProgress.total > 0
-                        ? (throttledProgress.synced / throttledProgress.total) *
-                          100
-                        : 0
-                      : undefined
+            {/* Status text with icon */}
+            <View className="flex-row items-center gap-2">
+              {powersyncStatus?.dataFlowStatus.uploading && (
+                <Icon as={CloudUpload} size={16} className="text-primary" />
+              )}
+              {powersyncStatus?.dataFlowStatus.downloading && (
+                <Icon as={CloudDownload} size={16} className="text-primary" />
+              )}
+              <Text className="text-center text-sm font-medium text-foreground">
+                {!isConnected
+                  ? `${throttledProgress.synced} ${t('filesDownloaded')}`
+                  : powersyncStatus?.dataFlowStatus.uploading
+                    ? t('uploadingData')
+                    : powersyncStatus?.dataFlowStatus.downloading
+                      ? t('downloadingData')
+                      : powersyncStatus?.connected
+                        ? powersyncStatus.hasSynced
+                          ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
+                          : t('notSynced')
+                        : powersyncStatus?.connecting
+                          ? t('connecting')
+                          : t('disconnected')}
+              </Text>
+            </View>
+
+            {/* Indeterminate progress bar for database sync */}
+            {(powersyncStatus?.dataFlowStatus.downloading ||
+              powersyncStatus?.dataFlowStatus.uploading) && (
+              <View className="mt-2 w-full">
+                <IndeterminateProgressBar
+                  isActive={
+                    powersyncStatus?.dataFlowStatus.downloading ||
+                    powersyncStatus?.dataFlowStatus.uploading
                   }
-                  className="h-1 w-full"
                 />
               </View>
             )}
@@ -647,72 +671,78 @@ export default function AppDrawer({
                 )}
               >
                 <View className="flex flex-col gap-2">
-                  <Text
-                    className={cn(
-                      'text-sm text-foreground',
-                      throttledProgress.hasActivity
-                        ? 'font-semibold'
-                        : 'font-medium'
+                  <View className="flex-row items-center gap-2">
+                    {throttledProgress.hasActivity && (
+                      <Icon as={Download} size={14} className="text-primary" />
                     )}
-                  >
-                    {isInGracePeriod ? (
-                      <>
-                        <Text className="font-semibold text-primary">
-                          {t('downloadComplete')}
+                    <Text
+                      className={cn(
+                        'text-sm text-foreground',
+                        throttledProgress.hasActivity
+                          ? 'font-semibold'
+                          : 'font-medium'
+                      )}
+                    >
+                      {isInGracePeriod ? (
+                        <>
+                          <Text className="font-semibold text-primary">
+                            {t('downloadComplete')}
+                          </Text>
+                          <Text className="text-sm text-foreground">
+                            {' '}
+                            ({throttledProgress.synced}/
+                            {throttledProgress.total} {t('files')})
+                          </Text>
+                        </>
+                      ) : throttledProgress.downloading > 0 &&
+                        throttledProgress.queued > 0 ? (
+                        <>
+                          <Text className="text-sm text-foreground">
+                            {t('syncingAttachments')}:{' '}
+                            {throttledProgress.downloading}
+                          </Text>
+                          <Text className="text-sm text-foreground">, </Text>
+                          <Text className="text-sm text-foreground">
+                            {t('queued')}: {throttledProgress.queued}
+                          </Text>
+                          <Text className="text-sm text-foreground">
+                            {' '}
+                            ({throttledProgress.synced}/
+                            {throttledProgress.total} {t('complete')})
+                          </Text>
+                        </>
+                      ) : throttledProgress.downloading > 0 ? (
+                        <>
+                          <Text className="text-sm text-foreground">
+                            {t('syncingAttachments')}:{' '}
+                            {throttledProgress.downloading} {t('files')}
+                          </Text>
+                          <Text className="text-sm text-foreground">
+                            {' '}
+                            ({throttledProgress.synced}/
+                            {throttledProgress.total} {t('complete')})
+                          </Text>
+                        </>
+                      ) : throttledProgress.queued > 0 ? (
+                        <>
+                          <Text className="text-sm text-foreground">
+                            {t('queuedForDownload')}: {throttledProgress.queued}{' '}
+                            {t('files')}
+                          </Text>
+                          <Text className="text-sm text-foreground">
+                            {' '}
+                            ({throttledProgress.synced}/
+                            {throttledProgress.total} {t('complete')})
+                          </Text>
+                        </>
+                      ) : (
+                        <Text className="text-foreground">
+                          {throttledProgress.synced}/{throttledProgress.total}{' '}
+                          {t('filesDownloaded')}
                         </Text>
-                        <Text className="text-sm text-foreground">
-                          {' '}
-                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
-                          {t('files')})
-                        </Text>
-                      </>
-                    ) : throttledProgress.downloading > 0 &&
-                      throttledProgress.queued > 0 ? (
-                      <>
-                        <Text className="text-sm text-foreground">
-                          {t('downloading')}: {throttledProgress.downloading}
-                        </Text>
-                        <Text className="text-sm text-foreground">, </Text>
-                        <Text className="text-sm text-foreground">
-                          {t('queued')}: {throttledProgress.queued}
-                        </Text>
-                        <Text className="text-sm text-foreground">
-                          {' '}
-                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
-                          {t('complete')})
-                        </Text>
-                      </>
-                    ) : throttledProgress.downloading > 0 ? (
-                      <>
-                        <Text className="text-sm text-foreground">
-                          {t('downloading')}: {throttledProgress.downloading}{' '}
-                          {t('files')}
-                        </Text>
-                        <Text className="text-sm text-foreground">
-                          {' '}
-                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
-                          {t('complete')})
-                        </Text>
-                      </>
-                    ) : throttledProgress.queued > 0 ? (
-                      <>
-                        <Text className="text-sm text-foreground">
-                          {t('queuedForDownload')}: {throttledProgress.queued}{' '}
-                          {t('files')}
-                        </Text>
-                        <Text className="text-sm text-foreground">
-                          {' '}
-                          ({throttledProgress.synced}/{throttledProgress.total}{' '}
-                          {t('complete')})
-                        </Text>
-                      </>
-                    ) : (
-                      <Text className="text-foreground">
-                        {throttledProgress.synced}/{throttledProgress.total}{' '}
-                        {t('filesDownloaded')}
-                      </Text>
-                    )}
-                  </Text>
+                      )}
+                    </Text>
+                  </View>
                   <Progress
                     value={
                       isInGracePeriod
