@@ -1,15 +1,15 @@
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { useExpoUpdates } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+
+// DEV ONLY: Import mock for testing
+// To test OTA updates in development, uncomment the next 2 lines:
+// import { useExpoUpdatesMock } from '@/hooks/useExpoUpdates.mock';
+// const USE_MOCK = true;
 
 export function UpdateBanner() {
   const { t } = useLocalization();
@@ -19,7 +19,9 @@ export function UpdateBanner() {
     downloadUpdate,
     downloadError,
     dismissBanner
-  } = useExpoUpdates();
+  } = useExpoUpdates(); // In production, always use real updates
+  
+  // For testing, replace above with: USE_MOCK ? useExpoUpdatesMock() : useExpoUpdates()
 
   if (!updateInfo?.isUpdateAvailable) {
     return null;
@@ -35,93 +37,47 @@ export function UpdateBanner() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
+    <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
+      <View className="flex-1 flex-row items-center gap-2">
         <Ionicons
           name="cloud-download-outline"
           size={20}
-          color={colors.primary}
+          className="text-primary"
         />
-        <View style={styles.textContainer}>
-          <Text style={styles.text}>
+        <View className="flex-1">
+          <Text className="text-sm font-medium">
             {downloadError ? t('updateFailed') : t('updateAvailable')}
           </Text>
           {downloadError && (
-            <Text style={styles.errorText}>{t('updateErrorTryAgain')}</Text>
+            <Text className="mt-0.5 text-xs text-destructive">
+              {t('updateErrorTryAgain')}
+            </Text>
           )}
         </View>
       </View>
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.button}
+      <View className="flex-row items-center gap-2">
+        <Button
+          size="sm"
           onPress={handleDownload}
           disabled={isDownloadingUpdate}
+          className="h-8"
         >
           {isDownloadingUpdate ? (
-            <ActivityIndicator size="small" color={colors.buttonText} />
+            <ActivityIndicator size="small" className="text-primary-foreground" />
           ) : (
-            <Text style={styles.buttonText}>
+            <Text className="text-sm font-medium text-primary-foreground">
               {downloadError ? t('retry') : t('updateNow')}
             </Text>
           )}
-        </TouchableOpacity>
+        </Button>
         <TouchableOpacity
-          style={styles.dismissButton}
           onPress={dismissBanner}
           disabled={isDownloadingUpdate}
+          className="p-1"
         >
-          <Ionicons name="close" size={20} color={colors.textSecondary} />
+          <Ionicons name="close" size={20} className="text-muted-foreground" />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.background,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1
-  },
-  textContainer: {
-    flex: 1
-  },
-  text: {
-    color: colors.text,
-    fontSize: 14
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: 2
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4
-  },
-  buttonText: {
-    color: colors.buttonText,
-    fontSize: 14,
-    fontWeight: '500'
-  },
-  dismissButton: {
-    padding: 4
-  }
-});

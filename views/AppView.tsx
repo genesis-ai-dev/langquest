@@ -27,6 +27,10 @@ import LoadingView from '@/components/LoadingView';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { StatusProvider } from '@/contexts/StatusContext';
 
+// DEV ONLY: Debug controls for testing OTA updates
+// To test OTA updates in development, uncomment the next line:
+// import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
+
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
@@ -80,6 +84,9 @@ export default function AppView() {
 
           {/* OTA Update Banner */}
           <UpdateBanner />
+
+          {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
+          {/* <OTAUpdateDebugControls /> */}
 
           {/* Current View */}
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>

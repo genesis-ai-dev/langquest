@@ -1,6 +1,7 @@
 import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Updates from 'expo-updates';
+import { useEffect, useRef } from 'react';
 
 const DISMISSAL_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -16,6 +17,42 @@ export function useExpoUpdates() {
   const resetUpdateDismissal = useLocalStore(
     (state) => state.resetUpdateDismissal
   );
+
+  // Set up a timer to invalidate query when dismissal expires
+  // More performant than constant polling
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If dismissed, set a timer for when it should reappear
+    if (dismissedUpdateTimestamp) {
+      const timeSinceDismissal = Date.now() - dismissedUpdateTimestamp;
+      const timeRemaining = DISMISSAL_DURATION - timeSinceDismissal;
+
+      if (timeRemaining > 0) {
+        console.log(
+          '[Updates] Setting timer to reappear in',
+          Math.round(timeRemaining / 1000 / 60),
+          'minutes'
+        );
+        timerRef.current = setTimeout(() => {
+          console.log('[Updates] Dismissal expired! Checking for updates');
+          void queryClient.invalidateQueries({ queryKey: ['updates'] });
+        }, timeRemaining);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [dismissedUpdateTimestamp, queryClient]);
 
   const {
     data: updateInfo,
