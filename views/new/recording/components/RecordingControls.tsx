@@ -12,9 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +38,7 @@ interface RecordingControlsProps {
   vadThreshold?: number;
   energyShared?: SharedValue<number>; // For UI performance
   isRecordingShared?: SharedValue<boolean>; // NEW: For instant waveform updates
+  displayMode?: 'fullscreen' | 'footer'; // Display mode preference
 }
 
 export const RecordingControls = React.memo(
@@ -55,11 +55,17 @@ export const RecordingControls = React.memo(
     currentEnergy,
     vadThreshold,
     energyShared,
-    isRecordingShared
+    isRecordingShared,
+    displayMode = 'footer'
   }: RecordingControlsProps) {
     const { t } = useLocalization();
-    const [hasPermission, setHasPermission] = useState<boolean>(true);
     const insets = useSafeAreaInsets();
+    // Permissions are handled by native module
+    const hasPermission = true;
+
+    const requestPermission = async () => {
+      // Native module handles permissions
+    };
 
     // Fallback SharedValues for backward compatibility
     const { useSharedValue } = require('react-native-reanimated');
@@ -82,18 +88,6 @@ export const RecordingControls = React.memo(
       isRecordingShared,
       fallbackIsRecordingShared
     ]);
-
-    // Check permissions after render
-    useEffect(() => {
-      void Audio.getPermissionsAsync().then((response) => {
-        setHasPermission(response.status === Audio.PermissionStatus.GRANTED);
-      });
-    }, []);
-
-    const requestPermission = async () => {
-      const response = await Audio.requestPermissionsAsync();
-      setHasPermission(response.status === Audio.PermissionStatus.GRANTED);
-    };
 
     // Show permission UI only if we explicitly know permission is denied
     if (!hasPermission) {
@@ -127,11 +121,11 @@ export const RecordingControls = React.memo(
         style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
-        {/* Waveform visualization above controls */}
+        {/* Waveform visualization above controls - only visible in footer mode */}
         <WaveformVisualization
           isVisible={isVADLocked ?? false}
           energyShared={energyShared ?? fallbackEnergyShared}
-          vadThreshold={vadThreshold ?? 0.03}
+          vadThreshold={vadThreshold ?? 0.085}
           isRecordingShared={isRecordingShared ?? fallbackIsRecordingShared}
           barCount={60}
           maxHeight={24}

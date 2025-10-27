@@ -36,6 +36,7 @@ import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
+import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
 import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
@@ -86,6 +87,8 @@ const RecordingViewSimplified = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
+  const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
+  const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
 
   // Track current recording order index
@@ -1346,8 +1349,25 @@ const RecordingViewSimplified = ({
     );
   }
 
+  // Show full-screen overlay when VAD is locked and display mode is fullscreen
+  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+
   return (
     <View className="flex-1 bg-background">
+      {/* Full-screen VAD overlay - takes over entire screen */}
+      {showFullScreenOverlay && (
+        <FullScreenVADOverlay
+          isVisible={true}
+          energyShared={energyShared}
+          vadThreshold={vadThreshold}
+          isRecordingShared={isRecordingShared}
+          onCancel={() => {
+            // Cancel VAD mode
+            setIsVADLocked(false);
+          }}
+        />
+      )}
+
       {/* Header */}
       <View className="flex-row items-center justify-between p-4">
         <View className="flex-row items-center gap-3">
@@ -1424,6 +1444,7 @@ const RecordingViewSimplified = ({
             vadThreshold={vadThreshold}
             energyShared={energyShared}
             isRecordingShared={isRecordingShared}
+            displayMode={vadDisplayMode}
           />
         )}
       </View>
@@ -1445,6 +1466,8 @@ const RecordingViewSimplified = ({
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
         isVADLocked={isVADLocked}
+        displayMode={vadDisplayMode}
+        onDisplayModeChange={setVadDisplayMode}
       />
     </View>
   );
