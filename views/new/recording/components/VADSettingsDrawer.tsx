@@ -5,13 +5,13 @@
 
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -22,10 +22,10 @@ import { HelpCircle, Minus, Plus } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withTiming
 } from 'react-native-reanimated';
 
 interface VADSettingsDrawerProps {
@@ -124,7 +124,7 @@ export function VADSettingsDrawer({
         withTiming(1, { duration: 100 })
       );
     }
-  }, [currentEnergy, threshold, pulseScale]);
+  }, [currentEnergy, threshold]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
