@@ -1,7 +1,7 @@
 /**
  * Debug controls for testing OTA Update UI
  * Only visible in development mode
- * 
+ *
  * Provides controls to:
  * - Toggle error simulation
  * - Switch to next update version
@@ -12,7 +12,13 @@
 import { useExpoUpdatesMock } from '@/hooks/useExpoUpdates.mock';
 import { useLocalStore } from '@/store/localStore';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 export function OTAUpdateDebugControls() {
   // Only show in development
@@ -33,7 +39,7 @@ export function OTAUpdateDebugControls() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🧪 OTA Update Test Controls (DEV ONLY)</Text>
-      
+
       <ScrollView style={styles.scrollView}>
         {/* Current State */}
         <View style={styles.section}>
@@ -46,13 +52,13 @@ export function OTAUpdateDebugControls() {
           </View>
           <View style={styles.stateRow}>
             <Text style={styles.label}>Current Version:</Text>
-            <Text style={styles.valueSmall}>{currentVersion.id}</Text>
+            <Text style={styles.valueSmall}>
+              {currentVersion?.id || 'Unknown'}
+            </Text>
           </View>
           <View style={styles.stateRow}>
             <Text style={styles.label}>Dismissed Version:</Text>
-            <Text style={styles.valueSmall}>
-              {dismissedVersion || 'None'}
-            </Text>
+            <Text style={styles.valueSmall}>{dismissedVersion || 'None'}</Text>
           </View>
           <View style={styles.stateRow}>
             <Text style={styles.label}>Time Since Dismiss:</Text>
@@ -73,14 +79,12 @@ export function OTAUpdateDebugControls() {
         {/* Test Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Test Actions</Text>
-          
+
           <TouchableOpacity
             style={[styles.button, styles.buttonPrimary]}
             onPress={() => mockHook._mockControls.nextVersion()}
           >
-            <Text style={styles.buttonText}>
-              🔄 Switch to Next Version
-            </Text>
+            <Text style={styles.buttonText}>🔄 Switch to Next Version</Text>
             <Text style={styles.buttonSubtext}>
               (Should reset dismissal and show banner)
             </Text>
@@ -90,9 +94,7 @@ export function OTAUpdateDebugControls() {
             style={[styles.button, styles.buttonSecondary]}
             onPress={() => mockHook.resetDismissal()}
           >
-            <Text style={styles.buttonText}>
-              ♻️ Reset Dismissal State
-            </Text>
+            <Text style={styles.buttonText}>♻️ Reset Dismissal State</Text>
             <Text style={styles.buttonSubtext}>
               (Banner should appear immediately)
             </Text>
@@ -130,25 +132,32 @@ export function OTAUpdateDebugControls() {
           <View style={styles.instruction}>
             <Text style={styles.instructionNumber}>1.</Text>
             <Text style={styles.instructionText}>
-              <Text style={styles.bold}>Test Update Flow:</Text> Banner should be visible above. Click "Update Now" → wait 2s → should show success alert
+              <Text style={styles.bold}>Test Update Flow:</Text> Banner should
+              be visible above. Click "Update Now" → wait 2s → should show
+              success alert
             </Text>
           </View>
           <View style={styles.instruction}>
             <Text style={styles.instructionNumber}>2.</Text>
             <Text style={styles.instructionText}>
-              <Text style={styles.bold}>Test Dismissal:</Text> Click X on banner → should hide. Wait 10 seconds → should reappear
+              <Text style={styles.bold}>Test Dismissal:</Text> Click X on banner
+              → should hide. Wait 10 seconds → should reappear
             </Text>
           </View>
           <View style={styles.instruction}>
             <Text style={styles.instructionNumber}>3.</Text>
             <Text style={styles.instructionText}>
-              <Text style={styles.bold}>Test New Version:</Text> Dismiss banner → click "Switch to Next Version" → banner should reappear immediately
+              <Text style={styles.bold}>Test New Version:</Text> Dismiss banner
+              → click "Switch to Next Version" → banner should reappear
+              immediately
             </Text>
           </View>
           <View style={styles.instruction}>
             <Text style={styles.instructionNumber}>4.</Text>
             <Text style={styles.instructionText}>
-              <Text style={styles.bold}>Test Error:</Text> Enable error simulation → click "Update Now" → should show error state with retry button
+              <Text style={styles.bold}>Test Error:</Text> Enable error
+              simulation → click "Update Now" → should show error state with
+              retry button
             </Text>
           </View>
         </View>
@@ -271,4 +280,3 @@ const styles = StyleSheet.create({
     color: '#fff'
   }
 });
-

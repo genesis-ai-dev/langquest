@@ -12,8 +12,16 @@ const DISMISSAL_DURATION = 10 * 1000; // 10 seconds for testing (normally 24 hou
 // Simulated update versions
 const MOCK_UPDATES = [
   { id: 'update-v1', createdAt: '2025-01-01T00:00:00Z', message: 'Bug fixes' },
-  { id: 'update-v2', createdAt: '2025-01-02T00:00:00Z', message: 'New features' },
-  { id: 'update-v3', createdAt: '2025-01-03T00:00:00Z', message: 'Performance improvements' }
+  {
+    id: 'update-v2',
+    createdAt: '2025-01-02T00:00:00Z',
+    message: 'New features'
+  },
+  {
+    id: 'update-v3',
+    createdAt: '2025-01-03T00:00:00Z',
+    message: 'Performance improvements'
+  }
 ];
 
 // Shared state across all hook instances (so debug controls and banner share state)
@@ -22,7 +30,7 @@ let simulateErrorGlobal = false;
 
 export function useExpoUpdatesMock() {
   const queryClient = useQueryClient();
-  
+
   const dismissedUpdateTimestamp = useLocalStore(
     (state) => state.dismissedUpdateTimestamp
   );
@@ -33,32 +41,34 @@ export function useExpoUpdatesMock() {
   const resetUpdateDismissal = useLocalStore(
     (state) => state.resetUpdateDismissal
   );
-  
+
   // Only set up a timer if we're in a dismissed state
   // This invalidates the query when dismissal expires (more performant than constant polling)
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     // Clear any existing timer
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    
+
     // If dismissed, set a timer for when it should reappear
     if (dismissedUpdateTimestamp) {
       const timeSinceDismissal = Date.now() - dismissedUpdateTimestamp;
       const timeRemaining = DISMISSAL_DURATION - timeSinceDismissal;
-      
+
       if (timeRemaining > 0) {
         console.log('[MOCK] Setting timer to reappear in', timeRemaining, 'ms');
         timerRef.current = setTimeout(() => {
-          console.log('[MOCK] Dismissal expired! Invalidating query to show banner');
+          console.log(
+            '[MOCK] Dismissal expired! Invalidating query to show banner'
+          );
           void queryClient.invalidateQueries({ queryKey: ['updates-mock'] });
         }, timeRemaining);
       }
     }
-    
+
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -76,11 +86,11 @@ export function useExpoUpdatesMock() {
     queryFn: async () => {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       const currentUpdate = MOCK_UPDATES[currentMockUpdateIndex];
-      
+
       console.log('[MOCK] Checking for updates...', currentUpdate);
-      
+
       return {
         isUpdateAvailable: true, // Always available in mock
         manifest: currentUpdate
@@ -96,7 +106,7 @@ export function useExpoUpdatesMock() {
   const downloadUpdateMutation = useMutation({
     mutationFn: async () => {
       console.log('[MOCK] Starting update download...');
-      
+
       if (!updateInfo?.isUpdateAvailable) {
         throw new Error('No update available');
       }
@@ -113,7 +123,9 @@ export function useExpoUpdatesMock() {
       console.log('[MOCK] Download complete! In real app, would reload now.');
       // In real app: await Updates.reloadAsync();
       // For mock, we just log and show success
-      alert('Mock: Update downloaded successfully! In real app, would reload now.');
+      alert(
+        'Mock: Update downloaded successfully! In real app, would reload now.'
+      );
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['updates-mock'] });
@@ -126,7 +138,8 @@ export function useExpoUpdatesMock() {
       return false;
     }
 
-    const currentUpdateVersion = updateInfo.manifest?.createdAt || updateInfo.manifest?.id || 'unknown';
+    const currentUpdateVersion =
+      updateInfo.manifest?.createdAt || updateInfo.manifest?.id || 'unknown';
 
     // Never dismissed - show banner
     if (!dismissedUpdateTimestamp || !dismissedUpdateVersion) {
@@ -182,12 +195,15 @@ export function useExpoUpdatesMock() {
         void queryClient.invalidateQueries({ queryKey: ['updates-mock'] });
       },
       nextVersion: () => {
-        currentMockUpdateIndex = (currentMockUpdateIndex + 1) % MOCK_UPDATES.length;
+        currentMockUpdateIndex =
+          (currentMockUpdateIndex + 1) % MOCK_UPDATES.length;
         void queryClient.invalidateQueries({ queryKey: ['updates-mock'] });
-        console.log('[MOCK] Switched to version:', MOCK_UPDATES[currentMockUpdateIndex]);
+        console.log(
+          '[MOCK] Switched to version:',
+          MOCK_UPDATES[currentMockUpdateIndex]
+        );
       },
       getCurrentVersion: () => MOCK_UPDATES[currentMockUpdateIndex]
     }
   };
 }
-

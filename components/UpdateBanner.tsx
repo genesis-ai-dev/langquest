@@ -20,7 +20,7 @@ export function UpdateBanner() {
     downloadError,
     dismissBanner
   } = useExpoUpdates(); // In production, always use real updates
-  
+
   // For testing, replace above with: USE_MOCK ? useExpoUpdatesMock() : useExpoUpdates()
 
   if (!updateInfo?.isUpdateAvailable) {
@@ -63,7 +63,10 @@ export function UpdateBanner() {
           className="h-8"
         >
           {isDownloadingUpdate ? (
-            <ActivityIndicator size="small" className="text-primary-foreground" />
+            <ActivityIndicator
+              size="small"
+              className="text-primary-foreground"
+            />
           ) : (
             <Text className="text-sm font-medium text-primary-foreground">
               {downloadError ? t('retry') : t('updateNow')}

@@ -20,7 +20,7 @@ export function useExpoUpdates() {
 
   // Set up a timer to invalidate query when dismissal expires
   // More performant than constant polling
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Clear any existing timer
@@ -102,9 +102,9 @@ export function useExpoUpdates() {
       return false;
     }
 
-    // Get current update version (use createdAt or id as version identifier)
+    // Get current update version (use id as version identifier)
     const currentUpdateVersion =
-      updateInfo.manifest?.createdAt || updateInfo.manifest?.id || 'unknown';
+      (updateInfo.manifest as { id?: string })?.id || 'unknown';
 
     // Never dismissed - show banner
     if (!dismissedUpdateTimestamp || !dismissedUpdateVersion) {
@@ -129,7 +129,7 @@ export function useExpoUpdates() {
   // Handle dismissal
   const handleDismiss = () => {
     const currentUpdateVersion =
-      updateInfo?.manifest?.createdAt || updateInfo?.manifest?.id || 'unknown';
+      (updateInfo?.manifest as { id?: string })?.id || 'unknown';
     dismissUpdate(currentUpdateVersion);
   };
 
