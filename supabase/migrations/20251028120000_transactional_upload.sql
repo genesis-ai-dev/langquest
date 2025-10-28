@@ -140,7 +140,7 @@ begin
     end loop;
     v_status := '2xx';
   exception when others then
-    get diagnostics v_sqlstate = returned_sqlstate;
+    get stacked diagnostics v_sqlstate = returned_sqlstate;
     v_error_code := v_sqlstate;
 
     -- classify

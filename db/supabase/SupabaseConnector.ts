@@ -461,12 +461,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         throw result.error;
       }
 
-      const response = result.data as
-        | { status: string; logs?: string; ref_code?: string | null; error_code?: string | null }
-        | null;
+      const response = result.data as {
+        status: string;
+        logs?: string;
+        ref_code?: string | null;
+        error_code?: string | null;
+      } | null;
 
       if (!response || typeof response !== 'object') {
-        throw new Error('Unexpected response from apply_table_mutation_transaction');
+        throw new Error(
+          'Unexpected response from apply_table_mutation_transaction'
+        );
       }
 
       console.log('[apply_table_mutation_transaction]', response.logs ?? '');
