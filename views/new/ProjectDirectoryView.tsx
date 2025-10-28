@@ -80,7 +80,8 @@ export default function ProjectDirectoryView() {
     currentProjectId,
     currentProjectName,
     currentProjectTemplate,
-    currentBookId
+    currentBookId,
+    currentProjectData
   } = useCurrentNavigation();
   const { navigate, goBack } = useAppNavigation();
   const { currentUser } = useAuth();
@@ -97,13 +98,15 @@ export default function ProjectDirectoryView() {
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // Fallback: If template is not in navigation state, fetch project
-  // This handles cases like direct navigation or refresh
+  // Use passed project data if available (instant!), otherwise query
+  // Query runs in background to get updates even if data was passed
   const {
-    project,
-    isProjectLoading,
+    project: queriedProject,
     isCloudLoading: projectCloudLoading
   } = useProjectById(currentProjectId);
+  
+  // Prefer passed data for instant rendering, fallback to queried
+  const project = (currentProjectData as typeof queriedProject) || queriedProject;
 
   // Use template from navigation state, or fall back to fetched project
   const template =

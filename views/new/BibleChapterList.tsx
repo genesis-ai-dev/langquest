@@ -359,7 +359,9 @@ export function BibleChapterList({
       goToQuest({
         id: existingChapter.id,
         project_id: projectId,
-        name: existingChapter.name
+        name: existingChapter.name,
+        projectData: project as Record<string, unknown>,  // Pass project data!
+        questData: existingChapter as Record<string, unknown>  // Pass chapter/quest data!
       });
       return;
     }
@@ -398,11 +400,12 @@ export function BibleChapterList({
                 `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
               );
 
-              // Navigate to assets view
+              // Navigate to assets view with passed data
               goToQuest({
                 id: result.questId,
                 project_id: projectId,
-                name: result.questName
+                name: result.questName,
+                projectData: project as Record<string, unknown>  // Pass project data!
               });
             } catch (error) {
               console.error('Failed to create chapter:', error);
