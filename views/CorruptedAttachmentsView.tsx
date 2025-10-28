@@ -23,7 +23,7 @@ import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
-  const { navigate } = useAppNavigation();
+  const { goToProjects } = useAppNavigation();
   const [corrupted, setCorrupted] = useState<CorruptedAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,7 +92,10 @@ export default function CorruptedAttachmentsView() {
                   prev.filter((c) => c.attachmentRecord.id !== attachmentId)
                 );
 
-                Alert.alert(t('success'), t('corruptedAttachmentCleanedSuccess'));
+                Alert.alert(
+                  t('success'),
+                  t('corruptedAttachmentCleanedSuccess')
+                );
               } catch (error) {
                 console.error('Failed to clean attachment:', error);
                 Alert.alert(
@@ -220,7 +223,7 @@ export default function CorruptedAttachmentsView() {
           <Button
             variant="ghost"
             size="sm"
-            onPress={() => navigate('projects')}
+            onPress={goToProjects}
             className="self-start"
           >
             <Icon as={ArrowLeft} />
@@ -256,7 +259,7 @@ export default function CorruptedAttachmentsView() {
         <Button
           variant="ghost"
           size="sm"
-          onPress={() => navigate('projects')}
+          onPress={goToProjects}
           className="mb-4 self-start"
         >
           <Icon as={ArrowLeft} />
@@ -331,10 +334,10 @@ export default function CorruptedAttachmentsView() {
                     </Text>
                     <View className="mt-1 flex-row flex-wrap gap-2">
                       <Text className="text-xs text-muted-foreground">
-                        State: {item.attachmentRecord.state}
+                        {t('state')}: {item.attachmentRecord.state}
                       </Text>
                       <Text className="text-xs text-muted-foreground">
-                        Size: {formatSize(item.attachmentRecord.size)}
+                        {t('size')}: {formatSize(item.attachmentRecord.size)}
                       </Text>
                     </View>
                     <Text className="mt-1 text-xs text-muted-foreground">
@@ -362,7 +365,7 @@ export default function CorruptedAttachmentsView() {
                     {/* Full IDs */}
                     <View>
                       <Text className="text-xs font-bold text-foreground">
-                        Attachment ID:
+                        {t('attachmentId')}:
                       </Text>
                       <Text className="mt-1 font-mono text-xs text-muted-foreground">
                         {item.attachmentRecord.id}
@@ -372,7 +375,7 @@ export default function CorruptedAttachmentsView() {
                     {item.attachmentRecord.local_uri && (
                       <View>
                         <Text className="text-xs font-bold text-foreground">
-                          Local URI:
+                          {t('localUri')}:
                         </Text>
                         <Text className="mt-1 font-mono text-xs text-muted-foreground">
                           {item.attachmentRecord.local_uri}
@@ -384,7 +387,8 @@ export default function CorruptedAttachmentsView() {
                     {item.assets.length > 0 && (
                       <View>
                         <Text className="text-xs font-bold text-foreground">
-                          Associated Assets ({item.assets.length}):
+                          {t('associatedAssets', { count: item.assets.length })}
+                          :
                         </Text>
                         <View className="mt-1 gap-1">
                           {item.assets.map((asset) => (
@@ -392,7 +396,7 @@ export default function CorruptedAttachmentsView() {
                               key={asset.id}
                               className="text-xs text-muted-foreground"
                             >
-                              • {asset.name || 'Unnamed'} (
+                              • {asset.name || t('unnamed')} (
                               {asset.id.substring(0, 8)}...)
                             </Text>
                           ))}
@@ -404,7 +408,10 @@ export default function CorruptedAttachmentsView() {
                     {item.assetContentLinks.length > 0 && (
                       <View>
                         <Text className="text-xs font-bold text-foreground">
-                          Content Links ({item.assetContentLinks.length}):
+                          {t('contentLinks', {
+                            count: item.assetContentLinks.length
+                          })}
+                          :
                         </Text>
                         <View className="mt-1 gap-1">
                           {item.assetContentLinks.map((link) => (
@@ -436,14 +443,14 @@ export default function CorruptedAttachmentsView() {
                             size={16}
                           />
                           <Text className="text-sm font-bold text-destructive-foreground">
-                            Cleaning...
+                            {t('cleaning')}
                           </Text>
                         </>
                       ) : (
                         <>
                           <Icon as={Trash2} size={16} />
                           <Text className="text-sm font-bold text-destructive-foreground">
-                            Clean This
+                            {t('cleanThis')}
                           </Text>
                         </>
                       )}

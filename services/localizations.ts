@@ -4530,10 +4530,14 @@ export const localizations = {
     indonesian: 'Tidak Ada Lampiran Rusak'
   },
   attachmentDatabaseHealthy: {
-    english: 'Your attachment database is healthy. All attachment records are valid.',
-    spanish: 'Su base de datos de archivos adjuntos está en buen estado. Todos los registros son válidos.',
-    brazilian_portuguese: 'Seu banco de dados de anexos está saudável. Todos os registros estão válidos.',
-    tok_pisin: 'Database bilong ol fayl bilong yu i gutpela. Olgeta rekod i orait.',
+    english:
+      'Your attachment database is healthy. All attachment records are valid.',
+    spanish:
+      'Su base de datos de archivos adjuntos está en buen estado. Todos los registros son válidos.',
+    brazilian_portuguese:
+      'Seu banco de dados de anexos está saudável. Todos os registros estão válidos.',
+    tok_pisin:
+      'Database bilong ol fayl bilong yu i gutpela. Olgeta rekod i orait.',
     indonesian: 'Database lampiran Anda sehat. Semua catatan lampiran valid.'
   },
   corruptedAttachments: {
@@ -4544,18 +4548,28 @@ export const localizations = {
     indonesian: 'Lampiran Rusak'
   },
   foundCorruptedAttachments: {
-    english: 'Found {count} corrupted attachment with blob URLs in the database. These are causing sync errors and should be cleaned up.',
-    spanish: 'Se encontró {count} archivo adjunto corrupto con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
-    brazilian_portuguese: 'Encontrado {count} anexo corrompido com URLs blob no banco de dados. Estes estão causando erros de sincronização e devem ser limpos.',
-    tok_pisin: 'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
-    indonesian: 'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
+    english:
+      'Found {count} corrupted attachment with blob URLs in the database. These are causing sync errors and should be cleaned up.',
+    spanish:
+      'Se encontró {count} archivo adjunto corrupto con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
+    brazilian_portuguese:
+      'Encontrado {count} anexo corrompido com URLs blob no banco de dados. Estes estão causando erros de sincronização e devem ser limpos.',
+    tok_pisin:
+      'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
+    indonesian:
+      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
   },
   foundCorruptedAttachmentsPlural: {
-    english: 'Found {count} corrupted attachments with blob URLs in the database. These are causing sync errors and should be cleaned up.',
-    spanish: 'Se encontraron {count} archivos adjuntos corruptos con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
-    brazilian_portuguese: 'Encontrados {count} anexos corrompidos com URLs blob no banco de dados. Estes estão causando erros de sincronização e devem ser limpos.',
-    tok_pisin: 'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
-    indonesian: 'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
+    english:
+      'Found {count} corrupted attachments with blob URLs in the database. These are causing sync errors and should be cleaned up.',
+    spanish:
+      'Se encontraron {count} archivos adjuntos corruptos con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
+    brazilian_portuguese:
+      'Encontrados {count} anexos corrompidos com URLs blob no banco de dados. Estes estão causando erros de sincronização e devem ser limpos.',
+    tok_pisin:
+      'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
+    indonesian:
+      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
   },
   cleanAll: {
     english: 'Clean All ({count})',
@@ -4621,11 +4635,16 @@ export const localizations = {
     indonesian: 'Bersihkan Lampiran Rusak'
   },
   cleanCorruptedAttachmentConfirm: {
-    english: 'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
-    spanish: 'Esto eliminará el registro del archivo adjunto corrupto y sus referencias de la base de datos. Esta acción no se puede deshacer.',
-    brazilian_portuguese: 'Isso removerá o registro do anexo corrompido e suas referências do banco de dados. Esta ação não pode ser desfeita.',
-    tok_pisin: 'Dispela bai rausim ol rekod bilong bagarap fayl na ol referens bilong en long database. Yu no inap tanim bek dispela.',
-    indonesian: 'Ini akan menghapus catatan lampiran rusak dan referensinya dari database. Tindakan ini tidak dapat dibatalkan.'
+    english:
+      'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
+    spanish:
+      'Esto eliminará el registro del archivo adjunto corrupto y sus referencias de la base de datos. Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Isso removerá o registro do anexo corrompido e suas referências do banco de dados. Esta ação não pode ser desfeita.',
+    tok_pisin:
+      'Dispela bai rausim ol rekod bilong bagarap fayl na ol referens bilong en long database. Yu no inap tanim bek dispela.',
+    indonesian:
+      'Ini akan menghapus catatan lampiran rusak dan referensinya dari database. Tindakan ini tidak dapat dibatalkan.'
   },
   clean: {
     english: 'Clean',
@@ -4656,18 +4675,28 @@ export const localizations = {
     indonesian: 'Bersihkan Semua Lampiran Rusak'
   },
   cleanAllConfirm: {
-    english: 'This will clean up {count} corrupted attachment. This action cannot be undone.',
-    spanish: 'Esto limpiará {count} archivo adjunto corrupto. Esta acción no se puede deshacer.',
-    brazilian_portuguese: 'Isso limpará {count} anexo corrompido. Esta ação não pode ser desfeita.',
-    tok_pisin: 'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
-    indonesian: 'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
+    english:
+      'This will clean up {count} corrupted attachment. This action cannot be undone.',
+    spanish:
+      'Esto limpiará {count} archivo adjunto corrupto. Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Isso limpará {count} anexo corrompido. Esta ação não pode ser desfeita.',
+    tok_pisin:
+      'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
+    indonesian:
+      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
   },
   cleanAllConfirmPlural: {
-    english: 'This will clean up {count} corrupted attachments. This action cannot be undone.',
-    spanish: 'Esto limpiará {count} archivos adjuntos corruptos. Esta acción no se puede deshacer.',
-    brazilian_portuguese: 'Isso limpará {count} anexos corrompidos. Esta ação não pode ser desfeita.',
-    tok_pisin: 'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
-    indonesian: 'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
+    english:
+      'This will clean up {count} corrupted attachments. This action cannot be undone.',
+    spanish:
+      'Esto limpiará {count} archivos adjuntos corruptos. Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Isso limpará {count} anexos corrompidos. Esta ação não pode ser desfeita.',
+    tok_pisin:
+      'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
+    indonesian:
+      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
   },
   partialSuccess: {
     english: 'Partial Success',
@@ -4677,18 +4706,26 @@ export const localizations = {
     indonesian: 'Berhasil Sebagian'
   },
   cleanedAttachmentsWithErrors: {
-    english: 'Cleaned {cleaned} attachment. {errorCount} error occurred:\n\n{errors}',
-    spanish: 'Se limpió {cleaned} archivo adjunto. Ocurrió {errorCount} error:\n\n{errors}',
-    brazilian_portuguese: 'Limpou {cleaned} anexo. Ocorreu {errorCount} erro:\n\n{errors}',
+    english:
+      'Cleaned {cleaned} attachment. {errorCount} error occurred:\n\n{errors}',
+    spanish:
+      'Se limpió {cleaned} archivo adjunto. Ocurrió {errorCount} error:\n\n{errors}',
+    brazilian_portuguese:
+      'Limpou {cleaned} anexo. Ocorreu {errorCount} erro:\n\n{errors}',
     tok_pisin: 'Klinim {cleaned} fayl. {errorCount} rong i kamap:\n\n{errors}',
-    indonesian: 'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
+    indonesian:
+      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
   },
   cleanedAttachmentsWithErrorsPlural: {
-    english: 'Cleaned {cleaned} attachments. {errorCount} errors occurred:\n\n{errors}',
-    spanish: 'Se limpiaron {cleaned} archivos adjuntos. Ocurrieron {errorCount} errores:\n\n{errors}',
-    brazilian_portuguese: 'Limpou {cleaned} anexos. Ocorreram {errorCount} erros:\n\n{errors}',
+    english:
+      'Cleaned {cleaned} attachments. {errorCount} errors occurred:\n\n{errors}',
+    spanish:
+      'Se limpiaron {cleaned} archivos adjuntos. Ocurrieron {errorCount} errores:\n\n{errors}',
+    brazilian_portuguese:
+      'Limpou {cleaned} anexos. Ocorreram {errorCount} erros:\n\n{errors}',
     tok_pisin: 'Klinim {cleaned} fayl. {errorCount} rong i kamap:\n\n{errors}',
-    indonesian: 'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
+    indonesian:
+      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
   },
   successfullyCleanedAttachments: {
     english: 'Successfully cleaned {cleaned} corrupted attachment.',
@@ -4713,8 +4750,10 @@ export const localizations = {
   },
   failedToLoadCorruptedAttachments: {
     english: 'Failed to load corrupted attachments. Please try again.',
-    spanish: 'Error al cargar los archivos adjuntos corruptos. Por favor, intente de nuevo.',
-    brazilian_portuguese: 'Falha ao carregar anexos corrompidos. Por favor, tente novamente.',
+    spanish:
+      'Error al cargar los archivos adjuntos corruptos. Por favor, intente de nuevo.',
+    brazilian_portuguese:
+      'Falha ao carregar anexos corrompidos. Por favor, tente novamente.',
     tok_pisin: 'I no inap loadim ol bagarap fayl. Plis traim gen.',
     indonesian: 'Gagal memuat lampiran rusak. Silakan coba lagi.'
   },
