@@ -33,6 +33,7 @@ import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
+import { Alert } from 'react-native';
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -479,6 +480,14 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         console.warn(
           `[apply_table_mutation_transaction] Client error. ref_code=${response.ref_code} error_code=${response.error_code}`
         );
+        try {
+          Alert.alert(
+            'Upload issue',
+            `There was an issue uploading your content. We're investigating and your data will be made available to others as soon as possible. Reference code: ${response.ref_code ?? 'N/A'}`
+          );
+        } catch (_) {
+          // In non-RN contexts, Alert may be unavailable; ignore
+        }
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
         return;
