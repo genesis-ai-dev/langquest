@@ -1090,7 +1090,7 @@ export class System {
           '@/services/corruptedAttachmentsService'
         );
         const corruptedCount = await getCorruptedCount();
-        
+
         if (corruptedCount > 0) {
           console.warn(
             `[System] Found ${corruptedCount} corrupted attachment(s) with blob URLs. Cleaning up...`

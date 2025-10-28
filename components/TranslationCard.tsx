@@ -32,7 +32,8 @@ export const TranslationCard = ({
     asset as LayerStatus
   );
 
-  const hasAudio = asset.audio && asset.audio.length > 0 && audioSegments.length > 0;
+  const hasAudio =
+    asset.audio && asset.audio.length > 0 && audioSegments.length > 0;
 
   return (
     <Pressable
@@ -50,8 +51,8 @@ export const TranslationCard = ({
           {/* Left side: Content */}
           <View className="flex-1 flex-col gap-3">
             {/* Text preview */}
-            <Text 
-              numberOfLines={2} 
+            <Text
+              numberOfLines={2}
               className="text-base leading-relaxed text-foreground"
             >
               {previewText}
@@ -99,7 +100,7 @@ export const TranslationCard = ({
                   asset.up_votes > 0 && 'text-green-700 dark:text-green-400'
                 )}
               />
-              <Text 
+              <Text
                 className={cn(
                   'min-w-[28px] text-center text-lg font-bold tabular-nums',
                   asset.net_votes > 0 && 'text-green-700 dark:text-green-400',
@@ -107,7 +108,8 @@ export const TranslationCard = ({
                   asset.net_votes === 0 && 'text-muted-foreground'
                 )}
               >
-                {asset.net_votes > 0 ? '+' : ''}{asset.net_votes}
+                {asset.net_votes > 0 ? '+' : ''}
+                {asset.net_votes}
               </Text>
               <Icon
                 as={ThumbsDownIcon}
@@ -118,7 +120,7 @@ export const TranslationCard = ({
                 )}
               />
             </View>
-            
+
             {/* Dev vote breakdown */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {SHOW_DEV_ELEMENTS && (

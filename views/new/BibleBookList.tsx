@@ -27,12 +27,12 @@ export function BibleBookList({
 }: BibleBookListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
-  
+
   // NOTE: We don't actually query books in this component, it just displays them.
   // Cloud loading is managed by parent (ProjectDirectoryView) which queries books.
   // This component is purely presentational based on existingBookIds prop.
   // So we don't need to propagate loading state here - parent already has it.
-  
+
   // Responsive: calculate how many fit per row
   const screenWidth = Dimensions.get('window').width;
   const buttonWidth = 110;

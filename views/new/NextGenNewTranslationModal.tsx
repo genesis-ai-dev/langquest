@@ -78,12 +78,21 @@ export default function NextGenNewTranslationModal({
         translationLanguageId,
         hasCurrentUser: !!currentUser
       });
-      
+
       if (!translationLanguageId) {
-        console.error('[NEW TRANSLATION MODAL] ERROR: translationLanguageId is empty! This should never happen.');
+        console.error(
+          '[NEW TRANSLATION MODAL] ERROR: translationLanguageId is empty! This should never happen.'
+        );
       }
     }
-  }, [visible, assetId, currentQuestId, currentProjectId, translationLanguageId, currentUser]);
+  }, [
+    visible,
+    assetId,
+    currentQuestId,
+    currentProjectId,
+    translationLanguageId,
+    currentUser
+  ]);
 
   // Simpler schema - just validate that fields exist when provided
   const translationSchema = z.object({
@@ -109,14 +118,14 @@ export default function NextGenNewTranslationModal({
 
   // Track custom validity based on translation type
   const [isFormValid, setIsFormValid] = React.useState(false);
-  
+
   React.useEffect(() => {
     const values = form.getValues();
-    const isValid = 
+    const isValid =
       (translationType === 'text' && !!values.text?.trim()) ||
       (translationType === 'audio' && !!values.audioUri);
     setIsFormValid(isValid);
-    
+
     console.log('[FORM DEBUG] Validity check:', {
       translationType,
       hasText: !!values.text,
@@ -128,11 +137,11 @@ export default function NextGenNewTranslationModal({
   // Debug: Watch form state
   React.useEffect(() => {
     const subscription = form.watch((values) => {
-      const isValid = 
+      const isValid =
         (translationType === 'text' && !!values.text?.trim()) ||
         (translationType === 'audio' && !!values.audioUri);
       setIsFormValid(isValid);
-      
+
       console.log('[FORM DEBUG] Field changed:', {
         values,
         isValid,
@@ -144,9 +153,9 @@ export default function NextGenNewTranslationModal({
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
-      console.log('[CREATE TRANSLATION] Starting with data:', { 
-        translationType, 
-        hasText: !!data.text, 
+      console.log('[CREATE TRANSLATION] Starting with data:', {
+        translationType,
+        hasText: !!data.text,
         hasAudioUri: !!data.audioUri,
         audioUri: data.audioUri?.substring(0, 50),
         translationLanguageId,
@@ -164,13 +173,19 @@ export default function NextGenNewTranslationModal({
 
       // Validate required context - these should never be missing if the modal opened correctly
       if (!translationLanguageId) {
-        throw new Error('Translation language is missing. This is an unexpected error.');
+        throw new Error(
+          'Translation language is missing. This is an unexpected error.'
+        );
       }
       if (!currentProjectId) {
-        throw new Error('Project context is missing. This is an unexpected error.');
+        throw new Error(
+          'Project context is missing. This is an unexpected error.'
+        );
       }
       if (!currentQuestId) {
-        throw new Error('Quest context is missing. This is an unexpected error.');
+        throw new Error(
+          'Quest context is missing. This is an unexpected error.'
+        );
       }
 
       let audioAttachment: string | null = null;
@@ -181,7 +196,7 @@ export default function NextGenNewTranslationModal({
             'Audio recording failed to save locally. Please try recording again.'
           );
         }
-        
+
         console.log('[CREATE TRANSLATION] Saving audio to permanent queue...');
         const attachment = await system.permAttachmentQueue.saveAudio(
           data.audioUri
@@ -194,7 +209,9 @@ export default function NextGenNewTranslationModal({
       await system.db.transaction(async (tx) => {
         // Create a new asset that points to the original asset (translation variant)
         // In the new schema: translation = asset with source_asset_id pointing to original
-        console.log('[CREATE TRANSLATION] Inserting asset (translation variant)...');
+        console.log(
+          '[CREATE TRANSLATION] Inserting asset (translation variant)...'
+        );
         const [newAsset] = await tx
           .insert(resolveTable('asset')) // only insert into synced table
           .values({
@@ -209,7 +226,10 @@ export default function NextGenNewTranslationModal({
         if (!newAsset) {
           throw new Error('Failed to insert asset');
         }
-        console.log('[CREATE TRANSLATION] Translation asset created:', newAsset.id);
+        console.log(
+          '[CREATE TRANSLATION] Translation asset created:',
+          newAsset.id
+        );
 
         // Create asset_content_link with the actual text/audio content
         const contentValues: {
@@ -223,16 +243,19 @@ export default function NextGenNewTranslationModal({
           source_language_id: translationLanguageId,
           download_profiles: [currentUser!.id]
         };
-        
+
         // Add text or audio depending on translation type
         if (translationType === 'text' && data.text) {
           contentValues.text = data.text;
         } else if (translationType === 'audio' && audioAttachment) {
           contentValues.audio = [audioAttachment];
         }
-        
-        console.log('[CREATE TRANSLATION] Inserting asset_content_link:', JSON.stringify(contentValues, null, 2));
-        
+
+        console.log(
+          '[CREATE TRANSLATION] Inserting asset_content_link:',
+          JSON.stringify(contentValues, null, 2)
+        );
+
         await tx
           .insert(resolveTable('asset_content_link'))
           .values(contentValues);
@@ -241,13 +264,11 @@ export default function NextGenNewTranslationModal({
 
         // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
         console.log('[CREATE TRANSLATION] Inserting quest_asset_link...');
-        await tx
-          .insert(resolveTable('quest_asset_link'))
-          .values({
-            quest_id: currentQuestId!,
-            asset_id: newAsset.id,
-            download_profiles: [currentUser!.id]
-          });
+        await tx.insert(resolveTable('quest_asset_link')).values({
+          quest_id: currentQuestId!,
+          asset_id: newAsset.id,
+          download_profiles: [currentUser!.id]
+        });
 
         console.log('[CREATE TRANSLATION] Quest asset link created');
       });
@@ -262,9 +283,12 @@ export default function NextGenNewTranslationModal({
     },
     onError: (error) => {
       console.error('[CREATE TRANSLATION] Error creating translation:', error);
-      console.error('[CREATE TRANSLATION] Error stack:', (error as Error).stack);
+      console.error(
+        '[CREATE TRANSLATION] Error stack:',
+        (error as Error).stack
+      );
       Alert.alert(
-        t('error'), 
+        t('error'),
         t('failedCreateTranslation') + '\n\n' + (error as Error).message
       );
     }
@@ -294,116 +318,109 @@ export default function NextGenNewTranslationModal({
           </DrawerHeader>
 
           <View className="flex-1 flex-col gap-4 px-4">
-              {/* Translation Type Tabs */}
-              <Tabs
-                value={translationType}
-                onValueChange={(value) =>
-                  setTranslationType(value as TranslationType)
-                }
-              >
-                <TabsList className="w-full flex-row">
-                  <TabsTrigger
-                    value="text"
-                    className="flex-1 items-center py-2"
-                  >
-                    <Icon as={TextIcon} size={20} />
-                    <Text className="text-base">{t('text')}</Text>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="audio"
-                    className="flex-1 items-center py-2"
-                  >
-                    <Icon as={MicIcon} size={20} />
-                    <Text className="text-base">{t('audio')}</Text>
-                  </TabsTrigger>
-                </TabsList>
+            {/* Translation Type Tabs */}
+            <Tabs
+              value={translationType}
+              onValueChange={(value) =>
+                setTranslationType(value as TranslationType)
+              }
+            >
+              <TabsList className="w-full flex-row">
+                <TabsTrigger value="text" className="flex-1 items-center py-2">
+                  <Icon as={TextIcon} size={20} />
+                  <Text className="text-base">{t('text')}</Text>
+                </TabsTrigger>
+                <TabsTrigger value="audio" className="flex-1 items-center py-2">
+                  <Icon as={MicIcon} size={20} />
+                  <Text className="text-base">{t('audio')}</Text>
+                </TabsTrigger>
+              </TabsList>
 
-                {/* Asset Info */}
-                <View className="flex-col gap-1">
-                  <Text className="text-lg font-bold text-foreground">
-                    {assetName || t('unknown')}
-                  </Text>
+              {/* Asset Info */}
+              <View className="flex-col gap-1">
+                <Text className="text-lg font-bold text-foreground">
+                  {assetName || t('unknown')}
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  {sourceLanguage?.native_name ||
+                    sourceLanguage?.english_name ||
+                    t('unknown')}{' '}
+                  → {t('targetLanguage')}
+                </Text>
+              </View>
+
+              {/* Source Content Preview */}
+              {contentPreview ? (
+                <View className="gap-1 rounded-lg bg-muted p-4">
                   <Text className="text-sm text-muted-foreground">
-                    {sourceLanguage?.native_name ||
-                      sourceLanguage?.english_name ||
-                      t('unknown')}{' '}
-                    → {t('targetLanguage')}
+                    {t('source')}:
+                  </Text>
+                  <Text
+                    className="text-base leading-6 text-foreground"
+                    numberOfLines={3}
+                  >
+                    {contentPreview}
                   </Text>
                 </View>
+              ) : null}
 
-                {/* Source Content Preview */}
-                {contentPreview ? (
-                  <View className="gap-1 rounded-lg bg-muted p-4">
-                    <Text className="text-sm text-muted-foreground">
-                      {t('source')}:
-                    </Text>
-                    <Text
-                      className="text-base leading-6 text-foreground"
-                      numberOfLines={3}
-                    >
-                      {contentPreview}
-                    </Text>
-                  </View>
-                ) : null}
+              {/* Translation Input */}
+              <View className="flex-col gap-2">
+                <Text className="text-base font-bold text-foreground">
+                  {t('your')}{' '}
+                  {translationType === 'text' ? t('translation') : t('audio')}:
+                </Text>
 
-                {/* Translation Input */}
-                <View className="flex-col gap-2">
-                  <Text className="text-base font-bold text-foreground">
-                    {t('your')}{' '}
-                    {translationType === 'text' ? t('translation') : t('audio')}
-                    :
-                  </Text>
+                <TabsContent value="text" className="min-h-36">
+                  <FormField
+                    control={form.control}
+                    name="text"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            {...transformInputProps(field)}
+                            placeholder={t('enterTranslation')}
+                            autoFocus
+                            drawerInput
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
 
-                  <TabsContent value="text" className="min-h-36">
-                    <FormField
-                      control={form.control}
-                      name="text"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Textarea
-                              {...transformInputProps(field)}
-                              placeholder={t('enterTranslation')}
-                              autoFocus
-                              drawerInput
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
+                <TabsContent value="audio" className="min-h-36">
+                  <FormField
+                    control={form.control}
+                    name="audioUri"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <AudioRecorder
+                            onRecordingComplete={field.onChange}
+                            resetRecording={() => field.onChange(null)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+              </View>
+            </Tabs>
 
-                  <TabsContent value="audio" className="min-h-36">
-                    <FormField
-                      control={form.control}
-                      name="audioUri"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <AudioRecorder
-                              onRecordingComplete={field.onChange}
-                              resetRecording={() => field.onChange(null)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
-                </View>
-              </Tabs>
-
-              {/* Network Status */}
-              {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-              {SHOW_DEV_ELEMENTS && (
-                <View>
-                  <Text className="text-center text-sm text-muted-foreground">
-                    {isOnline ? `🟢 ${t('online')}` : `🔴 ${t('offline')}`} -{' '}
-                    {t('readyToSubmit')}
-                  </Text>
-                </View>
-              )}
+            {/* Network Status */}
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && (
+              <View>
+                <Text className="text-center text-sm text-muted-foreground">
+                  {isOnline ? `🟢 ${t('online')}` : `🔴 ${t('offline')}`} -{' '}
+                  {t('readyToSubmit')}
+                </Text>
+              </View>
+            )}
           </View>
 
           <DrawerFooter>
@@ -411,9 +428,8 @@ export default function NextGenNewTranslationModal({
             {SHOW_DEV_ELEMENTS && (
               <View className="mb-2 rounded bg-muted p-2">
                 <Text className="text-xs text-muted-foreground">
-                  Debug: isFormValid={String(isFormValid)} | 
-                  translationType={translationType} | 
-                  values={JSON.stringify(form.getValues())}
+                  Debug: isFormValid={String(isFormValid)} | translationType=
+                  {translationType} | values={JSON.stringify(form.getValues())}
                 </Text>
               </View>
             )}
@@ -421,24 +437,27 @@ export default function NextGenNewTranslationModal({
               disabled={!isFormValid}
               onPress={form.handleSubmit(
                 (data) => {
-                  console.log('[CREATE TRANSLATION] Form validation passed, submitting:', {
-                    translationType,
-                    hasText: !!data.text,
-                    hasAudioUri: !!data.audioUri,
-                    audioUri: data.audioUri?.substring(0, 100)
-                  });
+                  console.log(
+                    '[CREATE TRANSLATION] Form validation passed, submitting:',
+                    {
+                      translationType,
+                      hasText: !!data.text,
+                      hasAudioUri: !!data.audioUri,
+                      audioUri: data.audioUri?.substring(0, 100)
+                    }
+                  );
                   return createTranslation(data);
                 },
                 (errors) => {
-                  console.error('[CREATE TRANSLATION] Form validation failed:', {
-                    errors,
-                    translationType,
-                    formValues: form.getValues()
-                  });
-                  Alert.alert(
-                    t('error'),
-                    t('fillFields')
+                  console.error(
+                    '[CREATE TRANSLATION] Form validation failed:',
+                    {
+                      errors,
+                      translationType,
+                      formValues: form.getValues()
+                    }
                   );
+                  Alert.alert(t('error'), t('fillFields'));
                 }
               )}
             >

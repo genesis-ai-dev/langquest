@@ -69,50 +69,50 @@ export default function CorruptedAttachmentsView() {
     });
   }, []);
 
-  const handleCleanOne = useCallback(
-    async (attachmentId: string) => {
-      Alert.alert(
-        'Clean Corrupted Attachment',
-        'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Clean',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                setCleaningIds((prev) => new Set(prev).add(attachmentId));
-                await cleanupCorruptedAttachment(attachmentId);
-                
-                // Remove from list
-                setCorrupted((prev) =>
-                  prev.filter((c) => c.attachmentRecord.id !== attachmentId)
-                );
-                
-                Alert.alert('Success', 'Corrupted attachment cleaned successfully.');
-              } catch (error) {
-                console.error('Failed to clean attachment:', error);
-                Alert.alert(
-                  'Error',
-                  `Failed to clean attachment: ${error instanceof Error ? error.message : String(error)}`
-                );
-              } finally {
-                setCleaningIds((prev) => {
-                  const next = new Set(prev);
-                  next.delete(attachmentId);
-                  return next;
-                });
-              }
+  const handleCleanOne = useCallback(async (attachmentId: string) => {
+    Alert.alert(
+      'Clean Corrupted Attachment',
+      'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Clean',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCleaningIds((prev) => new Set(prev).add(attachmentId));
+              await cleanupCorruptedAttachment(attachmentId);
+
+              // Remove from list
+              setCorrupted((prev) =>
+                prev.filter((c) => c.attachmentRecord.id !== attachmentId)
+              );
+
+              Alert.alert(
+                'Success',
+                'Corrupted attachment cleaned successfully.'
+              );
+            } catch (error) {
+              console.error('Failed to clean attachment:', error);
+              Alert.alert(
+                'Error',
+                `Failed to clean attachment: ${error instanceof Error ? error.message : String(error)}`
+              );
+            } finally {
+              setCleaningIds((prev) => {
+                const next = new Set(prev);
+                next.delete(attachmentId);
+                return next;
+              });
             }
           }
-        ]
-      );
-    },
-    []
-  );
+        }
+      ]
+    );
+  }, []);
 
   const handleCleanAll = useCallback(async () => {
     if (corrupted.length === 0) return;
@@ -132,10 +132,10 @@ export default function CorruptedAttachmentsView() {
             try {
               setCleaningAll(true);
               const result = await cleanupAllCorrupted();
-              
+
               // Reload the list
               await loadCorrupted();
-              
+
               if (result.errors.length > 0) {
                 Alert.alert(
                   'Partial Success',
@@ -162,7 +162,8 @@ export default function CorruptedAttachmentsView() {
     );
   }, [corrupted.length, loadCorrupted]);
 
-  const formatTimestamp = (timestamp: number) => {
+  const formatTimestamp = (timestamp: number | undefined) => {
+    if (!timestamp) return 'Unknown';
     return new Date(timestamp).toLocaleString();
   };
 
@@ -192,7 +193,10 @@ export default function CorruptedAttachmentsView() {
         <ScrollView
           className="flex-1"
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
           }
         >
           <View className="flex-1 items-center justify-center p-8">
@@ -201,7 +205,8 @@ export default function CorruptedAttachmentsView() {
               No Corrupted Attachments
             </Text>
             <Text className="mt-2 text-center text-muted-foreground">
-              Your attachment database is healthy. All attachment records are valid.
+              Your attachment database is healthy. All attachment records are
+              valid.
             </Text>
           </View>
         </ScrollView>
@@ -339,7 +344,8 @@ export default function CorruptedAttachmentsView() {
                               key={asset.id}
                               className="text-xs text-muted-foreground"
                             >
-                              • {asset.name || 'Unnamed'} ({asset.id.substring(0, 8)}...)
+                              • {asset.name || 'Unnamed'} (
+                              {asset.id.substring(0, 8)}...)
                             </Text>
                           ))}
                         </View>
@@ -358,7 +364,8 @@ export default function CorruptedAttachmentsView() {
                               key={link.id}
                               className="text-xs text-muted-foreground"
                             >
-                              • {link.id.substring(0, 8)}... (Asset: {link.asset_id.substring(0, 8)}...)
+                              • {link.id.substring(0, 8)}... (Asset:{' '}
+                              {link.asset_id.substring(0, 8)}...)
                             </Text>
                           ))}
                         </View>
@@ -375,7 +382,11 @@ export default function CorruptedAttachmentsView() {
                     >
                       {isCleaning ? (
                         <>
-                          <Icon as={Loader2} className="animate-spin" size={16} />
+                          <Icon
+                            as={Loader2}
+                            className="animate-spin"
+                            size={16}
+                          />
                           <Text className="text-sm font-bold text-destructive-foreground">
                             Cleaning...
                           </Text>
@@ -399,4 +410,3 @@ export default function CorruptedAttachmentsView() {
     </View>
   );
 }
-

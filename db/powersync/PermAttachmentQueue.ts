@@ -154,17 +154,23 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   ): Promise<AttachmentRecord> {
     // Reject blob URLs - they must be converted to files first
     if (tempUri.includes('blob:')) {
-      console.error('[PermAttachmentQueue] Attempted to save blob URL:', tempUri);
+      console.error(
+        '[PermAttachmentQueue] Attempted to save blob URL:',
+        tempUri
+      );
       throw new Error(
         'Cannot save blob URL directly. Must be converted to file first.'
       );
     }
 
     const recordId = getFileName(tempUri)!;
-    
+
     // Double-check the recordId doesn't contain blob URL
     if (recordId.includes('blob:')) {
-      console.error('[PermAttachmentQueue] getFileName returned blob URL:', recordId);
+      console.error(
+        '[PermAttachmentQueue] getFileName returned blob URL:',
+        recordId
+      );
       throw new Error(
         'Invalid file path - contains blob URL. Must use proper file path.'
       );

@@ -8,21 +8,21 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { AttachmentState } from '@powersync/attachments';
 import {
-    AlertTriangle,
-    ChevronRight,
-    CloudOff,
-    Menu,
-    RefreshCw
+  AlertTriangle,
+  ChevronRight,
+  CloudOff,
+  Menu,
+  RefreshCw
 } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Animated, {
-    cancelAnimation,
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { Button } from './ui/button';
 
@@ -70,12 +70,12 @@ export default function AppHeader({
 
   const hasSyncError = !!(downloadError || uploadError);
   // Don't show syncing state if there's an error - prevents eternal syncing loop
-  const isSyncing = !hasSyncError && (
-    isDownloadOperationInProgress ||
-    isUpdateInProgress ||
-    isConnecting ||
-    hasDownloadsInProgress
-  );
+  const isSyncing =
+    !hasSyncError &&
+    (isDownloadOperationInProgress ||
+      isUpdateInProgress ||
+      isConnecting ||
+      hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
 
   // Handler for sync error tap
@@ -120,15 +120,11 @@ export default function AppHeader({
       // Complete and fade out
       if (loadingProgress.value > 0) {
         loadingProgress.value = withTiming(1, { duration: 200 });
-        loadingOpacity.value = withTiming(
-          0,
-          { duration: 300 },
-          (finished) => {
-            if (finished) {
-              loadingProgress.value = 0;
-            }
+        loadingOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
+          if (finished) {
+            loadingProgress.value = 0;
           }
-        );
+        });
       }
     }
   }, [isCloudLoading]);
@@ -145,7 +141,7 @@ export default function AppHeader({
         style={loadingBarStyle}
         className="absolute left-0 right-0 top-0 h-[2px] bg-primary shadow-sm"
       />
-      
+
       <View className="flex-row items-center">
         {/* Breadcrumbs */}
         <View className="flex-1 flex-row items-center overflow-hidden">

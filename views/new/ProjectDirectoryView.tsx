@@ -90,15 +90,21 @@ export default function ProjectDirectoryView() {
   const { setCloudLoading } = useCloudLoading();
 
   // Track cloud loading states from child components
-  const [questListCloudLoading, setQuestListCloudLoading] = React.useState(false);
-  const [chapterListCloudLoading, setChapterListCloudLoading] = React.useState(false);
+  const [questListCloudLoading, setQuestListCloudLoading] =
+    React.useState(false);
+  const [chapterListCloudLoading, setChapterListCloudLoading] =
+    React.useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
 
   // Fallback: If template is not in navigation state, fetch project
   // This handles cases like direct navigation or refresh
-  const { project, isProjectLoading, isCloudLoading: projectCloudLoading } = useProjectById(currentProjectId);
+  const {
+    project,
+    isProjectLoading,
+    isCloudLoading: projectCloudLoading
+  } = useProjectById(currentProjectId);
 
   // Use template from navigation state, or fall back to fetched project
   const template =
@@ -222,12 +228,15 @@ export default function ProjectDirectoryView() {
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
   // Query existing books for Bible projects (after isMember is defined)
-  const { books: existingBooks = [], isCloudLoading: booksCloudLoading } = useBibleBooks(
-    template === 'bible' ? currentProjectId || '' : ''
-  );
+  const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
+    useBibleBooks(template === 'bible' ? currentProjectId || '' : '');
 
   // Aggregate all cloud loading states
-  const isCloudLoading = projectCloudLoading || questListCloudLoading || chapterListCloudLoading || booksCloudLoading;
+  const isCloudLoading =
+    projectCloudLoading ||
+    questListCloudLoading ||
+    chapterListCloudLoading ||
+    booksCloudLoading;
 
   // Update global cloud loading state
   React.useEffect(() => {

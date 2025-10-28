@@ -186,27 +186,29 @@ export async function saveAudioLocally(uri: string) {
   }
 
   console.log('saveAudioFileLocally', uri);
-  
+
   try {
     console.log('fetching blob from', uri);
     const response = await fetch(uri);
-    
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch blob: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch blob: ${response.status} ${response.statusText}`
+      );
     }
-    
+
     const blob = await response.blob();
     const extension = blob.type.split(';')[0]!.split('/').pop(); // "audio/webm; codecs=opus"
     const fileName = `${getFileName(uri)}.${extension}`;
     console.log('fileName', fileName);
-    
+
     if (!fileName) {
       throw new Error('Failed to get file name');
     }
-    
+
     const localUri = `local/${fileName}`;
     console.log('writing blob to OPFS', localUri);
-    
+
     const fileHandle = await getOPFSHandle(
       getLocalFilePathSuffix(localUri),
       'file',
@@ -222,7 +224,7 @@ export async function saveAudioLocally(uri: string) {
     await writable.close();
 
     console.log('✅ Successfully saved audio locally:', localUri);
-    
+
     // Return the local path format, NOT the blob URL
     return localUri;
   } catch (error) {

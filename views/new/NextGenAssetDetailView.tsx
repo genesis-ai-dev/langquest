@@ -72,7 +72,7 @@ export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { currentAssetId, currentProjectId, currentQuestId } =
     useAppNavigation();
-  
+
   console.log('[ASSET DETAIL VIEW] Navigation context:', {
     currentAssetId,
     currentProjectId,
@@ -80,7 +80,8 @@ export default function NextGenAssetDetailView() {
   });
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
-  const [translationLanguageId, setTranslationLanguageId] = useState<string>('');
+  const [translationLanguageId, setTranslationLanguageId] =
+    useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
@@ -106,7 +107,10 @@ export default function NextGenAssetDetailView() {
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
-      console.log('[ASSET DETAIL] Fetching project data for:', currentProjectId);
+      console.log(
+        '[ASSET DETAIL] Fetching project data for:',
+        currentProjectId
+      );
       // Try local first then cloud
       let result = await system.db
         .select()
@@ -127,9 +131,11 @@ export default function NextGenAssetDetailView() {
     enabled: !!currentProjectId,
     staleTime: 30000 // Cache for 30 seconds
   });
-  
+
   // Extract project from array if needed (query caching can return array)
-  const projectData = (Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData) as typeof rawProjectData;
+  const projectData = (
+    Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData
+  ) as typeof rawProjectData;
 
   // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
@@ -146,12 +152,18 @@ export default function NextGenAssetDetailView() {
       project_id: projectData?.id,
       fullProjectData: projectData // Show the full object
     });
-    
+
     if (projectData?.target_language_id) {
-      console.log('[ASSET DETAIL] Setting translation language to:', projectData.target_language_id);
+      console.log(
+        '[ASSET DETAIL] Setting translation language to:',
+        projectData.target_language_id
+      );
       setTranslationLanguageId(projectData.target_language_id);
     } else if (projectData) {
-      console.warn('[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!', projectData);
+      console.warn(
+        '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
+        projectData
+      );
     }
   }, [projectData]);
 
@@ -363,12 +375,14 @@ export default function NextGenAssetDetailView() {
       // If no access, PrivateAccessGate will handle showing the modal
       return;
     }
-    
+
     if (!translationLanguageId) {
-      console.error('[ASSET DETAIL] Cannot open translation modal: translation language not loaded');
+      console.error(
+        '[ASSET DETAIL] Cannot open translation modal: translation language not loaded'
+      );
       return;
     }
-    
+
     setShowNewTranslationModal(true);
   };
 
@@ -586,7 +600,7 @@ export default function NextGenAssetDetailView() {
           onPress={() => allowEditing && handleNewTranslationPress()}
         >
           <Icon as={PlusIcon} size={24} />
-          <Text className="text-secondary font-bold">
+          <Text className="font-bold text-secondary">
             {t('newTranslation')}
           </Text>
         </Button>

@@ -168,7 +168,11 @@ function ChapterButton({
   );
 }
 
-export function BibleChapterList({ projectId, bookId, onCloudLoadingChange }: BibleChapterListProps) {
+export function BibleChapterList({
+  projectId,
+  bookId,
+  onCloudLoadingChange
+}: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();

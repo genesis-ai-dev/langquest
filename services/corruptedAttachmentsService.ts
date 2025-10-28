@@ -49,17 +49,15 @@ export async function findCorruptedAttachments(): Promise<
       try {
         // Find asset_content_link records that reference this attachment
         // Note: audio is a JSON array, so we need to check if it contains the attachment ID
-        const contentLinks = await system.db.query.asset_content_link.findMany(
-          {
-            columns: {
-              id: true,
-              asset_id: true,
-              audio: true
-            },
-            where: (fields, { sql }) =>
-              sql`json_extract(${fields.audio}, '$') LIKE ${'%' + attachmentRecord.id + '%'}`
-          }
-        );
+        const contentLinks = await system.db.query.asset_content_link.findMany({
+          columns: {
+            id: true,
+            asset_id: true,
+            audio: true
+          },
+          where: (fields, { sql }) =>
+            sql`json_extract(${fields.audio}, '$') LIKE ${'%' + attachmentRecord.id + '%'}`
+        });
 
         console.log(
           `[CorruptedAttachments] Found ${contentLinks.length} content links for attachment ${attachmentRecord.id.substring(0, 20)}`
@@ -111,7 +109,10 @@ export async function findCorruptedAttachments(): Promise<
 
     return results;
   } catch (error) {
-    console.error('[CorruptedAttachments] Error finding corrupted attachments:', error);
+    console.error(
+      '[CorruptedAttachments] Error finding corrupted attachments:',
+      error
+    );
     throw error;
   }
 }
@@ -150,7 +151,7 @@ export async function cleanupCorruptedAttachment(
       for (const link of contentLinks) {
         if (link.audio) {
           const updatedAudio = link.audio.filter((id) => id !== attachmentId);
-          
+
           // Use raw SQL update since PowerSync doesn't use Drizzle for writes
           await tx.execute(
             `UPDATE asset_content_link SET audio = ? WHERE id = ?`,
@@ -164,10 +165,9 @@ export async function cleanupCorruptedAttachment(
       }
 
       // Delete the attachment record
-      await tx.execute(
-        `DELETE FROM ${ATTACHMENT_TABLE} WHERE id = ?`,
-        [attachmentId]
-      );
+      await tx.execute(`DELETE FROM ${ATTACHMENT_TABLE} WHERE id = ?`, [
+        attachmentId
+      ]);
 
       console.log(
         `[CorruptedAttachments] Deleted attachment record: ${attachmentId.substring(0, 20)}`
@@ -195,7 +195,9 @@ export async function cleanupAllCorrupted(): Promise<{
   errors: string[];
 }> {
   try {
-    console.log('[CorruptedAttachments] Starting cleanup of all corrupted attachments...');
+    console.log(
+      '[CorruptedAttachments] Starting cleanup of all corrupted attachments...'
+    );
 
     const corrupted = await findCorruptedAttachments();
     const errors: string[] = [];
@@ -218,7 +220,10 @@ export async function cleanupAllCorrupted(): Promise<{
 
     return { cleaned, errors };
   } catch (error) {
-    console.error('[CorruptedAttachments] Error in cleanupAllCorrupted:', error);
+    console.error(
+      '[CorruptedAttachments] Error in cleanupAllCorrupted:',
+      error
+    );
     throw error;
   }
 }
@@ -238,8 +243,10 @@ export async function getCorruptedCount(): Promise<number> {
 
     return result?.count ?? 0;
   } catch (error) {
-    console.error('[CorruptedAttachments] Error getting corrupted count:', error);
+    console.error(
+      '[CorruptedAttachments] Error getting corrupted count:',
+      error
+    );
     return 0;
   }
 }
-

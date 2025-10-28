@@ -1,12 +1,12 @@
 import { useLocalStore } from '@/store/localStore';
 import { toColumns } from '@/utils/dbUtils';
 import type {
-    AttachmentQueueOptions,
-    AttachmentRecord
+  AttachmentQueueOptions,
+  AttachmentRecord
 } from '@powersync/attachments';
 import {
-    AbstractAttachmentQueue,
-    AttachmentState
+  AbstractAttachmentQueue,
+  AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import BiMap from 'bidirectional-map';
@@ -14,8 +14,8 @@ import { and, eq, isNotNull, or } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
 import {
-    asset_content_link_synced,
-    asset_synced
+  asset_content_link_synced,
+  asset_synced
 } from '../drizzleSchemaSynced';
 
 // Extended interface that includes our storage_type field
@@ -102,10 +102,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       localUri.includes('blob:') ||
       recordId.includes('blob:')
     ) {
-      console.error(
-        '[AttachmentQueue] Generated record contains blob URL:',
-        { recordId, filename, localUri }
-      );
+      console.error('[AttachmentQueue] Generated record contains blob URL:', {
+        recordId,
+        filename,
+        localUri
+      });
       throw new Error(
         'Generated attachment record contains blob URL. This should never happen.'
       );

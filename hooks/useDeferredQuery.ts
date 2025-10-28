@@ -1,17 +1,21 @@
 /**
  * Deferred query hooks for non-blocking navigation
- * 
+ *
  * These hooks defer data fetching until after animations/interactions complete,
  * allowing instant view transitions with progressive data loading.
  */
 
-import { useQuery, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  type UseQueryOptions,
+  type UseQueryResult
+} from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { InteractionManager } from 'react-native';
 
 /**
  * Defers query execution until after interactions complete
- * 
+ *
  * @example
  * ```tsx
  * const { data, isLoading } = useDeferredQuery({
@@ -43,13 +47,13 @@ export function useDeferredQuery<
   // Run query only after interactions complete
   return useQuery({
     ...options,
-    enabled: shouldFetch && (options.enabled !== false)
+    enabled: shouldFetch && options.enabled !== false
   });
 }
 
 /**
  * Optimistically shows cached data immediately, then refreshes after interactions
- * 
+ *
  * This provides instant feedback for navigation while ensuring data freshness
  */
 export function useOptimisticQuery<
@@ -81,4 +85,3 @@ export function useOptimisticQuery<
     placeholderData: (previousData) => previousData
   });
 }
-

@@ -21,7 +21,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
             // Retry failed queries once
             retry: 1,
             // Show cached data while refetching
-            placeholderData: (previousData) => previousData
+            placeholderData: (previousData: unknown) => previousData
           }
         }
       }),

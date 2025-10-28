@@ -173,7 +173,7 @@ export default function NextGenTranslationsList({
               {sortOrder === 'asc' ? 'A→Z' : 'Z→A'}
             </Text>
           </Button>
-          
+
           <Button
             variant={sortOption === 'voteCount' ? 'default' : 'outline'}
             size="sm"
@@ -195,7 +195,7 @@ export default function NextGenTranslationsList({
               {t('votes')}
             </Text>
           </Button>
-          
+
           <Button
             variant={sortOption === 'dateSubmitted' ? 'default' : 'outline'}
             size="sm"
@@ -244,7 +244,11 @@ export default function NextGenTranslationsList({
           )}
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center gap-4 px-8 py-16">
-              <Icon as={ThumbsUpIcon} size={48} className="text-muted-foreground/50" />
+              <Icon
+                as={ThumbsUpIcon}
+                size={48}
+                className="text-muted-foreground/50"
+              />
               <Text className="text-center text-lg font-medium text-muted-foreground">
                 {t('noTranslationsYet')}
               </Text>

@@ -4,7 +4,12 @@
  */
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { BackHandler, InteractionManager, StyleSheet, View } from 'react-native';
+import {
+  BackHandler,
+  InteractionManager,
+  StyleSheet,
+  View
+} from 'react-native';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 
@@ -19,7 +24,9 @@ const CorruptedAttachmentsView = React.lazy(
 const NextGenAssetDetailView = React.lazy(
   () => import('@/views/new/NextGenAssetDetailView')
 );
-const NextGenAssetsView = React.lazy(() => import('@/views/new/NextGenAssetsView'));
+const NextGenAssetsView = React.lazy(
+  () => import('@/views/new/NextGenAssetsView')
+);
 const NextGenProjectsView = React.lazy(
   () => import('@/views/new/NextGenProjectsView')
 );
@@ -32,7 +39,10 @@ import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import { UpdateBanner } from '@/components/UpdateBanner';
-import { CloudLoadingProvider, useCloudLoading } from '@/contexts/CloudLoadingContext';
+import {
+  CloudLoadingProvider,
+  useCloudLoading
+} from '@/contexts/CloudLoadingContext';
 import { StatusProvider } from '@/contexts/StatusContext';
 
 // DEV ONLY: Debug controls for testing OTA updates
@@ -105,15 +115,15 @@ function AppViewContent() {
           isCloudLoading={isCloudLoading}
         />
 
-          {/* OTA Update Banner */}
-          <UpdateBanner />
+        {/* OTA Update Banner */}
+        <UpdateBanner />
 
-          {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
-          {/* <OTAUpdateDebugControls /> */}
+        {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
+        {/* <OTAUpdateDebugControls /> */}
 
-          {/* Current View */}
-          <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
-        </View>
+        {/* Current View */}
+        <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
+      </View>
 
       {/* Drawer Navigation - Rendered last to appear on top */}
       <AppDrawer
