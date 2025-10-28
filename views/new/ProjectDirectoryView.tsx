@@ -2,7 +2,6 @@ import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModa
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
@@ -387,15 +386,9 @@ export default function ProjectDirectoryView() {
     }
   });
 
-  // Show loading skeleton for project metadata only
-  if (isProjectLoading) {
-    return (
-      <View className="flex-1 p-4">
-        <ProjectListSkeleton />
-      </View>
-    );
-  }
-
+  // Don't block on project loading - we can render Bible structure immediately
+  // Project metadata will load in background and update when ready
+  
   // Render content based on project type
   const renderContent = () => {
     // Bible project routing

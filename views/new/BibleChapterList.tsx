@@ -324,18 +324,12 @@ export function BibleChapterList({
     );
   }
 
-  if (!project) {
-    return (
-      <View className="flex-1 items-center justify-center p-6">
-        <ActivityIndicator size="large" color={primaryColor} />
-        <Text className="mt-4">Loading project...</Text>
-      </View>
-    );
-  }
+  // Don't block on project loading - we can render chapter structure immediately
+  // Project metadata will populate targetLanguageId when ready for chapter creation
 
   const handleChapterPress = (chapterNum: number) => {
-    // Prevent any action while loading or creating
-    if (isLoadingChapters || isCreating || creatingChapter === chapterNum) {
+    // Prevent any action while creating
+    if (isCreating || creatingChapter === chapterNum) {
       return;
     }
 
@@ -397,7 +391,7 @@ export function BibleChapterList({
                 projectId,
                 bookId,
                 chapter: chapterNum,
-                targetLanguageId: project.target_language_id
+                targetLanguageId: project?.target_language_id || ''
               });
 
               console.log(
@@ -440,7 +434,7 @@ export function BibleChapterList({
     };
   });
 
-  // Check if we should show empty state
+  // Check if we should show empty state (only for non-members with no chapters)
   const hasNoChapters = existingChapters.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
@@ -466,7 +460,7 @@ export function BibleChapterList({
           </View>
         </View>
 
-        {/* Empty State */}
+        {/* Empty State - only for non-members with no content */}
         {showEmptyState ? (
           <View className="flex-1 items-center justify-center gap-4 px-6">
             <Icon
@@ -483,16 +477,6 @@ export function BibleChapterList({
               </Text>
             </View>
           </View>
-        ) : isLoadingChapters ? (
-          <LegendList
-            data={chapters.slice(0, 32)}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={4}
-            estimatedItemSize={90}
-            contentContainerStyle={{ paddingHorizontal: 8 }}
-            columnWrapperStyle={{ gap: 8 }}
-            renderItem={() => <ChapterSkeleton />}
-          />
         ) : (
           <LegendList
             data={chapters}
@@ -510,7 +494,7 @@ export function BibleChapterList({
                   existingChapter={item.existingChapter}
                   isCreatingThis={item.isCreatingThis}
                   onPress={() => handleChapterPress(item.chapterNum)}
-                  disabled={Boolean(isCreating || isLoadingChapters)}
+                  disabled={Boolean(isCreating)}
                   onDownloadClick={handleDownloadClick}
                   canCreateNew={canCreateNew}
                 />
