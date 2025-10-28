@@ -32,16 +32,18 @@ import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { CloudLoadingProvider, useCloudLoading } from '@/contexts/CloudLoadingContext';
 import { StatusProvider } from '@/contexts/StatusContext';
 
 // DEV ONLY: Debug controls for testing OTA updates
 // To test OTA updates in development, uncomment the next line:
 // import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
 
-export default function AppView() {
+function AppViewContent() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
+  const { isCloudLoading } = useCloudLoading();
 
   // Defer view changes until after animations complete
   // This ensures instant navigation transitions
@@ -94,14 +96,14 @@ export default function AppView() {
   };
 
   return (
-    <StatusProvider>
-      <View style={styles.appContainer}>
-        {/* Main Content Area */}
-        <View style={styles.contentContainer}>
-          {/* App Header */}
-          <AppHeader
-            drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
-          />
+    <View style={styles.appContainer}>
+      {/* Main Content Area */}
+      <View style={styles.contentContainer}>
+        {/* App Header */}
+        <AppHeader
+          drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+          isCloudLoading={isCloudLoading}
+        />
 
           {/* OTA Update Banner */}
           <UpdateBanner />
@@ -113,12 +115,21 @@ export default function AppView() {
           <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
         </View>
 
-        {/* Drawer Navigation - Rendered last to appear on top */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
-      </View>
+      {/* Drawer Navigation - Rendered last to appear on top */}
+      <AppDrawer
+        drawerIsVisible={drawerIsVisible}
+        setDrawerIsVisible={setDrawerIsVisible}
+      />
+    </View>
+  );
+}
+
+export default function AppView() {
+  return (
+    <StatusProvider>
+      <CloudLoadingProvider>
+        <AppViewContent />
+      </CloudLoadingProvider>
     </StatusProvider>
   );
 }

@@ -27,9 +27,11 @@ import Animated, {
 import { Button } from './ui/button';
 
 export default function AppHeader({
-  drawerToggleCallback
+  drawerToggleCallback,
+  isCloudLoading = false
 }: {
   drawerToggleCallback: () => void;
+  isCloudLoading?: boolean;
 }) {
   const {
     breadcrumbs,
@@ -102,8 +104,48 @@ export default function AppHeader({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
   }));
 
+  // Animation for cloud loading bar
+  const loadingProgress = useSharedValue(0);
+  const loadingOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isCloudLoading) {
+      // Start loading animation
+      loadingOpacity.value = withTiming(1, { duration: 200 });
+      loadingProgress.value = withTiming(0.9, {
+        duration: 1500,
+        easing: Easing.bezier(0.4, 0, 0.2, 1)
+      });
+    } else {
+      // Complete and fade out
+      if (loadingProgress.value > 0) {
+        loadingProgress.value = withTiming(1, { duration: 200 });
+        loadingOpacity.value = withTiming(
+          0,
+          { duration: 300 },
+          (finished) => {
+            if (finished) {
+              loadingProgress.value = 0;
+            }
+          }
+        );
+      }
+    }
+  }, [isCloudLoading]);
+
+  const loadingBarStyle = useAnimatedStyle(() => ({
+    width: `${loadingProgress.value * 100}%`,
+    opacity: loadingOpacity.value
+  }));
+
   return (
-    <View className="bg-transparent p-4">
+    <View className="relative bg-transparent p-4">
+      {/* Cloud Loading Bar */}
+      <Animated.View
+        style={loadingBarStyle}
+        className="absolute left-0 right-0 top-0 h-[2px] bg-primary shadow-sm"
+      />
+      
       <View className="flex-row items-center">
         {/* Breadcrumbs */}
         <View className="flex-1 flex-row items-center overflow-hidden">

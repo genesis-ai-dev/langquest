@@ -28,6 +28,7 @@ import { useItemDownloadStatus } from './useHybridData';
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+  onCloudLoadingChange?: (isLoading: boolean) => void;
 }
 
 // type QuestClosure = typeof quest_closure.$inferSelect;
@@ -167,7 +168,7 @@ function ChapterButton({
   );
 }
 
-export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
+export function BibleChapterList({ projectId, bookId, onCloudLoadingChange }: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
@@ -186,8 +187,14 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const {
     existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,
-    isLoading: isLoadingChapters
+    isLoading: isLoadingChapters,
+    isLoadingCloud
   } = useBibleChapters(projectId, bookId);
+
+  // Notify parent of cloud loading state
+  React.useEffect(() => {
+    onCloudLoadingChange?.(isLoadingCloud);
+  }, [isLoadingCloud, onCloudLoadingChange]);
 
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null

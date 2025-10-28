@@ -335,6 +335,8 @@ export interface HybridInfiniteDataResult<T> {
   isFetchingNextPage: boolean;
   isFetchingPreviousPage: boolean;
   isLoading: boolean;
+  isOfflineLoading: boolean;
+  isCloudLoading: boolean;
   isFetching: boolean;
   isError: boolean;
   isSuccess: boolean;
@@ -516,8 +518,9 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    isLoading:
-      offlineQuery.isLoading && shouldFetchCloud && cloudQuery.isLoading,
+    isLoading: offlineQuery.isLoading, // Only block on offline loading
+    isOfflineLoading: offlineQuery.isLoading,
+    isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
     isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
     isError: offlineQuery.isError || cloudQuery.isError,
     isSuccess: offlineQuery.isSuccess || cloudQuery.isSuccess,
@@ -526,7 +529,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     status:
       offlineQuery.isError || cloudQuery.isError
         ? 'error'
-        : offlineQuery.isLoading || cloudQuery.isLoading
+        : offlineQuery.isLoading
           ? 'pending'
           : 'success'
   };

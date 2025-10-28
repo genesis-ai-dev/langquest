@@ -20,6 +20,7 @@ interface QuestListViewProps {
   isMember: boolean;
   onAddChild: (parentId: string | null) => void;
   onDownloadClick: (questId: string) => void;
+  onCloudLoadingChange?: (isLoading: boolean) => void;
 }
 
 type Quest = typeof quest.$inferSelect;
@@ -40,7 +41,8 @@ export function QuestListView({
   projectSource,
   isMember,
   onAddChild,
-  onDownloadClick
+  onDownloadClick,
+  onCloudLoadingChange
 }: QuestListViewProps) {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -112,6 +114,11 @@ export function QuestListView({
       enabled: !!projectId
     }
   });
+
+  // Notify parent of cloud loading state
+  React.useEffect(() => {
+    onCloudLoadingChange?.(questsInfiniteQuery.isCloudLoading);
+  }, [questsInfiniteQuery.isCloudLoading, onCloudLoadingChange]);
 
   // Flatten all pages into single array for tree building
   const rawQuests = React.useMemo(() => {
@@ -189,8 +196,8 @@ export function QuestListView({
     ]
   );
 
-  // Show skeleton rows during initial loading
-  if (questsInfiniteQuery.isLoading) {
+  // Show skeleton rows during initial offline loading only
+  if (questsInfiniteQuery.isOfflineLoading) {
     return (
       <View className="flex-1">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -201,7 +208,7 @@ export function QuestListView({
   }
 
   // Show empty state only when NOT loading and no results
-  if (roots.length === 0 && !questsInfiniteQuery.isLoading) {
+  if (roots.length === 0 && !questsInfiniteQuery.isOfflineLoading) {
     return (
       <View className="flex-1 items-center justify-center p-4">
         <Text className="text-center text-muted-foreground">
