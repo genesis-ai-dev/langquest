@@ -13,7 +13,8 @@ export type AppView =
   | 'asset-detail'
   | 'profile'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'corrupted-attachments';
 
 export interface NavigationStackItem {
   view: AppView;

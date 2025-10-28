@@ -224,6 +224,10 @@ export function useAppNavigation() {
     navigate({ view: 'settings' });
   }, [navigate]);
 
+  const goToCorruptedAttachments = useCallback(() => {
+    navigate({ view: 'corrupted-attachments' });
+  }, [navigate]);
+
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
     const crumbs = [];
@@ -304,6 +308,7 @@ export function useAppNavigation() {
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToCorruptedAttachments,
 
     // Utilities
     breadcrumbs,

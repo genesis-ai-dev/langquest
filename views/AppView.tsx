@@ -4,21 +4,28 @@
  */
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, InteractionManager, StyleSheet, View } from 'react-native';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 
-// View Components (to be created/migrated)
-import NotificationsView from '@/views/NotificationsView';
-import ProfileView from '@/views/ProfileView';
-// import ProjectsView from '@/views/ProjectsView';
-// import QuestsView from '@/views/QuestsView';
-import SettingsView from '@/views/SettingsView';
-import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
-import NextGenAssetsView from '@/views/new/NextGenAssetsView';
-import NextGenProjectsView from '@/views/new/NextGenProjectsView';
-// import NextGenQuestsView from '@/views/new/NextGenQuestsView';
-import ProjectDirectoryView from '@/views/new/ProjectDirectoryView';
+// Lazy-load view components for instant navigation transitions
+// This prevents blocking the main thread with bundle loading
+const NotificationsView = React.lazy(() => import('@/views/NotificationsView'));
+const ProfileView = React.lazy(() => import('@/views/ProfileView'));
+const SettingsView = React.lazy(() => import('@/views/SettingsView'));
+const CorruptedAttachmentsView = React.lazy(
+  () => import('@/views/CorruptedAttachmentsView')
+);
+const NextGenAssetDetailView = React.lazy(
+  () => import('@/views/new/NextGenAssetDetailView')
+);
+const NextGenAssetsView = React.lazy(() => import('@/views/new/NextGenAssetsView'));
+const NextGenProjectsView = React.lazy(
+  () => import('@/views/new/NextGenProjectsView')
+);
+const ProjectDirectoryView = React.lazy(
+  () => import('@/views/new/ProjectDirectoryView')
+);
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
@@ -34,6 +41,17 @@ import { StatusProvider } from '@/contexts/StatusContext';
 export default function AppView() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
+  const [deferredView, setDeferredView] = useState(currentView);
+
+  // Defer view changes until after animations complete
+  // This ensures instant navigation transitions
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setDeferredView(currentView);
+    });
+
+    return () => task.cancel();
+  }, [currentView]);
 
   // Handle hardware back button and back gestures
   useEffect(() => {
@@ -51,8 +69,9 @@ export default function AppView() {
     return () => backHandler.remove();
   }, [canGoBack, goBack]);
 
+  // Use deferred view for rendering to prevent blocking navigation transitions
   const renderCurrentView = () => {
-    switch (currentView) {
+    switch (deferredView) {
       case 'projects':
         return <NextGenProjectsView />;
       case 'quests':
@@ -67,6 +86,8 @@ export default function AppView() {
         return <NotificationsView />;
       case 'settings':
         return <SettingsView />;
+      case 'corrupted-attachments':
+        return <CorruptedAttachmentsView />;
       default:
         return <NextGenProjectsView />;
     }

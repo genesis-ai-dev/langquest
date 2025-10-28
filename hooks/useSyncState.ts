@@ -1,6 +1,7 @@
 import { system } from '@/db/powersync/system';
 import { AttachmentState } from '@powersync/attachments';
 import { useEffect, useState } from 'react';
+import { InteractionManager } from 'react-native';
 import { useAttachmentStates } from './useAttachmentStates';
 
 interface SyncState {
@@ -18,26 +19,36 @@ interface SyncState {
 
 /**
  * Returns the number of attachments that are not yet fully synced.
- * @param attachmentIds Array of attachment IDs to check.
+ * Uses InteractionManager to prevent blocking the main thread during counting.
  * @returns { unsyncedCount: number, isLoading: boolean }
  */
 function useUnsyncedAttachmentsCount(): {
   unsyncedCount: number;
   isLoading: boolean;
 } {
-  // get all attachment ids from the attachment table
-
   const { attachmentStates, isLoading } = useAttachmentStates([]);
+  const [unsyncedCount, setUnsyncedCount] = useState(0);
 
-  // Count attachments with state less than SYNCED
-  let unsyncedCount = 0;
-  if (!isLoading && attachmentStates.size > 0) {
-    for (const record of attachmentStates.values()) {
-      if (record.state < AttachmentState.SYNCED) {
-        unsyncedCount++;
-      }
+  // Move attachment state iteration off main thread to prevent blocking
+  useEffect(() => {
+    if (isLoading || attachmentStates.size === 0) {
+      setUnsyncedCount(0);
+      return;
     }
-  }
+
+    // Defer counting to prevent blocking UI interactions
+    const handle = InteractionManager.runAfterInteractions(() => {
+      let count = 0;
+      for (const record of attachmentStates.values()) {
+        if (record.state < AttachmentState.SYNCED) {
+          count++;
+        }
+      }
+      setUnsyncedCount(count);
+    });
+
+    return () => handle.cancel();
+  }, [attachmentStates, isLoading]);
 
   return { unsyncedCount, isLoading };
 }

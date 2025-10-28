@@ -1,20 +1,20 @@
 import {
-  getFileInfo,
-  getFileName,
-  getLocalUri,
-  moveFile
+    getFileInfo,
+    getFileName,
+    getLocalUri,
+    moveFile
 } from '@/utils/fileUtils';
 import type {
-  AttachmentQueueOptions,
-  AttachmentRecord
+    AttachmentQueueOptions,
+    AttachmentRecord
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
 import {
-  asset_content_link_synced,
-  asset_synced
+    asset_content_link_synced,
+    asset_synced
 } from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
 import type { SupabaseConnector } from '../supabase/SupabaseConnector';
@@ -152,6 +152,14 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     tempUri: string,
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
+    // Reject blob URLs - they must be converted to files first
+    if (tempUri.includes('blob:')) {
+      console.error('[PermAttachmentQueue] Attempted to save blob URL:', tempUri);
+      throw new Error(
+        'Cannot save blob URL directly. Must be converted to file first.'
+      );
+    }
+
     const recordId = getFileName(tempUri)!;
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId

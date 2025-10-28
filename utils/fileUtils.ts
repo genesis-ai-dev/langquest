@@ -117,6 +117,13 @@ export function getLocalAttachmentUriWithOPFS(filePath: string) {
 }
 
 export async function saveAudioLocally(uri: string) {
+  // Reject blob URLs - they must be converted to files first
+  if (uri.includes('blob:')) {
+    throw new Error(
+      `Invalid URI: blob URLs cannot be saved directly. URI: ${uri.substring(0, 100)}`
+    );
+  }
+
   const newUri = `local/${uuid.v4()}.${uri.split('.').pop()}`;
   console.log('🔍 Saving audio file locally:', uri, newUri);
   if (await fileExists(uri)) {

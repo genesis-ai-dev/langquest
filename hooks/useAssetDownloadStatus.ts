@@ -1,6 +1,8 @@
 import type { ExtendedAttachmentRecord } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { AttachmentState } from '@powersync/attachments';
 import { useQuery } from '@powersync/tanstack-react-query';
+import { useEffect, useState } from 'react';
+import { InteractionManager } from 'react-native';
 import { getAssetAttachmentIds } from '../utils/attachmentUtils';
 
 export function useAssetDownloadStatus(assetIds: string[]) {
@@ -9,46 +11,55 @@ export function useAssetDownloadStatus(assetIds: string[]) {
     queryFn: () => getAssetAttachmentIds(assetIds)
   });
 
+  // Use parameterized query instead of string interpolation for better performance
   const { data: attachments = [] } = useQuery({
     queryKey: ['attachments', attachmentIds],
-    query: `SELECT * FROM attachments WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')}) AND storage_type = 'permanent'`,
+    query:
+      attachmentIds.length > 0
+        ? `SELECT * FROM attachments WHERE id IN (${attachmentIds.map(() => '?').join(',')}) AND storage_type = 'permanent'`
+        : 'SELECT * FROM attachments WHERE 1=0', // No results query
+    parameters: attachmentIds,
     enabled: attachmentIds.length > 0
   });
 
-  // If we have no attachments for any asset, consider it not downloaded
-  if (attachmentIds.length === 0) {
-    // console.log(
-    //   'Consider as not downloaded, no attachments found for assets',
-    //   assetIds
-    // );
-    return { isDownloaded: false, isLoading: false };
-  }
+  // Move state checks off main thread to prevent blocking
+  const [downloadState, setDownloadState] = useState({
+    isDownloaded: false,
+    isLoading: false
+  });
 
-  // Check if all attachments are either SYNCED or QUEUED_UPLOAD
-  // console.log(
-  //   'Attachment Ids found for assets with getAssetAttachmentIds',
-  //   assetIds,
-  //   attachmentIds
-  // );
-  // console.log('Attachments found with query', attachments);
+  useEffect(() => {
+    // Early returns for simple cases (don't need InteractionManager)
+    if (attachmentIds.length === 0) {
+      setDownloadState({ isDownloaded: false, isLoading: false });
+      return;
+    }
 
-  // If we have fewer attachments than attachmentIds, some attachments are missing from attachments table
-  if (attachments.length < attachmentIds.length) {
-    // console.log('Some attachments not found in database for assets', assetIds);
-    return { isDownloaded: false, isLoading: false };
-  }
+    if (attachments.length < attachmentIds.length) {
+      // Some attachments missing - not fully downloaded
+      setDownloadState({ isDownloaded: false, isLoading: false });
+      return;
+    }
 
-  const isDownloaded = (attachments as ExtendedAttachmentRecord[]).every(
-    (attachment) =>
-      attachment.state === AttachmentState.SYNCED ||
-      attachment.state === AttachmentState.QUEUED_UPLOAD
-  );
+    // Defer state checking to prevent blocking UI interactions
+    const handle = InteractionManager.runAfterInteractions(() => {
+      const isDownloaded = (attachments as ExtendedAttachmentRecord[]).every(
+        (attachment) =>
+          attachment.state === AttachmentState.SYNCED ||
+          attachment.state === AttachmentState.QUEUED_UPLOAD
+      );
 
-  const isLoading = (attachments as ExtendedAttachmentRecord[]).some(
-    (attachment) =>
-      attachment.state === AttachmentState.QUEUED_DOWNLOAD ||
-      attachment.state === AttachmentState.QUEUED_SYNC
-  );
+      const isLoading = (attachments as ExtendedAttachmentRecord[]).some(
+        (attachment) =>
+          attachment.state === AttachmentState.QUEUED_DOWNLOAD ||
+          attachment.state === AttachmentState.QUEUED_SYNC
+      );
 
-  return { isDownloaded, isLoading };
+      setDownloadState({ isDownloaded, isLoading });
+    });
+
+    return () => handle.cancel();
+  }, [attachmentIds.length, attachments]);
+
+  return downloadState;
 }

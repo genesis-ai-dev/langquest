@@ -15,6 +15,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
+import { getCorruptedCount } from '@/services/corruptedAttachmentsService';
 import { useLocalStore } from '@/store/localStore';
 import {
   backupUnsyncedAudio,
@@ -73,6 +74,7 @@ export default function AppDrawer({
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToCorruptedAttachments,
     currentView
   } = useAppNavigation();
 
@@ -80,6 +82,24 @@ export default function AppDrawer({
   useRenderCounter('AppDrawer');
 
   const systemReady = useLocalStore((state) => state.systemReady);
+
+  // Track corrupted attachments count
+  const [corruptedCount, setCorruptedCount] = useState(0);
+
+  // Load corrupted attachments count when drawer opens
+  useEffect(() => {
+    if (drawerIsVisible && systemReady) {
+      void (async () => {
+        try {
+          const count = await getCorruptedCount();
+          setCorruptedCount(count);
+        } catch (error) {
+          console.error('Failed to get corrupted count:', error);
+          setCorruptedCount(0);
+        }
+      })();
+    }
+  }, [drawerIsVisible, systemReady]);
 
   const isConnected = useNetworkStatus();
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -512,6 +532,21 @@ export default function AppDrawer({
       }
     }
   ] as const;
+
+  // Add diagnostics menu item if there are corrupted attachments or in dev mode
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (corruptedCount > 0 || __DEV__) {
+    drawerItems.push({
+      name: __DEV__ ? 'Diagnostics' : 'System Health',
+      view: 'corrupted-attachments',
+      icon: AlertTriangle,
+      onPress: () => {
+        goToCorruptedAttachments();
+        setDrawerIsVisible(false);
+      },
+      notificationCount: corruptedCount > 0 ? corruptedCount : undefined
+    });
+  }
 
   if (Platform.OS !== 'web') {
     drawerItems.push({
