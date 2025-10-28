@@ -1,20 +1,20 @@
 import {
-    getFileInfo,
-    getFileName,
-    getLocalUri,
-    moveFile
+  getFileInfo,
+  getFileName,
+  getLocalUri,
+  moveFile
 } from '@/utils/fileUtils';
 import type {
-    AttachmentQueueOptions,
-    AttachmentRecord
+  AttachmentQueueOptions,
+  AttachmentRecord
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
 import {
-    asset_content_link_synced,
-    asset_synced
+  asset_content_link_synced,
+  asset_synced
 } from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
 import type { SupabaseConnector } from '../supabase/SupabaseConnector';
@@ -161,6 +161,15 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     const recordId = getFileName(tempUri)!;
+    
+    // Double-check the recordId doesn't contain blob URL
+    if (recordId.includes('blob:')) {
+      console.error('[PermAttachmentQueue] getFileName returned blob URL:', recordId);
+      throw new Error(
+        'Invalid file path - contains blob URL. Must use proper file path.'
+      );
+    }
+
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId
     });

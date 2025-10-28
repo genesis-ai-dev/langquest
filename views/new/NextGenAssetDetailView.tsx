@@ -5,7 +5,7 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
-import { Button, buttonTextVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -72,9 +72,15 @@ export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { currentAssetId, currentProjectId, currentQuestId } =
     useAppNavigation();
+  
+  console.log('[ASSET DETAIL VIEW] Navigation context:', {
+    currentAssetId,
+    currentProjectId,
+    currentQuestId
+  });
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
-  const [targetLanguageId, setTargetLanguageId] = useState<string>('');
+  const [translationLanguageId, setTranslationLanguageId] = useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
@@ -96,27 +102,34 @@ export default function NextGenAssetDetailView() {
   // }, [currentAssetId]);
 
   // Get project info for target language and privacy
-  const { data: projectData } = useQuery({
+  const { data: rawProjectData } = useQuery({
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
+      console.log('[ASSET DETAIL] Fetching project data for:', currentProjectId);
       // Try local first then cloud
       let result = await system.db
         .select()
         .from(project)
         .where(eq(project.id, currentProjectId))
         .limit(1);
+      console.log('[ASSET DETAIL] Local project query result:', result[0]);
       if (!result[0]) {
         result = await system.db
           .select()
           .from(projectCloud)
           .where(eq(projectCloud.id, currentProjectId))
           .limit(1);
+        console.log('[ASSET DETAIL] Cloud project query result:', result[0]);
       }
       return result[0] || null;
     },
-    enabled: !!currentProjectId
+    enabled: !!currentProjectId,
+    staleTime: 30000 // Cache for 30 seconds
   });
+  
+  // Extract project from array if needed (query caching can return array)
+  const projectData = (Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData) as typeof rawProjectData;
 
   // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
@@ -127,15 +140,23 @@ export default function NextGenAssetDetailView() {
     );
 
   useEffect(() => {
+    console.log('[ASSET DETAIL] Project data loaded:', {
+      hasProjectData: !!projectData,
+      target_language_id: projectData?.target_language_id,
+      project_id: projectData?.id,
+      fullProjectData: projectData // Show the full object
+    });
+    
     if (projectData?.target_language_id) {
-      setTargetLanguageId(projectData.target_language_id);
+      console.log('[ASSET DETAIL] Setting translation language to:', projectData.target_language_id);
+      setTranslationLanguageId(projectData.target_language_id);
+    } else if (projectData) {
+      console.warn('[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!', projectData);
     }
   }, [projectData]);
 
   // Determine which asset to display
   const activeAsset = offlineAsset?.[0];
-
-  const isLoading = isOfflineLoading;
 
   const currentStatus = useStatusContext();
 
@@ -308,10 +329,13 @@ export default function NextGenAssetDetailView() {
   const screenHeight = Dimensions.get('window').height;
   const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
-  if (isLoading || isOfflineLoading) {
+  // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
+  // This prevents the "not available" flash when navigating between assets
+  if (isOfflineLoading || (!activeAsset && currentAssetId)) {
     return <AssetSkeleton />;
   }
 
+  // Only show error if loading is complete but we still have no asset
   if (!activeAsset) {
     return (
       <View className="flex-1 bg-background">
@@ -335,10 +359,17 @@ export default function NextGenAssetDetailView() {
   };
 
   const handleNewTranslationPress = () => {
-    if (canTranslate) {
-      setShowNewTranslationModal(true);
+    if (!canTranslate) {
+      // If no access, PrivateAccessGate will handle showing the modal
+      return;
     }
-    // If no access, PrivateAccessGate will handle showing the modal
+    
+    if (!translationLanguageId) {
+      console.error('[ASSET DETAIL] Cannot open translation modal: translation language not loaded');
+      return;
+    }
+    
+    setShowNewTranslationModal(true);
   };
 
   return (
@@ -555,7 +586,7 @@ export default function NextGenAssetDetailView() {
           onPress={() => allowEditing && handleNewTranslationPress()}
         >
           <Icon as={PlusIcon} size={24} />
-          <Text className={cn(buttonTextVariants(), 'text-base font-bold')}>
+          <Text className="text-secondary font-bold">
             {t('newTranslation')}
           </Text>
         </Button>
@@ -571,7 +602,7 @@ export default function NextGenAssetDetailView() {
           assetName={activeAsset.name}
           assetContent={activeAsset.content}
           sourceLanguage={null}
-          targetLanguageId={targetLanguageId}
+          translationLanguageId={translationLanguageId}
         />
       )}
 

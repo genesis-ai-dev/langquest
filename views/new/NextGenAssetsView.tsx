@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-  SpeedDial,
-  SpeedDialItem,
-  SpeedDialItems,
-  SpeedDialTrigger
+    SpeedDial,
+    SpeedDialItem,
+    SpeedDialItems,
+    SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -24,13 +24,13 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
-  CheckIcon,
-  FlagIcon,
-  InfoIcon,
-  MicIcon,
-  SearchIcon,
-  SettingsIcon,
-  Share2Icon
+    CheckIcon,
+    FlagIcon,
+    InfoIcon,
+    MicIcon,
+    SearchIcon,
+    SettingsIcon,
+    Share2Icon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
@@ -531,7 +531,7 @@ export default function NextGenAssetsView() {
           </View>
         )}
 
-      {isLoading ? (
+      {isLoading || (isFetching && assets.length === 0) ? (
         searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />

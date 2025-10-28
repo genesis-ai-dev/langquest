@@ -34,7 +34,7 @@ import { useMutation } from '@tanstack/react-query';
 import { MicIcon, TextIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { z } from 'zod';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
@@ -46,7 +46,7 @@ interface NextGenNewTranslationModalProps {
   assetName?: string | null;
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
-  targetLanguageId: string;
+  translationLanguageId: string; // The language of the new translation asset being created
 }
 
 type TranslationType = 'text' | 'audio';
@@ -59,59 +59,147 @@ export default function NextGenNewTranslationModal({
   assetName,
   assetContent,
   sourceLanguage,
-  targetLanguageId
+  translationLanguageId
 }: NextGenNewTranslationModalProps) {
-  const { currentProjectId } = useAppNavigation();
+  const { currentProjectId, currentQuestId } = useAppNavigation();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
 
-  const { currentQuestId } = useAppNavigation();
-
-  const translationSchema = z
-    .object({
-      text: z.string().nonempty().trim().optional(),
-      audioUri: z.string().nonempty().optional()
-    })
-    .refine(
-      (data) =>
-        (translationType === 'text' && data.text) ||
-        (translationType === 'audio' && data.audioUri),
-      {
-        message: t('fillFields'),
-        path: translationType === 'text' ? ['text'] : ['audioUri']
+  // Debug logging for context
+  React.useEffect(() => {
+    if (visible) {
+      console.log('[NEW TRANSLATION MODAL] Modal opened with context:', {
+        assetId,
+        currentQuestId,
+        currentProjectId,
+        translationLanguageId,
+        hasCurrentUser: !!currentUser
+      });
+      
+      if (!translationLanguageId) {
+        console.error('[NEW TRANSLATION MODAL] ERROR: translationLanguageId is empty! This should never happen.');
       }
-    );
+    }
+  }, [visible, assetId, currentQuestId, currentProjectId, translationLanguageId, currentUser]);
+
+  // Simpler schema - just validate that fields exist when provided
+  const translationSchema = z.object({
+    text: z.string().optional(),
+    audioUri: z.string().optional()
+  });
 
   type TranslationFormData = z.infer<typeof translationSchema>;
 
   const form = useForm<TranslationFormData>({
     resolver: zodResolver(translationSchema),
+    mode: 'onChange',
     disabled: !currentUser?.id
   });
 
-  // Note: source language options restriction will be handled by parent; modal displays the selected sourceLanguage if provided
+  // Reset form when modal opens
+  React.useEffect(() => {
+    if (visible) {
+      form.reset({ text: '', audioUri: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  // Track custom validity based on translation type
+  const [isFormValid, setIsFormValid] = React.useState(false);
+  
+  React.useEffect(() => {
+    const values = form.getValues();
+    const isValid = 
+      (translationType === 'text' && !!values.text?.trim()) ||
+      (translationType === 'audio' && !!values.audioUri);
+    setIsFormValid(isValid);
+    
+    console.log('[FORM DEBUG] Validity check:', {
+      translationType,
+      hasText: !!values.text,
+      hasAudioUri: !!values.audioUri,
+      isValid
+    });
+  }, [translationType, form]);
+
+  // Debug: Watch form state
+  React.useEffect(() => {
+    const subscription = form.watch((values) => {
+      const isValid = 
+        (translationType === 'text' && !!values.text?.trim()) ||
+        (translationType === 'audio' && !!values.audioUri);
+      setIsFormValid(isValid);
+      
+      console.log('[FORM DEBUG] Field changed:', {
+        values,
+        isValid,
+        translationType
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [form, translationType]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
+      console.log('[CREATE TRANSLATION] Starting with data:', { 
+        translationType, 
+        hasText: !!data.text, 
+        hasAudioUri: !!data.audioUri,
+        audioUri: data.audioUri?.substring(0, 50),
+        translationLanguageId,
+        currentProjectId,
+        currentQuestId
+      });
+
+      // Validate that the appropriate field is filled based on translation type
+      if (translationType === 'text' && !data.text?.trim()) {
+        throw new Error(t('enterTranslation'));
+      }
+      if (translationType === 'audio' && !data.audioUri) {
+        throw new Error('Please record audio');
+      }
+
+      // Validate required context - these should never be missing if the modal opened correctly
+      if (!translationLanguageId) {
+        throw new Error('Translation language is missing. This is an unexpected error.');
+      }
+      if (!currentProjectId) {
+        throw new Error('Project context is missing. This is an unexpected error.');
+      }
+      if (!currentQuestId) {
+        throw new Error('Quest context is missing. This is an unexpected error.');
+      }
+
       let audioAttachment: string | null = null;
       if (data.audioUri && system.permAttachmentQueue) {
+        // Validate that the audio URI is not a blob URL
+        if (data.audioUri.includes('blob:')) {
+          throw new Error(
+            'Audio recording failed to save locally. Please try recording again.'
+          );
+        }
+        
+        console.log('[CREATE TRANSLATION] Saving audio to permanent queue...');
         const attachment = await system.permAttachmentQueue.saveAudio(
           data.audioUri
         );
         audioAttachment = attachment.filename;
+        console.log('[CREATE TRANSLATION] Audio saved:', audioAttachment);
       }
 
+      console.log('[CREATE TRANSLATION] Starting transaction...');
       await system.db.transaction(async (tx) => {
+        // Create a new asset that points to the original asset (translation variant)
+        // In the new schema: translation = asset with source_asset_id pointing to original
+        console.log('[CREATE TRANSLATION] Inserting asset (translation variant)...');
         const [newAsset] = await tx
           .insert(resolveTable('asset')) // only insert into synced table
           .values({
-            ...(translationType === 'text' && { text: data.text }),
-            ...(translationType === 'audio' && { audio: audioAttachment }),
-            source_asset_id: assetId,
-            source_language_id: sourceLanguage?.id,
+            source_asset_id: assetId, // Points to the original asset being translated
+            source_language_id: translationLanguageId, // The language this translation is IN
             project_id: currentProjectId!,
             creator_id: currentUser!.id,
             download_profiles: [currentUser!.id]
@@ -121,19 +209,50 @@ export default function NextGenNewTranslationModal({
         if (!newAsset) {
           throw new Error('Failed to insert asset');
         }
+        console.log('[CREATE TRANSLATION] Translation asset created:', newAsset.id);
 
-        // Create quest_asset_link
+        // Create asset_content_link with the actual text/audio content
+        const contentValues: {
+          asset_id: string;
+          source_language_id: string;
+          download_profiles: string[];
+          text?: string;
+          audio?: string[];
+        } = {
+          asset_id: newAsset.id,
+          source_language_id: translationLanguageId,
+          download_profiles: [currentUser!.id]
+        };
+        
+        // Add text or audio depending on translation type
+        if (translationType === 'text' && data.text) {
+          contentValues.text = data.text;
+        } else if (translationType === 'audio' && audioAttachment) {
+          contentValues.audio = [audioAttachment];
+        }
+        
+        console.log('[CREATE TRANSLATION] Inserting asset_content_link:', JSON.stringify(contentValues, null, 2));
+        
         await tx
-          .insert(
-            resolveTable('quest_asset_link') // only insert into synced table
-          )
+          .insert(resolveTable('asset_content_link'))
+          .values(contentValues);
+
+        console.log('[CREATE TRANSLATION] Content link created');
+
+        // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
+        console.log('[CREATE TRANSLATION] Inserting quest_asset_link...');
+        await tx
+          .insert(resolveTable('quest_asset_link'))
           .values({
-            id: `${currentQuestId}_${newAsset.id}`,
             quest_id: currentQuestId!,
             asset_id: newAsset.id,
             download_profiles: [currentUser!.id]
           });
+
+        console.log('[CREATE TRANSLATION] Quest asset link created');
       });
+
+      console.log('[CREATE TRANSLATION] Transaction complete!');
     },
     onSuccess: () => {
       form.reset();
@@ -142,8 +261,12 @@ export default function NextGenNewTranslationModal({
       onClose();
     },
     onError: (error) => {
-      console.error('Error creating translation:', error);
-      Alert.alert(t('error'), t('failedCreateTranslation'));
+      console.error('[CREATE TRANSLATION] Error creating translation:', error);
+      console.error('[CREATE TRANSLATION] Error stack:', (error as Error).stack);
+      Alert.alert(
+        t('error'), 
+        t('failedCreateTranslation') + '\n\n' + (error as Error).message
+      );
     }
   });
 
@@ -170,13 +293,7 @@ export default function NextGenNewTranslationModal({
             <DrawerTitle>{t('newTranslation')}</DrawerTitle>
           </DrawerHeader>
 
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{ flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View className="flex-col gap-4 px-4">
+          <View className="flex-1 flex-col gap-4 px-4">
               {/* Translation Type Tabs */}
               <Tabs
                 value={translationType}
@@ -287,13 +404,43 @@ export default function NextGenNewTranslationModal({
                   </Text>
                 </View>
               )}
-            </View>
-          </ScrollView>
+          </View>
 
           <DrawerFooter>
+            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {SHOW_DEV_ELEMENTS && (
+              <View className="mb-2 rounded bg-muted p-2">
+                <Text className="text-xs text-muted-foreground">
+                  Debug: isFormValid={String(isFormValid)} | 
+                  translationType={translationType} | 
+                  values={JSON.stringify(form.getValues())}
+                </Text>
+              </View>
+            )}
             <FormSubmit
-              onPress={form.handleSubmit((data) => createTranslation(data))}
-              disabled={!currentQuestId}
+              disabled={!isFormValid}
+              onPress={form.handleSubmit(
+                (data) => {
+                  console.log('[CREATE TRANSLATION] Form validation passed, submitting:', {
+                    translationType,
+                    hasText: !!data.text,
+                    hasAudioUri: !!data.audioUri,
+                    audioUri: data.audioUri?.substring(0, 100)
+                  });
+                  return createTranslation(data);
+                },
+                (errors) => {
+                  console.error('[CREATE TRANSLATION] Form validation failed:', {
+                    errors,
+                    translationType,
+                    formValues: form.getValues()
+                  });
+                  Alert.alert(
+                    t('error'),
+                    t('fillFields')
+                  );
+                }
+              )}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
