@@ -140,7 +140,7 @@ export function ProjectListItem({
       id: project.id,
       name: project.name,
       template: project.template,
-      projectData: project  // Pass full project data for instant rendering!
+      projectData: project // Pass full project data for instant rendering!
     });
   }
 

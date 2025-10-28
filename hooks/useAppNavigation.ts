@@ -18,8 +18,8 @@ export interface NavigationState {
   questName?: string;
   assetId?: string;
   assetName?: string;
-  
-  // Optional: Pass full data objects to avoid re-querying  
+
+  // Optional: Pass full data objects to avoid re-querying
   projectData?: Record<string, unknown>;
   bookQuestData?: Record<string, unknown>;
   questData?: Record<string, unknown>;
@@ -113,7 +113,12 @@ export function useAppNavigation() {
   }, [currentState.view, goBackToView]);
 
   const goToProject = useCallback(
-    (projectData: { id: string; name?: string; template?: string | null; projectData?: Record<string, unknown> }) => {
+    (projectData: {
+      id: string;
+      name?: string;
+      template?: string | null;
+      projectData?: Record<string, unknown>;
+    }) => {
       // Check if we're already at this project or deeper
       if (
         currentState.projectId === projectData.id &&
@@ -136,7 +141,7 @@ export function useAppNavigation() {
           projectId: projectData.id,
           projectName: projectData.name,
           projectTemplate: projectData.template,
-          projectData: projectData.projectData  // Pass project data forward!
+          projectData: projectData.projectData // Pass project data forward!
         });
       }
     },
@@ -144,7 +149,13 @@ export function useAppNavigation() {
   );
 
   const goToQuest = useCallback(
-    (questData: { id: string; project_id: string; name?: string; questData?: Record<string, unknown>; projectData?: Record<string, unknown> }) => {
+    (questData: {
+      id: string;
+      project_id: string;
+      name?: string;
+      questData?: Record<string, unknown>;
+      projectData?: Record<string, unknown>;
+    }) => {
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -311,7 +322,7 @@ export function useAppNavigation() {
     currentBookId: currentState.bookId,
     currentQuestName: currentState.questName,
     currentAssetName: currentState.assetName,
-    
+
     // Data objects (for instant navigation)
     currentProjectData: currentState.projectData,
     currentBookQuestData: currentState.bookQuestData,

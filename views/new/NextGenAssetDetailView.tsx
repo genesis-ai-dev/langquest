@@ -70,8 +70,14 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentAssetId, currentProjectId, currentQuestId, currentAssetData, currentProjectData, currentQuestData } =
-    useAppNavigation();
+  const {
+    currentAssetId,
+    currentProjectId,
+    currentQuestId,
+    currentAssetData,
+    currentProjectData,
+    currentQuestData
+  } = useAppNavigation();
 
   console.log('[ASSET DETAIL VIEW] Navigation context:', {
     currentAssetId,
@@ -93,7 +99,7 @@ export default function NextGenAssetDetailView() {
     isLoading: isOfflineLoading,
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
-  
+
   // IMPORTANT: Asset detail needs full data with content/audio relationships
   // Passed asset data from list is just metadata - always use queried data which includes content
   // We could use passed data as placeholder, but it's better to wait for full data
@@ -133,7 +139,7 @@ export default function NextGenAssetDetailView() {
       }
       return result[0] || null;
     },
-    enabled: !!currentProjectId && !currentProjectData,  // Skip query if we have passed data!
+    enabled: !!currentProjectId && !currentProjectData, // Skip query if we have passed data!
     staleTime: 30000 // Cache for 30 seconds
   });
 
@@ -141,7 +147,8 @@ export default function NextGenAssetDetailView() {
   const queriedProjectData = (
     Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData
   ) as typeof rawProjectData;
-  const projectData = (currentProjectData as typeof queriedProjectData) || queriedProjectData;
+  const projectData =
+    (currentProjectData as typeof queriedProjectData) || queriedProjectData;
 
   // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
@@ -174,7 +181,12 @@ export default function NextGenAssetDetailView() {
   }, [projectData]);
 
   // Determine which asset to display
-  const activeAsset = offlineAsset?.[0] as (typeof asset.$inferSelect & { content?: typeof asset_content_link.$inferSelect[]; images?: string[] }) | undefined;
+  const activeAsset = offlineAsset?.[0] as
+    | (typeof asset.$inferSelect & {
+        content?: (typeof asset_content_link.$inferSelect)[];
+        images?: string[];
+      })
+    | undefined;
 
   const currentStatus = useStatusContext();
 
@@ -477,7 +489,8 @@ export default function NextGenAssetDetailView() {
                 <View
                   key={index}
                   style={{
-                    marginBottom: index < activeAsset.content!.length - 1 ? 8 : 0
+                    marginBottom:
+                      index < activeAsset.content!.length - 1 ? 8 : 0
                   }}
                 >
                   <SourceContent

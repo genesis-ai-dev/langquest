@@ -57,7 +57,12 @@ type AssetQuestLink = Asset & {
 };
 
 export default function NextGenAssetsView() {
-  const { currentQuestId, currentProjectId, currentProjectData, currentQuestData } = useCurrentNavigation();
+  const {
+    currentQuestId,
+    currentProjectId,
+    currentProjectData,
+    currentQuestData
+  } = useCurrentNavigation();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -91,9 +96,11 @@ export default function NextGenAssetsView() {
     enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
-  
+
   // Prefer passed data for instant rendering!
-  const questData = currentQuestData ? [currentQuestData as Quest] : queriedQuestData;
+  const questData = currentQuestData
+    ? [currentQuestData as Quest]
+    : queriedQuestData;
   const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
 
   const [showRecording, setShowRecording] = React.useState(false);

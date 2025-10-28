@@ -233,25 +233,25 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               } else {
                 skipped++;
               }
-              } catch (error) {
-                // Don't log full stack traces for blob URLs (they're filtered upstream)
-                if (id.includes('blob:')) {
-                  console.warn(
-                    `[WATCH IDS] Skipped blob URL: ${id.substring(0, 30)}...`
-                  );
-                } else {
-                  console.error(
-                    `[WATCH IDS] Error processing attachment ${id}:`,
-                    error
-                  );
-                  console.error(
-                    `[WATCH IDS] Error stack:`,
-                    (error as Error).stack
-                  );
-                }
-                errors++;
-                // Continue processing other attachments
+            } catch (error) {
+              // Don't log full stack traces for blob URLs (they're filtered upstream)
+              if (id.includes('blob:')) {
+                console.warn(
+                  `[WATCH IDS] Skipped blob URL: ${id.substring(0, 30)}...`
+                );
+              } else {
+                console.error(
+                  `[WATCH IDS] Error processing attachment ${id}:`,
+                  error
+                );
+                console.error(
+                  `[WATCH IDS] Error stack:`,
+                  (error as Error).stack
+                );
               }
+              errors++;
+              // Continue processing other attachments
+            }
           }
 
           console.log('[WATCH IDS] Processing summary:', {
@@ -410,7 +410,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.downloading = true;
     const totalToDownload = this.downloadQueue.size;
     let downloaded = 0;
-    
+
     // Speed tracking variables
     const startTime = Date.now();
     let lastUpdateTime = startTime;

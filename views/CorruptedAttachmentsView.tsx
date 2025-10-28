@@ -4,17 +4,17 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
-    cleanupAllCorrupted,
-    cleanupCorruptedAttachment,
-    findCorruptedAttachments
+  cleanupAllCorrupted,
+  cleanupCorruptedAttachment,
+  findCorruptedAttachments
 } from '@/services/corruptedAttachmentsService';
 import {
-    AlertTriangle,
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    Loader2,
-    Trash2
+  AlertTriangle,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Trash2
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, View } from 'react-native';

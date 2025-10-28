@@ -27,7 +27,7 @@ export interface NavigationStackItem {
   assetId?: string;
   assetName?: string;
   timestamp: number;
-  
+
   // Optional: Pass full data objects to avoid re-querying
   // Components will use these if available, otherwise fallback to querying
   projectData?: Record<string, unknown>;

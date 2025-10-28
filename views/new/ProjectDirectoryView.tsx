@@ -100,13 +100,12 @@ export default function ProjectDirectoryView() {
 
   // Use passed project data if available (instant!), otherwise query
   // Query runs in background to get updates even if data was passed
-  const {
-    project: queriedProject,
-    isCloudLoading: projectCloudLoading
-  } = useProjectById(currentProjectId);
-  
+  const { project: queriedProject, isCloudLoading: projectCloudLoading } =
+    useProjectById(currentProjectId);
+
   // Prefer passed data for instant rendering, fallback to queried
-  const project = (currentProjectData as typeof queriedProject) || queriedProject;
+  const project =
+    (currentProjectData as typeof queriedProject) || queriedProject;
 
   // Use template from navigation state, or fall back to fetched project
   const template =
@@ -391,7 +390,7 @@ export default function ProjectDirectoryView() {
 
   // Don't block on project loading - we can render Bible structure immediately
   // Project metadata will load in background and update when ready
-  
+
   // Render content based on project type
   const renderContent = () => {
     // Bible project routing

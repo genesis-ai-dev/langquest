@@ -367,7 +367,10 @@ export default function AppDrawer({
 
   // Memoize formatted speed to prevent render loops
   const formattedDownloadSpeed = useMemo(() => {
-    if (!attachmentSyncProgress.downloading || attachmentSyncProgress.downloadSpeed <= 0) {
+    if (
+      !attachmentSyncProgress.downloading ||
+      attachmentSyncProgress.downloadSpeed <= 0
+    ) {
       return null;
     }
 
@@ -800,14 +803,18 @@ export default function AppDrawer({
                 )}
               >
                 <View className="flex flex-col gap-2">
-                  <View className="flex flex-row gap-2 items-start">
+                  <View className="flex flex-row items-start gap-2">
                     {throttledProgress.hasActivity && (
-                      <Icon as={Download} size={14} className="text-primary mt-1" />
+                      <Icon
+                        as={Download}
+                        size={14}
+                        className="mt-1 text-primary"
+                      />
                     )}
-                    <View className="flex-1 min-w-0">
+                    <View className="min-w-0 flex-1">
                       <Text
                         className={cn(
-                          'text-sm text-foreground flex-shrink flex-wrap',
+                          'flex-shrink flex-wrap text-sm text-foreground',
                           throttledProgress.hasActivity
                             ? 'font-semibold'
                             : 'font-medium'
@@ -828,8 +835,9 @@ export default function AppDrawer({
                         ) : attachmentSyncProgress.downloading ? (
                           <>
                             <Text className="text-sm font-semibold text-foreground">
-                              {t('downloading')}: {attachmentSyncProgress.downloadCurrent}
-                              /{attachmentSyncProgress.downloadTotal}
+                              {t('downloading')}:{' '}
+                              {attachmentSyncProgress.downloadCurrent}/
+                              {attachmentSyncProgress.downloadTotal}
                             </Text>
                           </>
                         ) : throttledProgress.downloading > 0 &&
@@ -864,8 +872,8 @@ export default function AppDrawer({
                         ) : throttledProgress.queued > 0 ? (
                           <>
                             <Text className="text-sm text-foreground">
-                              {t('queuedForDownload')}: {throttledProgress.queued}{' '}
-                              {t('files')}
+                              {t('queuedForDownload')}:{' '}
+                              {throttledProgress.queued} {t('files')}
                             </Text>
                             <Text className="text-sm text-foreground">
                               {' '}
@@ -883,8 +891,8 @@ export default function AppDrawer({
                     </View>
                     {formattedDownloadSpeed && (
                       <View className="ml-2">
-                        <Badge className="bg-muted px-2 py-1 rounded">
-                          <Text className="text-xs text-muted-foreground font-medium">
+                        <Badge className="rounded bg-muted px-2 py-1">
+                          <Text className="text-xs font-medium text-muted-foreground">
                             {formattedDownloadSpeed}
                           </Text>
                         </Badge>
