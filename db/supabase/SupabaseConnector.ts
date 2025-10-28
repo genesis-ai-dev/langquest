@@ -308,6 +308,14 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
     let lastOp: CrudEntry | null = null;
     try {
+      // Build a single transactional batch of ops
+      const batchOps: Array<{
+        table_name: string;
+        op: 'put' | 'patch' | 'delete';
+        record: Record<string, unknown> | null | undefined;
+        client_meta: { metadata: string };
+      }> = [];
+
       for (const op of transaction.crud) {
         lastOp = op;
         // Default metadata if none was stamped (covers any raw SQL writes)
@@ -316,9 +324,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           getDefaultOpMetadata: () => string;
         };
         const metadata = (op as any).metadata ?? getDefaultOpMetadata();
-        console.log('metadata: ', metadata);
-        let result: PostgrestSingleResponse<unknown> | null = null;
-        let record;
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -326,13 +331,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         );
         const isCompositeTable = !!compositeConfig;
 
-        let compositeKeys = {};
+        let compositeKeys: Record<string, unknown> = {};
         if (isCompositeTable && op.id) {
           const [firstId, secondId] = op.id.split('_');
           compositeKeys = {
-            [compositeConfig.keys[0]!]: firstId,
-            [compositeConfig.keys[1]!]: secondId
-          };
+            [compositeConfig!.keys[0]!]: firstId,
+            [compositeConfig!.keys[1]!]: secondId
+          } as Record<string, unknown>;
         }
 
         if (
@@ -355,18 +360,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         ): Record<string, unknown> | null | undefined => {
           if (!data) return data;
 
-          const processed = { ...data };
+          const processed = { ...data } as Record<string, unknown>;
 
           // List of known array fields in the schema
           const arrayFields = [
             'download_profiles',
-            'images', // in asset table
+            'images',
             'audio',
             'asset_ids',
             'translation_ids',
             'vote_ids',
             'tag_ids',
-            'language_ids', // closure tables
+            'language_ids',
             'quest_ids',
             'quest_asset_link_ids',
             'asset_content_link_ids',
@@ -374,22 +379,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             'asset_tag_link_ids'
           ];
 
-          // Process each array field
           for (const field of arrayFields) {
             if (field in processed && typeof processed[field] === 'string') {
               try {
                 let parsed: unknown = processed[field];
-
-                // Handle double-encoded strings (string containing escaped JSON)
                 if (
                   typeof parsed === 'string' &&
-                  parsed.startsWith('"') &&
-                  parsed.endsWith('"')
+                  (parsed as string).startsWith('"') &&
+                  (parsed as string).endsWith('"')
                 ) {
-                  parsed = JSON.parse(parsed);
+                  parsed = JSON.parse(parsed as string);
                 }
-
-                // Now parse the actual array
                 processed[field] =
                   typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
                 console.log(`Parsed ${field}:`, processed[field]);
@@ -403,103 +403,100 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           return processed;
         };
 
-        delete opData?.source;
+        delete (opData as any)?.source;
+
+        let record: Record<string, unknown> | null | undefined = undefined;
+        let opName: 'put' | 'patch' | 'delete';
 
         switch (op.op) {
           case UpdateType.PUT: {
+            opName = 'put';
             record = isCompositeTable
               ? { ...compositeKeys, ...opData }
               : { ...opData, id: op.id };
-
-            // Process array fields
-            record = processArrayFields(record);
-
-            let upsertOptions:
-              | {
-                  onConflict?: string;
-                  ignoreDuplicates?: boolean;
-                  count?: 'exact' | 'planned' | 'estimated';
-                }
-              | undefined;
-
-            // if (op.table === 'tag') {
-            //   upsertOptions = {
-            //     onConflict: '(key, value)',
-            //     ignoreDuplicates: true
-            //   };
-            // }
-            // Log the record for debugging
+            record = processArrayFields(record) ?? undefined;
             if (op.table === 'vote') {
               console.log(
                 'Vote record after processing:',
                 JSON.stringify(record, null, 2)
               );
             }
-
-            result = await this.client.rpc('apply_table_mutation', {
-              p_op: 'put',
-              p_table_name: op.table,
-              p_record: record,
-              p_client_meta: { metadata }
-            });
-            if ('data' in result && typeof result.data === 'string') {
-              console.log('[apply_table_mutation logs]', result.data);
-            }
             break;
           }
-
           case UpdateType.PATCH: {
-            // Process array fields for PATCH operations
+            opName = 'patch';
             const patchData = processArrayFields(opData);
-
-            const recordForPatch = isCompositeTable
+            record = isCompositeTable
               ? { ...compositeKeys, ...(patchData ?? {}) }
               : { id: op.id, ...(patchData ?? {}) };
-
-            result = await this.client.rpc('apply_table_mutation', {
-              p_op: 'patch',
-              p_table_name: op.table,
-              p_record: recordForPatch,
-              p_client_meta: { metadata }
-            });
-            if ('data' in result && typeof result.data === 'string') {
-              console.log('[apply_table_mutation logs]', result.data);
-            }
             break;
           }
-
           case UpdateType.DELETE: {
-            const recordForDelete = isCompositeTable
-              ? compositeKeys
-              : { id: op.id };
-
-            result = await this.client.rpc('apply_table_mutation', {
-              p_op: 'delete',
-              p_table_name: op.table,
-              p_record: recordForDelete,
-              p_client_meta: { metadata }
-            });
-            console.log('delete result', result);
-            if ('data' in result && typeof result.data === 'string') {
-              console.log('[apply_table_mutation logs]', result.data);
-            }
+            opName = 'delete';
+            record = isCompositeTable ? compositeKeys : { id: op.id };
             break;
+          }
+          default: {
+            // Skip unknown operation types
+            console.warn('Unknown operation type:', op.op);
+            continue;
           }
         }
 
-        if (result.error) {
-          console.debug('Upload data', result.data, opData);
-          result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
-            result
-          )}`;
-          result.error.stack = undefined;
-          throw result.error;
-        } else {
-          console.log('Uploaded successfully:', op.table, opData);
-        }
+        batchOps.push({
+          table_name: op.table,
+          op: opName,
+          record,
+          client_meta: { metadata }
+        });
       }
 
-      await transaction.complete();
+      // Single transactional RPC call
+      const result = await this.client.rpc('apply_table_mutation_transaction', {
+        p_ops: batchOps
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      const response = result.data as
+        | { status: string; logs?: string; ref_code?: string | null; error_code?: string | null }
+        | null;
+
+      if (!response || typeof response !== 'object') {
+        throw new Error('Unexpected response from apply_table_mutation_transaction');
+      }
+
+      console.log('[apply_table_mutation_transaction]', response.logs ?? '');
+
+      if (response.status === '2xx') {
+        await transaction.complete();
+        return;
+      }
+
+      if (response.status === '4xx') {
+        console.warn(
+          `[apply_table_mutation_transaction] Client error. ref_code=${response.ref_code} error_code=${response.error_code}`
+        );
+        // Clear the local queue for this transaction and proceed
+        await transaction.complete();
+        return;
+      }
+
+      if (response.status === '5xx') {
+        // Transient server error; throw to retry later
+        const err = new Error(
+          `[apply_table_mutation_transaction] Server error: ${response.error_code ?? 'unknown'}`
+        );
+        // Do not complete the transaction so it will be retried
+        throw err;
+      }
+
+      // Unknown status
+      throw new Error(
+        `Unknown status from apply_table_mutation_transaction: ${JSON.stringify(response)}`
+      );
     } catch (ex) {
       const error = ex as Error & { code?: string };
       console.error(`Upload data exception: ${error.message}`);
