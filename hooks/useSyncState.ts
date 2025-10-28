@@ -53,16 +53,20 @@ function getCurrentSyncStateWithoutAttachments() {
 
     // Data flow status for downloads and uploads
     const dataFlow = status.dataFlowStatus;
-    const isDownloadOperationInProgress = dataFlow.downloading || false;
-    const isUpdateInProgress = dataFlow.uploading || false;
+    
+    // Error information
+    const downloadError = dataFlow.downloadError;
+    const uploadError = dataFlow.uploadError;
+    
+    // If there's an error, don't report operations as in progress
+    // This prevents eternal syncing loops when errors occur
+    const hasError = !!(downloadError || uploadError);
+    const isDownloadOperationInProgress = hasError ? false : (dataFlow.downloading || false);
+    const isUpdateInProgress = hasError ? false : (dataFlow.uploading || false);
 
     // Sync history information
     const hasSynced = status.hasSynced;
     const lastSyncedAt = status.lastSyncedAt;
-
-    // Error information
-    const downloadError = dataFlow.downloadError;
-    const uploadError = dataFlow.uploadError;
 
     return {
       isConnected,
@@ -115,12 +119,15 @@ export function useSyncState(): SyncState {
   // 1. PowerSync sync operations (connecting, downloading, uploading)
   // 2. Unsynced attachments (< AttachmentState.SYNCED)
   // 3. Whether attachment data is still loading
-  const isLoading =
+  // Note: Don't include error states in loading - errors should stop the loading state
+  const hasError = !!(baseSyncState.downloadError || baseSyncState.uploadError);
+  const isLoading = !hasError && (
     attachmentDataLoading || // Attachment state data is still loading
     baseSyncState.isConnecting || // PowerSync is connecting
     baseSyncState.isDownloadOperationInProgress || // PowerSync is downloading
     baseSyncState.isUpdateInProgress || // PowerSync is uploading
-    unsyncedAttachmentsCount > 0; // We have unsynced attachments
+    unsyncedAttachmentsCount > 0 // We have unsynced attachments
+  );
 
   // Combine base sync state with attachment data
   const syncState: SyncState = {

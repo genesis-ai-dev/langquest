@@ -8,21 +8,21 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { AttachmentState } from '@powersync/attachments';
 import {
-  AlertTriangle,
-  ChevronRight,
-  CloudOff,
-  Menu,
-  RefreshCw
+    AlertTriangle,
+    ChevronRight,
+    CloudOff,
+    Menu,
+    RefreshCw
 } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming
+    cancelAnimation,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
 } from 'react-native-reanimated';
 import { Button } from './ui/button';
 
@@ -67,11 +67,13 @@ export default function AppHeader({
   }, [attachmentStates]);
 
   const hasSyncError = !!(downloadError || uploadError);
-  const isSyncing =
+  // Don't show syncing state if there's an error - prevents eternal syncing loop
+  const isSyncing = !hasSyncError && (
     isDownloadOperationInProgress ||
     isUpdateInProgress ||
     isConnecting ||
-    hasDownloadsInProgress;
+    hasDownloadsInProgress
+  );
   const isConnected = useNetworkStatus();
 
   // Handler for sync error tap
