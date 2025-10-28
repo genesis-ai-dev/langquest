@@ -122,6 +122,16 @@ export interface LocalState {
     downloadTotal: number;
     uploadCurrent: number;
     uploadTotal: number;
+    // Speed tracking
+    downloadSpeed: number; // files per second
+    uploadSpeed: number; // files per second
+    downloadBytesPerSec: number; // bytes per second
+    uploadBytesPerSec: number; // bytes per second
+    // Timestamps for speed calculation
+    downloadStartTime: number | null;
+    uploadStartTime: number | null;
+    lastDownloadUpdate: number | null;
+    lastUploadUpdate: number | null;
   };
 
   // OTA Update dismissal tracking
@@ -211,7 +221,15 @@ export const useLocalStore = create<LocalState>()(
         downloadCurrent: 0,
         downloadTotal: 0,
         uploadCurrent: 0,
-        uploadTotal: 0
+        uploadTotal: 0,
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        downloadBytesPerSec: 0,
+        uploadBytesPerSec: 0,
+        downloadStartTime: null,
+        uploadStartTime: null,
+        lastDownloadUpdate: null,
+        lastUploadUpdate: null
       },
 
       // OTA Update dismissal tracking
@@ -305,7 +323,15 @@ export const useLocalStore = create<LocalState>()(
             downloadCurrent: 0,
             downloadTotal: 0,
             uploadCurrent: 0,
-            uploadTotal: 0
+            uploadTotal: 0,
+            downloadSpeed: 0,
+            uploadSpeed: 0,
+            downloadBytesPerSec: 0,
+            uploadBytesPerSec: 0,
+            downloadStartTime: null,
+            uploadStartTime: null,
+            lastDownloadUpdate: null,
+            lastUploadUpdate: null
           }
         })
     }),

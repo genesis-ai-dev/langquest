@@ -61,12 +61,24 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
               clearTimeout(debounceTimeoutRef.current);
             }
 
+            // Dynamic debounce based on activity
+            const getDebounceTiming = () => {
+              const { useLocalStore } = require('../store/localStore');
+              const attachmentSyncProgress =
+                useLocalStore.getState().attachmentSyncProgress;
+              // Use shorter debounce during active sync for snappier feel
+              return attachmentSyncProgress.downloading ||
+                attachmentSyncProgress.uploading
+                ? 200 // 200ms during sync
+                : 500; // 500ms when idle
+            };
+
             debounceTimeoutRef.current = setTimeout(() => {
               if (!abortController.signal.aborted) {
                 setAttachmentStates(new Map(newStates));
                 setIsLoading(false);
               }
-            }, 100); // 100ms debounce
+            }, getDebounceTiming());
           });
         },
         onError: (err) => console.error('useAttachmentStates watch error', err)

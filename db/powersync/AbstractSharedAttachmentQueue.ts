@@ -27,6 +27,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   // Common directory for all attachments
   static SHARED_DIRECTORY = 'shared_attachments';
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  private downloadAccumulationTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private uploadAccumulationTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly DOWNLOAD_BATCH_DELAY_MS = 500; // Wait 500ms to accumulate downloads (very snappy)
+  private readonly UPLOAD_BATCH_DELAY_MS = 5000; // Wait 5s to accumulate uploads (longer to reduce spam)
 
   constructor(
     options: Omit<
@@ -53,19 +58,25 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   async newAttachmentRecord(
     record?: Partial<AttachmentRecord>
   ): Promise<AttachmentRecord> {
-    // CRITICAL: Reject blob URLs immediately - they cannot be processed
+    // CRITICAL: Silently skip blob URLs - they're filtered upstream but check defensively
     if (
       record?.id?.includes('blob:') ||
       record?.local_uri?.includes('blob:') ||
       record?.filename?.includes('blob:')
     ) {
-      console.error(
-        '[AttachmentQueue] Attempted to create record with blob URL:',
-        record
+      console.warn(
+        '[AttachmentQueue] Skipping blob URL (filtered):',
+        record?.id?.substring(0, 30)
       );
-      throw new Error(
-        'Cannot create attachment record with blob URL. Convert to file path first.'
-      );
+      // Return a dummy rejected record that won't be processed
+      return {
+        id: '',
+        filename: '',
+        local_uri: '',
+        state: AttachmentState.ARCHIVED,
+        media_type: '',
+        timestamp: 0
+      } as AttachmentRecord;
     }
 
     // When downloading existing attachments, use the provided ID directly
@@ -222,15 +233,25 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
               } else {
                 skipped++;
               }
-            } catch (error) {
-              console.error(
-                `[WATCH IDS] Error processing attachment ${id}:`,
-                error
-              );
-              console.error(`[WATCH IDS] Error stack:`, (error as Error).stack);
-              errors++;
-              // Continue processing other attachments
-            }
+              } catch (error) {
+                // Don't log full stack traces for blob URLs (they're filtered upstream)
+                if (id.includes('blob:')) {
+                  console.warn(
+                    `[WATCH IDS] Skipped blob URL: ${id.substring(0, 30)}...`
+                  );
+                } else {
+                  console.error(
+                    `[WATCH IDS] Error processing attachment ${id}:`,
+                    error
+                  );
+                  console.error(
+                    `[WATCH IDS] Error stack:`,
+                    (error as Error).stack
+                  );
+                }
+                errors++;
+                // Continue processing other attachments
+              }
           }
 
           console.log('[WATCH IDS] Processing summary:', {
@@ -389,12 +410,22 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.downloading = true;
     const totalToDownload = this.downloadQueue.size;
     let downloaded = 0;
+    
+    // Speed tracking variables
+    const startTime = Date.now();
+    let lastUpdateTime = startTime;
+    let downloadedSinceLastSpeedCalc = 0;
+    let totalBytesDownloaded = 0;
 
     // Update store with download starting
     useLocalStore.getState().setAttachmentSyncProgress({
       downloading: true,
       downloadCurrent: 0,
-      downloadTotal: totalToDownload
+      downloadTotal: totalToDownload,
+      downloadStartTime: startTime,
+      lastDownloadUpdate: startTime,
+      downloadSpeed: 0,
+      downloadBytesPerSec: 0
     });
 
     try {
@@ -404,17 +435,58 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const idsArray = Array.from(this.downloadQueue);
       this.downloadQueue.clear();
 
-      // Create a progress update function that's thread-safe
-      const updateProgress = () => {
+      // Create a progress update function with speed calculation
+      const updateProgress = (bytesDownloaded?: number) => {
         downloaded++;
-        useLocalStore.getState().setAttachmentSyncProgress({
-          downloadCurrent: downloaded,
-          downloadTotal: totalToDownload
-        });
+        downloadedSinceLastSpeedCalc++;
+        if (bytesDownloaded) {
+          totalBytesDownloaded += bytesDownloaded;
+        }
+
+        const now = Date.now();
+        const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
+        const totalElapsed = (now - startTime) / 1000; // total time since start
+
+        // CRITICAL: Always update count immediately on every file
+        // This ensures per-file UI updates for responsive feel
+        const shouldRecalcSpeed = timeSinceLastUpdate >= 0.2;
+
+        if (shouldRecalcSpeed) {
+          const filesPerSec =
+            timeSinceLastUpdate > 0
+              ? downloadedSinceLastSpeedCalc / timeSinceLastUpdate
+              : downloadedSinceLastSpeedCalc / 0.2;
+          const bytesPerSec =
+            totalElapsed > 0 ? totalBytesDownloaded / totalElapsed : 0;
+
+          // Log every 50 files or when speed changes significantly
+          if (downloaded % 50 === 0 || downloadedSinceLastSpeedCalc >= 10) {
+            console.log(
+              `[DOWNLOAD] ${downloaded}/${totalToDownload} • ${filesPerSec.toFixed(1)} files/s • ${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`
+            );
+          }
+
+          useLocalStore.getState().setAttachmentSyncProgress({
+            downloadCurrent: downloaded,
+            downloadSpeed: filesPerSec,
+            downloadBytesPerSec: bytesPerSec,
+            lastDownloadUpdate: now
+          });
+
+          lastUpdateTime = now;
+          downloadedSinceLastSpeedCalc = 0;
+        } else {
+          // Update progress count immediately (but keep previous speed values)
+          useLocalStore.getState().setAttachmentSyncProgress({
+            downloadCurrent: downloaded,
+            lastDownloadUpdate: now
+          });
+        }
       };
 
-      // Download with higher concurrency limit (16 simultaneous downloads)
-      const CONCURRENCY_LIMIT = 16;
+      // Balance concurrency for smooth UI updates vs speed
+      // Lower concurrency = more frequent UI updates but slightly slower overall
+      const CONCURRENCY_LIMIT = 25; // Balanced: fast enough, but updates visible
 
       // Create a queue-based concurrent download system
       const downloadQueue = [...idsArray];
@@ -424,11 +496,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         try {
           const record = await this.record(id);
           if (!record) {
-            updateProgress(); // Count as completed even if no record
+            updateProgress(); // No bytes for missing record
             return;
           }
           await this.downloadRecord(record);
-          updateProgress(); // Update progress after successful download
+          updateProgress(record.size || 0); // Pass file size
         } catch (error) {
           console.error(`Failed to download attachment ${id}: `, error);
           updateProgress(); // Count as completed even if failed
@@ -480,12 +552,22 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const totalToUpload = uploadCount.count;
       let uploaded = 0;
 
+      // Speed tracking variables
+      const startTime = Date.now();
+      let lastUpdateTime = startTime;
+      let uploadedSinceLastSpeedCalc = 0;
+      let totalBytesUploaded = 0;
+
       if (totalToUpload > 0) {
         // Update store with upload starting
         useLocalStore.getState().setAttachmentSyncProgress({
           uploading: true,
           uploadCurrent: 0,
-          uploadTotal: totalToUpload
+          uploadTotal: totalToUpload,
+          uploadStartTime: startTime,
+          lastUploadUpdate: startTime,
+          uploadSpeed: 0,
+          uploadBytesPerSec: 0
         });
       }
 
@@ -501,12 +583,37 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           break;
         }
         uploaded++;
+        uploadedSinceLastSpeedCalc++;
+        if (record.size) {
+          totalBytesUploaded += record.size;
+        }
 
-        // Update progress
-        useLocalStore.getState().setAttachmentSyncProgress({
-          uploadCurrent: uploaded,
-          uploadTotal: totalToUpload
-        });
+        const now = Date.now();
+        const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
+
+        // Calculate speed every 500ms minimum to reduce render thrashing
+        if (timeSinceLastUpdate >= 0.5) {
+          const filesPerSec = uploadedSinceLastSpeedCalc / timeSinceLastUpdate;
+          const bytesPerSec = totalBytesUploaded / ((now - startTime) / 1000);
+
+          useLocalStore.getState().setAttachmentSyncProgress({
+            uploadCurrent: uploaded,
+            uploadTotal: totalToUpload,
+            uploadSpeed: filesPerSec,
+            uploadBytesPerSec: bytesPerSec,
+            lastUploadUpdate: now
+          });
+
+          lastUpdateTime = now;
+          uploadedSinceLastSpeedCalc = 0;
+        } else {
+          // Still update progress count
+          useLocalStore.getState().setAttachmentSyncProgress({
+            uploadCurrent: uploaded,
+            uploadTotal: totalToUpload,
+            lastUploadUpdate: now
+          });
+        }
 
         record = await this.getNextUploadRecord();
       }
@@ -529,25 +636,40 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   //   void this.expireCache();
   // }
 
-  // Override watchDownloads to use our progress-tracking method
+  // Override watchDownloads to use our progress-tracking method with batching
   watchDownloads() {
     if (!this.options.downloadAttachments) {
       return;
     }
     this.idsToDownload((ids) => {
       ids.forEach((id) => this.downloadQueue.add(id));
-      // Use our progress-tracking method
-      void this.downloadRecordsWithProgress();
+
+      // Debounce download trigger to accumulate larger batches
+      if (this.downloadAccumulationTimer) {
+        clearTimeout(this.downloadAccumulationTimer);
+      }
+
+      this.downloadAccumulationTimer = setTimeout(() => {
+        // Use our progress-tracking method
+        void this.downloadRecordsWithProgress();
+      }, this.DOWNLOAD_BATCH_DELAY_MS);
     });
   }
 
-  // Override watchUploads to use our progress-tracking method
+  // Override watchUploads to use our progress-tracking method with debouncing
   watchUploads() {
     this.idsToUpload((ids) => {
-      if (ids.length > 0) {
+      if (ids.length === 0) return;
+
+      // Debounce upload trigger to accumulate larger batches and reduce spam
+      if (this.uploadAccumulationTimer) {
+        clearTimeout(this.uploadAccumulationTimer);
+      }
+
+      this.uploadAccumulationTimer = setTimeout(() => {
         // Use our progress-tracking method
         void this.uploadRecordsWithProgress();
-      }
+      }, this.UPLOAD_BATCH_DELAY_MS);
     });
   }
 

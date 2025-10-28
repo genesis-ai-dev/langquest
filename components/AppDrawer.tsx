@@ -121,14 +121,19 @@ export default function AppDrawer({
   // Get PowerSync status
   const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
 
-  // Get attachment sync progress from store
-  const _attachmentSyncProgress = useLocalStore(
+  // Get attachment sync progress from store (no debouncing for real-time updates)
+  const attachmentSyncProgress = useLocalStore(
     (state) => state.attachmentSyncProgress
   );
 
   // Get all attachment states for accurate progress tracking
   const { attachmentStates, isLoading: attachmentStatesLoading } =
     useAttachmentStates([]);
+
+  // Smooth progress animation state
+  const [animatedProgress, setAnimatedProgress] = useState(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const targetProgressRef = useRef(0);
 
   // Throttled attachment progress - only update when counts change significantly
   const [throttledProgress, setThrottledProgress] = useState({
@@ -141,7 +146,70 @@ export default function AppDrawer({
   });
 
   const lastUpdateTimeRef = useRef(0);
-  const THROTTLE_MS = 500; // Update at most every 500ms
+  const THROTTLE_MS = 200; // Update at most every 200ms (faster for snappier feel)
+
+  // Animate progress smoothly (Safari-style)
+  useEffect(() => {
+    if (
+      !attachmentSyncProgress.downloading &&
+      !attachmentSyncProgress.uploading
+    ) {
+      setAnimatedProgress(0);
+      targetProgressRef.current = 0;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
+    // Calculate target progress
+    const downloadProgress =
+      attachmentSyncProgress.downloadTotal > 0
+        ? (attachmentSyncProgress.downloadCurrent /
+            attachmentSyncProgress.downloadTotal) *
+          100
+        : 0;
+
+    targetProgressRef.current = downloadProgress;
+
+    // Smooth animation using requestAnimationFrame
+    const animate = () => {
+      setAnimatedProgress((current) => {
+        const diff = targetProgressRef.current - current;
+
+        // If we're close enough, snap to target
+        if (Math.abs(diff) < 0.1) {
+          return targetProgressRef.current;
+        }
+
+        // For big jumps (>5%), snap immediately to reduce lag
+        if (Math.abs(diff) > 5) {
+          return targetProgressRef.current;
+        }
+
+        // For medium jumps, animate quickly
+        // Use 30% of the difference per frame for very responsive feel
+        const speed = Math.max(1.5, Math.abs(diff) * 0.3);
+        return current + (diff > 0 ? speed : -speed);
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [
+    attachmentSyncProgress.downloading,
+    attachmentSyncProgress.uploading,
+    attachmentSyncProgress.downloadCurrent,
+    attachmentSyncProgress.downloadTotal
+  ]);
 
   // Calculate attachment progress stats
   const attachmentProgress = useMemo(() => {
@@ -205,7 +273,7 @@ export default function AppDrawer({
       hasActivity,
       unsynced: total - synced
     };
-  }, [attachmentStates, attachmentStatesLoading]);
+  }, [attachmentStates.size, attachmentStatesLoading]); // Only recompute when size changes, not on every attachment state change
 
   // Throttle updates to the rendered progress
   useEffect(() => {
@@ -296,6 +364,32 @@ export default function AppDrawer({
 
   // Use the notifications hook
   const { totalCount: notificationCount } = useNotifications();
+
+  // Memoize formatted speed to prevent render loops
+  const formattedDownloadSpeed = useMemo(() => {
+    if (!attachmentSyncProgress.downloading || attachmentSyncProgress.downloadSpeed <= 0) {
+      return null;
+    }
+
+    const speed = attachmentSyncProgress.downloadSpeed;
+    const bytesPerSec = attachmentSyncProgress.downloadBytesPerSec;
+    const filesPerSec = speed.toFixed(1);
+
+    // Format bytes nicely
+    if (bytesPerSec > 1024 * 1024) {
+      return `${filesPerSec} files/s • ${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+    } else if (bytesPerSec > 1024) {
+      return `${filesPerSec} files/s • ${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    } else if (bytesPerSec > 0) {
+      return `${filesPerSec} files/s`;
+    }
+
+    return `${filesPerSec} files/s`;
+  }, [
+    attachmentSyncProgress.downloading,
+    attachmentSyncProgress.downloadSpeed,
+    attachmentSyncProgress.downloadBytesPerSec
+  ]);
 
   // Feature flag to toggle notifications visibility
   const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
@@ -706,87 +800,108 @@ export default function AppDrawer({
                 )}
               >
                 <View className="flex flex-col gap-2">
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex flex-row gap-2 items-start">
                     {throttledProgress.hasActivity && (
-                      <Icon as={Download} size={14} className="text-primary" />
+                      <Icon as={Download} size={14} className="text-primary mt-1" />
                     )}
-                    <Text
-                      className={cn(
-                        'text-sm text-foreground',
-                        throttledProgress.hasActivity
-                          ? 'font-semibold'
-                          : 'font-medium'
-                      )}
-                    >
-                      {isInGracePeriod ? (
-                        <>
-                          <Text className="font-semibold text-primary">
-                            {t('downloadComplete')}
+                    <View className="flex-1 min-w-0">
+                      <Text
+                        className={cn(
+                          'text-sm text-foreground flex-shrink flex-wrap',
+                          throttledProgress.hasActivity
+                            ? 'font-semibold'
+                            : 'font-medium'
+                        )}
+                        style={{ flexWrap: 'wrap' }}
+                      >
+                        {isInGracePeriod ? (
+                          <>
+                            <Text className="font-semibold text-primary">
+                              {t('downloadComplete')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('files')})
+                            </Text>
+                          </>
+                        ) : attachmentSyncProgress.downloading ? (
+                          <>
+                            <Text className="text-sm font-semibold text-foreground">
+                              {t('downloading')}: {attachmentSyncProgress.downloadCurrent}
+                              /{attachmentSyncProgress.downloadTotal}
+                            </Text>
+                          </>
+                        ) : throttledProgress.downloading > 0 &&
+                          throttledProgress.queued > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('syncingAttachments')}:{' '}
+                              {throttledProgress.downloading}
+                            </Text>
+                            <Text className="text-sm text-foreground">, </Text>
+                            <Text className="text-sm text-foreground">
+                              {t('queued')}: {throttledProgress.queued}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : throttledProgress.downloading > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('syncingAttachments')}:{' '}
+                              {throttledProgress.downloading} {t('files')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : throttledProgress.queued > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('queuedForDownload')}: {throttledProgress.queued}{' '}
+                              {t('files')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : (
+                          <Text className="text-foreground">
+                            {throttledProgress.synced}/{throttledProgress.total}{' '}
+                            {t('filesDownloaded')}
                           </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({throttledProgress.synced}/
-                            {throttledProgress.total} {t('files')})
+                        )}
+                      </Text>
+                    </View>
+                    {formattedDownloadSpeed && (
+                      <View className="ml-2">
+                        <Badge className="bg-muted px-2 py-1 rounded">
+                          <Text className="text-xs text-muted-foreground font-medium">
+                            {formattedDownloadSpeed}
                           </Text>
-                        </>
-                      ) : throttledProgress.downloading > 0 &&
-                        throttledProgress.queued > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('syncingAttachments')}:{' '}
-                            {throttledProgress.downloading}
-                          </Text>
-                          <Text className="text-sm text-foreground">, </Text>
-                          <Text className="text-sm text-foreground">
-                            {t('queued')}: {throttledProgress.queued}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({throttledProgress.synced}/
-                            {throttledProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : throttledProgress.downloading > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('syncingAttachments')}:{' '}
-                            {throttledProgress.downloading} {t('files')}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({throttledProgress.synced}/
-                            {throttledProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : throttledProgress.queued > 0 ? (
-                        <>
-                          <Text className="text-sm text-foreground">
-                            {t('queuedForDownload')}: {throttledProgress.queued}{' '}
-                            {t('files')}
-                          </Text>
-                          <Text className="text-sm text-foreground">
-                            {' '}
-                            ({throttledProgress.synced}/
-                            {throttledProgress.total} {t('complete')})
-                          </Text>
-                        </>
-                      ) : (
-                        <Text className="text-foreground">
-                          {throttledProgress.synced}/{throttledProgress.total}{' '}
-                          {t('filesDownloaded')}
-                        </Text>
-                      )}
-                    </Text>
+                        </Badge>
+                      </View>
+                    )}
                   </View>
                   <Progress
                     value={
                       isInGracePeriod
                         ? 100
-                        : throttledProgress.total > 0
-                          ? (throttledProgress.synced /
-                              throttledProgress.total) *
-                            100
-                          : 0
+                        : attachmentSyncProgress.downloading
+                          ? animatedProgress
+                          : throttledProgress.total > 0
+                            ? (throttledProgress.synced /
+                                throttledProgress.total) *
+                              100
+                            : 0
                     }
                     className="h-1"
                   />
