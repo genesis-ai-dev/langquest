@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/services/corruptedAttachmentsService';
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle,
   ChevronDown,
   ChevronRight,
@@ -21,6 +23,7 @@ import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
+  const { navigate } = useAppNavigation();
   const [corrupted, setCorrupted] = useState<CorruptedAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,10 +38,7 @@ export default function CorruptedAttachmentsView() {
       setCorrupted(found);
     } catch (error) {
       console.error('Failed to load corrupted attachments:', error);
-      Alert.alert(
-        'Error',
-        'Failed to load corrupted attachments. Please try again.'
-      );
+      Alert.alert(t('error'), t('failedToLoadCorruptedAttachments'));
     } finally {
       setIsLoading(false);
     }
@@ -69,110 +69,136 @@ export default function CorruptedAttachmentsView() {
     });
   }, []);
 
-  const handleCleanOne = useCallback(async (attachmentId: string) => {
-    Alert.alert(
-      'Clean Corrupted Attachment',
-      'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Clean',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCleaningIds((prev) => new Set(prev).add(attachmentId));
-              await cleanupCorruptedAttachment(attachmentId);
+  const handleCleanOne = useCallback(
+    async (attachmentId: string) => {
+      Alert.alert(
+        t('cleanCorruptedAttachment'),
+        t('cleanCorruptedAttachmentConfirm'),
+        [
+          {
+            text: t('cancel'),
+            style: 'cancel'
+          },
+          {
+            text: t('clean'),
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setCleaningIds((prev) => new Set(prev).add(attachmentId));
+                await cleanupCorruptedAttachment(attachmentId);
 
-              // Remove from list
-              setCorrupted((prev) =>
-                prev.filter((c) => c.attachmentRecord.id !== attachmentId)
-              );
+                // Remove from list
+                setCorrupted((prev) =>
+                  prev.filter((c) => c.attachmentRecord.id !== attachmentId)
+                );
 
-              Alert.alert(
-                'Success',
-                'Corrupted attachment cleaned successfully.'
-              );
-            } catch (error) {
-              console.error('Failed to clean attachment:', error);
-              Alert.alert(
-                'Error',
-                `Failed to clean attachment: ${error instanceof Error ? error.message : String(error)}`
-              );
-            } finally {
-              setCleaningIds((prev) => {
-                const next = new Set(prev);
-                next.delete(attachmentId);
-                return next;
-              });
+                Alert.alert(t('success'), t('corruptedAttachmentCleanedSuccess'));
+              } catch (error) {
+                console.error('Failed to clean attachment:', error);
+                Alert.alert(
+                  t('error'),
+                  t('failedToCleanAttachment', {
+                    error:
+                      error instanceof Error ? error.message : String(error)
+                  })
+                );
+              } finally {
+                setCleaningIds((prev) => {
+                  const next = new Set(prev);
+                  next.delete(attachmentId);
+                  return next;
+                });
+              }
             }
           }
-        }
-      ]
-    );
-  }, []);
+        ]
+      );
+    },
+    [t]
+  );
 
   const handleCleanAll = useCallback(async () => {
     if (corrupted.length === 0) return;
 
-    Alert.alert(
-      'Clean All Corrupted Attachments',
-      `This will clean up ${corrupted.length} corrupted attachment${corrupted.length > 1 ? 's' : ''}. This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Clean All',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCleaningAll(true);
-              const result = await cleanupAllCorrupted();
+    const confirmMsg =
+      corrupted.length > 1
+        ? t('cleanAllConfirmPlural', { count: corrupted.length })
+        : t('cleanAllConfirm', { count: corrupted.length });
 
-              // Reload the list
-              await loadCorrupted();
+    Alert.alert(t('cleanAllCorruptedAttachments'), confirmMsg, [
+      {
+        text: t('cancel'),
+        style: 'cancel'
+      },
+      {
+        text: t('clean'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setCleaningAll(true);
+            const result = await cleanupAllCorrupted();
 
-              if (result.errors.length > 0) {
-                Alert.alert(
-                  'Partial Success',
-                  `Cleaned ${result.cleaned} attachment${result.cleaned > 1 ? 's' : ''}. ${result.errors.length} error${result.errors.length > 1 ? 's' : ''} occurred:\n\n${result.errors.join('\n')}`
-                );
-              } else {
-                Alert.alert(
-                  'Success',
-                  `Successfully cleaned ${result.cleaned} corrupted attachment${result.cleaned > 1 ? 's' : ''}.`
-                );
-              }
-            } catch (error) {
-              console.error('Failed to clean all:', error);
-              Alert.alert(
-                'Error',
-                `Failed to clean attachments: ${error instanceof Error ? error.message : String(error)}`
-              );
-            } finally {
-              setCleaningAll(false);
+            // Reload the list
+            await loadCorrupted();
+
+            if (result.errors.length > 0) {
+              const errorMsg =
+                result.cleaned > 1 || result.errors.length > 1
+                  ? t('cleanedAttachmentsWithErrorsPlural', {
+                      cleaned: result.cleaned,
+                      errorCount: result.errors.length,
+                      errors: result.errors.join('\n')
+                    })
+                  : t('cleanedAttachmentsWithErrors', {
+                      cleaned: result.cleaned,
+                      errorCount: result.errors.length,
+                      errors: result.errors.join('\n')
+                    });
+              Alert.alert(t('partialSuccess'), errorMsg);
+            } else {
+              const successMsg =
+                result.cleaned > 1
+                  ? t('successfullyCleanedAttachmentsPlural', {
+                      cleaned: result.cleaned
+                    })
+                  : t('successfullyCleanedAttachments', {
+                      cleaned: result.cleaned
+                    });
+              Alert.alert(t('success'), successMsg);
             }
+          } catch (error) {
+            console.error('Failed to clean all:', error);
+            Alert.alert(
+              t('error'),
+              t('failedToCleanAttachments', {
+                error: error instanceof Error ? error.message : String(error)
+              })
+            );
+          } finally {
+            setCleaningAll(false);
           }
         }
-      ]
-    );
-  }, [corrupted.length, loadCorrupted]);
+      }
+    ]);
+  }, [corrupted.length, loadCorrupted, t]);
 
-  const formatTimestamp = (timestamp: number | undefined) => {
-    if (!timestamp) return 'Unknown';
-    return new Date(timestamp).toLocaleString();
-  };
+  const formatTimestamp = useCallback(
+    (timestamp: number | undefined) => {
+      if (!timestamp) return t('unknown');
+      return new Date(timestamp).toLocaleString();
+    },
+    [t]
+  );
 
-  const formatSize = (bytes: number | null | undefined) => {
-    if (!bytes) return 'Unknown';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  const formatSize = useCallback(
+    (bytes: number | null | undefined) => {
+      if (!bytes) return t('unknown');
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    },
+    [t]
+  );
 
   if (isLoading) {
     return (
@@ -180,7 +206,7 @@ export default function CorruptedAttachmentsView() {
         <View className="flex-1 items-center justify-center">
           <Icon as={Loader2} size={40} className="animate-spin text-primary" />
           <Text className="mt-4 text-muted-foreground">
-            Scanning for corrupted attachments...
+            {t('scanningCorruptedAttachments')}
           </Text>
         </View>
       </View>
@@ -190,6 +216,17 @@ export default function CorruptedAttachmentsView() {
   if (corrupted.length === 0) {
     return (
       <View className="flex-1 bg-background">
+        <View className="p-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={() => navigate('projects')}
+            className="self-start"
+          >
+            <Icon as={ArrowLeft} />
+            <Text>{t('backToProjects')}</Text>
+          </Button>
+        </View>
         <ScrollView
           className="flex-1"
           refreshControl={
@@ -202,11 +239,10 @@ export default function CorruptedAttachmentsView() {
           <View className="flex-1 items-center justify-center p-8">
             <Icon as={CheckCircle} size={64} className="text-green-500" />
             <Text className="mt-4 text-center text-xl font-bold text-foreground">
-              No Corrupted Attachments
+              {t('noCorruptedAttachments')}
             </Text>
             <Text className="mt-2 text-center text-muted-foreground">
-              Your attachment database is healthy. All attachment records are
-              valid.
+              {t('attachmentDatabaseHealthy')}
             </Text>
           </View>
         </ScrollView>
@@ -217,18 +253,30 @@ export default function CorruptedAttachmentsView() {
   return (
     <View className="flex-1 bg-background">
       <View className="p-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => navigate('projects')}
+          className="mb-4 self-start"
+        >
+          <Icon as={ArrowLeft} />
+          <Text>{t('backToProjects')}</Text>
+        </Button>
+
         <View className="mb-4 flex-row items-center gap-3">
           <Icon as={AlertTriangle} size={24} className="text-destructive" />
           <Text className="flex-1 text-xl font-bold text-foreground">
-            Corrupted Attachments
+            {t('corruptedAttachments')}
           </Text>
         </View>
 
         <View className="mb-4 rounded-lg bg-destructive/10 p-4">
           <Text className="text-sm text-foreground">
-            Found {corrupted.length} corrupted attachment
-            {corrupted.length > 1 ? 's' : ''} with blob URLs in the database.
-            These are causing sync errors and should be cleaned up.
+            {corrupted.length > 1
+              ? t('foundCorruptedAttachmentsPlural', {
+                  count: corrupted.length
+                })
+              : t('foundCorruptedAttachments', { count: corrupted.length })}
           </Text>
         </View>
 
@@ -243,14 +291,14 @@ export default function CorruptedAttachmentsView() {
               <>
                 <Icon as={Loader2} className="animate-spin" />
                 <Text className="font-bold text-destructive-foreground">
-                  Cleaning...
+                  {t('cleaning')}
                 </Text>
               </>
             ) : (
               <>
                 <Icon as={Trash2} />
                 <Text className="font-bold text-destructive-foreground">
-                  Clean All ({corrupted.length})
+                  {t('cleanAll', { count: corrupted.length })}
                 </Text>
               </>
             )}
