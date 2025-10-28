@@ -211,6 +211,7 @@ export default function AppHeader({
             size="icon"
             onPress={drawerToggleCallback}
             className="relative size-8"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Icon as={Menu} size={24} />
 
