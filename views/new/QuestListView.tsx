@@ -3,10 +3,12 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { downloadRecord } from '@/hooks/useDownloads';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
 import { LegendList } from '@legendapp/list';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -47,9 +49,63 @@ export function QuestListView({
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+  const queryClient = useQueryClient();
 
   const PAGE_SIZE = 50;
   const trimmedSearch = searchQuery.trim();
+
+  // Track which quests are currently being downloaded (optimistic loading)
+  const [downloadingQuests, setDownloadingQuests] = React.useState<Set<string>>(
+    new Set()
+  );
+
+  // Quest download mutation with query invalidation
+  const downloadQuestMutation = useMutation({
+    mutationFn: async (questId: string) => {
+      console.log(`📥 [QuestListView] Starting download for quest: ${questId}`);
+      await downloadRecord('quest', questId, false, null, currentUser);
+    },
+    onMutate: async (questId) => {
+      // Optimistic update: mark quest as downloading
+      setDownloadingQuests((prev) => new Set(prev).add(questId));
+    },
+    onSuccess: async (_, questId) => {
+      console.log(
+        `✅ [QuestListView] Download completed for quest: ${questId}`
+      );
+
+      // Invalidate queries to refetch from database (source of truth)
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'infinite', 'for-project', projectId]
+      });
+
+      // Also invalidate offline queries specifically
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'offline', 'for-project', projectId]
+      });
+    },
+    onSettled: (_, __, questId) => {
+      // Remove loading state regardless of success/failure
+      setDownloadingQuests((prev) => {
+        const next = new Set(prev);
+        next.delete(questId);
+        return next;
+      });
+    },
+    onError: (error, questId) => {
+      console.error(
+        `❌ [QuestListView] Download failed for quest: ${questId}`,
+        error
+      );
+    }
+  });
+
+  const handleDownloadQuest = React.useCallback(
+    (questId: string) => {
+      downloadQuestMutation.mutate(questId);
+    },
+    [downloadQuestMutation]
+  );
 
   const questsInfiniteQuery = useHybridInfiniteData({
     dataType: 'quests',
@@ -78,7 +134,8 @@ export function QuestListView({
           description: true,
           parent_id: true,
           source: true,
-          visible: true
+          visible: true,
+          download_profiles: true
         },
         where: and(...conditions),
         limit: pageSize,
@@ -91,7 +148,7 @@ export function QuestListView({
 
       let query = system.supabaseConnector.client
         .from('quest')
-        .select('id, name, description, parent_id, visible')
+        .select('id, name, description, parent_id, visible, download_profiles')
         .eq('project_id', projectId);
 
       if (trimmedSearch) {
@@ -163,6 +220,7 @@ export function QuestListView({
         const id = q.id;
         const hasChildren = (childrenOf.get(id) || []).length > 0;
         const isOpen = expanded.has(id);
+        const isDownloading = downloadingQuests.has(id);
         rows.push(
           <QuestTreeRow
             key={id}
@@ -171,9 +229,10 @@ export function QuestListView({
             hasChildren={hasChildren}
             isOpen={isOpen}
             canCreateNew={isMember}
+            isDownloading={isDownloading}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => onAddChild(parentId)}
-            onDownloadClick={onDownloadClick}
+            onDownloadClick={handleDownloadQuest}
           />
         );
         if (hasChildren && isOpen) {
@@ -191,8 +250,9 @@ export function QuestListView({
       expanded,
       toggleExpanded,
       onAddChild,
-      onDownloadClick,
-      isMember
+      handleDownloadQuest,
+      isMember,
+      downloadingQuests
     ]
   );
 
@@ -227,6 +287,7 @@ export function QuestListView({
         const id = q.id;
         const hasChildren = (childrenOf.get(id) || []).length > 0;
         const isOpen = expanded.has(id);
+        const isDownloading = downloadingQuests.has(id);
         return (
           <View key={id}>
             <QuestTreeRow
@@ -235,9 +296,10 @@ export function QuestListView({
               hasChildren={hasChildren}
               isOpen={isOpen}
               canCreateNew={isMember}
+              isDownloading={isDownloading}
               onToggleExpand={() => toggleExpanded(id)}
               onAddChild={(parentId) => onAddChild(parentId)}
-              onDownloadClick={onDownloadClick}
+              onDownloadClick={handleDownloadQuest}
             />
             {hasChildren && isOpen && (
               <View>{renderTree(childrenOf.get(id) || [], 1)}</View>

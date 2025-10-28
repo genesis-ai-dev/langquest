@@ -27,6 +27,7 @@ export interface QuestTreeRowProps {
   hasChildren: boolean;
   isOpen: boolean;
   canCreateNew: boolean;
+  isDownloading?: boolean;
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
@@ -38,6 +39,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   canCreateNew,
+  isDownloading = false,
   onToggleExpand,
   onAddChild,
   onDownloadClick
@@ -134,7 +136,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         {quest.source !== 'local' && (
           <DownloadIndicator
             isFlaggedForDownload={quest.source === 'synced'}
-            isLoading={false}
+            isLoading={isDownloading}
             onPress={() => {
               if (quest.source === 'cloud' && onDownloadClick) {
                 onDownloadClick(quest.id);

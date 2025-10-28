@@ -264,18 +264,61 @@ export function BibleChapterList({
       return data;
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Invalidating queries');
-      // Invalidate download status queries
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status']
-      });
-      // Invalidate bible chapters queries to refresh download status
-      await queryClient.invalidateQueries({
-        queryKey: ['bible-chapters']
-      });
+      console.log('📥 [Bulk Download] Optimistically updating cache');
+
+      // Optimistically update the cache for downloaded quests
+      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
+
+      const updateChapterCache = (oldData: unknown, cacheType: string) => {
+        if (!oldData || !currentUser?.id) {
+          console.log(`📥 [Cache Update] No ${cacheType} data to update`);
+          return oldData;
+        }
+
+        const chapters = oldData as Array<{
+          quest_id: string;
+          quest_download_profiles?: string[] | null;
+          [key: string]: unknown;
+        }>;
+
+        console.log(
+          `📥 [Cache Update] Updating ${chapters.length} ${cacheType} chapters`
+        );
+
+        return chapters.map((chapter) => {
+          if (downloadedQuestIds.has(chapter.quest_id)) {
+            const currentProfiles = chapter.quest_download_profiles || [];
+            const updatedProfiles = currentProfiles.includes(currentUser.id)
+              ? currentProfiles
+              : [...currentProfiles, currentUser.id];
+
+            console.log(
+              `📥 [Cache Update] Updated chapter quest ${chapter.quest_id.slice(0, 8)}...`
+            );
+
+            return {
+              ...chapter,
+              quest_download_profiles: updatedProfiles
+            };
+          }
+          return chapter;
+        });
+      };
+
+      // Update both local and cloud query caches
+      queryClient.setQueriesData(
+        { queryKey: ['bible-chapters', 'local', projectId, bookId] },
+        (oldData: unknown) => updateChapterCache(oldData, 'local')
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ['bible-chapters', 'cloud', projectId, bookId] },
+        (oldData: unknown) => updateChapterCache(oldData, 'cloud')
+      );
+
+      console.log(
+        '📥 [Bulk Download] Cache updated, PowerSync will sync in background'
+      );
     }
   });
 
@@ -361,7 +404,7 @@ export function BibleChapterList({
         project_id: projectId,
         name: existingChapter.name,
         projectData: project as Record<string, unknown>, // Pass project data!
-        questData: existingChapter as Record<string, unknown> // Pass chapter/quest data!
+        questData: existingChapter as unknown as Record<string, unknown> // Pass chapter/quest data!
       });
       return;
     }
