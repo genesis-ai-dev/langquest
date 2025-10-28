@@ -185,16 +185,12 @@ begin
           'asset_content_link',
           'put',
           (
-            op.record
+            (op.record - 'target_language_id' - 'asset_id' - 'creator_id' - 'visible')
             || jsonb_build_object(
-                 'id', v_acl_id::text,
-                 'asset_id', v_id::text,
-                 'source_language_id', op.record->>'target_language_id'
-               )
-            - 'target_language_id'
-            - 'asset_id'
-            - 'creator_id'
-            - 'visible'
+                'id', v_acl_id::text,
+                'asset_id', v_id::text,
+                'source_language_id', op.record->>'target_language_id'
+              )
           )
         ))::public.mutation_op;
       end if;
@@ -389,17 +385,39 @@ $$;
 
 --------------------------------
 
--- 1. Add the column
-ALTER TABLE public.vote
-ADD COLUMN translation_id uuid NULL;
+-- 1. Add the column if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'vote'
+      AND column_name = 'translation_id'
+  ) THEN
+    ALTER TABLE public.vote
+    ADD COLUMN translation_id uuid NULL;
+  END IF;
+END $$;
 
--- 2. Add the foreign key constraint
-ALTER TABLE public.vote
-ADD CONSTRAINT vote_translation_id_fkey
-FOREIGN KEY (translation_id)
-REFERENCES public.translation (id)
-ON UPDATE CASCADE
-ON DELETE SET NULL;
+-- 2. Add the foreign key constraint if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.table_constraints
+    WHERE table_schema = 'public'
+      AND table_name = 'vote'
+      AND constraint_name = 'vote_translation_id_fkey'
+  ) THEN
+    ALTER TABLE public.vote
+    ADD CONSTRAINT vote_translation_id_fkey
+    FOREIGN KEY (translation_id)
+    REFERENCES public.translation (id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- 3. Index it for lookups like WHERE translation_id = ANY(...)
 CREATE INDEX IF NOT EXISTS vote_translation_id_idx
@@ -407,6 +425,19 @@ ON public.vote USING btree (translation_id);
 
 --------------------------------
 
-ALTER TABLE public.asset
-ALTER COLUMN order_index DROP NOT NULL;
+-- Make dropping NOT NULL idempotent
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'asset'
+      AND column_name = 'order_index'
+      AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE public.asset
+    ALTER COLUMN order_index DROP NOT NULL;
+  END IF;
+END $$;
 
