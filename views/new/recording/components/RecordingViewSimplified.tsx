@@ -443,14 +443,41 @@ const RecordingViewSimplified = ({
   React.useEffect(() => {
     if (isVADLocked && vadCounterRef.current === null) {
       void (async () => {
-        const nextOrder = await getNextOrderIndex(currentQuestId!);
-        vadCounterRef.current = nextOrder;
-        console.log('🎯 VAD counter initialized to:', nextOrder);
+        let targetOrder: number;
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (USE_INSERTION_WHEEL) {
+          // Respect insertion wheel position (same logic as manual recordings)
+          // insertionIndex is the boundary BEFORE an item
+          // User wants to insert AFTER the item they're viewing
+          const actualInsertionIndex = insertionIndex + 1;
+
+          if (actualInsertionIndex < assets.length) {
+            targetOrder =
+              assets[actualInsertionIndex]?.order_index ?? actualInsertionIndex;
+          } else {
+            // Insert at end
+            targetOrder =
+              assets.length > 0
+                ? (assets[assets.length - 1]?.order_index ??
+                    assets.length - 1) + 1
+                : 0;
+          }
+          console.log(
+            `🎯 VAD counter initialized to insertion index ${insertionIndex} (order_index: ${targetOrder})`
+          );
+        } else {
+          // Legacy: append to end
+          targetOrder = await getNextOrderIndex(currentQuestId!);
+          console.log(`🎯 VAD counter initialized to end: ${targetOrder}`);
+        }
+
+        vadCounterRef.current = targetOrder;
       })();
     } else if (!isVADLocked) {
       vadCounterRef.current = null;
     }
-  }, [isVADLocked, currentQuestId]);
+  }, [isVADLocked, currentQuestId, insertionIndex, assets]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
