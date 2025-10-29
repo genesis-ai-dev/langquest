@@ -20,6 +20,7 @@ import { and, eq } from 'drizzle-orm';
 import {
   CircleAlertIcon,
   CircleArrowDownIcon,
+  CircleMinusIcon,
   CircleXIcon,
   ClockIcon,
   InfoIcon,
@@ -529,7 +530,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
               <Icon
-                name="remove-circle-outline"
+                as={CircleMinusIcon}
                 size={48}
                 className="text-muted-foreground"
               />

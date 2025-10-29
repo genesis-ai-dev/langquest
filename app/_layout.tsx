@@ -36,7 +36,7 @@ configureReanimatedLogger({
   strict: false // Disables warnings with nativewind animations
 });
 
-LogBox.ignoreAllLogs();
+LogBox.ignoreAllLogs(true);
 
 export const NAV_THEME = {
   light: {
