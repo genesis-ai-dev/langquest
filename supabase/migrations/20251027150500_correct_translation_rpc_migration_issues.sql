@@ -72,6 +72,10 @@ declare
   ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
   final_ops public.mutation_op[];
   t text; o text; r jsonb;
+  v_major int;
+  v_funcname text;
+  v_exists boolean;
+  cur_ops public.mutation_op[];
 begin
   -- Validate required inputs
   if p_op is null or p_table_name is null then
@@ -94,17 +98,44 @@ begin
          lower(p_table_name)
        );
 
-  -- Versioned transform
-  if v_version_is_v0 then
-    ops := public.v0_to_v1(ops, p_client_meta);
-    v_logs := v_logs || '[transform] v0_to_v1 applied\n';
+  -- Dynamic transform chain based on metadata major version
+  cur_ops := ops;
+  begin
+    v_major := (regexp_matches(v_meta, '^(\\d+)'))[1]::int;
+  exception when others then
+    v_major := -1;
+  end;
 
-    raise log '[apply_table_mutation] after v0_to_v1 transform ops=%',
-      (select string_agg(format('(%s %s %s)', x.table_name, x.op, x.record::text), ' | ')
-       from unnest(ops) x);
-  end if;
+  loop
+    exit when v_major < 0;
 
-  final_ops := ops;
+    v_funcname := format('public.v%1$s_to_%2$s', v_major, v_major + 1);
+
+    -- check existence of function public.vN_to_(N+1)(public.mutation_op[], jsonb)
+    select exists (
+      select 1
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.proname = format('v%1$s_to_%2$s', v_major, v_major + 1)
+        and p.prorettype = 'public.mutation_op[]'::regtype
+        and p.pronargs = 2
+        and p.proargtypes[0] = 'public.mutation_op[]'::regtype::oid
+        and p.proargtypes[1] = 'jsonb'::regtype::oid
+    ) into v_exists;
+
+    exit when not v_exists;
+
+    v_logs := v_logs || format('[transform] %s applied\n', v_funcname);
+
+    execute format('select %s($1, $2)', v_funcname)
+      into cur_ops
+      using cur_ops, p_client_meta;
+
+    v_major := v_major + 1;
+  end loop;
+
+  final_ops := cur_ops;
 
   -- Execute each resulting op
   for t, o, r in
