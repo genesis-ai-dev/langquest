@@ -28,15 +28,21 @@ const Pressable = React.forwardRef<
     return null;
   }
 
+  const elementToClone = isTextChildren(children) ? <></> : children;
+  const mergedProps = mergeProps(pressableSlotProps, (children as any).props);
+  const finalProps = isFragment(elementToClone as React.ReactElement)
+    ? filterFragmentProps(mergedProps)
+    : {
+        ...mergedProps,
+        ref: forwardedRef
+          ? composeRefs(forwardedRef, (children as any).props?.ref)
+          : (children as any).props?.ref
+      };
+
   return React.cloneElement<
     React.ComponentPropsWithoutRef<typeof RNPressable>,
     React.ComponentRef<typeof RNPressable>
-  >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(pressableSlotProps, (children as any).props),
-    ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).props?.ref)
-      : (children as any).props?.ref
-  });
+  >(elementToClone, finalProps);
 });
 
 Pressable.displayName = 'SlotPressable';
@@ -50,15 +56,21 @@ const View = React.forwardRef<React.ComponentRef<typeof RNView>, RNViewProps>(
       return null;
     }
 
+    const elementToClone = isTextChildren(children) ? <></> : children;
+    const mergedProps = mergeProps(viewSlotProps, (children as any).props);
+    const finalProps = isFragment(elementToClone as React.ReactElement)
+      ? filterFragmentProps(mergedProps)
+      : {
+          ...mergedProps,
+          ref: forwardedRef
+            ? composeRefs(forwardedRef, (children as any).props?.ref)
+            : (children as any).props?.ref
+        };
+
     return React.cloneElement<
       React.ComponentPropsWithoutRef<typeof RNView>,
       React.ComponentRef<typeof RNView>
-    >(isTextChildren(children) ? <></> : children, {
-      ...mergeProps(viewSlotProps, (children as any).props),
-      ref: forwardedRef
-        ? composeRefs(forwardedRef, (children as any).props?.ref)
-        : (children as any).props?.ref
-    });
+    >(elementToClone, finalProps);
   }
 );
 
@@ -73,15 +85,21 @@ const Text = React.forwardRef<React.ComponentRef<typeof RNText>, RNTextProps>(
       return null;
     }
 
+    const elementToClone = isTextChildren(children) ? <></> : children;
+    const mergedProps = mergeProps(textSlotProps, (children as any).props);
+    const finalProps = isFragment(elementToClone as React.ReactElement)
+      ? filterFragmentProps(mergedProps)
+      : {
+          ...mergedProps,
+          ref: forwardedRef
+            ? composeRefs(forwardedRef, (children as any).props?.ref)
+            : (children as any).props?.ref
+        };
+
     return React.cloneElement<
       React.ComponentPropsWithoutRef<typeof RNText>,
       React.ComponentRef<typeof RNText>
-    >(isTextChildren(children) ? <></> : children, {
-      ...mergeProps(textSlotProps, (children as any).props),
-      ref: forwardedRef
-        ? composeRefs(forwardedRef, (children as any).props?.ref)
-        : (children as any).props?.ref
-    });
+    >(elementToClone, finalProps);
   }
 );
 
@@ -102,15 +120,21 @@ const Image = React.forwardRef<
     return null;
   }
 
+  const elementToClone = isTextChildren(children) ? <></> : children;
+  const mergedProps = mergeProps(imageSlotProps, (children as any).props);
+  const finalProps = isFragment(elementToClone as React.ReactElement)
+    ? filterFragmentProps(mergedProps)
+    : {
+        ...mergedProps,
+        ref: forwardedRef
+          ? composeRefs(forwardedRef, (children as any).props?.ref)
+          : (children as any).props?.ref
+      };
+
   return React.cloneElement<
     React.ComponentPropsWithoutRef<typeof RNImage>,
     React.ComponentRef<typeof RNImage>
-  >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(imageSlotProps, (children as any).props),
-    ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).props?.ref)
-      : (children as any).props?.ref
-  });
+  >(elementToClone, finalProps);
 });
 
 Image.displayName = 'SlotImage';
@@ -130,15 +154,21 @@ const Input = React.forwardRef<
     return null;
   }
 
+  const elementToClone = isTextChildren(children) ? <></> : children;
+  const mergedProps = mergeProps(inputSlotProps, (children as any).props);
+  const finalProps = isFragment(elementToClone as React.ReactElement)
+    ? filterFragmentProps(mergedProps)
+    : {
+        ...mergedProps,
+        ref: forwardedRef
+          ? composeRefs(forwardedRef, (children as any).props?.ref)
+          : (children as any).props?.ref
+      };
+
   return React.cloneElement<
     React.ComponentPropsWithoutRef<typeof RNTextInput>,
     React.ComponentRef<typeof RNTextInput>
-  >(isTextChildren(children) ? <></> : children, {
-    ...mergeProps(inputSlotProps, (children as any).props),
-    ref: forwardedRef
-      ? composeRefs(forwardedRef, (children as any).props?.ref)
-      : (children as any).props?.ref
-  });
+  >(elementToClone, finalProps);
 });
 
 Input.displayName = 'SlotInput';
@@ -157,10 +187,14 @@ function Generic<Extra extends object>(props: GenericExtraProps<Extra>) {
     return null;
   }
 
+  const mergedProps = mergeProps(slotProps, (children as any).props);
+  const finalProps = isFragment(children as React.ReactElement)
+    ? filterFragmentProps(mergedProps)
+    : mergedProps;
+
   return React.cloneElement(
     children as React.ReactElement<any>,
-    mergeProps(slotProps, (children as any).props) as Partial<any> &
-      React.Attributes
+    finalProps as Partial<any> & React.Attributes
   );
 }
 
@@ -216,6 +250,16 @@ function mergeProps(slotProps: AnyProps, childProps: AnyProps) {
   }
 
   return { ...slotProps, ...overrideProps };
+}
+
+function isFragment(element: React.ReactElement): boolean {
+  return element.type === React.Fragment;
+}
+
+function filterFragmentProps(props: AnyProps) {
+  // React.Fragment can only have 'key' and 'children' props
+  const { key, children } = props;
+  return { key, children };
 }
 
 type PressableStyle = RNPressableProps['style'];

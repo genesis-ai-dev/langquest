@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -13,10 +14,19 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
+import {
+  CircleAlertIcon,
+  CircleArrowDownIcon,
+  CircleXIcon,
+  ClockIcon,
+  InfoIcon,
+  LockIcon,
+  LockOpenIcon,
+  XIcon
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -345,7 +355,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       return (
         <>
           <View className={modal ? 'mb-4 items-center' : 'mb-4 items-center'}>
-            <Ionicons name="lock-closed" size={48} className="text-primary" />
+            <Icon as={LockIcon} size={48} className="text-primary" />
           </View>
           {modal ? (
             <>
@@ -353,11 +363,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 {t('privateProjectNotLoggedIn')}
               </Text>
               <View className="mb-6 flex-row items-start gap-2 rounded-md bg-primary/10 p-4">
-                <Ionicons
-                  name="information-circle"
-                  size={20}
-                  className="text-primary"
-                />
+                <Icon as={InfoIcon} size={20} className="text-primary" />
                 <Text variant="small" className="flex-1 leading-5">
                   {t('privateProjectLoginRequired')}
                 </Text>
@@ -382,11 +388,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
-              <Ionicons
-                name="time-outline"
-                size={48}
-                className="text-primary"
-              />
+              <Icon as={ClockIcon} size={48} className="text-primary" />
               {modal && (
                 <Text variant="h4" className="mb-2 mt-4">
                   {t('requestPending')}
@@ -426,8 +428,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
-              <Ionicons
-                name="alert-circle-outline"
+              <Icon
+                as={CircleAlertIcon}
                 size={48}
                 className="text-yellow-500"
               />
@@ -482,11 +484,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
-              <Ionicons
-                name="close-circle-outline"
-                size={48}
-                className="text-destructive"
-              />
+              <Icon as={CircleXIcon} size={48} className="text-destructive" />
               {modal && (
                 <Text variant="h4" className="mb-2 mt-4">
                   {t('requestDeclined')}
@@ -534,7 +532,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
-              <Ionicons
+              <Icon
                 name="remove-circle-outline"
                 size={48}
                 className="text-muted-foreground"
@@ -577,7 +575,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-4 items-center' : 'mb-4 items-center'}>
-              <Ionicons name="lock-closed" size={48} className="text-primary" />
+              <Icon as={LockIcon} size={48} className="text-primary" />
             </View>
             {modal ? (
               <>
@@ -585,11 +583,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   {getActionMessage()}
                 </Text>
                 <View className="mb-6 flex-row items-start gap-2 rounded-md bg-primary/10 p-4">
-                  <Ionicons
-                    name="information-circle"
-                    size={20}
-                    className="text-primary"
-                  />
+                  <Icon as={InfoIcon} size={20} className="text-primary" />
                   <Text variant="small" className="flex-1 leading-5">
                     {t('privateProjectInfo')}
                   </Text>
@@ -598,8 +592,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 {/* Download status indicator */}
                 {isProjectDownloaded && (
                   <View className="mb-6 flex-row items-center gap-2 rounded-md bg-green-50 p-4 dark:bg-green-900/20">
-                    <Ionicons
-                      name="cloud-download"
+                    <Icon
+                      as={CircleArrowDownIcon}
                       size={20}
                       className="text-green-600"
                     />
@@ -656,11 +650,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 <View className="mb-4 flex-row items-center justify-between">
                   <Text variant="h3">{t('privateProject')}</Text>
                   <Pressable className="p-1" onPress={onClose}>
-                    <Ionicons
-                      name="close"
-                      size={24}
-                      className="text-foreground"
-                    />
+                    <Icon as={XIcon} size={24} className="text-foreground" />
                   </Pressable>
                 </View>
 
@@ -726,8 +716,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                         className="p-1"
                         onPress={() => setShowModal(false)}
                       >
-                        <Ionicons
-                          name="close"
+                        <Icon
+                          as={XIcon}
                           size={24}
                           className="text-foreground"
                         />
@@ -775,7 +765,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   return hasAccess ? null : (
     <>
       <Pressable onPress={() => setShowModal(true)}>
-        <Ionicons name="lock-closed" size={24} className="text-foreground" />
+        <Icon as={LockIcon} size={24} className="text-foreground" />
       </Pressable>
       <Modal
         visible={showModal}
@@ -796,8 +786,8 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                     className="p-1"
                     onPress={() => setShowModal(false)}
                   >
-                    <Ionicons
-                      name="close"
+                    <Icon
+                      as={LockOpenIcon}
                       size={24}
                       className="text-foreground"
                     />
