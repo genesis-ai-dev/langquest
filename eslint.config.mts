@@ -1,15 +1,15 @@
 // @ts-check
 
 import { fixupPluginRules, includeIgnoreFile } from '@eslint/compat';
-import { defineConfig } from 'eslint/config';
 import eslint from '@eslint/js';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as drizzlePlugin from 'eslint-plugin-drizzle';
 import importPlugin from 'eslint-plugin-import';
 import reactPlugin from 'eslint-plugin-react';
 import reactCompilerPlugin from 'eslint-plugin-react-compiler';
 import hooksPlugin from 'eslint-plugin-react-hooks';
+import { defineConfig } from 'eslint/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import tseslint from 'typescript-eslint';
 
 const __filename = fileURLToPath(import.meta.url);
