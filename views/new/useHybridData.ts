@@ -744,6 +744,11 @@ export function useItemDownload(
       // Invalidate relevant queries to refresh download status
       void queryClient.invalidateQueries({ queryKey: [itemType + 's'] });
       void queryClient.invalidateQueries({ queryKey: ['download-status'] });
+
+      // Invalidate assets queries if downloading a quest to refresh assets list
+      if (itemType === 'quest') {
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      }
     }
   });
 }

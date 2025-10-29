@@ -52,15 +52,26 @@ function Drawer({
   const [isOpen, setIsOpen] = React.useState(open);
 
   React.useEffect(() => {
-    if (open !== isOpen) {
-      setIsOpen(open);
-      if (open) {
-        ref.current?.present();
-      } else {
-        ref.current?.dismiss();
-      }
+    setIsOpen(open);
+  }, [open]);
+
+  // Use a separate effect to handle presenting/dismissing to ensure ref is ready
+  React.useEffect(() => {
+    if (isOpen) {
+      // Wait for ref to be available, with retry logic
+      const presentModal = () => {
+        if (ref.current) {
+          ref.current.present();
+        } else {
+          // Retry after a short delay if ref isn't ready yet
+          setTimeout(presentModal, 50);
+        }
+      };
+      presentModal();
+    } else if (!isOpen && ref.current) {
+      ref.current.dismiss();
     }
-  }, [open, isOpen]);
+  }, [isOpen]);
 
   const handleSetOpen = React.useCallback(
     (newOpen: boolean) => {

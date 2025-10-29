@@ -1,10 +1,10 @@
 import { and, eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import { resolveTable } from '@/utils/dbUtils';
-import { vote } from '../db/drizzleSchema';
+import { asset_vote } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
-export type Vote = typeof vote.$inferSelect;
+export type Vote = typeof asset_vote.$inferSelect;
 
 const { db } = system;
 
@@ -21,10 +21,10 @@ export class VoteService {
       const existingVoteId =
         data.vote_id ??
         (
-          await db.query.vote.findFirst({
+          await db.query.asset_vote.findFirst({
             where: and(
-              eq(vote.asset_id, data.asset_id),
-              eq(vote.creator_id, data.creator_id)
+              eq(asset_vote.asset_id, data.asset_id),
+              eq(asset_vote.creator_id, data.creator_id)
             ),
             columns: {
               id: true
@@ -38,13 +38,13 @@ export class VoteService {
         // Update existing vote
         const startTime = Date.now();
         await db
-          .update(vote)
+          .update(asset_vote)
           .set({
             polarity: data.polarity,
             comment: data.comment,
             active: data.active ?? true
           })
-          .where(eq(vote.id, existingVoteId));
+          .where(eq(asset_vote.id, existingVoteId));
         const endTime = Date.now();
         console.log(
           `Time taken to find existing vote: ${endTime - startTime}ms`
@@ -59,13 +59,14 @@ export class VoteService {
           download_profiles: [data.creator_id]
         });
         // Create new vote - let PowerSync handle array serialization
-        await db.insert(resolveTable('vote')).values({
+        // Note: download_profiles will be auto-populated by the database trigger
+        await db.insert(resolveTable('asset_vote')).values({
           asset_id: data.asset_id,
           creator_id: data.creator_id,
           polarity: data.polarity,
           comment: data.comment ?? '',
-          active: data.active ?? true,
-          download_profiles: [data.creator_id]
+          active: data.active ?? true
+          // download_profiles will be populated by the database trigger from the asset
         });
       }
     } catch (error) {
@@ -75,19 +76,19 @@ export class VoteService {
   }
 
   async getUserVoteForTranslation(asset_id: string, userId: string) {
-    const result = await db.query.vote.findFirst({
+    const result = await db.query.asset_vote.findFirst({
       where: and(
-        eq(vote.asset_id, asset_id),
-        eq(vote.creator_id, userId),
-        eq(vote.active, true)
+        eq(asset_vote.asset_id, asset_id),
+        eq(asset_vote.creator_id, userId),
+        eq(asset_vote.active, true)
       )
     });
     return result;
   }
 
   async getVotesByAssetId(asset_id: string) {
-    const result = await db.query.vote.findMany({
-      where: and(eq(vote.asset_id, asset_id), eq(vote.active, true))
+    const result = await db.query.asset_vote.findMany({
+      where: and(eq(asset_vote.asset_id, asset_id), eq(asset_vote.active, true))
     });
     return result;
   }

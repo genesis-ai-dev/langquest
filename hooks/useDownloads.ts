@@ -277,6 +277,16 @@ export function useDownload(
       await queryClient.invalidateQueries({
         queryKey: ['download-status', recordTable, recordId]
       });
+
+      // Invalidate quest and asset queries to refresh lists
+      if (recordTable === 'quest') {
+        await queryClient.invalidateQueries({
+          queryKey: ['quests']
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['assets']
+        });
+      }
     }
   });
 

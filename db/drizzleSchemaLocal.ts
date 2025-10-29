@@ -26,7 +26,8 @@ import {
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
-  createVoteTable
+  createVoteTable,
+  createAssetVoteTable
 } from './drizzleSchemaColumns';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
@@ -280,11 +281,17 @@ export const report_localRelations = relations(reports_local, ({ one }) => ({
   })
 }));
 
+/**
+ * @deprecated Use asset_vote_local instead.
+ */
 export const vote_local = createVoteTable('local', {
   asset: asset_local,
   profile: profile_local
 });
 
+/**
+ * @deprecated Use asset_vote_localRelations instead.
+ */
 export const vote_localRelations = relations(vote_local, ({ one }) => ({
   asset: one(asset_local, {
     fields: [vote_local.asset_id],
@@ -295,6 +302,25 @@ export const vote_localRelations = relations(vote_local, ({ one }) => ({
     references: [profile_local.id]
   })
 }));
+
+export const asset_vote_local = createAssetVoteTable('local', {
+  asset: asset_local,
+  profile: profile_local
+});
+
+export const asset_vote_localRelations = relations(
+  asset_vote_local,
+  ({ one }) => ({
+    asset: one(asset_local, {
+      fields: [asset_vote_local.asset_id],
+      references: [asset_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [asset_vote_local.creator_id],
+      references: [profile_local.id]
+    })
+  })
+);
 
 export const asset_content_link_local = createAssetContentLinkTable('local', {
   asset: asset_local,

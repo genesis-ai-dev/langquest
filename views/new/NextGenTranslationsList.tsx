@@ -10,6 +10,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
@@ -130,7 +131,7 @@ export default function NextGenTranslationsList({
 
           {/* Data Source Toggle */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {__DEV__ && (
+          {SHOW_DEV_ELEMENTS && (
             <View className="flex-row items-center gap-2">
               <Text
                 className={`text-sm ${!useOfflineData ? 'text-muted-foreground' : 'text-foreground'}`}
@@ -251,19 +252,21 @@ export default function NextGenTranslationsList({
               <Text className="text-center text-lg font-medium text-muted-foreground">
                 {t('noTranslationsYet')}
               </Text>
-              <Text className="text-center text-sm text-muted-foreground/70">
-                Be the first to translate!
-              </Text>
             </View>
           )}
         />
       )}
 
-      {/* Translation Modal */}
-      {selectedTranslationId && (
+      {/* Translation Modal - Always render, control with open prop */}
+      {selectedTranslationId ? (
         <NextGenTranslationModal
           open={open}
-          onOpenChange={setOpen}
+          onOpenChange={(newOpen) => {
+            setOpen(newOpen);
+            if (!newOpen) {
+              setSelectedTranslationId(null);
+            }
+          }}
           assetId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
           canVote={canVote}
@@ -271,7 +274,7 @@ export default function NextGenTranslationsList({
           projectId={projectData?.id}
           projectName={projectData?.name}
         />
-      )}
+      ) : null}
     </View>
   );
 }

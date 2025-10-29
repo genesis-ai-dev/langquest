@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { syncCallbackService } from '@/services/syncCallbackService';
 import type { WithSource } from '@/utils/dbUtils';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -52,6 +53,30 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
 
   // Local loading state - persists until component re-renders with fresh query data
   const [isDownloadingLocally, setIsDownloadingLocally] = React.useState(false);
+  const [hasPendingCallback, setHasPendingCallback] = React.useState(false);
+
+  // Poll for callback status (only while we think there might be one)
+  React.useEffect(() => {
+    const checkCallback = () => {
+      const hasCallback = syncCallbackService.hasCallback(quest.id);
+      setHasPendingCallback(hasCallback);
+      
+      // If callback exists, ensure loading state is set
+      if (hasCallback && !isDownloadingLocally) {
+        setIsDownloadingLocally(true);
+      }
+    };
+
+    // Initial check
+    checkCallback();
+
+    // Poll every 200ms if we're in a loading state or have a pending callback
+    // This ensures we catch when callbacks are registered externally
+    if (isDownloadingLocally || hasPendingCallback) {
+      const interval = setInterval(checkCallback, 200);
+      return () => clearInterval(interval);
+    }
+  }, [quest.id, isDownloadingLocally, hasPendingCallback]);
 
   // Reset loading state when download is cancelled
   // If downloadingQuestId changes from this quest.id to null/undefined, user cancelled
@@ -61,6 +86,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         `🚫 [Download] Cancellation detected for quest ${quest.id.slice(0, 8)}... - resetting loading state`
       );
       setIsDownloadingLocally(false);
+      setHasPendingCallback(false);
     }
   }, [downloadingQuestId, quest.id, isDownloadingLocally]);
 
@@ -168,9 +194,10 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         {quest.source !== 'local' && (
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading || isDownloadingLocally}
+            isLoading={isDownloadingLocally || hasPendingCallback}
             onPress={() => {
-              if (!isDownloaded && onDownloadClick) {
+              if (onDownloadClick) {
+                // Set loading state for both download and undownload
                 setIsDownloadingLocally(true);
                 onDownloadClick(quest.id);
               }

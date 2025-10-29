@@ -27,6 +27,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -412,7 +413,7 @@ export default function NextGenNewTranslationModal({
 
             {/* Network Status */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {__DEV__ && (
+            {SHOW_DEV_ELEMENTS && (
               <View>
                 <Text className="text-center text-sm text-muted-foreground">
                   {isOnline ? `🟢 ${t('online')}` : `🔴 ${t('offline')}`} -{' '}
@@ -424,7 +425,7 @@ export default function NextGenNewTranslationModal({
 
           <DrawerFooter>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {__DEV__ && (
+            {SHOW_DEV_ELEMENTS && (
               <View className="mb-2 rounded bg-muted p-2">
                 <Text className="text-xs text-muted-foreground">
                   Debug: isFormValid={String(isFormValid)} | translationType=

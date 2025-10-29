@@ -414,6 +414,9 @@ export function createQuestTable<
   return table;
 }
 
+/**
+ * @deprecated Use createAssetVoteTable instead. The vote table is being phased out in favor of asset_vote.
+ */
 export function createVoteTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
@@ -451,6 +454,55 @@ export function createVoteTable<
       return [
         index('asset_id_idx').on(table.asset_id),
         index('creator_id_idx').on(table.creator_id),
+        ...normalizeParams(extraConfig, table)
+      ];
+    }
+  );
+
+  return table;
+}
+
+/**
+ * Creates the asset_vote table definition.
+ * This is the new table for votes, replacing the legacy vote table.
+ * Matches the schema from migration 20251024103000_create_asset_vote_and_migrate.sql
+ */
+export function createAssetVoteTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    asset,
+    profile
+  }: {
+    asset: typeof asset_synced | typeof asset_local;
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'asset_vote', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'asset_vote',
+    {
+      ...getTableColumns(source),
+      polarity: text({ enum: ['up', 'down'] }).notNull(),
+      comment: text(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      asset_id: text()
+        .notNull()
+        .references(() => asset.id),
+      creator_id: text().references(() => profile.id), // Nullable in asset_vote
+      ingest_batch_id: text(), // Added in migration
+      ...extraColumns
+    },
+    (table) => {
+      return [
+        index('asset_vote_asset_id_idx').on(table.asset_id),
+        index('asset_vote_creator_id_idx').on(table.creator_id),
         ...normalizeParams(extraConfig, table)
       ];
     }

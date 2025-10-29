@@ -23,7 +23,8 @@ import {
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
-  createVoteTable
+  createVoteTable,
+  createAssetVoteTable
 } from './drizzleSchemaColumns';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
@@ -280,11 +281,17 @@ export const report_syncedRelations = relations(reports_synced, ({ one }) => ({
   })
 }));
 
+/**
+ * @deprecated Use asset_vote_synced instead.
+ */
 export const vote_synced = createVoteTable('synced', {
   asset: asset_synced,
   profile: profile_synced
 });
 
+/**
+ * @deprecated Use asset_vote_syncedRelations instead.
+ */
 export const vote_syncedRelations = relations(vote_synced, ({ one }) => ({
   asset: one(asset_synced, {
     fields: [vote_synced.asset_id],
@@ -295,6 +302,25 @@ export const vote_syncedRelations = relations(vote_synced, ({ one }) => ({
     references: [profile_synced.id]
   })
 }));
+
+export const asset_vote_synced = createAssetVoteTable('synced', {
+  asset: asset_synced,
+  profile: profile_synced
+});
+
+export const asset_vote_syncedRelations = relations(
+  asset_vote_synced,
+  ({ one }) => ({
+    asset: one(asset_synced, {
+      fields: [asset_vote_synced.asset_id],
+      references: [asset_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [asset_vote_synced.creator_id],
+      references: [profile_synced.id]
+    })
+  })
+);
 
 export const asset_content_link_synced = createAssetContentLinkTable('synced', {
   asset: asset_synced,

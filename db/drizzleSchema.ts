@@ -24,7 +24,8 @@ import {
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
-  createVoteTable
+  createVoteTable,
+  createAssetVoteTable
 } from './drizzleSchemaColumns';
 
 // NOTE: If you are using Drizzle with PowerSync and need to refer to the Postgres type for sync rules,
@@ -242,8 +243,15 @@ export const reportRelations = relations(reports, ({ one }) => ({
   })
 }));
 
+/**
+ * @deprecated Use asset_vote instead. The vote table is being phased out in favor of asset_vote.
+ * This table is kept temporarily for backwards compatibility but should no longer be used for new votes.
+ */
 export const vote = createVoteTable('merged', { asset, profile });
 
+/**
+ * @deprecated Use asset_voteRelations instead.
+ */
 export const voteRelations = relations(vote, ({ one }) => ({
   asset: one(asset, {
     fields: [vote.asset_id],
@@ -251,6 +259,23 @@ export const voteRelations = relations(vote, ({ one }) => ({
   }),
   creator: one(profile, {
     fields: [vote.creator_id],
+    references: [profile.id]
+  })
+}));
+
+/**
+ * The asset_vote table is the new table for votes on assets.
+ * This replaces the legacy vote table.
+ */
+export const asset_vote = createAssetVoteTable('merged', { asset, profile });
+
+export const asset_voteRelations = relations(asset_vote, ({ one }) => ({
+  asset: one(asset, {
+    fields: [asset_vote.asset_id],
+    references: [asset.id]
+  }),
+  creator: one(profile, {
+    fields: [asset_vote.creator_id],
     references: [profile.id]
   })
 }));

@@ -6,9 +6,10 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import type { WithSource } from '@/utils/dbUtils';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import AudioPlayer from './AudioPlayer';
 
 interface TranslationCardProps {
@@ -34,11 +35,14 @@ export const TranslationCard = ({
   const hasAudio =
     asset.audio && asset.audio.length > 0 && audioSegments.length > 0;
 
+  const handleCardPress = () => {
+    if (asset.id) {
+      handleTranslationPress(asset.id);
+    }
+  };
+
   return (
-    <Pressable
-      onPress={() => handleTranslationPress(asset.id)}
-      disabled={!allowEditing}
-    >
+    <TouchableOpacity activeOpacity={0.7} onPress={handleCardPress}>
       <Card
         className={cn(
           'transition-opacity',
@@ -70,7 +74,7 @@ export const TranslationCard = ({
 
             {/* Dev info */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {__DEV__ && (
+            {SHOW_DEV_ELEMENTS && (
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs text-muted-foreground">
                   {asset.source === 'cloud' ? '🌐' : '💾'}
@@ -122,7 +126,7 @@ export const TranslationCard = ({
 
             {/* Dev vote breakdown */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {__DEV__ && (
+            {SHOW_DEV_ELEMENTS && (
               <Text className="text-xs text-muted-foreground/70">
                 {asset.up_votes}↑ {asset.down_votes}↓
               </Text>
@@ -130,6 +134,6 @@ export const TranslationCard = ({
           </View>
         </CardHeader>
       </Card>
-    </Pressable>
+    </TouchableOpacity>
   );
 };

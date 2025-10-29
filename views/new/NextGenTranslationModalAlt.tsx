@@ -4,12 +4,6 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { TranslationSettingsModal } from '@/components/TranslationSettingsModal';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,10 +20,12 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 import { eq } from 'drizzle-orm';
 import {
   FlagIcon,
@@ -45,7 +41,12 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert as RNAlert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
 import { useHybridData } from './useHybridData';
@@ -276,90 +277,110 @@ export default function NextGenTranslationModal({
   );
 
   const { stopCurrentSound, isPlaying } = useAudio();
-  return (
-    <Drawer
-      open={open}
-      onOpenChange={async (open) => {
-        onOpenChange(open);
-        if (!open) {
-          setShowReportModal(false);
-          setShowSettingsModal(false);
-          setIsEditing(false);
-          if (isPlaying) {
-            await stopCurrentSound();
-          }
-        }
-      }}
-    >
-      <DrawerContent className="mb-safe py-4">
-        <DrawerHeader>
-          <View className="flex-row items-center justify-between">
-            <DrawerTitle>{t('translation')}</DrawerTitle>
-            <View className="flex-row gap-2">
-              {/* Edit/Transcription button */}
-              {allowEditing && (
-                <PrivateAccessGate
-                  projectId={projectId || ''}
-                  projectName={projectName || ''}
-                  isPrivate={isPrivateProject}
-                  action="edit_transcription"
-                  renderTrigger={({ onPress, hasAccess }) => (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onPress={hasAccess ? toggleEdit : onPress}
-                      className="p-2"
-                    >
-                      <Icon
-                        as={
-                          hasAccess
-                            ? isEditing
-                              ? XIcon
-                              : PencilIcon
-                            : LockIcon
-                        }
-                        className={
-                          hasAccess ? 'text-primary' : 'text-muted-foreground'
-                        }
-                      />
-                    </Button>
-                  )}
-                />
-              )}
-              {isOwnTranslation && allowSettings && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => setShowSettingsModal(true)}
-                  className="p-2"
-                >
-                  <Icon as={SettingsIcon} className="text-foreground" />
-                </Button>
-              )}
-              {!isOwnTranslation && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => setShowReportModal(true)}
-                  disabled={hasReported || isReportLoading}
-                  className="p-2"
-                >
-                  <Icon
-                    as={FlagIcon}
-                    className={
-                      hasReported ? 'text-muted-foreground' : 'text-foreground'
-                    }
-                  />
-                </Button>
-              )}
-            </View>
-          </View>
-        </DrawerHeader>
 
-        <ScrollView
-          className="max-h-96 px-4"
-          showsVerticalScrollIndicator={false}
-        >
+  const handleClose = async () => {
+    onOpenChange(false);
+    setShowReportModal(false);
+    setShowSettingsModal(false);
+    setIsEditing(false);
+    if (isPlaying) {
+      await stopCurrentSound();
+    }
+  };
+
+  return (
+    <Modal
+      visible={open}
+      transparent
+      animationType="slide"
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <View className="flex-1 items-center justify-center bg-black/50">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background">
+                {/* Header */}
+                <View className="flex-row items-center justify-between border-b border-border p-4">
+                  <Text variant="h4">{t('translation')}</Text>
+                  <View className="flex-row items-center gap-2">
+                    {/* Edit/Transcription button */}
+                    {allowEditing && (
+                      <PrivateAccessGate
+                        projectId={projectId || ''}
+                        projectName={projectName || ''}
+                        isPrivate={isPrivateProject}
+                        action="edit_transcription"
+                        renderTrigger={({ onPress, hasAccess }) => (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onPress={hasAccess ? toggleEdit : onPress}
+                            className="p-2"
+                          >
+                            <Icon
+                              as={
+                                hasAccess
+                                  ? isEditing
+                                    ? XIcon
+                                    : PencilIcon
+                                  : LockIcon
+                              }
+                              className={
+                                hasAccess
+                                  ? 'text-primary'
+                                  : 'text-muted-foreground'
+                              }
+                            />
+                          </Button>
+                        )}
+                      />
+                    )}
+                    {isOwnTranslation && allowSettings && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => setShowSettingsModal(true)}
+                        className="p-2"
+                      >
+                        <Icon as={SettingsIcon} className="text-foreground" />
+                      </Button>
+                    )}
+                    {!isOwnTranslation && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => setShowReportModal(true)}
+                        disabled={hasReported || isReportLoading}
+                        className="p-2"
+                      >
+                        <Icon
+                          as={FlagIcon}
+                          className={
+                            hasReported
+                              ? 'text-muted-foreground'
+                              : 'text-foreground'
+                          }
+                        />
+                      </Button>
+                    )}
+                    <Pressable onPress={handleClose} className="p-2">
+                      <Ionicons
+                        name="close"
+                        size={24}
+                        color={getThemeColor('foreground')}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <ScrollView
+                  className="flex-1 px-4 py-4"
+                  showsVerticalScrollIndicator={false}
+                >
           {isLoading ? (
             <View className="py-8">
               <ActivityIndicator
@@ -416,8 +437,7 @@ export default function NextGenTranslationModal({
               {!isOwnTranslation &&
                 currentUser &&
                 !isEditing &&
-                !hasReported &&
-                allowEditing && (
+                !hasReported && (
                   <PrivateAccessGate
                     projectId={projectId || ''}
                     projectName={projectName || ''}
@@ -439,7 +459,7 @@ export default function NextGenTranslationModal({
                               : 'secondary'
                           }
                           onPress={() => handleVote({ voteType: 'up' })}
-                          disabled={isVotePending || !allowEditing}
+                          disabled={isVotePending}
                           className="flex-row items-center justify-center bg-green-500 px-6 py-3"
                         >
                           {pendingVoteType === 'up' ? (
@@ -476,7 +496,7 @@ export default function NextGenTranslationModal({
                               : 'secondary'
                           }
                           onPress={() => handleVote({ voteType: 'down' })}
-                          disabled={isVotePending || !allowEditing}
+                          disabled={isVotePending}
                           className="flex-row items-center justify-center bg-red-600 px-6 py-3"
                         >
                           {pendingVoteType === 'down' ? (
@@ -521,7 +541,7 @@ export default function NextGenTranslationModal({
               )}
               {/* Debug Info */}
               {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-              {__DEV__ && (
+              {SHOW_DEV_ELEMENTS && (
                 <View className="items-center">
                   <Text className="text-sm text-muted-foreground">
                     {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
@@ -537,8 +557,12 @@ export default function NextGenTranslationModal({
               </Text>
             </View>
           )}
-        </ScrollView>
-      </DrawerContent>
-    </Drawer>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }

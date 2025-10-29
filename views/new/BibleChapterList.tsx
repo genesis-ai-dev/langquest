@@ -285,6 +285,11 @@ export function BibleChapterList({
         queryKey: ['bible-chapters', 'cloud', projectId, bookId]
       });
 
+      // Invalidate assets queries to refresh assets list if user is viewing a quest
+      await queryClient.invalidateQueries({
+        queryKey: ['assets']
+      });
+
       console.log(
         '📥 [Bulk Download] Complete - UI will show updated download status'
       );

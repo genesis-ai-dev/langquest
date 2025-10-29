@@ -5,6 +5,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
+import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Drawer,
@@ -49,10 +50,13 @@ import {
 } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { syncCallbackService } from '@/services/syncCallbackService';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
+import { offloadQuest } from '@/utils/questOffloadUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -63,6 +67,7 @@ import {
   FolderPenIcon,
   InfoIcon,
   LockIcon,
+  RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
   UsersIcon
@@ -131,8 +136,15 @@ export default function ProjectDirectoryView() {
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
 
+  // Offload drawer state for quest undownloads
+  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [isOffloading, setIsOffloading] = React.useState(false);
+
   // Discovery hook
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
+
+  // Verification hook for offload
+  const verificationState = useQuestOffloadVerification(questIdToDownload || '');
 
   // Track if we've started discovery for this quest ID to prevent loops
   const startedDiscoveryRef = React.useRef<string | null>(null);
@@ -145,10 +157,6 @@ export default function ProjectDirectoryView() {
       !discoveryState.isDiscovering &&
       startedDiscoveryRef.current !== questIdToDownload
     ) {
-      console.log(
-        '📥 [Download] Auto-starting discovery for quest:',
-        questIdToDownload
-      );
       startedDiscoveryRef.current = questIdToDownload;
       discoveryState.startDiscovery();
     }
@@ -169,11 +177,6 @@ export default function ProjectDirectoryView() {
         throw new Error('Missing user or discovered IDs');
       }
 
-      console.log(
-        '📥 [Bulk Download] Starting bulk download with IDs:',
-        discoveryState.discoveredIds
-      );
-
       const data = await bulkDownloadQuest(
         discoveryState.discoveredIds,
         currentUser.id
@@ -184,34 +187,39 @@ export default function ProjectDirectoryView() {
     },
     onSuccess: async () => {
       console.log(
-        '📥 [Bulk Download] Success - waiting for PowerSync to sync...'
+        '📥 [Bulk Download] Success - registering sync callback...'
       );
 
-      // Wait for PowerSync to sync the updated download_profiles to local SQLite
-      // This ensures when we invalidate, the refetch will get the correct data
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Register callback to invalidate queries after PowerSync sync completes
+      if (questIdToDownload) {
+        syncCallbackService.registerCallback(questIdToDownload, async () => {
+          console.log(
+            '📥 [Bulk Download] Sync completed - invalidating queries'
+          );
 
-      console.log(
-        '📥 [Bulk Download] Invalidating queries to refetch from local SQLite'
-      );
+          // Invalidate all quest queries for this project
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+          });
 
-      // Invalidate all quest queries for this project
-      // This will cause them to refetch from local SQLite which now has updated download_profiles
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
-      });
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+          });
 
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
-      });
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+          });
 
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
-      });
+          // Invalidate assets queries to refresh assets list if user is viewing a quest
+          await queryClient.invalidateQueries({
+            queryKey: ['assets']
+          });
 
-      console.log(
-        '📥 [Bulk Download] Complete - UI will show updated download status'
-      );
+          console.log(
+            '📥 [Bulk Download] Queries invalidated - UI will refresh'
+          );
+        });
+      }
     }
   });
 
@@ -342,24 +350,46 @@ export default function ProjectDirectoryView() {
     }
   }, [isCreateOpen]);
 
-  // Handle download click - start discovery
-  const handleDownloadClick = (questId: string) => {
-    console.log('📥 [Download] Opening discovery drawer for quest:', questId);
+  // Handle download/offload click - check if quest is downloaded
+  const handleDownloadClick = async (questId: string) => {
+    // Check if quest is already downloaded
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('download_profiles')
+      .eq('id', questId)
+      .single();
+
+    if (error) {
+      console.error('Error checking quest download status:', error);
+      return;
+    }
+
+    const isDownloaded =
+      data?.download_profiles?.includes(currentUser?.id || '') ?? false;
+
     setQuestIdToDownload(questId);
-    setShowDiscoveryDrawer(true);
-    // Discovery will auto-start via useEffect
+
+    if (isDownloaded) {
+      // Quest is downloaded, start offload verification
+      console.log('🗑️ [Offload] Opening verification drawer for quest:', questId);
+      setShowOffloadDrawer(true);
+      // Verification will auto-start via useEffect
+    } else {
+      // Quest not downloaded, start download discovery
+      console.log('📥 [Download] Opening discovery drawer for quest:', questId);
+      setShowDiscoveryDrawer(true);
+      // Discovery will auto-start via useEffect
+    }
   };
 
   // Handle discovery completion - show confirmation
   const handleDiscoveryContinue = () => {
-    console.log('📥 [Download] Discovery complete, showing confirmation');
     setShowDiscoveryDrawer(false);
     setShowConfirmationModal(true);
   };
 
   // Handle confirmation - execute bulk download
   const handleConfirmDownload = async () => {
-    console.log('📥 [Download] User confirmed, executing bulk download');
     setShowConfirmationModal(false);
     await bulkDownloadMutation.mutateAsync();
     setQuestIdToDownload(null);
@@ -369,20 +399,108 @@ export default function ProjectDirectoryView() {
   const handleCancelDiscovery = () => {
     console.log('📥 [Download] User cancelled discovery');
     discoveryState.cancel();
+    
+    // Cancel sync callback if registered
+    if (questIdToDownload) {
+      syncCallbackService.cancelCallback(questIdToDownload);
+    }
+    
     setShowDiscoveryDrawer(false);
     setQuestIdToDownload(null);
   };
 
   const handleCancelConfirmation = () => {
     console.log('📥 [Download] User cancelled confirmation');
+    
+    // Cancel sync callback if registered
+    if (questIdToDownload) {
+      syncCallbackService.cancelCallback(questIdToDownload);
+    }
+    
     setShowConfirmationModal(false);
     setQuestIdToDownload(null);
   };
 
+  // Handle offload verification - start offload
+  const handleOffloadContinue = async () => {
+    console.log('🗑️ [Offload] User confirmed, executing offload');
+    setShowOffloadDrawer(false);
+    setIsOffloading(true);
+
+    try {
+      await offloadQuest({
+        questId: questIdToDownload || '',
+        verifiedIds: verificationState.verifiedIds,
+        onProgress: (progress, message) => {
+          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
+        }
+      });
+
+      console.log('🗑️ [Offload] Complete - registering sync callback...');
+
+      // Register callback to invalidate queries after PowerSync sync completes
+      if (questIdToDownload) {
+        syncCallbackService.registerCallback(questIdToDownload, async () => {
+          console.log('🗑️ [Offload] Sync completed - invalidating queries');
+
+          // Invalidate all quest queries for this project
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+          });
+
+          await queryClient.invalidateQueries({
+            queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+          });
+
+          console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
+        });
+      }
+    } catch (error) {
+      console.error('🗑️ [Offload] Failed:', error);
+      Alert.alert(t('error'), t('offloadError'));
+    } finally {
+      setIsOffloading(false);
+      setQuestIdToDownload(null);
+    }
+  };
+
+  // Handle offload cancellation
+  const handleCancelOffload = () => {
+    console.log('🗑️ [Offload] User cancelled verification');
+    verificationState.cancel();
+    
+    // Cancel sync callback if registered
+    if (questIdToDownload) {
+      syncCallbackService.cancelCallback(questIdToDownload);
+    }
+    
+    setShowOffloadDrawer(false);
+    setQuestIdToDownload(null);
+  };
+
+  // Auto-start verification when offload drawer opens
+  React.useEffect(() => {
+    if (
+      showOffloadDrawer &&
+      questIdToDownload &&
+      !verificationState.isVerifying
+    ) {
+      console.log(
+        '🗑️ [Offload] Auto-starting verification for quest:',
+        questIdToDownload
+      );
+      verificationState.startVerification();
+    }
+  }, [showOffloadDrawer, questIdToDownload, verificationState.isVerifying]);
+
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!currentProjectId || !currentUser?.id) return;
-      await system.db
+      const [newQuest] = await system.db
         .insert(resolveTable('quest', { localOverride: true }))
         .values({
           ...values,
@@ -390,19 +508,143 @@ export default function ProjectDirectoryView() {
           parent_id: parentForNewQuest,
           creator_id: currentUser.id,
           download_profiles: [currentUser.id]
-        });
+        })
+        .returning();
+      
+      if (!newQuest) {
+        throw new Error('Failed to create quest');
+      }
+      
+      return newQuest;
     },
-    onSuccess: async () => {
+    onMutate: async (values) => {
+      // Optimistically update the UI immediately
+      if (!currentProjectId || !currentUser?.id) return;
+
+      const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+      const offlineKey = [...baseKey, 'offline'];
+      const cloudKey = [...baseKey, 'cloud'];
+
+      // Cancel outgoing queries to avoid overwriting optimistic update
+      await queryClient.cancelQueries({
+        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+      });
+
+      // Snapshot previous values for rollback
+      const previousOffline = queryClient.getQueryData(offlineKey);
+      const previousCloud = queryClient.getQueryData(cloudKey);
+
+      // Create optimistic quest data
+      const optimisticQuest = {
+        id: `temp-${Date.now()}`, // Temporary ID until real one is returned
+        name: values.name,
+        description: values.description || null,
+        project_id: currentProjectId,
+        parent_id: parentForNewQuest,
+        creator_id: currentUser.id,
+        download_profiles: [currentUser.id],
+        visible: true,
+        source: 'local' as const
+      };
+
+      // Optimistically update offline infinite query cache
+      queryClient.setQueryData(offlineKey, (old: any) => {
+        if (!old) return old;
+        
+        // Add optimistic quest to first page
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            if (index === 0) {
+              return {
+                ...page,
+                data: [...(page.data || []), optimisticQuest]
+              };
+            }
+            return page;
+          })
+        };
+      });
+
+      return { previousOffline, previousCloud };
+    },
+    onSuccess: async (newQuest) => {
       form.reset();
       setIsCreateOpen(false);
       setParentForNewQuest(null);
-      // Invalidate quest queries to refresh the list
+
+      console.log('✅ [Create Quest] Quest created, updating cache with real data...');
+      
+      // Update cache with real quest data (replace optimistic one)
+      const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+      const offlineKey = [...baseKey, 'offline'];
+      
+      queryClient.setQueryData(offlineKey, (old: any) => {
+        if (!old) return old;
+        
+        return {
+          ...old,
+          pages: old.pages.map((page: any, index: number) => {
+            if (index === 0) {
+              // Replace optimistic quest(s) with real one
+              const data = page.data.map((quest: any) =>
+                quest.id.startsWith('temp-')
+                  ? { ...newQuest, source: 'local' as const }
+                  : quest
+              );
+              
+              // If no optimistic quest was found, add real one
+              const hasOptimistic = page.data.some((q: any) => q.id.startsWith('temp-'));
+              if (!hasOptimistic) {
+                data.push({ ...newQuest, source: 'local' as const });
+              }
+              
+              return { ...page, data };
+            }
+            return page;
+          })
+        };
+      });
+
+      console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
+      // Wait for PowerSync to sync, then invalidate to ensure consistency
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      console.log('📥 [Create Quest] Invalidating all quest queries...');
+      // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
       await queryClient.invalidateQueries({
         queryKey: ['quests', 'for-project', currentProjectId]
       });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+      });
+      
+      console.log('📥 [Create Quest] Invalidating assets queries');
+      // Invalidate assets queries to refresh assets list if user is viewing a quest
+      await queryClient.invalidateQueries({
+        queryKey: ['assets']
+      });
+      
+      console.log('✅ [Create Quest] All queries invalidated');
     },
-    onError: (error) => {
+    onError: (error, values, context) => {
       console.error('Failed to create quest', error);
+      
+      // Rollback optimistic update on error
+      if (context?.previousOffline) {
+        const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+        queryClient.setQueryData([...baseKey, 'offline'], context.previousOffline);
+      }
+      if (context?.previousCloud) {
+        const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+        queryClient.setQueryData([...baseKey, 'cloud'], context.previousCloud);
+      }
     }
   });
 
@@ -456,7 +698,48 @@ export default function ProjectDirectoryView() {
     return (
       <View className="flex-1 flex-col gap-4 p-4">
         <View className="flex flex-col gap-4">
-          <Text variant="h4">{t('projectDirectory')}</Text>
+          <View className="flex flex-row items-center gap-2">
+            <Text variant="h4">{t('projectDirectory')}</Text>
+            {__DEV__ && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={async () => {
+                  console.log('🔄 [Dev] Manually refreshing quest queries...');
+                  await queryClient.invalidateQueries({
+                    queryKey: ['quests', 'for-project', currentProjectId]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'infinite',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'offline',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'cloud',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  console.log('🔄 [Dev] Quest queries invalidated');
+                }}
+              >
+                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              </Button>
+            )}
+          </View>
 
           {/* Search Input */}
           <Input
@@ -684,6 +967,17 @@ export default function ProjectDirectoryView() {
           Tags: discoveryState.progressSharedValues.tags.value.count,
           Languages: discoveryState.progressSharedValues.languages.value.count
         }}
+      />
+
+      {/* Offload Verification Drawer */}
+      <QuestOffloadVerificationDrawer
+        isOpen={showOffloadDrawer}
+        onOpenChange={(open) => {
+          if (!open) handleCancelOffload();
+        }}
+        onContinue={handleOffloadContinue}
+        verificationState={verificationState}
+        isOffloading={isOffloading}
       />
     </>
   );

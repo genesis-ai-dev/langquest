@@ -117,16 +117,24 @@ export function useBibleChapterCreation() {
         };
       });
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      console.log('📥 [Create Chapter] Waiting for PowerSync to sync...');
+      // Wait for PowerSync to sync the new chapter to local SQLite before invalidating
+      // This ensures queries refetch with the new data, preserving loading states
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      console.log('📥 [Create Chapter] Invalidating queries...');
       // Invalidate the chapters query so UI updates (using bookId now)
-      void queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ['bible-chapters', result.projectId, result.bookId]
       });
 
-      // Also invalidate assets query for this quest
-      void queryClient.invalidateQueries({
-        queryKey: ['assets', 'infinite', 'by-quest', result.questId]
+      // Invalidate all assets queries to refresh assets list
+      await queryClient.invalidateQueries({
+        queryKey: ['assets']
       });
+
+      console.log('✅ [Create Chapter] All queries invalidated');
     }
   });
 

@@ -25,12 +25,14 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
   CheckIcon,
   FlagIcon,
   InfoIcon,
   MicIcon,
+  RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
   Share2Icon
@@ -449,14 +451,13 @@ export default function NextGenAssetsView() {
         }
       });
 
-      Alert.alert(
-        t('success'),
-        t('offloadComplete') || 'Quest offloaded successfully'
-      );
-      setShowOffloadDrawer(false);
-      void refetch();
+      console.log('🗑️ [Offload] Complete - waiting for PowerSync to sync...');
+      // Wait for PowerSync to sync the removal before invalidating
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Invalidate download status queries so UI updates immediately
+      console.log('🗑️ [Offload] Invalidating all queries...');
+
+      // Invalidate download status queries
       await queryClient.invalidateQueries({
         queryKey: ['download-status', 'quest', currentQuestId]
       });
@@ -469,19 +470,50 @@ export default function NextGenAssetsView() {
       await queryClient.invalidateQueries({
         queryKey: ['project-download-status', currentProjectId]
       });
-
-      // Invalidate all download-status queries to refresh download indicators
       await queryClient.invalidateQueries({
         queryKey: ['download-status']
       });
 
-      // Invalidate quest list and project queries
+      // Invalidate ALL quest queries (comprehensive like create quest)
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'for-project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+      });
+      // Also invalidate generic quest queries
       await queryClient.invalidateQueries({
         queryKey: ['quests']
       });
+
+      // Invalidate project queries
       await queryClient.invalidateQueries({
         queryKey: ['projects']
       });
+
+      // Invalidate assets queries to refresh the assets list
+      await queryClient.invalidateQueries({
+        queryKey: ['assets']
+      });
+
+      // Invalidate quest closure data
+      await queryClient.invalidateQueries({
+        queryKey: ['quest-closure', currentQuestId]
+      });
+
+      console.log('✅ [Offload] All queries invalidated');
+
+      Alert.alert(
+        t('success'),
+        t('offloadComplete') || 'Quest offloaded successfully'
+      );
+      setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
@@ -522,7 +554,25 @@ export default function NextGenAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-row items-center justify-between">
-        <Text className="text-xl font-semibold">{t('assets')}</Text>
+        <View className="flex flex-row items-center gap-2">
+          <Text className="text-xl font-semibold">{t('assets')}</Text>
+          {SHOW_DEV_ELEMENTS && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={async () => {
+                console.log('🔄 [Dev] Manually refreshing assets queries...');
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets']
+                });
+                void refetch();
+                console.log('🔄 [Dev] Assets queries invalidated');
+              }}
+            >
+              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+            </Button>
+          )}
+        </View>
         {isPublished ? (
           <Badge
             variant="default"
@@ -611,11 +661,11 @@ export default function NextGenAssetsView() {
         suffixStyling={false}
       />
 
-      {__DEV__ && (
+      {SHOW_DEV_ELEMENTS && (
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {__DEV__ && !isAttachmentStatesLoading && attachmentStates.size > 0 && (
+      {SHOW_DEV_ELEMENTS && !isAttachmentStatesLoading && attachmentStates.size > 0 && (
         <View className="rounded-md bg-muted p-3">
           <Text className="mb-1 font-semibold">
             📎 {t('liveAttachmentStates')}:

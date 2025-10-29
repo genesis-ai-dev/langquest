@@ -78,11 +78,16 @@ export default function NextGenAssetDetailView() {
     currentQuestData
   } = useAppNavigation();
 
-  console.log('[ASSET DETAIL VIEW] Navigation context:', {
-    currentAssetId,
-    currentProjectId,
-    currentQuestId
-  });
+  // Debug logging moved to useEffect to prevent render loop
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[ASSET DETAIL VIEW] Navigation context:', {
+        currentAssetId,
+        currentProjectId,
+        currentQuestId
+      });
+    }
+  }, [currentAssetId, currentProjectId, currentQuestId]);
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [translationLanguageId, setTranslationLanguageId] =
@@ -193,43 +198,37 @@ export default function NextGenAssetDetailView() {
     allowEditing,
     allowSettings,
     invisible: _invisible
-  } = React.useMemo(() => {
-    if (!activeAsset) {
-      return { allowEditing: false, allowSettings: false, invisible: false };
-    }
-    return currentStatus.getStatusParams(
-      LayerType.ASSET,
-      activeAsset.id || '',
-      activeAsset as LayerStatus,
-      currentQuestId
-    );
-  }, [activeAsset, currentQuestId, currentStatus]);
+  } = !activeAsset
+    ? { allowEditing: false, allowSettings: false, invisible: false }
+    : currentStatus.getStatusParams(
+        LayerType.ASSET,
+        activeAsset.id || '',
+        activeAsset as LayerStatus,
+        currentQuestId
+      );
 
   // Collect attachment IDs for audio support
-  const allAttachmentIds = React.useMemo(() => {
-    if (!activeAsset?.content) return [];
-
-    const contentAudioIds = activeAsset.content
-      .filter((content) => content.audio)
-      .flatMap((content) => content.audio!)
-      .filter(Boolean);
-
-    const imageIds = activeAsset.images ?? [];
-
-    return [...contentAudioIds, ...imageIds];
-  }, [activeAsset]);
+  const allAttachmentIds = !activeAsset?.content
+    ? []
+    : [
+        ...activeAsset.content
+          .filter((content) => content.audio)
+          .flatMap((content) => content.audio!)
+          .filter(Boolean),
+        ...(activeAsset.images ?? [])
+      ];
 
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
   // Collect content-level language IDs for this asset
-  const contentLanguageIds = React.useMemo(() => {
+  const contentLanguageIds = (() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
       if (c.source_language_id) ids.add(c.source_language_id);
     });
     return Array.from(ids);
-  }, [activeAsset?.content]);
+  })();
 
   // Fetch all languages used by content items
   const { data: contentLanguages = [] } = useHybridData({
@@ -245,9 +244,9 @@ export default function NextGenAssetDetailView() {
     enableCloudQuery: false
   });
 
-  const languageById = React.useMemo(() => {
-    return new Map(contentLanguages.map((l) => [l.id, l] as const));
-  }, [contentLanguages]);
+  const languageById = new Map(
+    contentLanguages.map((l) => [l.id, l] as const)
+  );
 
   // Set the first available tab when asset data changes
   useEffect(() => {
@@ -264,79 +263,56 @@ export default function NextGenAssetDetailView() {
     }
   }, [activeAsset]);
 
-  // Debug logging
-  const debugInfo = React.useMemo(
-    () => ({
-      assetId: currentAssetId,
-      activeAsset: activeAsset
-        ? {
-            id: activeAsset.id,
-            name: activeAsset.name,
-            contentCount: activeAsset.content?.length ?? 0,
-            hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
-          }
-        : null,
-      attachmentStatesCount: attachmentStates.size,
-      audioAttachments: Array.from(attachmentStates.entries())
-        .filter(([id]) => allAttachmentIds.includes(id))
-        .map(([id, state]) => ({
-          id,
-          state: state.state,
-          hasLocalUri: !!state.local_uri
-        }))
-    }),
-    [currentAssetId, activeAsset, attachmentStates, allAttachmentIds]
-  );
-
   // Get audio URIs for a specific content item (not all content flattened)
-  const getContentAudioUris = React.useCallback(
-    (content: typeof asset_content_link.$inferSelect): string[] => {
-      if (!content.audio) return [];
+  function getContentAudioUris(
+    content: typeof asset_content_link.$inferSelect
+  ): string[] {
+    if (!content.audio) return [];
 
-      return content.audio
-        .filter(
-          (audioValue: unknown): audioValue is string =>
-            typeof audioValue === 'string'
-        )
-        .map((audioValue: string) => {
-          // Handle direct local URIs (from recording view before publish)
-          if (audioValue.startsWith('local/')) {
-            const fullUri = getLocalAttachmentUriWithOPFS(audioValue);
-            console.log(
-              `[AUDIO] Direct local URI ${audioValue.slice(0, 20)} -> ${fullUri.slice(0, 80)}`
-            );
-            return fullUri;
-          }
+    return content.audio
+      .filter(
+        (audioValue: unknown): audioValue is string =>
+          typeof audioValue === 'string'
+      )
+      .map((audioValue: string) => {
+        // Handle direct local URIs (from recording view before publish)
+        if (audioValue.startsWith('local/')) {
+          return getLocalAttachmentUriWithOPFS(audioValue);
+        }
 
-          // Handle full file URIs
-          if (audioValue.startsWith('file://')) {
-            console.log(`[AUDIO] Full file URI ${audioValue.slice(0, 80)}`);
-            return audioValue;
-          }
+        // Handle full file URIs
+        if (audioValue.startsWith('file://')) {
+          return audioValue;
+        }
 
-          // Handle attachment IDs (look up in attachment queue)
-          const attachmentState = attachmentStates.get(audioValue);
-          if (attachmentState?.local_uri) {
-            const fullUri = getLocalUri(attachmentState.local_uri);
-            console.log(
-              `[AUDIO] Attachment ID ${audioValue.slice(0, 8)} -> ${fullUri.slice(0, 80)}`
-            );
-            return fullUri;
-          }
+        // Handle attachment IDs (look up in attachment queue)
+        const attachmentState = attachmentStates.get(audioValue);
+        if (attachmentState?.local_uri) {
+          return getLocalUri(attachmentState.local_uri);
+        }
 
-          console.log(
-            `[AUDIO] Skipping ${audioValue} - not downloaded yet (state: ${attachmentState?.state ?? 'unknown'})`
-          );
-          return null;
-        })
-        .filter((uri: string | null): uri is string => uri !== null);
-    },
-    [attachmentStates]
-  );
+        return null;
+      })
+      .filter((uri: string | null): uri is string => uri !== null);
+  }
 
-  React.useEffect(() => {
-    console.log('[NEXT GEN ASSET DETAIL]', debugInfo);
-  }, [debugInfo]);
+  // Debug logging
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[NEXT GEN ASSET DETAIL]', {
+        assetId: currentAssetId,
+        activeAsset: activeAsset
+          ? {
+              id: activeAsset.id,
+              name: activeAsset.name,
+              contentCount: activeAsset.content?.length ?? 0,
+              hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
+            }
+          : null,
+        attachmentStatesCount: attachmentStates.size
+      });
+    }
+  }, [currentAssetId, activeAsset, attachmentStates]);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
@@ -542,18 +518,7 @@ export default function NextGenAssetDetailView() {
                     .map((imageId) => {
                       const attachment = attachmentStates.get(imageId);
                       const localUri = attachment?.local_uri;
-
-                      if (!localUri) {
-                        console.log(
-                          `[IMAGE] No local URI for image ${imageId}, state:`,
-                          attachment?.state
-                        );
-                        return null;
-                      }
-
-                      const fullUri = getLocalUri(localUri);
-                      console.log(`[IMAGE] Image ${imageId} -> ${fullUri}`);
-                      return fullUri;
+                      return localUri ? getLocalUri(localUri) : null;
                     })
                     .filter((uri): uri is string => uri !== null)}
                 />
