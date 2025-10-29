@@ -110,10 +110,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const profileProjectLinkLocal = useMemo(
-    () => resolveTable('profile_project_link', { localOverride: true }),
-    []
-  );
+  // All operations on invites, requests, and notifications go through synced tables or Supabase
   // Query for project details to check if it's private
   const { data: projectData, isLoading: projectLoading } = useHybridData<
     typeof projectTable.$inferSelect
@@ -492,7 +489,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 profile_project_link_synced.profile_id,
                 invitation.receiver_profile_id
               ),
-              eq(profileProjectLinkLocal.project_id, projectId)
+              eq(profile_project_link_synced.project_id, projectId)
             )
           );
       }

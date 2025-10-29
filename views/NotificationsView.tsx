@@ -11,13 +11,17 @@ import {
   project,
   request
 } from '@/db/drizzleSchema';
+import {
+  invite_synced,
+  request_synced,
+  profile_project_link_synced
+} from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { resolveTable } from '@/utils/dbUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -66,19 +70,8 @@ export default function NotificationsView() {
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   // const [refreshKey, setRefreshKey] = useState(0);
 
-  // Resolve the local tables for updates (PowerSync requires local table updates)
-  const inviteLocal = useMemo(
-    () => resolveTable('invite', { localOverride: true }),
-    []
-  );
-  const requestLocal = useMemo(
-    () => resolveTable('request', { localOverride: true }),
-    []
-  );
-  const profileProjectLinkLocal = useMemo(
-    () => resolveTable('profile_project_link', { localOverride: true }),
-    []
-  );
+  // All operations on invites, requests, and notifications go through synced tables
+  // PowerSync will automatically sync changes to Supabase and back down
 
   // Use user memberships from local DB instead of session cache
   const { userMemberships } = useUserMemberships();
@@ -326,53 +319,22 @@ export default function NotificationsView() {
         if (existingRecord.length > 0 && existingRecord[0]) {
           const record = existingRecord[0];
 
-          // Check if record exists in local table
-          const localRecord = await system.db
-            .select()
-            .from(inviteLocal)
-            .where(eq(inviteLocal.id, notificationId))
-            .limit(1);
-
-          console.log(
-            '[handleAccept] Local invite record exists:',
-            localRecord.length > 0
-          );
-
-          if (localRecord.length > 0) {
-            // Update existing local record
-            const updateResult = await system.db
-              .update(inviteLocal)
-              .set({
-                status: 'accepted',
-                count: 1,
-                receiver_profile_id:
-                  record.receiver_profile_id || currentUser!.id,
-                last_updated: new Date().toISOString()
-              })
-              .where(eq(inviteLocal.id, notificationId));
-            console.log('[handleAccept] Invite update result:', updateResult);
-          } else {
-            // Insert new local record (this creates a CRUD operation for PowerSync to sync)
-            const insertResult = await system.db.insert(inviteLocal).values({
-              id: record.id,
-              sender_profile_id: record.sender_profile_id,
-              receiver_profile_id:
-                record.receiver_profile_id || currentUser!.id,
-              project_id: record.project_id,
-              email: record.email,
-              as_owner: record.as_owner,
+          // Update invite via synced table - PowerSync will sync changes to Supabase
+          await system.db
+            .update(invite_synced)
+            .set({
               status: 'accepted',
               count: 1,
-              last_updated: new Date().toISOString(),
-              created_at: record.created_at,
-              active: record.active
-            });
-            console.log('[handleAccept] Invite insert result:', insertResult);
-          }
+              receiver_profile_id: record.receiver_profile_id || currentUser!.id,
+              last_updated: new Date().toISOString()
+            })
+            .where(eq(invite_synced.id, notificationId));
 
-          // Also update any corresponding request from this user
+          console.log('[handleAccept] Invite updated via synced table');
+
+          // Also update any corresponding request from this user via synced table
           if (record.receiver_profile_id) {
-            // Find the corresponding request
+            // Find the corresponding request from the merged view
             const correspondingRequest = await system.db
               .select()
               .from(request)
@@ -388,38 +350,22 @@ export default function NotificationsView() {
             if (correspondingRequest.length > 0 && correspondingRequest[0]) {
               const req = correspondingRequest[0];
 
-              // Check if exists in local
-              const localReq = await system.db
-                .select()
-                .from(requestLocal)
-                .where(eq(requestLocal.id, req.id))
-                .limit(1);
-
-              if (localReq.length > 0) {
-                await system.db
-                  .update(requestLocal)
-                  .set({
-                    status: 'accepted',
-                    count: 1,
-                    last_updated: new Date().toISOString()
-                  })
-                  .where(eq(requestLocal.id, req.id));
-              } else {
-                await system.db.insert(requestLocal).values({
-                  id: req.id,
-                  sender_profile_id: req.sender_profile_id,
-                  project_id: req.project_id,
+              // Update request via synced table
+              await system.db
+                .update(request_synced)
+                .set({
                   status: 'accepted',
                   count: 1,
-                  last_updated: new Date().toISOString(),
-                  created_at: req.created_at,
-                  active: req.active
-                });
-              }
+                  last_updated: new Date().toISOString()
+                })
+                .where(eq(request_synced.id, req.id));
+
+              console.log('[handleAccept] Corresponding request updated via synced table');
             }
           }
         }
 
+        // Create or update profile_project_link via synced table
         const existingLink = await system.db
           .select()
           .from(profile_project_link)
@@ -428,12 +374,13 @@ export default function NotificationsView() {
               eq(profile_project_link.profile_id, currentUser!.id),
               eq(profile_project_link.project_id, projectId)
             )
-          );
+          )
+          .limit(1);
 
         if (existingLink.length > 0) {
-          // Update existing link
+          // Update existing link via synced table
           await system.db
-            .update(profileProjectLinkLocal)
+            .update(profile_project_link_synced)
             .set({
               active: true,
               membership: asOwner ? 'owner' : 'member',
@@ -441,25 +388,20 @@ export default function NotificationsView() {
             })
             .where(
               and(
-                eq(profileProjectLinkLocal.profile_id, currentUser!.id),
-                eq(profileProjectLinkLocal.project_id, projectId)
+                eq(profile_project_link_synced.profile_id, currentUser!.id),
+                eq(profile_project_link_synced.project_id, projectId)
               )
             );
+          console.log('[handleAccept] Profile project link updated via synced table');
         } else {
-          // Create new link
-          const newLinkData = {
-            id: `${currentUser!.id}_${projectId}`,
+          // Create new link via synced table
+          await system.db.insert(profile_project_link_synced).values({
             profile_id: currentUser!.id,
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
             active: true
-          } satisfies typeof profile_project_link.$inferInsert;
-          console.log('[handleAccept] New link data:', newLinkData);
-
-          const insertResult = await system.db
-            .insert(profileProjectLinkLocal)
-            .values(newLinkData);
-          console.log('[handleAccept] Insert result:', insertResult);
+          });
+          console.log('[handleAccept] Profile project link created via synced table');
         }
       } else {
         // type === 'request'
@@ -478,41 +420,17 @@ export default function NotificationsView() {
         if (existingRequestRecord.length > 0 && existingRequestRecord[0]) {
           const req = existingRequestRecord[0];
 
-          // Check if exists in local
-          const localReq = await system.db
-            .select()
-            .from(requestLocal)
-            .where(eq(requestLocal.id, notificationId))
-            .limit(1);
-
-          console.log(
-            '[handleAccept] Local request record exists:',
-            localReq.length > 0
-          );
-
-          if (localReq.length > 0) {
-            const updateResult = await system.db
-              .update(requestLocal)
-              .set({
-                status: 'accepted',
-                count: 1,
-                last_updated: new Date().toISOString()
-              })
-              .where(eq(requestLocal.id, notificationId));
-            console.log('[handleAccept] Request update result:', updateResult);
-          } else {
-            const insertResult = await system.db.insert(requestLocal).values({
-              id: req.id,
-              sender_profile_id: req.sender_profile_id,
-              project_id: req.project_id,
+          // Update request via synced table - PowerSync will sync changes to Supabase
+          await system.db
+            .update(request_synced)
+            .set({
               status: 'accepted',
               count: 1,
-              last_updated: new Date().toISOString(),
-              created_at: req.created_at,
-              active: req.active
-            });
-            console.log('[handleAccept] Request insert result:', insertResult);
-          }
+              last_updated: new Date().toISOString()
+            })
+            .where(eq(request_synced.id, notificationId));
+
+          console.log('[handleAccept] Request updated via synced table');
 
           const senderProfileId = req.sender_profile_id;
 
@@ -537,40 +455,22 @@ export default function NotificationsView() {
           if (correspondingInvite.length > 0 && correspondingInvite[0]) {
             const inv = correspondingInvite[0];
 
-            // Check if exists in local
-            const localInv = await system.db
-              .select()
-              .from(inviteLocal)
-              .where(eq(inviteLocal.id, inv.id))
-              .limit(1);
-
-            if (localInv.length > 0) {
-              await system.db
-                .update(inviteLocal)
-                .set({
-                  count: 1,
-                  last_updated: new Date().toISOString()
-                })
-                .where(eq(inviteLocal.id, inv.id));
-            } else {
-              await system.db.insert(inviteLocal).values({
-                id: inv.id,
-                sender_profile_id: inv.sender_profile_id,
-                receiver_profile_id: inv.receiver_profile_id,
-                project_id: inv.project_id,
-                email: inv.email,
-                as_owner: inv.as_owner,
-                status: inv.status,
+            // Update corresponding invite via synced table
+            await system.db
+              .update(invite_synced)
+              .set({
                 count: 1,
-                last_updated: new Date().toISOString(),
-                created_at: inv.created_at,
-                active: inv.active
-              });
-            }
+                last_updated: new Date().toISOString()
+              })
+              .where(eq(invite_synced.id, inv.id));
+
+            console.log(
+              '[handleAccept] Corresponding invite updated via synced table'
+            );
           }
 
-          // Create or update profile_project_link for the requester
-          const existingLink = await system.db
+          // Create or update profile_project_link for the requester via synced table
+          const existingRequesterLink = await system.db
             .select()
             .from(profile_project_link)
             .where(
@@ -578,12 +478,13 @@ export default function NotificationsView() {
                 eq(profile_project_link.profile_id, senderProfileId),
                 eq(profile_project_link.project_id, projectId)
               )
-            );
+            )
+            .limit(1);
 
-          if (existingLink.length > 0) {
-            // Update existing link
+          if (existingRequesterLink.length > 0) {
+            // Update existing link via synced table
             await system.db
-              .update(profileProjectLinkLocal)
+              .update(profile_project_link_synced)
               .set({
                 active: true,
                 membership: asOwner ? 'owner' : 'member',
@@ -591,19 +492,24 @@ export default function NotificationsView() {
               })
               .where(
                 and(
-                  eq(profileProjectLinkLocal.profile_id, senderProfileId),
-                  eq(profileProjectLinkLocal.project_id, projectId)
+                  eq(profile_project_link_synced.profile_id, senderProfileId),
+                  eq(profile_project_link_synced.project_id, projectId)
                 )
               );
+            console.log(
+              '[handleAccept] Requester profile project link updated via synced table'
+            );
           } else {
-            // Create new link
-            await system.db.insert(profileProjectLinkLocal).values({
-              id: `${senderProfileId}_${projectId}`,
+            // Create new link via synced table
+            await system.db.insert(profile_project_link_synced).values({
               profile_id: senderProfileId,
               project_id: projectId,
               membership: asOwner ? 'owner' : 'member',
               active: true
             });
+            console.log(
+              '[handleAccept] Requester profile project link created via synced table'
+            );
           }
         }
       }
@@ -647,36 +553,16 @@ export default function NotificationsView() {
         if (existingInvite.length > 0 && existingInvite[0]) {
           const inv = existingInvite[0];
 
-          // Check if exists in local
-          const localInv = await system.db
-            .select()
-            .from(inviteLocal)
-            .where(eq(inviteLocal.id, notificationId))
-            .limit(1);
-
-          if (localInv.length > 0) {
-            await system.db
-              .update(inviteLocal)
-              .set({
-                status: 'declined',
-                last_updated: new Date().toISOString()
-              })
-              .where(eq(inviteLocal.id, notificationId));
-          } else {
-            await system.db.insert(inviteLocal).values({
-              id: inv.id,
-              sender_profile_id: inv.sender_profile_id,
-              receiver_profile_id: inv.receiver_profile_id,
-              project_id: inv.project_id,
-              email: inv.email,
-              as_owner: inv.as_owner,
+          // Update invite via synced table - PowerSync will sync changes to Supabase
+          await system.db
+            .update(invite_synced)
+            .set({
               status: 'declined',
-              count: inv.count,
-              last_updated: new Date().toISOString(),
-              created_at: inv.created_at,
-              active: inv.active
-            });
-          }
+              last_updated: new Date().toISOString()
+            })
+            .where(eq(invite_synced.id, notificationId));
+
+          console.log('[handleDecline] Invite declined via synced table');
         }
       } else {
         // type === 'request'
@@ -696,34 +582,17 @@ export default function NotificationsView() {
               ? (currentRequest.count || 0) + 1
               : currentRequest.count || 0;
 
-          // Check if exists in local
-          const localReq = await system.db
-            .select()
-            .from(requestLocal)
-            .where(eq(requestLocal.id, notificationId))
-            .limit(1);
-
-          if (localReq.length > 0) {
-            await system.db
-              .update(requestLocal)
-              .set({
-                status: 'declined',
-                count: newCount,
-                last_updated: new Date().toISOString()
-              })
-              .where(eq(requestLocal.id, notificationId));
-          } else {
-            await system.db.insert(requestLocal).values({
-              id: currentRequest.id,
-              sender_profile_id: currentRequest.sender_profile_id,
-              project_id: currentRequest.project_id,
+          // Update request via synced table - PowerSync will sync changes to Supabase
+          await system.db
+            .update(request_synced)
+            .set({
               status: 'declined',
               count: newCount,
-              last_updated: new Date().toISOString(),
-              created_at: currentRequest.created_at,
-              active: currentRequest.active
-            });
-          }
+              last_updated: new Date().toISOString()
+            })
+            .where(eq(request_synced.id, notificationId));
+
+          console.log('[handleDecline] Request declined via synced table');
         }
       }
 

@@ -7,12 +7,12 @@ import {
   project as projectTable,
   request
 } from '@/db/drizzleSchema';
+import { request_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -90,11 +90,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
-  // Resolve the local tables for updates (PowerSync requires local table updates)
-  const requestLocal = useMemo(
-    () => resolveTable('request', { localOverride: true }),
-    []
-  );
 
   // Query for existing membership request using useHybridData
   const { data: existingRequests } = useHybridData({
@@ -226,18 +221,18 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     setIsSubmitting(true);
     try {
       if (existingRequest) {
-        // Update existing request
+        // Update existing request via synced table - PowerSync will sync to Supabase
         await db
-          .update(requestLocal)
+          .update(request_synced)
           .set({
             status: 'pending',
             count: (existingRequest.count || 0) + 1,
             last_updated: new Date().toISOString()
           })
-          .where(eq(requestLocal.id, existingRequest.id));
+          .where(eq(request_synced.id, existingRequest.id));
       } else {
-        // Create new request
-        await db.insert(requestLocal).values({
+        // Create new request via synced table - PowerSync will sync to Supabase
+        await db.insert(request_synced).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',
@@ -269,13 +264,14 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
           void (async () => {
             setIsSubmitting(true);
             try {
+              // Update request via synced table - PowerSync will sync to Supabase
               await db
-                .update(requestLocal)
+                .update(request_synced)
                 .set({
                   status: 'withdrawn',
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(requestLocal.id, existingRequest.id));
+                .where(eq(request_synced.id, existingRequest.id));
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);
