@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import * as Slot from '@/components/ui/slot';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -13,6 +14,7 @@ import {
   BottomSheetModalProvider,
   BottomSheetView,
   BottomSheetTextInput as DrawerInput,
+  BottomSheetScrollView as DrawerScrollView,
   useBottomSheet
 } from '@gorhom/bottom-sheet';
 import { Portal, PortalHost } from '@rn-primitives/portal';
@@ -324,6 +326,7 @@ export {
   DrawerHeader,
   DrawerInput,
   DrawerOverlay,
+  DrawerScrollView,
   DrawerTitle,
   DrawerTrigger
 };

@@ -1,7 +1,9 @@
 'use client';
+'use no memo';
 
 import * as React from 'react';
 import { TextInput as DrawerInput } from 'react-native';
+import { ScrollView as DrawerScrollView } from 'react-native-gesture-handler';
 import { Drawer as DrawerPrimitive } from 'vaul';
 
 import { cn } from '@/utils/styleUtils';
@@ -148,6 +150,7 @@ export {
   DrawerHeader,
   DrawerInput,
   DrawerOverlay,
+  DrawerScrollView,
   DrawerTitle,
   DrawerTrigger
 };

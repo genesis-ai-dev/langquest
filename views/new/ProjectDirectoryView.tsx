@@ -5,8 +5,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerClose,
@@ -165,7 +164,7 @@ export default function ProjectDirectoryView() {
     if (!showDiscoveryDrawer) {
       startedDiscoveryRef.current = null;
     }
-  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering]);
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState]);
 
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({
@@ -185,7 +184,79 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Bulk Download] Success:', data);
       return data;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
+      console.log('📥 [Bulk Download] Optimistically updating cache');
+
+      // Optimistically update the cache for downloaded quests
+      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
+
+      const updateQuestCache = (oldData: unknown) => {
+        if (!oldData || !currentUser?.id) return oldData;
+
+        // Handle infinite query structure
+        const data = oldData as {
+          pages: {
+            data: {
+              id: string;
+              download_profiles?: string[] | null;
+              source?: string;
+              [key: string]: unknown;
+            }[];
+            nextCursor?: number;
+            hasMore: boolean;
+          }[];
+          pageParams: number[];
+        };
+
+        // Update each page
+        const updatedPages = data.pages.map((page) => ({
+          ...page,
+          data: page.data.map((quest) => {
+            // If this quest was downloaded, update its download_profiles and source
+            if (downloadedQuestIds.has(quest.id)) {
+              const currentProfiles = quest.download_profiles || [];
+              const updatedProfiles = currentProfiles.includes(currentUser.id)
+                ? currentProfiles
+                : [...currentProfiles, currentUser.id];
+
+              console.log(
+                `📥 [Cache Update] Updated quest ${quest.id.slice(0, 8)}...`
+              );
+
+              return {
+                ...quest,
+                download_profiles: updatedProfiles,
+                source: 'synced' // Mark as synced since it's now downloaded
+              };
+            }
+            return quest;
+          })
+        }));
+
+        return {
+          ...data,
+          pages: updatedPages
+        };
+      };
+
+      // Update offline queries (handles all search query variations)
+      queryClient.setQueriesData(
+        {
+          queryKey: ['quests', 'offline', 'for-project', currentProjectId],
+          exact: false
+        },
+        updateQuestCache
+      );
+
+      // Update cloud queries (handles all search query variations)
+      queryClient.setQueriesData(
+        {
+          queryKey: ['quests', 'cloud', 'for-project', currentProjectId],
+          exact: false
+        },
+        updateQuestCache
+      );
+
       console.log(
         '📥 [Bulk Download] Success - registering sync callback...'
       );
@@ -232,11 +303,10 @@ export default function ProjectDirectoryView() {
   type FormData = z.infer<typeof formSchema>;
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: 'onChange',
     defaultValues: {
       name: ''
-    }
+    },
+    resolver: zodResolver(formSchema)
   });
 
   const { hasAccess: canManageProject, membership } = useUserPermissions(
@@ -348,7 +418,7 @@ export default function ProjectDirectoryView() {
     if (isCreateOpen) {
       form.reset({ name: '', description: '' });
     }
-  }, [isCreateOpen]);
+  }, [isCreateOpen, form]);
 
   // Handle download/offload click - check if quest is downloaded
   const handleDownloadClick = async (questId: string) => {
@@ -786,15 +856,15 @@ export default function ProjectDirectoryView() {
         <View className="flex-1">{renderContent()}</View>
       ) : (
         // Non-Bible project - needs Form/Drawer for quest creation
-        <Form {...form}>
-          <Drawer
-            open={isCreateOpen}
-            onOpenChange={setIsCreateOpen}
-            dismissible={!isCreatingQuest}
-          >
-            {renderContent()}
+        <Drawer
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          dismissible={!isCreatingQuest}
+        >
+          {renderContent()}
 
-            <DrawerContent className="pb-safe">
+          <DrawerContent className="pb-safe">
+            <Form {...form}>
               <DrawerHeader>
                 <DrawerTitle>{t('newQuest')}</DrawerTitle>
               </DrawerHeader>
@@ -841,13 +911,13 @@ export default function ProjectDirectoryView() {
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>
-                <DrawerClose className={buttonVariants({ variant: 'outline' })}>
+                <DrawerClose disabled={isCreatingQuest}>
                   <Text>{t('cancel')}</Text>
                 </DrawerClose>
               </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        </Form>
+            </Form>
+          </DrawerContent>
+        </Drawer>
       )}
 
       {/* Shared SpeedDial for all project types */}
