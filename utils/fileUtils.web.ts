@@ -178,29 +178,57 @@ export async function getLocalAttachmentUriWithOPFS(filePath: string) {
 
 // save the file in the browser locally
 export async function saveAudioLocally(uri: string) {
+  // Validate that we received a blob URL (expected on web)
+  if (!uri.startsWith('blob:')) {
+    throw new Error(
+      `Expected blob URL on web platform, got: ${uri.substring(0, 100)}`
+    );
+  }
+
   console.log('saveAudioFileLocally', uri);
-  console.log('fetching blob from', uri);
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const extension = blob.type.split(';')[0]!.split('/').pop(); // "audio/webm; codecs=opus"
-  const fileName = `${getFileName(uri)}.${extension}`;
-  console.log('fileName', fileName);
-  if (!fileName) {
-    throw new Error('Failed to get file name');
+
+  try {
+    console.log('fetching blob from', uri);
+    const response = await fetch(uri);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch blob: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const blob = await response.blob();
+    const extension = blob.type.split(';')[0]!.split('/').pop(); // "audio/webm; codecs=opus"
+    const fileName = `${getFileName(uri)}.${extension}`;
+    console.log('fileName', fileName);
+
+    if (!fileName) {
+      throw new Error('Failed to get file name');
+    }
+
+    const localUri = `local/${fileName}`;
+    console.log('writing blob to OPFS', localUri);
+
+    const fileHandle = await getOPFSHandle(
+      getLocalFilePathSuffix(localUri),
+      'file',
+      { create: true }
+    );
+
+    if (!fileHandle) {
+      throw new Error(`Failed to create file handle for path: ${localUri}`);
+    }
+
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+
+    console.log('✅ Successfully saved audio locally:', localUri);
+
+    // Return the local path format, NOT the blob URL
+    return localUri;
+  } catch (error) {
+    console.error('CRITICAL: Failed to save audio locally:', error);
+    throw error; // Don't silently fail
   }
-  uri = `local/${fileName}`;
-  console.log('writing blob to OPFS', uri);
-  const fileHandle = await getOPFSHandle(getLocalFilePathSuffix(uri), 'file', {
-    create: true
-  });
-
-  if (!fileHandle) {
-    throw new Error(`Failed to create file handle for path: ${uri}`);
-  }
-
-  const writable = await fileHandle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-
-  return uri;
 }

@@ -315,6 +315,19 @@ export class System {
           attachment: AttachmentRecord,
           exception: { toString: () => string; status?: number }
         ) => {
+          // Don't retry corrupted attachments with blob URLs
+          if (
+            attachment.id?.includes('blob:') ||
+            attachment.local_uri?.includes('blob:') ||
+            attachment.filename?.includes('blob:')
+          ) {
+            console.error(
+              '[PermAttachmentQueue] Corrupted attachment with blob URL detected - not retrying:',
+              attachment.id
+            );
+            return { retry: false };
+          }
+
           if (
             exception.toString() === 'StorageApiError: Object not found' ||
             exception.status === 400 ||
@@ -335,6 +348,19 @@ export class System {
           _attachment: AttachmentRecord,
           exception: { toString: () => string }
         ) => {
+          // Don't retry corrupted attachments with blob URLs
+          if (
+            _attachment.id?.includes('blob:') ||
+            _attachment.local_uri?.includes('blob:') ||
+            _attachment.filename?.includes('blob:')
+          ) {
+            console.error(
+              '[PermAttachmentQueue] Corrupted attachment with blob URL detected - not retrying:',
+              _attachment.id
+            );
+            return { retry: false };
+          }
+
           if (
             exception.toString() ===
             'StorageApiError: The resource already exists'
@@ -531,13 +557,18 @@ export class System {
       // await this.powersync.waitForFirstSync();
 
       this.initialized = true;
-      useLocalStore.getState().setSystemReady(true);
       console.log('PowerSync marked as initialized');
 
-      // Initialize attachment queues and wait for completion
+      // Initialize attachment queues BEFORE marking system as ready
+      // This prevents views from rendering before downloads can start
       console.log('Starting attachment queues initialization...');
       await this.initializeAttachmentQueues();
       console.log('Attachment queues initialization completed');
+
+      // Mark system ready AFTER attachment queues are initialized
+      // This ensures NextGenProjectsView and other views don't show loading states
+      useLocalStore.getState().setSystemReady(true);
+      console.log('System marked as ready');
 
       console.log('PowerSync initialization complete');
     } catch (error) {
@@ -1054,6 +1085,42 @@ export class System {
         );
         this.attachmentQueuesInitialized = true;
         return;
+      }
+
+      // Clean up any corrupted attachments before initializing queues
+      // This prevents infinite retry loops on app startup
+      // Fast check first - most users won't have corrupted attachments
+      console.log('[System] Checking for corrupted attachments...');
+      try {
+        const { getCorruptedCount, cleanupAllCorrupted } = await import(
+          '@/services/corruptedAttachmentsService'
+        );
+        const corruptedCount = await getCorruptedCount();
+
+        if (corruptedCount > 0) {
+          console.warn(
+            `[System] Found ${corruptedCount} corrupted attachment(s) with blob URLs. Cleaning up...`
+          );
+          // Run cleanup asynchronously to not block initialization
+          void cleanupAllCorrupted().then((result) => {
+            console.log(
+              `[System] Cleanup complete: ${result.cleaned} cleaned, ${result.errors.length} errors`
+            );
+            if (result.errors.length > 0) {
+              console.error('[System] Cleanup errors:', result.errors);
+            }
+          });
+          // Don't await - let it run in background
+          console.log('[System] Cleanup running in background...');
+        } else {
+          console.log('[System] No corrupted attachments found');
+        }
+      } catch (error) {
+        // Don't fail initialization if cleanup fails
+        console.error(
+          '[System] Error during corrupted attachment cleanup:',
+          error
+        );
       }
 
       // Initialize both queues in parallel if they exist

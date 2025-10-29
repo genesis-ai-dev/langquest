@@ -19,6 +19,10 @@ export enum LayerType {
   PROJECT = 0,
   QUEST = 1,
   ASSET = 2,
+  /**
+   * @deprecated Translations are now represented as assets with source_asset_id.
+   * Use LayerType.ASSET instead and check for source_asset_id to identify translations.
+   */
   TRANSLATION = 3
 }
 

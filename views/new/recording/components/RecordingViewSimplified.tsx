@@ -442,14 +442,66 @@ const RecordingViewSimplified = ({
   // Initialize VAD counter when VAD mode activates
   React.useEffect(() => {
     if (isVADLocked && vadCounterRef.current === null) {
+      // Capture current values at activation time
+      const currentInsertionIndex = insertionIndex;
+      const currentAssets = assets;
+
       void (async () => {
-        const nextOrder = await getNextOrderIndex(currentQuestId!);
-        vadCounterRef.current = nextOrder;
-        console.log('🎯 VAD counter initialized to:', nextOrder);
+        let targetOrder: number;
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (USE_INSERTION_WHEEL) {
+          // Respect insertion wheel position (same logic as manual recordings)
+          // insertionIndex is the boundary BEFORE an item
+          // When at bottom (insertionIndex === assets.length), append to end
+          // When in middle, insert after the currently viewed item
+
+          console.log(
+            `🎯 VAD initializing | insertionIndex: ${currentInsertionIndex} | assets.length: ${currentAssets.length} | maxIndex: ${currentAssets.length}`
+          );
+
+          if (currentInsertionIndex >= currentAssets.length) {
+            // At or past the end - append
+            targetOrder =
+              currentAssets.length > 0
+                ? (currentAssets[currentAssets.length - 1]?.order_index ??
+                    currentAssets.length - 1) + 1
+                : 0;
+            console.log(
+              `🎯 VAD: At bottom, appending with order_index: ${targetOrder}`
+            );
+          } else {
+            // In the middle - insert after current item
+            const actualInsertionIndex = currentInsertionIndex + 1;
+            if (actualInsertionIndex < currentAssets.length) {
+              targetOrder =
+                currentAssets[actualInsertionIndex]?.order_index ??
+                actualInsertionIndex;
+            } else {
+              targetOrder =
+                currentAssets.length > 0
+                  ? (currentAssets[currentAssets.length - 1]?.order_index ??
+                      currentAssets.length - 1) + 1
+                  : 0;
+            }
+            console.log(
+              `🎯 VAD: In middle at visual index ${currentInsertionIndex}, inserting at order_index: ${targetOrder}`
+            );
+          }
+        } else {
+          // Legacy: append to end
+          targetOrder = await getNextOrderIndex(currentQuestId!);
+          console.log(`🎯 VAD counter initialized to end: ${targetOrder}`);
+        }
+
+        vadCounterRef.current = targetOrder;
       })();
     } else if (!isVADLocked) {
       vadCounterRef.current = null;
     }
+    // IMPORTANT: Only depend on isVADLocked and currentQuestId
+    // We intentionally capture insertionIndex and assets from closure when isVADLocked toggles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVADLocked, currentQuestId]);
 
   // Manual recording handlers

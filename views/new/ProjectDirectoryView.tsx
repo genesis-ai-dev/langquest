@@ -2,7 +2,6 @@ import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModa
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
-import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
@@ -35,6 +34,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCloudLoading } from '@/contexts/CloudLoadingContext';
 import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -80,19 +80,32 @@ export default function ProjectDirectoryView() {
     currentProjectId,
     currentProjectName,
     currentProjectTemplate,
-    currentBookId
+    currentBookId,
+    currentProjectData
   } = useCurrentNavigation();
   const { navigate, goBack } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
+  const { setCloudLoading } = useCloudLoading();
+
+  // Track cloud loading states from child components
+  const [questListCloudLoading, setQuestListCloudLoading] =
+    React.useState(false);
+  const [chapterListCloudLoading, setChapterListCloudLoading] =
+    React.useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  // Fallback: If template is not in navigation state, fetch project
-  // This handles cases like direct navigation or refresh
-  const { project, isProjectLoading } = useProjectById(currentProjectId);
+  // Use passed project data if available (instant!), otherwise query
+  // Query runs in background to get updates even if data was passed
+  const { project: queriedProject, isCloudLoading: projectCloudLoading } =
+    useProjectById(currentProjectId);
+
+  // Prefer passed data for instant rendering, fallback to queried
+  const project =
+    (currentProjectData as typeof queriedProject) || queriedProject;
 
   // Use template from navigation state, or fall back to fetched project
   const template =
@@ -170,17 +183,81 @@ export default function ProjectDirectoryView() {
       return data;
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Invalidating queries');
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status']
-      });
-      // Invalidate the quests query to refresh the download status
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', currentProjectId]
-      });
+      console.log('📥 [Bulk Download] Optimistically updating cache');
+
+      // Optimistically update the cache for downloaded quests
+      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
+
+      const updateQuestCache = (oldData: unknown) => {
+        if (!oldData || !currentUser?.id) return oldData;
+
+        // Handle infinite query structure
+        const data = oldData as {
+          pages: Array<{
+            data: Array<{
+              id: string;
+              download_profiles?: string[] | null;
+              source?: string;
+              [key: string]: unknown;
+            }>;
+            nextCursor?: number;
+            hasMore: boolean;
+          }>;
+          pageParams: number[];
+        };
+
+        // Update each page
+        const updatedPages = data.pages.map((page) => ({
+          ...page,
+          data: page.data.map((quest) => {
+            // If this quest was downloaded, update its download_profiles and source
+            if (downloadedQuestIds.has(quest.id)) {
+              const currentProfiles = quest.download_profiles || [];
+              const updatedProfiles = currentProfiles.includes(currentUser.id)
+                ? currentProfiles
+                : [...currentProfiles, currentUser.id];
+
+              console.log(
+                `📥 [Cache Update] Updated quest ${quest.id.slice(0, 8)}...`
+              );
+
+              return {
+                ...quest,
+                download_profiles: updatedProfiles,
+                source: 'synced' // Mark as synced since it's now downloaded
+              };
+            }
+            return quest;
+          })
+        }));
+
+        return {
+          ...data,
+          pages: updatedPages
+        };
+      };
+
+      // Update offline queries (handles all search query variations)
+      queryClient.setQueriesData(
+        {
+          queryKey: ['quests', 'offline', 'for-project', currentProjectId],
+          exact: false
+        },
+        updateQuestCache
+      );
+
+      // Update cloud queries (handles all search query variations)
+      queryClient.setQueriesData(
+        {
+          queryKey: ['quests', 'cloud', 'for-project', currentProjectId],
+          exact: false
+        },
+        updateQuestCache
+      );
+
+      console.log(
+        '📥 [Bulk Download] Cache updated, PowerSync will sync in background'
+      );
     }
   });
 
@@ -194,6 +271,7 @@ export default function ProjectDirectoryView() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange',
     defaultValues: {
       name: ''
     }
@@ -215,9 +293,20 @@ export default function ProjectDirectoryView() {
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
   // Query existing books for Bible projects (after isMember is defined)
-  const { books: existingBooks = [] } = useBibleBooks(
-    template === 'bible' ? currentProjectId || '' : ''
-  );
+  const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
+    useBibleBooks(template === 'bible' ? currentProjectId || '' : '');
+
+  // Aggregate all cloud loading states
+  const isCloudLoading =
+    projectCloudLoading ||
+    questListCloudLoading ||
+    chapterListCloudLoading ||
+    booksCloudLoading;
+
+  // Update global cloud loading state
+  React.useEffect(() => {
+    setCloudLoading(isCloudLoading);
+  }, [isCloudLoading, setCloudLoading]);
 
   // Build set of existing book IDs from metadata
   const existingBookIds = React.useMemo(() => {
@@ -292,6 +381,13 @@ export default function ProjectDirectoryView() {
     [isMember, t]
   );
 
+  // Reset form when drawer opens
+  React.useEffect(() => {
+    if (isCreateOpen) {
+      form.reset({ name: '', description: '' });
+    }
+  }, [isCreateOpen]);
+
   // Handle download click - start discovery
   const handleDownloadClick = (questId: string) => {
     console.log('📥 [Download] Opening discovery drawer for quest:', questId);
@@ -342,24 +438,22 @@ export default function ProjectDirectoryView() {
           download_profiles: [currentUser.id]
         });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       form.reset();
       setIsCreateOpen(false);
       setParentForNewQuest(null);
+      // Invalidate quest queries to refresh the list
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'for-project', currentProjectId]
+      });
     },
     onError: (error) => {
       console.error('Failed to create quest', error);
     }
   });
 
-  // Show loading skeleton for project metadata only
-  if (isProjectLoading) {
-    return (
-      <View className="flex-1 p-4">
-        <ProjectListSkeleton />
-      </View>
-    );
-  }
+  // Don't block on project loading - we can render Bible structure immediately
+  // Project metadata will load in background and update when ready
 
   // Render content based on project type
   const renderContent = () => {
@@ -397,6 +491,7 @@ export default function ProjectDirectoryView() {
             <BibleChapterList
               projectId={currentProjectId!}
               bookId={currentBookId}
+              onCloudLoadingChange={setChapterListCloudLoading}
             />
           </View>
         </View>
@@ -430,6 +525,7 @@ export default function ProjectDirectoryView() {
             isMember={isMember}
             onAddChild={openCreateForParent}
             onDownloadClick={handleDownloadClick}
+            onCloudLoadingChange={setQuestListCloudLoading}
           />
 
           <Button
@@ -464,7 +560,7 @@ export default function ProjectDirectoryView() {
               <DrawerHeader>
                 <DrawerTitle>{t('newQuest')}</DrawerTitle>
               </DrawerHeader>
-              <View className="flex flex-col gap-4 p-4">
+              <View className="flex-1 flex-col gap-4 p-4">
                 <FormField
                   control={form.control}
                   name="name"

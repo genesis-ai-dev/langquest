@@ -2,13 +2,20 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { AttachmentState } from '@powersync/attachments';
-import { ChevronRight, CloudOff, Menu, RefreshCw } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  ChevronRight,
+  CloudOff,
+  Menu,
+  RefreshCw
+} from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -20,9 +27,11 @@ import Animated, {
 import { Button } from './ui/button';
 
 export default function AppHeader({
-  drawerToggleCallback
+  drawerToggleCallback,
+  isCloudLoading = false
 }: {
   drawerToggleCallback: () => void;
+  isCloudLoading?: boolean;
 }) {
   const {
     breadcrumbs,
@@ -31,9 +40,15 @@ export default function AppHeader({
   } = useAppNavigation();
 
   // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  const { t } = useLocalization();
   const { totalCount: notificationCount } = useNotifications();
-  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
-    useSyncState();
+  const {
+    isDownloadOperationInProgress,
+    isUpdateInProgress,
+    isConnecting,
+    downloadError,
+    uploadError
+  } = useSyncState();
 
   // Get attachment states to monitor download queue
   const { attachmentStates } = useAttachmentStates([]);
@@ -53,12 +68,22 @@ export default function AppHeader({
     return false;
   }, [attachmentStates]);
 
+  const hasSyncError = !!(downloadError || uploadError);
+  // Don't show syncing state if there's an error - prevents eternal syncing loop
   const isSyncing =
-    isDownloadOperationInProgress ||
-    isUpdateInProgress ||
-    isConnecting ||
-    hasDownloadsInProgress;
+    !hasSyncError &&
+    (isDownloadOperationInProgress ||
+      isUpdateInProgress ||
+      isConnecting ||
+      hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
+
+  // Handler for sync error tap
+  const handleSyncErrorTap = () => {
+    const errorMessage =
+      downloadError?.message || uploadError?.message || t('syncError');
+    Alert.alert(t('syncError'), errorMessage);
+  };
 
   // Animation for sync indicator
   const spinValue = useSharedValue(0);
@@ -79,8 +104,44 @@ export default function AppHeader({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
   }));
 
+  // Animation for cloud loading bar
+  const loadingProgress = useSharedValue(0);
+  const loadingOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isCloudLoading) {
+      // Start loading animation
+      loadingOpacity.value = withTiming(1, { duration: 200 });
+      loadingProgress.value = withTiming(0.9, {
+        duration: 1500,
+        easing: Easing.bezier(0.4, 0, 0.2, 1)
+      });
+    } else {
+      // Complete and fade out
+      if (loadingProgress.value > 0) {
+        loadingProgress.value = withTiming(1, { duration: 200 });
+        loadingOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
+          if (finished) {
+            loadingProgress.value = 0;
+          }
+        });
+      }
+    }
+  }, [isCloudLoading]);
+
+  const loadingBarStyle = useAnimatedStyle(() => ({
+    width: `${loadingProgress.value * 100}%`,
+    opacity: loadingOpacity.value
+  }));
+
   return (
-    <View className="bg-transparent p-4">
+    <View className="relative bg-transparent p-4">
+      {/* Cloud Loading Bar */}
+      <Animated.View
+        style={loadingBarStyle}
+        className="absolute left-0 right-0 top-0 h-[2px] bg-primary shadow-sm"
+      />
+
       <View className="flex-row items-center">
         {/* Breadcrumbs */}
         <View className="flex-1 flex-row items-center overflow-hidden">
@@ -150,6 +211,7 @@ export default function AppHeader({
             size="icon"
             onPress={drawerToggleCallback}
             className="relative size-8"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Icon as={Menu} size={24} />
 
@@ -158,6 +220,15 @@ export default function AppHeader({
               <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
                 <Icon as={CloudOff} size={10} className="text-white" />
               </View>
+            ) : hasSyncError ? (
+              <Pressable
+                onPress={handleSyncErrorTap}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
+                  <Icon as={AlertTriangle} size={10} className="text-white" />
+                </View>
+              </Pressable>
             ) : isSyncing ? (
               <Animated.View
                 style={spinStyle}

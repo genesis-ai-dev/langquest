@@ -181,7 +181,7 @@ export default function NextGenTranslationModal({
     hasReported,
     isLoading: isReportLoading,
     refetch
-  } = useHasUserReported(asset?.id || '', 'translations');
+  } = useHasUserReported(asset?.id || '', 'assets');
 
   // Initialize edited text when translation data loads
   React.useEffect(() => {
@@ -271,7 +271,7 @@ export default function NextGenTranslationModal({
 
   const layerStatus = useStatusContext();
   const { allowEditing, allowSettings } = layerStatus.getStatusParams(
-    LayerType.TRANSLATION,
+    LayerType.ASSET,
     asset?.id || '',
     asset as LayerStatus
   );
@@ -407,17 +407,9 @@ export default function NextGenTranslationModal({
                   variant="default"
                   onPress={handleSubmitTranscription}
                   disabled={!editedText.trim() || isTranscribing}
+                  loading={isTranscribing}
                 >
-                  {isTranscribing ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary-foreground')}
-                    />
-                  ) : (
-                    <Text className="font-bold text-primary-foreground">
-                      {t('submitTranscription')}
-                    </Text>
-                  )}
+                  <Text>{t('submitTranscription')}</Text>
                 </Button>
               )}
 
@@ -522,7 +514,7 @@ export default function NextGenTranslationModal({
                   isVisible={showReportModal}
                   onClose={() => setShowReportModal(false)}
                   recordId={assetId}
-                  recordTable="translations"
+                  recordTable="assets"
                   creatorId={asset.creator_id ?? undefined}
                   hasAlreadyReported={hasReported}
                   onReportSubmitted={() => refetch()}

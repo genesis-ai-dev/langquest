@@ -57,7 +57,12 @@ type AssetQuestLink = Asset & {
 };
 
 export default function NextGenAssetsView() {
-  const { currentQuestId, currentProjectId } = useCurrentNavigation();
+  const {
+    currentQuestId,
+    currentProjectId,
+    currentProjectData,
+    currentQuestData
+  } = useCurrentNavigation();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -69,7 +74,8 @@ export default function NextGenAssetsView() {
 
   type Quest = typeof questTable.$inferSelect;
 
-  const { data: questData } = useHybridData({
+  // Use passed quest data if available (instant!), otherwise query
+  const { data: queriedQuestData } = useHybridData({
     dataType: 'current-quest',
     queryKeyParams: [currentQuestId],
     offlineQuery: toCompilableQuery(
@@ -90,6 +96,11 @@ export default function NextGenAssetsView() {
     enableOfflineQuery: !!currentQuestId,
     getItemId: (item) => item.id
   });
+
+  // Prefer passed data for instant rendering!
+  const questData = currentQuestData
+    ? [currentQuestData as Quest]
+    : queriedQuestData;
   const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
 
   const [showRecording, setShowRecording] = React.useState(false);
@@ -531,7 +542,7 @@ export default function NextGenAssetsView() {
           </View>
         )}
 
-      {isLoading ? (
+      {isLoading || (isFetching && assets.length === 0) ? (
         searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />
@@ -572,6 +583,7 @@ export default function NextGenAssetsView() {
                     variant="default"
                     onPress={() => setShowRecording(true)}
                   >
+                    <Icon as={MicIcon} className="text-secondary" />
                     <Text>{t('doRecord')}</Text>
                   </Button>
                 )}

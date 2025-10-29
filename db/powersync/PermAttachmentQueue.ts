@@ -94,28 +94,51 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
           )
         );
 
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+      const DEBOUNCE_MS = 2000; // 2 seconds - accumulate changes before syncing
+
       function refreshAllAttachments(data: Awaited<typeof query>) {
-        const assetImages = data
-          .flatMap((asset_synced) => asset_synced.images)
-          .filter(Boolean);
-        const contentLinkAudioIds = data
-          .flatMap(
-            (asset_content_link_synced) => asset_content_link_synced.audio
-          )
-          .filter(Boolean);
-        const allAttachments = [...assetImages, ...contentLinkAudioIds];
-        const uniqueAttachments = [...new Set(allAttachments)];
+        // Clear existing timer
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
 
-        console.log(
-          `Total unique attachments to sync: ${uniqueAttachments.length}`,
-          {
-            assetImages: assetImages.length,
-            contentLinkAudioIds: contentLinkAudioIds.length
+        // Debounce the attachment refresh
+        debounceTimer = setTimeout(() => {
+          const assetImages = data
+            .flatMap((asset_synced) => asset_synced.images)
+            .filter(Boolean);
+          const contentLinkAudioIds = data
+            .flatMap(
+              (asset_content_link_synced) => asset_content_link_synced.audio
+            )
+            .filter(Boolean);
+          const allAttachments = [...assetImages, ...contentLinkAudioIds];
+
+          // CRITICAL: Filter out blob URLs before processing
+          const validAttachments = allAttachments.filter(
+            (id) => !id.includes('blob:')
+          );
+          const uniqueAttachments = [...new Set(validAttachments)];
+
+          if (validAttachments.length < allAttachments.length) {
+            console.warn(
+              `[PermAttachmentQueue] Filtered out ${allAttachments.length - validAttachments.length} blob URLs from sync`
+            );
           }
-        );
 
-        // Tell PowerSync which attachments to keep synced
-        onUpdate(uniqueAttachments);
+          console.log(
+            `Total unique attachments to sync: ${uniqueAttachments.length}`,
+            {
+              assetImages: assetImages.length,
+              contentLinkAudioIds: contentLinkAudioIds.length,
+              filtered: allAttachments.length - validAttachments.length
+            }
+          );
+
+          // Tell PowerSync which attachments to keep synced
+          onUpdate(uniqueAttachments);
+        }, DEBOUNCE_MS);
       }
 
       // Watch for changes in asset content link audio - trigger debounced refresh
@@ -152,7 +175,30 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     tempUri: string,
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
+    // Reject blob URLs - they must be converted to files first
+    if (tempUri.includes('blob:')) {
+      console.error(
+        '[PermAttachmentQueue] Attempted to save blob URL:',
+        tempUri
+      );
+      throw new Error(
+        'Cannot save blob URL directly. Must be converted to file first.'
+      );
+    }
+
     const recordId = getFileName(tempUri)!;
+
+    // Double-check the recordId doesn't contain blob URL
+    if (recordId.includes('blob:')) {
+      console.error(
+        '[PermAttachmentQueue] getFileName returned blob URL:',
+        recordId
+      );
+      throw new Error(
+        'Invalid file path - contains blob URL. Must use proper file path.'
+      );
+    }
+
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId
     });

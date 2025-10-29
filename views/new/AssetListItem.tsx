@@ -37,7 +37,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   questId,
   attachmentState
 }) => {
-  const { goToAsset } = useAppNavigation();
+  const { goToAsset, currentProjectData, currentQuestData } =
+    useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   // Check if asset is downloaded
@@ -79,7 +80,11 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
       id: asset.id,
       name: asset.name || t('unnamedAsset'),
       questId: questId,
-      projectId: asset.project_id!
+      projectId: asset.project_id!,
+      projectData: currentProjectData, // Pass project data forward!
+      questData: currentQuestData // Pass quest data forward!
+      // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
+      // relationships which aren't loaded in the list view
     });
   };
 

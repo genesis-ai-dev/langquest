@@ -120,6 +120,25 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
     // isRecording removed from deps - we use SharedValue now which updates without recreation
   );
 
+  // FIX: React to recording state changes to update recent bars
+  // When recording starts/stops, retroactively update the last few bars to match
+  // This prevents purple bars from appearing during active recording
+  useAnimatedReaction(
+    () => isRecordingShared.value,
+    (isRecording, previousIsRecording) => {
+      'worklet';
+      if (!isVisible || previousIsRecording === isRecording) return;
+
+      // Update the most recent 5 bars to match the new recording state
+      // This ensures smooth color transitions when recording state changes
+      const barsToUpdate = Math.min(5, barCount);
+      for (let i = barCount - barsToUpdate; i < barCount; i++) {
+        waveformRecordingState[i]!.value = isRecording;
+      }
+    },
+    [isVisible, barCount]
+  );
+
   // Reset when hidden
   useEffect(() => {
     if (!isVisible) {

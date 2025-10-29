@@ -28,6 +28,7 @@ import { useItemDownloadStatus } from './useHybridData';
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+  onCloudLoadingChange?: (isLoading: boolean) => void;
 }
 
 // type QuestClosure = typeof quest_closure.$inferSelect;
@@ -167,7 +168,11 @@ function ChapterButton({
   );
 }
 
-export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
+export function BibleChapterList({
+  projectId,
+  bookId,
+  onCloudLoadingChange
+}: BibleChapterListProps) {
   const { goToQuest } = useAppNavigation();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
@@ -186,8 +191,14 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
   const {
     existingChapterNumbers: _existingChapterNumbers,
     chapters: existingChapters,
-    isLoading: isLoadingChapters
+    isLoading: isLoadingChapters,
+    isLoadingCloud
   } = useBibleChapters(projectId, bookId);
+
+  // Notify parent of cloud loading state
+  React.useEffect(() => {
+    onCloudLoadingChange?.(isLoadingCloud);
+  }, [isLoadingCloud, onCloudLoadingChange]);
 
   const [creatingChapter, setCreatingChapter] = React.useState<number | null>(
     null
@@ -253,18 +264,61 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       return data;
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Invalidating queries');
-      // Invalidate download status queries
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status']
-      });
-      // Invalidate bible chapters queries to refresh download status
-      await queryClient.invalidateQueries({
-        queryKey: ['bible-chapters']
-      });
+      console.log('📥 [Bulk Download] Optimistically updating cache');
+
+      // Optimistically update the cache for downloaded quests
+      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
+
+      const updateChapterCache = (oldData: unknown, cacheType: string) => {
+        if (!oldData || !currentUser?.id) {
+          console.log(`📥 [Cache Update] No ${cacheType} data to update`);
+          return oldData;
+        }
+
+        const chapters = oldData as Array<{
+          quest_id: string;
+          quest_download_profiles?: string[] | null;
+          [key: string]: unknown;
+        }>;
+
+        console.log(
+          `📥 [Cache Update] Updating ${chapters.length} ${cacheType} chapters`
+        );
+
+        return chapters.map((chapter) => {
+          if (downloadedQuestIds.has(chapter.quest_id)) {
+            const currentProfiles = chapter.quest_download_profiles || [];
+            const updatedProfiles = currentProfiles.includes(currentUser.id)
+              ? currentProfiles
+              : [...currentProfiles, currentUser.id];
+
+            console.log(
+              `📥 [Cache Update] Updated chapter quest ${chapter.quest_id.slice(0, 8)}...`
+            );
+
+            return {
+              ...chapter,
+              quest_download_profiles: updatedProfiles
+            };
+          }
+          return chapter;
+        });
+      };
+
+      // Update both local and cloud query caches
+      queryClient.setQueriesData(
+        { queryKey: ['bible-chapters', 'local', projectId, bookId] },
+        (oldData: unknown) => updateChapterCache(oldData, 'local')
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ['bible-chapters', 'cloud', projectId, bookId] },
+        (oldData: unknown) => updateChapterCache(oldData, 'cloud')
+      );
+
+      console.log(
+        '📥 [Bulk Download] Cache updated, PowerSync will sync in background'
+      );
     }
   });
 
@@ -313,18 +367,12 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     );
   }
 
-  if (!project) {
-    return (
-      <View className="flex-1 items-center justify-center p-6">
-        <ActivityIndicator size="large" color={primaryColor} />
-        <Text className="mt-4">Loading project...</Text>
-      </View>
-    );
-  }
+  // Don't block on project loading - we can render chapter structure immediately
+  // Project metadata will populate targetLanguageId when ready for chapter creation
 
   const handleChapterPress = (chapterNum: number) => {
-    // Prevent any action while loading or creating
-    if (isLoadingChapters || isCreating || creatingChapter === chapterNum) {
+    // Prevent any action while creating
+    if (isCreating || creatingChapter === chapterNum) {
       return;
     }
 
@@ -354,7 +402,9 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
       goToQuest({
         id: existingChapter.id,
         project_id: projectId,
-        name: existingChapter.name
+        name: existingChapter.name,
+        projectData: project as Record<string, unknown>, // Pass project data!
+        questData: existingChapter as unknown as Record<string, unknown> // Pass chapter/quest data!
       });
       return;
     }
@@ -386,18 +436,19 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                 projectId,
                 bookId,
                 chapter: chapterNum,
-                targetLanguageId: project.target_language_id
+                targetLanguageId: project?.target_language_id || ''
               });
 
               console.log(
                 `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
               );
 
-              // Navigate to assets view
+              // Navigate to assets view with passed data
               goToQuest({
                 id: result.questId,
                 project_id: projectId,
-                name: result.questName
+                name: result.questName,
+                projectData: project as Record<string, unknown> // Pass project data!
               });
             } catch (error) {
               console.error('Failed to create chapter:', error);
@@ -429,7 +480,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
     };
   });
 
-  // Check if we should show empty state
+  // Check if we should show empty state (only for non-members with no chapters)
   const hasNoChapters = existingChapters.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
@@ -455,7 +506,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
           </View>
         </View>
 
-        {/* Empty State */}
+        {/* Empty State - only for non-members with no content */}
         {showEmptyState ? (
           <View className="flex-1 items-center justify-center gap-4 px-6">
             <Icon
@@ -472,16 +523,6 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
               </Text>
             </View>
           </View>
-        ) : isLoadingChapters ? (
-          <LegendList
-            data={chapters.slice(0, 32)}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={4}
-            estimatedItemSize={90}
-            contentContainerStyle={{ paddingHorizontal: 8 }}
-            columnWrapperStyle={{ gap: 8 }}
-            renderItem={() => <ChapterSkeleton />}
-          />
         ) : (
           <LegendList
             data={chapters}
@@ -499,7 +540,7 @@ export function BibleChapterList({ projectId, bookId }: BibleChapterListProps) {
                   existingChapter={item.existingChapter}
                   isCreatingThis={item.isCreatingThis}
                   onPress={() => handleChapterPress(item.chapterNum)}
-                  disabled={Boolean(isCreating || isLoadingChapters)}
+                  disabled={Boolean(isCreating)}
                   onDownloadClick={handleDownloadClick}
                   canCreateNew={canCreateNew}
                 />

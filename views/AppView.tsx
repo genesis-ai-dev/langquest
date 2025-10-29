@@ -4,36 +4,66 @@
  */
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import {
+  BackHandler,
+  InteractionManager,
+  StyleSheet,
+  View
+} from 'react-native';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 
-// View Components (to be created/migrated)
-import NotificationsView from '@/views/NotificationsView';
-import ProfileView from '@/views/ProfileView';
-// import ProjectsView from '@/views/ProjectsView';
-// import QuestsView from '@/views/QuestsView';
-import SettingsView from '@/views/SettingsView';
-import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
-import NextGenAssetsView from '@/views/new/NextGenAssetsView';
-import NextGenProjectsView from '@/views/new/NextGenProjectsView';
-// import NextGenQuestsView from '@/views/new/NextGenQuestsView';
-import ProjectDirectoryView from '@/views/new/ProjectDirectoryView';
+// Lazy-load view components for instant navigation transitions
+// This prevents blocking the main thread with bundle loading
+const NotificationsView = React.lazy(() => import('@/views/NotificationsView'));
+const ProfileView = React.lazy(() => import('@/views/ProfileView'));
+const SettingsView = React.lazy(() => import('@/views/SettingsView'));
+const CorruptedAttachmentsView = React.lazy(
+  () => import('@/views/CorruptedAttachmentsView')
+);
+const NextGenAssetDetailView = React.lazy(
+  () => import('@/views/new/NextGenAssetDetailView')
+);
+const NextGenAssetsView = React.lazy(
+  () => import('@/views/new/NextGenAssetsView')
+);
+const NextGenProjectsView = React.lazy(
+  () => import('@/views/new/NextGenProjectsView')
+);
+const ProjectDirectoryView = React.lazy(
+  () => import('@/views/new/ProjectDirectoryView')
+);
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import {
+  CloudLoadingProvider,
+  useCloudLoading
+} from '@/contexts/CloudLoadingContext';
 import { StatusProvider } from '@/contexts/StatusContext';
 
 // DEV ONLY: Debug controls for testing OTA updates
 // To test OTA updates in development, uncomment the next line:
 // import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
 
-export default function AppView() {
+function AppViewContent() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
+  const [deferredView, setDeferredView] = useState(currentView);
+  const { isCloudLoading } = useCloudLoading();
+
+  // Defer view changes until after animations complete
+  // This ensures instant navigation transitions
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setDeferredView(currentView);
+    });
+
+    return () => task.cancel();
+  }, [currentView]);
 
   // Handle hardware back button and back gestures
   useEffect(() => {
@@ -51,8 +81,9 @@ export default function AppView() {
     return () => backHandler.remove();
   }, [canGoBack, goBack]);
 
+  // Use deferred view for rendering to prevent blocking navigation transitions
   const renderCurrentView = () => {
-    switch (currentView) {
+    switch (deferredView) {
       case 'projects':
         return <NextGenProjectsView />;
       case 'quests':
@@ -67,37 +98,48 @@ export default function AppView() {
         return <NotificationsView />;
       case 'settings':
         return <SettingsView />;
+      case 'corrupted-attachments':
+        return <CorruptedAttachmentsView />;
       default:
         return <NextGenProjectsView />;
     }
   };
 
   return (
-    <StatusProvider>
-      <View style={styles.appContainer}>
-        {/* Main Content Area */}
-        <View style={styles.contentContainer}>
-          {/* App Header */}
-          <AppHeader
-            drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
-          />
-
-          {/* OTA Update Banner */}
-          <UpdateBanner />
-
-          {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
-          {/* <OTAUpdateDebugControls /> */}
-
-          {/* Current View */}
-          <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
-        </View>
-
-        {/* Drawer Navigation - Rendered last to appear on top */}
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
+    <View style={styles.appContainer}>
+      {/* Main Content Area */}
+      <View style={styles.contentContainer}>
+        {/* App Header */}
+        <AppHeader
+          drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+          isCloudLoading={isCloudLoading}
         />
+
+        {/* OTA Update Banner */}
+        <UpdateBanner />
+
+        {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
+        {/* <OTAUpdateDebugControls /> */}
+
+        {/* Current View */}
+        <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
       </View>
+
+      {/* Drawer Navigation - Rendered last to appear on top */}
+      <AppDrawer
+        drawerIsVisible={drawerIsVisible}
+        setDrawerIsVisible={setDrawerIsVisible}
+      />
+    </View>
+  );
+}
+
+export default function AppView() {
+  return (
+    <StatusProvider>
+      <CloudLoadingProvider>
+        <AppViewContent />
+      </CloudLoadingProvider>
     </StatusProvider>
   );
 }

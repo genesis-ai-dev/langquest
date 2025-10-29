@@ -18,6 +18,12 @@ export interface NavigationState {
   questName?: string;
   assetId?: string;
   assetName?: string;
+
+  // Optional: Pass full data objects to avoid re-querying
+  projectData?: Record<string, unknown>;
+  bookQuestData?: Record<string, unknown>;
+  questData?: Record<string, unknown>;
+  assetData?: Record<string, unknown>;
 }
 
 export function useAppNavigation() {
@@ -107,7 +113,12 @@ export function useAppNavigation() {
   }, [currentState.view, goBackToView]);
 
   const goToProject = useCallback(
-    (projectData: { id: string; name?: string; template?: string | null }) => {
+    (projectData: {
+      id: string;
+      name?: string;
+      template?: string | null;
+      projectData?: Record<string, unknown>;
+    }) => {
       // Check if we're already at this project or deeper
       if (
         currentState.projectId === projectData.id &&
@@ -129,7 +140,8 @@ export function useAppNavigation() {
           view: 'quests',
           projectId: projectData.id,
           projectName: projectData.name,
-          projectTemplate: projectData.template
+          projectTemplate: projectData.template,
+          projectData: projectData.projectData // Pass project data forward!
         });
       }
     },
@@ -137,7 +149,13 @@ export function useAppNavigation() {
   );
 
   const goToQuest = useCallback(
-    (questData: { id: string; project_id: string; name?: string }) => {
+    (questData: {
+      id: string;
+      project_id: string;
+      name?: string;
+      questData?: Record<string, unknown>;
+      projectData?: Record<string, unknown>;
+    }) => {
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -162,13 +180,15 @@ export function useAppNavigation() {
       ) {
         goBackToView('assets');
       } else {
-        // Navigate fresh, preserving bookId from current state (for Bible navigation)
+        // Navigate fresh, pass data forward and preserve bookId (for Bible navigation)
         navigate({
           view: 'assets',
           questId: questData.id,
           questName: questData.name,
           projectId: questData.project_id,
-          bookId: currentState.bookId // Preserve bookId for back navigation
+          bookId: currentState.bookId, // Preserve bookId for back navigation
+          projectData: questData.projectData || currentState.projectData,
+          questData: questData.questData
         });
       }
     },
@@ -181,6 +201,9 @@ export function useAppNavigation() {
       name?: string;
       projectId?: string;
       questId?: string;
+      assetData?: Record<string, unknown>;
+      questData?: Record<string, unknown>;
+      projectData?: Record<string, unknown>;
     }) => {
       // Use provided IDs or fall back to current state
       const targetProjectId = assetData.projectId || currentState.projectId;
@@ -206,7 +229,10 @@ export function useAppNavigation() {
         assetName: assetData.name,
         projectId: targetProjectId,
         questId: targetQuestId,
-        bookId: currentState.bookId // Preserve bookId for back navigation
+        bookId: currentState.bookId, // Preserve bookId for back navigation
+        projectData: assetData.projectData || currentState.projectData,
+        questData: assetData.questData || currentState.questData,
+        assetData: assetData.assetData
       });
     },
     [navigate, currentState, addRecentAsset]
@@ -222,6 +248,10 @@ export function useAppNavigation() {
 
   const goToSettings = useCallback(() => {
     navigate({ view: 'settings' });
+  }, [navigate]);
+
+  const goToCorruptedAttachments = useCallback(() => {
+    navigate({ view: 'corrupted-attachments' });
   }, [navigate]);
 
   // Breadcrumb navigation
@@ -293,6 +323,12 @@ export function useAppNavigation() {
     currentQuestName: currentState.questName,
     currentAssetName: currentState.assetName,
 
+    // Data objects (for instant navigation)
+    currentProjectData: currentState.projectData,
+    currentBookQuestData: currentState.bookQuestData,
+    currentQuestData: currentState.questData,
+    currentAssetData: currentState.assetData,
+
     // Navigation functions
     navigate,
     goBack,
@@ -304,6 +340,7 @@ export function useAppNavigation() {
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToCorruptedAttachments,
 
     // Utilities
     breadcrumbs,
@@ -322,7 +359,11 @@ export function useCurrentNavigation() {
     currentProjectTemplate,
     currentBookId,
     currentQuestName,
-    currentAssetName
+    currentAssetName,
+    currentProjectData,
+    currentBookQuestData,
+    currentQuestData,
+    currentAssetData
   } = useAppNavigation();
 
   // Memoize objects to prevent infinite re-renders
@@ -369,6 +410,11 @@ export function useCurrentNavigation() {
     currentBookId,
     currentQuestName,
     currentAssetName,
-    currentProjectName
+    currentProjectName,
+    // Data objects for instant rendering
+    currentProjectData,
+    currentBookQuestData,
+    currentQuestData,
+    currentAssetData
   };
 }

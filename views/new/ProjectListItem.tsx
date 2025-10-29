@@ -139,7 +139,8 @@ export function ProjectListItem({
     goToProject({
       id: project.id,
       name: project.name,
-      template: project.template
+      template: project.template,
+      projectData: project // Pass full project data for instant rendering!
     });
   }
 

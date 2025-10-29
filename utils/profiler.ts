@@ -509,7 +509,7 @@ export const trackStateUpdate = (
 
 // Start blocking detection immediately
 if (__DEV__) {
-  // profiler.startBlockingDetection();
+  profiler.startBlockingDetection();
 }
 
 // Make available globally for debugging

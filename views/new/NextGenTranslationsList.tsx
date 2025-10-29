@@ -120,23 +120,21 @@ export default function NextGenTranslationsList({
       <View className="h-px bg-border" />
 
       {/* Header with toggle and sort options */}
-      <View className="flex-col gap-4 py-4">
-        <View className="flex-row items-center justify-between gap-2">
-          <Text variant="h4">
-            {t('translations')}
+      <View className="flex-col gap-3 py-4">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <Text variant="h4">{t('translations')}</Text>
             {isPrivateProject && !canVote && (
-              <Text className="text-base">
-                <Icon as={LockIcon} />
-              </Text>
+              <Icon as={LockIcon} size={18} className="text-muted-foreground" />
             )}
-          </Text>
+          </View>
 
           {/* Data Source Toggle */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOW_DEV_ELEMENTS && (
             <View className="flex-row items-center gap-2">
               <Text
-                className={`text-base ${!useOfflineData ? 'opacity-30' : ''}`}
+                className={`text-sm ${!useOfflineData ? 'text-muted-foreground' : 'text-foreground'}`}
               >
                 💾
               </Text>
@@ -147,62 +145,78 @@ export default function NextGenTranslationsList({
                 }
               />
               <Text
-                className={`text-base ${useOfflineData ? 'opacity-30' : ''}`}
+                className={`text-sm ${useOfflineData ? 'text-muted-foreground' : 'text-foreground'}`}
               >
                 🌐
               </Text>
             </View>
           )}
+        </View>
 
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="p-2"
-              onPress={toggleSortOrder}
+        {/* Sort Controls */}
+        <View className="flex-row items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onPress={toggleSortOrder}
+          >
+            <Icon
+              as={
+                sortOrder === 'asc'
+                  ? ArrowUpNarrowWideIcon
+                  : ArrowDownWideNarrowIcon
+              }
+              size={16}
+            />
+            <Text className="text-sm">
+              {sortOrder === 'asc' ? 'A→Z' : 'Z→A'}
+            </Text>
+          </Button>
+
+          <Button
+            variant={sortOption === 'voteCount' ? 'default' : 'outline'}
+            size="sm"
+            className="gap-2"
+            onPress={() => setSortOption('voteCount')}
+          >
+            <Icon
+              as={ThumbsUpIcon}
+              size={16}
+              className={
+                sortOption === 'voteCount'
+                  ? 'text-primary-foreground'
+                  : 'text-foreground'
+              }
+            />
+            <Text
+              className={`text-sm ${sortOption === 'voteCount' ? 'text-primary-foreground' : 'text-foreground'}`}
             >
-              <Icon
-                as={
-                  sortOrder === 'asc'
-                    ? ArrowUpNarrowWideIcon
-                    : ArrowDownWideNarrowIcon
-                }
-                size={16}
-              />
-            </Button>
-            <Button
-              variant={sortOption === 'voteCount' ? 'default' : 'outline'}
-              size="icon"
-              className="p-2"
-              onPress={() => setSortOption('voteCount')}
+              {t('votes')}
+            </Text>
+          </Button>
+
+          <Button
+            variant={sortOption === 'dateSubmitted' ? 'default' : 'outline'}
+            size="sm"
+            className="gap-2"
+            onPress={() => setSortOption('dateSubmitted')}
+          >
+            <Icon
+              as={CalendarIcon}
+              size={16}
+              className={
+                sortOption === 'dateSubmitted'
+                  ? 'text-primary-foreground'
+                  : 'text-foreground'
+              }
+            />
+            <Text
+              className={`text-sm ${sortOption === 'dateSubmitted' ? 'text-primary-foreground' : 'text-foreground'}`}
             >
-              <Icon
-                as={ThumbsUpIcon}
-                size={16}
-                className={
-                  sortOption === 'voteCount'
-                    ? 'text-primary-foreground'
-                    : 'text-foreground'
-                }
-              />
-            </Button>
-            <Button
-              variant={sortOption === 'dateSubmitted' ? 'default' : 'outline'}
-              size="icon"
-              className="p-2"
-              onPress={() => setSortOption('dateSubmitted')}
-            >
-              <Icon
-                as={CalendarIcon}
-                size={16}
-                className={
-                  sortOption === 'dateSubmitted'
-                    ? 'text-primary-foreground'
-                    : 'text-foreground'
-                }
-              />
-            </Button>
-          </View>
+              {t('date')}
+            </Text>
+          </Button>
         </View>
       </View>
 
@@ -229,9 +243,17 @@ export default function NextGenTranslationsList({
             />
           )}
           ListEmptyComponent={() => (
-            <View className="flex-1 items-center justify-center gap-8">
-              <Text className="text-center text-muted-foreground">
+            <View className="flex-1 items-center justify-center gap-4 px-8 py-16">
+              <Icon
+                as={ThumbsUpIcon}
+                size={48}
+                className="text-muted-foreground/50"
+              />
+              <Text className="text-center text-lg font-medium text-muted-foreground">
                 {t('noTranslationsYet')}
+              </Text>
+              <Text className="text-center text-sm text-muted-foreground/70">
+                Be the first to translate!
               </Text>
             </View>
           )}
