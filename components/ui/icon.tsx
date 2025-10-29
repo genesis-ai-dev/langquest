@@ -3,7 +3,6 @@ import type { LucideIcon, LucideProps } from 'lucide-react-native';
 import type { MotiProps } from 'moti';
 import { useMotify } from 'moti';
 import { cssInterop } from 'nativewind';
-import Animated from 'react-native-reanimated';
 
 type IconProps = MotiProps<LucideProps> &
   LucideProps & {
@@ -17,15 +16,10 @@ const MotiIconImpl = React.forwardRef<
   React.ComponentRef<LucideIcon>,
   IconProps
 >(function IconImpl({ as: IconComponent, ...props }, ref) {
-  const AnimatedComponent = Animated.createAnimatedComponent(IconComponent);
   const animated = useMotify<LucideProps>(props);
   return (
-    <AnimatedComponent
-      {...props}
-      animatedProps={animated.style}
-      // @ts-expect-error - ref type mismatch between animated component and original
-      ref={ref}
-    />
+    // @ts-expect-error - style from animated is compatible but types don't match exactly
+    <IconComponent {...props} style={animated.style} ref={ref} />
   );
 });
 

@@ -304,9 +304,11 @@ export default function ProjectDirectoryView() {
 
   const form = useForm<FormData>({
     defaultValues: {
-      name: ''
+      name: '',
+      description: ''
     },
-    resolver: zodResolver(formSchema)
+    resolver: zodResolver(formSchema),
+    mode: 'onChange'
   });
 
   const { hasAccess: canManageProject, membership } = useUserPermissions(
