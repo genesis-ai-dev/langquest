@@ -4770,6 +4770,41 @@ export const localizations = {
     brazilian_portuguese: 'Voltar aos Projetos',
     tok_pisin: 'Go bek long ol Projek',
     indonesian: 'Kembali ke Proyek'
+  },
+  downloaded: {
+    english: 'Downloaded',
+    spanish: 'Descargado',
+    brazilian_portuguese: 'Baixado',
+    tok_pisin: 'Downloaded',
+    indonesian: 'Diunduh'
+  },
+  freeUpSpace: {
+    english: 'Free Up Space',
+    spanish: 'Liberar Espacio',
+    brazilian_portuguese: 'Liberar Espaço',
+    tok_pisin: 'Free Up Space',
+    indonesian: 'Bebaskan Ruang'
+  },
+  storageUsed: {
+    english: 'Storage Used',
+    spanish: 'Espacio Usado',
+    brazilian_portuguese: 'Espaço Usado',
+    tok_pisin: 'Storage Used',
+    indonesian: 'Penyimpanan yang Digunakan'
+  },
+  notDownloaded: {
+    english: 'Not Downloaded',
+    spanish: 'No Descargado',
+    brazilian_portuguese: 'Não Baixado',
+    tok_pisin: 'Not Downloaded',
+    indonesian: 'Tidak Diunduh'
+  },
+  missingCloudData: {
+    english: 'Missing Cloud Data',
+    spanish: 'Falta Datos en la Nube',
+    brazilian_portuguese: 'Dados na Nuvem Faltando',
+    tok_pisin: 'No gat ol data long cloud',
+    indonesian: 'Data Cloud Hilang'
   }
 } as const;
 

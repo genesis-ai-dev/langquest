@@ -1,6 +1,7 @@
 import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
 import { system } from '@/db/powersync/system';
 import type { VerifiedIds } from '@/hooks/useQuestOffloadVerification';
+import { bulkUndownloadQuest } from '@/utils/bulkUndownload';
 import { eq, inArray } from 'drizzle-orm';
 
 interface OffloadQuestParams {
@@ -28,13 +29,30 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
   console.log(`🗑️ [Offload] Starting offload for quest: ${questId}`);
 
   try {
+    // STEP 1: Remove profile from cloud download_profiles arrays using bulk undownload
+    console.log('🔄 [Offload] Starting bulk undownload...');
+    onProgress?.(5, 'Removing from cloud download profiles...');
+
+    const bulkResult = await bulkUndownloadQuest(verifiedIds);
+    console.log('✅ [Offload] Cloud download profiles updated:', bulkResult);
+
+    // STEP 2: Wait for PowerSync to sync the removal (optional but helps avoid race conditions)
+    console.log('⏳ [Offload] Waiting for PowerSync to sync removal...');
+    onProgress?.(10, 'Syncing changes...');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // STEP 3: Clean up any remaining local records
+    console.log('🗑️ [Offload] Cleaning up local records...');
+    onProgress?.(15, 'Cleaning up local data...');
+
     await system.db.transaction(async (tx) => {
       let currentStep = 0;
       const totalSteps = 11;
 
       const updateProgress = (message: string) => {
         currentStep++;
-        const progress = (currentStep / totalSteps) * 100;
+        // Reserve 15% for cloud operations, use remaining 85% for local cleanup
+        const progress = 15 + (currentStep / totalSteps) * 85;
         console.log(
           `🗑️ [Offload] Step ${currentStep}/${totalSteps}: ${message}`
         );
@@ -198,70 +216,12 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       console.log('✅ [Offload] Transaction completed successfully');
     });
 
-    // After transaction, update download profile to remove this quest
-    // This ensures PowerSync doesn't re-download it
-    console.log('🔄 [Offload] Updating download profile...');
-    await removeFromDownloadProfile(questId);
-
-    console.log('✅ [Offload] Quest offloaded successfully');
+    console.log(
+      '✅ [Offload] Quest offloaded successfully - removed from cloud profiles and local data cleaned'
+    );
   } catch (error) {
     console.error('❌ [Offload] Failed to offload quest:', error);
     throw error;
-  }
-}
-
-/**
- * Remove quest from user's download profile.
- * This prevents PowerSync from re-downloading the quest.
- */
-async function removeFromDownloadProfile(questId: string): Promise<void> {
-  try {
-    const user = await system.supabaseConnector.client.auth.getUser();
-    const userId = user.data.user?.id;
-
-    if (!userId) {
-      console.warn(
-        '⚠️ [Offload] No user ID found, skipping download profile update'
-      );
-      return;
-    }
-
-    // Get current profile
-    const { data: profile, error: fetchError } =
-      await system.supabaseConnector.client
-        .from('profile')
-        .select('download_quests')
-        .eq('id', userId)
-        .single();
-
-    if (fetchError || !profile) {
-      console.warn('⚠️ [Offload] Could not fetch profile:', fetchError);
-      return;
-    }
-
-    // Remove quest from download list
-    const currentDownloads = profile.download_quests || [];
-    const updatedDownloads = currentDownloads.filter(
-      (id: string) => id !== questId
-    );
-
-    // Update profile
-    const { error: updateError } = await system.supabaseConnector.client
-      .from('profile')
-      .update({ download_quests: updatedDownloads })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.warn(
-        '⚠️ [Offload] Could not update download profile:',
-        updateError
-      );
-    } else {
-      console.log('✅ [Offload] Removed quest from download profile');
-    }
-  } catch (error) {
-    console.error('❌ [Offload] Error updating download profile:', error);
-    // Don't throw - this is a cleanup step
   }
 }
 

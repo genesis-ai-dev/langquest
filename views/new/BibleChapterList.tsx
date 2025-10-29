@@ -264,60 +264,29 @@ export function BibleChapterList({
       return data;
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Optimistically updating cache');
-
-      // Optimistically update the cache for downloaded quests
-      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
-
-      const updateChapterCache = (oldData: unknown, cacheType: string) => {
-        if (!oldData || !currentUser?.id) {
-          console.log(`📥 [Cache Update] No ${cacheType} data to update`);
-          return oldData;
-        }
-
-        const chapters = oldData as Array<{
-          quest_id: string;
-          quest_download_profiles?: string[] | null;
-          [key: string]: unknown;
-        }>;
-
-        console.log(
-          `📥 [Cache Update] Updating ${chapters.length} ${cacheType} chapters`
-        );
-
-        return chapters.map((chapter) => {
-          if (downloadedQuestIds.has(chapter.quest_id)) {
-            const currentProfiles = chapter.quest_download_profiles || [];
-            const updatedProfiles = currentProfiles.includes(currentUser.id)
-              ? currentProfiles
-              : [...currentProfiles, currentUser.id];
-
-            console.log(
-              `📥 [Cache Update] Updated chapter quest ${chapter.quest_id.slice(0, 8)}...`
-            );
-
-            return {
-              ...chapter,
-              quest_download_profiles: updatedProfiles
-            };
-          }
-          return chapter;
-        });
-      };
-
-      // Update both local and cloud query caches
-      queryClient.setQueriesData(
-        { queryKey: ['bible-chapters', 'local', projectId, bookId] },
-        (oldData: unknown) => updateChapterCache(oldData, 'local')
+      console.log(
+        '📥 [Bulk Download] Success - waiting for PowerSync to sync...'
       );
 
-      queryClient.setQueriesData(
-        { queryKey: ['bible-chapters', 'cloud', projectId, bookId] },
-        (oldData: unknown) => updateChapterCache(oldData, 'cloud')
-      );
+      // Wait for PowerSync to sync the updated download_profiles to local SQLite
+      // This ensures when we invalidate, the refetch will get the correct data
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log(
-        '📥 [Bulk Download] Cache updated, PowerSync will sync in background'
+        '📥 [Bulk Download] Invalidating queries to refetch from local SQLite'
+      );
+
+      // Invalidate chapter queries to refetch from local SQLite with updated download_profiles
+      await queryClient.invalidateQueries({
+        queryKey: ['bible-chapters', 'local', projectId, bookId]
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['bible-chapters', 'cloud', projectId, bookId]
+      });
+
+      console.log(
+        '📥 [Bulk Download] Complete - UI will show updated download status'
       );
     }
   });

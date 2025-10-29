@@ -23,7 +23,6 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -424,7 +423,7 @@ export default function NextGenAssetDetailView() {
             </View>
           )}
         </View>
-        {SHOW_DEV_ELEMENTS && offlineAsset && (
+        {__DEV__ && offlineAsset && (
           <Text className="text-sm text-foreground">
             V: {activeAsset.visible ? '🟢' : '🔴'} A:{' '}
             {activeAsset.active ? '🟢' : '🔴'}
@@ -505,7 +504,7 @@ export default function NextGenAssetDetailView() {
                   />
 
                   {/* Audio status indicator */}
-                  {SHOW_DEV_ELEMENTS && content.audio && (
+                  {__DEV__ && content.audio && (
                     <View
                       className="flex-row items-center gap-1"
                       style={{ marginTop: 8 }}

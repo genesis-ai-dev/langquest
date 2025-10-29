@@ -183,80 +183,34 @@ export default function ProjectDirectoryView() {
       return data;
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Optimistically updating cache');
-
-      // Optimistically update the cache for downloaded quests
-      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
-
-      const updateQuestCache = (oldData: unknown) => {
-        if (!oldData || !currentUser?.id) return oldData;
-
-        // Handle infinite query structure
-        const data = oldData as {
-          pages: Array<{
-            data: Array<{
-              id: string;
-              download_profiles?: string[] | null;
-              source?: string;
-              [key: string]: unknown;
-            }>;
-            nextCursor?: number;
-            hasMore: boolean;
-          }>;
-          pageParams: number[];
-        };
-
-        // Update each page
-        const updatedPages = data.pages.map((page) => ({
-          ...page,
-          data: page.data.map((quest) => {
-            // If this quest was downloaded, update its download_profiles and source
-            if (downloadedQuestIds.has(quest.id)) {
-              const currentProfiles = quest.download_profiles || [];
-              const updatedProfiles = currentProfiles.includes(currentUser.id)
-                ? currentProfiles
-                : [...currentProfiles, currentUser.id];
-
-              console.log(
-                `📥 [Cache Update] Updated quest ${quest.id.slice(0, 8)}...`
-              );
-
-              return {
-                ...quest,
-                download_profiles: updatedProfiles,
-                source: 'synced' // Mark as synced since it's now downloaded
-              };
-            }
-            return quest;
-          })
-        }));
-
-        return {
-          ...data,
-          pages: updatedPages
-        };
-      };
-
-      // Update offline queries (handles all search query variations)
-      queryClient.setQueriesData(
-        {
-          queryKey: ['quests', 'offline', 'for-project', currentProjectId],
-          exact: false
-        },
-        updateQuestCache
+      console.log(
+        '📥 [Bulk Download] Success - waiting for PowerSync to sync...'
       );
 
-      // Update cloud queries (handles all search query variations)
-      queryClient.setQueriesData(
-        {
-          queryKey: ['quests', 'cloud', 'for-project', currentProjectId],
-          exact: false
-        },
-        updateQuestCache
-      );
+      // Wait for PowerSync to sync the updated download_profiles to local SQLite
+      // This ensures when we invalidate, the refetch will get the correct data
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log(
-        '📥 [Bulk Download] Cache updated, PowerSync will sync in background'
+        '📥 [Bulk Download] Invalidating queries to refetch from local SQLite'
+      );
+
+      // Invalidate all quest queries for this project
+      // This will cause them to refetch from local SQLite which now has updated download_profiles
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+      });
+
+      console.log(
+        '📥 [Bulk Download] Complete - UI will show updated download status'
       );
     }
   });
@@ -526,6 +480,7 @@ export default function ProjectDirectoryView() {
             onAddChild={openCreateForParent}
             onDownloadClick={handleDownloadClick}
             onCloudLoadingChange={setQuestListCloudLoading}
+            downloadingQuestId={questIdToDownload}
           />
 
           <Button

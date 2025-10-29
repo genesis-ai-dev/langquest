@@ -10,7 +10,6 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
@@ -131,7 +130,7 @@ export default function NextGenTranslationsList({
 
           {/* Data Source Toggle */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {SHOW_DEV_ELEMENTS && (
+          {__DEV__ && (
             <View className="flex-row items-center gap-2">
               <Text
                 className={`text-sm ${!useOfflineData ? 'text-muted-foreground' : 'text-foreground'}`}

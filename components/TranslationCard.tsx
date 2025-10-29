@@ -6,7 +6,6 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import type { WithSource } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
@@ -71,7 +70,7 @@ export const TranslationCard = ({
 
             {/* Dev info */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && (
+            {__DEV__ && (
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs text-muted-foreground">
                   {asset.source === 'cloud' ? '🌐' : '💾'}
@@ -123,7 +122,7 @@ export const TranslationCard = ({
 
             {/* Dev vote breakdown */}
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && (
+            {__DEV__ && (
               <Text className="text-xs text-muted-foreground/70">
                 {asset.up_votes}↑ {asset.down_votes}↓
               </Text>

@@ -26,7 +26,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -522,7 +521,7 @@ export default function NextGenTranslationModal({
               )}
               {/* Debug Info */}
               {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-              {SHOW_DEV_ELEMENTS && (
+              {__DEV__ && (
                 <View className="items-center">
                   <Text className="text-sm text-muted-foreground">
                     {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}

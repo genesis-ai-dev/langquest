@@ -11,17 +11,20 @@ import {
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
   CheckIcon,
@@ -40,12 +43,15 @@ import { useHybridData } from './useHybridData';
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
+import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
 import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -63,6 +69,9 @@ export default function NextGenAssetsView() {
     currentProjectData,
     currentQuestData
   } = useCurrentNavigation();
+  const { goBack } = useAppNavigation();
+  const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -71,6 +80,8 @@ export default function NextGenAssetsView() {
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
+  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [isOffloading, setIsOffloading] = React.useState(false);
 
   type Quest = typeof questTable.$inferSelect;
 
@@ -255,6 +266,17 @@ export default function NextGenAssetsView() {
   const isOwner = membership === 'owner';
   const isMember = membership === 'member' || membership === 'owner';
 
+  // Initialize offload verification hook
+  const verificationState = useQuestOffloadVerification(currentQuestId || '');
+
+  // Check if quest is downloaded by checking download_profiles array
+  const questWithDownload = selectedQuest as Quest & {
+    download_profiles?: string[] | null;
+  };
+  const isQuestDownloaded =
+    questWithDownload?.download_profiles?.includes(currentUser?.id || '') ??
+    false;
+
   // Clean deeper layers
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
@@ -407,6 +429,70 @@ export default function NextGenAssetsView() {
     }
   });
 
+  // Handle offload button click - start verification
+  const handleOffloadClick = () => {
+    console.log('🗑️ [Offload] Opening verification drawer');
+    setShowOffloadDrawer(true);
+    verificationState.startVerification();
+  };
+
+  // Handle offload confirmation - execute offload
+  const handleOffloadConfirm = async () => {
+    console.log('🗑️ [Offload] User confirmed, executing offload');
+    setIsOffloading(true);
+    try {
+      await offloadQuest({
+        questId: currentQuestId || '',
+        verifiedIds: verificationState.verifiedIds,
+        onProgress: (progress, message) => {
+          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
+        }
+      });
+
+      Alert.alert(
+        t('success'),
+        t('offloadComplete') || 'Quest offloaded successfully'
+      );
+      setShowOffloadDrawer(false);
+      void refetch();
+
+      // Invalidate download status queries so UI updates immediately
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status', 'quest', currentQuestId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status', 'project', currentProjectId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['quest-download-status', currentQuestId]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['project-download-status', currentProjectId]
+      });
+
+      // Invalidate all download-status queries to refresh download indicators
+      await queryClient.invalidateQueries({
+        queryKey: ['download-status']
+      });
+
+      // Invalidate quest list and project queries
+      await queryClient.invalidateQueries({
+        queryKey: ['quests']
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['projects']
+      });
+
+      // Navigate back to project directory view (quests view)
+      goBack();
+    } catch (error) {
+      console.error('Failed to offload quest:', error);
+      Alert.alert(t('error'), t('offloadError') || 'Failed to offload quest');
+    } finally {
+      setIsOffloading(false);
+    }
+  };
+
   if (!currentQuestId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -525,22 +611,18 @@ export default function NextGenAssetsView() {
         suffixStyling={false}
       />
 
-      {SHOW_DEV_ELEMENTS && (
+      {__DEV__ && (
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {SHOW_DEV_ELEMENTS &&
-        !isAttachmentStatesLoading &&
-        attachmentStates.size > 0 && (
-          <View className="rounded-md bg-muted p-3">
-            <Text className="mb-1 font-semibold">
-              📎 {t('liveAttachmentStates')}:
-            </Text>
-            <Text className="text-muted-foreground">
-              {attachmentSummaryText}
-            </Text>
-          </View>
-        )}
+      {__DEV__ && !isAttachmentStatesLoading && attachmentStates.size > 0 && (
+        <View className="rounded-md bg-muted p-3">
+          <Text className="mb-1 font-semibold">
+            📎 {t('liveAttachmentStates')}:
+          </Text>
+          <Text className="text-muted-foreground">{attachmentSummaryText}</Text>
+        </View>
+      )}
 
       {isLoading || (isFetching && assets.length === 0) ? (
         searchQuery.trim().length > 0 ? (
@@ -612,7 +694,18 @@ export default function NextGenAssetsView() {
             <SpeedDialItem
               icon={InfoIcon}
               variant="outline"
-              onPress={() => setShowDetailsModal(true)}
+              onPress={() => {
+                console.log('📋 [Info] Opening details modal', {
+                  selectedQuest: selectedQuest?.id,
+                  isDownloaded: isQuestDownloaded,
+                  storageBytes: verificationState.estimatedStorageBytes
+                });
+                setShowDetailsModal(true);
+                // Start verification to get storage estimate if quest is downloaded
+                if (isQuestDownloaded && !verificationState.isVerifying) {
+                  verificationState.startVerification();
+                }
+              }}
             />
           </SpeedDialItems>
           <SpeedDialTrigger />
@@ -627,12 +720,15 @@ export default function NextGenAssetsView() {
           projectId={currentProjectId || ''}
         />
       )}
-      {showDetailsModal && selectedQuest && (
+      {selectedQuest && (
         <ModalDetails
           isVisible={showDetailsModal}
           contentType="quest"
           content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
+          isDownloaded={isQuestDownloaded}
+          estimatedStorageBytes={verificationState.estimatedStorageBytes}
+          onOffloadClick={handleOffloadClick}
         />
       )}
       {showReportModal && (
@@ -646,6 +742,19 @@ export default function NextGenAssetsView() {
           onReportSubmitted={() => refetchReport()}
         />
       )}
+
+      {/* Offload Verification Drawer */}
+      <QuestOffloadVerificationDrawer
+        isOpen={showOffloadDrawer}
+        onOpenChange={(open) => {
+          if (!open && !isOffloading) {
+            setShowOffloadDrawer(false);
+            verificationState.cancel();
+          }
+        }}
+        onContinue={handleOffloadConfirm}
+        verificationState={verificationState}
+      />
     </View>
   );
 }

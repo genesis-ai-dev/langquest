@@ -1,7 +1,15 @@
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors } from '@/styles/theme';
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, View } from 'react-native';
 
 interface DownloadConfirmationModalProps {
   visible: boolean;
@@ -29,6 +37,7 @@ export const DownloadConfirmationModal: React.FC<
   discoveredCounts
 }) => {
   const { t } = useLocalization();
+
   const getConfirmationText = () => {
     // Use discoveredCounts if available (from new discovery system)
     if (discoveredCounts) {
@@ -60,100 +69,29 @@ export const DownloadConfirmationModal: React.FC<
       visible={visible}
       onRequestClose={onCancel}
     >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>
-            Download {downloadType === 'project' ? 'Project' : 'Quest'}
-          </Text>
+      <View className="flex-1 items-center justify-center bg-black/50 px-5">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">
+              Download {downloadType === 'project' ? 'Project' : 'Quest'}
+            </CardTitle>
+          </CardHeader>
 
-          <Text style={styles.modalText}>{getConfirmationText()}</Text>
+          <CardContent>
+            <Text className="text-base leading-6">{getConfirmationText()}</Text>
+          </CardContent>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={onCancel}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+          <CardFooter className="flex-row justify-between gap-3">
+            <Button variant="outline" onPress={onCancel} className="flex-1">
+              <Text>Cancel</Text>
+            </Button>
 
-            <TouchableOpacity
-              style={[styles.button, styles.confirmButton]}
-              onPress={onConfirm}
-            >
-              <Text style={styles.confirmButtonText}>Download</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <Button variant="default" onPress={onConfirm} className="flex-1">
+              <Text>Download</Text>
+            </Button>
+          </CardFooter>
+        </Card>
       </View>
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 25,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    minWidth: 300
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 15,
-    textAlign: 'center'
-  },
-  modalText: {
-    fontSize: 16,
-    color: colors.text,
-    textAlign: 'left',
-    marginBottom: 20,
-    lineHeight: 22
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: 10
-  },
-  button: {
-    borderRadius: 10,
-    padding: 12,
-    elevation: 2,
-    flex: 1
-  },
-  cancelButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.disabled
-  },
-  confirmButton: {
-    backgroundColor: colors.primary
-  },
-  cancelButtonText: {
-    color: colors.text,
-    fontWeight: 'bold',
-    textAlign: 'center'
-  },
-  confirmButtonText: {
-    color: colors.background,
-    fontWeight: 'bold',
-    textAlign: 'center'
-  }
-});

@@ -31,6 +31,7 @@ export interface QuestTreeRowProps {
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
+  downloadingQuestId?: string | null;
 }
 
 export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
@@ -42,22 +43,37 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   isDownloading = false,
   onToggleExpand,
   onAddChild,
-  onDownloadClick
+  onDownloadClick,
+  downloadingQuestId
 }) => {
   const { goToQuest, currentProjectId } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
-  const handleQuestPress = () => {
-    // Check if quest is downloaded before allowing navigation
-    const questWithDownload = quest as Quest & {
-      download_profiles?: string[] | null;
-    };
-    const isDownloaded =
-      questWithDownload.download_profiles?.includes(currentUser?.id || '') ??
-      false;
-    const isCloudQuest = quest.source === 'cloud';
+  // Local loading state - persists until component re-renders with fresh query data
+  const [isDownloadingLocally, setIsDownloadingLocally] = React.useState(false);
 
+  // Reset loading state when download is cancelled
+  // If downloadingQuestId changes from this quest.id to null/undefined, user cancelled
+  React.useEffect(() => {
+    if (isDownloadingLocally && downloadingQuestId !== quest.id) {
+      console.log(
+        `🚫 [Download] Cancellation detected for quest ${quest.id.slice(0, 8)}... - resetting loading state`
+      );
+      setIsDownloadingLocally(false);
+    }
+  }, [downloadingQuestId, quest.id, isDownloadingLocally]);
+
+  // Check if quest is downloaded by checking download_profiles array
+  const questWithDownload = quest as Quest & {
+    download_profiles?: string[] | null;
+  };
+  const isDownloaded =
+    questWithDownload.download_profiles?.includes(currentUser?.id || '') ??
+    false;
+  const isCloudQuest = quest.source === 'cloud';
+
+  const handleQuestPress = () => {
     if (isCloudQuest && !isDownloaded) {
       Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
         { text: t('cancel'), style: 'cancel' },
@@ -85,37 +101,53 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   return (
     <View
       className={cn(
-        'flex flex-row items-center gap-1 py-1',
+        'flex flex-row items-center gap-2 px-2 py-2', // more vertical and horizontal padding, larger gap
         !quest.visible && 'opacity-50'
       )}
-      style={{ paddingLeft: depth * 12 }}
+      style={{ paddingLeft: depth * 16 }} // increase indent
     >
       {(depth > 0 || hasChildren) && (
         <Component
           {...(hasChildren && { onPress: onToggleExpand })}
-          className="w-8 p-1"
+          className="w-10 items-center justify-center rounded-md active:bg-accent" // bigger hit area, round, ripple feedback
+          hitSlop={8}
         >
           {hasChildren && (
             <Icon
               as={isOpen ? ChevronDown : ChevronRight}
               className="text-muted-foreground"
+              size={22} // bump icon size
             />
           )}
         </Component>
       )}
-      <View className="flex flex-row items-center gap-2">
+      <View className="flex min-w-[40px] flex-row items-center gap-2">
         {!quest.visible && (
-          <Icon as={EyeOffIcon} className="text-muted-foreground" />
+          <Icon as={EyeOffIcon} className="text-muted-foreground" size={19} />
         )}
         {quest.source === 'local' && (
-          <Icon as={HardDriveIcon} className="text-muted-foreground" />
+          <Icon
+            as={HardDriveIcon}
+            className="text-muted-foreground"
+            size={19}
+          />
         )}
-        <Icon as={FolderIcon} className="mr-2 text-muted-foreground" />
+        <Icon
+          as={FolderIcon}
+          className="mr-2 text-muted-foreground"
+          size={22}
+        />
       </View>
-      <Pressable className="flex-1 overflow-hidden" onPress={handleQuestPress}>
+      <Pressable
+        className="flex-1 justify-center rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"
+        onPress={handleQuestPress}
+        hitSlop={10}
+      >
         <View className="flex flex-1 flex-row items-center gap-2">
-          <View>
-            <Text numberOfLines={1}>{quest.name}</Text>
+          <View style={{ minWidth: 40 }}>
+            <Text numberOfLines={1} className="text-base">
+              {quest.name}
+            </Text>
           </View>
           {quest.description && (
             <View className="flex-1 truncate">
@@ -135,14 +167,16 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       <View className="ml-2 flex flex-row items-center gap-1">
         {quest.source !== 'local' && (
           <DownloadIndicator
-            isFlaggedForDownload={quest.source === 'synced'}
-            isLoading={isDownloading}
+            isFlaggedForDownload={isDownloaded}
+            isLoading={isDownloading || isDownloadingLocally}
             onPress={() => {
-              if (quest.source === 'cloud' && onDownloadClick) {
+              if (!isDownloaded && onDownloadClick) {
+                setIsDownloadingLocally(true);
                 onDownloadClick(quest.id);
               }
             }}
             className="text-muted-foreground"
+            size={24}
           />
         )}
       </View>
@@ -150,10 +184,10 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         <Button
           size="icon"
           variant="outline"
-          className="ml-2 size-7"
+          className="ml-2 size-9 rounded-lg"
           onPress={() => onAddChild(quest.id)}
         >
-          <Icon as={Plus} />
+          <Icon as={Plus} size={22} />
         </Button>
       )}
     </View>

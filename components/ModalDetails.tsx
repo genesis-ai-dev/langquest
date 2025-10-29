@@ -9,7 +9,14 @@ import type { WithSource } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
-import { InfoIcon, Languages, XIcon } from 'lucide-react-native';
+import {
+  CloudOffIcon,
+  DatabaseIcon,
+  HardDriveDownloadIcon,
+  InfoIcon,
+  Languages,
+  XIcon
+} from 'lucide-react-native';
 import { default as React } from 'react';
 import { View } from 'react-native';
 import { Button } from './ui/button';
@@ -32,15 +39,31 @@ interface ModalDetailsProps {
   contentType: 'project' | 'quest';
   content: WithSource<Project | Quest>;
   onClose: () => void;
+  // Quest-specific props
+  isDownloaded?: boolean;
+  estimatedStorageBytes?: number;
+  onOffloadClick?: () => void;
 }
 
 export const ModalDetails: React.FC<ModalDetailsProps> = ({
   isVisible,
   contentType,
   content,
-  onClose
+  onClose,
+  isDownloaded = false,
+  estimatedStorageBytes = 0,
+  onOffloadClick
 }) => {
   const { t } = useLocalization();
+
+  // Format storage size
+  const formatStorageSize = (bytes: number): string => {
+    if (bytes === 0) return '—';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
   // Fetch project source languages from project_language_link and single target from project
   // let sourceLanguages: Pick<Language, 'id' | 'native_name' | 'english_name'>[] =
   //   [];
@@ -127,6 +150,29 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       ? targetLangArr[0]
       : null;
 
+  // Debug logging
+  React.useEffect(() => {
+    if (isVisible && contentType === 'quest') {
+      console.log('📋 [ModalDetails] Quest modal opened', {
+        questId: content.id,
+        questName: content.name,
+        isDownloaded,
+        estimatedStorageBytes,
+        hasOffloadClick: !!onOffloadClick,
+        contentSource: content.source,
+        shouldShowOffload:
+          isDownloaded && !!onOffloadClick && content.source !== 'local'
+      });
+    }
+  }, [
+    isVisible,
+    contentType,
+    content,
+    isDownloaded,
+    estimatedStorageBytes,
+    onOffloadClick
+  ]);
+
   return (
     <Drawer open={isVisible} onOpenChange={onClose} snapPoints={['50%', '90%']}>
       <DrawerContent className="bg-background px-4 pb-4">
@@ -173,6 +219,68 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                 {content.description.replace(/\\n/g, '\n\n')}
               </Text>
             </View>
+          )}
+
+          {/* Quest-specific: Download status and storage */}
+          {contentType === 'quest' && (
+            <>
+              <View className="flex-row items-center gap-3">
+                <Icon
+                  as={isDownloaded ? HardDriveDownloadIcon : CloudOffIcon}
+                  size={20}
+                />
+                <Text className="flex-1">
+                  {isDownloaded
+                    ? t('downloaded') || 'Downloaded'
+                    : t('notDownloaded') || 'Not Downloaded'}
+                </Text>
+              </View>
+
+              {isDownloaded && estimatedStorageBytes > 0 && (
+                <View className="flex-row items-center gap-3">
+                  <Icon as={DatabaseIcon} size={20} />
+                  <View className="flex-1 flex-row items-baseline gap-2">
+                    <Text className="text-sm text-muted-foreground">
+                      {t('storageUsed') || 'Storage Used'}:
+                    </Text>
+                    <Text className="font-semibold">
+                      {formatStorageSize(estimatedStorageBytes)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Offload button - only show if quest is downloaded and cloud */}
+              {isDownloaded && onOffloadClick && content.source !== 'local' && (
+                <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                  <Text className="mb-2 text-sm font-semibold text-destructive">
+                    {t('freeUpSpace') || 'Free Up Space'}
+                  </Text>
+                  <Text className="mb-3 text-sm text-muted-foreground">
+                    {t('offloadQuestDescription') ||
+                      'Remove this quest and its assets from your device. Your work will remain safely in the cloud and can be re-downloaded anytime.'}
+                    {estimatedStorageBytes > 0 && (
+                      <Text className="font-semibold">
+                        {' '}
+                        (~{formatStorageSize(estimatedStorageBytes)})
+                      </Text>
+                    )}
+                  </Text>
+                  <Button
+                    variant="destructive"
+                    onPress={() => {
+                      onClose();
+                      onOffloadClick();
+                    }}
+                  >
+                    <Icon as={CloudOffIcon} className="text-white" />
+                    <Text className="text-white">
+                      {t('offloadQuest') || 'Offload from Device'}
+                    </Text>
+                  </Button>
+                </View>
+              )}
+            </>
           )}
         </View>
       </DrawerContent>

@@ -11,7 +11,6 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import type { AttachmentRecord } from '@powersync/attachments';
 import { EyeOffIcon, HardDriveIcon, PauseIcon } from 'lucide-react-native';
 import React from 'react';
@@ -135,7 +134,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
               />
             </View>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && (
+            {__DEV__ && (
               <CardDescription>
                 {`ID: ${asset.id.substring(0, 8)}...`}
               </CardDescription>

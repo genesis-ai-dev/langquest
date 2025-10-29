@@ -1,12 +1,5 @@
 import { Button } from '@/components/ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
-} from '@/components/ui/drawer';
+import { Drawer, DrawerClose, DrawerContent } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -23,7 +16,8 @@ import {
   Loader2Icon,
   TagIcon,
   ThumbsUpIcon,
-  UploadCloudIcon
+  UploadCloudIcon,
+  XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -241,28 +235,44 @@ export function QuestOffloadVerificationDrawer({
       open={isOpen}
       onOpenChange={onOpenChange}
       dismissible={!isVerifying}
+      snapPoints={['100%']}
     >
-      <DrawerContent className="pb-safe">
-        <DrawerHeader>
-          <DrawerTitle>{t('offloadQuest') || 'Offload Quest'}</DrawerTitle>
-          <Text className="text-sm text-muted-foreground">
-            {hasPendingUploads
-              ? t('pendingUploadsDetected') || 'Pending uploads detected'
-              : isVerifying
-                ? t('verifyingCloudData') || 'Verifying data in cloud...'
-                : isReadyToOffload
-                  ? t('readyToOffload') || 'Ready to offload'
-                  : hasError
-                    ? t('cannotOffloadErrors') ||
-                      'Cannot offload - errors detected'
-                    : t('checkingPendingChanges') ||
-                      'Checking for pending changes...'}
-          </Text>
-        </DrawerHeader>
+      <DrawerContent className="flex-1 flex-col">
+        {/* Fixed Header */}
+        <View className="flex-shrink-0 flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
+          <View className="flex-1">
+            <Text className="text-xl font-semibold">
+              {t('offloadQuest') || 'Offload Quest'}
+            </Text>
+            <Text className="text-sm text-muted-foreground">
+              {hasPendingUploads
+                ? t('pendingUploadsDetected') || 'Pending uploads detected'
+                : isVerifying
+                  ? t('verifyingCloudData') || 'Verifying data in cloud...'
+                  : isReadyToOffload
+                    ? t('readyToOffload') || 'Ready to offload'
+                    : hasError
+                      ? t('cannotOffloadErrors') ||
+                        'Cannot offload - errors detected'
+                      : t('checkingPendingChanges') ||
+                        'Checking for pending changes...'}
+            </Text>
+          </View>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="icon" disabled={isVerifying}>
+              <Icon as={XIcon} size={24} />
+            </Button>
+          </DrawerClose>
+        </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Scrollable Content */}
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ padding: 16 }}
+        >
           {hasPendingUploads ? (
-            <View className="flex flex-col gap-4 px-4 py-6">
+            <View className="flex flex-col gap-4 py-6">
               <View className="rounded-lg bg-yellow-500/10 p-4">
                 <View className="mb-2 flex-row items-center gap-2">
                   <Icon
@@ -281,8 +291,8 @@ export function QuestOffloadVerificationDrawer({
               </View>
             </View>
           ) : (
-            <View className="flex flex-col gap-2 px-4">
-              <View className="flex-col gap-0">
+            <>
+              <ScrollView className="max-h-[25%] flex-1 flex-col gap-0 px-4">
                 <CategoryRow
                   label="Quest"
                   icon={FolderIcon}
@@ -334,15 +344,9 @@ export function QuestOffloadVerificationDrawer({
                   icon={FileTextIcon}
                   {...progress.attachments}
                 />
-              </View>
-            </View>
-          )}
-        </ScrollView>
+              </ScrollView>
 
-        <DrawerFooter>
-          {!hasPendingUploads && (
-            <>
-              <View className="mb-2 flex-row items-center justify-between rounded-lg bg-muted p-3">
+              <View className="mb-2 mt-4 flex-row items-center justify-between rounded-lg bg-muted p-3">
                 <Text className="text-sm font-semibold">
                   {t('totalRecords') || 'Total Records'}:
                 </Text>
@@ -361,49 +365,95 @@ export function QuestOffloadVerificationDrawer({
                   </Text>
                 </View>
               )}
+
+              {isReadyToOffload && (
+                <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
+                  <Text className="text-sm text-yellow-600">
+                    {t('offloadWarning') ||
+                      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.'}
+                  </Text>
+                </View>
+              )}
+
+              {hasError && !isVerifying && (
+                <View className="mb-2 min-h-10 rounded-lg bg-destructive/10 p-3">
+                  <View className="mb-2 flex-row items-center gap-2">
+                    <Icon
+                      as={AlertCircleIcon}
+                      size={20}
+                      className="text-destructive"
+                    />
+                    <Text className="font-semibold text-destructive">
+                      {t('missingCloudData') || 'Missing Cloud Data'}
+                    </Text>
+                  </View>
+                  <Text className="text-sm text-destructive">
+                    {t('cannotOffloadErrors') ||
+                      'Some data has not been uploaded to the cloud yet. Check the list above for items marked in red - these need to sync before you can safely offload.'}
+                  </Text>
+                  {progress.attachments.count >
+                    progress.attachments.verified && (
+                    <Text className="mt-2 text-sm font-semibold text-destructive">
+                      ⚠️{' '}
+                      {progress.attachments.count -
+                        progress.attachments.verified}{' '}
+                      audio file(s) not uploaded to cloud storage
+                    </Text>
+                  )}
+
+                  {/* Dev-only force offload */}
+                  {__DEV__ && (
+                    <View className="mt-3 rounded border border-yellow-600 bg-yellow-500/20 p-2">
+                      <Text className="mb-2 text-xs font-bold text-yellow-600">
+                        ⚠️ DEV MODE ONLY
+                      </Text>
+                      <Text className="mb-2 text-xs text-yellow-600">
+                        Force offload will delete local data even if not fully
+                        backed up. Use only for testing!
+                      </Text>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-yellow-600"
+                        onPress={onContinue}
+                        disabled={isVerifying || hasPendingUploads}
+                      >
+                        <Text className="text-xs font-bold text-yellow-600">
+                          Force Offload (Dev Only)
+                        </Text>
+                      </Button>
+                    </View>
+                  )}
+                </View>
+              )}
             </>
           )}
 
-          {isReadyToOffload && (
-            <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
-              <Text className="text-sm text-yellow-600">
-                {t('offloadWarning') ||
-                  'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.'}
+          {/* Fixed Footer with Buttons */}
+          <View className="pb-safe flex-shrink-0 gap-2 border-t border-border bg-background p-4">
+            <Button
+              onPress={onContinue}
+              disabled={!isReadyToOffload || isVerifying || hasPendingUploads}
+              variant={isReadyToOffload ? 'destructive' : 'default'}
+            >
+              <Text className="font-bold">
+                {isVerifying
+                  ? t('verifyingCloudData') || 'Verifying...'
+                  : hasPendingUploads
+                    ? t('waitingForUploads') || 'Waiting for Uploads'
+                    : isReadyToOffload
+                      ? t('continueToOffload') || 'Offload from Device'
+                      : t('cannotOffload') || 'Cannot Offload'}
               </Text>
-            </View>
-          )}
-
-          {hasError && !isVerifying && !hasPendingUploads && (
-            <View className="mb-2 rounded-lg bg-destructive/10 p-3">
-              <Text className="text-sm text-destructive">
-                {t('cannotOffloadErrors') ||
-                  'Some records were not found in the cloud or could not be verified. Cannot proceed with offload. This may indicate the data has not fully synced yet.'}
-              </Text>
-            </View>
-          )}
-
-          <Button
-            onPress={onContinue}
-            disabled={!isReadyToOffload || isVerifying || hasPendingUploads}
-            variant={isReadyToOffload ? 'destructive' : 'default'}
-          >
-            <Text className="font-bold">
-              {isVerifying
-                ? t('verifyingCloudData') || 'Verifying...'
-                : hasPendingUploads
-                  ? t('waitingForUploads') || 'Waiting for Uploads'
-                  : isReadyToOffload
-                    ? t('continueToOffload') || 'Offload from Device'
-                    : t('cannotOffload') || 'Cannot Offload'}
-            </Text>
-          </Button>
-
-          <DrawerClose asChild>
-            <Button variant="outline" disabled={isVerifying}>
-              <Text>{t('cancel')}</Text>
             </Button>
-          </DrawerClose>
-        </DrawerFooter>
+
+            <DrawerClose asChild>
+              <Button variant="outline" disabled={isVerifying}>
+                <Text>{t('cancel')}</Text>
+              </Button>
+            </DrawerClose>
+          </View>
+        </ScrollView>
       </DrawerContent>
     </Drawer>
   );
