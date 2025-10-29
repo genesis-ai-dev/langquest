@@ -233,7 +233,16 @@ const DrawerContent = React.forwardRef<
     <BottomSheetModal
       ref={context?.ref}
       onChange={handleSheetChanges}
-      backdropComponent={() => <PortalHost name="drawer-overlay-host" />}
+      backdropComponent={({ animatedIndex, animatedPosition }) => (
+        <BottomSheetBackdrop
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          opacity={0.5}
+          animatedIndex={animatedIndex}
+          animatedPosition={animatedPosition}
+          {...props}
+        />
+      )}
       handleComponent={() => <PortalHost name="drawer-handle-host" />}
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
       enablePanDownToClose={true}
@@ -249,7 +258,6 @@ const DrawerContent = React.forwardRef<
         {...props}
       >
         <DrawerHandle />
-        <DrawerOverlay />
         {children}
       </BottomSheetView>
     </BottomSheetModal>
@@ -325,7 +333,6 @@ export {
   DrawerHandle,
   DrawerHeader,
   DrawerInput,
-  DrawerOverlay,
   DrawerScrollView,
   DrawerTitle,
   DrawerTrigger

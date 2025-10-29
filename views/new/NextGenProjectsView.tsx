@@ -134,12 +134,6 @@ export default function NextGenProjectsView() {
 
   const savedLanguage = useLocalStore((state) => state.savedLanguage);
 
-  useEffect(() => {
-    if (savedLanguage && !form.getValues('target_language_id')) {
-      form.setValue('target_language_id', savedLanguage.id);
-    }
-  }, []);
-
   const resetForm = () => {
     form.reset(defaultValues);
     if (savedLanguage) form.setValue('target_language_id', savedLanguage.id);
@@ -157,6 +151,12 @@ export default function NextGenProjectsView() {
     resolver: zodResolver(formSchema),
     disabled: !currentUser?.id
   });
+
+  useEffect(() => {
+    if (savedLanguage && !form.getValues('target_language_id')) {
+      form.setValue('target_language_id', savedLanguage.id);
+    }
+  }, [form, savedLanguage]);
 
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent

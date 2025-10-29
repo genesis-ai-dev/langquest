@@ -149,7 +149,6 @@ export {
   DrawerHandle,
   DrawerHeader,
   DrawerInput,
-  DrawerOverlay,
   DrawerScrollView,
   DrawerTitle,
   DrawerTrigger
