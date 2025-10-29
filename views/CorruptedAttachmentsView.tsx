@@ -42,7 +42,7 @@ export default function CorruptedAttachmentsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleRefresh = useCallback(async () => {
     try {

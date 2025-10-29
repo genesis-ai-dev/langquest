@@ -35,11 +35,11 @@ export function AppUpgradeScreen({
     try {
       if (Platform.OS === 'ios') {
         // Replace with your actual App Store URL
-        await Linking.openURL('https://apps.apple.com/app/your-app-id');
+        await Linking.openURL('https://apps.apple.com/app/6752446665');
       } else if (Platform.OS === 'android') {
         // Replace with your actual Play Store URL
         await Linking.openURL(
-          'https://play.google.com/store/apps/details?id=your.package.name'
+          'https://play.google.com/store/apps/details?id=com.etengenesis.langquest'
         );
       } else {
         // For web, reload the page to get latest version
@@ -64,7 +64,7 @@ export function AppUpgradeScreen({
 
   return (
     <View className="flex-1 items-center justify-center bg-background p-6">
-      <View className="w-full max-w-md space-y-6">
+      <View className="w-full max-w-md flex-col gap-6">
         {/* Icon/Warning */}
         <View className="items-center">
           <View className="h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
@@ -73,7 +73,7 @@ export function AppUpgradeScreen({
         </View>
 
         {/* Title */}
-        <View className="items-center space-y-2">
+        <View className="flex-col items-center gap-2">
           <Text className="text-center text-2xl font-bold">
             {t('appUpgradeRequired')}
           </Text>
@@ -83,7 +83,7 @@ export function AppUpgradeScreen({
         </View>
 
         {/* Version Information */}
-        <View className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <View className="flex-col gap-3 rounded-lg border border-border bg-card p-4">
           <View className="flex-row items-center justify-between">
             <Text className="font-medium text-muted-foreground">
               {t('currentVersion')}
@@ -105,7 +105,7 @@ export function AppUpgradeScreen({
 
         {/* Upgrade Button (only shown when server is ahead) */}
         {showUpgradeButton && (
-          <View className="space-y-3">
+          <View className="flex-col gap-3">
             <Button
               onPress={handleUpgrade}
               className="w-full"

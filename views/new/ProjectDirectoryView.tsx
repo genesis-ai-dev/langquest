@@ -5,7 +5,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerClose,
@@ -157,7 +157,7 @@ export default function ProjectDirectoryView() {
     if (!showDiscoveryDrawer) {
       startedDiscoveryRef.current = null;
     }
-  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering]);
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState]);
 
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({
@@ -182,7 +182,7 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Bulk Download] Success:', data);
       return data;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       console.log('📥 [Bulk Download] Optimistically updating cache');
 
       // Optimistically update the cache for downloaded quests
@@ -193,16 +193,16 @@ export default function ProjectDirectoryView() {
 
         // Handle infinite query structure
         const data = oldData as {
-          pages: Array<{
-            data: Array<{
+          pages: {
+            data: {
               id: string;
               download_profiles?: string[] | null;
               source?: string;
               [key: string]: unknown;
-            }>;
+            }[];
             nextCursor?: number;
             hasMore: boolean;
-          }>;
+          }[];
           pageParams: number[];
         };
 
@@ -270,11 +270,10 @@ export default function ProjectDirectoryView() {
   type FormData = z.infer<typeof formSchema>;
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: 'onChange',
     defaultValues: {
       name: ''
-    }
+    },
+    resolver: zodResolver(formSchema)
   });
 
   const { hasAccess: canManageProject, membership } = useUserPermissions(
@@ -386,7 +385,7 @@ export default function ProjectDirectoryView() {
     if (isCreateOpen) {
       form.reset({ name: '', description: '' });
     }
-  }, [isCreateOpen]);
+  }, [isCreateOpen, form]);
 
   // Handle download click - start discovery
   const handleDownloadClick = (questId: string) => {
@@ -548,15 +547,15 @@ export default function ProjectDirectoryView() {
         <View className="flex-1">{renderContent()}</View>
       ) : (
         // Non-Bible project - needs Form/Drawer for quest creation
-        <Form {...form}>
-          <Drawer
-            open={isCreateOpen}
-            onOpenChange={setIsCreateOpen}
-            dismissible={!isCreatingQuest}
-          >
-            {renderContent()}
+        <Drawer
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          dismissible={!isCreatingQuest}
+        >
+          {renderContent()}
 
-            <DrawerContent className="pb-safe">
+          <DrawerContent className="pb-safe">
+            <Form {...form}>
               <DrawerHeader>
                 <DrawerTitle>{t('newQuest')}</DrawerTitle>
               </DrawerHeader>
@@ -603,13 +602,13 @@ export default function ProjectDirectoryView() {
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>
-                <DrawerClose className={buttonVariants({ variant: 'outline' })}>
+                <DrawerClose disabled={isCreatingQuest}>
                   <Text>{t('cancel')}</Text>
                 </DrawerClose>
               </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        </Form>
+            </Form>
+          </DrawerContent>
+        </Drawer>
       )}
 
       {/* Shared SpeedDial for all project types */}
