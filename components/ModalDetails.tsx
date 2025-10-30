@@ -30,6 +30,8 @@ import {
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
+const FEATURE_FLAG_CAN_OFFLOAD_QUEST = false;
+
 type Project = typeof project.$inferSelect;
 type Quest = typeof quest.$inferSelect;
 type Language = typeof language.$inferSelect;
@@ -174,7 +176,11 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
   ]);
 
   return (
-    <Drawer open={isVisible} onOpenChange={onClose} snapPoints={['50%', '90%']}>
+    <Drawer
+      open={isVisible}
+      onOpenChange={onClose}
+      snapPoints={FEATURE_FLAG_CAN_OFFLOAD_QUEST ? [430, 470] : [260]}
+    >
       <DrawerContent className="bg-background px-4 pb-4">
         <DrawerHeader className="flex-row items-center justify-between">
           <DrawerTitle>
@@ -187,7 +193,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
           </DrawerClose>
         </DrawerHeader>
 
-        <View className="flex-1 gap-4">
+        <View className="flex flex-col gap-4">
           <View className="border-b border-border pb-3">
             <Text className="text-lg font-bold">{content.name}</Text>
           </View>
@@ -251,35 +257,38 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
               )}
 
               {/* Offload button - only show if quest is downloaded and cloud */}
-              {isDownloaded && onOffloadClick && content.source !== 'local' && (
-                <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-                  <Text className="mb-2 text-sm font-semibold text-destructive">
-                    {t('freeUpSpace') || 'Free Up Space'}
-                  </Text>
-                  <Text className="mb-3 text-sm text-muted-foreground">
-                    {t('offloadQuestDescription') ||
-                      'Remove this quest and its assets from your device. Your work will remain safely in the cloud and can be re-downloaded anytime.'}
-                    {estimatedStorageBytes > 0 && (
-                      <Text className="font-semibold">
-                        {' '}
-                        (~{formatStorageSize(estimatedStorageBytes)})
-                      </Text>
-                    )}
-                  </Text>
-                  <Button
-                    variant="destructive"
-                    onPress={() => {
-                      onClose();
-                      onOffloadClick();
-                    }}
-                  >
-                    <Icon as={CloudOffIcon} className="text-white" />
-                    <Text className="text-white">
-                      {t('offloadQuest') || 'Offload from Device'}
+              {FEATURE_FLAG_CAN_OFFLOAD_QUEST &&
+                isDownloaded &&
+                onOffloadClick &&
+                content.source !== 'local' && (
+                  <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                    <Text className="mb-2 text-sm font-semibold text-destructive">
+                      {t('freeUpSpace') || 'Free Up Space'}
                     </Text>
-                  </Button>
-                </View>
-              )}
+                    <Text className="mb-3 text-sm text-muted-foreground">
+                      {t('offloadQuestDescription') ||
+                        'Remove this quest and its assets from your device. Your work will remain safely in the cloud and can be re-downloaded anytime.'}
+                      {estimatedStorageBytes > 0 && (
+                        <Text className="font-semibold">
+                          {' '}
+                          (~{formatStorageSize(estimatedStorageBytes)})
+                        </Text>
+                      )}
+                    </Text>
+                    <Button
+                      variant="destructive"
+                      onPress={() => {
+                        onClose();
+                        onOffloadClick();
+                      }}
+                    >
+                      <Icon as={CloudOffIcon} className="text-white" />
+                      <Text className="text-white">
+                        {t('offloadQuest') || 'Offload from Device'}
+                      </Text>
+                    </Button>
+                  </View>
+                )}
             </>
           )}
         </View>

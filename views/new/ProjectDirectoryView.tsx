@@ -136,6 +136,11 @@ export default function ProjectDirectoryView() {
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
 
+  // Track quest IDs that are currently downloading (for optimistic UI updates)
+  const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
+    Set<string>
+  >(new Set());
+
   // Offload drawer state for quest undownloads
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
@@ -187,10 +192,12 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Bulk Download] Success:', data);
       return data;
     },
-    onSuccess: () => {
-      console.log('📥 [Bulk Download] Optimistically updating cache');
+    onMutate: async () => {
+      console.log(
+        '📥 [Bulk Download] Optimistically updating cache (BEFORE mutation)'
+      );
 
-      // Optimistically update the cache for downloaded quests
+      // Optimistically update the cache for downloaded quests IMMEDIATELY
       const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
 
       const updateQuestCache = (oldData: unknown) => {
@@ -260,14 +267,29 @@ export default function ProjectDirectoryView() {
         updateQuestCache
       );
 
+      console.log(
+        '📥 [Bulk Download] Cache updated - UI should show downloaded state immediately'
+      );
+    },
+    onSuccess: () => {
       console.log('📥 [Bulk Download] Success - registering sync callback...');
 
       // Register callback to invalidate queries after PowerSync sync completes
       if (questIdToDownload) {
+        // Get all quest IDs to clear from downloading state
+        const questIdsToClear = discoveryState.discoveredIds.questIds;
+
         syncCallbackService.registerCallback(questIdToDownload, async () => {
           console.log(
             '📥 [Bulk Download] Sync completed - invalidating queries'
           );
+
+          // Clear downloading state - sync is complete, UI should show real data now
+          setDownloadingQuestIds((prev) => {
+            const next = new Set(prev);
+            questIdsToClear.forEach((id) => next.delete(id));
+            return next;
+          });
 
           // Invalidate all quest queries for this project
           await queryClient.invalidateQueries({
@@ -292,6 +314,11 @@ export default function ProjectDirectoryView() {
           );
         });
       }
+    },
+    onError: (error) => {
+      console.error('📥 [Bulk Download] Failed:', error);
+      // Rollback optimistic cache updates if mutation fails
+      // Query client will automatically rollback if we return context
     }
   });
 
@@ -468,8 +495,27 @@ export default function ProjectDirectoryView() {
   // Handle confirmation - execute bulk download
   const handleConfirmDownload = async () => {
     setShowConfirmationModal(false);
-    await bulkDownloadMutation.mutateAsync();
-    setQuestIdToDownload(null);
+
+    // Track all discovered quest IDs as downloading for optimistic UI
+    // Set this BEFORE mutation so components can show loading state
+    const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
+    setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
+
+    try {
+      // Mutation's onMutate will optimistically update cache, triggering UI updates
+      await bulkDownloadMutation.mutateAsync();
+      // Don't clear questIdToDownload yet - wait for sync callback
+    } catch (error) {
+      // On error, rollback cache and clear downloading state
+      // The mutation's onError will handle cache rollback
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        questIdsToTrack.forEach((id) => next.delete(id));
+        return next;
+      });
+      setQuestIdToDownload(null);
+      throw error;
+    }
   };
 
   // Handle cancellation
@@ -480,6 +526,12 @@ export default function ProjectDirectoryView() {
     // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
+      // Clear downloading state
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        next.delete(questIdToDownload);
+        return next;
+      });
     }
 
     setShowDiscoveryDrawer(false);
@@ -492,6 +544,14 @@ export default function ProjectDirectoryView() {
     // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
+
+      // Clear downloading state for all discovered quest IDs
+      const questIdsToClear = discoveryState.discoveredIds.questIds;
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        questIdsToClear.forEach((id) => next.delete(id));
+        return next;
+      });
     }
 
     setShowConfirmationModal(false);
@@ -872,6 +932,7 @@ export default function ProjectDirectoryView() {
             onDownloadClick={handleDownloadClick}
             onCloudLoadingChange={setQuestListCloudLoading}
             downloadingQuestId={questIdToDownload}
+            downloadingQuestIds={downloadingQuestIds}
           />
 
           <Button
@@ -1085,7 +1146,6 @@ export default function ProjectDirectoryView() {
         }}
         onContinue={handleOffloadContinue}
         verificationState={verificationState}
-        isOffloading={isOffloading}
       />
     </>
   );

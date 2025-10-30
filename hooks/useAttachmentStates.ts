@@ -11,7 +11,10 @@ import { system } from '../db/powersync/system';
 // Use the correct type based on platform
 type QueryResult = QueryResultNative | QueryResultWeb;
 
-export function useAttachmentStates(attachmentIds: string[] = []) {
+export function useAttachmentStates(
+  attachmentIds: string[] = [],
+  enabled: boolean = true
+) {
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>
   >(new Map());
@@ -21,6 +24,15 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // If disabled, abort any existing query and clear state
+    if (!enabled) {
+      abortControllerRef.current?.abort();
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      return;
+    }
+
     // Abort any previous query
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
@@ -92,7 +104,7 @@ export function useAttachmentStates(attachmentIds: string[] = []) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [JSON.stringify(attachmentIds.sort())]);
+  }, [JSON.stringify(attachmentIds.sort()), enabled]);
 
   return { attachmentStates, isLoading };
 }

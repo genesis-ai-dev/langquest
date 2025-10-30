@@ -23,6 +23,7 @@ import {
 } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
@@ -272,13 +273,8 @@ export default function NextGenAssetsView() {
   // Initialize offload verification hook
   const verificationState = useQuestOffloadVerification(currentQuestId || '');
 
-  // Check if quest is downloaded by checking download_profiles array
-  const questWithDownload = selectedQuest as Quest & {
-    download_profiles?: string[] | null;
-  };
-  const isQuestDownloaded =
-    questWithDownload?.download_profiles?.includes(currentUser?.id || '') ??
-    false;
+  // Query SQLite directly - single source of truth, no cache, no race conditions
+  const isQuestDownloaded = useQuestDownloadStatusLive(currentQuestId || null);
 
   // Clean deeper layers
   const currentStatus = useStatusContext();

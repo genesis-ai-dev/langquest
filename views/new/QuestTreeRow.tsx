@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { syncCallbackService } from '@/services/syncCallbackService';
+import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -33,6 +33,7 @@ export interface QuestTreeRowProps {
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
   downloadingQuestId?: string | null;
+  downloadingQuestIds?: Set<string>;
 }
 
 export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
@@ -45,59 +46,22 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   onToggleExpand,
   onAddChild,
   onDownloadClick,
-  downloadingQuestId
+  downloadingQuestId,
+  downloadingQuestIds = new Set()
 }) => {
   const { goToQuest, currentProjectId } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
-  // Local loading state - persists until component re-renders with fresh query data
-  const [isDownloadingLocally, setIsDownloadingLocally] = React.useState(false);
-  const [hasPendingCallback, setHasPendingCallback] = React.useState(false);
-
-  // Poll for callback status (only while we think there might be one)
-  React.useEffect(() => {
-    const checkCallback = () => {
-      const hasCallback = syncCallbackService.hasCallback(quest.id);
-      setHasPendingCallback(hasCallback);
-      
-      // If callback exists, ensure loading state is set
-      if (hasCallback && !isDownloadingLocally) {
-        setIsDownloadingLocally(true);
-      }
-    };
-
-    // Initial check
-    checkCallback();
-
-    // Poll every 200ms if we're in a loading state or have a pending callback
-    // This ensures we catch when callbacks are registered externally
-    if (isDownloadingLocally || hasPendingCallback) {
-      const interval = setInterval(checkCallback, 200);
-      return () => clearInterval(interval);
-    }
-  }, [quest.id, isDownloadingLocally, hasPendingCallback]);
-
-  // Reset loading state when download is cancelled
-  // If downloadingQuestId changes from this quest.id to null/undefined, user cancelled
-  React.useEffect(() => {
-    if (isDownloadingLocally && downloadingQuestId !== quest.id) {
-      console.log(
-        `🚫 [Download] Cancellation detected for quest ${quest.id.slice(0, 8)}... - resetting loading state`
-      );
-      setIsDownloadingLocally(false);
-      setHasPendingCallback(false);
-    }
-  }, [downloadingQuestId, quest.id, isDownloadingLocally]);
-
-  // Check if quest is downloaded by checking download_profiles array
-  const questWithDownload = quest as Quest & {
-    download_profiles?: string[] | null;
-  };
-  const isDownloaded =
-    questWithDownload.download_profiles?.includes(currentUser?.id || '') ??
-    false;
+  // Query SQLite directly - single source of truth, no cache, no race conditions
+  const isDownloaded = useQuestDownloadStatusLive(quest.id);
   const isCloudQuest = quest.source === 'cloud';
+
+  // Show loading if we're downloading AND not yet downloaded
+  // Loading automatically clears when SQL watch detects isDownloaded becomes true
+  const isOptimisticallyDownloading =
+    downloadingQuestIds.has(quest.id) || downloadingQuestId === quest.id;
+  const isLoading = isOptimisticallyDownloading && !isDownloaded;
 
   const handleQuestPress = () => {
     if (isCloudQuest && !isDownloaded) {
@@ -194,11 +158,9 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         {quest.source !== 'local' && (
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloadingLocally || hasPendingCallback}
+            isLoading={isLoading}
             onPress={() => {
               if (onDownloadClick) {
-                // Set loading state for both download and undownload
-                setIsDownloadingLocally(true);
                 onDownloadClick(quest.id);
               }
             }}

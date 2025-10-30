@@ -23,9 +23,9 @@ import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 import { eq } from 'drizzle-orm';
 import {
   FlagIcon,
@@ -40,11 +40,11 @@ import {
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert as RNAlert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  Alert as RNAlert,
   ScrollView,
   TouchableWithoutFeedback,
   View
@@ -382,182 +382,190 @@ export default function NextGenTranslationModal({
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
-          {isLoading ? (
-            <View className="py-8">
-              <ActivityIndicator
-                size="large"
-                color={getThemeColor('primary')}
-              />
-            </View>
-          ) : asset ? (
-            <View className="flex-col gap-4">
-              {/* Translation Text */}
-              {isEditing ? (
-                <Textarea
-                  placeholder={t('enterYourTranscription')}
-                  value={editedText}
-                  onChangeText={setEditedText}
-                  autoFocus
-                  size="sm"
-                />
-              ) : (
-                <Text
-                  className={cn(
-                    'text-lg leading-6 text-foreground',
-                    !assetText && 'italic text-muted-foreground'
-                  )}
-                >
-                  {assetText || '(No text)'}
-                </Text>
-              )}
-
-              {/* Audio Player */}
-              {audioSegments.length > 0 && !isEditing && (
-                <View>
-                  <AudioPlayer
-                    audioSegments={audioSegments}
-                    useCarousel={false}
-                    mini={false}
-                  />
-                </View>
-              )}
-
-              {/* Submit button for transcription */}
-              {isEditing && (
-                <Button
-                  variant="default"
-                  onPress={handleSubmitTranscription}
-                  disabled={!editedText.trim() || isTranscribing}
-                  loading={isTranscribing}
-                >
-                  <Text>{t('submitTranscription')}</Text>
-                </Button>
-              )}
-
-              {/* Voting Section with PrivateAccessGate */}
-              {!isOwnTranslation &&
-                currentUser &&
-                !isEditing &&
-                !hasReported && (
-                  <PrivateAccessGate
-                    projectId={projectId || ''}
-                    projectName={projectName || ''}
-                    isPrivate={isPrivateProject}
-                    action="vote"
-                    inline={true}
-                  >
-                    <View className="flex-col gap-2.5">
-                      <View className="border-b border-foreground">
-                        <Text className="text-center text-base font-bold text-foreground">
-                          {t('voting')}
-                        </Text>
-                      </View>
-                      <View className="w-full flex-row items-center justify-around">
-                        <Button
-                          variant={
-                            userVote?.polarity === 'up'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                          onPress={() => handleVote({ voteType: 'up' })}
-                          disabled={isVotePending}
-                          className="flex-row items-center justify-center bg-green-500 px-6 py-3"
-                        >
-                          {pendingVoteType === 'up' ? (
-                            <ActivityIndicator size="small" color="white" />
-                          ) : (
-                            <Icon
-                              as={ThumbsUpIcon}
-                              size={24}
-                              className="text-white"
-                            />
-                          )}
-                        </Button>
-
-                        <View className="flex-1 flex-col items-center justify-center rounded-md">
-                          <View>
-                            <Text className="text-center text-base font-bold text-foreground">
-                              Net: {upVotes - downVotes > 0 ? '+' : ''}
-                              {upVotes - downVotes}
-                            </Text>
-                          </View>
-                          <View className="w-full flex-1 flex-row justify-between px-4">
-                            <Text className="text-base font-bold text-foreground">
-                              {upVotes}
-                            </Text>
-                            <Text className="text-base font-bold text-foreground">
-                              {downVotes}
-                            </Text>
-                          </View>
-                        </View>
-                        <Button
-                          variant={
-                            userVote?.polarity === 'down'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                          onPress={() => handleVote({ voteType: 'down' })}
-                          disabled={isVotePending}
-                          className="flex-row items-center justify-center bg-red-600 px-6 py-3"
-                        >
-                          {pendingVoteType === 'down' ? (
-                            <ActivityIndicator size="small" color="white" />
-                          ) : (
-                            <Icon
-                              as={ThumbsDownIcon}
-                              size={24}
-                              className="text-white"
-                            />
-                          )}
-                        </Button>
-                      </View>
+                  {isLoading ? (
+                    <View className="py-8">
+                      <ActivityIndicator
+                        size="large"
+                        color={getThemeColor('primary')}
+                      />
                     </View>
-                  </PrivateAccessGate>
-                )}
+                  ) : asset ? (
+                    <View className="flex-col gap-4">
+                      {/* Translation Text */}
+                      {isEditing ? (
+                        <Textarea
+                          placeholder={t('enterYourTranscription')}
+                          value={editedText}
+                          onChangeText={setEditedText}
+                          autoFocus
+                          size="sm"
+                        />
+                      ) : (
+                        <Text
+                          className={cn(
+                            'text-lg leading-6 text-foreground',
+                            !assetText && 'italic text-muted-foreground'
+                          )}
+                        >
+                          {assetText || '(No text)'}
+                        </Text>
+                      )}
 
-              {/* Show login prompt if not logged in */}
-              {!currentUser && !isEditing && (
-                <Alert icon={UserCircleIcon}>
-                  <AlertTitle>
-                    {t('pleaseLogInToVoteOnTranslations')}
-                  </AlertTitle>
-                </Alert>
-              )}
-              {isOwnTranslation ? (
-                <TranslationSettingsModal
-                  isVisible={showSettingsModal}
-                  onClose={() => setShowSettingsModal(false)}
-                  translationId={assetId}
-                />
-              ) : (
-                <ReportModal
-                  isVisible={showReportModal}
-                  onClose={() => setShowReportModal(false)}
-                  recordId={assetId}
-                  recordTable="assets"
-                  creatorId={asset.creator_id ?? undefined}
-                  hasAlreadyReported={hasReported}
-                  onReportSubmitted={() => refetch()}
-                />
-              )}
-              {/* Debug Info */}
-              {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-              {SHOW_DEV_ELEMENTS && (
-                <View className="items-center">
-                  <Text className="text-sm text-muted-foreground">
-                    {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
-                    {asset.id.substring(0, 8)}...
-                  </Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View className="py-8">
-              <Text className="text-center text-base text-destructive">
-                {t('translationNotFound')}
-              </Text>
-            </View>
-          )}
+                      {/* Audio Player */}
+                      {audioSegments.length > 0 && !isEditing && (
+                        <View>
+                          <AudioPlayer
+                            audioSegments={audioSegments}
+                            useCarousel={false}
+                            mini={false}
+                          />
+                        </View>
+                      )}
+
+                      {/* Submit button for transcription */}
+                      {isEditing && (
+                        <Button
+                          variant="default"
+                          onPress={handleSubmitTranscription}
+                          disabled={!editedText.trim() || isTranscribing}
+                          loading={isTranscribing}
+                        >
+                          <Text>{t('submitTranscription')}</Text>
+                        </Button>
+                      )}
+
+                      {/* Voting Section with PrivateAccessGate */}
+                      {!isOwnTranslation &&
+                        currentUser &&
+                        !isEditing &&
+                        !hasReported && (
+                          <PrivateAccessGate
+                            projectId={projectId || ''}
+                            projectName={projectName || ''}
+                            isPrivate={isPrivateProject}
+                            action="vote"
+                            inline={true}
+                          >
+                            <View className="flex-col gap-2.5">
+                              <View className="border-b border-foreground">
+                                <Text className="text-center text-base font-bold text-foreground">
+                                  {t('voting')}
+                                </Text>
+                              </View>
+                              <View className="w-full flex-row items-center justify-around">
+                                <Button
+                                  variant={
+                                    userVote?.polarity === 'up'
+                                      ? 'default'
+                                      : 'secondary'
+                                  }
+                                  onPress={() => handleVote({ voteType: 'up' })}
+                                  disabled={isVotePending}
+                                  className="flex-row items-center justify-center bg-green-500 px-6 py-3"
+                                >
+                                  {pendingVoteType === 'up' ? (
+                                    <ActivityIndicator
+                                      size="small"
+                                      color="white"
+                                    />
+                                  ) : (
+                                    <Icon
+                                      as={ThumbsUpIcon}
+                                      size={24}
+                                      className="text-white"
+                                    />
+                                  )}
+                                </Button>
+
+                                <View className="flex-1 flex-col items-center justify-center rounded-md">
+                                  <View>
+                                    <Text className="text-center text-base font-bold text-foreground">
+                                      Net: {upVotes - downVotes > 0 ? '+' : ''}
+                                      {upVotes - downVotes}
+                                    </Text>
+                                  </View>
+                                  <View className="w-full flex-1 flex-row justify-between px-4">
+                                    <Text className="text-base font-bold text-foreground">
+                                      {upVotes}
+                                    </Text>
+                                    <Text className="text-base font-bold text-foreground">
+                                      {downVotes}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <Button
+                                  variant={
+                                    userVote?.polarity === 'down'
+                                      ? 'default'
+                                      : 'secondary'
+                                  }
+                                  onPress={() =>
+                                    handleVote({ voteType: 'down' })
+                                  }
+                                  disabled={isVotePending}
+                                  className="flex-row items-center justify-center bg-red-600 px-6 py-3"
+                                >
+                                  {pendingVoteType === 'down' ? (
+                                    <ActivityIndicator
+                                      size="small"
+                                      color="white"
+                                    />
+                                  ) : (
+                                    <Icon
+                                      as={ThumbsDownIcon}
+                                      size={24}
+                                      className="text-white"
+                                    />
+                                  )}
+                                </Button>
+                              </View>
+                            </View>
+                          </PrivateAccessGate>
+                        )}
+
+                      {/* Show login prompt if not logged in */}
+                      {!currentUser && !isEditing && (
+                        <Alert icon={UserCircleIcon}>
+                          <AlertTitle>
+                            {t('pleaseLogInToVoteOnTranslations')}
+                          </AlertTitle>
+                        </Alert>
+                      )}
+                      {isOwnTranslation ? (
+                        <TranslationSettingsModal
+                          isVisible={showSettingsModal}
+                          onClose={() => setShowSettingsModal(false)}
+                          translationId={assetId}
+                        />
+                      ) : (
+                        <ReportModal
+                          isVisible={showReportModal}
+                          onClose={() => setShowReportModal(false)}
+                          recordId={assetId}
+                          recordTable="assets"
+                          creatorId={asset.creator_id ?? undefined}
+                          hasAlreadyReported={hasReported}
+                          onReportSubmitted={() => refetch()}
+                        />
+                      )}
+                      {/* Debug Info */}
+                      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                      {SHOW_DEV_ELEMENTS && (
+                        <View className="items-center">
+                          <Text className="text-sm text-muted-foreground">
+                            {isOnline ? '🟢 Online' : '🔴 Offline'} • ID:{' '}
+                            {asset.id.substring(0, 8)}...
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View className="py-8">
+                      <Text className="text-center text-base text-destructive">
+                        {t('translationNotFound')}
+                      </Text>
+                    </View>
+                  )}
                 </ScrollView>
               </View>
             </TouchableWithoutFeedback>

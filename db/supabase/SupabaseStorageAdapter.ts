@@ -35,9 +35,13 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
     const { mediaType = 'text/plain' } = options ?? {};
 
+    // Use upsert: true to overwrite existing files and avoid "resource already exists" errors
     const res = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
-      .upload(filename, data, { contentType: mediaType });
+      .upload(filename, data, {
+        contentType: mediaType,
+        upsert: true
+      });
 
     if (res.error) {
       console.error('[STORAGE] Upload failed:', filename, res.error);

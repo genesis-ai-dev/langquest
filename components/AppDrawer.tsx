@@ -128,8 +128,9 @@ export default function AppDrawer({
   );
 
   // Get all attachment states for accurate progress tracking
+  // Only watch attachment states when drawer is open to prevent unnecessary renders
   const { attachmentStates, isLoading: attachmentStatesLoading } =
-    useAttachmentStates([]);
+    useAttachmentStates([], drawerIsVisible);
 
   // Smooth progress animation state
   const [animatedProgress, setAnimatedProgress] = useState(0);
@@ -150,7 +151,19 @@ export default function AppDrawer({
   const THROTTLE_MS = 200; // Update at most every 200ms (faster for snappier feel)
 
   // Animate progress smoothly (Safari-style)
+  // Only animate when drawer is open to prevent unnecessary renders
   useEffect(() => {
+    // Skip animation updates when drawer is closed
+    if (!drawerIsVisible) {
+      setAnimatedProgress(0);
+      targetProgressRef.current = 0;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
     if (
       !attachmentSyncProgress.downloading &&
       !attachmentSyncProgress.uploading
@@ -206,6 +219,7 @@ export default function AppDrawer({
       }
     };
   }, [
+    drawerIsVisible,
     attachmentSyncProgress.downloading,
     attachmentSyncProgress.uploading,
     attachmentSyncProgress.downloadCurrent,
@@ -213,7 +227,20 @@ export default function AppDrawer({
   ]);
 
   // Calculate attachment progress stats
+  // Return empty state when drawer is closed to prevent unnecessary computation
   const attachmentProgress = useMemo(() => {
+    // Short-circuit when drawer is closed - return empty state
+    if (!drawerIsVisible) {
+      return {
+        total: 0,
+        synced: 0,
+        downloading: 0,
+        queued: 0,
+        hasActivity: false,
+        unsynced: 0
+      };
+    }
+
     if (attachmentStatesLoading || attachmentStates.size === 0) {
       return {
         total: 0,
@@ -274,10 +301,16 @@ export default function AppDrawer({
       hasActivity,
       unsynced: total - synced
     };
-  }, [attachmentStatesLoading, attachmentStates]); // Only recompute when size changes, not on every attachment state change
+  }, [drawerIsVisible, attachmentStatesLoading, attachmentStates]); // Only recompute when size changes, not on every attachment state change
 
   // Throttle updates to the rendered progress
+  // Skip throttling when drawer is closed
   useEffect(() => {
+    // Don't update throttled progress when drawer is closed
+    if (!drawerIsVisible) {
+      return;
+    }
+
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
 
@@ -307,7 +340,7 @@ export default function AppDrawer({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [attachmentProgress, throttledProgress]);
+  }, [drawerIsVisible, attachmentProgress, throttledProgress]);
 
   // Handle attachment progress visibility with grace period
   useEffect(() => {

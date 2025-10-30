@@ -22,6 +22,7 @@ interface QuestListViewProps {
   onDownloadClick: (questId: string) => void;
   onCloudLoadingChange?: (isLoading: boolean) => void;
   downloadingQuestId?: string | null;
+  downloadingQuestIds?: Set<string>;
 }
 
 type Quest = typeof quest.$inferSelect;
@@ -44,7 +45,8 @@ export function QuestListView({
   onAddChild,
   onDownloadClick,
   onCloudLoadingChange,
-  downloadingQuestId
+  downloadingQuestId,
+  downloadingQuestIds = new Set()
 }: QuestListViewProps) {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -178,6 +180,7 @@ export function QuestListView({
             onAddChild={(parentId) => onAddChild(parentId)}
             onDownloadClick={onDownloadClick}
             downloadingQuestId={downloadingQuestId}
+            downloadingQuestIds={downloadingQuestIds}
           />
         );
         if (hasChildren && isOpen) {
@@ -197,7 +200,8 @@ export function QuestListView({
       onAddChild,
       onDownloadClick,
       isMember,
-      downloadingQuestId
+      downloadingQuestId,
+      downloadingQuestIds
     ]
   );
 
@@ -244,6 +248,7 @@ export function QuestListView({
               onAddChild={(parentId) => onAddChild(parentId)}
               onDownloadClick={onDownloadClick}
               downloadingQuestId={downloadingQuestId}
+              downloadingQuestIds={downloadingQuestIds}
             />
             {hasChildren && isOpen && (
               <View>{renderTree(childrenOf.get(id) || [], 1)}</View>
