@@ -17,15 +17,10 @@ bucket_definitions:
       - SELECT * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
       - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
-      - SELECT * FROM "quest_closure" WHERE bucket.profile_id in download_profiles
-      - SELECT * FROM "project_closure" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
-      # Note: asset_vote replaces the legacy vote table.
-      # Old vote table data has been migrated to asset_vote at the database level.
-      # Any remaining local vote data in PowerSync will remain but won't sync.
-      - SELECT * FROM "asset_vote" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
 
       - SELECT
         *

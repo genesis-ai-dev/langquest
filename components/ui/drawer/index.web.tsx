@@ -8,22 +8,6 @@ import { Drawer as DrawerPrimitive } from 'vaul';
 
 import { cn } from '@/utils/styleUtils';
 
-function DrawerHandle({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Handle>) {
-  return (
-    <DrawerPrimitive.Handle
-      data-slot="drawer-handle"
-      {...props}
-      className={cn(
-        'mx-auto my-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block',
-        className
-      )}
-    />
-  );
-}
-
 function Drawer({
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
@@ -48,22 +32,6 @@ function DrawerClose({
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
-function DrawerOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
-  return (
-    <DrawerPrimitive.Overlay
-      data-slot="drawer-overlay"
-      className={cn(
-        'fixed inset-0 z-[9997] bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
 function DrawerContent({
   className,
   children,
@@ -71,7 +39,10 @@ function DrawerContent({
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
   return (
     <DrawerPortal data-slot="drawer-portal">
-      <DrawerOverlay />
+      <DrawerPrimitive.Overlay
+        data-slot="drawer-overlay"
+        className="fixed inset-0 z-[9997] bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+      />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
@@ -84,7 +55,14 @@ function DrawerContent({
         )}
         {...props}
       >
-        <DrawerHandle />
+        <DrawerPrimitive.Handle
+          data-slot="drawer-handle"
+          {...props}
+          className={cn(
+            'mx-auto my-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block',
+            className
+          )}
+        />
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
@@ -146,7 +124,6 @@ export {
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
-  DrawerHandle,
   DrawerHeader,
   DrawerInput,
   DrawerScrollView,

@@ -28,7 +28,8 @@ import { eq } from 'drizzle-orm';
 import { Alert } from 'react-native';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
-import { getDefaultOpMetadata, OpMetadata } from '../powersync/opMetadata';
+import type { OpMetadata } from '../powersync/opMetadata';
+import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
 
@@ -307,12 +308,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     let lastOp: CrudEntry | null = null;
     try {
       // Build a single transactional batch of ops
-      const batchOps: Array<{
+      const batchOps: {
         table_name: string;
         op: 'put' | 'patch' | 'delete';
         record: Record<string, unknown> | null | undefined;
         client_meta: OpMetadata;
-      }> = [];
+      }[] = [];
 
       for (const op of transaction.crud) {
         lastOp = op;
@@ -331,8 +332,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         if (isCompositeTable && op.id) {
           const [firstId, secondId] = op.id.split('_');
           compositeKeys = {
-            [compositeConfig!.keys[0]!]: firstId,
-            [compositeConfig!.keys[1]!]: secondId
+            [compositeConfig.keys[0]!]: firstId,
+            [compositeConfig.keys[1]!]: secondId
           } as Record<string, unknown>;
         }
 
@@ -381,10 +382,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
                 let parsed: unknown = processed[field];
                 if (
                   typeof parsed === 'string' &&
-                  (parsed as string).startsWith('"') &&
-                  (parsed as string).endsWith('"')
+                  parsed.startsWith('"') &&
+                  parsed.endsWith('"')
                 ) {
-                  parsed = JSON.parse(parsed as string);
+                  parsed = JSON.parse(parsed);
                 }
                 processed[field] =
                   typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
@@ -472,11 +473,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           record: unknown;
         } | null;
         op_count?: number | null;
-        ops_summary?: Array<{
-          table: string;
-          op: string;
-          has_record: boolean;
-        }> | null;
+        ops_summary?:
+          | {
+              table: string;
+              op: string;
+              has_record: boolean;
+            }[]
+          | null;
       } | null;
 
       if (!response || typeof response !== 'object') {

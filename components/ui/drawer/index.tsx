@@ -14,10 +14,8 @@ import {
   BottomSheetModalProvider,
   BottomSheetView,
   BottomSheetTextInput as DrawerInput,
-  BottomSheetScrollView as DrawerScrollView,
-  useBottomSheet
+  BottomSheetScrollView as DrawerScrollView
 } from '@gorhom/bottom-sheet';
-import { Portal, PortalHost } from '@rn-primitives/portal';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -157,50 +155,6 @@ function DrawerClose({
   );
 }
 
-// DrawerOverlay - backdrop component
-const DrawerOverlay = React.forwardRef<
-  View,
-  Omit<
-    React.ComponentProps<typeof BottomSheetBackdrop>,
-    'animatedIndex' | 'animatedPosition'
-  >
->((props, _ref) => {
-  const { animatedIndex, animatedPosition } = useBottomSheet();
-  return (
-    <Portal name="drawer-overlay" hostName="drawer-overlay-host">
-      <BottomSheetBackdrop
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        opacity={0.5}
-        animatedIndex={animatedIndex}
-        animatedPosition={animatedPosition}
-        {...props}
-      />
-    </Portal>
-  );
-});
-
-function DrawerHandle({
-  className,
-  ...props
-}: Omit<
-  React.ComponentProps<typeof BSHandle>,
-  'animatedIndex' | 'animatedPosition'
->) {
-  const { animatedIndex, animatedPosition } = useBottomSheet();
-  return (
-    <Portal name="drawer-handle" hostName="drawer-handle-host">
-      <BSHandle
-        className={cn('bg-background pt-4', className)}
-        animatedIndex={animatedIndex}
-        indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-secondary-foreground"
-        animatedPosition={animatedPosition}
-        {...props}
-      />
-    </Portal>
-  );
-}
-
 const BSHandle = cssInterop(BottomSheetHandle, {
   className: 'style',
   indicatorClassName: 'indicatorStyle'
@@ -243,7 +197,15 @@ const DrawerContent = React.forwardRef<
           {...props}
         />
       )}
-      handleComponent={() => <PortalHost name="drawer-handle-host" />}
+      handleComponent={({ animatedIndex, animatedPosition, ...props }) => (
+        <BSHandle
+          className={cn('bg-background pt-4', className)}
+          animatedIndex={animatedIndex}
+          indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-secondary-foreground"
+          animatedPosition={animatedPosition}
+          {...props}
+        />
+      )}
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
       enablePanDownToClose={true}
       enableContentPanningGesture={false}
@@ -254,10 +216,9 @@ const DrawerContent = React.forwardRef<
       {...modalProps}
     >
       <BottomSheetView
-        className={cn('flex-1 bg-background', className)}
+        className={cn('z-[9998] bg-background', className)}
         {...props}
       >
-        <DrawerHandle />
         {children}
       </BottomSheetView>
     </BottomSheetModal>
@@ -330,7 +291,6 @@ export {
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
-  DrawerHandle,
   DrawerHeader,
   DrawerInput,
   DrawerScrollView,

@@ -52,8 +52,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useLocalStore } from '@/store/localStore';
 import { syncCallbackService } from '@/services/syncCallbackService';
+import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
@@ -144,7 +144,9 @@ export default function ProjectDirectoryView() {
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
 
   // Verification hook for offload
-  const verificationState = useQuestOffloadVerification(questIdToDownload || '');
+  const verificationState = useQuestOffloadVerification(
+    questIdToDownload || ''
+  );
 
   // Track if we've started discovery for this quest ID to prevent loops
   const startedDiscoveryRef = React.useRef<string | null>(null);
@@ -258,9 +260,7 @@ export default function ProjectDirectoryView() {
         updateQuestCache
       );
 
-      console.log(
-        '📥 [Bulk Download] Success - registering sync callback...'
-      );
+      console.log('📥 [Bulk Download] Success - registering sync callback...');
 
       // Register callback to invalidate queries after PowerSync sync completes
       if (questIdToDownload) {
@@ -303,13 +303,14 @@ export default function ProjectDirectoryView() {
   });
   type FormData = z.infer<typeof formSchema>;
 
+  const defaultValues = {
+    name: '',
+    description: ''
+  };
+
   const form = useForm<FormData>({
-    defaultValues: {
-      name: '',
-      description: ''
-    },
-    resolver: zodResolver(formSchema),
-    mode: 'onChange'
+    defaultValues,
+    resolver: zodResolver(formSchema)
   });
 
   const { hasAccess: canManageProject, membership } = useUserPermissions(
@@ -444,7 +445,10 @@ export default function ProjectDirectoryView() {
 
     if (isDownloaded) {
       // Quest is downloaded, start offload verification
-      console.log('🗑️ [Offload] Opening verification drawer for quest:', questId);
+      console.log(
+        '🗑️ [Offload] Opening verification drawer for quest:',
+        questId
+      );
       setShowOffloadDrawer(true);
       // Verification will auto-start via useEffect
     } else {
@@ -472,24 +476,24 @@ export default function ProjectDirectoryView() {
   const handleCancelDiscovery = () => {
     console.log('📥 [Download] User cancelled discovery');
     discoveryState.cancel();
-    
+
     // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
     }
-    
+
     setShowDiscoveryDrawer(false);
     setQuestIdToDownload(null);
   };
 
   const handleCancelConfirmation = () => {
     console.log('📥 [Download] User cancelled confirmation');
-    
+
     // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
     }
-    
+
     setShowConfirmationModal(false);
     setQuestIdToDownload(null);
   };
@@ -545,12 +549,12 @@ export default function ProjectDirectoryView() {
   const handleCancelOffload = () => {
     console.log('🗑️ [Offload] User cancelled verification');
     verificationState.cancel();
-    
+
     // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
     }
-    
+
     setShowOffloadDrawer(false);
     setQuestIdToDownload(null);
   };
@@ -568,7 +572,7 @@ export default function ProjectDirectoryView() {
       );
       verificationState.startVerification();
     }
-  }, [showOffloadDrawer, questIdToDownload, verificationState.isVerifying]);
+  }, [showOffloadDrawer, questIdToDownload, verificationState]);
 
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
@@ -583,18 +587,24 @@ export default function ProjectDirectoryView() {
           download_profiles: [currentUser.id]
         })
         .returning();
-      
+
       if (!newQuest) {
         throw new Error('Failed to create quest');
       }
-      
+
       return newQuest;
     },
     onMutate: async (values) => {
       // Optimistically update the UI immediately
       if (!currentProjectId || !currentUser?.id) return;
 
-      const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+      const baseKey = [
+        'quests',
+        'infinite',
+        'for-project',
+        currentProjectId,
+        searchQuery
+      ];
       const offlineKey = [...baseKey, 'offline'];
       const cloudKey = [...baseKey, 'cloud'];
 
@@ -623,7 +633,7 @@ export default function ProjectDirectoryView() {
       // Optimistically update offline infinite query cache
       queryClient.setQueryData(offlineKey, (old: any) => {
         if (!old) return old;
-        
+
         // Add optimistic quest to first page
         return {
           ...old,
@@ -646,15 +656,23 @@ export default function ProjectDirectoryView() {
       setIsCreateOpen(false);
       setParentForNewQuest(null);
 
-      console.log('✅ [Create Quest] Quest created, updating cache with real data...');
-      
+      console.log(
+        '✅ [Create Quest] Quest created, updating cache with real data...'
+      );
+
       // Update cache with real quest data (replace optimistic one)
-      const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+      const baseKey = [
+        'quests',
+        'infinite',
+        'for-project',
+        currentProjectId,
+        searchQuery
+      ];
       const offlineKey = [...baseKey, 'offline'];
-      
+
       queryClient.setQueryData(offlineKey, (old: any) => {
         if (!old) return old;
-        
+
         return {
           ...old,
           pages: old.pages.map((page: any, index: number) => {
@@ -665,13 +683,15 @@ export default function ProjectDirectoryView() {
                   ? { ...newQuest, source: 'local' as const }
                   : quest
               );
-              
+
               // If no optimistic quest was found, add real one
-              const hasOptimistic = page.data.some((q: any) => q.id.startsWith('temp-'));
+              const hasOptimistic = page.data.some((q: any) =>
+                q.id.startsWith('temp-')
+              );
               if (!hasOptimistic) {
                 data.push({ ...newQuest, source: 'local' as const });
               }
-              
+
               return { ...page, data };
             }
             return page;
@@ -682,7 +702,7 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
       // Wait for PowerSync to sync, then invalidate to ensure consistency
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+
       console.log('📥 [Create Quest] Invalidating all quest queries...');
       // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
       await queryClient.invalidateQueries({
@@ -697,25 +717,40 @@ export default function ProjectDirectoryView() {
       await queryClient.invalidateQueries({
         queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
       });
-      
+
       console.log('📥 [Create Quest] Invalidating assets queries');
       // Invalidate assets queries to refresh assets list if user is viewing a quest
       await queryClient.invalidateQueries({
         queryKey: ['assets']
       });
-      
+
       console.log('✅ [Create Quest] All queries invalidated');
     },
     onError: (error, values, context) => {
       console.error('Failed to create quest', error);
-      
+
       // Rollback optimistic update on error
       if (context?.previousOffline) {
-        const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
-        queryClient.setQueryData([...baseKey, 'offline'], context.previousOffline);
+        const baseKey = [
+          'quests',
+          'infinite',
+          'for-project',
+          currentProjectId,
+          searchQuery
+        ];
+        queryClient.setQueryData(
+          [...baseKey, 'offline'],
+          context.previousOffline
+        );
       }
       if (context?.previousCloud) {
-        const baseKey = ['quests', 'infinite', 'for-project', currentProjectId, searchQuery];
+        const baseKey = [
+          'quests',
+          'infinite',
+          'for-project',
+          currentProjectId,
+          searchQuery
+        ];
         queryClient.setQueryData([...baseKey, 'cloud'], context.previousCloud);
       }
     }

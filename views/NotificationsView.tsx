@@ -13,8 +13,8 @@ import {
 } from '@/db/drizzleSchema';
 import {
   invite_synced,
-  request_synced,
-  profile_project_link_synced
+  profile_project_link_synced,
+  request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
@@ -34,7 +34,7 @@ import {
   WifiIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert as RNAlert,
@@ -325,7 +325,8 @@ export default function NotificationsView() {
             .set({
               status: 'accepted',
               count: 1,
-              receiver_profile_id: record.receiver_profile_id || currentUser!.id,
+              receiver_profile_id:
+                record.receiver_profile_id || currentUser!.id,
               last_updated: new Date().toISOString()
             })
             .where(eq(invite_synced.id, notificationId));
@@ -360,7 +361,9 @@ export default function NotificationsView() {
                 })
                 .where(eq(request_synced.id, req.id));
 
-              console.log('[handleAccept] Corresponding request updated via synced table');
+              console.log(
+                '[handleAccept] Corresponding request updated via synced table'
+              );
             }
           }
         }
@@ -392,7 +395,9 @@ export default function NotificationsView() {
                 eq(profile_project_link_synced.project_id, projectId)
               )
             );
-          console.log('[handleAccept] Profile project link updated via synced table');
+          console.log(
+            '[handleAccept] Profile project link updated via synced table'
+          );
         } else {
           // Create new link via synced table
           await system.db.insert(profile_project_link_synced).values({
@@ -401,7 +406,9 @@ export default function NotificationsView() {
             membership: asOwner ? 'owner' : 'member',
             active: true
           });
-          console.log('[handleAccept] Profile project link created via synced table');
+          console.log(
+            '[handleAccept] Profile project link created via synced table'
+          );
         }
       } else {
         // type === 'request'
@@ -719,7 +726,7 @@ export default function NotificationsView() {
                   />
                 ) : (
                   <>
-                    <Icon as={CheckIcon} />
+                    <Icon as={CheckIcon} className="text-foreground" />
                     <Text className="text-foreground">{t('accept')}</Text>
                   </>
                 )}
@@ -753,7 +760,7 @@ export default function NotificationsView() {
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
-      <Text className="text-2xl font-bold">{t('settings')}</Text>
+      <Text className="text-2xl font-bold">{t('notifications')}</Text>
 
       {!isConnected && (
         <Alert icon={WifiIcon}>

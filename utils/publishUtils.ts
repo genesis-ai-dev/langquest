@@ -268,6 +268,23 @@ export async function publishQuest(questId: string, projectId: string) {
       const assetContentLinkColumns = getTableColumns(
         asset_content_link_synced
       );
+
+      const localAudioFilesForAssets = (
+        await tx.query.asset_content_link.findMany({
+          columns: {
+            audio: true
+          },
+          where: and(
+            inArray(asset_content_link.asset_id, nestedAssetIds),
+            isNotNull(asset_content_link.audio),
+            eq(asset_content_link.source, 'local')
+          )
+        })
+      )
+        .flatMap((link) => link.audio)
+        .filter(Boolean)
+        .map(getLocalAttachmentUriWithOPFS);
+
       const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) SELECT ${assetContentLinkColumns.replace(
         `audio,`,
         `REPLACE(audio, 'local/', '') AS audio,`
@@ -352,22 +369,6 @@ export async function publishQuest(questId: string, projectId: string) {
       const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
       const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) SELECT ${assetTagLinkColumns} FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
       await tx.run(sql.raw(assetTagLinkQuery));
-
-      const localAudioFilesForAssets = (
-        await tx.query.asset_content_link.findMany({
-          columns: {
-            audio: true
-          },
-          where: and(
-            inArray(asset_content_link.asset_id, nestedAssetIds),
-            isNotNull(asset_content_link.audio),
-            eq(asset_content_link.source, 'local')
-          )
-        })
-      )
-        .flatMap((link) => link.audio)
-        .filter(Boolean)
-        .map(getLocalAttachmentUriWithOPFS);
 
       console.log('localAudioFilesForAssets', localAudioFilesForAssets);
 
