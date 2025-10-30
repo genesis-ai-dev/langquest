@@ -99,7 +99,9 @@ async function filterSharedAssetsFromVerifiedIds(
     (linkId) => {
       const [linkQuestId, linkAssetId] = linkId.split('|');
       // Only keep links that are for this quest AND not for shared assets
-      return linkQuestId === questId && linkAssetId && !sharedAssets.has(linkAssetId);
+      return (
+        linkQuestId === questId && linkAssetId && !sharedAssets.has(linkAssetId)
+      );
     }
   );
 
