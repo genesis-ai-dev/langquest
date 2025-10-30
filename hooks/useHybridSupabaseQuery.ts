@@ -484,14 +484,7 @@ export function useHybridSupabaseRealtimeQuery<
           );
       });
     };
-  }, [
-    isOnline,
-    channelName,
-    subscriptionConfig,
-    queryClient,
-    getId,
-    queryKey
-  ]);
+  }, [isOnline, channelName, subscriptionConfig, queryClient, getId, queryKey]);
 
   return result;
 }
@@ -1259,14 +1252,7 @@ export function useHybridSupabaseInfiniteRealtimeQuery<
           );
       });
     };
-  }, [
-    isOnline,
-    channelName,
-    subscriptionConfig,
-    queryClient,
-    getId,
-    queryKey
-  ]);
+  }, [isOnline, channelName, subscriptionConfig, queryClient, getId, queryKey]);
 
   return result;
 }

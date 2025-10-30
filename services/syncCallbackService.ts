@@ -98,9 +98,7 @@ class SyncCallbackService {
   private async fireCallbacks(): Promise<void> {
     if (this.callbacks.size === 0) return;
 
-    console.log(
-      `🔥 [SyncCallback] Firing ${this.callbacks.size} callback(s)`
-    );
+    console.log(`🔥 [SyncCallback] Firing ${this.callbacks.size} callback(s)`);
 
     // Create a copy of callbacks to iterate over (since we'll clear the map)
     const callbacksToFire = Array.from(this.callbacks.entries());
@@ -149,4 +147,3 @@ class SyncCallbackService {
 
 // Export singleton instance
 export const syncCallbackService = new SyncCallbackService();
-

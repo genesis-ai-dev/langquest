@@ -91,7 +91,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
-
   // Query for existing membership request using useHybridData
   const { data: existingRequests } = useHybridData({
     dataType: 'membership-request',

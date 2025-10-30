@@ -218,7 +218,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   </Pressable>
                 </View>
 
-                <ScrollView className="max-h-[80%]" showsVerticalScrollIndicator>
+                <ScrollView
+                  className="max-h-[80%]"
+                  showsVerticalScrollIndicator
+                >
                   <View className="gap-4">
                     <View>
                       <Text variant="large" className="mb-2">
@@ -260,7 +263,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                         {t('options')}
                       </Text>
                       <View className="flex-row items-center justify-between">
-                        <Label className="flex-1">{t('blockThisContent')}</Label>
+                        <Label className="flex-1">
+                          {t('blockThisContent')}
+                        </Label>
                         <Switch
                           checked={blockContentOption}
                           onCheckedChange={setBlockContentOption}
@@ -300,4 +305,3 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     </Modal>
   );
 };
-

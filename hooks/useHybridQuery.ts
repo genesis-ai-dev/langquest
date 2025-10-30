@@ -366,13 +366,7 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
         realtimeChannelRef.current = null;
       }
     };
-  }, [
-    isOnline,
-    subscribeRealtime,
-    queryClient,
-    getId,
-    queryKey
-  ]);
+  }, [isOnline, subscribeRealtime, queryClient, getId, queryKey]);
 
   return result;
 }

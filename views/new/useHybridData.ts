@@ -505,11 +505,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const fetchPreviousPage = React.useCallback(() => {
     void offlineQuery.fetchPreviousPage();
     if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
-  }, [
-    shouldFetchCloud,
-    cloudQuery,
-    offlineQuery
-  ]);
+  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
 
   const refetch = React.useCallback(() => {
     void offlineQuery.refetch();

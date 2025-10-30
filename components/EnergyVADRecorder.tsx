@@ -63,7 +63,14 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       // Stop recording immediately when energy drops below threshold
       void stopRecording();
     }
-  }, [energyResult, isActive, isRecording, threshold, startRecording, stopRecording]);
+  }, [
+    energyResult,
+    isActive,
+    isRecording,
+    threshold,
+    startRecording,
+    stopRecording
+  ]);
 
   const startRecording = useCallback(async () => {
     try {

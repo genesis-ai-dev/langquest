@@ -139,39 +139,45 @@ export function useRecordingState(): UseRecordingStateReturn {
   );
 
   // Get or allocate animation from pool
-  const getAnimation = React.useCallback((id: string) => {
-    // Check if already in use
-    const existing = animationPool.find((a) => a.metadata.id === id);
-    if (existing) {
-      return { opacity: existing.opacity, translateY: existing.translateY };
-    }
+  const getAnimation = React.useCallback(
+    (id: string) => {
+      // Check if already in use
+      const existing = animationPool.find((a) => a.metadata.id === id);
+      if (existing) {
+        return { opacity: existing.opacity, translateY: existing.translateY };
+      }
 
-    // Find unused slot
-    const unused = animationPool.find((a) => !a.metadata.inUse);
-    if (unused) {
-      unused.metadata.inUse = true;
-      unused.metadata.id = id;
-      unused.opacity.value = 0;
-      unused.translateY.value = 12;
-      return { opacity: unused.opacity, translateY: unused.translateY };
-    }
+      // Find unused slot
+      const unused = animationPool.find((a) => !a.metadata.inUse);
+      if (unused) {
+        unused.metadata.inUse = true;
+        unused.metadata.id = id;
+        unused.opacity.value = 0;
+        unused.translateY.value = 12;
+        return { opacity: unused.opacity, translateY: unused.translateY };
+      }
 
-    // Fallback: reuse oldest slot
-    const oldest = animationPool[0]!;
-    oldest.metadata.id = id;
-    oldest.opacity.value = 0;
-    oldest.translateY.value = 12;
-    return { opacity: oldest.opacity, translateY: oldest.translateY };
-  }, [animationPool]); // animationPool is from .current (stable ref)
+      // Fallback: reuse oldest slot
+      const oldest = animationPool[0]!;
+      oldest.metadata.id = id;
+      oldest.opacity.value = 0;
+      oldest.translateY.value = 12;
+      return { opacity: oldest.opacity, translateY: oldest.translateY };
+    },
+    [animationPool]
+  ); // animationPool is from .current (stable ref)
 
   // Release animation back to pool
-  const releaseAnimation = React.useCallback((id: string) => {
-    const anim = animationPool.find((a) => a.metadata.id === id);
-    if (anim) {
-      anim.metadata.inUse = false;
-      anim.metadata.id = null;
-    }
-  }, [animationPool]); // animationPool is from .current (stable ref)
+  const releaseAnimation = React.useCallback(
+    (id: string) => {
+      const anim = animationPool.find((a) => a.metadata.id === id);
+      if (anim) {
+        anim.metadata.inUse = false;
+        anim.metadata.id = null;
+      }
+    },
+    [animationPool]
+  ); // animationPool is from .current (stable ref)
 
   const startRecording = React.useCallback(
     (insertionIndex: number) => {
