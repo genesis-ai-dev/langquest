@@ -46,6 +46,7 @@ import { VADSettingsDrawer } from './VADSettingsDrawer';
 const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
     console.log(...args);
   }
@@ -248,19 +249,6 @@ const RecordingViewSimplified = ({
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
-
-  // Track actual content changes to prevent unnecessary re-renders
-  // LegendList will only re-render items when this key changes
-  // NOTE: Duration is NOT included here to avoid cascading re-renders when durations lazy-load
-  // Duration updates will be handled by React.memo in AssetCard (only that card re-renders)
-  // INCLUDE: name (for rename), order_index (for reorder), segmentCount (for merge)
-  const assetContentKey = React.useMemo(
-    () =>
-      assets
-        .map((a) => `${a.id}:${a.name}:${a.order_index}:${a.segmentCount}`)
-        .join('|'),
-    [assets]
-  );
 
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
@@ -936,7 +924,10 @@ const RecordingViewSimplified = ({
             }
           }
 
-          if (!controller.signal.aborted) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          if (controller.signal.aborted) {
+            return;
+          } else {
             if (newCounts.size > 0) {
               // Merge with existing counts
               setAssetSegmentCounts((prev) => {
@@ -971,7 +962,10 @@ const RecordingViewSimplified = ({
             }, 16); // One frame delay (60fps)
           }
         } catch (error) {
-          if (!controller.signal.aborted) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          if (controller.signal.aborted) {
+            return;
+          } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
             setTimeout(() => {
