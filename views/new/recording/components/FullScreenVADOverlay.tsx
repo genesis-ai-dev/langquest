@@ -83,7 +83,7 @@ export function FullScreenVADOverlay({
           >
             <Icon as={X} size={24} className="mr-2" />
             <Text className="text-lg font-semibold text-destructive-foreground">
-              {t('vadCancel')}
+              {t('vadStop')}
             </Text>
           </Button>
         </Animated.View>

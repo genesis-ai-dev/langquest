@@ -4411,12 +4411,12 @@ export const localizations = {
     tok_pisin: 'Makim olsem wanem wevpom i kamap taim yu save record',
     indonesian: 'Pilih bagaimana bentuk gelombang muncul saat merekam'
   },
-  vadCancel: {
-    english: 'Cancel Recording',
-    spanish: 'Cancelar Grabación',
-    brazilian_portuguese: 'Cancelar Gravação',
+  vadStop: {
+    english: 'Stop Recording',
+    spanish: 'Detener Grabación',
+    brazilian_portuguese: 'Parar Gravação',
     tok_pisin: 'Stopim rekod',
-    indonesian: 'Batalkan Rekaman'
+    indonesian: 'Berhenti Merekam'
   },
   vadHelpTitle: {
     english: 'How It Works',

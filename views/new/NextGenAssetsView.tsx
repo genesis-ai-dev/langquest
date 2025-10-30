@@ -28,10 +28,12 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
+  CameraIcon,
   CheckIcon,
   FlagIcon,
   InfoIcon,
   MicIcon,
+  PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -640,7 +642,7 @@ export default function NextGenAssetsView() {
               className="border-[1.5px] border-primary"
               onPress={() => setShowRecording(true)}
             >
-              <Icon as={MicIcon} className="text-primary" />
+              <Icon as={PencilIcon} className="text-primary" />
             </Button>
           </View>
         )}
@@ -665,14 +667,18 @@ export default function NextGenAssetsView() {
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {SHOW_DEV_ELEMENTS && !isAttachmentStatesLoading && attachmentStates.size > 0 && (
-        <View className="rounded-md bg-muted p-3">
-          <Text className="mb-1 font-semibold">
-            📎 {t('liveAttachmentStates')}:
-          </Text>
-          <Text className="text-muted-foreground">{attachmentSummaryText}</Text>
-        </View>
-      )}
+      {SHOW_DEV_ELEMENTS &&
+        !isAttachmentStatesLoading &&
+        attachmentStates.size > 0 && (
+          <View className="rounded-md bg-muted p-3">
+            <Text className="mb-1 font-semibold">
+              📎 {t('liveAttachmentStates')}:
+            </Text>
+            <Text className="text-muted-foreground">
+              {attachmentSummaryText}
+            </Text>
+          </View>
+        )}
 
       {isLoading || (isFetching && assets.length === 0) ? (
         searchQuery.trim().length > 0 ? (
@@ -692,7 +698,10 @@ export default function NextGenAssetsView() {
           onEndReachedThreshold={0.5}
           estimatedItemSize={120}
           recycleItems
-          contentContainerStyle={{ gap: 8 }}
+          contentContainerStyle={{
+            gap: 8,
+            paddingBottom: !isPublished ? 100 : 24
+          }}
           maintainVisibleContentPosition
           ListFooterComponent={() =>
             isFetchingNextPage ? (
@@ -723,6 +732,29 @@ export default function NextGenAssetsView() {
             </View>
           )}
         />
+      )}
+
+
+
+      {/* Sticky Record Button Footer */}
+      {!isPublished && (
+          // <View className="absolute bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-6 shadow-lg">
+            <Button
+              variant="destructive"
+              size="lg"
+              className="w-full"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon
+                as={MicIcon}
+                size={24}
+                className="text-destructive-foreground"
+              />
+              <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
+                {t('doRecord')}
+              </Text>
+            </Button>
+          // </View>
       )}
 
       <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
