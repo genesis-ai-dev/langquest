@@ -34,7 +34,7 @@ export function useAppNavigation() {
     addRecentAsset
   } = useLocalStore();
 
-  // Current navigation state
+  // Current navigation state - always ensure we have a valid state object
   const currentState = useMemo(() => {
     // Ensure navigationStack is always an array
     const stack =
@@ -42,12 +42,18 @@ export function useAppNavigation() {
         ? navigationStack
         : [{ view: 'projects' as AppView, timestamp: Date.now() }];
 
-    return (
-      stack[stack.length - 1] || {
-        view: 'projects' as AppView,
-        timestamp: Date.now()
-      }
-    );
+    const lastItem = stack[stack.length - 1];
+
+    // Ensure we always return a properly structured state object
+    if (lastItem && typeof lastItem === 'object' && 'view' in lastItem) {
+      return lastItem;
+    }
+
+    // Fallback to default state if lastItem is malformed
+    return {
+      view: 'projects' as AppView,
+      timestamp: Date.now()
+    };
   }, [navigationStack]);
 
   // Navigation functions with instant state transitions
@@ -259,7 +265,13 @@ export function useAppNavigation() {
 
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
-    const crumbs = [];
+    const crumbs: Array<{ label: string; onPress?: () => void }> = [];
+
+    // Guard against undefined or malformed currentState
+    if (!currentState || !currentState.view) {
+      return [{ label: 'Projects', onPress: goToProjects }];
+    }
+
     const state = currentState;
 
     if (state.view === 'projects') {
@@ -311,7 +323,10 @@ export function useAppNavigation() {
       crumbs.push({ label: state.assetName, onPress: undefined });
     }
 
-    return crumbs;
+    // Always return at least one crumb to prevent empty array errors
+    return crumbs.length > 0
+      ? crumbs
+      : [{ label: 'Projects', onPress: goToProjects }];
   }, [currentState, goToProjects, goToProject, goToQuest]);
 
   return {

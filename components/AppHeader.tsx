@@ -145,63 +145,68 @@ export default function AppHeader({
       <View className="flex-row items-center">
         {/* Breadcrumbs */}
         <View className="flex-1 flex-row items-center overflow-hidden">
-          {breadcrumbs.map((crumb, index) => {
-            const isLast = index === breadcrumbs.length - 1;
-            const isFirst = index === 0;
+          {Array.isArray(breadcrumbs) && breadcrumbs.length > 0
+            ? breadcrumbs.map((crumb, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                const isFirst = index === 0;
 
-            return (
-              <View key={index} className="flex-shrink flex-row items-center">
-                {!isFirst && (
-                  <Icon
-                    as={ChevronRight}
-                    className="mx-1 flex-shrink-0 text-muted-foreground"
-                    size={16}
-                  />
-                )}
+                return (
+                  <View
+                    key={index}
+                    className="flex-shrink flex-row items-center"
+                  >
+                    {!isFirst && (
+                      <Icon
+                        as={ChevronRight}
+                        className="mx-1 flex-shrink-0 text-muted-foreground"
+                        size={16}
+                      />
+                    )}
 
-                <View
-                  className={`flex-shrink ${
-                    isLast ? 'max-w-[150px]' : 'max-w-[80px]'
-                  }`}
-                >
-                  {crumb.onPress ? (
-                    <Pressable
-                      onPress={crumb.onPress}
-                      // onPressIn={() => setPressedIndex(index)}
-                      // onPressOut={() => setPressedIndex(null)}
-                      hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                      className={`flex-shrink rounded p-1`}
-                      style={({ pressed }) => [
-                        {
-                          backgroundColor: pressed
-                            ? 'rgba(255, 255, 255, 0.15)'
-                            : '',
-                          opacity: pressed ? 0.8 : 1,
-                          transform: [{ scale: pressed ? 0.98 : 1 }]
-                        }
-                      ]}
+                    <View
+                      className={`flex-shrink ${
+                        isLast ? 'max-w-[150px]' : 'max-w-[80px]'
+                      }`}
                     >
-                      <Text
-                        className="font-medium text-primary"
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {crumb.label}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Text
-                      className="font-semibold text-foreground"
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {crumb.label}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            );
-          })}
+                      {crumb.onPress ? (
+                        <Pressable
+                          onPress={crumb.onPress}
+                          // onPressIn={() => setPressedIndex(index)}
+                          // onPressOut={() => setPressedIndex(null)}
+                          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                          className={`flex-shrink rounded p-1`}
+                          style={({ pressed }) => [
+                            {
+                              backgroundColor: pressed
+                                ? 'rgba(255, 255, 255, 0.15)'
+                                : '',
+                              opacity: pressed ? 0.8 : 1,
+                              transform: [{ scale: pressed ? 0.98 : 1 }]
+                            }
+                          ]}
+                        >
+                          <Text
+                            className="font-medium text-primary"
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {crumb.label}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Text
+                          className="font-semibold text-foreground"
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {crumb.label}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            : null}
         </View>
 
         {/* Menu Button with Indicators */}

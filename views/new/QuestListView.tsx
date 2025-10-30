@@ -99,7 +99,18 @@ export function QuestListView({
         .select('id, name, description, parent_id, visible, download_profiles')
         .eq('project_id', projectId);
 
+      // Match offline query filtering: show visible quests OR quests created by current user
+      // When showHiddenContent is false, filter to visible quests OR user's quests
+      // Note: Supabase doesn't easily support complex OR conditions, so we filter by visible
+      // which matches most other hooks. User's own hidden quests will still appear when showHiddenContent=true
+      if (!showHiddenContent) {
+        query = query.or(`visible.eq.true,creator_id.eq.${currentUser!.id}`);
+      }
+
       if (trimmedSearch) {
+        // For search, we need to AND it with the existing filters
+        // So: (project_id = X) AND (visible = true OR creator_id = user) AND (name ILIKE search OR description ILIKE search)
+        // Supabase chain filter syntax treats chained filters as AND
         query = query.or(
           `name.ilike.%${trimmedSearch}%,description.ilike.%${trimmedSearch}%`
         );

@@ -495,23 +495,35 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     };
   }, [offlineQuery.data, cloudQuery.data, getItemId, transformCloudData]);
 
+  // Stabilize callback functions to prevent dependency array size changes
+  // Use the stable functions from React Query directly
+  const fetchNextPage = React.useCallback(() => {
+    void offlineQuery.fetchNextPage();
+    if (shouldFetchCloud) void cloudQuery.fetchNextPage();
+  }, [offlineQuery.fetchNextPage, cloudQuery.fetchNextPage, shouldFetchCloud]);
+
+  const fetchPreviousPage = React.useCallback(() => {
+    void offlineQuery.fetchPreviousPage();
+    if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
+  }, [
+    offlineQuery.fetchPreviousPage,
+    cloudQuery.fetchPreviousPage,
+    shouldFetchCloud
+  ]);
+
+  const refetch = React.useCallback(() => {
+    void offlineQuery.refetch();
+    if (shouldFetchCloud) void cloudQuery.refetch();
+  }, [offlineQuery.refetch, cloudQuery.refetch, shouldFetchCloud]);
+
   return {
     data: mergedData as unknown as {
       pages: HybridPageData<WithSource<TOfflineData>>[];
       pageParams: number[];
     },
-    fetchNextPage: () => {
-      void offlineQuery.fetchNextPage();
-      if (shouldFetchCloud) void cloudQuery.fetchNextPage();
-    },
-    fetchPreviousPage: () => {
-      void offlineQuery.fetchPreviousPage();
-      if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
-    },
-    refetch: () => {
-      void offlineQuery.refetch();
-      if (shouldFetchCloud) void cloudQuery.refetch();
-    },
+    fetchNextPage,
+    fetchPreviousPage,
+    refetch,
     hasNextPage: offlineQuery.hasNextPage || cloudQuery.hasNextPage,
     hasPreviousPage: offlineQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
     isFetchingNextPage:
