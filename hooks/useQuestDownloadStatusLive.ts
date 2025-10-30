@@ -175,7 +175,7 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
       abortController.abort();
       // Watch will stop calling callbacks due to abort signal
     };
-  }, [questId, currentUser?.id]);
+  }, [questId, currentUser?.id, queryClient]);
 
   return isDownloaded;
 }

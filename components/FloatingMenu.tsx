@@ -69,7 +69,7 @@ export const FloatingMenu = ({
         setShouldRenderItems(false);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, animatedValues, items.length, rotateValue]);
 
   const toggleMenu = () => {
     Animated.sequence([

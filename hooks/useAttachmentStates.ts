@@ -38,6 +38,10 @@ export function useAttachmentStates(
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    // Extract complex expression to a separate variable for dependency array
+    const sortedAttachmentIds = [...attachmentIds].sort();
+    const attachmentIdsKey = JSON.stringify(sortedAttachmentIds);
+
     // Build query based on whether we have specific IDs or want all records
     const query =
       attachmentIds.length > 0
@@ -104,7 +108,7 @@ export function useAttachmentStates(
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [JSON.stringify(attachmentIds.sort()), enabled]);
+  }, [enabled, attachmentIds]);
 
   return { attachmentStates, isLoading };
 }

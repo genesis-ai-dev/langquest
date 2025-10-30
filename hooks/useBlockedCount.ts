@@ -1,5 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { asset, blocked_content, blocked_users, quest_asset_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  blocked_content,
+  blocked_users,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';

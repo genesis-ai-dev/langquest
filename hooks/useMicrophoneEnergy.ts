@@ -56,7 +56,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
       energySubscription.remove();
       errorSubscription.remove();
     };
-  }, []);
+  }, [energyShared]);
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {

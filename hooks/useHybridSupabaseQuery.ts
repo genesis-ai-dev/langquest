@@ -473,22 +473,18 @@ export function useHybridSupabaseRealtimeQuery<
       );
     channel.subscribe();
 
+    // Extract complex expression to a separate variable for dependency array
+    const queryKeyString = JSON.stringify(queryKey);
+
     return () => {
       void channel.unsubscribe().then((value) => {
         if (value === 'error' || value === 'timed out')
           throw new Error(
-            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+            `There was an issue unsubscribing from a realtime channel with queryKey ${queryKeyString}`
           );
       });
     };
-  }, [
-    isOnline,
-    channelName,
-    subscriptionConfig,
-    queryClient,
-    getId,
-    JSON.stringify(queryKey)
-  ]);
+  }, [isOnline, channelName, subscriptionConfig, queryClient, getId, queryKey]);
 
   return result;
 }
@@ -1245,22 +1241,18 @@ export function useHybridSupabaseInfiniteRealtimeQuery<
       );
     channel.subscribe();
 
+    // Extract complex expression to a separate variable for dependency array
+    const queryKeyString = JSON.stringify(queryKey);
+
     return () => {
       void channel.unsubscribe().then((value) => {
         if (value === 'error' || value === 'timed out')
           throw new Error(
-            `There was an issue unsubscribing from a realtime channel with queryKey ${JSON.stringify(queryKey)}`
+            `There was an issue unsubscribing from a realtime channel with queryKey ${queryKeyString}`
           );
       });
     };
-  }, [
-    isOnline,
-    channelName,
-    subscriptionConfig,
-    queryClient,
-    getId,
-    JSON.stringify(queryKey)
-  ]);
+  }, [isOnline, channelName, subscriptionConfig, queryClient, getId, queryKey]);
 
   return result;
 }

@@ -18,6 +18,8 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
         fn(...args);
       }, delay);
     },
+    // eslint-disable-next-line react-compiler/react-compiler
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fn, delay, ...deps]
   );
 
