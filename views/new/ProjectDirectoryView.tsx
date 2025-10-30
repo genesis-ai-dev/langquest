@@ -5,6 +5,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
+import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,

@@ -22,18 +22,15 @@ const UpdateType = UpdateTypeNative || UpdateTypeWeb;
 import type { Profile } from '@/database_services/profileService';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {
-  PostgrestSingleResponse,
-  Session,
-  SupabaseClient
-} from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
+import { Alert } from 'react-native';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
+import { getDefaultOpMetadata, OpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
-import { Alert } from 'react-native';
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -314,17 +311,15 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         table_name: string;
         op: 'put' | 'patch' | 'delete';
         record: Record<string, unknown> | null | undefined;
-        client_meta: { metadata: string };
+        client_meta: OpMetadata;
       }> = [];
 
       for (const op of transaction.crud) {
         lastOp = op;
         // Default metadata if none was stamped (covers any raw SQL writes)
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { getDefaultOpMetadata } = require('../powersync/opMetadata') as {
-          getDefaultOpMetadata: () => string;
-        };
-        const metadata = (op as any).metadata ?? getDefaultOpMetadata();
+        const metadata =
+          (op as unknown as { metadata: OpMetadata }).metadata ??
+          getDefaultOpMetadata();
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -448,7 +443,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           table_name: op.table,
           op: opName,
           record,
-          client_meta: { metadata }
+          client_meta: { ...metadata }
         });
       }
 
@@ -458,6 +453,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       });
 
       if (result.error) {
+        console.error(
+          'apply_table_mutation_transaction result',
+          JSON.stringify(result, null, 2)
+        );
         throw result.error;
       }
 
@@ -466,6 +465,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         logs?: string;
         ref_code?: string | null;
         error_code?: string | null;
+        error_message?: string | null;
+        failed_op?: {
+          op: string;
+          table: string;
+          record: unknown;
+        } | null;
+        op_count?: number | null;
+        ops_summary?: Array<{
+          table: string;
+          op: string;
+          has_record: boolean;
+        }> | null;
       } | null;
 
       if (!response || typeof response !== 'object') {
@@ -474,7 +485,33 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         );
       }
 
-      console.log('[apply_table_mutation_transaction]', response.logs ?? '');
+      // Enhanced logging with all available diagnostic info
+      console.log(
+        '[apply_table_mutation_transaction] Status:',
+        response.status
+      );
+      console.log(
+        '[apply_table_mutation_transaction] Op count:',
+        response.op_count ?? 'unknown'
+      );
+      if (response.ops_summary && response.ops_summary.length > 0) {
+        console.log(
+          '[apply_table_mutation_transaction] Operations:',
+          JSON.stringify(response.ops_summary, null, 2)
+        );
+      }
+      if (response.logs) {
+        console.log(
+          '[apply_table_mutation_transaction] Logs:\n',
+          response.logs
+        );
+      }
+      if (response.failed_op) {
+        console.error(
+          '[apply_table_mutation_transaction] Failed operation:',
+          JSON.stringify(response.failed_op, null, 2)
+        );
+      }
 
       if (response.status === '2xx') {
         await transaction.complete();
@@ -485,6 +522,12 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         console.warn(
           `[apply_table_mutation_transaction] Client error. ref_code=${response.ref_code} error_code=${response.error_code}`
         );
+        if (response.error_message) {
+          console.warn(
+            '[apply_table_mutation_transaction] Error message:',
+            response.error_message
+          );
+        }
         try {
           Alert.alert(
             'Upload issue',
@@ -500,8 +543,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       if (response.status === '5xx') {
         // Transient server error; throw to retry later
+        const errorDetails = [
+          response.error_code ? `code: ${response.error_code}` : null,
+          response.error_message ? `message: ${response.error_message}` : null,
+          response.failed_op
+            ? `failed_op: ${response.failed_op.op} on ${response.failed_op.table}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(', ');
+
         const err = new Error(
-          `[apply_table_mutation_transaction] Server error: ${response.error_code ?? 'unknown'}`
+          `[apply_table_mutation_transaction] Server error: ${errorDetails || 'unknown'}`
         );
         // Do not complete the transaction so it will be retried
         throw err;

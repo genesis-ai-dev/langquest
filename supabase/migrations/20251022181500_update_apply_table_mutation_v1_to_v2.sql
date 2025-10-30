@@ -146,7 +146,7 @@ as $$
 declare
   target_schema_name text := 'public';
   v_logs text := '';
-  v_meta text := coalesce(p_client_meta->>'metadata', '');
+  v_meta text := coalesce(p_client_meta->>'schema_version', '0');
   v_version_is_v0 boolean := (v_meta = '0') or (v_meta like '0.%');
   ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
   final_ops public.mutation_op[];

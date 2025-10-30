@@ -67,7 +67,7 @@ as $$
 declare
   target_schema_name text := 'public';
   v_logs text := '';
-  v_meta text := coalesce(p_client_meta->>'metadata', '');
+  v_meta text := coalesce(p_client_meta->>'schema_version', '0');
   v_version_is_v0 boolean := (v_meta = '0') or (v_meta like '0.%');
   ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
   final_ops public.mutation_op[];
@@ -312,8 +312,9 @@ begin
       and not (column_identifier = any(primary_key_columns))
   ) as selectable_columns;
 
-  -- WHERE clause for PK
-  select string_agg(format('%s = input_values.%s', pk, pk), ' and ')
+  -- WHERE clause for PK (explicitly qualify table alias to avoid ambiguity)
+  -- Use concatenation to build qualified column reference: t."id" = input_values."id"
+  select string_agg(format('t.%s = input_values.%s', pk, pk), ' and ')
     into where_primary_key_clause_sql
   from unnest(primary_key_columns) as primary_key(pk);
 
@@ -349,6 +350,8 @@ begin
       return;
     end if;
 
+    -- SET clause: columns implicitly refer to target table, no alias needed
+    -- WHERE clause: needs table alias to disambiguate from input_values
     select string_agg(format('%s = input_values.%s', column_identifier, column_identifier), ', ')
       into update_set_assignments_sql
     from unnest(columns_to_update) as update_columns(column_identifier);

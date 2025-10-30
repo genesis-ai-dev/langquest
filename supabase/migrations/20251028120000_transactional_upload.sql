@@ -25,7 +25,7 @@ create or replace function public._upload_inbox_set_updated_at()
 returns trigger
 language plpgsql
 security invoker
-set search_path = ''
+set search_path = 'public'
 as $$
 begin
   new.last_updated := now();
@@ -67,7 +67,7 @@ create or replace function public.apply_table_mutation_transaction(
 returns jsonb
 language plpgsql
 security invoker
-set search_path = ''
+set search_path = 'public'
 as $$
 declare
   -- logging
@@ -83,6 +83,8 @@ declare
   v_status text := '2xx';
   v_ref_code text := null;
   v_error_code text := null;
+  v_error_message text := null;
+  v_failed_op jsonb := null;
   -- helpers
   v_meta text;
   elem jsonb;
@@ -90,6 +92,7 @@ declare
   op_name text;
   op_record jsonb;
   op_client_meta jsonb;
+  v_op_count int := 0;
 begin
   if p_ops is null or jsonb_typeof(p_ops) <> 'array' then
     raise exception 'apply_table_mutation_transaction: p_ops must be a json array';
@@ -108,7 +111,7 @@ begin
     op_name := lower(coalesce(elem->>'op', ''));
     op_record := coalesce(elem->'record', '{}'::jsonb);
     op_client_meta := coalesce(elem->'client_meta', p_default_meta);
-    v_meta := coalesce(op_client_meta->>'metadata', '');
+    v_meta := coalesce(op_client_meta->>'schema_version', '0');
 
     if op_table is null or op_name = '' then
       raise exception 'apply_table_mutation_transaction: each elem requires table_name and op';
@@ -130,17 +133,25 @@ begin
     end if;
   end loop;
 
+  v_op_count := array_length(final_ops, 1);
+  v_logs := v_logs || format('[summary] total_ops=%s\n', coalesce(v_op_count, 0));
+
   -- execute in a sub-transaction to allow catching and classifying errors
   begin
     for t, o, r in
-      select (x).table_name, (x).op, (x).record from unnest(final_ops) as x
+      select (x::public.mutation_op).table_name, (x::public.mutation_op).op, (x::public.mutation_op).record 
+      from unnest(final_ops) as x
     loop
       v_logs := v_logs || format('[exec] %s %s %s\n', o, t, r::text);
+      v_failed_op := jsonb_build_object('op', o, 'table', t, 'record', r);
       perform public._apply_single_json_dml(o, t, r);
+      v_failed_op := null; -- clear on success
     end loop;
     v_status := '2xx';
   exception when others then
-    get stacked diagnostics v_sqlstate = returned_sqlstate;
+    get stacked diagnostics 
+      v_sqlstate = returned_sqlstate,
+      v_error_message = message_text;
     v_error_code := v_sqlstate;
 
     -- classify
@@ -150,7 +161,7 @@ begin
       v_status := '5xx';
     end if;
 
-    v_logs := v_logs || format('[error] sqlstate=%s\n', v_sqlstate);
+    v_logs := v_logs || format('[error] sqlstate=%s message=%s\n', v_sqlstate, coalesce(v_error_message, ''));
 
     if v_status = '4xx' then
       -- generate 6-digit ref code
@@ -169,7 +180,20 @@ begin
     'status', v_status,
     'logs', v_logs,
     'ref_code', v_ref_code,
-    'error_code', v_error_code
+    'error_code', v_error_code,
+    'error_message', v_error_message,
+    'failed_op', v_failed_op,
+    'op_count', v_op_count,
+    'ops_summary', (
+      select jsonb_agg(
+        jsonb_build_object(
+          'table', op_elem->>'table_name',
+          'op', op_elem->>'op',
+          'has_record', (op_elem ? 'record')
+        )
+      )
+      from jsonb_array_elements(p_ops) as op_elem
+    )
   );
 end;
 $$;
