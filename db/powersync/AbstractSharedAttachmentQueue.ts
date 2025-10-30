@@ -66,7 +66,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     ) {
       console.warn(
         '[AttachmentQueue] Skipping blob URL (filtered):',
-        record?.id?.substring(0, 30)
+        record.id?.substring(0, 30)
       );
       // Return a dummy rejected record that won't be processed
       return {
@@ -673,7 +673,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     });
   }
 
-  static media_map = new BiMap({
+  static mediaMap = new BiMap({
     'audio/mp4': 'm4a', // Standard MIME type for M4A/AAC in MP4 container
     'audio/wav': 'wav', // Standard MIME type for WAV
     'audio/webm': 'webm',
@@ -684,15 +684,15 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   });
 
   getExtensionFromMediaType(mediaType: string) {
-    return AbstractSharedAttachmentQueue.media_map.has(mediaType)
-      ? AbstractSharedAttachmentQueue.media_map.get(mediaType)!
+    return AbstractSharedAttachmentQueue.mediaMap.has(mediaType)
+      ? AbstractSharedAttachmentQueue.mediaMap.get(mediaType)!
       : 'audio/mp4'; // Default to standard M4A MIME type
   }
 
   getMediaTypeFromExtension(extension?: string) {
     return extension &&
-      AbstractSharedAttachmentQueue.media_map.hasValue(extension)
-      ? AbstractSharedAttachmentQueue.media_map.getKey(extension)!
+      AbstractSharedAttachmentQueue.mediaMap.hasValue(extension)
+      ? AbstractSharedAttachmentQueue.mediaMap.getKey(extension)!
       : 'audio/mp4'; // Default to standard M4A MIME type
   }
 

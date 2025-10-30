@@ -69,7 +69,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           value: option
         };
       }),
-    []
+    [t]
   );
 
   const modalTitle =

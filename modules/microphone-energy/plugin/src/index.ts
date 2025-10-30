@@ -1,4 +1,5 @@
-import { ConfigPlugin, createRunOncePlugin } from '@expo/config-plugins';
+import type { ConfigPlugin } from '@expo/config-plugins';
+import { createRunOncePlugin } from '@expo/config-plugins';
 
 const pkg = { name: 'microphone-energy', version: '1.0.0' };
 

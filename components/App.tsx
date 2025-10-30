@@ -60,7 +60,7 @@ export default function App() {
     if (!isLoading && !dateTermsAccepted) {
       router.navigate('/terms');
     }
-  }, [isLoading, dateTermsAccepted]);
+  }, [isLoading, dateTermsAccepted, router]);
 
   // Show loading while checking auth state
   if (isLoading) {

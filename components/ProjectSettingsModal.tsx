@@ -51,7 +51,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       Alert.alert(t('error'), t('projectSettingsLoadError'));
       onClose();
     }
-  }, [isError]);
+  }, [isError, onClose, t]);
 
   if (isError) {
     return null;

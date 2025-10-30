@@ -652,7 +652,7 @@ export function useInfiniteAssetsWithTagsByQuestId(
     if (activeFilters) queryKeyParts.push(JSON.stringify(activeFilters));
 
     return queryKeyParts;
-  }, [quest_id, pageSize, sortField, sortOrder, searchQuery]);
+  }, [quest_id, pageSize, sortField, sortOrder, searchQuery, activeFilters]);
 
   return useHybridInfiniteQuery({
     queryKey: queryKey,
