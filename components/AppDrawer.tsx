@@ -707,6 +707,21 @@ export default function AppDrawer({
     });
   }
 
+  // Use a ref to track if drawer has ever been opened to ensure proper initialization
+  const hasOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (drawerIsVisible) {
+      hasOpenedRef.current = true;
+    }
+  }, [drawerIsVisible]);
+
+  // Only render Drawer when it's been opened at least once or is currently visible
+  // This prevents provider conflicts with other views
+  if (!hasOpenedRef.current && !drawerIsVisible) {
+    return null;
+  }
+
   return (
     <Drawer
       open={drawerIsVisible}
