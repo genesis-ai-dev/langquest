@@ -273,7 +273,7 @@ export default function AppDrawer({
       hasActivity,
       unsynced: total - synced
     };
-  }, [attachmentStates.size, attachmentStatesLoading]); // Only recompute when size changes, not on every attachment state change
+  }, [attachmentStatesLoading, attachmentStates]); // Only recompute when size changes, not on every attachment state change
 
   // Throttle updates to the rendered progress
   useEffect(() => {
@@ -631,7 +631,7 @@ export default function AppDrawer({
   ] as const;
 
   // Add diagnostics menu item if there are corrupted attachments or in dev mode
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+
   if (corruptedCount > 0 || __DEV__) {
     drawerItems.push({
       name: __DEV__ ? 'Diagnostics' : 'System Health',
