@@ -136,7 +136,18 @@ drop trigger if exists trigger_copy_asset_download_profiles_to_asset_vote on pub
 drop function if exists public.copy_asset_download_profiles_to_asset_vote();
 
 -- Remove from PowerSync publication if it exists
-alter publication "powersync" drop table if exists public.asset_vote;
+do $$
+begin
+  if exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'powersync'
+      and schemaname = 'public'
+      and tablename = 'asset_vote'
+  ) then
+    alter publication "powersync" drop table public.asset_vote;
+  end if;
+end $$;
 
 -- Drop the asset_vote table (CASCADE will drop dependent objects like indexes, constraints, RLS policies)
 drop table if exists public.asset_vote cascade;
