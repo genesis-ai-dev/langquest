@@ -28,7 +28,7 @@ import {
   LockOpenIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -91,9 +91,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
 
+  // Determine if we should watch for request updates (when modal is visible)
+  const shouldWatchRequests = modal ? isVisible : true;
 
   // Query for existing membership request using useHybridData
-  const { data: existingRequests } = useHybridData({
+  // Watch for updates when modal is visible to catch newly created requests
+  const { data: existingRequests, refetch: refetchRequests } = useHybridData({
     dataType: 'membership-request',
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
@@ -107,7 +110,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       })
     ),
 
-    // Cloud query
+    // Cloud query - enable when modal is visible to get latest status
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('request')
@@ -116,15 +119,59 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         .eq('project_id', projectId);
       if (error) throw error;
       return data as Request[];
-    }
+    },
+
+    // Enable cloud query when modal is visible
+    enableCloudQuery: shouldWatchRequests,
+
+    // Add refetch interval when modal is open to catch newly created requests
+    cloudQueryOptions: {
+      refetchInterval: shouldWatchRequests && modal ? 2000 : false,
+      staleTime: modal ? 0 : undefined // Always consider stale when in modal mode
+    },
+
+    offlineQueryOptions: {
+      // PowerSync's useQuery is reactive, but add refetch interval as backup
+      refetchInterval: shouldWatchRequests && modal ? 2000 : false
+    },
+
+    enabled: shouldWatchRequests
   });
 
+  const existingRequest = existingRequests[0];
+
+  // Determine the current status
+  const getRequestStatus = () => {
+    if (!existingRequest) return null;
+
+    if (
+      existingRequest.status === 'pending' &&
+      isExpiredByLastUpdated(existingRequest.last_updated)
+    ) {
+      return 'expired';
+    }
+
+    return existingRequest.status;
+  };
+
+  const currentStatus = getRequestStatus();
+  const hasPendingRequest = currentStatus === 'pending';
+
+  // Determine if we should actively watch for membership changes
+  // Watch actively when:
+  // 1. Modal is visible
+  // 2. OR there's a pending request (so we detect when it gets approved)
+  // 3. OR when not in modal mode (inline usage)
+  const shouldWatchMembership = modal ? isVisible || hasPendingRequest : true;
+  const isWatchingMembership = shouldWatchMembership;
+
   // Query for membership status (for modal mode) using useHybridData
-  const { data: membershipLinks } = useHybridData({
+  // Watch profile_project_link table live while modal is open or request is pending
+  const { data: membershipLinks, refetch: refetchMembership } = useHybridData({
     dataType: 'membership-status',
     queryKeyParams: [projectId, currentUser?.id || ''],
 
-    // PowerSync query using Drizzle
+    // PowerSync query using Drizzle - automatically reactive to local DB changes
     offlineQuery: toCompilableQuery(
       db.query.profile_project_link.findMany({
         where: and(
@@ -135,7 +182,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       })
     ),
 
-    // Cloud query
+    // Cloud query - check Supabase for latest status
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('profile_project_link')
@@ -148,12 +195,34 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       return data;
     },
 
-    // Only run cloud query when in modal mode
-    enableCloudQuery: modal
+    // Only run cloud query when actively watching (modal is visible or not in modal mode)
+    enableCloudQuery: isWatchingMembership,
+
+    // Enable offline query only when watching
+    enableOfflineQuery: isWatchingMembership,
+
+    // Add refetch interval when modal is open OR when there's a pending request to catch updates that PowerSync hasn't synced yet
+    cloudQueryOptions: {
+      // Poll when:
+      // 1. Modal is visible (user has modal open)
+      // 2. OR there's a pending request (need to detect when it gets approved even if modal isn't visible)
+      refetchInterval:
+        isWatchingMembership && (modal || hasPendingRequest) ? 2000 : false,
+      staleTime: modal || hasPendingRequest ? 0 : undefined // Always consider stale when waiting for access
+    },
+
+    offlineQueryOptions: {
+      // PowerSync's useQuery is reactive to local DB changes automatically
+      // Add refetch interval as backup when modal is open or request is pending
+      refetchInterval:
+        isWatchingMembership && (modal || hasPendingRequest) ? 2000 : false
+    },
+
+    // Only enable the query when we're watching
+    enabled: isWatchingMembership
   });
 
   const isMember = membershipLinks.length > 0;
-  const existingRequest = existingRequests[0];
 
   // Query for project download status using useHybridData
   // This checks if the project has been downloaded (possibly through other actions)
@@ -200,22 +269,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     }
   }, [modal, isMember, isVisible, onClose, onMembershipGranted]);
 
-  // Determine the current status
-  const getRequestStatus = () => {
-    if (!existingRequest) return null;
-
-    if (
-      existingRequest.status === 'pending' &&
-      isExpiredByLastUpdated(existingRequest.last_updated)
-    ) {
-      return 'expired';
-    }
-
-    return existingRequest.status;
-  };
-
-  const currentStatus = getRequestStatus();
-
   const handleRequestMembership = async () => {
     if (!currentUser) return;
 
@@ -241,8 +294,18 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         });
       }
 
-      // Trigger refresh by updating the refresh key
+      // Trigger refresh by updating the refresh key (changes query key, triggers refetch)
       setRefreshKey((prev) => prev + 1);
+
+      // Immediately refetch to get the newly created request
+      // PowerSync's reactive queries should see request_synced inserts immediately,
+      // but explicit refetch ensures the UI updates right away
+      await refetchRequests();
+
+      // Give PowerSync a brief moment to ensure the merged view is updated
+      // Then refetch one more time to ensure UI sees the pending request
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await refetchRequests();
 
       Alert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {
