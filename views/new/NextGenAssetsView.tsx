@@ -37,10 +37,19 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  Share2Icon
+  Share2Icon,
+  ShieldOffIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
@@ -49,6 +58,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
@@ -86,6 +96,26 @@ export default function NextGenAssetsView() {
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Animation for refresh button
+  const spinValue = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (isRefreshing) {
+      spinValue.value = withRepeat(
+        withTiming(1, { duration: 1000, easing: Easing.linear }),
+        -1
+      );
+    } else {
+      cancelAnimation(spinValue);
+      spinValue.value = 0;
+    }
+  }, [isRefreshing]);
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinValue.value * 360}deg` }]
+  }));
 
   type Quest = typeof questTable.$inferSelect;
 
@@ -326,6 +356,9 @@ export default function NextGenAssetsView() {
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
     useAttachmentStates(assetIds);
 
+  // Count blocked assets
+  const blockedCount = useBlockedAssetsCount(currentQuestId || '');
+
   // Get attachment state summary
   const attachmentStateSummary = React.useMemo(() => {
     if (attachmentStates.size === 0) {
@@ -553,22 +586,28 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
-          {SHOW_DEV_ELEMENTS && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={async () => {
-                console.log('🔄 [Dev] Manually refreshing assets queries...');
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets']
-                });
-                void refetch();
-                console.log('🔄 [Dev] Assets queries invalidated');
-              }}
-            >
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={isRefreshing}
+            onPress={async () => {
+              setIsRefreshing(true);
+              console.log('🔄 Manually refreshing assets queries...');
+              await queryClient.invalidateQueries({
+                queryKey: ['assets']
+              });
+              void refetch();
+              console.log('🔄 Assets queries invalidated');
+              // Stop animation after a brief delay
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 500);
+            }}
+          >
+            <Animated.View style={spinStyle}>
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-            </Button>
-          )}
+            </Animated.View>
+          </Button>
         </View>
         {isPublished ? (
           <Badge
@@ -698,16 +737,31 @@ export default function NextGenAssetsView() {
             paddingBottom: !isPublished ? 100 : 24
           }}
           maintainVisibleContentPosition
-          ListFooterComponent={() =>
-            isFetchingNextPage ? (
-              <View className="items-center py-4">
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-              </View>
-            ) : null
-          }
+          ListFooterComponent={() => (
+            <View className="gap-2">
+              {isFetchingNextPage && (
+                <View className="items-center py-4">
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                </View>
+              )}
+              {blockedCount > 0 && (
+                <View className="flex-row items-center justify-center gap-2 py-4">
+                  <Icon
+                    as={ShieldOffIcon}
+                    size={16}
+                    className="text-muted-foreground"
+                  />
+                  <Text className="text-sm text-muted-foreground">
+                    {blockedCount}{' '}
+                    {blockedCount === 1 ? 'blocked item' : 'blocked items'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center py-16">
               <View className="flex-col items-center gap-2">

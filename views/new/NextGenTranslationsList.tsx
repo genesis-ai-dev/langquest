@@ -7,6 +7,7 @@ import { useStatusContext } from '@/contexts/StatusContext';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useBlockedTranslationsCount } from '@/hooks/useBlockedCount';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
@@ -19,6 +20,7 @@ import {
   ArrowUpNarrowWideIcon,
   CalendarIcon,
   LockIcon,
+  ShieldOffIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -73,6 +75,9 @@ export default function NextGenTranslationsList({
     sortOption,
     sortOrder
   );
+
+  // Count blocked translations
+  const blockedCount = useBlockedTranslationsCount(assetId);
 
   // Use props from parent if available, otherwise default behavior
   const isPrivateProject = projectData?.private || false;
@@ -254,6 +259,25 @@ export default function NextGenTranslationsList({
               </Text>
             </View>
           )}
+          ListFooterComponent={
+            blockedCount > 0
+              ? () => (
+                  <View className="flex-row items-center justify-center gap-2 py-4">
+                    <Icon
+                      as={ShieldOffIcon}
+                      size={16}
+                      className="text-muted-foreground"
+                    />
+                    <Text className="text-sm text-muted-foreground">
+                      {blockedCount}{' '}
+                      {blockedCount === 1
+                        ? 'blocked translation'
+                        : 'blocked translations'}
+                    </Text>
+                  </View>
+                )
+              : undefined
+          }
         />
       )}
 

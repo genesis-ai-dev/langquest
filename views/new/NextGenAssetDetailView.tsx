@@ -75,7 +75,8 @@ export default function NextGenAssetDetailView() {
     currentQuestId,
     currentAssetData,
     currentProjectData,
-    currentQuestData
+    currentQuestData,
+    goBack
   } = useAppNavigation();
 
   // Debug logging moved to useEffect to prevent render loop
@@ -615,7 +616,13 @@ export default function NextGenAssetDetailView() {
         creatorId={activeAsset?.creator_id ?? undefined}
         recordTable="asset"
         hasAlreadyReported={hasReported}
-        onReportSubmitted={() => refetchOfflineAsset()}
+        onReportSubmitted={(contentBlocked) => {
+          refetchOfflineAsset();
+          // Navigate back to assets list if content was blocked
+          if (contentBlocked) {
+            goBack();
+          }
+        }}
       />
     </View>
   );

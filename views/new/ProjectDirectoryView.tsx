@@ -75,6 +75,14 @@ import {
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
@@ -102,6 +110,26 @@ export default function ProjectDirectoryView() {
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Animation for refresh button
+  const spinValue = useSharedValue(0);
+
+  React.useEffect(() => {
+    if (isRefreshing) {
+      spinValue.value = withRepeat(
+        withTiming(1, { duration: 1000, easing: Easing.linear }),
+        -1
+      );
+    } else {
+      cancelAnimation(spinValue);
+      spinValue.value = 0;
+    }
+  }, [isRefreshing]);
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinValue.value * 360}deg` }]
+  }));
 
   // Use passed project data if available (instant!), otherwise query
   // Query runs in background to get updates even if data was passed
@@ -868,45 +896,51 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-col gap-4">
           <View className="flex flex-row items-center gap-2">
             <Text variant="h4">{t('projectDirectory')}</Text>
-            {__DEV__ && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={async () => {
-                  console.log('🔄 [Dev] Manually refreshing quest queries...');
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'for-project', currentProjectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'infinite',
-                      'for-project',
-                      currentProjectId
-                    ]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'offline',
-                      'for-project',
-                      currentProjectId
-                    ]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'cloud',
-                      'for-project',
-                      currentProjectId
-                    ]
-                  });
-                  console.log('🔄 [Dev] Quest queries invalidated');
-                }}
-              >
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={isRefreshing}
+              onPress={async () => {
+                setIsRefreshing(true);
+                console.log('🔄 Manually refreshing quest queries...');
+                await queryClient.invalidateQueries({
+                  queryKey: ['quests', 'for-project', currentProjectId]
+                });
+                await queryClient.invalidateQueries({
+                  queryKey: [
+                    'quests',
+                    'infinite',
+                    'for-project',
+                    currentProjectId
+                  ]
+                });
+                await queryClient.invalidateQueries({
+                  queryKey: [
+                    'quests',
+                    'offline',
+                    'for-project',
+                    currentProjectId
+                  ]
+                });
+                await queryClient.invalidateQueries({
+                  queryKey: [
+                    'quests',
+                    'cloud',
+                    'for-project',
+                    currentProjectId
+                  ]
+                });
+                console.log('🔄 Quest queries invalidated');
+                // Stop animation after a brief delay
+                setTimeout(() => {
+                  setIsRefreshing(false);
+                }, 500);
+              }}
+            >
+              <Animated.View style={spinStyle}>
                 <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-              </Button>
-            )}
+              </Animated.View>
+            </Button>
           </View>
 
           {/* Search Input */}

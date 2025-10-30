@@ -110,6 +110,16 @@ export const useReports = (
       void queryClient.invalidateQueries({
         queryKey: ['translation']
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['target_assets']
+      });
+      // Invalidate blocked count queries
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked-translations-count']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked-assets-count']
+      });
     }
   });
 
@@ -149,8 +159,12 @@ export const useReports = (
       void queryClient.invalidateQueries({
         queryKey: ['target_assets']
       });
+      // Invalidate blocked count queries
       void queryClient.invalidateQueries({
-        queryKey: ['target_assets']
+        queryKey: ['blocked-translations-count']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked-assets-count']
       });
     }
   });
