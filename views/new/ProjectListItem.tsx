@@ -162,110 +162,109 @@ export function ProjectListItem({
             isInvited && 'border-2 border-primary bg-primary/5 shadow-md'
           )}
         >
-          <CardHeader className="flex flex-row items-start justify-between">
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
             <View className="flex flex-1 gap-1">
-              <View className="flex flex-row items-center">
-                <View className="flex flex-1 flex-row gap-2">
-                  {isInvited && (
-                    <View className="flex flex-row items-center gap-1.5">
-                      <View className="rounded-full bg-primary px-2 py-0.5">
-                        <Text className="text-xs font-semibold text-primary-foreground">
-                          {t('invited')}
-                        </Text>
-                      </View>
-                      <Icon as={MailIcon} className="text-primary" size={16} />
-                    </View>
-                  )}
-                  {(project.private ||
-                    !!membership ||
-                    project.source === 'local') && (
-                    <View className="flex flex-row items-center gap-1.5">
-                      {!project.visible && (
-                        <Icon
-                          as={EyeOffIcon}
-                          className="text-secondary-foreground"
-                        />
-                      )}
-                      {project.source === 'local' && (
-                        <Icon
-                          as={HardDriveIcon}
-                          className="text-secondary-foreground"
-                        />
-                      )}
-                      {project.private && (
-                        <Icon
-                          as={LockIcon}
-                          className="text-secondary-foreground"
-                        />
-                      )}
-                      {project.template === 'bible' && (
-                        <Icon
-                          as={BookIcon}
-                          className="text-secondary-foreground"
-                        />
-                      )}
-                      {membership === 'owner' && (
-                        <Icon as={CrownIcon} className="text-primary" />
-                      )}
-                      {membership === 'member' && (
-                        <Icon as={UserIcon} className="text-primary" />
-                      )}
-                    </View>
-                  )}
-                  <CardTitle numberOfLines={2} className="flex flex-1">
-                    {project.name}
-                  </CardTitle>
-                </View>
-                {isDownloaded && (
-                  <DownloadIndicator
-                    isFlaggedForDownload={true}
-                    isLoading={false}
-                    onPress={() => undefined} // Non-interactive
-                    downloadType="project"
-                    stats={{
-                      totalAssets: 0,
-                      totalQuests: 0
-                    }}
-                  />
-                )}
-              </View>
+              <CardTitle numberOfLines={2}>{project.name}</CardTitle>
               <CardDescription>
                 <Text>
-                  {`${
-                    sourceLanguages.length
-                      ? sourceLanguages
-                          .map((l) => getLanguageDisplayName(l))
-                          .join(', ')
-                      : '—'
-                  } → ${getLanguageDisplayName(targetLanguage)}`}
+                  {sourceLanguages.length > 0
+                    ? `${sourceLanguages
+                        .map((l) => getLanguageDisplayName(l))
+                        .join(
+                          ', '
+                        )} → ${getLanguageDisplayName(targetLanguage)}`
+                    : getLanguageDisplayName(targetLanguage)}
                 </Text>
               </CardDescription>
             </View>
-          </CardHeader>
-          <CardContent>
-            <Text numberOfLines={4}>{project.description}</Text>
-            {isInvited && (
-              <View className="mt-3 flex-row gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="flex-1 flex-row items-center gap-2"
-                  onPress={() => {
-                    goToNotifications();
+            <View className="flex flex-shrink-0 flex-row items-center gap-1.5">
+              {isInvited && (
+                <View className="flex flex-row items-center gap-1.5">
+                  <View className="rounded-full bg-primary px-2 py-0.5">
+                    <Text className="text-xs font-semibold text-primary-foreground">
+                      {t('invited')}
+                    </Text>
+                  </View>
+                  <Icon as={MailIcon} className="text-primary" size={16} />
+                </View>
+              )}
+              {(project.private ||
+                !!membership ||
+                project.source === 'local') && (
+                <View className="flex flex-row items-center gap-1.5">
+                  {!project.visible && (
+                    <Icon
+                      as={EyeOffIcon}
+                      className="text-secondary-foreground"
+                    />
+                  )}
+                  {project.source === 'local' && (
+                    <Icon
+                      as={HardDriveIcon}
+                      className="text-secondary-foreground"
+                    />
+                  )}
+                  {project.private && (
+                    <Icon as={LockIcon} className="text-secondary-foreground" />
+                  )}
+                  {project.template === 'bible' && (
+                    <Icon as={BookIcon} className="text-secondary-foreground" />
+                  )}
+                  {membership === 'owner' && (
+                    <Icon as={CrownIcon} className="text-primary" />
+                  )}
+                  {membership === 'member' && (
+                    <Icon as={UserIcon} className="text-primary" />
+                  )}
+                </View>
+              )}
+              {isDownloaded && (
+                <DownloadIndicator
+                  isFlaggedForDownload={true}
+                  isLoading={false}
+                  onPress={() => undefined} // Non-interactive
+                  downloadType="project"
+                  stats={{
+                    totalAssets: 0,
+                    totalQuests: 0
                   }}
+                />
+              )}
+            </View>
+          </CardHeader>
+          {(project.description || isInvited) && (
+            <CardContent>
+              {project.description && (
+                <Text numberOfLines={4}>{project.description}</Text>
+              )}
+              {isInvited && (
+                <View
+                  className={cn(
+                    'flex-row gap-2',
+                    project.description && 'mt-3'
+                  )}
                 >
-                  <Icon
-                    as={MailIcon}
-                    size={16}
-                    className="text-primary-foreground"
-                  />
-                  <Text className="text-primary-foreground">
-                    {t('viewInvitation')}
-                  </Text>
-                </Button>
-              </View>
-            )}
-          </CardContent>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 flex-row items-center gap-2"
+                    onPress={() => {
+                      goToNotifications();
+                    }}
+                  >
+                    <Icon
+                      as={MailIcon}
+                      size={16}
+                      className="text-primary-foreground"
+                    />
+                    <Text className="text-primary-foreground">
+                      {t('viewInvitation')}
+                    </Text>
+                  </Button>
+                </View>
+              )}
+            </CardContent>
+          )}
         </Card>
       </Pressable>
 
