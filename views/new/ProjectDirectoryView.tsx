@@ -1088,7 +1088,7 @@ export default function ProjectDirectoryView() {
           onClose={() => setShowReportModal(false)}
           recordId={currentProjectId!}
           creatorId={project?.creator_id ?? undefined}
-          recordTable="projects"
+          recordTable="project"
           hasAlreadyReported={hasReported}
           onReportSubmitted={() => null}
         />

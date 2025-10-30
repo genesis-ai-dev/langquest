@@ -1,24 +1,25 @@
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
   Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
+  ScrollView,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import RadioSelect from './RadioSelect';
 
 interface ReportModalProps {
   isVisible: boolean;
@@ -27,7 +28,7 @@ interface ReportModalProps {
   recordTable: string;
   creatorId?: string;
   hasAlreadyReported: boolean;
-  onReportSubmitted?: () => void;
+  onReportSubmitted?: (contentBlocked?: boolean) => void;
 }
 
 export const ReportModal: React.FC<ReportModalProps> = ({
@@ -102,6 +103,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         details
       });
 
+      let contentBlocked = false;
+
       // Handle blocking if options are selected
       if (blockContentOption) {
         try {
@@ -110,7 +113,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             content_id: recordId,
             content_table: recordTable
           });
-          console.log('Content blocked successfully');
+          contentBlocked = true;
         } catch (error) {
           console.error('Failed to block content:', error);
         }
@@ -134,7 +137,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setBlockContentOption(false);
       onClose();
       Alert.alert(t('success'), t('reportSubmitted'));
-      onReportSubmitted?.();
+
+      // Pass whether content was blocked so parent can close modal
+      onReportSubmitted?.(contentBlocked);
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert(t('error'), t('failedToSubmitReport'));
@@ -149,113 +154,99 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={styles.container} onPress={onClose}>
-          <KeyboardAvoidingView>
+        <Pressable className="flex-1 items-center justify-center bg-black/50">
+          <KeyboardAvoidingView behavior="padding">
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modal}>
-                <View style={styles.header}>
-                  <Text style={styles.title}>{modalTitle}</Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
+              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text variant="h3">{modalTitle}</Text>
+                  <Pressable className="p-1" onPress={onClose}>
+                    <Icon as={XIcon} size={24} className="text-foreground" />
+                  </Pressable>
                 </View>
-                <View style={styles.sectionDecoration}>
-                  <Text style={styles.sectionTitle}>
-                    {t('selectReasonLabel')}
-                  </Text>
-                </View>
-                <View style={styles.reasonsContainer}>
-                  <RadioSelect
-                    options={reportReasons}
-                    value={reason}
-                    onChange={(option) =>
-                      handleReasonSelect(
-                        option as (typeof reasonOptions)[number]
-                      )
-                    }
-                    textColor={colors.text}
-                    borderColor={colors.primary}
-                    fillColor={colors.primary}
-                  />
-                </View>
-                <View style={styles.sectionDecoration}>
-                  <Text style={styles.sectionTitle}>
-                    {t('additionalDetails')}
-                  </Text>
-                </View>
-                <TextInput
-                  style={styles.detailsInput}
-                  multiline
-                  placeholder={t('additionalDetailsPlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={details}
-                  onChangeText={setDetails}
-                />
 
-                {/* Blocking options */}
-                <View style={styles.blockingOptions}>
-                  <View style={styles.sectionDecoration}>
-                    <Text style={styles.sectionTitle}>{t('options')}</Text>
-                  </View>
-                  <View style={styles.blockOption}>
-                    <Text style={styles.blockText}>
-                      {t('blockThisContent')}
-                    </Text>
-                    <Switch
-                      value={blockContentOption}
-                      onValueChange={setBlockContentOption}
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary // Use primary color for better contrast
-                      }}
-                      thumbColor={
-                        blockContentOption
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                    />
-                  </View>
-
-                  {creatorId && creatorId !== currentUser?.id && (
-                    <View style={styles.blockOption}>
-                      <Text style={styles.blockText}>{t('blockThisUser')}</Text>
-                      <Switch
-                        value={blockUserOption}
-                        onValueChange={setBlockUserOption}
-                        trackColor={{
-                          false: colors.textSecondary,
-                          true: colors.primary // Use primary color for better contrast
-                        }}
-                        thumbColor={
-                          blockUserOption
-                            ? colors.primary
-                            : colors.inputBackground
+                <ScrollView
+                  className="max-h-[80%]"
+                  showsVerticalScrollIndicator
+                  contentContainerStyle={{ paddingRight: 8 }}
+                >
+                  <View className="gap-4">
+                    <View>
+                      <Text variant="large" className="mb-2">
+                        {t('selectReasonLabel')}
+                      </Text>
+                      <RadioGroup
+                        value={reason ?? undefined}
+                        onValueChange={(value) =>
+                          handleReasonSelect(
+                            value as (typeof reasonOptions)[number]
+                          )
                         }
+                      >
+                        {reportReasons.map((option) => (
+                          <RadioGroupItem
+                            key={option.value}
+                            value={option.value}
+                            label={option.label}
+                          />
+                        ))}
+                      </RadioGroup>
+                    </View>
+
+                    <View>
+                      <Text variant="large" className="mb-2">
+                        {t('additionalDetails')}
+                      </Text>
+                      <Textarea
+                        placeholder={t('additionalDetailsPlaceholder')}
+                        value={details}
+                        onChangeText={setDetails}
+                        drawerInput={false}
                       />
                     </View>
-                  )}
-                </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    (!reason || report.isCreatingReport) &&
-                      styles.submitButtonDisabled
-                  ]}
+                    {/* Blocking options */}
+                    <View className="gap-3 border-t border-input pt-4">
+                      <Text variant="large" className="mb-2">
+                        {t('options')}
+                      </Text>
+                      <View className="flex-row items-center justify-between">
+                        <Label className="flex-1">
+                          {t('blockThisContent')}
+                        </Label>
+                        <Switch
+                          checked={blockContentOption}
+                          onCheckedChange={setBlockContentOption}
+                        />
+                      </View>
+
+                      {creatorId && creatorId !== currentUser?.id && (
+                        <View className="flex-row items-center justify-between">
+                          <Label className="flex-1">{t('blockThisUser')}</Label>
+                          <Switch
+                            checked={blockUserOption}
+                            onCheckedChange={setBlockUserOption}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <Button
+                  className="mt-4"
                   onPress={handleSubmit}
                   disabled={
                     !reason || report.isCreatingReport || hasAlreadyReported
                   }
+                  loading={report.isCreatingReport}
                 >
-                  <Text style={styles.submitButtonText}>
+                  <Text>
                     {report.isCreatingReport
                       ? t('submitting')
                       : t('submitReport')}
                   </Text>
-                </TouchableOpacity>
+                </Button>
               </View>
             </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
@@ -264,107 +255,3 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modal: {
-    minWidth: '90%',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.large
-    // height: '80%'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  sectionTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.small
-  },
-  reasonsContainer: {
-    marginTop: spacing.small,
-    marginBottom: spacing.medium
-  },
-  reasonOption: {
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    marginBottom: spacing.xsmall
-  },
-  selectedReason: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight
-  },
-  reasonText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  selectedReasonText: {
-    color: colors.text,
-    fontWeight: '600'
-  },
-  detailsInput: {
-    // borderWidth: 1,
-    // borderColor: colors.inputBorder,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.small,
-    padding: spacing.small,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    color: colors.text,
-    marginTop: spacing.small,
-    marginBottom: spacing.medium
-  },
-  blockingOptions: {
-    marginBottom: spacing.medium
-  },
-  blockOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xsmall
-    // borderBottomWidth: 1,
-    // borderBottomColor: colors.inputBorder
-  },
-  blockText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    padding: spacing.small,
-    borderRadius: borderRadius.medium,
-    alignItems: 'center'
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.disabled
-  },
-  submitButtonText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: fontSizes.medium
-  },
-  sectionDecoration: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  }
-});

@@ -89,8 +89,26 @@ export const useReports = (
       return await blockService.blockUser(data);
     },
     onSuccess: () => {
+      // Invalidate blocked users queries
       void queryClient.invalidateQueries({
         queryKey: ['blockedUsers']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked-users']
+      });
+      // Invalidate user restrictions which include blocked users
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked_users']
+      });
+      // Invalidate all asset/quest/translation queries that filter by blocked users
+      void queryClient.invalidateQueries({
+        queryKey: ['assets']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['quests']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['translation']
       });
     }
   });
@@ -104,8 +122,35 @@ export const useReports = (
       return await blockService.blockContent(data);
     },
     onSuccess: () => {
+      // Invalidate blocked content queries (both formats)
       void queryClient.invalidateQueries({
         queryKey: ['blockedContent']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked-content']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked_content']
+      });
+      // Invalidate user restrictions which include blocked content
+      void queryClient.invalidateQueries({
+        queryKey: ['blocked_content']
+      });
+      // Invalidate all asset/quest/translation queries that filter by blocked content
+      void queryClient.invalidateQueries({
+        queryKey: ['assets']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['quests']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['translation']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['target_assets']
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['target_assets']
       });
     }
   });

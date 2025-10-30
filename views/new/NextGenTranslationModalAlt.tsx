@@ -542,10 +542,16 @@ export default function NextGenTranslationModal({
                           isVisible={showReportModal}
                           onClose={() => setShowReportModal(false)}
                           recordId={assetId}
-                          recordTable="assets"
+                          recordTable="asset"
                           creatorId={asset.creator_id ?? undefined}
                           hasAlreadyReported={hasReported}
-                          onReportSubmitted={() => refetch()}
+                          onReportSubmitted={(contentBlocked) => {
+                            refetch();
+                            // Close the translation modal if content was blocked
+                            if (contentBlocked) {
+                              handleClose();
+                            }
+                          }}
                         />
                       )}
                       {/* Debug Info */}

@@ -167,7 +167,7 @@ export default function NextGenProjectsView() {
     data: restrictions
     // isRestrictionsLoading,
     // refetch: refetchRestrictions
-  } = useUserRestrictions('projects', true, true, false);
+  } = useUserRestrictions('project', true, true, false);
 
   const blockContentIds = (restrictions.blockedContentIds ?? []).map(
     (c) => c.content_id

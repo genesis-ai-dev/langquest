@@ -1,22 +1,24 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { Textarea } from '@/components/ui/textarea';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Modal,
   Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
+  ScrollView,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
@@ -198,222 +200,104 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <KeyboardAvoidingView>
-      <Modal
-        visible={isVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={onClose}
-      >
-        <TouchableWithoutFeedback onPress={onClose}>
-          <Pressable style={styles.container} onPress={onClose}>
+    <Modal
+      visible={isVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <Pressable className="flex-1 items-center justify-center bg-black/50">
+          <KeyboardAvoidingView behavior="padding">
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modal}>
-                <View style={styles.header}>
-                  <Text style={styles.title}>{t('reportTranslation')}</Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.text} />
-                  </TouchableOpacity>
+              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text variant="h3">{t('reportTranslation')}</Text>
+                  <Pressable className="p-1" onPress={onClose}>
+                    <Icon as={XIcon} size={24} className="text-foreground" />
+                  </Pressable>
                 </View>
 
-                <Text style={styles.sectionTitle}>
-                  {t('selectReasonLabel')}
-                </Text>
-                <View style={styles.reasonsContainer}>
-                  {reasonOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.reasonOption,
-                        reason === option && styles.selectedReason
-                      ]}
-                      onPress={() => handleReasonSelect(option)}
-                    >
-                      <Text
-                        style={[
-                          styles.reasonText,
-                          reason === option && styles.selectedReasonText
-                        ]}
-                      >
-                        {t(`reportReason.${option}`)}
+                <ScrollView className="max-h-[80%]" showsVerticalScrollIndicator>
+                  <View className="gap-4">
+                    <View>
+                      <Text variant="large" className="mb-2">
+                        {t('selectReasonLabel')}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.sectionTitle}>
-                  {t('additionalDetails')}
-                </Text>
-                <TextInput
-                  style={styles.detailsInput}
-                  multiline
-                  placeholder={t('additionalDetailsPlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={details}
-                  onChangeText={setDetails}
-                />
-
-                {/* Blocking options */}
-                <View style={styles.blockingOptions}>
-                  <View style={styles.blockOption}>
-                    <Text style={styles.blockText}>
-                      {t('blockThisContent')}
-                    </Text>
-                    <Switch
-                      value={blockContentOption}
-                      onValueChange={setBlockContentOption}
-                      trackColor={{
-                        false: colors.textSecondary,
-                        true: colors.primary // Use primary color for better contrast
-                      }}
-                      thumbColor={
-                        blockContentOption
-                          ? colors.primary
-                          : colors.inputBackground
-                      }
-                    />
-                  </View>
-
-                  {creatorId && creatorId !== currentUser?.id && (
-                    <View style={styles.blockOption}>
-                      <Text style={styles.blockText}>{t('blockThisUser')}</Text>
-                      <Switch
-                        value={blockUserOption}
-                        onValueChange={setBlockUserOption}
-                        trackColor={{
-                          false: colors.textSecondary,
-                          true: colors.primary // Use primary color for better contrast
-                        }}
-                        thumbColor={
-                          blockUserOption
-                            ? colors.primary
-                            : colors.inputBackground
+                      <RadioGroup
+                        value={reason ?? undefined}
+                        onValueChange={(value) =>
+                          handleReasonSelect(
+                            value as (typeof reasonOptions)[number]
+                          )
                         }
+                      >
+                        {reasonOptions.map((option) => (
+                          <RadioGroupItem
+                            key={option}
+                            value={option}
+                            label={t(`reportReason.${option}`)}
+                          />
+                        ))}
+                      </RadioGroup>
+                    </View>
+
+                    <View>
+                      <Text variant="large" className="mb-2">
+                        {t('additionalDetails')}
+                      </Text>
+                      <Textarea
+                        placeholder={t('additionalDetailsPlaceholder')}
+                        value={details}
+                        onChangeText={setDetails}
+                        drawerInput={false}
                       />
                     </View>
-                  )}
-                </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    (!reason || createReportMutation.isPending) &&
-                      styles.submitButtonDisabled
-                  ]}
+                    {/* Blocking options */}
+                    <View className="gap-3 border-t border-input pt-4">
+                      <Text variant="large" className="mb-2">
+                        {t('options')}
+                      </Text>
+                      <View className="flex-row items-center justify-between">
+                        <Label className="flex-1">{t('blockThisContent')}</Label>
+                        <Switch
+                          checked={blockContentOption}
+                          onCheckedChange={setBlockContentOption}
+                        />
+                      </View>
+
+                      {creatorId && creatorId !== currentUser?.id && (
+                        <View className="flex-row items-center justify-between">
+                          <Label className="flex-1">{t('blockThisUser')}</Label>
+                          <Switch
+                            checked={blockUserOption}
+                            onCheckedChange={setBlockUserOption}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <Button
+                  className="mt-4"
                   onPress={handleSubmit}
                   disabled={!reason || createReportMutation.isPending}
+                  loading={createReportMutation.isPending}
                 >
-                  <Text style={styles.submitButtonText}>
+                  <Text>
                     {createReportMutation.isPending
                       ? t('submitting')
                       : t('submitReport')}
                   </Text>
-                </TouchableOpacity>
+                </Button>
               </View>
             </TouchableWithoutFeedback>
-          </Pressable>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modal: {
-    width: '90%',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.large,
-    padding: spacing.medium,
-    maxHeight: '80%'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  title: {
-    fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  sectionTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.small
-  },
-  reasonsContainer: {
-    marginBottom: spacing.medium
-  },
-  reasonOption: {
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    marginBottom: spacing.xsmall
-  },
-  selectedReason: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight
-  },
-  reasonText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  selectedReasonText: {
-    color: colors.text,
-    fontWeight: '600'
-  },
-  detailsInput: {
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: borderRadius.medium,
-    padding: spacing.small,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    color: colors.text,
-    marginBottom: spacing.medium
-  },
-  blockingOptions: {
-    marginBottom: spacing.medium
-  },
-  blockOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.small,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  blockText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    padding: spacing.small,
-    borderRadius: borderRadius.medium,
-    alignItems: 'center'
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.disabled
-  },
-  submitButtonText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: fontSizes.medium
-  }
-});

@@ -10,7 +10,7 @@ import { useHybridQuery } from '../useHybridQuery';
 export type BlockedUser = InferSelectModel<typeof blocked_users>;
 export type BlockedContent = InferSelectModel<typeof blocked_content>;
 
-export type ContentType = 'projects' | 'quests' | 'assets' | 'translations';
+export type ContentType = 'project' | 'quest' | 'asset' | 'asset_content_link';
 
 /**
  * Returns { blockedUsers, isLoading, error }

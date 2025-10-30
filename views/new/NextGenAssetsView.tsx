@@ -811,7 +811,7 @@ export default function NextGenAssetsView() {
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
           recordId={currentQuestId}
-          recordTable="quests"
+          recordTable="quest"
           hasAlreadyReported={hasReported}
           creatorId={selectedQuest?.creator_id ?? undefined}
           onReportSubmitted={() => refetchReport()}

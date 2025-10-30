@@ -613,7 +613,7 @@ export default function NextGenAssetDetailView() {
         onClose={() => setShowReportModal(false)}
         recordId={activeAsset.id}
         creatorId={activeAsset?.creator_id ?? undefined}
-        recordTable="assets"
+        recordTable="asset"
         hasAlreadyReported={hasReported}
         onReportSubmitted={() => refetchOfflineAsset()}
       />

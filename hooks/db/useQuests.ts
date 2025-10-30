@@ -409,7 +409,7 @@ export function useInfiniteQuestsByProjectId(
     data: restrictions,
     isRestrictionsLoading
     // hasError: hasRestrictionsError
-  } = useUserRestrictions('quests', true, true, false);
+  } = useUserRestrictions('quest', true, true, false);
 
   const blockContentIds = (restrictions.blockedContentIds ?? []).map(
     (c) => c.content_id
