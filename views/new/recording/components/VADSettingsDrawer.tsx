@@ -143,11 +143,7 @@ export function VADSettingsDrawer({
   });
 
   return (
-    <Drawer
-      open={isOpen}
-      onOpenChange={onOpenChange}
-      snapPoints={['65%', '90%']}
-    >
+    <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={[730, 900]}>
       <DrawerContent className="max-h-[90%]">
         <DrawerHeader className="flex-row items-start justify-between">
           <View className="flex-1">

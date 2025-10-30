@@ -57,8 +57,8 @@ export function FullScreenVADOverlay({
             energyShared={energyShared}
             vadThreshold={vadThreshold}
             isRecordingShared={isRecordingShared}
-            barCount={80}
-            maxHeight={120}
+            barCount={60}
+            maxHeight={80}
           />
         </Animated.View>
 

@@ -429,7 +429,7 @@ class MicrophoneEnergyModule : Module() {
         
         println("🎬 Writing WAV file: $totalSamples samples, ${duration}ms")
         
-        // Write WAV file
+        // Write WAV file synchronously (simple approach that worked before)
         val out = java.io.FileOutputStream(file)
         
         // Write WAV header
@@ -447,6 +447,8 @@ class MicrophoneEnergyModule : Module() {
           }
         }
         
+        // Flush to ensure data is written (but don't sync - it can be slow/problematic)
+        out.flush()
         out.close()
         
         println("✅ WAV file written: ${file.absolutePath}")

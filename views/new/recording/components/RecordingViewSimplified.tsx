@@ -44,6 +44,12 @@ import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
 const USE_INSERTION_WHEEL = true;
+const DEBUG_MODE = false;
+function debugLog(...args: unknown[]) {
+  if (DEBUG_MODE) {
+    console.log(...args);
+  }
+}
 
 interface UIAsset {
   id: string;
@@ -215,7 +221,7 @@ const RecordingViewSimplified = ({
 
         // DEBUG: Log assets with multiple segments
         if (segmentCount > 1) {
-          console.log(
+          debugLog(
             `📊 Asset "${obj.name}" (${obj.id.slice(0, 8)}) has ${segmentCount} segments`
           );
         }
@@ -235,7 +241,7 @@ const RecordingViewSimplified = ({
     // DEBUG: Summary of segment counts
     const multiSegmentAssets = result.filter((a) => a.segmentCount > 1);
     if (multiSegmentAssets.length > 0) {
-      console.log(
+      debugLog(
         `📊 Total assets with multiple segments: ${multiSegmentAssets.length}`
       );
     }
@@ -267,7 +273,7 @@ const RecordingViewSimplified = ({
     if (USE_INSERTION_WHEEL) {
       const maxIndex = assets.length; // Can insert at 0..N (after last item)
       if (insertionIndex > maxIndex) {
-        console.log(
+        debugLog(
           `📍 Clamping insertion index from ${insertionIndex} to ${maxIndex}`
         );
         setInsertionIndex(maxIndex);
@@ -288,7 +294,7 @@ const RecordingViewSimplified = ({
 
     // Only scroll if a new asset was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
-      console.log('📜 Auto-scrolling to new asset');
+      debugLog('📜 Auto-scrolling to new asset');
 
       // Small delay to ensure the new item is rendered before scrolling
       setTimeout(() => {
@@ -326,12 +332,12 @@ const RecordingViewSimplified = ({
           .from(asset_content_link)
           .where(eq(asset_content_link.asset_id, assetId));
 
-        console.log(
+        debugLog(
           `📀 Found ${contentLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
         );
 
         if (contentLinks.length === 0) {
-          console.log('No content links found for asset:', assetId);
+          debugLog('No content links found for asset:', assetId);
           return [];
         }
 
@@ -339,7 +345,7 @@ const RecordingViewSimplified = ({
         const audioValues = contentLinks
           .flatMap((link) => {
             const audioArray = link.audio ?? [];
-            console.log(
+            debugLog(
               `  📎 Content link has ${audioArray.length} audio file(s):`,
               audioArray
             );
@@ -347,10 +353,10 @@ const RecordingViewSimplified = ({
           })
           .filter((value): value is string => !!value);
 
-        console.log(`📊 Total audio files for asset: ${audioValues.length}`);
+        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
 
         if (audioValues.length === 0) {
-          console.log('No audio values found in content links');
+          debugLog('No audio values found in content links');
           return [];
         }
 
@@ -363,11 +369,11 @@ const RecordingViewSimplified = ({
             // Use getLocalAttachmentUriWithOPFS to construct the full path
             const localUri = getLocalAttachmentUriWithOPFS(audioValue);
             uris.push(localUri);
-            console.log('✅ Using direct local URI:', localUri.slice(0, 80));
+            debugLog('✅ Using direct local URI:', localUri.slice(0, 80));
           } else if (audioValue.startsWith('file://')) {
             // Already a full file URI
             uris.push(audioValue);
-            console.log('✅ Using full file URI:', audioValue.slice(0, 80));
+            debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
           } else {
             // It's an attachment ID - look it up in the attachment queue
             if (!system.permAttachmentQueue) continue;
@@ -385,9 +391,9 @@ const RecordingViewSimplified = ({
                 attachment.local_uri
               );
               uris.push(localUri);
-              console.log('✅ Found attachment URI:', localUri.slice(0, 60));
+              debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
             } else {
-              console.log(`⚠️ Audio ${audioValue} not downloaded yet`);
+              debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
             }
           }
         }
@@ -409,10 +415,10 @@ const RecordingViewSimplified = ({
           audioContext.isPlaying && audioContext.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
-          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
+          debugLog('⏸️ Stopping asset:', assetId.slice(0, 8));
           await audioContext.stopCurrentSound();
         } else {
-          console.log('▶️ Playing asset:', assetId.slice(0, 8));
+          debugLog('▶️ Playing asset:', assetId.slice(0, 8));
           const uris = await getAssetAudioUris(assetId);
 
           if (uris.length === 0) {
@@ -421,10 +427,10 @@ const RecordingViewSimplified = ({
           }
 
           if (uris.length === 1 && uris[0]) {
-            console.log('▶️ Playing single segment');
+            debugLog('▶️ Playing single segment');
             await audioContext.playSound(uris[0], assetId);
           } else if (uris.length > 1) {
-            console.log(`▶️ Playing ${uris.length} segments in sequence`);
+            debugLog(`▶️ Playing ${uris.length} segments in sequence`);
             await audioContext.playSoundSequence(uris, assetId);
           }
         }
@@ -439,12 +445,24 @@ const RecordingViewSimplified = ({
   // RECORDING HANDLERS
   // ============================================================================
 
+  // Store insertion index in ref to prevent stale closure issues
+  const insertionIndexRef = React.useRef(insertionIndex);
+  React.useEffect(() => {
+    insertionIndexRef.current = insertionIndex;
+  }, [insertionIndex]);
+
   // Initialize VAD counter when VAD mode activates
   React.useEffect(() => {
     if (isVADLocked && vadCounterRef.current === null) {
-      // Capture current values at activation time
-      const currentInsertionIndex = insertionIndex;
+      // CRITICAL: Use ref to get the LATEST insertionIndex value
+      // This prevents issues when fullscreen overlay blocks the wheel and causes
+      // insertionIndex state updates to be delayed or missed
+      const currentInsertionIndex = insertionIndexRef.current;
       const currentAssets = assets;
+
+      debugLog(
+        `🎯 VAD initializing | insertionIndex (ref): ${currentInsertionIndex} | insertionIndex (state): ${insertionIndex} | assets.length: ${currentAssets.length}`
+      );
 
       void (async () => {
         let targetOrder: number;
@@ -456,10 +474,6 @@ const RecordingViewSimplified = ({
           // When at bottom (insertionIndex === assets.length), append to end
           // When in middle, insert after the currently viewed item
 
-          console.log(
-            `🎯 VAD initializing | insertionIndex: ${currentInsertionIndex} | assets.length: ${currentAssets.length} | maxIndex: ${currentAssets.length}`
-          );
-
           if (currentInsertionIndex >= currentAssets.length) {
             // At or past the end - append
             targetOrder =
@@ -467,7 +481,7 @@ const RecordingViewSimplified = ({
                 ? (currentAssets[currentAssets.length - 1]?.order_index ??
                     currentAssets.length - 1) + 1
                 : 0;
-            console.log(
+            debugLog(
               `🎯 VAD: At bottom, appending with order_index: ${targetOrder}`
             );
           } else {
@@ -484,14 +498,14 @@ const RecordingViewSimplified = ({
                       currentAssets.length - 1) + 1
                   : 0;
             }
-            console.log(
+            debugLog(
               `🎯 VAD: In middle at visual index ${currentInsertionIndex}, inserting at order_index: ${targetOrder}`
             );
           }
         } else {
           // Legacy: append to end
           targetOrder = await getNextOrderIndex(currentQuestId!);
-          console.log(`🎯 VAD counter initialized to end: ${targetOrder}`);
+          debugLog(`🎯 VAD counter initialized to end: ${targetOrder}`);
         }
 
         vadCounterRef.current = targetOrder;
@@ -500,14 +514,15 @@ const RecordingViewSimplified = ({
       vadCounterRef.current = null;
     }
     // IMPORTANT: Only depend on isVADLocked and currentQuestId
-    // We intentionally capture insertionIndex and assets from closure when isVADLocked toggles
+    // insertionIndex is read from ref to avoid stale closure issues
+    // assets is captured from closure (intentional - we want the state at activation time)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVADLocked, currentQuestId]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
     if (isRecording) return;
-    console.log('🎬 Manual recording start');
+    debugLog('🎬 Manual recording start');
     setIsRecording(true);
 
     // Set order index for manual recording
@@ -524,7 +539,7 @@ const RecordingViewSimplified = ({
           ? (assets[actualInsertionIndex]?.order_index ?? actualInsertionIndex)
           : (assets[assets.length - 1]?.order_index ?? assets.length - 1) + 1;
       currentRecordingOrderRef.current = targetOrder;
-      console.log(
+      debugLog(
         `🎯 Recording will insert AFTER item at visual index ${insertionIndex} (boundary ${actualInsertionIndex}) with order_index ${targetOrder}`
       );
     } else {
@@ -538,12 +553,12 @@ const RecordingViewSimplified = ({
   }, [isRecording, assets, insertionIndex]);
 
   const handleRecordingStop = React.useCallback(() => {
-    console.log('🛑 Manual recording stop');
+    debugLog('🛑 Manual recording stop');
     setIsRecording(false);
   }, []);
 
   const handleRecordingDiscarded = React.useCallback(() => {
-    console.log('🗑️ Recording discarded');
+    debugLog('🗑️ Recording discarded');
     setIsRecording(false);
   }, []);
 
@@ -552,7 +567,7 @@ const RecordingViewSimplified = ({
       const targetOrder = currentRecordingOrderRef.current;
 
       try {
-        console.log('💾 Saving recording | order_index:', targetOrder);
+        debugLog('💾 Saving recording | order_index:', targetOrder);
 
         // Validate required data
         if (
@@ -573,9 +588,12 @@ const RecordingViewSimplified = ({
           : assets.length + pendingAssetNamesRef.current.size + 1;
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
-        console.log(
+        debugLog(
           `🏷️ Reserved name: ${assetName} (${isVADLocked ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
         );
+
+        // Native module flushes the file before sending onSegmentComplete event.
+        // File should be ready, but Android file system may need a moment.
 
         // Save audio file locally
         const localUri = await saveAudioLocally(uri);
@@ -594,7 +612,7 @@ const RecordingViewSimplified = ({
             });
             // Release the reserved name after successful save
             pendingAssetNamesRef.current.delete(assetName);
-            console.log(
+            debugLog(
               `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
             );
           })
@@ -615,7 +633,7 @@ const RecordingViewSimplified = ({
           });
         }
 
-        console.log('🏁 Recording saved');
+        debugLog('🏁 Recording saved');
         setIsRecording(false);
       } catch (error) {
         console.error('❌ Failed to save recording:', error);
@@ -641,7 +659,7 @@ const RecordingViewSimplified = ({
     }
 
     const targetOrder = vadCounterRef.current;
-    console.log('🎬 VAD: Segment starting | order_index:', targetOrder);
+    debugLog('🎬 VAD: Segment starting | order_index:', targetOrder);
 
     currentRecordingOrderRef.current = targetOrder;
     vadCounterRef.current = targetOrder + 1; // Increment for next segment
@@ -650,11 +668,11 @@ const RecordingViewSimplified = ({
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
       if (!uri || uri === '') {
-        console.log('🗑️ VAD: Segment discarded');
+        debugLog('🗑️ VAD: Segment discarded');
         return;
       }
 
-      console.log('📼 VAD: Segment complete');
+      debugLog('📼 VAD: Segment complete');
       void handleRecordingComplete(uri, 0, []);
     },
     [handleRecordingComplete]
@@ -722,7 +740,7 @@ const RecordingViewSimplified = ({
       );
 
       if (toRemove.length > 0) {
-        console.log(
+        debugLog(
           `🧹 Clearing ${toRemove.length} stale asset segment cache entries`
         );
         toRemove.forEach((id) => loadedAssetIdsRef.current.delete(id));
@@ -770,11 +788,11 @@ const RecordingViewSimplified = ({
 
         if (batch.length === 0) {
           // All done!
-          console.log('✅ Finished loading all asset metadata');
+          debugLog('✅ Finished loading all asset metadata');
           return;
         }
 
-        console.log(
+        debugLog(
           `📊 Loading batch ${Math.floor(startIdx / BATCH_SIZE) + 1}: ${batch.length} assets (${startIdx + 1}-${startIdx + batch.length} of ${assetsToLoad.length})`
         );
 
@@ -811,17 +829,17 @@ const RecordingViewSimplified = ({
                 });
 
               // DEBUG: Log raw query result
-              console.log(
+              debugLog(
                 `🔎 Query result for asset ${assetId.slice(0, 8)}:`,
                 contentLinks.length,
                 'rows found'
               );
               if (contentLinks.length > 0) {
-                console.log(
+                debugLog(
                   `   First row ID: ${contentLinks[0]?.id.slice(0, 8)}, audio count: ${contentLinks[0]?.audio?.length ?? 0}`
                 );
                 if (contentLinks.length > 1) {
-                  console.log(
+                  debugLog(
                     `   Second row ID: ${contentLinks[1]?.id.slice(0, 8)}, audio count: ${contentLinks[1]?.audio?.length ?? 0}`
                   );
                 }
@@ -836,7 +854,7 @@ const RecordingViewSimplified = ({
               newCounts.set(assetId, segmentCount);
 
               // DEBUG: Log segment count for this asset
-              console.log(
+              debugLog(
                 `🔍 Asset ${assetId.slice(0, 8)} segment count: ${segmentCount} ${segmentCount > 1 ? '✅ MULTI-SEGMENT' : '(single)'}`
               );
 
@@ -847,7 +865,7 @@ const RecordingViewSimplified = ({
                 .filter((value): value is string => !!value);
 
               // DEBUG: Log audio values found
-              console.log(
+              debugLog(
                 `🎵 Asset ${assetId.slice(0, 8)} has ${audioValues.length} audio file(s) across ${segmentCount} segment(s) - loading durations...`
               );
 
@@ -901,11 +919,11 @@ const RecordingViewSimplified = ({
 
               if (totalDuration > 0) {
                 newDurations.set(assetId, totalDuration);
-                console.log(
+                debugLog(
                   `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
                 );
               } else {
-                console.log(
+                debugLog(
                   `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
                 );
               }
@@ -929,7 +947,7 @@ const RecordingViewSimplified = ({
                 }
                 return merged;
               });
-              console.log(
+              debugLog(
                 `✅ Batch loaded segment counts for ${newCounts.size} asset${newCounts.size > 1 ? 's' : ''}`
               );
             }
@@ -943,7 +961,7 @@ const RecordingViewSimplified = ({
                 }
                 return merged;
               });
-              console.log(
+              debugLog(
                 `✅ Batch loaded durations for ${newDurations.size} asset${newDurations.size > 1 ? 's' : ''}`
               );
             }
@@ -1029,7 +1047,7 @@ const RecordingViewSimplified = ({
         await audioSegmentService.deleteAudioSegment(second.id);
 
         // Force re-load of segment count for the merged asset
-        console.log(
+        debugLog(
           `🔄 Forcing segment count reload for merged asset: ${first.id}`
         );
         loadedAssetIdsRef.current.delete(first.id);
@@ -1104,7 +1122,7 @@ const RecordingViewSimplified = ({
                 }
 
                 // Force re-load of segment count for the merged target asset
-                console.log(
+                debugLog(
                   `🔄 Forcing segment count reload for merged asset: ${target.id}`
                 );
                 loadedAssetIdsRef.current.delete(target.id);
@@ -1125,7 +1143,7 @@ const RecordingViewSimplified = ({
                   exact: false
                 });
 
-                console.log('✅ Batch merge completed');
+                debugLog('✅ Batch merge completed');
               } catch (e) {
                 console.error('Failed to batch merge local assets', e);
                 Alert.alert(
@@ -1177,7 +1195,7 @@ const RecordingViewSimplified = ({
                   exact: false
                 });
 
-                console.log(
+                debugLog(
                   `✅ Batch delete completed: ${selectedOrdered.length} assets`
                 );
               } catch (e) {
@@ -1222,7 +1240,7 @@ const RecordingViewSimplified = ({
           exact: false
         });
 
-        console.log('✅ Asset renamed successfully');
+        debugLog('✅ Asset renamed successfully');
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
