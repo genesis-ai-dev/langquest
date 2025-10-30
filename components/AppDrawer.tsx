@@ -3,6 +3,7 @@ import {
   Drawer,
   DrawerContent,
   DrawerHeader,
+  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
@@ -678,287 +679,296 @@ export default function AppDrawer({
       open={drawerIsVisible}
       onOpenChange={setDrawerIsVisible}
       dismissible={!isOperationActive}
+      // enableDynamicSizing={true}
+      snapPoints={[730, 730]}
     >
       <DrawerContent className="native:pb-safe p-2 py-4">
-        <DrawerHeader className="hidden">
+        <DrawerHeader>
           <DrawerTitle>{t('menu')}</DrawerTitle>
         </DrawerHeader>
-        <View className="flex flex-col gap-4">
-          {/* System status and progress indicators */}
-          {!systemReady && (
-            <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
-              {isConnected ? (
-                <>
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
-                  <Text className="text-sm text-foreground">
-                    {t('initializing')}...
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Icon
-                    as={CloudUploadIcon}
-                    size={16}
-                    className="text-foreground"
-                  />
-                  <Text className="text-sm text-foreground">
-                    {t('offline')}
-                  </Text>
-                </>
-              )}
-            </View>
-          )}
-
-          {/* File sync progress indicator */}
-          {syncOperation && (
-            <View className="rounded-md bg-muted p-3">
-              <Text className="text-center text-sm font-medium text-foreground">
-                {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
-              </Text>
-              <View className="flex flex-col gap-2">
-                <Progress value={progressPercentage} className="h-2" />
-                <Text className="text-center text-sm text-foreground">
-                  {getProgressText()}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* PowerSync status section */}
-          <Button
-            variant="ghost"
-            className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
-            onPress={logPowerSyncStatus}
-          >
-            {/* Database sync errors */}
-            {(powersyncStatus?.dataFlowStatus.downloadError ||
-              powersyncStatus?.dataFlowStatus.uploadError) && (
-              <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
-                <Icon
-                  as={AlertTriangle}
-                  size={16}
-                  className="text-destructive"
-                />
-                <Text className="flex-1 text-sm text-destructive">
-                  {t('databaseSyncError')}
-                </Text>
-              </View>
-            )}
-
-            {/* Status text with icon */}
-            <View className="flex-row items-center gap-2">
-              {powersyncStatus?.dataFlowStatus.uploading && (
-                <Icon as={CloudUpload} size={16} className="text-primary" />
-              )}
-              {powersyncStatus?.dataFlowStatus.downloading && (
-                <Icon as={CloudDownload} size={16} className="text-primary" />
-              )}
-              <Text className="text-center text-sm font-medium text-foreground">
-                {!isConnected
-                  ? `${throttledProgress.synced} ${t('filesDownloaded')}`
-                  : powersyncStatus?.dataFlowStatus.uploading
-                    ? t('uploadingData')
-                    : powersyncStatus?.dataFlowStatus.downloading
-                      ? t('downloadingData')
-                      : powersyncStatus?.connected
-                        ? powersyncStatus.hasSynced
-                          ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
-                          : t('notSynced')
-                        : powersyncStatus?.connecting
-                          ? t('connecting')
-                          : t('disconnected')}
-              </Text>
-            </View>
-
-            {/* Indeterminate progress bar for database sync */}
-            {(powersyncStatus?.dataFlowStatus.downloading ||
-              powersyncStatus?.dataFlowStatus.uploading) && (
-              <View className="mt-2 w-full">
-                <IndeterminateProgressBar
-                  isActive={
-                    powersyncStatus?.dataFlowStatus.downloading ||
-                    powersyncStatus?.dataFlowStatus.uploading
-                  }
-                />
-              </View>
-            )}
-          </Button>
-
-          {/* Attachment sync progress section */}
-          {(showAttachmentProgress ||
-            throttledProgress.hasActivity ||
-            throttledProgress.total > 0) && (
-            <Animated.View
-              style={{
-                opacity: showAttachmentProgress ? fadeAnim : 1
-              }}
-            >
-              <View
-                className={cn(
-                  'rounded-md p-3',
-                  throttledProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
-                )}
-              >
-                <View className="flex flex-col gap-2">
-                  <View className="flex flex-row items-start gap-2">
-                    {throttledProgress.hasActivity && (
-                      <Icon
-                        as={Download}
-                        size={14}
-                        className="mt-1 text-primary"
-                      />
-                    )}
-                    <View className="min-w-0 flex-1">
-                      <Text
-                        className={cn(
-                          'flex-shrink flex-wrap text-sm text-foreground',
-                          throttledProgress.hasActivity
-                            ? 'font-semibold'
-                            : 'font-medium'
-                        )}
-                        style={{ flexWrap: 'wrap' }}
-                      >
-                        {isInGracePeriod ? (
-                          <>
-                            <Text className="font-semibold text-primary">
-                              {t('downloadComplete')}
-                            </Text>
-                            <Text className="text-sm text-foreground">
-                              {' '}
-                              ({throttledProgress.synced}/
-                              {throttledProgress.total} {t('files')})
-                            </Text>
-                          </>
-                        ) : attachmentSyncProgress.downloading ? (
-                          <>
-                            <Text className="text-sm font-semibold text-foreground">
-                              {t('downloading')}:{' '}
-                              {attachmentSyncProgress.downloadCurrent}/
-                              {attachmentSyncProgress.downloadTotal}
-                            </Text>
-                          </>
-                        ) : throttledProgress.downloading > 0 &&
-                          throttledProgress.queued > 0 ? (
-                          <>
-                            <Text className="text-sm text-foreground">
-                              {t('syncingAttachments')}:{' '}
-                              {throttledProgress.downloading}
-                            </Text>
-                            <Text className="text-sm text-foreground">, </Text>
-                            <Text className="text-sm text-foreground">
-                              {t('queued')}: {throttledProgress.queued}
-                            </Text>
-                            <Text className="text-sm text-foreground">
-                              {' '}
-                              ({throttledProgress.synced}/
-                              {throttledProgress.total} {t('complete')})
-                            </Text>
-                          </>
-                        ) : throttledProgress.downloading > 0 ? (
-                          <>
-                            <Text className="text-sm text-foreground">
-                              {t('syncingAttachments')}:{' '}
-                              {throttledProgress.downloading} {t('files')}
-                            </Text>
-                            <Text className="text-sm text-foreground">
-                              {' '}
-                              ({throttledProgress.synced}/
-                              {throttledProgress.total} {t('complete')})
-                            </Text>
-                          </>
-                        ) : throttledProgress.queued > 0 ? (
-                          <>
-                            <Text className="text-sm text-foreground">
-                              {t('queuedForDownload')}:{' '}
-                              {throttledProgress.queued} {t('files')}
-                            </Text>
-                            <Text className="text-sm text-foreground">
-                              {' '}
-                              ({throttledProgress.synced}/
-                              {throttledProgress.total} {t('complete')})
-                            </Text>
-                          </>
-                        ) : (
-                          <Text className="text-foreground">
-                            {throttledProgress.synced}/{throttledProgress.total}{' '}
-                            {t('filesDownloaded')}
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
-                    {formattedDownloadSpeed && (
-                      <View className="ml-2">
-                        <Badge className="rounded bg-muted px-2 py-1">
-                          <Text className="text-xs font-medium text-muted-foreground">
-                            {formattedDownloadSpeed}
-                          </Text>
-                        </Badge>
-                      </View>
-                    )}
-                  </View>
-                  <Progress
-                    value={
-                      isInGracePeriod
-                        ? 100
-                        : attachmentSyncProgress.downloading
-                          ? animatedProgress
-                          : throttledProgress.total > 0
-                            ? (throttledProgress.synced /
-                                throttledProgress.total) *
-                              100
-                            : 0
-                    }
-                    className="h-1"
-                  />
-                </View>
-              </View>
-            </Animated.View>
-          )}
-
-          {/* Main drawer items */}
-          <View className="flex flex-col gap-2">
-            {drawerItems.map((item, index) => {
-              const isActive = currentView === item.view;
-
-              return (
-                <Button
-                  key={index}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'h-auto justify-start p-4',
-                    item.disabled && 'opacity-50'
-                  )}
-                  onPress={item.onPress}
-                  disabled={item.disabled}
-                >
-                  <View className="w-full flex-row items-center gap-4">
+        <DrawerScrollView className="flex-1">
+          <View className="flex flex-col gap-4">
+            {/* System status and progress indicators */}
+            {!systemReady && (
+              <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
+                {isConnected ? (
+                  <>
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
+                    />
+                    <Text className="text-sm text-foreground">
+                      {t('initializing')}...
+                    </Text>
+                  </>
+                ) : (
+                  <>
                     <Icon
-                      as={item.icon}
-                      size={20}
+                      as={CloudUploadIcon}
+                      size={16}
                       className="text-foreground"
                     />
-                    <Text className="flex-1 text-foreground">{item.name}</Text>
-                    {!!item.notificationCount && item.notificationCount > 0 && (
-                      <Badge
-                        className="min-w-5 rounded-full px-1"
-                        variant={isActive ? 'secondary' : 'destructive'}
-                      >
-                        <Text>
-                          {item.notificationCount > 99
-                            ? '99+'
-                            : item.notificationCount}
+                    <Text className="text-sm text-foreground">
+                      {t('offline')}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* File sync progress indicator */}
+            {syncOperation && (
+              <View className="rounded-md bg-muted p-3">
+                <Text className="text-center text-sm font-medium text-foreground">
+                  {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
+                </Text>
+                <View className="flex flex-col gap-2">
+                  <Progress value={progressPercentage} className="h-2" />
+                  <Text className="text-center text-sm text-foreground">
+                    {getProgressText()}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* PowerSync status section */}
+            <Button
+              variant="ghost"
+              className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
+              onPress={logPowerSyncStatus}
+            >
+              {/* Database sync errors */}
+              {(powersyncStatus?.dataFlowStatus.downloadError ||
+                powersyncStatus?.dataFlowStatus.uploadError) && (
+                <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
+                  <Icon
+                    as={AlertTriangle}
+                    size={16}
+                    className="text-destructive"
+                  />
+                  <Text className="flex-1 text-sm text-destructive">
+                    {t('databaseSyncError')}
+                  </Text>
+                </View>
+              )}
+
+              {/* Status text with icon */}
+              <View className="flex-row items-center gap-2">
+                {powersyncStatus?.dataFlowStatus.uploading && (
+                  <Icon as={CloudUpload} size={16} className="text-primary" />
+                )}
+                {powersyncStatus?.dataFlowStatus.downloading && (
+                  <Icon as={CloudDownload} size={16} className="text-primary" />
+                )}
+                <Text className="text-center text-sm font-medium text-foreground">
+                  {!isConnected
+                    ? `${throttledProgress.synced} ${t('filesDownloaded')}`
+                    : powersyncStatus?.dataFlowStatus.uploading
+                      ? t('uploadingData')
+                      : powersyncStatus?.dataFlowStatus.downloading
+                        ? t('downloadingData')
+                        : powersyncStatus?.connected
+                          ? powersyncStatus.hasSynced
+                            ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
+                            : t('notSynced')
+                          : powersyncStatus?.connecting
+                            ? t('connecting')
+                            : t('disconnected')}
+                </Text>
+              </View>
+
+              {/* Indeterminate progress bar for database sync */}
+              {(powersyncStatus?.dataFlowStatus.downloading ||
+                powersyncStatus?.dataFlowStatus.uploading) && (
+                <View className="mt-2 w-full">
+                  <IndeterminateProgressBar
+                    isActive={
+                      powersyncStatus?.dataFlowStatus.downloading ||
+                      powersyncStatus?.dataFlowStatus.uploading
+                    }
+                  />
+                </View>
+              )}
+            </Button>
+
+            {/* Attachment sync progress section */}
+            {(showAttachmentProgress ||
+              throttledProgress.hasActivity ||
+              throttledProgress.total > 0) && (
+              <Animated.View
+                style={{
+                  opacity: showAttachmentProgress ? fadeAnim : 1
+                }}
+              >
+                <View
+                  className={cn(
+                    'rounded-md p-3',
+                    throttledProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
+                  )}
+                >
+                  <View className="flex flex-col gap-2">
+                    <View className="flex flex-row items-start gap-2">
+                      {throttledProgress.hasActivity && (
+                        <Icon
+                          as={Download}
+                          size={14}
+                          className="mt-1 text-primary"
+                        />
+                      )}
+                      <View className="min-w-0 flex-1">
+                        <Text
+                          className={cn(
+                            'flex-shrink flex-wrap text-sm text-foreground',
+                            throttledProgress.hasActivity
+                              ? 'font-semibold'
+                              : 'font-medium'
+                          )}
+                          style={{ flexWrap: 'wrap' }}
+                        >
+                          {isInGracePeriod ? (
+                            <>
+                              <Text className="font-semibold text-primary">
+                                {t('downloadComplete')}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                {' '}
+                                ({throttledProgress.synced}/
+                                {throttledProgress.total} {t('files')})
+                              </Text>
+                            </>
+                          ) : attachmentSyncProgress.downloading ? (
+                            <>
+                              <Text className="text-sm font-semibold text-foreground">
+                                {t('downloading')}:{' '}
+                                {attachmentSyncProgress.downloadCurrent}/
+                                {attachmentSyncProgress.downloadTotal}
+                              </Text>
+                            </>
+                          ) : throttledProgress.downloading > 0 &&
+                            throttledProgress.queued > 0 ? (
+                            <>
+                              <Text className="text-sm text-foreground">
+                                {t('syncingAttachments')}:{' '}
+                                {throttledProgress.downloading}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                ,{' '}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                {t('queued')}: {throttledProgress.queued}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                {' '}
+                                ({throttledProgress.synced}/
+                                {throttledProgress.total} {t('complete')})
+                              </Text>
+                            </>
+                          ) : throttledProgress.downloading > 0 ? (
+                            <>
+                              <Text className="text-sm text-foreground">
+                                {t('syncingAttachments')}:{' '}
+                                {throttledProgress.downloading} {t('files')}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                {' '}
+                                ({throttledProgress.synced}/
+                                {throttledProgress.total} {t('complete')})
+                              </Text>
+                            </>
+                          ) : throttledProgress.queued > 0 ? (
+                            <>
+                              <Text className="text-sm text-foreground">
+                                {t('queuedForDownload')}:{' '}
+                                {throttledProgress.queued} {t('files')}
+                              </Text>
+                              <Text className="text-sm text-foreground">
+                                {' '}
+                                ({throttledProgress.synced}/
+                                {throttledProgress.total} {t('complete')})
+                              </Text>
+                            </>
+                          ) : (
+                            <Text className="text-foreground">
+                              {throttledProgress.synced}/
+                              {throttledProgress.total} {t('filesDownloaded')}
+                            </Text>
+                          )}
                         </Text>
-                      </Badge>
-                    )}
+                      </View>
+                      {formattedDownloadSpeed && (
+                        <View className="ml-2">
+                          <Badge className="rounded bg-muted px-2 py-1">
+                            <Text className="text-xs font-medium text-muted-foreground">
+                              {formattedDownloadSpeed}
+                            </Text>
+                          </Badge>
+                        </View>
+                      )}
+                    </View>
+                    <Progress
+                      value={
+                        isInGracePeriod
+                          ? 100
+                          : attachmentSyncProgress.downloading
+                            ? animatedProgress
+                            : throttledProgress.total > 0
+                              ? (throttledProgress.synced /
+                                  throttledProgress.total) *
+                                100
+                              : 0
+                      }
+                      className="h-1"
+                    />
                   </View>
-                </Button>
-              );
-            })}
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Main drawer items */}
+            <View className="flex flex-col gap-2">
+              {drawerItems.map((item, index) => {
+                const isActive = currentView === item.view;
+
+                return (
+                  <Button
+                    key={index}
+                    variant={isActive ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'h-auto justify-start p-4',
+                      item.disabled && 'opacity-50'
+                    )}
+                    onPress={item.onPress}
+                    disabled={item.disabled}
+                  >
+                    <View className="w-full flex-row items-center gap-4">
+                      <Icon
+                        as={item.icon}
+                        size={20}
+                        className="text-foreground"
+                      />
+                      <Text className="flex-1 text-foreground">
+                        {item.name}
+                      </Text>
+                      {!!item.notificationCount &&
+                        item.notificationCount > 0 && (
+                          <Badge
+                            className="min-w-5 rounded-full px-1"
+                            variant={isActive ? 'secondary' : 'destructive'}
+                          >
+                            <Text>
+                              {item.notificationCount > 99
+                                ? '99+'
+                                : item.notificationCount}
+                            </Text>
+                          </Badge>
+                        )}
+                    </View>
+                  </Button>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        </DrawerScrollView>
       </DrawerContent>
     </Drawer>
   );

@@ -380,6 +380,7 @@ export default function NextGenTranslationModal({
                 <ScrollView
                   className="flex-1 px-4 py-4"
                   showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                 >
           {isLoading ? (
             <View className="py-8">

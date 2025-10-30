@@ -178,7 +178,10 @@ export default function ProfileView() {
 
   return (
     <Form {...form}>
-      <ScrollView className="mb-safe flex-1 bg-background">
+      <ScrollView
+        className="mb-safe flex-1 bg-background"
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="flex flex-col gap-4 p-6">
           <Text className="text-2xl font-bold text-foreground">
             {t('profile')}

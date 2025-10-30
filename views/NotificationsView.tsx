@@ -769,7 +769,11 @@ export default function NotificationsView() {
       )}
 
       <View className="flex-1 flex-col gap-4">
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {allNotifications.length === 0 ? (
             <View className="flex-1 items-center justify-center py-14">
               <View className="flex-col items-center gap-4">

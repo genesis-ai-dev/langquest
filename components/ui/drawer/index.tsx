@@ -58,9 +58,11 @@ function Drawer({
   // Use a separate effect to handle presenting/dismissing to ensure ref is ready
   React.useEffect(() => {
     if (isOpen) {
-      // Wait for ref to be available, with retry logic
+      // Wait for ref to be available and allow layout to stabilize
+      // This prevents positioning issues when views are still loading/rendering
       const presentModal = () => {
         if (ref.current) {
+          // Present immediately - no delay needed with fullscreen snapPoints
           ref.current.present();
         } else {
           // Retry after a short delay if ref isn't ready yet
@@ -183,10 +185,45 @@ const DrawerContent = React.forwardRef<
     },
     [context]
   );
+
+  // Convert snapPoints from string percentages to numbers if needed
+  // BottomSheetModal expects numbers: 0-1 for percentages, pixel numbers for pixels
+  const processedSnapPoints = React.useMemo(() => {
+    const snapPoints =
+      'snapPoints' in modalProps ? modalProps.snapPoints : undefined;
+    if (!snapPoints) return undefined;
+
+    const converted = snapPoints.map((point: string | number) => {
+      // Already a number, return as-is
+      if (typeof point === 'number') return point;
+
+      // Handle percentage strings like "85%" -> 0.85
+      if (typeof point === 'string' && point.includes('%')) {
+        return Number(point.replace('%', '')) / 100;
+      }
+
+      // Handle pixel strings like "500px" -> 500
+      if (typeof point === 'string' && point.includes('px')) {
+        return Number(point.replace('px', ''));
+      }
+
+      // Fallback: try to parse as number
+      return Number(point);
+    });
+
+    return converted;
+  }, [modalProps]);
+
+  // Extract snapPoints from modalProps to avoid passing it twice
+  // TypeScript doesn't recognize snapPoints in the spread type, but it's safe to extract
+  const { snapPoints: _snapPoints, ...restModalProps } =
+    modalProps as typeof modalProps & { snapPoints?: (string | number)[] };
+
   return (
     <BottomSheetModal
       ref={context?.ref}
       onChange={handleSheetChanges}
+      {...(processedSnapPoints ? { snapPoints: processedSnapPoints } : {})}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
           appearsOnIndex={0}
@@ -210,10 +247,12 @@ const DrawerContent = React.forwardRef<
       enablePanDownToClose={true}
       enableContentPanningGesture={false}
       enableOverDrag={false}
-      keyboardBehavior="interactive"
+      enableDynamicSizing={true}
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
-      {...modalProps}
+      topInset={0}
+      {...restModalProps}
     >
       <BottomSheetView
         className={cn('z-[9998] bg-background', className)}
