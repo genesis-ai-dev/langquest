@@ -309,7 +309,7 @@ export default function NextGenNewTranslationModal({
     <Drawer
       open={visible}
       onOpenChange={(open) => !open && handleClose()}
-      snapPoints={['85%']}
+      snapPoints={[500, 700]}
     >
       <DrawerContent className="pb-safe">
         <Form {...form}>
