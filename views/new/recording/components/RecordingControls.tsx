@@ -16,9 +16,12 @@ import { MicOffIcon, Settings } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import Animated, {
+  Easing,
   type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
-  useSharedValue
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -70,21 +73,51 @@ export const RecordingControls = React.memo(
 
     // Shared value for activation progress bar - tracks button hold activation (0-1)
     const activationProgressShared = useSharedValue(0);
+    
+    // Track the displayed progress - slightly lags behind actual activation for smoother UX
+    const displayProgressShared = useSharedValue(0);
 
     // Reset progress bar when recording stops
     useEffect(() => {
       if (!isRecording) {
         activationProgressShared.value = 0;
+        displayProgressShared.value = 0;
       }
-    }, [isRecording, activationProgressShared]);
+    }, [isRecording, activationProgressShared, displayProgressShared]);
+
+    // Animate display progress to lag slightly behind activation progress
+    // This makes the bar complete around the same time recording actually starts
+    // Activation completes in 500ms, but recording takes ~50-100ms more to actually start
+    // So we'll make display progress animate slightly slower (~550ms total)
+    useAnimatedReaction(
+      () => activationProgressShared.value,
+      (currentProgress, previous) => {
+        'worklet';
+        if (!isRecording) {
+          // Detect when activation starts (progress goes from 0 to >0)
+          if (previous === 0 && currentProgress > 0) {
+            // Start display animation - animate to 1 over 550ms (slightly longer than activation's 500ms)
+            // This makes it complete around the same time recording actually starts
+            displayProgressShared.value = withTiming(1, {
+              duration: 550, // Slightly longer than activation (500ms) to sync with recording start
+              easing: Easing.linear
+            });
+          } else if (currentProgress === 0) {
+            // Reset immediately when activation is cancelled
+            displayProgressShared.value = 0;
+          }
+        }
+      },
+      [isRecording]
+    );
 
     // Animated style for progress bar - shows activation progress and turns red when recording
     const progressBarStyle = useAnimatedStyle(() => {
       'worklet';
-      const progress = activationProgressShared.value;
-      // When recording, show full width (red). During activation, show progress (blue)
-      const progressWidth = isRecording ? width : progress * width;
-
+      // When recording, show full width (red). Otherwise use display progress (blue, slightly lagging)
+      const progress = isRecording ? 1 : displayProgressShared.value;
+      const progressWidth = progress * width;
+      
       return {
         width: progressWidth,
         opacity: progress > 0 || isRecording ? 1 : 0,
