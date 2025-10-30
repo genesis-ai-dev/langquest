@@ -96,7 +96,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   // Query for existing membership request using useHybridData
   // Watch for updates when modal is visible to catch newly created requests
-  const { data: existingRequests, refetch: refetchRequests } = useHybridData({
+  const { data: existingRequests } = useHybridData({
     dataType: 'membership-request',
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
@@ -126,6 +126,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
     // Add refetch interval when modal is open to catch newly created requests
     cloudQueryOptions: {
+      // ? Do we need this?
       refetchInterval: shouldWatchRequests && modal ? 2000 : false,
       staleTime: modal ? 0 : undefined // Always consider stale when in modal mode
     },
@@ -167,7 +168,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   // Query for membership status (for modal mode) using useHybridData
   // Watch profile_project_link table live while modal is open or request is pending
-  const { data: membershipLinks, refetch: refetchMembership } = useHybridData({
+  const { data: membershipLinks } = useHybridData({
     dataType: 'membership-status',
     queryKeyParams: [projectId, currentUser?.id || ''],
 
@@ -296,16 +297,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
       // Trigger refresh by updating the refresh key (changes query key, triggers refetch)
       setRefreshKey((prev) => prev + 1);
-
-      // Immediately refetch to get the newly created request
-      // PowerSync's reactive queries should see request_synced inserts immediately,
-      // but explicit refetch ensures the UI updates right away
-      await refetchRequests();
-
-      // Give PowerSync a brief moment to ensure the merged view is updated
-      // Then refetch one more time to ensure UI sees the pending request
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      await refetchRequests();
 
       Alert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {

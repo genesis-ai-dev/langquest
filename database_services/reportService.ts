@@ -27,17 +27,20 @@ export class ReportService {
     record_table: string,
     reporter_id: string
   ) {
-    console.log('reports', await db.query.reports_local.findMany());
-    const existingReport = await db.query.reports_local.findFirst({
-      where: and(
-        eq(reports_local.record_id, record_id),
-        eq(reports_local.record_table, record_table),
-        eq(reports_local.reporter_id, reporter_id)
+    const allReports = await db
+      .select()
+      .from(reports_local)
+      .where(
+        and(
+          eq(reports_local.record_id, record_id),
+          eq(reports_local.record_table, record_table),
+          eq(reports_local.reporter_id, reporter_id)
+        )
       )
-    });
-    console.log('existingReport', existingReport);
+      .limit(1);
+    console.log('existingReport', allReports[0]);
 
-    return !!existingReport;
+    return allReports.length > 0;
   }
 }
 

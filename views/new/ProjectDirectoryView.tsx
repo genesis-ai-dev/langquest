@@ -39,6 +39,7 @@ import { useCloudLoading } from '@/contexts/CloudLoadingContext';
 import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
+import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
   useAppNavigation,
@@ -130,7 +131,7 @@ export default function ProjectDirectoryView() {
       cancelAnimation(spinValue);
       spinValue.value = 0;
     }
-  }, [isRefreshing]);
+  }, [isRefreshing, spinValue]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
@@ -176,7 +177,7 @@ export default function ProjectDirectoryView() {
 
   // Offload drawer state for quest undownloads
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
-  const [isOffloading, setIsOffloading] = React.useState(false);
+  const [_isOffloading, setIsOffloading] = React.useState(false);
 
   // Discovery hook
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
@@ -225,7 +226,7 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Bulk Download] Success:', data);
       return data;
     },
-    onMutate: async () => {
+    onMutate: () => {
       console.log(
         '📥 [Bulk Download] Optimistically updating cache (BEFORE mutation)'
       );
@@ -499,7 +500,7 @@ export default function ProjectDirectoryView() {
     }
 
     const isDownloaded =
-      data?.download_profiles?.includes(currentUser?.id || '') ?? false;
+      data.download_profiles?.includes(currentUser?.id) ?? false;
 
     setQuestIdToDownload(questId);
 
@@ -724,23 +725,26 @@ export default function ProjectDirectoryView() {
       };
 
       // Optimistically update offline infinite query cache
-      queryClient.setQueryData(offlineKey, (old: any) => {
-        if (!old) return old;
+      queryClient.setQueryData(
+        offlineKey,
+        (old?: { pages: { data: Quest[] }[] }) => {
+          if (!old) return undefined;
 
-        // Add optimistic quest to first page
-        return {
-          ...old,
-          pages: old.pages.map((page: any, index: number) => {
-            if (index === 0) {
-              return {
-                ...page,
-                data: [...(page.data || []), optimisticQuest]
-              };
-            }
-            return page;
-          })
-        };
-      });
+          // Add optimistic quest to first page
+          return {
+            ...old,
+            pages: old.pages.map((page: { data: Quest[] }, index: number) => {
+              if (index === 0) {
+                return {
+                  ...page,
+                  data: [...page.data, optimisticQuest]
+                };
+              }
+              return page;
+            })
+          };
+        }
+      );
 
       return { previousOffline, previousCloud };
     },
@@ -763,34 +767,35 @@ export default function ProjectDirectoryView() {
       ];
       const offlineKey = [...baseKey, 'offline'];
 
-      queryClient.setQueryData(offlineKey, (old: any) => {
-        if (!old) return old;
+      queryClient.setQueryData(
+        offlineKey,
+        (old?: { pages: { data: Quest[] }[] }) => {
+          return {
+            ...old,
+            pages: old?.pages.map((page: { data: Quest[] }, index: number) => {
+              if (index === 0) {
+                // Replace optimistic quest(s) with real one
+                const data = page.data.map((quest: Quest) =>
+                  quest.id.startsWith('temp-')
+                    ? { ...newQuest, source: 'local' as const }
+                    : quest
+                );
 
-        return {
-          ...old,
-          pages: old.pages.map((page: any, index: number) => {
-            if (index === 0) {
-              // Replace optimistic quest(s) with real one
-              const data = page.data.map((quest: any) =>
-                quest.id.startsWith('temp-')
-                  ? { ...newQuest, source: 'local' as const }
-                  : quest
-              );
+                // If no optimistic quest was found, add real one
+                const hasOptimistic = page.data.some((q: Quest) =>
+                  q.id.startsWith('temp-')
+                );
+                if (!hasOptimistic) {
+                  data.push({ ...newQuest, source: 'local' as const });
+                }
 
-              // If no optimistic quest was found, add real one
-              const hasOptimistic = page.data.some((q: any) =>
-                q.id.startsWith('temp-')
-              );
-              if (!hasOptimistic) {
-                data.push({ ...newQuest, source: 'local' as const });
+                return { ...page, data };
               }
-
-              return { ...page, data };
-            }
-            return page;
-          })
-        };
-      });
+              return page;
+            })
+          };
+        }
+      );
 
       console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
       // Wait for PowerSync to sync, then invalidate to ensure consistency

@@ -114,7 +114,7 @@ export default function NextGenAssetsView() {
       cancelAnimation(spinValue);
       spinValue.value = 0;
     }
-  }, [isRefreshing]);
+  }, [isRefreshing, spinValue]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
@@ -146,10 +146,12 @@ export default function NextGenAssetsView() {
   });
 
   // Prefer passed data for instant rendering!
-  const questData = currentQuestData
-    ? [currentQuestData as Quest]
-    : queriedQuestData;
-  const selectedQuest = React.useMemo(() => questData?.[0], [questData]);
+  const selectedQuest = React.useMemo(() => {
+    const questData = currentQuestData
+      ? [currentQuestData as Quest]
+      : queriedQuestData;
+    return questData?.[0];
+  }, [currentQuestData, queriedQuestData]);
 
   const [showRecording, setShowRecording] = React.useState(false);
 

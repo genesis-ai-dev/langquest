@@ -5,6 +5,7 @@
     "ms-vscode.vscode-eslint",
     "expo.vscode-expo-tools",
     "YoavBls.pretty-ts-errors",
-    "mxsdev.typescript-explorer"
+    "mxsdev.typescript-explorer",
+    "dbaeumer.vscode-eslint",
   ]
 }

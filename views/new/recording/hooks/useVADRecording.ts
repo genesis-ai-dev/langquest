@@ -180,7 +180,7 @@ export function useVADRecording({
         clearTimeout(segmentTimeoutRef.current);
       }
     };
-  }, []);
+  }, [isRecordingShared]);
 
   return {
     currentEnergy,

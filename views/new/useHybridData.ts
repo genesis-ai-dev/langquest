@@ -493,28 +493,24 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       pages: mergedPages,
       pageParams
     };
-  }, [offlineQuery.data, cloudQuery.data, getItemId, transformCloudData]);
+  }, [offlineQuery, cloudQuery, getItemId, transformCloudData]);
 
   // Stabilize callback functions to prevent dependency array size changes
   // Use the stable functions from React Query directly
   const fetchNextPage = React.useCallback(() => {
     void offlineQuery.fetchNextPage();
     if (shouldFetchCloud) void cloudQuery.fetchNextPage();
-  }, [offlineQuery.fetchNextPage, cloudQuery.fetchNextPage, shouldFetchCloud]);
+  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
 
   const fetchPreviousPage = React.useCallback(() => {
     void offlineQuery.fetchPreviousPage();
     if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
-  }, [
-    offlineQuery.fetchPreviousPage,
-    cloudQuery.fetchPreviousPage,
-    shouldFetchCloud
-  ]);
+  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
 
   const refetch = React.useCallback(() => {
     void offlineQuery.refetch();
     if (shouldFetchCloud) void cloudQuery.refetch();
-  }, [offlineQuery.refetch, cloudQuery.refetch, shouldFetchCloud]);
+  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
 
   return {
     data: mergedData as unknown as {
@@ -575,7 +571,7 @@ export function useItemDownloadStatus(
   return React.useMemo(() => {
     if (!item || !userId || !item.download_profiles) return false;
     return item.download_profiles.includes(userId);
-  }, [item?.download_profiles, userId]);
+  }, [userId, item]);
 }
 
 /**
