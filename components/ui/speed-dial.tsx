@@ -79,7 +79,7 @@ function SpeedDialTrigger({
       onPress={onPress}
       size="icon-xl"
       variant="outline"
-      className={cn(!open && 'opacity-75', className)}
+      className={cn('rounded-full border-0 bg-primary/95', className)}
       {...props}
     >
       <MotiView
@@ -87,7 +87,12 @@ function SpeedDialTrigger({
         animate={{ rotate: open ? '90deg' : '0deg' }}
         transition={{ duration: 150, type: 'timing' }}
       >
-        <Icon as={open ? iconOpen : iconClosed} strokeWidth={2.5} size={20} />
+        <Icon
+          as={open ? iconOpen : iconClosed}
+          strokeWidth={2.5}
+          size={20}
+          className="text-secondary"
+        />
       </MotiView>
     </Button>
   );
@@ -177,9 +182,14 @@ function SpeedDialItem({
         onPress={handlePress}
         size="icon-xl"
         variant={variant}
-        className={className}
+        className={cn('bg-primary/95', className)}
       >
-        <Icon as={icon} size={20} strokeWidth={2.5} />
+        <Icon
+          as={icon}
+          size={20}
+          strokeWidth={2.5}
+          className="text-secondary"
+        />
       </Button>
     </MotiView>
   );
