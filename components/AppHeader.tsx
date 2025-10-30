@@ -98,7 +98,7 @@ export default function AppHeader({
       cancelAnimation(spinValue);
       spinValue.value = 0;
     }
-  }, [isSyncing]);
+  }, [isSyncing, spinValue]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
@@ -127,7 +127,7 @@ export default function AppHeader({
         });
       }
     }
-  }, [isCloudLoading]);
+  }, [isCloudLoading, loadingOpacity, loadingProgress]);
 
   const loadingBarStyle = useAnimatedStyle(() => ({
     width: `${loadingProgress.value * 100}%`,

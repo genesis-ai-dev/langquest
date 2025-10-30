@@ -216,7 +216,9 @@ export const useLocalStore = create<LocalState>()(
       navigationStack: [{ view: 'projects', timestamp: Date.now() }],
       setNavigationStack: (stack) => {
         // Ensure navigationStack is always an array
-        const safeStack = Array.isArray(stack) ? stack : [{ view: 'projects' as AppView, timestamp: Date.now() }];
+        const safeStack = Array.isArray(stack)
+          ? stack
+          : [{ view: 'projects' as AppView, timestamp: Date.now() }];
         set({ navigationStack: safeStack });
       },
 

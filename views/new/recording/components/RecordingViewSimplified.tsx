@@ -265,7 +265,7 @@ const RecordingViewSimplified = ({
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
   // when assets array reference changes but content is identical
-  const assetsForLegendList = React.useMemo(() => assets, [assetContentKey]);
+  const assetsForLegendList = React.useMemo(() => assets, [assets]);
 
   // Clamp insertion index when asset count changes
   React.useEffect(() => {
@@ -516,8 +516,7 @@ const RecordingViewSimplified = ({
     // IMPORTANT: Only depend on isVADLocked and currentQuestId
     // insertionIndex is read from ref to avoid stale closure issues
     // assets is captured from closure (intentional - we want the state at activation time)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVADLocked, currentQuestId]);
+  }, [isVADLocked, currentQuestId, assets, insertionIndex]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
@@ -995,8 +994,7 @@ const RecordingViewSimplified = ({
     };
     // Depend on assetIds string (only changes when asset IDs change, not on every render)
     // This prevents the effect from running hundreds of times when array reference changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetIds]);
+  }, [assetIds, assetMetadata]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)

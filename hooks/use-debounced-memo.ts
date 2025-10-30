@@ -20,7 +20,9 @@ export function useDebouncedMemo<T>(
 
   React.useEffect(() => {
     debouncedSetState(factory());
-  }, [...deps, debouncedSetState]);
+    // eslint-disable-next-line react-compiler/react-compiler
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, debouncedSetState, factory]);
 
   return state;
 }

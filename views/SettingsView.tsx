@@ -313,11 +313,7 @@ export default function SettingsView() {
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>
-          <Button
-            variant="default"
-            size="icon-lg"
-            onPress={goToProjects}
-          >
+          <Button variant="default" size="icon-lg" onPress={goToProjects}>
             <Icon as={HomeIcon} className="text-primary-foreground" />
           </Button>
         </View>

@@ -121,7 +121,7 @@ export function useDownloadStatus(
       offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUser?.id}') LIMIT 1`,
       enabled: !!recordId && !!currentUser?.id
     });
-  }, [recordTable, recordId, currentUser?.id]);
+  }, [recordTable, recordId, currentUser]);
 
   const { data, isLoading, ...rest } = useHybridQuery(queryConfig);
 

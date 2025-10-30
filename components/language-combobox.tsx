@@ -43,7 +43,7 @@ function LoadingState() {
       -1,
       false
     );
-  }, []);
+  }, [shimmer]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
     opacity: 0.3 + shimmer.value * 0.4

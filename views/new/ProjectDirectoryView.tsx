@@ -125,7 +125,7 @@ export default function ProjectDirectoryView() {
       cancelAnimation(spinValue);
       spinValue.value = 0;
     }
-  }, [isRefreshing]);
+  }, [isRefreshing, spinValue]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
@@ -923,12 +923,7 @@ export default function ProjectDirectoryView() {
                   ]
                 });
                 await queryClient.invalidateQueries({
-                  queryKey: [
-                    'quests',
-                    'cloud',
-                    'for-project',
-                    currentProjectId
-                  ]
+                  queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
                 });
                 console.log('🔄 Quest queries invalidated');
                 // Stop animation after a brief delay

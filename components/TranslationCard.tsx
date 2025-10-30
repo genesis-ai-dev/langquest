@@ -73,7 +73,6 @@ export const TranslationCard = ({
             )}
 
             {/* Dev info */}
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {SHOW_DEV_ELEMENTS && (
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs text-muted-foreground">
@@ -125,7 +124,6 @@ export const TranslationCard = ({
             </View>
 
             {/* Dev vote breakdown */}
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
             {SHOW_DEV_ELEMENTS && (
               <Text className="text-xs text-muted-foreground/70">
                 {asset.up_votes}↑ {asset.down_votes}↓

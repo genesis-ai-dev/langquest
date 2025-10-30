@@ -134,7 +134,7 @@ export function VADSettingsDrawer({
         withTiming(1, { duration: 100 })
       );
     }
-  }, [currentEnergy, threshold]);
+  }, [currentEnergy, threshold, pulseScale]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
