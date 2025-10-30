@@ -12,7 +12,7 @@ import {
   Modal,
   Platform,
   Pressable,
-  TextInput,
+  type TextInput,
   View
 } from 'react-native';
 

@@ -162,7 +162,7 @@ export function useRecordingState(): UseRecordingStateReturn {
     oldest.opacity.value = 0;
     oldest.translateY.value = 12;
     return { opacity: oldest.opacity, translateY: oldest.translateY };
-  }, []); // Empty deps since animationPool is from .current (stable)
+  }, [animationPool]); // animationPool is from .current (stable ref)
 
   // Release animation back to pool
   const releaseAnimation = React.useCallback((id: string) => {
@@ -171,7 +171,7 @@ export function useRecordingState(): UseRecordingStateReturn {
       anim.metadata.inUse = false;
       anim.metadata.id = null;
     }
-  }, []); // Empty deps since animationPool is from .current (stable)
+  }, [animationPool]); // animationPool is from .current (stable ref)
 
   const startRecording = React.useCallback(
     (insertionIndex: number) => {

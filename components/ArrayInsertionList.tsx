@@ -107,7 +107,7 @@ function ArrayInsertionListInternal(
         onChange?.(clamped);
       }
     },
-    [children.length, onChange, rowHeight, value]
+    [children.length, onChange, rowHeight, value, lightHaptic]
   );
 
   // Programmatic scroll - only when not user-scrolling to avoid conflicts

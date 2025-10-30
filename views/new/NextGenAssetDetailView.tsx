@@ -10,9 +10,9 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
+import type { asset_content_link } from '@/db/drizzleSchema';
 import {
   asset,
-  asset_content_link,
   language as languageTable,
   project,
   project as projectCloud
@@ -245,9 +245,7 @@ export default function NextGenAssetDetailView() {
     enableCloudQuery: false
   });
 
-  const languageById = new Map(
-    contentLanguages.map((l) => [l.id, l] as const)
-  );
+  const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
 
   // Set the first available tab when asset data changes
   useEffect(() => {

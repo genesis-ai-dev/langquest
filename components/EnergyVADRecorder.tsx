@@ -45,7 +45,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       globalRecordingInstance = null;
       globalRecordingInProgress = false;
     }
-  }, []); // Run only on mount
+  }, [isRecording]); // Run only on mount
 
   // Handle energy levels and control recording
   useEffect(() => {
@@ -63,7 +63,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       // Stop recording immediately when energy drops below threshold
       void stopRecording();
     }
-  }, [energyResult, isActive, isRecording, threshold]);
+  }, [energyResult, isActive, isRecording, threshold, startRecording, stopRecording]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -160,7 +160,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       setIsRecording(false);
       globalRecordingInProgress = false;
     }
-  }, [onRecordingComplete, isRecording]);
+  }, [onRecordingComplete, isRecording, segmentCount]);
 
   const handleToggleEnergyDetection = useCallback(async () => {
     try {

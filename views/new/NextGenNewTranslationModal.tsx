@@ -113,8 +113,7 @@ export default function NextGenNewTranslationModal({
     if (visible) {
       form.reset({ text: '', audioUri: '' });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, form]);
 
   // Track custom validity based on translation type
   const [isFormValid, setIsFormValid] = React.useState(false);
@@ -217,7 +216,7 @@ export default function NextGenNewTranslationModal({
           .values({
             source_asset_id: assetId, // Points to the original asset being translated
             source_language_id: translationLanguageId, // The language this translation is IN
-            project_id: currentProjectId!,
+            project_id: currentProjectId,
             creator_id: currentUser!.id,
             download_profiles: [currentUser!.id]
           })
@@ -265,7 +264,7 @@ export default function NextGenNewTranslationModal({
         // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
         console.log('[CREATE TRANSLATION] Inserting quest_asset_link...');
         await tx.insert(resolveTable('quest_asset_link')).values({
-          quest_id: currentQuestId!,
+          quest_id: currentQuestId,
           asset_id: newAsset.id,
           download_profiles: [currentUser!.id]
         });
@@ -283,13 +282,10 @@ export default function NextGenNewTranslationModal({
     },
     onError: (error) => {
       console.error('[CREATE TRANSLATION] Error creating translation:', error);
-      console.error(
-        '[CREATE TRANSLATION] Error stack:',
-        (error as Error).stack
-      );
+      console.error('[CREATE TRANSLATION] Error stack:', error.stack);
       Alert.alert(
         t('error'),
-        t('failedCreateTranslation') + '\n\n' + (error as Error).message
+        t('failedCreateTranslation') + '\n\n' + error.message
       );
     }
   });

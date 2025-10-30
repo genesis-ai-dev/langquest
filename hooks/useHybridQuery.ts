@@ -357,6 +357,9 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
 
     realtimeChannelRef.current = subscription;
 
+    // Extract complex expression to a separate variable for dependency array
+    const queryKeyString = JSON.stringify(queryKey);
+
     return () => {
       if (realtimeChannelRef.current) {
         void realtimeChannelRef.current();
@@ -368,7 +371,7 @@ export function useHybridRealtimeQuery<T extends Record<string, unknown>>({
     subscribeRealtime,
     queryClient,
     getId,
-    JSON.stringify(queryKey)
+    queryKey
   ]);
 
   return result;

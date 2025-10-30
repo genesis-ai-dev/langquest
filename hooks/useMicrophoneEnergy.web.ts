@@ -148,7 +148,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
       setError(error);
       cleanup();
     }
-  }, [cleanup]);
+  }, [cleanup, isActive]);
 
   const stopEnergyDetection = useCallback(async () => {
     console.log('🛑 Stopping web energy detection...');

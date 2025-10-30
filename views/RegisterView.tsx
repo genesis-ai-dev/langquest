@@ -53,7 +53,7 @@ export default function RegisterView({
         email: sharedAuthInfo.email || ''
       });
     }
-  }, [sharedAuthInfo?.email]);
+  }, [sharedAuthInfo?.email, reset]);
 
   const {
     control,

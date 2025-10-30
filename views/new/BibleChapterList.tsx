@@ -252,7 +252,7 @@ export function BibleChapterList({
     if (!showDiscoveryDrawer) {
       startedDiscoveryRef.current = null;
     }
-  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering]);
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState.isDiscovering, discoveryState]);
 
   // Bulk download mutation
   const bulkDownloadMutation = useMutation({

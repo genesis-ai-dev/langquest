@@ -125,7 +125,7 @@ export default function ProjectDirectoryView() {
       cancelAnimation(spinValue);
       spinValue.value = 0;
     }
-  }, [isRefreshing]);
+  }, [isRefreshing, spinValue]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
