@@ -47,14 +47,6 @@ export default function RegisterView({
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
-  useEffect(() => {
-    if (sharedAuthInfo?.email) {
-      reset({
-        email: sharedAuthInfo.email || ''
-      });
-    }
-  }, [sharedAuthInfo?.email, reset]);
-
   const {
     control,
     handleSubmit,
@@ -70,6 +62,14 @@ export default function RegisterView({
       termsAccepted: false
     }
   });
+
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      reset({
+        email: sharedAuthInfo.email || ''
+      });
+    }
+  }, [sharedAuthInfo?.email, reset]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);

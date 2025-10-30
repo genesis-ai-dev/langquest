@@ -47,31 +47,6 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
     }
   }, [isRecording]); // Run only on mount
 
-  // Handle energy levels and control recording
-  useEffect(() => {
-    if (!energyResult || !isActive) return;
-
-    setCurrentEnergy(energyResult.energy);
-
-    // Pure energy-based decision - no native speech detection
-    const shouldRecord = energyResult.energy > threshold;
-
-    if (shouldRecord && !isRecording) {
-      // Start recording immediately when energy crosses threshold
-      void startRecording();
-    } else if (!shouldRecord && isRecording) {
-      // Stop recording immediately when energy drops below threshold
-      void stopRecording();
-    }
-  }, [
-    energyResult,
-    isActive,
-    isRecording,
-    threshold,
-    startRecording,
-    stopRecording
-  ]);
-
   const startRecording = useCallback(async () => {
     try {
       // Prevent starting if already recording globally or locally
@@ -168,6 +143,31 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       globalRecordingInProgress = false;
     }
   }, [onRecordingComplete, isRecording, segmentCount]);
+
+  // Handle energy levels and control recording
+  useEffect(() => {
+    if (!energyResult || !isActive) return;
+
+    setCurrentEnergy(energyResult.energy);
+
+    // Pure energy-based decision - no native speech detection
+    const shouldRecord = energyResult.energy > threshold;
+
+    if (shouldRecord && !isRecording) {
+      // Start recording immediately when energy crosses threshold
+      void startRecording();
+    } else if (!shouldRecord && isRecording) {
+      // Stop recording immediately when energy drops below threshold
+      void stopRecording();
+    }
+  }, [
+    energyResult,
+    isActive,
+    isRecording,
+    threshold,
+    startRecording,
+    stopRecording
+  ]);
 
   const handleToggleEnergyDetection = useCallback(async () => {
     try {

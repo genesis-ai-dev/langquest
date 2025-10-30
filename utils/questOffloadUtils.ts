@@ -99,7 +99,7 @@ async function filterSharedAssetsFromVerifiedIds(
     (linkId) => {
       const [linkQuestId, linkAssetId] = linkId.split('|');
       // Only keep links that are for this quest AND not for shared assets
-      return linkQuestId === questId && !sharedAssets.has(linkAssetId);
+      return linkQuestId === questId && linkAssetId && !sharedAssets.has(linkAssetId);
     }
   );
 
@@ -131,7 +131,7 @@ async function filterSharedAssetsFromVerifiedIds(
   const filteredAssetTagLinkIds = verifiedIds.assetTagLinkIds.filter(
     (linkId) => {
       const [assetId] = linkId.split('|');
-      return !sharedAssets.has(assetId);
+      return assetId && !sharedAssets.has(assetId);
     }
   );
 

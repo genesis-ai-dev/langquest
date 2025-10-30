@@ -69,6 +69,31 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   );
   const warningThreshold = maxDuration * 0.85; // Warning at 85% of max duration
 
+  const stopRecording = useCallback(async () => {
+    if (!recording) return;
+
+    try {
+      await recording.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false
+      });
+
+      const uri = recording.getURI();
+      if (recordingUri) {
+        await deleteIfExists(recordingUri);
+        console.log('Deleted previous recording attempt', recordingUri);
+      }
+      console.log('Recording stopped and stored at', uri);
+      setRecordingUri(uri ?? null);
+      setRecording(null);
+      setIsRecording(false);
+      setIsRecordingPaused(false);
+      if (uri) onRecordingComplete(uri);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+    }
+  }, [recording, recordingUri, onRecordingComplete]);
+
   useEffect(() => {
     return () => {
       const cleanup = async () => {
@@ -146,31 +171,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     setIsRecording(false);
     setIsRecordingPaused(true);
   };
-
-  const stopRecording = useCallback(async () => {
-    if (!recording) return;
-
-    try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false
-      });
-
-      const uri = recording.getURI();
-      if (recordingUri) {
-        await deleteIfExists(recordingUri);
-        console.log('Deleted previous recording attempt', recordingUri);
-      }
-      console.log('Recording stopped and stored at', uri);
-      setRecordingUri(uri ?? null);
-      setRecording(null);
-      setIsRecording(false);
-      setIsRecordingPaused(false);
-      if (uri) onRecordingComplete(uri);
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
-  }, [recording, recordingUri, onRecordingComplete]);
 
   const playRecording = async () => {
     if (!recordingUri) return;
