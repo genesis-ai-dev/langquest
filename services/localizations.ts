@@ -1677,6 +1677,13 @@ export const localizations = {
     tok_pisin: 'Ol i invitim',
     indonesian: 'Diundang'
   },
+  viewInvitation: {
+    english: 'View Invitation',
+    spanish: 'Ver Invitación',
+    brazilian_portuguese: 'Ver Convite',
+    tok_pisin: 'Lukim Invitation',
+    indonesian: 'Lihat Undangan'
+  },
   inviteMembers: {
     english: 'Invite Members',
     spanish: 'Invitar Miembros',

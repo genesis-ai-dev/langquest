@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -32,6 +33,7 @@ import {
   EyeOffIcon,
   HardDriveIcon,
   LockIcon,
+  MailIcon,
   UserIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -39,14 +41,16 @@ import { Pressable, View } from 'react-native';
 
 export function ProjectListItem({
   project,
+  isInvited = false,
   className
 }: {
   project: Project & { source: HybridDataSource };
+  isInvited?: boolean;
   className?: string;
 }) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProject } = useAppNavigation();
+  const { goToProject, goToNotifications } = useAppNavigation();
   const layerStatus = useStatusContext();
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
@@ -151,11 +155,27 @@ export function ProjectListItem({
         key={project.id}
         onPress={() => goToProjectHelper()}
       >
-        <Card className={cn(className, !project.visible && 'opacity-50')}>
+        <Card
+          className={cn(
+            className,
+            !project.visible && 'opacity-50',
+            isInvited && 'border-2 border-primary bg-primary/5 shadow-md'
+          )}
+        >
           <CardHeader className="flex flex-row items-start justify-between">
             <View className="flex flex-1 gap-1">
               <View className="flex flex-row items-center">
                 <View className="flex flex-1 flex-row gap-2">
+                  {isInvited && (
+                    <View className="flex flex-row items-center gap-1.5">
+                      <View className="rounded-full bg-primary px-2 py-0.5">
+                        <Text className="text-xs font-semibold text-primary-foreground">
+                          {t('invited')}
+                        </Text>
+                      </View>
+                      <Icon as={MailIcon} className="text-primary" size={16} />
+                    </View>
+                  )}
                   {(project.private ||
                     !!membership ||
                     project.source === 'local') && (
@@ -224,6 +244,27 @@ export function ProjectListItem({
           </CardHeader>
           <CardContent>
             <Text numberOfLines={4}>{project.description}</Text>
+            {isInvited && (
+              <View className="mt-3 flex-row gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1 flex-row items-center gap-2"
+                  onPress={() => {
+                    goToNotifications();
+                  }}
+                >
+                  <Icon
+                    as={MailIcon}
+                    size={16}
+                    className="text-primary-foreground"
+                  />
+                  <Text className="text-primary-foreground">
+                    {t('viewInvitation')}
+                  </Text>
+                </Button>
+              </View>
+            )}
           </CardContent>
         </Card>
       </Pressable>

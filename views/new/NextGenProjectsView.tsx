@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { profile_project_link, project } from '@/db/drizzleSchema';
+import { invite, profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -22,7 +22,8 @@ import {
   getTableColumns,
   like,
   notInArray,
-  or
+  or,
+  sql
 } from 'drizzle-orm';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
@@ -177,7 +178,9 @@ export default function NextGenProjectsView() {
 
   // Query for My Projects (user is owner or member)
   const userId = currentUser?.id;
-  //   // Query for My Projects (user is owner or member)
+  const userEmail = currentUser?.email;
+
+  // Query for projects where user is owner or member
   const myProjectsQuery = useHybridData({
     dataType: 'my-projects',
     queryKeyParams: [userId || '', searchQuery],
@@ -236,6 +239,116 @@ export default function NextGenProjectsView() {
     },
     enableCloudQuery: !!userId,
     enableOfflineQuery: !!userId
+  });
+
+  // Query for projects where user has pending invites but is not yet a member
+  const invitedProjectsQuery = useHybridData({
+    dataType: 'invited-projects',
+    queryKeyParams: [userId || '', userEmail || '', searchQuery],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          ...getTableColumns(project)
+        })
+        .from(project)
+        .innerJoin(invite, eq(project.id, invite.project_id))
+        .where(
+          and(
+            ...[
+              // Build invite matching condition - at least one must be true
+              (userId || userEmail) &&
+                or(
+                  userId ? eq(invite.receiver_profile_id, userId) : undefined,
+                  userEmail ? eq(invite.email, userEmail) : undefined
+                ),
+              eq(invite.status, 'pending'),
+              eq(invite.active, true),
+              // Exclude projects where user is already a member (only if userId exists)
+              userId &&
+                sql`NOT EXISTS (
+                  SELECT 1 FROM ${profile_project_link}
+                  WHERE ${profile_project_link.project_id} = ${project.id}
+                  AND ${profile_project_link.profile_id} = ${userId}
+                  AND ${profile_project_link.active} = 1
+                )`,
+              or(
+                !showInvisibleContent ? eq(project.visible, true) : undefined,
+                eq(project.creator_id, currentUser!.id)
+              ),
+              searchQuery &&
+                or(
+                  like(project.name, `%${searchQuery.trim()}%`),
+                  like(project.description, `%${searchQuery.trim()}%`)
+                )
+            ].filter(Boolean)
+          )
+        )
+    ),
+    cloudQueryFn: async () => {
+      if (!userId && !userEmail) return [];
+
+      // Get projects where user is already a member (to exclude)
+      const { data: userMemberships } = userId
+        ? await system.supabaseConnector.client
+            .from('profile_project_link')
+            .select('project_id')
+            .eq('profile_id', userId)
+            .eq('active', true)
+            .overrideTypes<{ project_id: string }[]>()
+        : { data: [] };
+
+      const memberProjectIds = userMemberships?.map((m) => m.project_id) || [];
+
+      // Query for projects with pending invites
+      // Build OR condition for receiver_profile_id or email
+      const inviteConditions: string[] = [];
+      if (userId) {
+        inviteConditions.push(`receiver_profile_id.eq.${userId}`);
+      }
+      if (userEmail) {
+        inviteConditions.push(`email.eq.${userEmail}`);
+      }
+
+      if (inviteConditions.length === 0) return [];
+
+      let inviteQuery = system.supabaseConnector.client
+        .from('invite')
+        .select('project_id')
+        .eq('status', 'pending')
+        .eq('active', true)
+        .or(inviteConditions.join(','));
+
+      const { data: invites, error: inviteError } =
+        await inviteQuery.overrideTypes<{ project_id: string }[]>();
+
+      if (inviteError) throw inviteError;
+
+      const invitedProjectIds =
+        invites
+          ?.map((inv) => inv.project_id)
+          .filter((id) => !memberProjectIds.includes(id)) || [];
+
+      if (invitedProjectIds.length === 0) return [];
+
+      // Query the actual projects
+      let query = system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .in('id', invitedProjectIds);
+
+      if (!showInvisibleContent) query = query.eq('visible', true);
+      if (searchQuery.trim())
+        query = query.or(
+          `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
+        );
+
+      const { data, error } = await query.overrideTypes<Project[]>();
+
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!(userId || userEmail),
+    enableOfflineQuery: !!(userId || userEmail)
   });
 
   // Query for All Projects (excluding user's projects)
@@ -329,6 +442,8 @@ export default function NextGenProjectsView() {
   // Use the appropriate query based on active tab
   const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
   const { data: projectData, isLoading } = currentQuery;
+  const { data: invitedProjectsData = [] } =
+    activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -342,29 +457,59 @@ export default function NextGenProjectsView() {
     ''
   );
 
+  // Track invited project IDs for special styling
+  const invitedProjectIds = React.useMemo(() => {
+    if (activeTab !== 'my' || !Array.isArray(invitedProjectsData)) {
+      return new Set<string>();
+    }
+    return new Set(invitedProjectsData.map((p) => p.id));
+  }, [invitedProjectsData, activeTab]);
+
   const data = React.useMemo(() => {
+    let projects: (Project & { isInvited?: boolean })[] = [];
+
     // Handle paginated data (with pages property)
     if ('pages' in projectData && Array.isArray(projectData.pages)) {
       const seen = new Set<string>();
-      const deduped: Project[] = [];
       for (const page of projectData.pages) {
         for (const item of page.data) {
           if (!seen.has(item.id)) {
             seen.add(item.id);
-            deduped.push(item);
+            projects.push(item);
           }
         }
       }
-      return deduped;
+    } else if (Array.isArray(projectData)) {
+      // Handle non-paginated data (array)
+      projects = projectData;
     }
 
-    // Handle non-paginated data (array)
-    if (Array.isArray(projectData)) {
-      return projectData;
+    // Merge invited projects for "my projects" tab
+    if (activeTab === 'my' && Array.isArray(invitedProjectsData)) {
+      const seenIds = new Set(projects.map((p) => p.id));
+      for (const invitedProject of invitedProjectsData) {
+        if (!seenIds.has(invitedProject.id)) {
+          projects.push({ ...invitedProject, isInvited: true });
+          seenIds.add(invitedProject.id);
+        }
+      }
     }
 
-    return [];
-  }, [projectData]);
+    // Mark existing projects as invited if they're in the invited set
+    projects = projects.map((project) => ({
+      ...project,
+      isInvited: invitedProjectIds.has(project.id) || project.isInvited
+    }));
+
+    // Sort: invited projects first, then regular projects
+    projects.sort((a, b) => {
+      if (a.isInvited && !b.isInvited) return -1;
+      if (!a.isInvited && b.isInvited) return 1;
+      return 0;
+    });
+
+    return projects;
+  }, [projectData, invitedProjectsData, activeTab, invitedProjectIds]);
 
   const dimensions = useWindowDimensions();
 
@@ -426,6 +571,7 @@ export default function NextGenProjectsView() {
             renderItem={({ item }) => (
               <ProjectListItem
                 project={item}
+                isInvited={item.isInvited}
                 className={cn(dimensions.width > 768 && 'h-[212px]')}
               />
             )}
