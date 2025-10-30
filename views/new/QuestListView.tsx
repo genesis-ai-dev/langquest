@@ -21,6 +21,7 @@ interface QuestListViewProps {
   onAddChild: (parentId: string | null) => void;
   onDownloadClick: (questId: string) => void;
   onCloudLoadingChange?: (isLoading: boolean) => void;
+  onFetchingChange?: (isFetching: boolean) => void;
   downloadingQuestId?: string | null;
   downloadingQuestIds?: Set<string>;
 }
@@ -45,6 +46,7 @@ export function QuestListView({
   onAddChild,
   onDownloadClick,
   onCloudLoadingChange,
+  onFetchingChange,
   downloadingQuestId,
   downloadingQuestIds = new Set()
 }: QuestListViewProps) {
@@ -135,6 +137,11 @@ export function QuestListView({
   React.useEffect(() => {
     onCloudLoadingChange?.(questsInfiniteQuery.isCloudLoading);
   }, [questsInfiniteQuery.isCloudLoading, onCloudLoadingChange]);
+
+  // Notify parent of fetching state for search indicator
+  React.useEffect(() => {
+    onFetchingChange?.(questsInfiniteQuery.isFetching);
+  }, [questsInfiniteQuery.isFetching, onFetchingChange]);
 
   // Flatten all pages into single array for tree building
   const rawQuests = React.useMemo(() => {

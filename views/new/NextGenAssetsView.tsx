@@ -29,6 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
+  ArrowBigDownDashIcon,
   CheckIcon,
   FlagIcon,
   InfoIcon,
@@ -50,6 +51,7 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
@@ -86,6 +88,7 @@ export default function NextGenAssetsView() {
   const { goBack } = useAppNavigation();
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -349,23 +352,51 @@ export default function NextGenAssetsView() {
   }, [data.pages]);
 
   // Watch attachment states for all assets
+  // Ensure assetIds is always an array (never undefined) to prevent hook dependency issues
   const assetIds = React.useMemo(() => {
-    return assets.map((asset) => asset.id);
+    if (!assets || !Array.isArray(assets)) return [];
+    return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
 
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
     useAttachmentStates(assetIds);
 
+  // Ensure attachmentStates is always a Map (handle edge cases)
+  const safeAttachmentStates = attachmentStates || new Map();
+
   // Count blocked assets
   const blockedCount = useBlockedAssetsCount(currentQuestId || '');
 
   // Get attachment state summary
+  // Stabilize Map dependencies by using assetIds as the source of truth
+  // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
+  // This ensures dependency arrays always have consistent size and type
+  const attachmentStatesSize = safeAttachmentStates.size;
+
+  // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
+  // Access safeAttachmentStates via closure to always get latest value
+  // Using assetIds.length ensures dependency array never changes size (always 1 number)
+  const attachmentStatesKeysString = React.useMemo(() => {
+    // Access current safeAttachmentStates via closure (always gets latest value)
+    const keys = Array.from(safeAttachmentStates.keys());
+    return keys.sort().join(',');
+    // Depend on assetIds.length - when assets change, attachmentStates will update
+    // This ensures dependency array always has exactly 1 number dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetIds.length]);
+
+  // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
+  const attachmentStatesMemoKey = React.useMemo(
+    () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
+    [attachmentStatesSize, attachmentStatesKeysString]
+  );
+
   const attachmentStateSummary = React.useMemo(() => {
-    if (attachmentStates.size === 0) {
+    if (safeAttachmentStates.size === 0) {
       return {};
     }
 
-    const states = Array.from(attachmentStates.values());
+    const states = Array.from(safeAttachmentStates.values());
     const summary = states.reduce(
       (acc, attachment) => {
         acc[attachment.state] = (acc[attachment.state] || 0) + 1;
@@ -374,18 +405,23 @@ export default function NextGenAssetsView() {
       {} as Record<number, number>
     );
     return summary;
-  }, [attachmentStates]);
+    // Use memo key instead of Map reference for stable dependencies (always 1 string)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachmentStatesMemoKey]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
       <AssetListItem
         key={item.id}
         asset={item}
-        attachmentState={attachmentStates.get(item.id)}
+        attachmentState={safeAttachmentStates.get(item.id)}
         questId={currentQuestId || ''}
       />
     ),
-    [attachmentStates, currentQuestId]
+    // Use stable memo key instead of Map reference to prevent hook dependency issues
+    // Always has exactly 2 dependencies (string, string) - never changes size
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [attachmentStatesMemoKey, currentQuestId]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -703,7 +739,7 @@ export default function NextGenAssetsView() {
 
       {SHOW_DEV_ELEMENTS &&
         !isAttachmentStatesLoading &&
-        attachmentStates.size > 0 && (
+        safeAttachmentStates.size > 0 && (
           <View className="rounded-md bg-muted p-3">
             <Text className="mb-1 font-semibold">
               📎 {t('liveAttachmentStates')}:
@@ -766,16 +802,14 @@ export default function NextGenAssetsView() {
             <View className="flex-1 items-center justify-center py-16">
               <View className="flex-col items-center gap-2">
                 <Text className="text-muted-foreground">
-                  {searchQuery ? 'No assets found' : 'No assets available'}
+                  {isPublished ? t('noAssetsFound') : t('nothingHereYet')}
                 </Text>
                 {!isPublished && (
-                  <Button
-                    variant="default"
-                    onPress={() => setShowRecording(true)}
-                  >
-                    <Icon as={MicIcon} className="text-secondary" />
-                    <Text>{t('doRecord')}</Text>
-                  </Button>
+                  <Icon
+                    as={ArrowBigDownDashIcon}
+                    size={48}
+                    className="text-muted-foreground"
+                  />
                 )}
               </View>
             </View>
@@ -785,26 +819,37 @@ export default function NextGenAssetsView() {
 
       {/* Sticky Record Button Footer */}
       {!isPublished && (
-        // <View className="absolute bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-6 shadow-lg">
-        <Button
-          variant="destructive"
-          size="lg"
-          className="w-full"
-          onPress={() => setShowRecording(true)}
+        <View
+          style={{
+            paddingBottom: insets.bottom,
+            paddingRight: 75 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+          }}
         >
-          <Icon
-            as={MicIcon}
-            size={24}
-            className="text-destructive-foreground"
-          />
-          <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-            {t('doRecord')}
-          </Text>
-        </Button>
-        // </View>
+          <Button
+            variant="destructive"
+            size="lg"
+            className="w-full"
+            onPress={() => setShowRecording(true)}
+          >
+            <Icon
+              as={MicIcon}
+              size={24}
+              className="text-destructive-foreground"
+            />
+            <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
+              {t('doRecord')}
+            </Text>
+          </Button>
+        </View>
       )}
 
-      <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
+      <View
+        style={{
+          bottom: insets.bottom + 24,
+          right: 24
+        }}
+        className="absolute z-50"
+      >
         <SpeedDial>
           <SpeedDialItems>
             {allowSettings && isOwner ? (

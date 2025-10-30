@@ -442,6 +442,30 @@ export default function NextGenProjectsView() {
   // Use the appropriate query based on active tab
   const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
   const { data: projectData, isLoading } = currentQuery;
+  
+  // Get fetching state for search indicator
+  const isFetchingProjects = React.useMemo(() => {
+    if (activeTab === 'my') {
+      // For myProjectsQuery, check if any loading state is active
+      return (
+        myProjectsQuery.isOfflineLoading ||
+        myProjectsQuery.isCloudLoading ||
+        invitedProjectsQuery.isOfflineLoading ||
+        invitedProjectsQuery.isCloudLoading
+      );
+    } else {
+      // For allProjects (infinite query), use isFetching
+      return allProjects.isFetching;
+    }
+  }, [
+    activeTab,
+    myProjectsQuery.isOfflineLoading,
+    myProjectsQuery.isCloudLoading,
+    invitedProjectsQuery.isOfflineLoading,
+    invitedProjectsQuery.isCloudLoading,
+    allProjects.isFetching
+  ]);
+  
   const { data: invitedProjectsData = [] } =
     activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
@@ -549,6 +573,15 @@ export default function NextGenProjectsView() {
               prefix={SearchIcon}
               prefixStyling={false}
               size="sm"
+              suffix={
+                isFetchingProjects && searchQuery ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                ) : undefined
+              }
+              suffixStyling={false}
             />
             <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
               <Icon as={PlusIcon} className="text-primary-foreground" />
@@ -556,7 +589,7 @@ export default function NextGenProjectsView() {
           </View>
         </View>
 
-        {isLoading ? (
+        {isLoading || (isFetchingProjects && searchQuery && data.length === 0) ? (
           <ProjectListSkeleton />
         ) : (
           <LegendList

@@ -5,6 +5,7 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
+  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import {
@@ -309,7 +310,7 @@ export default function NextGenNewTranslationModal({
     <Drawer
       open={visible}
       onOpenChange={(open) => !open && handleClose()}
-      snapPoints={[500, 700]}
+      snapPoints={[200, 900]}
     >
       <DrawerContent className="pb-safe">
         <Form {...form}>
@@ -317,7 +318,7 @@ export default function NextGenNewTranslationModal({
             <DrawerTitle>{t('newTranslation')}</DrawerTitle>
           </DrawerHeader>
 
-          <View className="flex-1 flex-col gap-4 px-4">
+          <DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
             {/* Translation Type Tabs */}
             <Tabs
               value={translationType}
@@ -421,7 +422,7 @@ export default function NextGenNewTranslationModal({
                 </Text>
               </View>
             )}
-          </View>
+          </DrawerScrollView>
 
           <DrawerFooter>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
