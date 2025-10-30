@@ -28,7 +28,6 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
 import { LegendList } from '@legendapp/list';
 import {
-  CameraIcon,
   CheckIcon,
   FlagIcon,
   InfoIcon,
@@ -734,27 +733,25 @@ export default function NextGenAssetsView() {
         />
       )}
 
-
-
       {/* Sticky Record Button Footer */}
       {!isPublished && (
-          // <View className="absolute bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-6 shadow-lg">
-            <Button
-              variant="destructive"
-              size="lg"
-              className="w-full"
-              onPress={() => setShowRecording(true)}
-            >
-              <Icon
-                as={MicIcon}
-                size={24}
-                className="text-destructive-foreground"
-              />
-              <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-                {t('doRecord')}
-              </Text>
-            </Button>
-          // </View>
+        // <View className="absolute bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-6 shadow-lg">
+        <Button
+          variant="destructive"
+          size="lg"
+          className="w-full"
+          onPress={() => setShowRecording(true)}
+        >
+          <Icon
+            as={MicIcon}
+            size={24}
+            className="text-destructive-foreground"
+          />
+          <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
+            {t('doRecord')}
+          </Text>
+        </Button>
+        // </View>
       )}
 
       <View style={{ bottom: 24, right: 24 }} className="absolute z-50">
