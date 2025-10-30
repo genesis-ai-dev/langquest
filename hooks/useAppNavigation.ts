@@ -63,7 +63,8 @@ export function useAppNavigation() {
         timestamp: Date.now()
       };
 
-      setNavigationStack([...navigationStack, fullState]);
+      const stack = Array.isArray(navigationStack) ? navigationStack : [];
+      setNavigationStack([...stack, fullState]);
       profiler.endNavigation(
         `${newState.view}:${newState.projectId || newState.questId || newState.assetId || 'main'}`
       );
@@ -72,8 +73,9 @@ export function useAppNavigation() {
   );
 
   const goBack = useCallback(() => {
-    if (navigationStack.length > 1) {
-      setNavigationStack(navigationStack.slice(0, -1));
+    const stack = Array.isArray(navigationStack) ? navigationStack : [];
+    if (stack.length > 1) {
+      setNavigationStack(stack.slice(0, -1));
     }
   }, [navigationStack, setNavigationStack]);
 
@@ -84,10 +86,11 @@ export function useAppNavigation() {
   // Navigate back to a specific view by removing newer entries from the stack
   const goBackToView = useCallback(
     (targetView: AppView) => {
+      const stack = Array.isArray(navigationStack) ? navigationStack : [];
       // Find the last occurrence of the target view in the stack
       let targetIndex = -1;
-      for (let i = navigationStack.length - 1; i >= 0; i--) {
-        if (navigationStack[i]?.view === targetView) {
+      for (let i = stack.length - 1; i >= 0; i--) {
+        if (stack[i]?.view === targetView) {
           targetIndex = i;
           break;
         }
@@ -95,7 +98,7 @@ export function useAppNavigation() {
 
       if (targetIndex >= 0) {
         // Remove all items after the target
-        setNavigationStack(navigationStack.slice(0, targetIndex + 1));
+        setNavigationStack(stack.slice(0, targetIndex + 1));
       } else {
         // If not found in stack, navigate fresh
         navigate({ view: targetView });
@@ -344,7 +347,7 @@ export function useAppNavigation() {
 
     // Utilities
     breadcrumbs,
-    canGoBack: navigationStack.length > 1,
+    canGoBack: Array.isArray(navigationStack) && navigationStack.length > 1,
     navigationStack
   };
 }

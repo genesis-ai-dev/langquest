@@ -18,6 +18,7 @@ import {
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
@@ -25,10 +26,12 @@ import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   BellIcon,
   CheckIcon,
+  HomeIcon,
   MailIcon,
   UserPlusIcon,
   WifiIcon,
@@ -66,6 +69,8 @@ interface SenderProfile {
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const { goToProjects } = useAppNavigation();
+  const queryClient = useQueryClient();
   const isConnected = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   // const [refreshKey, setRefreshKey] = useState(0);
@@ -521,6 +526,14 @@ export default function NotificationsView() {
         }
       }
 
+      // Invalidate project queries to refresh the projects list
+      void queryClient.invalidateQueries({ queryKey: ['my-projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['invited-projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      void queryClient.invalidateQueries({
+        queryKey: ['notification-projects']
+      });
+
       RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
@@ -785,6 +798,14 @@ export default function NotificationsView() {
                   <Text className="px-6 text-center text-sm text-muted-foreground">
                     {t('noNotificationsMessage')}
                   </Text>
+                  <Button
+                    variant="default"
+                    size="icon-lg"
+                    onPress={goToProjects}
+                    className="mt-4"
+                  >
+                    <Icon as={HomeIcon} className="text-primary-foreground" />
+                  </Button>
                 </View>
               </View>
             </View>

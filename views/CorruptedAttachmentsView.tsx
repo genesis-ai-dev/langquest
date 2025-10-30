@@ -11,10 +11,10 @@ import {
 } from '@/services/corruptedAttachmentsService';
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  HomeIcon,
   Loader2,
   Trash2
 } from 'lucide-react-native';
@@ -221,13 +221,12 @@ export default function CorruptedAttachmentsView() {
       <View className="flex-1 bg-background">
         <View className="p-4">
           <Button
-            variant="ghost"
-            size="sm"
+            variant="default"
+            size="icon-lg"
             onPress={goToProjects}
             className="self-start"
           >
-            <Icon as={ArrowLeft} />
-            <Text>{t('backToProjects')}</Text>
+            <Icon as={HomeIcon} className="text-primary-foreground" />
           </Button>
         </View>
         <ScrollView
@@ -257,13 +256,12 @@ export default function CorruptedAttachmentsView() {
     <View className="flex-1 bg-background">
       <View className="p-4">
         <Button
-          variant="ghost"
-          size="sm"
+          variant="default"
+          size="icon-lg"
           onPress={goToProjects}
           className="mb-4 self-start"
         >
-          <Icon as={ArrowLeft} />
-          <Text>{t('backToProjects')}</Text>
+          <Icon as={HomeIcon} className="text-primary-foreground" />
         </Button>
 
         <View className="mb-4 flex-row items-center gap-3">

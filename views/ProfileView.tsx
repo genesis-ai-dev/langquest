@@ -17,6 +17,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
@@ -33,7 +34,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AttachmentState } from '@powersync/attachments';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'expo-router';
-import { InfoIcon, MailIcon, UserIcon } from 'lucide-react-native';
+import { HomeIcon, InfoIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Platform, Alert as RNAlert, ScrollView, View } from 'react-native';
@@ -45,6 +46,7 @@ export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
+  const { goToProjects } = useAppNavigation();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
@@ -183,9 +185,14 @@ export default function ProfileView() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="flex flex-col gap-4 p-6">
-          <Text className="text-2xl font-bold text-foreground">
-            {t('profile')}
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-foreground">
+              {t('profile')}
+            </Text>
+            <Button variant="default" size="icon-lg" onPress={goToProjects}>
+              <Icon as={HomeIcon} className="text-primary-foreground" />
+            </Button>
+          </View>
           {__DEV__ && (
             <View className="flex flex-col gap-2">
               <View className="flex flex-row gap-2">

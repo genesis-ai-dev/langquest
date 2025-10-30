@@ -214,7 +214,11 @@ export const useLocalStore = create<LocalState>()(
 
       // State-driven navigation stack
       navigationStack: [{ view: 'projects', timestamp: Date.now() }],
-      setNavigationStack: (stack) => set({ navigationStack: stack }),
+      setNavigationStack: (stack) => {
+        // Ensure navigationStack is always an array
+        const safeStack = Array.isArray(stack) ? stack : [{ view: 'projects' as AppView, timestamp: Date.now() }];
+        set({ navigationStack: safeStack });
+      },
 
       // Recently visited items (max 5 each)
       recentProjects: [],
