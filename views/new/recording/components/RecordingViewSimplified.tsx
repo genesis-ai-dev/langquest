@@ -752,10 +752,15 @@ const RecordingViewSimplified = ({
   // OPTIMIZED: Load segment counts and durations in batches after UI is idle
   // This prevents blocking the UI thread during initial render and animations
   React.useEffect(() => {
-    // Early exit if no assets to load (prevents effect from running constantly)
-    const assetsToLoad = assetMetadata.filter(
-      (id) => !loadedAssetIdsRef.current.has(id)
-    );
+    // Check both ref AND state to determine if we need to load
+    // This ensures we reload when re-entering the view (state is cleared on unmount)
+    const assetsToLoad = assetMetadata.filter((id) => {
+      // Load if not in ref (never attempted) OR missing from state (needs reload)
+      const notInRef = !loadedAssetIdsRef.current.has(id);
+      const missingFromState =
+        !assetSegmentCounts.has(id) || !assetDurations.has(id);
+      return notInRef || missingFromState;
+    });
 
     if (assetsToLoad.length === 0) {
       // Nothing new to load - don't even start the async work
@@ -910,16 +915,21 @@ const RecordingViewSimplified = ({
                   `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
                 );
               } else {
+                // Set duration to 0 to mark as loaded (prevents infinite retries)
+                // AssetCard will only show duration if it's > 0, so 0 won't be displayed
+                newDurations.set(assetId, 0);
                 debugLog(
-                  `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
+                  `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found) - marked as loaded`
                 );
               }
 
               loadedAssetIdsRef.current.add(assetId);
             } catch (err) {
-              // If query fails for any asset, default to 1 segment
+              // If query fails for any asset, default to 1 segment and 0 duration
+              // This marks it as loaded (prevents infinite retries)
               console.warn(`Failed to load data for asset ${assetId}:`, err);
               newCounts.set(assetId, 1);
+              newDurations.set(assetId, 0);
               loadedAssetIdsRef.current.add(assetId);
             }
           }
@@ -986,9 +996,10 @@ const RecordingViewSimplified = ({
     return () => {
       interactionHandle.cancel();
     };
-    // Depend on assetIds string (only changes when asset IDs change, not on every render)
-    // This prevents the effect from running hundreds of times when array reference changes
-  }, [assetIds, assetMetadata]);
+    // Depend on assetIds, assetMetadata, and state maps
+    // State maps are included so we detect when durations are missing (e.g., after remount)
+    // The effect safely handles updates by only loading missing assets
+  }, [assetIds, assetMetadata, assetSegmentCounts, assetDurations]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)
