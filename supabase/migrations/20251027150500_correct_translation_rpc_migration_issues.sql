@@ -48,7 +48,7 @@ begin
   if tg_op = 'DELETE' then
     return old;
   else
-    return null;
+    return new;
   end if;
 end;
 $$;

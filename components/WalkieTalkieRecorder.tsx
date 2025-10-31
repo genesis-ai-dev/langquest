@@ -17,7 +17,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming
+  withTiming,
+  type SharedValue
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -47,6 +48,10 @@ interface WalkieTalkieRecorderProps {
   vadThreshold?: number;
   // Permission state (handled by parent)
   canRecord?: boolean;
+  // Callback to track recording duration for progress bar (updates frequently)
+  onRecordingDurationUpdate?: (duration: number) => void;
+  // Expose activation progress SharedValue for parent progress bar
+  activationProgressShared?: SharedValue<number>;
 }
 
 const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
@@ -60,7 +65,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onVADLockChange,
   currentEnergy: _currentEnergy = 0,
   vadThreshold: _vadThreshold = 0.03,
-  canRecord = true
+  canRecord = true,
+  onRecordingDurationUpdate,
+  activationProgressShared
 }) => {
   const mediumHaptic = useHaptic('medium');
   const heavyHaptic = useHaptic('heavy');
@@ -79,7 +86,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // Reanimated shared values for smooth UI-thread animations
   const scaleAnim = useSharedValue(1);
   const pulseAnim = useSharedValue(1);
-  const activationProgress = useSharedValue(0);
+  // Use provided SharedValue or create local one
+  const internalActivationProgress = useSharedValue(0);
+  const activationProgress =
+    activationProgressShared ?? internalActivationProgress;
   const slideX = useSharedValue(0);
   const lockOpacity = useSharedValue(0.3);
 
@@ -319,6 +329,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         if (status.isRecording) {
           const duration = status.durationMillis || 0;
           setRecordingDuration(duration);
+          // Notify parent of duration updates for progress bar
+          onRecordingDurationUpdate?.(duration);
 
           const anyStatus = status as unknown as { metering?: number };
           if (typeof anyStatus.metering === 'number') {
@@ -482,7 +494,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     });
   };
 
-  const progressCircumference = 2 * Math.PI * 38;
+  const progressCircumference = 2 * Math.PI * 28;
 
   // Animated styles (background animation removed)
 
@@ -523,8 +535,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   }
 
   return (
-    <View className="items-center rounded-3xl py-6">
-      <View className="min-h-[100px] w-full flex-row-reverse items-center justify-center px-4">
+    <View className="items-center rounded-3xl py-4">
+      <View className="min-h-[80px] w-full flex-row-reverse items-center justify-center px-4">
         {/* Lock indicator */}
         {!isVADLocked ? (
           <AnimatedView
@@ -545,33 +557,33 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
         {/* Button with gesture detector */}
         <GestureDetector gesture={panGesture}>
-          <View className="relative h-[84px] w-[84px] items-center justify-center">
+          <View className="relative h-[64px] w-[64px] items-center justify-center">
             <AnimatedView style={buttonAnimatedStyle}>
               {/* Circular progress indicator */}
-              <View className="pointer-events-none absolute left-[38.5%] top-1/2 -ml-[42px] -mt-[42px] h-[84px] w-[84px] items-center justify-center">
-                <Svg width="84" height="84" viewBox="0 0 84 84">
+              <View className="pointer-events-none absolute left-[38.5%] top-1/2 -ml-[32px] -mt-[32px] h-[64px] w-[64px] items-center justify-center">
+                <Svg width="64" height="64" viewBox="0 0 64 64">
                   {(isActivatingRef.current || isRecording) && (
                     <Circle
-                      cx="42"
-                      cy="42"
-                      r="38"
+                      cx="32"
+                      cy="32"
+                      r="28"
                       stroke={isRecording ? '#fca5a5' : '#e5e7eb'}
-                      strokeWidth="6"
+                      strokeWidth="5"
                       fill="none"
                       opacity={0.3}
                     />
                   )}
                   {(isActivatingRef.current || isRecording) && (
                     <AnimatedCircle
-                      cx="42"
-                      cy="42"
-                      r="38"
-                      strokeWidth="6"
+                      cx="32"
+                      cy="32"
+                      r="28"
+                      strokeWidth="5"
                       fill="none"
                       strokeDasharray={progressCircumference}
                       strokeLinecap="round"
                       rotation="-90"
-                      origin="42, 42"
+                      origin="32, 32"
                       animatedProps={progressCircleAnimatedProps}
                     />
                   )}
@@ -579,7 +591,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               </View>
               <Button
                 variant={isRecording ? 'destructive' : 'default'}
-                size="icon-2xl"
+                size="icon-lg"
                 className={cn(
                   'items-center justify-center overflow-hidden rounded-full'
                 )}

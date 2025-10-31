@@ -864,6 +864,13 @@ export const localizations = {
     tok_pisin: 'No gat asset',
     indonesian: 'Tidak ada aset ditemukan'
   },
+  nothingHereYet: {
+    english: 'Nothing here yet!',
+    spanish: '¡Nada aquí todavía!',
+    brazilian_portuguese: '¡Nada aqui ainda!',
+    tok_pisin: 'I no gat here yet!',
+    indonesian: 'Belum ada di sini!'
+  },
   searchQuests: {
     english: 'Search quests...',
     spanish: 'Buscar misiones...',

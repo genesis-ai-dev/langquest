@@ -20,17 +20,17 @@ function getErrorMessage(error: unknown): string {
 
 export function useDrizzleStudio() {
   const db = system.factory.openDB();
-  
+
   // Check if we're in a development build before trying to use dev tools
   // Preview and production builds don't have dev tools available
   const isDevelopmentBuild =
     __DEV__ && process.env.EXPO_PUBLIC_APP_VARIANT === 'development';
-  
+
   // Always call hooks unconditionally - React requires this
   // useDevToolsPluginClient should return null when not available in production builds
   // If it throws, that's a bug in expo/devtools, but we'll handle it gracefully
   let client: DevToolsPluginClient | null = null;
-  
+
   // Only attempt to get the client if we're in a development build
   // This prevents the hook from throwing in preview/production builds
   if (isDevelopmentBuild) {

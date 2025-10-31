@@ -201,7 +201,7 @@ export const useLocalStore = create<LocalState>()(
       // VAD settings (defaults)
       vadThreshold: 0.085, // 8.5% sensitivity
       vadSilenceDuration: 1000, // 1 second pause
-      vadDisplayMode: 'fullscreen', // Default to fullscreen mode
+      vadDisplayMode: 'footer', // Default to footer mode
 
       // Authentication view state
       authView: null,

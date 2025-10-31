@@ -493,7 +493,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       pages: mergedPages,
       pageParams
     };
-  }, [offlineQuery.data, cloudQuery.data, getItemId, transformCloudData]);
+  }, [offlineQuery, cloudQuery, getItemId, transformCloudData]);
 
   // Stabilize callback functions to prevent dependency array size changes
   // Use the stable functions from React Query directly
