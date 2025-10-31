@@ -3,3 +3,4 @@ drizzle/**
 **/*.md
 generated-tokens.ts
 generated-local-tables.ts
+.github/workflows/**
