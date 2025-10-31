@@ -29,6 +29,26 @@ client_auth:
   supabase: true
   supabase_jwt_secret: !env PS_SUPABASE_JWT_SECRET
 
+  # JWKS URIs can be specified here if you were using a custom setup
+  # jwks_uri: [TODO]  # This is not needed when supabase: true is set
+
+  # Optional static collection of public keys for JWT verification
+  jwks:
+    #   keys:
+    #     - kty: 'RSA'
+    #       n: !env PS_JWK_N
+    #       e: !env PS_JWK_E
+    #       alg: 'RS256'
+    #       kid: !env PS_JWK_KID
+    keys:
+      - kty: 'oct'
+        k: 'thisisonlyforthediagnosticsappandshouldnotbeusedinproduction'
+        alg: 'HS256'
+    # Dev JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWFnbm9zdGljcy11c2VyIiwiYXVkIjpbInBvd2Vyc3luYy1kZXYiLCJwb3dlcnN5bmMiXSwiaWF0IjoxNzYxODk2Njc0fQ.DJ2Xwsop7Z39_-fGpZqxqWT5CmDzSsenOcZuZnZeYgM
+
+  # JWKS audience
+  audience: ['powersync-dev', 'powersync']
+
 api:
   tokens:
     # These tokens are used for local admin API route authentication
