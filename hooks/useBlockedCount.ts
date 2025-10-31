@@ -16,11 +16,14 @@ import { and, eq, or, sql } from 'drizzle-orm';
 export function useBlockedTranslationsCount(assetId: string) {
   const { currentUser } = useAuth();
 
-  if (!currentUser || !assetId) return 0;
-
   const { data: counts } = useHybridData({
     dataType: 'blocked-translations-count',
-    queryKeyParams: ['blocked-count', 'translations', assetId, currentUser.id],
+    queryKeyParams: [
+      'blocked-count',
+      'translations',
+      assetId,
+      currentUser?.id ?? ''
+    ],
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -33,13 +36,13 @@ export function useBlockedTranslationsCount(assetId: string) {
             or(
               sql`EXISTS (
                 SELECT 1 FROM ${blocked_content} 
-                WHERE ${blocked_content.profile_id} = ${currentUser.id} 
+                WHERE ${blocked_content.profile_id} = ${currentUser?.id ?? ''} 
                   AND ${blocked_content.content_table} = 'asset' 
                   AND ${blocked_content.content_id} = ${asset.id}
               )`,
               sql`EXISTS (
                 SELECT 1 FROM ${blocked_users} 
-                WHERE ${blocked_users.blocker_id} = ${currentUser.id} 
+                WHERE ${blocked_users.blocker_id} = ${currentUser?.id ?? ''} 
                   AND ${blocked_users.blocked_id} = ${asset.creator_id}
               )`
             )
@@ -47,10 +50,13 @@ export function useBlockedTranslationsCount(assetId: string) {
         )
     ),
     enableCloudQuery: false,
-    enableOfflineQuery: true
+    enableOfflineQuery: !!(currentUser && assetId)
   });
 
-  return (counts?.[0]?.blocked as number) ?? 0;
+  if (!currentUser || !assetId) return 0;
+
+  const count = counts[0]?.blocked;
+  return typeof count === 'number' ? count : 0;
 }
 
 /**
@@ -59,11 +65,9 @@ export function useBlockedTranslationsCount(assetId: string) {
 export function useBlockedAssetsCount(questId: string) {
   const { currentUser } = useAuth();
 
-  if (!currentUser || !questId) return 0;
-
   const { data: counts } = useHybridData({
     dataType: 'blocked-assets-count',
-    queryKeyParams: ['blocked-count', 'assets', questId, currentUser.id],
+    queryKeyParams: ['blocked-count', 'assets', questId, currentUser?.id ?? ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -77,13 +81,13 @@ export function useBlockedAssetsCount(questId: string) {
             or(
               sql`EXISTS (
                 SELECT 1 FROM ${blocked_content} 
-                WHERE ${blocked_content.profile_id} = ${currentUser.id} 
+                WHERE ${blocked_content.profile_id} = ${currentUser?.id ?? ''} 
                   AND ${blocked_content.content_table} = 'asset' 
                   AND ${blocked_content.content_id} = ${asset.id}
               )`,
               sql`EXISTS (
                 SELECT 1 FROM ${blocked_users} 
-                WHERE ${blocked_users.blocker_id} = ${currentUser.id} 
+                WHERE ${blocked_users.blocker_id} = ${currentUser?.id ?? ''} 
                   AND ${blocked_users.blocked_id} = ${asset.creator_id}
               )`
             )
@@ -91,8 +95,11 @@ export function useBlockedAssetsCount(questId: string) {
         )
     ),
     enableCloudQuery: false,
-    enableOfflineQuery: true
+    enableOfflineQuery: !!(currentUser && questId)
   });
 
-  return (counts?.[0]?.blocked as number) ?? 0;
+  if (!currentUser || !questId) return 0;
+
+  const count = counts[0]?.blocked;
+  return typeof count === 'number' ? count : 0;
 }
