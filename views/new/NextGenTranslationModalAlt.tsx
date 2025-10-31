@@ -114,11 +114,12 @@ export default function NextGenTranslationModal({
   const asset = translationData[0];
   const assetText = asset?.content[0]?.text;
   // Calculate vote counts
-  const upVotes =
-    asset?.votes.filter((v) => v.active && v.polarity === 'up').length ?? 0;
-  const downVotes =
-    asset?.votes.filter((v) => v.active && v.polarity === 'down').length ?? 0;
-  const userVote = asset?.votes.find((v) => v.creator_id === currentUser?.id);
+  const votes = asset?.votes ?? [];
+  const upVotes = votes.filter((v) => v.active && v.polarity === 'up').length;
+  const downVotes = votes.filter(
+    (v) => v.active && v.polarity === 'down'
+  ).length;
+  const userVote = votes.find((v) => v.creator_id === currentUser?.id);
 
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
@@ -163,7 +164,7 @@ export default function NextGenTranslationModal({
   const getAudioSegments = () => {
     if (!asset?.content.flatMap((c) => c.audio).length) return [];
     return asset.content
-      .flatMap((c) => c.audio)
+      .flatMap((c) => c.audio ?? [])
       .filter(Boolean)
       .map((audio) =>
         getLocalAttachmentUriWithOPFS(
@@ -185,9 +186,7 @@ export default function NextGenTranslationModal({
 
   // Initialize edited text when translation data loads
   React.useEffect(() => {
-    if (assetText) {
-      setEditedText(assetText);
-    }
+    setEditedText(assetText ?? '');
   }, [assetText]);
 
   const { mutate: createTranscription, isPending: isTranscribing } =
@@ -206,7 +205,7 @@ export default function NextGenTranslationModal({
         }
 
         const translationAudio = asset.content
-          .flatMap((c) => c.audio)
+          .flatMap((c) => c.audio ?? [])
           .filter(Boolean);
         await system.db.transaction(async (tx) => {
           const [newAsset] = await tx
@@ -256,11 +255,12 @@ export default function NextGenTranslationModal({
 
   const toggleEdit = () => {
     if (isEditing) {
-      // Cancel editing
+      // Cancel editing - reset to original text
       setIsEditing(false);
       setEditedText(assetText ?? '');
     } else {
-      // Start editing
+      // Start editing - ensure we have the current text
+      setEditedText(assetText ?? '');
       setIsEditing(true);
     }
   };
@@ -399,6 +399,7 @@ export default function NextGenTranslationModal({
                           onChangeText={setEditedText}
                           autoFocus
                           size="sm"
+                          drawerInput={false}
                         />
                       ) : (
                         <Text
@@ -546,10 +547,10 @@ export default function NextGenTranslationModal({
                           creatorId={asset.creator_id ?? undefined}
                           hasAlreadyReported={hasReported}
                           onReportSubmitted={(contentBlocked) => {
-                            refetch();
+                            void refetch();
                             // Close the translation modal if content was blocked
                             if (contentBlocked) {
-                              handleClose();
+                              void handleClose();
                             }
                           }}
                         />
