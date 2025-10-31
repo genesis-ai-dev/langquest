@@ -5,6 +5,7 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
+  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import {
@@ -282,7 +283,7 @@ export default function NextGenNewTranslationModal({
             <DrawerTitle>{t('newTranslation')}</DrawerTitle>
           </DrawerHeader>
 
-          <View className="flex-1 flex-col gap-4 px-4">
+          <DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
             {/* Translation Type Tabs */}
             <Tabs
               value={translationType}
@@ -385,7 +386,7 @@ export default function NextGenNewTranslationModal({
                 </Text>
               </View>
             )}
-          </View>
+          </DrawerScrollView>
 
           <DrawerFooter>
             <FormSubmit

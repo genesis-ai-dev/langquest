@@ -39,6 +39,7 @@ import { useCloudLoading } from '@/contexts/CloudLoadingContext';
 import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
+import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
   useAppNavigation,
@@ -57,6 +58,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
+import { getThemeColor } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -70,11 +72,12 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
+  UserPlusIcon,
   UsersIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -83,6 +86,7 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
@@ -101,12 +105,14 @@ export default function ProjectDirectoryView() {
   const { t } = useLocalization();
   const queryClient = useQueryClient();
   const { setCloudLoading } = useCloudLoading();
+  const insets = useSafeAreaInsets();
 
   // Track cloud loading states from child components
   const [questListCloudLoading, setQuestListCloudLoading] =
     React.useState(false);
   const [chapterListCloudLoading, setChapterListCloudLoading] =
     React.useState(false);
+  const [questListFetching, setQuestListFetching] = React.useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -222,7 +228,7 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Bulk Download] Success:', data);
       return data;
     },
-    onMutate: async () => {
+    onMutate: () => {
       console.log(
         '📥 [Bulk Download] Optimistically updating cache (BEFORE mutation)'
       );
@@ -496,7 +502,7 @@ export default function ProjectDirectoryView() {
     }
 
     const isDownloaded =
-      data?.download_profiles?.includes(currentUser?.id || '') ?? false;
+      data.download_profiles?.includes(currentUser?.id) ?? false;
 
     setQuestIdToDownload(questId);
 
@@ -727,23 +733,26 @@ export default function ProjectDirectoryView() {
       };
 
       // Optimistically update offline infinite query cache
-      queryClient.setQueryData(offlineKey, (old: any) => {
-        if (!old) return old;
+      queryClient.setQueryData(
+        offlineKey,
+        (old?: { pages: { data: Quest[] }[] }) => {
+          if (!old) return undefined;
 
-        // Add optimistic quest to first page
-        return {
-          ...old,
-          pages: old.pages.map((page: any, index: number) => {
-            if (index === 0) {
-              return {
-                ...page,
-                data: [...(page.data || []), optimisticQuest]
-              };
-            }
-            return page;
-          })
-        };
-      });
+          // Add optimistic quest to first page
+          return {
+            ...old,
+            pages: old.pages.map((page: { data: Quest[] }, index: number) => {
+              if (index === 0) {
+                return {
+                  ...page,
+                  data: [...page.data, optimisticQuest]
+                };
+              }
+              return page;
+            })
+          };
+        }
+      );
 
       return { previousOffline, previousCloud };
     },
@@ -766,34 +775,35 @@ export default function ProjectDirectoryView() {
       ];
       const offlineKey = [...baseKey, 'offline'];
 
-      queryClient.setQueryData(offlineKey, (old: any) => {
-        if (!old) return old;
+      queryClient.setQueryData(
+        offlineKey,
+        (old?: { pages: { data: Quest[] }[] }) => {
+          return {
+            ...old,
+            pages: old?.pages.map((page: { data: Quest[] }, index: number) => {
+              if (index === 0) {
+                // Replace optimistic quest(s) with real one
+                const data = page.data.map((quest: Quest) =>
+                  quest.id.startsWith('temp-')
+                    ? { ...newQuest, source: 'local' as const }
+                    : quest
+                );
 
-        return {
-          ...old,
-          pages: old.pages.map((page: any, index: number) => {
-            if (index === 0) {
-              // Replace optimistic quest(s) with real one
-              const data = page.data.map((quest: any) =>
-                quest.id.startsWith('temp-')
-                  ? { ...newQuest, source: 'local' as const }
-                  : quest
-              );
+                // If no optimistic quest was found, add real one
+                const hasOptimistic = page.data.some((q: Quest) =>
+                  q.id.startsWith('temp-')
+                );
+                if (!hasOptimistic) {
+                  data.push({ ...newQuest, source: 'local' as const });
+                }
 
-              // If no optimistic quest was found, add real one
-              const hasOptimistic = page.data.some((q: any) =>
-                q.id.startsWith('temp-')
-              );
-              if (!hasOptimistic) {
-                data.push({ ...newQuest, source: 'local' as const });
+                return { ...page, data };
               }
-
-              return { ...page, data };
-            }
-            return page;
-          })
-        };
-      });
+              return page;
+            })
+          };
+        }
+      );
 
       console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
       // Wait for PowerSync to sync, then invalidate to ensure consistency
@@ -863,12 +873,24 @@ export default function ProjectDirectoryView() {
       if (!currentBookId) {
         return (
           <View className="align-start flex-1">
-            <View className="flex-row items-center justify-start gap-3 p-4">
-              <View className="flex flex-row items-center gap-1">
-                <Icon as={ChurchIcon} />
-                <Icon as={BookOpenIcon} />
+            <View className="flex-col items-center justify-between gap-3 p-4">
+              <View className="flex flex-row items-center gap-3">
+                <View className="flex flex-row items-center gap-1">
+                  <Icon as={ChurchIcon} />
+                  <Icon as={BookOpenIcon} />
+                </View>
+                <Text variant="h4">{projectName}</Text>
               </View>
-              <Text variant="h4">{projectName}</Text>
+              {isPrivateProject && !isMember && currentUser && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => setShowPrivateAccessModal(true)}
+                >
+                  <Icon as={UserPlusIcon} size={16} />
+                  <Icon as={LockIcon} size={16} />
+                </Button>
+              )}
             </View>
             <BibleBookList
               projectId={currentProjectId!}
@@ -902,48 +924,65 @@ export default function ProjectDirectoryView() {
     return (
       <View className="flex-1 flex-col gap-4 p-4">
         <View className="flex flex-col gap-4">
-          <View className="flex flex-row items-center gap-2">
-            <Text variant="h4">{t('projectDirectory')}</Text>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={isRefreshing}
-              onPress={async () => {
-                setIsRefreshing(true);
-                console.log('🔄 Manually refreshing quest queries...');
-                await queryClient.invalidateQueries({
-                  queryKey: ['quests', 'for-project', currentProjectId]
-                });
-                await queryClient.invalidateQueries({
-                  queryKey: [
-                    'quests',
-                    'infinite',
-                    'for-project',
-                    currentProjectId
-                  ]
-                });
-                await queryClient.invalidateQueries({
-                  queryKey: [
-                    'quests',
-                    'offline',
-                    'for-project',
-                    currentProjectId
-                  ]
-                });
-                await queryClient.invalidateQueries({
-                  queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
-                });
-                console.log('🔄 Quest queries invalidated');
-                // Stop animation after a brief delay
-                setTimeout(() => {
-                  setIsRefreshing(false);
-                }, 500);
-              }}
-            >
-              <Animated.View style={spinStyle}>
-                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-              </Animated.View>
-            </Button>
+          <View className="flex flex-row items-center justify-between gap-2">
+            <View className="flex flex-row items-center gap-2">
+              <Text variant="h4">{t('projectDirectory')}</Text>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isRefreshing}
+                onPress={async () => {
+                  setIsRefreshing(true);
+                  console.log('🔄 Manually refreshing quest queries...');
+                  await queryClient.invalidateQueries({
+                    queryKey: ['quests', 'for-project', currentProjectId]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'infinite',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'offline',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: [
+                      'quests',
+                      'cloud',
+                      'for-project',
+                      currentProjectId
+                    ]
+                  });
+                  console.log('🔄 Quest queries invalidated');
+                  // Stop animation after a brief delay
+                  setTimeout(() => {
+                    setIsRefreshing(false);
+                  }, 500);
+                }}
+              >
+                <Animated.View style={spinStyle}>
+                  <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+                </Animated.View>
+              </Button>
+            </View>
+            {isPrivateProject && !isMember && currentUser && (
+              <Button
+                variant="default"
+                size="sm"
+                onPress={() => setShowPrivateAccessModal(true)}
+              >
+                <Icon as={UserPlusIcon} size={16} />
+                <Icon as={LockIcon} size={16} />
+              </Button>
+            )}
           </View>
 
           {/* Search Input */}
@@ -955,6 +994,15 @@ export default function ProjectDirectoryView() {
             prefix={SearchIcon}
             prefixStyling={false}
             size="sm"
+            suffix={
+              questListFetching && searchQuery ? (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              ) : undefined
+            }
+            suffixStyling={false}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           />
         </View>
@@ -969,18 +1017,26 @@ export default function ProjectDirectoryView() {
             onAddChild={openCreateForParent}
             onDownloadClick={handleDownloadClick}
             onCloudLoadingChange={setQuestListCloudLoading}
+            onFetchingChange={setQuestListFetching}
             downloadingQuestId={questIdToDownload}
             downloadingQuestIds={downloadingQuestIds}
           />
 
-          <Button
-            onPress={() => openCreateForParent(null)}
-            variant="outline"
-            size="sm"
-            disabled={!isMember}
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: 80 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+            }}
           >
-            <Text>{t('createObject')}</Text>
-          </Button>
+            <Button
+              onPress={() => openCreateForParent(null)}
+              variant="default"
+              size="sm"
+              disabled={!isMember}
+            >
+              <Text>{t('createObject')}</Text>
+            </Button>
+          </View>
         </View>
       </View>
     );
@@ -997,6 +1053,7 @@ export default function ProjectDirectoryView() {
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
           dismissible={!isCreatingQuest}
+          snapPoints={[450, 700]}
         >
           {renderContent()}
 
@@ -1058,7 +1115,13 @@ export default function ProjectDirectoryView() {
       )}
 
       {/* Shared SpeedDial for all project types */}
-      <View style={{ bottom: 24, right: 24 }} className="absolute">
+      <View
+        style={{
+          bottom: insets.bottom + 24,
+          right: 24
+        }}
+        className="absolute"
+      >
         <SpeedDial>
           <SpeedDialItems>
             {!isMember && isPrivateProject && (

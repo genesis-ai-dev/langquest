@@ -46,6 +46,7 @@ import { VADSettingsDrawer } from './VADSettingsDrawer';
 const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
     console.log(...args);
   }
@@ -248,19 +249,6 @@ const RecordingViewSimplified = ({
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
-
-  // Track actual content changes to prevent unnecessary re-renders
-  // LegendList will only re-render items when this key changes
-  // NOTE: Duration is NOT included here to avoid cascading re-renders when durations lazy-load
-  // Duration updates will be handled by React.memo in AssetCard (only that card re-renders)
-  // INCLUDE: name (for rename), order_index (for reorder), segmentCount (for merge)
-  const assetContentKey = React.useMemo(
-    () =>
-      assets
-        .map((a) => `${a.id}:${a.name}:${a.order_index}:${a.segmentCount}`)
-        .join('|'),
-    [assets]
-  );
 
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
@@ -764,10 +752,15 @@ const RecordingViewSimplified = ({
   // OPTIMIZED: Load segment counts and durations in batches after UI is idle
   // This prevents blocking the UI thread during initial render and animations
   React.useEffect(() => {
-    // Early exit if no assets to load (prevents effect from running constantly)
-    const assetsToLoad = assetMetadata.filter(
-      (id) => !loadedAssetIdsRef.current.has(id)
-    );
+    // Check both ref AND state to determine if we need to load
+    // This ensures we reload when re-entering the view (state is cleared on unmount)
+    const assetsToLoad = assetMetadata.filter((id) => {
+      // Load if not in ref (never attempted) OR missing from state (needs reload)
+      const notInRef = !loadedAssetIdsRef.current.has(id);
+      const missingFromState =
+        !assetSegmentCounts.has(id) || !assetDurations.has(id);
+      return notInRef || missingFromState;
+    });
 
     if (assetsToLoad.length === 0) {
       // Nothing new to load - don't even start the async work
@@ -922,21 +915,29 @@ const RecordingViewSimplified = ({
                   `⏱️ Asset ${assetId.slice(0, 8)} total duration: ${Math.round(totalDuration / 1000)}s`
                 );
               } else {
+                // Set duration to 0 to mark as loaded (prevents infinite retries)
+                // AssetCard will only show duration if it's > 0, so 0 won't be displayed
+                newDurations.set(assetId, 0);
                 debugLog(
-                  `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found)`
+                  `⚠️ Asset ${assetId.slice(0, 8)} has no duration (${audioValues.length} audio files found) - marked as loaded`
                 );
               }
 
               loadedAssetIdsRef.current.add(assetId);
             } catch (err) {
-              // If query fails for any asset, default to 1 segment
+              // If query fails for any asset, default to 1 segment and 0 duration
+              // This marks it as loaded (prevents infinite retries)
               console.warn(`Failed to load data for asset ${assetId}:`, err);
               newCounts.set(assetId, 1);
+              newDurations.set(assetId, 0);
               loadedAssetIdsRef.current.add(assetId);
             }
           }
 
-          if (!controller.signal.aborted) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          if (controller.signal.aborted) {
+            return;
+          } else {
             if (newCounts.size > 0) {
               // Merge with existing counts
               setAssetSegmentCounts((prev) => {
@@ -971,7 +972,10 @@ const RecordingViewSimplified = ({
             }, 16); // One frame delay (60fps)
           }
         } catch (error) {
-          if (!controller.signal.aborted) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          if (controller.signal.aborted) {
+            return;
+          } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
             setTimeout(() => {
@@ -992,9 +996,10 @@ const RecordingViewSimplified = ({
     return () => {
       interactionHandle.cancel();
     };
-    // Depend on assetIds string (only changes when asset IDs change, not on every render)
-    // This prevents the effect from running hundreds of times when array reference changes
-  }, [assetIds, assetMetadata]);
+    // Depend on assetIds, assetMetadata, and state maps
+    // State maps are included so we detect when durations are missing (e.g., after remount)
+    // The effect safely handles updates by only loading missing assets
+  }, [assetIds, assetMetadata, assetSegmentCounts, assetDurations]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)

@@ -280,7 +280,7 @@ function AssetCardInternal({
             </Text>
           </View>
         </View>
-        {duration !== undefined && (
+        {duration !== undefined && duration > 0 && (
           <Text
             className="font-mono text-sm text-muted-foreground"
             style={{ letterSpacing: 0.5 }}

@@ -14,8 +14,15 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { MicOffIcon, Settings } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
-import type { SharedValue } from 'react-native-reanimated';
+import { View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  type SharedValue,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface RecordingControlsProps {
@@ -60,15 +67,70 @@ export const RecordingControls = React.memo(
   }: RecordingControlsProps) {
     const { t } = useLocalization();
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
     // Permissions are handled by native module
     const hasPermission = true;
+
+    // Shared value for activation progress bar - tracks button hold activation (0-1)
+    const activationProgressShared = useSharedValue(0);
+
+    // Track the displayed progress - slightly lags behind actual activation for smoother UX
+    const displayProgressShared = useSharedValue(0);
+
+    // Reset progress bar when recording stops
+    useEffect(() => {
+      if (!isRecording) {
+        activationProgressShared.value = 0;
+        displayProgressShared.value = 0;
+      }
+    }, [isRecording, activationProgressShared, displayProgressShared]);
+
+    // Animate display progress to lag slightly behind activation progress
+    // This makes the bar complete around the same time recording actually starts
+    // Activation completes in 500ms, but recording takes ~50-100ms more to actually start
+    // So we'll make display progress animate slightly slower (~550ms total)
+    useAnimatedReaction(
+      () => activationProgressShared.value,
+      (currentProgress, previous) => {
+        'worklet';
+        if (!isRecording) {
+          // Detect when activation starts (progress goes from 0 to >0)
+          if (previous === 0 && currentProgress > 0) {
+            // Start display animation - animate to 1 over 550ms (slightly longer than activation's 500ms)
+            // This makes it complete around the same time recording actually starts
+            displayProgressShared.value = withTiming(1, {
+              duration: 550, // Slightly longer than activation (500ms) to sync with recording start
+              easing: Easing.linear
+            });
+          } else if (currentProgress === 0) {
+            // Reset immediately when activation is cancelled
+            displayProgressShared.value = 0;
+          }
+        }
+      },
+      [isRecording]
+    );
+
+    // Animated style for progress bar - shows activation progress and turns red when recording
+    const progressBarStyle = useAnimatedStyle(() => {
+      'worklet';
+      // When recording, show full width (red). Otherwise use display progress (blue, slightly lagging)
+      const progress = isRecording ? 1 : displayProgressShared.value;
+      const progressWidth = progress * width;
+
+      return {
+        width: progressWidth,
+        opacity: progress > 0 || isRecording ? 1 : 0,
+        backgroundColor: isRecording ? '#ef4444' : '#3b82f6' // Red when recording, blue during activation
+      };
+    }, [isRecording, width]);
 
     const requestPermission = async () => {
       // Native module handles permissions
     };
 
     // Fallback SharedValues for backward compatibility
-    const { useSharedValue } = require('react-native-reanimated');
+    // Note: useSharedValue is already imported at the top, don't require it again
     const fallbackEnergyShared = useSharedValue(currentEnergy ?? 0);
     const fallbackIsRecordingShared = useSharedValue(isRecording);
 
@@ -121,6 +183,19 @@ export const RecordingControls = React.memo(
         style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
+        {/* Progress bar at the top - shows activation progress (fills during hold), turns red when recording */}
+        <Animated.View
+          style={[
+            {
+              height: 3,
+              position: 'absolute',
+              top: 0,
+              left: 0
+            },
+            progressBarStyle
+          ]}
+        />
+
         {/* Waveform visualization above controls - only visible in footer mode */}
         <WaveformVisualization
           isVisible={isVADLocked ?? false}
@@ -158,6 +233,11 @@ export const RecordingControls = React.memo(
               currentEnergy={currentEnergy}
               vadThreshold={vadThreshold}
               canRecord={hasPermission}
+              activationProgressShared={activationProgressShared}
+              onRecordingDurationUpdate={(duration) => {
+                // Duration tracking for other purposes if needed
+                // Progress bar uses activationProgressShared instead
+              }}
             />
           </View>
 
@@ -175,8 +255,8 @@ export const RecordingControls = React.memo(
     }
 
     // Re-render ONLY if these props change:
-    // Note: We DO pass currentEnergy through now, but the ring buffer
-    // implementation handles the frequent updates efficiently on the UI thread
+    // Note: We exclude recordingDuration from the equality check since it updates frequently
+    // The progress bar uses a SharedValue that updates smoothly without causing re-renders
     return (
       prevProps.isRecording === nextProps.isRecording &&
       // isVADLocked already checked above
@@ -186,7 +266,7 @@ export const RecordingControls = React.memo(
       prevProps.onRecordingDiscarded === nextProps.onRecordingDiscarded &&
       prevProps.onVADLockChange === nextProps.onVADLockChange &&
       prevProps.onSettingsPress === nextProps.onSettingsPress
-      // Still ignoring currentEnergy and vadThreshold changes to prevent cascade
+      // Still ignoring currentEnergy, vadThreshold, and recordingDuration changes to prevent cascade
     );
   }
 );

@@ -34,6 +34,8 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 
+const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
+
 interface VADSettingsDrawerProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -186,71 +188,72 @@ export function VADSettingsDrawer({
           )}
 
           {/* Display Mode Selection */}
-          <View className="gap-3">
-            <View>
-              <Text className="text-sm font-medium text-foreground">
-                {t('vadDisplayMode')}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {t('vadDisplayDescription')}
-              </Text>
-            </View>
-
-            <View className="flex-row gap-3">
-              {/* Full Screen Option */}
-              <Button
-                variant={displayMode === 'fullscreen' ? 'default' : 'outline'}
-                onPress={() => onDisplayModeChange('fullscreen')}
-                className="h-24 flex-1 flex-col gap-2"
-              >
-                <Icon
-                  as={Maximize2}
-                  size={28}
-                  className={
-                    displayMode === 'fullscreen'
-                      ? 'text-primary-foreground'
-                      : 'text-foreground'
-                  }
-                />
-                <Text
-                  className={`text-sm font-medium ${
-                    displayMode === 'fullscreen'
-                      ? 'text-primary-foreground'
-                      : 'text-foreground'
-                  }`}
-                >
-                  {t('vadFullScreen')}
+          {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
+            <View className="gap-3">
+              <View>
+                <Text className="text-sm font-medium text-foreground">
+                  {t('vadDisplayMode')}
                 </Text>
-              </Button>
-
-              {/* Footer Option */}
-              <Button
-                variant={displayMode === 'footer' ? 'default' : 'outline'}
-                onPress={() => onDisplayModeChange('footer')}
-                className="h-24 flex-1 flex-col gap-2"
-              >
-                <Icon
-                  as={RectangleHorizontal}
-                  size={28}
-                  className={
-                    displayMode === 'footer'
-                      ? 'text-primary-foreground'
-                      : 'text-foreground'
-                  }
-                />
-                <Text
-                  className={`text-sm font-medium ${
-                    displayMode === 'footer'
-                      ? 'text-primary-foreground'
-                      : 'text-foreground'
-                  }`}
-                >
-                  {t('vadFooter')}
+                <Text className="text-xs text-muted-foreground">
+                  {t('vadDisplayDescription')}
                 </Text>
-              </Button>
-            </View>
-          </View>
+              </View>
 
+              <View className="flex-row gap-3">
+                {/* Full Screen Option */}
+                <Button
+                  variant={displayMode === 'fullscreen' ? 'default' : 'outline'}
+                  onPress={() => onDisplayModeChange('fullscreen')}
+                  className="h-24 flex-1 flex-col gap-2"
+                >
+                  <Icon
+                    as={Maximize2}
+                    size={28}
+                    className={
+                      displayMode === 'fullscreen'
+                        ? 'text-primary-foreground'
+                        : 'text-foreground'
+                    }
+                  />
+                  <Text
+                    className={`text-sm font-medium ${
+                      displayMode === 'fullscreen'
+                        ? 'text-primary-foreground'
+                        : 'text-foreground'
+                    }`}
+                  >
+                    {t('vadFullScreen')}
+                  </Text>
+                </Button>
+
+                {/* Footer Option */}
+                <Button
+                  variant={displayMode === 'footer' ? 'default' : 'outline'}
+                  onPress={() => onDisplayModeChange('footer')}
+                  className="h-24 flex-1 flex-col gap-2"
+                >
+                  <Icon
+                    as={RectangleHorizontal}
+                    size={28}
+                    className={
+                      displayMode === 'footer'
+                        ? 'text-primary-foreground'
+                        : 'text-foreground'
+                    }
+                  />
+                  <Text
+                    className={`text-sm font-medium ${
+                      displayMode === 'footer'
+                        ? 'text-primary-foreground'
+                        : 'text-foreground'
+                    }`}
+                  >
+                    {t('vadFooter')}
+                  </Text>
+                </Button>
+              </View>
+            </View>
+          )}
           {/* Live Energy Visualization */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
