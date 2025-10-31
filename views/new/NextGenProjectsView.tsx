@@ -441,7 +441,7 @@ export default function NextGenProjectsView() {
   // Use the appropriate query based on active tab
   const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
   const { data: projectData, isLoading } = currentQuery;
-  
+
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
     if (activeTab === 'my') {
@@ -464,7 +464,7 @@ export default function NextGenProjectsView() {
     invitedProjectsQuery.isCloudLoading,
     allProjects.isFetching
   ]);
-  
+
   const { data: invitedProjectsData = [] } =
     activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
@@ -589,7 +589,8 @@ export default function NextGenProjectsView() {
           </View>
         </View>
 
-        {isLoading || (isFetchingProjects && searchQuery && data.length === 0) ? (
+        {isLoading ||
+        (isFetchingProjects && searchQuery && data.length === 0) ? (
           <ProjectListSkeleton />
         ) : (
           <LegendList

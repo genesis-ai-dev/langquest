@@ -73,7 +73,7 @@ export const RecordingControls = React.memo(
 
     // Shared value for activation progress bar - tracks button hold activation (0-1)
     const activationProgressShared = useSharedValue(0);
-    
+
     // Track the displayed progress - slightly lags behind actual activation for smoother UX
     const displayProgressShared = useSharedValue(0);
 
@@ -117,7 +117,7 @@ export const RecordingControls = React.memo(
       // When recording, show full width (red). Otherwise use display progress (blue, slightly lagging)
       const progress = isRecording ? 1 : displayProgressShared.value;
       const progressWidth = progress * width;
-      
+
       return {
         width: progressWidth,
         opacity: progress > 0 || isRecording ? 1 : 0,
