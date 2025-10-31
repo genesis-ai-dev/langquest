@@ -581,6 +581,7 @@ export default function NextGenProjectsView() {
                 ) : undefined
               }
               suffixStyling={false}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             />
             <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
               <Icon as={PlusIcon} className="text-primary-foreground" />

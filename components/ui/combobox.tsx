@@ -1,4 +1,5 @@
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import { scoreSearchResults } from '@/utils/searchUtils';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
@@ -72,12 +73,9 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
         return [];
       }
 
-      const searchLower = searchTrimmed.toLowerCase();
-      return options.filter(
-        (opt) =>
-          opt.label.toLowerCase().includes(searchLower) ||
-          opt.searchTerms?.toLowerCase().includes(searchLower)
-      );
+      // Use relevance scoring for better search results
+      const scored = scoreSearchResults(options, searchTrimmed);
+      return scored.map((item) => item.option);
     }, [options, search, minSearchLength]);
 
     // Paginated display of filtered options
@@ -193,7 +191,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                 </View>
 
                 {/* Options List */}
-                <View style={{ height: maxHeight - 60 }}>
+                <View style={{ maxHeight: maxHeight - 60 }}>
                   <FlatList
                     data={displayedOptions}
                     keyExtractor={(item) => item.value}
@@ -237,22 +235,32 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     )}
                     ListFooterComponent={() =>
                       hasMore ? (
-                        <View className="flex items-center py-2">
+                        <Pressable
+                          onPress={handleLoadMore}
+                          className="flex items-center py-2"
+                        >
                           <Text className="text-xs text-muted-foreground">
                             Showing {displayedOptions.length} of{' '}
-                            {filteredOptions.length}
+                            {filteredOptions.length} - Tap to load more
                           </Text>
-                        </View>
+                        </Pressable>
                       ) : null
                     }
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.5}
                     keyboardShouldPersistTaps="handled"
-                    removeClippedSubviews
+                    nestedScrollEnabled={true}
+                    scrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                    bounces={false}
+                    removeClippedSubviews={false}
                     maxToRenderPerBatch={pageSize}
                     initialNumToRender={pageSize}
                     windowSize={5}
-                    nestedScrollEnabled
+                    style={{ flexGrow: 0 }}
+                    contentContainerStyle={{ flexGrow: 0 }}
+                    // Disable momentum scrolling to help with nested scrolling
+                    decelerationRate="fast"
                   />
                 </View>
               </View>

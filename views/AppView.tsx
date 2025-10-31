@@ -70,6 +70,12 @@ function AppViewContent() {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
+        // If drawer is open, close it first
+        if (drawerIsVisible) {
+          setDrawerIsVisible(false);
+          return true; // Prevent default behavior (exit app)
+        }
+        // Otherwise, handle navigation
         if (canGoBack) {
           goBack();
           return true; // Prevent default behavior (exit app)
@@ -79,7 +85,7 @@ function AppViewContent() {
     );
 
     return () => backHandler.remove();
-  }, [canGoBack, goBack]);
+  }, [canGoBack, goBack, drawerIsVisible, setDrawerIsVisible]);
 
   // Use deferred view for rendering to prevent blocking navigation transitions
   const renderCurrentView = () => {
