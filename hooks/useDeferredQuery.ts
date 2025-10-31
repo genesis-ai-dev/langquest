@@ -5,11 +5,8 @@
  * allowing instant view transitions with progressive data loading.
  */
 
-import {
-  useQuery,
-  type UseQueryOptions,
-  type UseQueryResult
-} from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import type { UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { InteractionManager } from 'react-native';
 
@@ -29,7 +26,7 @@ export function useDeferredQuery<
   TQueryFnData = unknown,
   TError = Error,
   TData = TQueryFnData,
-  TQueryKey extends ReadonlyArray<unknown> = ReadonlyArray<unknown>
+  TQueryKey extends readonly unknown[] = readonly unknown[]
 >(
   options: UseQueryOptions<TQueryFnData, TError, TData, TQueryKey>
 ): UseQueryResult<TData, TError> {
@@ -60,7 +57,7 @@ export function useOptimisticQuery<
   TQueryFnData = unknown,
   TError = Error,
   TData = TQueryFnData,
-  TQueryKey extends ReadonlyArray<unknown> = ReadonlyArray<unknown>
+  TQueryKey extends readonly unknown[] = readonly unknown[]
 >(
   options: UseQueryOptions<TQueryFnData, TError, TData, TQueryKey>
 ): UseQueryResult<TData, TError> {

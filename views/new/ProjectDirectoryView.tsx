@@ -177,7 +177,7 @@ export default function ProjectDirectoryView() {
 
   // Offload drawer state for quest undownloads
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
-  const [_isOffloading, setIsOffloading] = React.useState(false);
+  const [isOffloading, setIsOffloading] = React.useState(false);
 
   // Discovery hook
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
@@ -189,6 +189,8 @@ export default function ProjectDirectoryView() {
 
   // Track if we've started discovery for this quest ID to prevent loops
   const startedDiscoveryRef = React.useRef<string | null>(null);
+  // Track if we've started verification for this quest ID to prevent loops
+  const startedVerificationRef = React.useRef<string | null>(null);
 
   // Auto-start discovery when drawer opens with a quest ID
   React.useEffect(() => {
@@ -658,13 +660,19 @@ export default function ProjectDirectoryView() {
     if (
       showOffloadDrawer &&
       questIdToDownload &&
-      !verificationState.isVerifying
+      !verificationState.isVerifying &&
+      startedVerificationRef.current !== questIdToDownload
     ) {
       console.log(
         '🗑️ [Offload] Auto-starting verification for quest:',
         questIdToDownload
       );
+      startedVerificationRef.current = questIdToDownload;
       verificationState.startVerification();
+    }
+    // Reset ref when drawer closes or quest changes
+    if (!showOffloadDrawer || !questIdToDownload) {
+      startedVerificationRef.current = null;
     }
   }, [showOffloadDrawer, questIdToDownload, verificationState]);
 
@@ -1229,7 +1237,6 @@ export default function ProjectDirectoryView() {
           Languages: discoveryState.progressSharedValues.languages.value.count
         }}
       />
-
       {/* Offload Verification Drawer */}
       <QuestOffloadVerificationDrawer
         isOpen={showOffloadDrawer}
@@ -1238,6 +1245,7 @@ export default function ProjectDirectoryView() {
         }}
         onContinue={handleOffloadContinue}
         verificationState={verificationState}
+        isOffloading={isOffloading}
       />
     </>
   );

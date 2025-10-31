@@ -13,13 +13,13 @@ import { eq, inArray } from 'drizzle-orm';
 
 interface DuplicateGroup {
   name: string;
-  records: Array<{
+  records: {
     id: string;
     name: string;
     project_id: string;
     created_at: string;
     source: 'local' | 'synced';
-  }>;
+  }[];
 }
 
 /**

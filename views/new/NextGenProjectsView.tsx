@@ -311,7 +311,7 @@ export default function NextGenProjectsView() {
 
       if (inviteConditions.length === 0) return [];
 
-      let inviteQuery = system.supabaseConnector.client
+      const inviteQuery = system.supabaseConnector.client
         .from('invite')
         .select('project_id')
         .eq('status', 'pending')
@@ -323,10 +323,9 @@ export default function NextGenProjectsView() {
 
       if (inviteError) throw inviteError;
 
-      const invitedProjectIds =
-        invites
-          ?.map((inv) => inv.project_id)
-          .filter((id) => !memberProjectIds.includes(id)) || [];
+      const invitedProjectIds = invites
+        ?.map((inv) => inv.project_id)
+        .filter((id) => !memberProjectIds.includes(id));
 
       if (invitedProjectIds.length === 0) return [];
 

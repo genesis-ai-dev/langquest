@@ -20,6 +20,7 @@ import {
   DatabaseIcon,
   FileTextIcon,
   FolderIcon,
+  LanguagesIcon,
   LinkIcon,
   Loader2Icon,
   TagIcon,
@@ -40,6 +41,7 @@ interface QuestOffloadVerificationDrawerProps {
   onOpenChange: (open: boolean) => void;
   onContinue: () => void;
   verificationState: VerificationState;
+  isOffloading: boolean;
 }
 
 interface CategoryRowProps {
@@ -133,7 +135,8 @@ export function QuestOffloadVerificationDrawer({
   isOpen,
   onOpenChange,
   onContinue,
-  verificationState
+  verificationState,
+  isOffloading
 }: QuestOffloadVerificationDrawerProps) {
   const { t } = useLocalization();
   const {
@@ -242,8 +245,8 @@ export function QuestOffloadVerificationDrawer({
     <Drawer
       open={isOpen}
       onOpenChange={onOpenChange}
-      dismissible={!isVerifying}
       snapPoints={[1000, 770]}
+      dismissible={!isOffloading}
     >
       <DrawerContent className="pb-safe">
         <DrawerHeader>
@@ -265,7 +268,7 @@ export function QuestOffloadVerificationDrawer({
               </Text>
             </View>
             <DrawerClose asChild>
-              <Button variant="ghost" size="icon" disabled={isVerifying}>
+              <Button variant="ghost" size="icon" disabled={isOffloading}>
                 <Icon as={XIcon} size={24} />
               </Button>
             </DrawerClose>
@@ -342,7 +345,7 @@ export function QuestOffloadVerificationDrawer({
                 <CategoryRow label="Tags" icon={TagIcon} {...progress.tags} />
                 <CategoryRow
                   label="Languages"
-                  icon={DatabaseIcon}
+                  icon={LanguagesIcon}
                   {...progress.languages}
                 />
                 <CategoryRow
@@ -424,7 +427,7 @@ export function QuestOffloadVerificationDrawer({
                         variant="outline"
                         className="border-yellow-600"
                         onPress={onContinue}
-                        disabled={isVerifying || hasPendingUploads}
+                        disabled={hasPendingUploads || isOffloading}
                       >
                         <Text className="text-xs font-bold text-yellow-600">
                           Force Offload (Dev Only)
@@ -441,7 +444,8 @@ export function QuestOffloadVerificationDrawer({
         <DrawerFooter>
           <Button
             onPress={onContinue}
-            disabled={!isReadyToOffload || isVerifying || hasPendingUploads}
+            disabled={!isReadyToOffload || hasPendingUploads}
+            loading={isOffloading}
             variant={isReadyToOffload ? 'destructive' : 'default'}
           >
             <Text className="font-bold">
@@ -456,7 +460,7 @@ export function QuestOffloadVerificationDrawer({
           </Button>
 
           <DrawerClose asChild>
-            <Button variant="outline" disabled={isVerifying}>
+            <Button variant="outline" disabled={isOffloading}>
               <Text>{t('cancel')}</Text>
             </Button>
           </DrawerClose>

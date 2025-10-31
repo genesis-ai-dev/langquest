@@ -294,11 +294,11 @@ export function BibleChapterList({
         if (!oldData || !currentUser?.id) return oldData;
 
         // Handle array of chapters
-        const chapters = oldData as Array<{
+        const chapters = oldData as {
           id: string;
           download_profiles?: string[] | null;
           [key: string]: unknown;
-        }>;
+        }[];
 
         return chapters.map((chapter) => {
           if (questIdsToUpdate.has(chapter.id)) {

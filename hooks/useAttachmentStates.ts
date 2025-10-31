@@ -9,11 +9,11 @@ import { useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { system } from '../db/powersync/system';
 // Use the correct type based on platform
-type QueryResult = QueryResultNative | QueryResultWeb;
+type QueryResult = QueryResultNative;
 
 export function useAttachmentStates(
   attachmentIds: string[] = [],
-  enabled: boolean = true
+  enabled = true
 ) {
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>

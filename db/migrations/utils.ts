@@ -66,8 +66,8 @@ export async function addColumn(
   try {
     // Use raw PowerSync to alter the underlying table
     // Access via db.rawPowerSync (exposed by system.ts proxy)
-    const rawPowerSync = (db as any)?.rawPowerSync;
-    if (!rawPowerSync || !rawPowerSync.execute) {
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
       throw new Error(
         'Cannot access raw PowerSync instance for schema modification'
       );
@@ -118,8 +118,8 @@ export async function renameColumn(
 
   try {
     // Use raw PowerSync to alter the underlying table
-    const rawPowerSync = (db as any)?.rawPowerSync;
-    if (!rawPowerSync || !rawPowerSync.execute) {
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
       throw new Error(
         'Cannot access raw PowerSync instance for schema modification'
       );
@@ -162,8 +162,8 @@ export async function dropColumn(
 
   try {
     // Use raw PowerSync to alter the underlying table
-    const rawPowerSync = (db as any)?.rawPowerSync;
-    if (!rawPowerSync || !rawPowerSync.execute) {
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
       throw new Error(
         'Cannot access raw PowerSync instance for schema modification'
       );
@@ -329,7 +329,7 @@ export async function updateMetadataVersion(
       `)
       );
 
-      const changes = (result as any).changes || 0;
+      const changes = result.changes || 0;
 
       if (changes > 0) {
         console.log(`[Migration]   - Updated ${changes} record(s) in ${table}`);

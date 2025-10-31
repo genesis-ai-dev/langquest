@@ -34,7 +34,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { MicIcon, TextIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Alert, View } from 'react-native';
 import { z } from 'zod';
 type AssetContent = typeof asset_content_link.$inferSelect;
@@ -97,59 +97,32 @@ export default function NextGenNewTranslationModal({
 
   // Simpler schema - just validate that fields exist when provided
   const translationSchema = z.object({
-    text: z.string().optional(),
+    text: z.string().trim().optional(),
     audioUri: z.string().optional()
   });
 
   type TranslationFormData = z.infer<typeof translationSchema>;
 
   const form = useForm<TranslationFormData>({
+    defaultValues: {
+      text: '',
+      audioUri: ''
+    },
     resolver: zodResolver(translationSchema),
-    mode: 'onChange',
     disabled: !currentUser?.id
   });
+
+  const subscription = useWatch({ control: form.control });
+  const isValid =
+    (translationType === 'text' && !!subscription.text) ||
+    (translationType === 'audio' && !!subscription.audioUri);
 
   // Reset form when modal opens
   React.useEffect(() => {
     if (visible) {
-      form.reset({ text: '', audioUri: '' });
+      form.reset();
     }
   }, [visible, form]);
-
-  // Track custom validity based on translation type
-  const [isFormValid, setIsFormValid] = React.useState(false);
-
-  React.useEffect(() => {
-    const values = form.getValues();
-    const isValid =
-      (translationType === 'text' && !!values.text?.trim()) ||
-      (translationType === 'audio' && !!values.audioUri);
-    setIsFormValid(isValid);
-
-    console.log('[FORM DEBUG] Validity check:', {
-      translationType,
-      hasText: !!values.text,
-      hasAudioUri: !!values.audioUri,
-      isValid
-    });
-  }, [translationType, form]);
-
-  // Debug: Watch form state
-  React.useEffect(() => {
-    const subscription = form.watch((values) => {
-      const isValid =
-        (translationType === 'text' && !!values.text?.trim()) ||
-        (translationType === 'audio' && !!values.audioUri);
-      setIsFormValid(isValid);
-
-      console.log('[FORM DEBUG] Field changed:', {
-        values,
-        isValid,
-        translationType
-      });
-    });
-    return () => subscription.unsubscribe();
-  }, [form, translationType]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
@@ -164,7 +137,7 @@ export default function NextGenNewTranslationModal({
       });
 
       // Validate that the appropriate field is filled based on translation type
-      if (translationType === 'text' && !data.text?.trim()) {
+      if (translationType === 'text' && !data.text) {
         throw new Error(t('enterTranslation'));
       }
       if (translationType === 'audio' && !data.audioUri) {
@@ -303,11 +276,7 @@ export default function NextGenNewTranslationModal({
   const contentPreview = assetContent?.[0]?.text || '';
 
   return (
-    <Drawer
-      open={visible}
-      onOpenChange={(open) => !open && handleClose()}
-      snapPoints={[200, 900]}
-    >
+    <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
       <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>
@@ -378,7 +347,6 @@ export default function NextGenNewTranslationModal({
                           <Textarea
                             {...transformInputProps(field)}
                             placeholder={t('enterTranslation')}
-                            autoFocus
                             drawerInput
                           />
                         </FormControl>
@@ -421,17 +389,8 @@ export default function NextGenNewTranslationModal({
           </DrawerScrollView>
 
           <DrawerFooter>
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && (
-              <View className="mb-2 rounded bg-muted p-2">
-                <Text className="text-xs text-muted-foreground">
-                  Debug: isFormValid={String(isFormValid)} | translationType=
-                  {translationType} | values={JSON.stringify(form.getValues())}
-                </Text>
-              </View>
-            )}
             <FormSubmit
-              disabled={!isFormValid}
+              disabled={!isValid}
               onPress={form.handleSubmit(
                 (data) => {
                   console.log(

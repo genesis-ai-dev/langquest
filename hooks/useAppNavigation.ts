@@ -34,14 +34,18 @@ export function useAppNavigation() {
     addRecentAsset
   } = useLocalStore();
 
+  // Ensure navigationStack is always an array - safe access pattern
+  const safeNavigationStack = useMemo(() => {
+    if (Array.isArray(navigationStack) && navigationStack.length > 0) {
+      return navigationStack;
+    }
+    // Use a constant timestamp for default state to avoid impure Date.now() in render
+    return [{ view: 'projects' as AppView, timestamp: 0 }];
+  }, [navigationStack]);
+
   // Current navigation state - always ensure we have a valid state object
   const currentState = useMemo(() => {
-    // Ensure navigationStack is always an array
-    const stack =
-      Array.isArray(navigationStack) && navigationStack.length > 0
-        ? navigationStack
-        : [{ view: 'projects' as AppView, timestamp: Date.now() }];
-
+    const stack = safeNavigationStack;
     const lastItem = stack[stack.length - 1];
 
     // Ensure we always return a properly structured state object
@@ -52,9 +56,9 @@ export function useAppNavigation() {
     // Fallback to default state if lastItem is malformed
     return {
       view: 'projects' as AppView,
-      timestamp: Date.now()
+      timestamp: 0
     };
-  }, [navigationStack]);
+  }, [safeNavigationStack]);
 
   // Navigation functions with instant state transitions
   const navigate = useCallback(
@@ -69,21 +73,21 @@ export function useAppNavigation() {
         timestamp: Date.now()
       };
 
-      const stack = Array.isArray(navigationStack) ? navigationStack : [];
+      const stack = safeNavigationStack;
       setNavigationStack([...stack, fullState]);
       profiler.endNavigation(
         `${newState.view}:${newState.projectId || newState.questId || newState.assetId || 'main'}`
       );
     },
-    [currentState, navigationStack, setNavigationStack]
+    [currentState, safeNavigationStack, setNavigationStack]
   );
 
   const goBack = useCallback(() => {
-    const stack = Array.isArray(navigationStack) ? navigationStack : [];
+    const stack = safeNavigationStack;
     if (stack.length > 1) {
       setNavigationStack(stack.slice(0, -1));
     }
-  }, [navigationStack, setNavigationStack]);
+  }, [safeNavigationStack, setNavigationStack]);
 
   const goToRoot = useCallback(() => {
     setNavigationStack([{ view: 'projects', timestamp: Date.now() }]);
@@ -92,7 +96,7 @@ export function useAppNavigation() {
   // Navigate back to a specific view by removing newer entries from the stack
   const goBackToView = useCallback(
     (targetView: AppView) => {
-      const stack = Array.isArray(navigationStack) ? navigationStack : [];
+      const stack = safeNavigationStack;
       // Find the last occurrence of the target view in the stack
       let targetIndex = -1;
       for (let i = stack.length - 1; i >= 0; i--) {
@@ -110,7 +114,7 @@ export function useAppNavigation() {
         navigate({ view: targetView });
       }
     },
-    [navigationStack, setNavigationStack, navigate]
+    [safeNavigationStack, setNavigationStack, navigate]
   );
 
   // Specific navigation functions
@@ -265,10 +269,10 @@ export function useAppNavigation() {
 
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
-    const crumbs: Array<{ label: string; onPress?: () => void }> = [];
+    const crumbs: { label: string; onPress?: () => void }[] = [];
 
-    // Guard against undefined or malformed currentState
-    if (!currentState || !currentState.view) {
+    // Guard against malformed currentState (should always have view based on useMemo logic)
+    if (!('view' in currentState)) {
       return [{ label: 'Projects', onPress: goToProjects }];
     }
 
@@ -362,8 +366,8 @@ export function useAppNavigation() {
 
     // Utilities
     breadcrumbs,
-    canGoBack: Array.isArray(navigationStack) && navigationStack.length > 1,
-    navigationStack
+    canGoBack: safeNavigationStack.length > 1,
+    navigationStack: safeNavigationStack
   };
 }
 

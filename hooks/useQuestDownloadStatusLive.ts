@@ -33,6 +33,9 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
     // Reset ref when questId changes
     prevDownloadedRef.current = false;
 
+    // Helper to check if we should proceed (defensive check for async operations)
+    const shouldProceed = () => !abortController.signal.aborted && isMounted;
+
     // Query SQLite directly - the single source of truth
     const checkDownloadStatus = async () => {
       try {
@@ -42,7 +45,7 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
         });
 
         // Memory safety: don't update state if component unmounted
-        if (abortController.signal.aborted || !isMounted) return;
+        if (!shouldProceed()) return;
 
         if (quest?.download_profiles) {
           const profiles =
@@ -52,44 +55,42 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
           const downloaded =
             Array.isArray(profiles) && profiles.includes(currentUser.id);
 
-          // Double-check before state update (defensive)
-          if (!abortController.signal.aborted && isMounted) {
-            // Invalidate assets queries when quest becomes downloaded (initial check)
-            const wasDownloaded = prevDownloadedRef.current;
-            if (!wasDownloaded && downloaded) {
-              console.log(
-                `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
-              );
-              // Invalidate all asset queries for this quest (handles all search variations)
-              void queryClient.invalidateQueries({
-                queryKey: ['assets', 'by-quest', questId],
-                exact: false
-              });
-              // Also invalidate general assets queries
-              void queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-            }
+          // Double-check before state update (defensive - state can change during async)
+          if (!shouldProceed()) return;
 
-            prevDownloadedRef.current = downloaded;
-            setIsDownloaded(downloaded);
+          // Invalidate assets queries when quest becomes downloaded (initial check)
+          const wasDownloaded = prevDownloadedRef.current;
+          if (!wasDownloaded && downloaded) {
+            console.log(
+              `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
+            );
+            // Invalidate all asset queries for this quest (handles all search variations)
+            void queryClient.invalidateQueries({
+              queryKey: ['assets', 'by-quest', questId],
+              exact: false
+            });
+            // Also invalidate general assets queries
+            void queryClient.invalidateQueries({
+              queryKey: ['assets']
+            });
           }
+
+          prevDownloadedRef.current = downloaded;
+          setIsDownloaded(downloaded);
         } else {
-          if (!abortController.signal.aborted && isMounted) {
-            setIsDownloaded(false);
-          }
+          if (!shouldProceed()) return;
+          setIsDownloaded(false);
         }
       } catch (error) {
         // Only log/update if component still mounted
-        if (!abortController.signal.aborted && isMounted) {
-          console.error('Error checking download status:', error);
-          setIsDownloaded(false);
-        }
+        if (!shouldProceed()) return;
+        console.error('Error checking download status:', error);
+        setIsDownloaded(false);
       }
     };
 
     // Initial check
-    checkDownloadStatus();
+    void checkDownloadStatus();
 
     // Watch for changes using PowerSync watch
     // Note: watch doesn't return an unwatch function, use abort controller instead
@@ -101,12 +102,17 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
       {
         onResult: (result) => {
           // Memory safety: check abort and mount status before any work
-          if (abortController.signal.aborted || !isMounted) return;
+          if (!shouldProceed()) return;
 
           try {
             // result.rows._array contains the rows
-            if (result?.rows?._array?.[0]) {
-              const row = result.rows._array[0] as {
+            // Check if results and rows exist before accessing _array
+            let firstRow: unknown;
+            if (result.rows?._array) {
+              firstRow = result.rows._array[0];
+            }
+            if (firstRow) {
+              const row = firstRow as {
                 download_profiles?: string | string[];
               };
               const profiles = row.download_profiles;
@@ -119,51 +125,47 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
                   Array.isArray(parsed) && parsed.includes(currentUser.id);
 
                 // Double-check before state update (defensive programming)
-                if (!abortController.signal.aborted && isMounted) {
-                  // Invalidate assets queries when quest becomes downloaded
-                  // This ensures assets list refreshes when navigating into newly downloaded quest
-                  const wasDownloaded = prevDownloadedRef.current;
-                  if (!wasDownloaded && downloaded) {
-                    console.log(
-                      `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
-                    );
-                    // Invalidate all asset queries for this quest (handles all search variations)
-                    void queryClient.invalidateQueries({
-                      queryKey: ['assets', 'by-quest', questId],
-                      exact: false
-                    });
-                    // Also invalidate general assets queries
-                    void queryClient.invalidateQueries({
-                      queryKey: ['assets']
-                    });
-                  }
+                if (!shouldProceed()) return;
 
-                  prevDownloadedRef.current = downloaded;
-                  setIsDownloaded(downloaded);
+                // Invalidate assets queries when quest becomes downloaded
+                // This ensures assets list refreshes when navigating into newly downloaded quest
+                const wasDownloaded = prevDownloadedRef.current;
+                if (!wasDownloaded && downloaded) {
+                  console.log(
+                    `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
+                  );
+                  // Invalidate all asset queries for this quest (handles all search variations)
+                  void queryClient.invalidateQueries({
+                    queryKey: ['assets', 'by-quest', questId],
+                    exact: false
+                  });
+                  // Also invalidate general assets queries
+                  void queryClient.invalidateQueries({
+                    queryKey: ['assets']
+                  });
                 }
+
+                prevDownloadedRef.current = downloaded;
+                setIsDownloaded(downloaded);
               } else {
-                if (!abortController.signal.aborted && isMounted) {
-                  setIsDownloaded(false);
-                }
-              }
-            } else {
-              if (!abortController.signal.aborted && isMounted) {
+                if (!shouldProceed()) return;
                 setIsDownloaded(false);
               }
+            } else {
+              if (!shouldProceed()) return;
+              setIsDownloaded(false);
             }
           } catch (error) {
             // Only log/update if component still mounted
-            if (!abortController.signal.aborted && isMounted) {
-              console.error('Error parsing download status from watch:', error);
-              setIsDownloaded(false);
-            }
+            if (!shouldProceed()) return;
+            console.error('Error parsing download status from watch:', error);
+            setIsDownloaded(false);
           }
         },
         onError: (err) => {
           // Only log if component still mounted
-          if (!abortController.signal.aborted && isMounted) {
-            console.error('Watch error:', err);
-          }
+          if (!shouldProceed()) return;
+          console.error('Watch error:', err);
         }
       },
       { signal: abortController.signal }

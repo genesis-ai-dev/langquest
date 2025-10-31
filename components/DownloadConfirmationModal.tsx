@@ -21,9 +21,7 @@ interface DownloadConfirmationModalProps {
     totalTranslations?: number;
     totalQuests?: number;
   };
-  discoveredCounts?: {
-    [category: string]: number;
-  };
+  discoveredCounts?: Record<string, number>;
 }
 
 export const DownloadConfirmationModal: React.FC<
