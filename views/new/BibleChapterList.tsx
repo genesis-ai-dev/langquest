@@ -137,17 +137,19 @@ function ChapterButton({
                 <Icon as={HardDriveIcon} size={14} className="text-secondary" />
               )}
               {exists && (hasSyncedCopy || isCloudQuest) && (
-                <DownloadIndicator
-                  isFlaggedForDownload={isDownloaded}
-                  isLoading={Boolean(isOptimisticallyDownloading)}
-                  onPress={handleDownloadToggle}
-                  size={16}
-                  iconColor={
-                    hasSyncedCopy || hasLocalCopy
-                      ? 'text-secondary'
-                      : 'text-foreground'
-                  }
-                />
+                <View pointerEvents={isDownloaded ? 'none' : 'auto'}>
+                  <DownloadIndicator
+                    isFlaggedForDownload={isDownloaded}
+                    isLoading={Boolean(isOptimisticallyDownloading)}
+                    onPress={handleDownloadToggle}
+                    size={16}
+                    iconColor={
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary'
+                        : 'text-foreground'
+                    }
+                  />
+                </View>
               )}
               <Text className={cn('text-lg font-bold', getTextColor())}>
                 {chapterNum}

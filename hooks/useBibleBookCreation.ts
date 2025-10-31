@@ -205,18 +205,148 @@ export function useBibleBookCreation() {
 }
 
 /**
+ * Fetches book quests from Supabase cloud using metadata field
+ * Books have metadata.bible.book but no metadata.bible.chapter
+ */
+async function fetchCloudBooks(
+  projectId: string
+): Promise<typeof quest.$inferSelect[]> {
+  console.log(
+    `[fetchCloudBooks] Fetching from Supabase for projectId: ${projectId}`
+  );
+
+  try {
+    // In Supabase, metadata is stored as a JSON string (not JSONB object)
+    // So we can't use JSONB operators directly. Instead, fetch all quests and filter in JS
+    const { data, error } = await system.supabaseConnector.client
+      .from('quest')
+      .select('*')
+      .eq('project_id', projectId)
+      .is('parent_id', null)
+      .not('metadata', 'is', null)
+      .overrideTypes<
+        {
+          id: string;
+          name: string;
+          project_id: string;
+          parent_id: string | null;
+          metadata:
+            | string
+            | { bible?: { book: string; chapter?: number } }
+            | null;
+          [key: string]: unknown;
+        }[]
+      >();
+
+    if (error) {
+      console.error('[fetchCloudBooks] Supabase error:', error);
+      return [];
+    }
+
+    if (data.length === 0) {
+      console.log('[fetchCloudBooks] No quests found in cloud for project');
+      return [];
+    }
+
+    // Parse metadata and filter for Bible books (have book but no chapter)
+    const results: typeof quest.$inferSelect[] = [];
+    for (const questItem of data) {
+      if (!questItem.metadata) continue;
+
+      try {
+        // Handle double-encoded JSON (stored as string)
+        let metadata: { bible?: { book: string; chapter?: number } };
+        if (typeof questItem.metadata === 'string') {
+          // Parse once to get the inner JSON string, then parse again to get the object
+          const parsed: unknown = JSON.parse(questItem.metadata);
+          metadata =
+            typeof parsed === 'string'
+              ? (JSON.parse(parsed) as {
+                  bible?: { book: string; chapter?: number };
+                })
+              : (parsed as { bible?: { book: string; chapter?: number } });
+        } else {
+          metadata = questItem.metadata as {
+            bible?: { book: string; chapter?: number };
+          };
+        }
+
+        // Filter for Bible books: have bible.book but no bible.chapter
+        if (
+          metadata.bible?.book &&
+          metadata.bible.chapter === undefined
+        ) {
+          results.push(questItem as typeof quest.$inferSelect);
+        }
+      } catch (e) {
+        console.warn(`Failed to parse metadata for quest ${questItem.id}:`, e);
+      }
+    }
+
+    console.log(
+      `[fetchCloudBooks] Found ${results.length} cloud books out of ${data.length} quests`
+    );
+    return results;
+  } catch (error) {
+    console.error('[fetchCloudBooks] Exception:', error);
+    return [];
+  }
+}
+
+/**
  * Hook to query existing book quests for a project
+ * Filters by metadata.bible.book and excludes quests with metadata.bible.chapter
  */
 export function useBibleBooks(projectId: string) {
   const { data: books = [], ...rest } = useHybridData({
     dataType: 'bible-books',
     queryKeyParams: [projectId],
-    offlineQuery: toCompilableQuery(
-      system.db
-        .select()
-        .from(quest)
-        .where(and(eq(quest.project_id, projectId), isNull(quest.parent_id)))
-    ),
+    offlineQuery: `
+      SELECT *
+      FROM quest
+      WHERE project_id = '${projectId}'
+        AND parent_id IS NULL
+        AND json_extract(json(metadata), '$.bible.book') IS NOT NULL
+        AND json_extract(json(metadata), '$.bible.chapter') IS NULL
+    `,
+    cloudQueryFn: () => fetchCloudBooks(projectId),
+    transformCloudData: (cloudBook) => {
+      // Parse metadata from string to object format to match offline data structure
+      // This ensures book.metadata?.bible?.book works correctly
+      let parsedMetadata: QuestMetadata | null = null;
+      
+      if (cloudBook.metadata) {
+        try {
+          let metadata: { bible?: { book: string; chapter?: number } };
+          if (typeof cloudBook.metadata === 'string') {
+            // Handle double-encoded JSON (stored as string)
+            const parsed: unknown = JSON.parse(cloudBook.metadata);
+            metadata =
+              typeof parsed === 'string'
+                ? (JSON.parse(parsed) as {
+                    bible?: { book: string; chapter?: number };
+                  })
+                : (parsed as { bible?: { book: string; chapter?: number } });
+          } else {
+            metadata = cloudBook.metadata as {
+              bible?: { book: string; chapter?: number };
+            };
+          }
+          parsedMetadata = metadata as QuestMetadata;
+        } catch (e) {
+          console.warn(
+            `Failed to parse metadata for cloud book ${cloudBook.id}:`,
+            e
+          );
+        }
+      }
+
+      // Return book with parsed metadata in the same format as offline data
+      return {
+        ...cloudBook,
+        metadata: parsedMetadata
+      } as typeof quest.$inferSelect;
+    },
     enabled: !!projectId
   });
 
