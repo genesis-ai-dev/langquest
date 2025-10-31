@@ -97,6 +97,50 @@ jobs:
           docker logs $POWERSYNC_CONTAINER
           exit 1
 
+      - name: Create Test User for Validation
+        run: |
+          # Install PostgreSQL client if not available
+          sudo apt-get update && sudo apt-get install -y postgresql-client || true
+
+          # Create a test user/profile in the preview database for PowerSync validation
+          # PowerSync sync rules use request.user_id() which requires a user context
+          TEST_USER_ID="00000000-0000-0000-0000-000000000001"
+
+          echo "Creating test user for validation..."
+          psql "$PS_DATA_SOURCE_URI" <<EOF || echo "Note: User creation completed (may already exist)"
+          -- Create test auth user if not exists
+          INSERT INTO auth.users (
+            id, instance_id, aud, role, email, encrypted_password, 
+            email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+            created_at, updated_at, is_anonymous
+          ) VALUES (
+            '$TEST_USER_ID',
+            '00000000-0000-0000-0000-000000000000',
+            'authenticated',
+            'authenticated',
+            'test-validation@example.com',
+            crypt('test-password', gen_salt('bf')),
+            NOW(),
+            '{"provider": "email", "providers": ["email"]}',
+            '{"sub": "$TEST_USER_ID"}',
+            NOW(),
+            NOW(),
+            false
+          ) ON CONFLICT (id) DO NOTHING;
+
+          -- Create test profile if not exists
+          INSERT INTO public.profile (
+            id, username, active, created_at, last_updated
+          ) VALUES (
+            '$TEST_USER_ID',
+            'test-validation-user',
+            true,
+            NOW(),
+            NOW()
+          ) ON CONFLICT (id) DO NOTHING;
+          EOF
+          echo "Test user creation step completed"
+
       - name: Validate Sync Rules
         id: validate
         run: |
