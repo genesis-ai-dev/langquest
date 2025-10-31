@@ -50,7 +50,7 @@ export function useBlockedTranslationsCount(assetId: string) {
     enableOfflineQuery: true
   });
 
-  return (counts?.[0]?.blocked as number) ?? 0;
+  return counts?.[0]?.blocked! ?? 0;
 }
 
 /**
@@ -94,5 +94,5 @@ export function useBlockedAssetsCount(questId: string) {
     enableOfflineQuery: true
   });
 
-  return (counts?.[0]?.blocked as number) ?? 0;
+  return counts?.[0]?.blocked! ?? 0;
 }

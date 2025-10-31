@@ -4,15 +4,15 @@ import { ATTACHMENT_TABLE } from '@powersync/attachments';
 
 export interface CorruptedAttachment {
   attachmentRecord: AttachmentRecord;
-  assetContentLinks: Array<{
+  assetContentLinks: {
     id: string;
     asset_id: string;
     audio: string[] | null;
-  }>;
-  assets: Array<{
+  }[];
+  assets: {
     id: string;
     name: string | null;
-  }>;
+  }[];
 }
 
 /**
@@ -69,7 +69,7 @@ export async function findCorruptedAttachments(): Promise<
         ];
 
         // Fetch asset details
-        const assets: Array<{ id: string; name: string | null }> = [];
+        const assets: { id: string; name: string | null }[] = [];
         for (const assetId of assetIds) {
           const asset = await system.db.query.asset.findFirst({
             columns: {
