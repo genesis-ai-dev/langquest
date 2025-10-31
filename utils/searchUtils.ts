@@ -24,10 +24,7 @@ export interface SearchableOption {
 /**
  * Calculate relevance score for a single option
  */
-function calculateScore(
-  option: SearchableOption,
-  searchLower: string
-): number {
+function calculateScore(option: SearchableOption, searchLower: string): number {
   let score = 0;
   const labelLower = option.label.toLowerCase();
   const searchTermsLower = option.searchTerms?.toLowerCase() ?? '';
@@ -99,4 +96,3 @@ export function scoreSearchResults<T extends SearchableOption>(
 
   return scored;
 }
-
