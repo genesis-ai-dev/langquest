@@ -885,6 +885,7 @@ export default function NextGenAssetsView() {
         }}
         onContinue={handleOffloadConfirm}
         verificationState={verificationState}
+        isOffloading={isOffloading}
       />
     </View>
   );

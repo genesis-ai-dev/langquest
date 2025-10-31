@@ -1,4 +1,6 @@
 import { system } from '@/db/powersync/system';
+import { AppConfig } from '@/db/supabase/AppConfig';
+import { getDirectory } from '@/utils/fileUtils';
 import { AttachmentState } from '@powersync/attachments';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
@@ -510,10 +512,12 @@ export function useQuestOffloadVerification(
                   .from('asset')
                   .select('id, source_language_id')
                   .in('id', assetIds)
-                  .eq('active', true);
+                  .eq('active', true)
+                  .overrideTypes<
+                    { id: string; source_language_id: string }[]
+                  >();
 
                 if (error) throw error;
-                if (signal.aborted) return null;
 
                 assetsProgress.value = {
                   count: assetCount,
@@ -557,6 +561,11 @@ export function useQuestOffloadVerification(
 
                 const localLinks =
                   await system.db.query.asset_content_link.findMany({
+                    columns: {
+                      id: true,
+                      source_language_id: true,
+                      audio: true
+                    },
                     where: (link, { inArray }) =>
                       inArray(link.asset_id, assetIds)
                   });
@@ -583,10 +592,16 @@ export function useQuestOffloadVerification(
                   .from('asset_content_link')
                   .select('id, source_language_id, audio')
                   .in('asset_id', assetIds)
-                  .eq('active', true);
+                  .eq('active', true)
+                  .overrideTypes<
+                    {
+                      id: string;
+                      source_language_id: string;
+                      audio: string[] | null;
+                    }[]
+                  >();
 
                 if (error) throw error;
-                if (signal.aborted) return null;
 
                 ids.assetContentLinkIds = data.map((link) => link.id);
                 assetContentLinksProgress.value = {
@@ -660,7 +675,6 @@ export function useQuestOffloadVerification(
                   .eq('active', true);
 
                 if (error) throw error;
-                if (signal.aborted) return null;
 
                 ids.assetTagLinkIds = data.map(
                   (link) => `${link.asset_id}|${link.tag_id}`
@@ -905,7 +919,7 @@ export function useQuestOffloadVerification(
         // Extract all audio file IDs from asset_content_link records
         const audioFileIds =
           assetContentLinksResult
-            ?.flatMap((link) => link.audio || [])
+            ?.flatMap((link) => link.audio)
             .filter(Boolean) || [];
 
         const attachmentCount = audioFileIds.length;
@@ -926,11 +940,12 @@ export function useQuestOffloadVerification(
               if (signal.aborted) break;
 
               try {
+                const folder = getDirectory(audioId);
                 // Check if file exists in Supabase Storage
                 const { data, error } =
                   await system.supabaseConnector.client.storage
-                    .from('attachments')
-                    .list('', {
+                    .from(AppConfig.supabaseBucket)
+                    .list(folder ?? '', {
                       limit: 1,
                       search: audioId
                     });

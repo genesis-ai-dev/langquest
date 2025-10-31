@@ -11,11 +11,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  type SharedValue
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FullScreenVADOverlayProps {

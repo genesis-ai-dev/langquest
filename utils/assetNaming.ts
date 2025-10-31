@@ -6,7 +6,7 @@
  * Generate a zero-padded asset name (e.g., "001", "002", "999")
  * Pads up to 3 digits by default
  */
-export function generateAssetName(index: number, padding: number = 3): string {
+export function generateAssetName(index: number, padding = 3): string {
   return index.toString().padStart(padding, '0');
 }
 
@@ -15,8 +15,8 @@ export function generateAssetName(index: number, padding: number = 3): string {
  * Finds the highest numeric name and increments it
  */
 export function getNextAssetName(
-  existingAssets: Array<{ name: string }>,
-  padding: number = 3
+  existingAssets: { name: string }[],
+  padding = 3
 ): string {
   // Find all numeric names
   const numericNames = existingAssets

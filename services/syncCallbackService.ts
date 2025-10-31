@@ -9,7 +9,7 @@ type SyncCallback = () => void | Promise<void>;
 class SyncCallbackService {
   private callbacks = new Map<string, SyncCallback>();
   private statusListener: (() => void) | null = null;
-  private lastSyncedAt: number = 0;
+  private lastSyncedAt = 0;
   private isListening = false;
 
   /**

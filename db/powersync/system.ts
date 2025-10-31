@@ -464,16 +464,11 @@ export class System {
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
-        try {
-          const { checkAppUpgradeNeeded } = await import(
-            '../schemaVersionService'
-          );
-          await checkAppUpgradeNeeded(this.db, this.supabaseConnector.client);
-          console.log('[System] ✓ Server schema version is compatible');
-        } catch (error) {
-          // AppUpgradeNeededError will be thrown and caught by outer try/catch
-          throw error;
-        }
+        const { checkAppUpgradeNeeded } = await import(
+          '../schemaVersionService'
+        );
+        await checkAppUpgradeNeeded(this.db, this.supabaseConnector.client);
+        console.log('[System] ✓ Server schema version is compatible');
 
         // CRITICAL: Check if migrations are needed AFTER creating union views
         // Now we can query _metadata through the views (will be NULL for old records)

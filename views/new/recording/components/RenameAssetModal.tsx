@@ -12,9 +12,9 @@ import {
   Modal,
   Platform,
   Pressable,
-  type TextInput,
   View
 } from 'react-native';
+import type { TextInput } from 'react-native';
 
 interface RenameAssetModalProps {
   isVisible: boolean;

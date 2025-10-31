@@ -1,5 +1,3 @@
-import { Ratelimit } from 'https://cdn.skypack.dev/@upstash/ratelimit@latest';
-import { Redis } from 'https://deno.land/x/upstash_redis@v1.19.3/mod.ts';
 import { renderAsync } from 'npm:@react-email/components';
 import { createClient } from 'npm:@supabase/supabase-js';
 import React from 'npm:react';
@@ -56,15 +54,15 @@ Deno.serve(async (req) => {
       status: 400
     });
   }
-  const redis = new Redis({
-    url: Deno.env.get('UPSTASH_REDIS_REST_URL'),
-    token: Deno.env.get('UPSTASH_REDIS_REST_TOKEN')
-  });
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.fixedWindow(20, '1 h'),
-    analytics: true
-  });
+  // const redis = new Redis({
+  //   url: Deno.env.get('UPSTASH_REDIS_REST_URL'),
+  //   token: Deno.env.get('UPSTASH_REDIS_REST_TOKEN')
+  // });
+  // const ratelimit = new Ratelimit({
+  //   redis,
+  //   limiter: Ratelimit.fixedWindow(20, '1 h'),
+  //   analytics: true
+  // });
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
   const wh = new Webhook(hookSecret);
@@ -146,13 +144,13 @@ Deno.serve(async (req) => {
       user,
       email_data: { token_hash, redirect_to, site_url, email_action_type }
     } = wh.verify(payload, headers);
-    const identifier = user.email;
-    const { success } = await ratelimit.limit(identifier);
-    if (!success) {
-      return new Response(null, {
-        status: 429
-      });
-    }
+    // const identifier = user.email;
+    // const { success } = await ratelimit.limit(identifier);
+    // if (!success) {
+    //   return new Response(null, {
+    //     status: 429
+    //   });
+    // }
     // Get user profile from database
     const { data: profile } = await supabase
       .from('profile')

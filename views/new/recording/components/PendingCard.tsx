@@ -8,10 +8,8 @@ import { Text } from '@/components/ui/text';
 import { getThemeColor } from '@/utils/styleUtils';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  type SharedValue
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import type { PendingSegment } from '../hooks/useRecordingState';
 
 interface PendingCardProps {

@@ -63,7 +63,7 @@ export function QuestListView({
       const offset = pageParam * pageSize;
 
       const conditions = [
-        eq(quest.project_id, projectId!),
+        eq(quest.project_id, projectId),
         or(
           !showHiddenContent ? eq(quest.visible, true) : undefined,
           eq(quest.creator_id, currentUser!.id)
