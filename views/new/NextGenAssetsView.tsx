@@ -697,6 +697,7 @@ export default function NextGenAssetsView() {
           ) : undefined
         }
         suffixStyling={false}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       />
 
       {SHOW_DEV_ELEMENTS && (
