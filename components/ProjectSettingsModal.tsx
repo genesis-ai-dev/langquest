@@ -117,7 +117,15 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   };
 
   return (
-    <Drawer open={isVisible} onOpenChange={onClose} snapPoints={['60%', '90%']}>
+    <Drawer
+      open={isVisible}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      snapPoints={['60%', '90%']}
+    >
       <DrawerContent className="bg-background px-4 pb-4">
         <DrawerHeader className="flex-row items-center justify-between">
           <DrawerTitle>{t('projectSettings')}</DrawerTitle>
