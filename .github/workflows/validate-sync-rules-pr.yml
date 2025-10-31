@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           check-name: "Supabase Preview"
@@ -42,7 +42,7 @@ jobs:
       - name: Setup PowerSync Environment
         run: |
           # Construct database URL from branch info
-          DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres"
+          DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.db_user }}:${{ steps.supabase-branch.outputs.db_password }}@aws-1-ca-central-1.pooler.supabase.com:5432/postgres"
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
@@ -96,50 +96,6 @@ jobs:
           echo "Final container logs:"
           docker logs $POWERSYNC_CONTAINER
           exit 1
-
-      - name: Create Test User for Validation
-        run: |
-          # Install PostgreSQL client if not available
-          sudo apt-get update && sudo apt-get install -y postgresql-client || true
-
-          # Create a test user/profile in the preview database for PowerSync validation
-          # PowerSync sync rules use request.user_id() which requires a user context
-          TEST_USER_ID="00000000-0000-0000-0000-000000000001"
-
-          echo "Creating test user for validation..."
-          psql "$PS_DATA_SOURCE_URI" <<EOF || echo "Note: User creation completed (may already exist)"
-          -- Create test auth user if not exists
-          INSERT INTO auth.users (
-            id, instance_id, aud, role, email, encrypted_password, 
-            email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-            created_at, updated_at, is_anonymous
-          ) VALUES (
-            '$TEST_USER_ID',
-            '00000000-0000-0000-0000-000000000000',
-            'authenticated',
-            'authenticated',
-            'test-validation@example.com',
-            crypt('test-password', gen_salt('bf')),
-            NOW(),
-            '{"provider": "email", "providers": ["email"]}',
-            '{"sub": "$TEST_USER_ID"}',
-            NOW(),
-            NOW(),
-            false
-          ) ON CONFLICT (id) DO NOTHING;
-
-          -- Create test profile if not exists
-          INSERT INTO public.profile (
-            id, username, active, created_at, last_updated
-          ) VALUES (
-            '$TEST_USER_ID',
-            'test-validation-user',
-            true,
-            NOW(),
-            NOW()
-          ) ON CONFLICT (id) DO NOTHING;
-          EOF
-          echo "Test user creation step completed"
 
       - name: Validate Sync Rules
         id: validate
