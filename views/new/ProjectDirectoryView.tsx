@@ -955,6 +955,7 @@ export default function ProjectDirectoryView() {
             prefix={SearchIcon}
             prefixStyling={false}
             size="sm"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           />
         </View>
 
