@@ -39,6 +39,15 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
 
+      - name: Debug Supabase Branch Outputs
+        run: |
+          echo "Available outputs from supabase-branch action:"
+          echo "project_ref: ${{ steps.supabase-branch.outputs.project_ref }}"
+          echo "db_user: ${{ steps.supabase-branch.outputs.db_user }}"
+          echo "db_pass: ${{ steps.supabase-branch.outputs.db_pass }}"
+          echo "db_port: ${{ steps.supabase-branch.outputs.db_port }}"
+          echo "jwt_secret: ${{ steps.supabase-branch.outputs.jwt_secret }}"
+
       - name: Setup PowerSync Environment
         run: |
           # Construct database URL from branch info
@@ -96,6 +105,19 @@ jobs:
           echo "Final container logs:"
           docker logs $POWERSYNC_CONTAINER
           exit 1
+
+      - name: Stream PowerSync Logs
+        run: |
+          # Set container name
+          POWERSYNC_CONTAINER=powersync-powersync-1
+
+          echo "Streaming PowerSync logs for 30 seconds..."
+          # Start log streaming in background and kill after 30 seconds
+          docker logs -f $POWERSYNC_CONTAINER &
+          LOG_PID=$!
+          sleep 30
+          kill $LOG_PID 2>/dev/null || true
+          echo "Finished streaming logs"
 
       - name: Validate Sync Rules
         id: validate
