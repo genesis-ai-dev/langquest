@@ -1,10 +1,7 @@
-import { system } from '@/db/powersync/system';
 import type { WASQLiteOpenFactory } from '@powersync/web';
 import type { DevToolsPluginClient, EventSubscription } from 'expo/devtools';
 import { useDevToolsPluginClient } from 'expo/devtools';
 import { useEffect, useRef } from 'react';
-
-const { factory } = system as { factory: WASQLiteOpenFactory };
 
 export function openDB() {
   // don't open db on web we use web connection
@@ -33,6 +30,12 @@ interface WebDBConnection {
 }
 
 export function useDrizzleStudio() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { system } = require('@/db/powersync/system') as {
+    system: { factory: WASQLiteOpenFactory };
+  };
+  const { factory } = system;
+
   const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
 
   const connRef = useRef<WebDBConnection | null>(null);

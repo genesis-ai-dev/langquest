@@ -122,14 +122,17 @@ function AppViewContent() {
         {/* <OTAUpdateDebugControls /> */}
 
         {/* Current View */}
-        <Suspense fallback={<LoadingView />}>{renderCurrentView()}</Suspense>
-      </View>
+        <Suspense fallback={<LoadingView />}>
+          {renderCurrentView()}
 
-      {/* Drawer Navigation - Rendered last to appear on top */}
-      <AppDrawer
-        drawerIsVisible={drawerIsVisible}
-        setDrawerIsVisible={setDrawerIsVisible}
-      />
+          {/* We need to render the drawer in the suspense otherwise the drawer will not size properly, you'll be stuck with the handle on the top but no content */}
+          {/* Drawer Navigation - Rendered last to appear on top */}
+          <AppDrawer
+            drawerIsVisible={drawerIsVisible}
+            setDrawerIsVisible={setDrawerIsVisible}
+          />
+        </Suspense>
+      </View>
     </View>
   );
 }

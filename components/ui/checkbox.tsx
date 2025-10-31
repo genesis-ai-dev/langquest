@@ -21,7 +21,7 @@ function Checkbox({
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        'size-5 shrink-0 rounded-[4px] border border-input shadow-sm shadow-black/5 dark:bg-input/30',
+        'size-5 shrink-0 rounded-[4px] border border-border shadow-sm shadow-black/5 dark:bg-input/30',
         Platform.select({
           web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive peer cursor-default outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed',
           native: 'overflow-hidden'

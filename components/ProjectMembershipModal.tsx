@@ -2,6 +2,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,9 +20,19 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
+import {
+  CircleCheckIcon,
+  CircleXIcon,
+  InfoIcon,
+  LogOutIcon,
+  RefreshCcwIcon,
+  RibbonIcon,
+  Trash2Icon,
+  UserIcon,
+  XIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -787,10 +798,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {member.name || member.email} {isCurrentUser && `(${t('you')})`}
               </Text>
               {member.role === 'owner' ? (
-                <Ionicons name="ribbon" size={16} className="text-primary" />
+                <Icon as={RibbonIcon} size={16} className="text-primary" />
               ) : (
-                <Ionicons
-                  name="person"
+                <Icon
+                  as={UserIcon}
                   size={16}
                   className="text-muted-foreground"
                 />
@@ -813,11 +824,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     handlePromoteToOwner(member.id, member.name || member.email)
                   }
                 >
-                  <Ionicons
-                    name="ribbon-outline"
-                    size={20}
-                    className="text-primary"
-                  />
+                  <Icon as={RibbonIcon} size={20} className="text-primary" />
                 </Button>
               )}
               {member.role === 'member' && removePermissions.hasAccess && (
@@ -828,8 +835,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     handleRemoveMember(member.id, member.name || member.email)
                   }
                 >
-                  <Ionicons
-                    name="trash-outline"
+                  <Icon
+                    as={Trash2Icon}
                     size={20}
                     className="text-destructive"
                   />
@@ -843,11 +850,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               size="icon-sm"
               onPress={handleLeaveProject}
             >
-              <Ionicons
-                name="exit-outline"
-                size={20}
-                className="text-destructive"
-              />
+              <Icon as={LogOutIcon} size={20} className="text-destructive" />
             </Button>
           )}
         </View>
@@ -903,7 +906,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {invitation.email}
               </Text>
               {invitation.role === 'owner' && (
-                <Ionicons name="ribbon" size={16} className="text-primary" />
+                <Icon as={RibbonIcon} size={16} className="text-primary" />
               )}
             </View>
             <Badge
@@ -923,11 +926,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 size="icon-sm"
                 onPress={() => void handleResendInvitation(invitation.id)}
               >
-                <Ionicons
-                  name="refresh-outline"
-                  size={20}
-                  className="text-primary"
-                />
+                <Icon as={RefreshCcwIcon} size={20} className="text-primary" />
               </Button>
             )}
           {withdrawInvitePermissions.hasAccess &&
@@ -937,11 +936,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 size="icon-sm"
                 onPress={() => void handleWithdrawInvitation(invitation.id)}
               >
-                <Ionicons
-                  name="close-circle-outline"
-                  size={20}
-                  className="text-destructive"
-                />
+                <Icon as={CircleXIcon} size={20} className="text-destructive" />
               </Button>
             )}
         </View>
@@ -991,11 +986,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 )
               }
             >
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                className="text-green-600"
-              />
+              <Icon as={CircleCheckIcon} size={20} className="text-green-600" />
             </Button>
             <Button
               variant="outline"
@@ -1007,11 +998,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 )
               }
             >
-              <Ionicons
-                name="close-circle"
-                size={20}
-                className="text-destructive"
-              />
+              <Icon as={CircleXIcon} size={20} className="text-destructive" />
             </Button>
           </View>
         )}
@@ -1032,11 +1019,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         onRequestClose={onClose}
       >
         <View className="flex-1 items-center justify-center bg-black/50">
-          <View className="h-[70%] max-h-[600px] w-[90%] rounded-lg bg-background p-6">
+          <View className="h-[70%] max-h-[600px] w-[95%] rounded-lg bg-background px-4 py-6">
             <View className="mb-4 flex-row items-center justify-between">
               <Text variant="h3">{t('projectMembers')}</Text>
               <Pressable className="p-1" onPress={onClose}>
-                <Ionicons name="close" size={24} className="text-foreground" />
+                <Icon as={XIcon} size={24} className="text-foreground" />
               </Pressable>
             </View>
 
@@ -1061,19 +1048,34 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     }
                   >
                     <TabsList className="mb-2 w-full">
-                      <TabsTrigger value="members" className="flex-1">
-                        <Text>
+                      <TabsTrigger value="members" className="min-w-0 flex-1">
+                        <Text
+                          variant="small"
+                          numberOfLines={1}
+                          className="truncate"
+                        >
                           {t('members')} ({sortedMembers.length})
                         </Text>
                       </TabsTrigger>
-                      <TabsTrigger value="invited" className="flex-1">
-                        <Text>
+                      <TabsTrigger value="invited" className="min-w-0 flex-1">
+                        <Text
+                          variant="small"
+                          numberOfLines={1}
+                          className="truncate"
+                        >
                           {t('invited')} ({visibleInvitations.length})
                         </Text>
                       </TabsTrigger>
                       {sendInvitePermissions.hasAccess && (
-                        <TabsTrigger value="requests" className="flex-1">
-                          <Text>
+                        <TabsTrigger
+                          value="requests"
+                          className="min-w-0 flex-1"
+                        >
+                          <Text
+                            variant="small"
+                            numberOfLines={1}
+                            className="truncate"
+                          >
                             {t('requests')} ({requestsData.length})
                           </Text>
                         </TabsTrigger>
@@ -1088,7 +1090,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         className="flex-1"
                         contentContainerStyle={{
                           paddingBottom: 16,
-                          paddingHorizontal: 16
+                          paddingHorizontal: 8
                         }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
@@ -1108,7 +1110,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         className="flex-1"
                         contentContainerStyle={{
                           paddingBottom: 16,
-                          paddingHorizontal: 16
+                          paddingHorizontal: 8
                         }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
@@ -1128,7 +1130,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         className="flex-1"
                         contentContainerStyle={{
                           paddingBottom: 16,
-                          paddingHorizontal: 16
+                          paddingHorizontal: 8
                         }}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
@@ -1145,7 +1147,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   </View>
 
                   {/* Invite Section */}
-                  <View className="border-t border-border p-4">
+                  <View className="border-t border-border px-4 py-4">
                     {sendInvitePermissions.hasAccess ? (
                       <>
                         <Text variant="large" className="mb-2">
@@ -1174,8 +1176,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                             className="p-1"
                             onPress={() => setShowTooltip(!showTooltip)}
                           >
-                            <Ionicons
-                              name="help-circle-outline"
+                            <Icon
+                              as={InfoIcon}
                               size={20}
                               className="text-primary"
                             />
@@ -1198,8 +1200,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       </>
                     ) : (
                       <View className="items-center justify-center gap-2 py-6">
-                        <Ionicons
-                          name="ribbon"
+                        <Icon
+                          as={RibbonIcon}
                           size={24}
                           className="text-muted-foreground"
                         />

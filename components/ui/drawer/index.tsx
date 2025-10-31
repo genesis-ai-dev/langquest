@@ -1,10 +1,10 @@
-'use client';
 'use no memo';
 
 import * as Slot from '@/components/ui/slot';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import type {
   BottomSheetModalProps,
+  BottomSheetView,
   BottomSheetModal as BSModalType
 } from '@gorhom/bottom-sheet';
 import {
@@ -12,7 +12,6 @@ import {
   BottomSheetHandle,
   BottomSheetModal,
   BottomSheetModalProvider,
-  BottomSheetView,
   BottomSheetTextInput as DrawerInput,
   BottomSheetScrollView as DrawerScrollView
 } from '@gorhom/bottom-sheet';
@@ -175,6 +174,7 @@ const DrawerContent = React.forwardRef<
     open: _open,
     setOpen: _setOpen,
     ref: _ref,
+    snapPoints: _snapPoints,
     ...modalProps
   } = context ?? {};
   const handleSheetChanges = React.useCallback(
@@ -186,44 +186,10 @@ const DrawerContent = React.forwardRef<
     [context]
   );
 
-  // Convert snapPoints from string percentages to numbers if needed
-  // BottomSheetModal expects numbers: 0-1 for percentages, pixel numbers for pixels
-  const processedSnapPoints = React.useMemo(() => {
-    const snapPoints =
-      'snapPoints' in modalProps ? modalProps.snapPoints : undefined;
-    if (!snapPoints) return undefined;
-
-    const converted = snapPoints.map((point: string | number) => {
-      // Already a number, return as-is
-      if (typeof point === 'number') return point;
-
-      // Handle percentage strings like "85%" -> 0.85
-      if (typeof point === 'string' && point.includes('%')) {
-        return Number(point.replace('%', '')) / 100;
-      }
-
-      // Handle pixel strings like "500px" -> 500
-      if (typeof point === 'string' && point.includes('px')) {
-        return Number(point.replace('px', ''));
-      }
-
-      // Fallback: try to parse as number
-      return Number(point);
-    });
-
-    return converted;
-  }, [modalProps]);
-
-  // Extract snapPoints from modalProps to avoid passing it twice
-  // TypeScript doesn't recognize snapPoints in the spread type, but it's safe to extract
-  const { snapPoints: _snapPoints, ...restModalProps } =
-    modalProps as typeof modalProps & { snapPoints?: (string | number)[] };
-
   return (
     <BottomSheetModal
       ref={context?.ref}
       onChange={handleSheetChanges}
-      {...(processedSnapPoints ? { snapPoints: processedSnapPoints } : {})}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
           appearsOnIndex={0}
@@ -243,23 +209,23 @@ const DrawerContent = React.forwardRef<
           {...props}
         />
       )}
+      snapPoints={(_snapPoints ?? [])
+        .filter((point) => point !== '100%')
+        .concat(['100%'])}
       backgroundStyle={{ backgroundColor: getThemeColor('background') }}
-      enablePanDownToClose={true}
-      enableContentPanningGesture={false}
-      enableOverDrag={false}
-      enableDynamicSizing={!processedSnapPoints}
-      keyboardBehavior="extend"
+      // enableContentPanningGesture={false}
+      // enableDynamicSizing={typeof context?.snapPoints === 'undefined'}
+      // enableOverDrag={false}
+      enableBlurKeyboardOnGesture
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      topInset={0}
-      {...restModalProps}
+      {...modalProps}
     >
-      <BottomSheetView
-        className={cn('z-[9998] bg-background', className)}
+      <DrawerScrollView
+        className={cn('z-[9998] flex-1 bg-background', className)}
         {...props}
       >
         {children}
-      </BottomSheetView>
+      </DrawerScrollView>
     </BottomSheetModal>
   );
 });
