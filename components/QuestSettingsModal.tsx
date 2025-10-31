@@ -258,6 +258,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         onOpenChange={setShowOffloadDrawer}
         onContinue={handleContinueOffload}
         verificationState={verificationState}
+        isOffloading={isOffloading}
       />
     </>
   );
