@@ -39,7 +39,6 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
           wait-for-migrations: true
-          git-branch: "jesus/fix-validate-sync-rules-action"
 
       - name: Setup PowerSync Environment
         run: |
