@@ -504,17 +504,18 @@ export default function AppDrawer({
         handleProgress
       );
 
-      // 5. Construct Success Message (Audio Only)
+      // 5. Construct Success Message
       finalAlertTitle = t('backupCompleteTitle');
       console.log('audioResult', audioResult);
-      // Reuse restore-style message structure if available
       const copied = audioResult.count;
-      const skippedErrors = audioResult.errors.length;
-      const msg = t('restoreCompleteBase', {
-        audioCopied: String(copied),
-        audioSkippedDueToError: String(skippedErrors)
-      });
-      finalAlertMessage = msg;
+      const csvRows = audioResult.csvRows;
+      // Build comprehensive message
+      const msgParts = [
+        `Audio files backed up: ${copied}`,
+        csvRows > 0 ? `CSV export: ${csvRows} records` : ''
+      ].filter(Boolean);
+      const msg = msgParts.join('\n');
+      finalAlertMessage = msg || `Backup completed: ${copied} files`;
     } catch (error: unknown) {
       // Handle errors from any awaited step above
       console.log('[handleBackup] Entered CATCH block.');
@@ -676,12 +677,13 @@ export default function AppDrawer({
       onPress: confirmAndStartBackup,
       disabled: !systemReady || isOperationActive
     });
-    drawerItems.push({
-      name: isRestoring ? t('restoring') : t('restoreBackup'),
-      icon: CloudUploadIcon,
-      onPress: handleRestore,
-      disabled: !systemReady || isOperationActive
-    });
+    // Restore backup option temporarily hidden
+    // drawerItems.push({
+    //   name: isRestoring ? t('restoring') : t('restoreBackup'),
+    //   icon: CloudUploadIcon,
+    //   onPress: handleRestore,
+    //   disabled: !systemReady || isOperationActive
+    // });
   }
 
   // Add logout for development
