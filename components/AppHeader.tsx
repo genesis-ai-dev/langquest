@@ -28,10 +28,12 @@ import { Button } from './ui/button';
 
 export default function AppHeader({
   drawerToggleCallback,
-  isCloudLoading = false
+  isCloudLoading = false,
+  isNavigating = false
 }: {
   drawerToggleCallback: () => void;
   isCloudLoading?: boolean;
+  isNavigating?: boolean;
 }) {
   const {
     breadcrumbs,
@@ -170,17 +172,21 @@ export default function AppHeader({
                     >
                       {crumb.onPress ? (
                         <Pressable
-                          onPress={crumb.onPress}
+                          onPress={isNavigating ? undefined : crumb.onPress}
+                          disabled={isNavigating}
                           // onPressIn={() => setPressedIndex(index)}
                           // onPressOut={() => setPressedIndex(null)}
                           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                          className={`flex-shrink rounded p-1`}
+                          className={`flex-shrink rounded p-1 ${
+                            isNavigating ? 'opacity-50' : ''
+                          }`}
                           style={({ pressed }) => [
                             {
-                              backgroundColor: pressed
-                                ? 'rgba(255, 255, 255, 0.15)'
-                                : '',
-                              opacity: pressed ? 0.8 : 1,
+                              backgroundColor:
+                                !isNavigating && pressed
+                                  ? 'rgba(255, 255, 255, 0.15)'
+                                  : '',
+                              opacity: pressed ? 0.8 : isNavigating ? 0.5 : 1,
                               transform: [{ scale: pressed ? 0.98 : 1 }]
                             }
                           ]}
