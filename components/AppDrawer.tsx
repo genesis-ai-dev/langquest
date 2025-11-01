@@ -27,6 +27,7 @@ import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
 import type { LucideIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertTriangle,
   BellIcon,
@@ -77,6 +78,9 @@ export default function AppDrawer({
     goToCorruptedAttachments,
     currentView
   } = useAppNavigation();
+  
+  // Get safe area insets for Android navigation bar
+  const insets = useSafeAreaInsets();
 
   // Add performance tracking
   useRenderCounter('AppDrawer');
@@ -719,7 +723,10 @@ export default function AppDrawer({
       snapPoints={['80%']}
       enableDynamicSizing={false}
     >
-      <DrawerContent className="mb-safe p-2 pt-4">
+      <DrawerContent 
+        className="p-2 pt-4"
+        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+      >
         <DrawerHeader className="hidden">
           <DrawerTitle>{t('menu')}</DrawerTitle>
         </DrawerHeader>
