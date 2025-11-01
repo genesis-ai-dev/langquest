@@ -210,7 +210,7 @@ export function useBibleBookCreation() {
  */
 async function fetchCloudBooks(
   projectId: string
-): Promise<typeof quest.$inferSelect[]> {
+): Promise<(typeof quest.$inferSelect)[]> {
   console.log(
     `[fetchCloudBooks] Fetching from Supabase for projectId: ${projectId}`
   );
@@ -249,7 +249,7 @@ async function fetchCloudBooks(
     }
 
     // Parse metadata and filter for Bible books (have book but no chapter)
-    const results: typeof quest.$inferSelect[] = [];
+    const results: (typeof quest.$inferSelect)[] = [];
     for (const questItem of data) {
       if (!questItem.metadata) continue;
 
@@ -272,10 +272,7 @@ async function fetchCloudBooks(
         }
 
         // Filter for Bible books: have bible.book but no bible.chapter
-        if (
-          metadata.bible?.book &&
-          metadata.bible.chapter === undefined
-        ) {
+        if (metadata.bible?.book && metadata.bible.chapter === undefined) {
           results.push(questItem as typeof quest.$inferSelect);
         }
       } catch (e) {
@@ -314,7 +311,7 @@ export function useBibleBooks(projectId: string) {
       // Parse metadata from string to object format to match offline data structure
       // This ensures book.metadata?.bible?.book works correctly
       let parsedMetadata: QuestMetadata | null = null;
-      
+
       if (cloudBook.metadata) {
         try {
           let metadata: { bible?: { book: string; chapter?: number } };
