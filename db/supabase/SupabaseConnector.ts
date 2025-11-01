@@ -319,7 +319,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         lastOp = op;
         // Default metadata if none was stamped (covers any raw SQL writes)
         const metadata =
-          (op as unknown as { metadata: OpMetadata }).metadata ??
+          (op as unknown as { metadata: OpMetadata | null }).metadata ??
           getDefaultOpMetadata();
 
         // Find composite key config for this table
@@ -400,7 +400,9 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           return processed;
         };
 
-        delete (opData as any)?.source;
+        if (opData && 'source' in opData) {
+          delete opData.source;
+        }
 
         let record: Record<string, unknown> | null | undefined = undefined;
         let opName: 'put' | 'patch' | 'delete';
@@ -536,7 +538,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             'Upload issue',
             `There was an issue uploading your content. We're investigating and your data will be made available to others as soon as possible. Reference code: ${response.ref_code ?? 'N/A'}`
           );
-        } catch (_) {
+        } catch {
           // In non-RN contexts, Alert may be unavailable; ignore
         }
         // Clear the local queue for this transaction and proceed

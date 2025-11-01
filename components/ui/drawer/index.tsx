@@ -1,7 +1,7 @@
 'use no memo';
 
 import * as Slot from '@/components/ui/slot';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type {
   BottomSheetModalProps,
   BottomSheetView,
@@ -186,6 +186,8 @@ const DrawerContent = React.forwardRef<
     [context]
   );
 
+  const backgroundColor = useThemeColor('background');
+
   return (
     <BottomSheetModal
       ref={context?.ref}
@@ -202,17 +204,17 @@ const DrawerContent = React.forwardRef<
       )}
       handleComponent={({ animatedIndex, animatedPosition, ...props }) => (
         <BSHandle
-          className={cn('bg-background pt-4', className)}
+          className={cn('rounded-t-xl bg-background', className)}
           animatedIndex={animatedIndex}
-          indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-secondary-foreground"
           animatedPosition={animatedPosition}
+          indicatorClassName="h-1 w-[50px] shrink-0 rounded-full bg-secondary-foreground"
           {...props}
         />
       )}
       snapPoints={(_snapPoints ?? [])
         .filter((point) => point !== '100%')
         .concat(['100%'])}
-      backgroundStyle={{ backgroundColor: getThemeColor('background') }}
+      backgroundStyle={{ backgroundColor: backgroundColor }}
       // enableContentPanningGesture={false}
       // enableDynamicSizing={typeof context?.snapPoints === 'undefined'}
       // enableOverDrag={false}

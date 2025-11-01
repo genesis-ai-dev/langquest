@@ -25,10 +25,10 @@ import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
   CircleXIcon,
+  CrownIcon,
   InfoIcon,
   LogOutIcon,
   RefreshCcwIcon,
-  RibbonIcon,
   Trash2Icon,
   UserIcon,
   XIcon
@@ -798,7 +798,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {member.name || member.email} {isCurrentUser && `(${t('you')})`}
               </Text>
               {member.role === 'owner' ? (
-                <Icon as={RibbonIcon} size={16} className="text-primary" />
+                <Icon as={CrownIcon} size={16} className="text-primary" />
               ) : (
                 <Icon
                   as={UserIcon}
@@ -824,7 +824,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     handlePromoteToOwner(member.id, member.name || member.email)
                   }
                 >
-                  <Icon as={RibbonIcon} size={20} className="text-primary" />
+                  <Icon as={CrownIcon} size={20} className="text-primary" />
                 </Button>
               )}
               {member.role === 'member' && removePermissions.hasAccess && (
@@ -906,7 +906,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {invitation.email}
               </Text>
               {invitation.role === 'owner' && (
-                <Icon as={RibbonIcon} size={16} className="text-primary" />
+                <Icon as={CrownIcon} size={16} className="text-primary" />
               )}
             </View>
             <Badge
@@ -1201,7 +1201,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     ) : (
                       <View className="items-center justify-center gap-2 py-6">
                         <Icon
-                          as={RibbonIcon}
+                          as={CrownIcon}
                           size={24}
                           className="text-muted-foreground"
                         />
