@@ -61,7 +61,7 @@ import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -74,6 +74,7 @@ const { db } = system;
 export default function NextGenProjectsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
 
@@ -241,6 +242,52 @@ export default function NextGenProjectsView() {
     enableOfflineQuery: !!userId
   });
 
+  // Watch for invite changes and invalidate queries when invites are added/updated
+  React.useEffect(() => {
+    if (!userId && !userEmail) return;
+
+    // Use AbortController for cleanup
+    const abortController = new AbortController();
+    let isMounted = true;
+
+    const shouldProceed = () => !abortController.signal.aborted && isMounted;
+
+    // Set up a watch on the invite table to detect changes
+    system.powersync.watch(
+      `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?) AND status = 'pending' AND active = 1`,
+      [userEmail || '', userId || ''],
+      {
+        onResult: () => {
+          // Memory safety: check abort and mount status before any work
+          if (!shouldProceed()) return;
+
+          // When invites change, invalidate the project queries to refresh the list
+          void queryClient.invalidateQueries({
+            queryKey: ['invited-projects'],
+            exact: false
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ['my-projects'],
+            exact: false
+          });
+        },
+        onError: (error) => {
+          // Only log if component still mounted
+          if (!shouldProceed()) return;
+          console.error('Error watching invites:', error);
+        }
+      },
+      { signal: abortController.signal }
+    );
+
+    // Cleanup: abort watch and mark as unmounted
+    return () => {
+      isMounted = false;
+      abortController.abort();
+      // Watch will stop calling callbacks due to abort signal
+    };
+  }, [userId, userEmail, queryClient]);
+
   // Query for projects where user has pending invites but is not yet a member
   const invitedProjectsQuery = useHybridData({
     dataType: 'invited-projects',
@@ -324,7 +371,7 @@ export default function NextGenProjectsView() {
       if (inviteError) throw inviteError;
 
       const invitedProjectIds = invites
-        ?.map((inv) => inv.project_id)
+        .map((inv) => inv.project_id)
         .filter((id) => !memberProjectIds.includes(id));
 
       if (invitedProjectIds.length === 0) return [];

@@ -527,11 +527,36 @@ export default function NotificationsView() {
       }
 
       // Invalidate project queries to refresh the projects list
-      void queryClient.invalidateQueries({ queryKey: ['my-projects'] });
-      void queryClient.invalidateQueries({ queryKey: ['invited-projects'] });
-      void queryClient.invalidateQueries({ queryKey: ['all-projects'] });
-      void queryClient.invalidateQueries({
-        queryKey: ['notification-projects']
+      // Use exact: false to match all queries starting with these keys
+      await queryClient.invalidateQueries({
+        queryKey: ['my-projects'],
+        exact: false
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['invited-projects'],
+        exact: false
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['all-projects'],
+        exact: false
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['notification-projects'],
+        exact: false
+      });
+      // Also invalidate user-memberships since that drives what projects show up
+      await queryClient.invalidateQueries({
+        queryKey: ['user-memberships'],
+        exact: false
+      });
+      // Invalidate notification queries to remove the accepted notification
+      await queryClient.invalidateQueries({
+        queryKey: ['invite-notifications'],
+        exact: false
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['request-notifications'],
+        exact: false
       });
 
       RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
@@ -571,8 +596,6 @@ export default function NotificationsView() {
           .where(eq(invite.id, notificationId));
 
         if (existingInvite.length > 0 && existingInvite[0]) {
-          const inv = existingInvite[0];
-
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
             .update(invite_synced)

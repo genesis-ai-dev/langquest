@@ -1495,11 +1495,11 @@ export const localizations = {
       'Apakah Anda ingin mencadangkan rekaman audio yang belum disinkronkan?'
   },
   backupAudioAction: {
-    english: 'Backup Audio',
-    spanish: 'Respaldar Audio',
-    brazilian_portuguese: 'Backup de Áudio',
-    tok_pisin: 'Backup Audio',
-    indonesian: 'Cadangkan Audio'
+    english: 'Backup audio and text',
+    spanish: 'Respaldar audio y texto',
+    brazilian_portuguese: 'Backup de áudio e texto',
+    tok_pisin: 'Backup audio na text',
+    indonesian: 'Cadangkan audio dan teks'
   },
   backupErrorTitle: {
     english: 'Backup Error',
