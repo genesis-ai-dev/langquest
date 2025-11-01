@@ -16,6 +16,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
+import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
@@ -215,25 +216,33 @@ export default function RegisterView({
         <FormField
           control={form.control}
           name="termsAccepted"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Pressable
-                  onPress={() => field.onChange(!field.value)}
-                  className="flex flex-row items-center gap-2"
-                >
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                  <Text className="text-sm">
-                    {t('agreeToTerms') || 'I accept the terms and conditions'}
-                  </Text>
-                </Pressable>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const error = form.formState.errors.termsAccepted;
+            return (
+              <FormItem>
+                <FormControl>
+                  <Pressable
+                    onPress={() => field.onChange(!field.value)}
+                    className={cn(
+                      'flex flex-row items-center gap-2 rounded-lg border p-3',
+                      error
+                        ? 'border-destructive bg-destructive/10'
+                        : 'border-transparent'
+                    )}
+                  >
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    <Text className={cn('text-sm', error && 'text-destructive')}>
+                      {t('agreeToTerms') || 'I accept the terms and conditions'}
+                    </Text>
+                  </Pressable>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         <View className="flex flex-col gap-2">
           <Button
