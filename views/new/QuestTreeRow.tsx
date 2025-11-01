@@ -20,6 +20,8 @@ import {
 import React from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
+const FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST = false;
+
 type Quest = typeof questTable.$inferSelect;
 
 export interface QuestTreeRowProps {
@@ -169,7 +171,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           />
         )}
       </View>
-      {canCreateNew && (
+      {FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST && canCreateNew && (
         <Button
           size="icon"
           variant="outline"

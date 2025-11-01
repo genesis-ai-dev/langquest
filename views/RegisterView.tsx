@@ -88,18 +88,8 @@ export default function RegisterView({
       if (error) throw error;
     },
     onSuccess: () => {
-      Alert.alert(
-        t('success') || 'Success',
-        t('checkEmail') || 'Please check your email to confirm your account',
-        [
-          {
-            text: t('ok') || 'OK',
-            onPress: () =>
-              safeNavigate(() =>
-                onNavigate('sign-in', { email: form.getValues('email') })
-              )
-          }
-        ]
+      safeNavigate(() =>
+        onNavigate('sign-in', { email: form.getValues('email') })
       );
     },
     onError: (error) => {
