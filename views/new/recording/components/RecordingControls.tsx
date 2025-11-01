@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
+import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View, useWindowDimensions } from 'react-native';
@@ -68,8 +69,10 @@ export const RecordingControls = React.memo(
     const { t } = useLocalization();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    // Permissions are handled by native module
-    const hasPermission = true;
+    // Get actual audio recording permissions
+    const [permissionResponse, requestPermission] = Audio.usePermissions();
+    const hasPermission =
+      permissionResponse?.status === Audio.PermissionStatus.GRANTED;
 
     // Shared value for activation progress bar - tracks button hold activation (0-1)
     const activationProgressShared = useSharedValue(0);
@@ -125,8 +128,8 @@ export const RecordingControls = React.memo(
       };
     }, [isRecording, width]);
 
-    const requestPermission = async () => {
-      // Native module handles permissions
+    const handleRequestPermission = async () => {
+      await requestPermission();
     };
 
     // Fallback SharedValues for backward compatibility
@@ -165,7 +168,7 @@ export const RecordingControls = React.memo(
             </View>
             <Button
               variant="destructive"
-              onPress={requestPermission}
+              onPress={handleRequestPermission}
               className="w-48"
             >
               <Text className="text-base font-bold">
