@@ -1,7 +1,6 @@
 import ForgotPasswordView from '@/views/ForgotPasswordView';
 import RegisterView from '@/views/RegisterView';
 import SignInView2 from '@/views/SignInView';
-import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler } from 'react-native';
 
@@ -17,7 +16,6 @@ export function AuthNavigator() {
   const [navigationStack, setNavigationStack] = useState<AuthView[]>([
     'sign-in'
   ]);
-  const router = useRouter();
 
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
     setCurrentView(view);
