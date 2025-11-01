@@ -73,7 +73,7 @@ function Terms() {
 
       {/* Language Selector */}
       <View className="w-full gap-2.5">
-        <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} />
+        <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} uiReadyOnly />
       </View>
 
       <ScrollView contentContainerClassName="flex flex-col gap-4">
