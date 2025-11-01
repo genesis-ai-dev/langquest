@@ -78,7 +78,7 @@ export default function AppDrawer({
     goToCorruptedAttachments,
     currentView
   } = useAppNavigation();
-  
+
   // Get safe area insets for Android navigation bar
   const insets = useSafeAreaInsets();
 
@@ -723,7 +723,7 @@ export default function AppDrawer({
       snapPoints={['80%']}
       enableDynamicSizing={false}
     >
-      <DrawerContent 
+      <DrawerContent
         className="p-2 pt-4"
         style={{ paddingBottom: Math.max(insets.bottom, 16) }}
       >

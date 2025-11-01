@@ -3,9 +3,18 @@ import type { System } from '@/db/powersync/system'; // Import System type
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
-import { getDocumentDirectory, getLocalAttachmentUriWithOPFS } from './fileUtils';
+import {
+  getDocumentDirectory,
+  getLocalAttachmentUriWithOPFS
+} from './fileUtils';
 import { eq, isNotNull, inArray } from 'drizzle-orm';
-import { asset_content_link, asset, quest, quest_asset_link, project } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  asset,
+  quest,
+  quest_asset_link,
+  project
+} from '@/db/drizzleSchema';
 
 // --- Permission Helper ---
 export async function requestBackupDirectory() {
@@ -70,7 +79,11 @@ function escapeCsvField(field: string | null | undefined): string {
   if (field === null || field === undefined) return '';
   // Escape quotes and wrap in quotes if contains comma, quote, or newline
   const escaped = field.replace(/"/g, '""');
-  if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')) {
+  if (
+    escaped.includes(',') ||
+    escaped.includes('"') ||
+    escaped.includes('\n')
+  ) {
     return `"${escaped}"`;
   }
   return escaped;
@@ -104,8 +117,9 @@ async function getAllExistingFiles(
   const existingFiles = new Set<string>();
   try {
     // Read all entries in the base directory
-    const entries = await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
-    
+    const entries =
+      await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
+
     for (const entryUri of entries) {
       try {
         const encoded = entryUri.split('/').pop()!;
@@ -113,15 +127,16 @@ async function getAllExistingFiles(
         const entryName = decodedSegment.includes('/')
           ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
           : decodedSegment;
-        
+
         // Check if it's a backup directory (starts with "backup_")
         if (entryName.startsWith('backup_')) {
           // Check published and unpublished subdirectories
           const publishedPath = `${baseDirectoryUri}/${entryName}/published`;
           const unpublishedPath = `${baseDirectoryUri}/${entryName}/unpublished`;
-          
+
           try {
-            const publishedFiles = await StorageAccessFramework.readDirectoryAsync(publishedPath);
+            const publishedFiles =
+              await StorageAccessFramework.readDirectoryAsync(publishedPath);
             for (const fileUri of publishedFiles) {
               const fileEncoded = fileUri.split('/').pop()!;
               const fileDecoded = decodeURIComponent(fileEncoded);
@@ -133,9 +148,10 @@ async function getAllExistingFiles(
           } catch {
             // Directory might not exist, ignore
           }
-          
+
           try {
-            const unpublishedFiles = await StorageAccessFramework.readDirectoryAsync(unpublishedPath);
+            const unpublishedFiles =
+              await StorageAccessFramework.readDirectoryAsync(unpublishedPath);
             for (const fileUri of unpublishedFiles) {
               const fileEncoded = fileUri.split('/').pop()!;
               const fileDecoded = decodeURIComponent(fileEncoded);
@@ -220,10 +236,10 @@ export async function backupUnsyncedAudio(
         .map((link) => link.asset_source_asset_id)
         .filter((id): id is string => id !== null)
     );
-    
+
     // Create a map of source asset IDs to names
     const sourceAssetMap = new Map<string, string>();
-    
+
     // Get all source assets properly
     if (sourceAssetIds.size > 0) {
       const assetIdsArray = Array.from(sourceAssetIds);
@@ -234,7 +250,7 @@ export async function backupUnsyncedAudio(
         })
         .from(asset)
         .where(inArray(asset.id, assetIdsArray));
-      
+
       for (const sourceAsset of allSourceAssets) {
         sourceAssetMap.set(sourceAsset.id, sourceAsset.name || '');
       }
@@ -242,31 +258,34 @@ export async function backupUnsyncedAudio(
 
     // Group by content_link id to get unique records (one per asset_content_link)
     // If an asset is in multiple quests, we'll use the first one found
-    const contentLinksMap = new Map<
-      string,
-      (typeof allContentLinks)[0]
-    >();
+    const contentLinksMap = new Map<string, (typeof allContentLinks)[0]>();
     for (const link of allContentLinks) {
       if (!contentLinksMap.has(link.id)) {
         contentLinksMap.set(link.id, link);
       }
     }
     const uniqueContentLinks = Array.from(contentLinksMap.values());
-    
+
     // Sort content links: by project name, then quest name, then asset name
     uniqueContentLinks.sort((a, b) => {
       // Project name (nulls last)
-      const projectCompare = (a.project_name || '').localeCompare(b.project_name || '');
+      const projectCompare = (a.project_name || '').localeCompare(
+        b.project_name || ''
+      );
       if (projectCompare !== 0) return projectCompare;
-      
+
       // Quest name (nulls last)
-      const questCompare = (a.quest_name || '').localeCompare(b.quest_name || '');
+      const questCompare = (a.quest_name || '').localeCompare(
+        b.quest_name || ''
+      );
       if (questCompare !== 0) return questCompare;
-      
+
       // Asset name (nulls last)
-      const assetCompare = (a.asset_name || '').localeCompare(b.asset_name || '');
+      const assetCompare = (a.asset_name || '').localeCompare(
+        b.asset_name || ''
+      );
       if (assetCompare !== 0) return assetCompare;
-      
+
       // Finally by asset ID for consistent ordering
       return a.asset_id.localeCompare(b.asset_id);
     });
@@ -281,7 +300,9 @@ export async function backupUnsyncedAudio(
 
     // Prepare CSV data
     const csvRows: string[] = [];
-    csvRows.push('Project Name,Quest Name,Asset Name,Source Asset Name,Text,Audio Files');
+    csvRows.push(
+      'Project Name,Quest Name,Asset Name,Source Asset Name,Text,Audio Files'
+    );
 
     let currentStep = 0;
 
@@ -289,7 +310,7 @@ export async function backupUnsyncedAudio(
     for (const contentLink of uniqueContentLinks) {
       const audioFiles = contentLink.audio || [];
       const isLocal = contentLink.source === 'local';
-      
+
       // Get source asset name if this is a translation
       const sourceAssetName = contentLink.asset_source_asset_id
         ? sourceAssetMap.get(contentLink.asset_source_asset_id) || null
@@ -321,10 +342,13 @@ export async function backupUnsyncedAudio(
 
         // Determine if file is local (has "local/" prefix) or synced
         const isLocalFile = audioId.startsWith('local/');
-        const cleanAudioId = isLocalFile ? audioId.replace('local/', '') : audioId;
-        
+        const cleanAudioId = isLocalFile
+          ? audioId.replace('local/', '')
+          : audioId;
+
         // Determine target folder
-        const targetFolder = isLocal || isLocalFile ? unpublishedDirUri : publishedDirUri;
+        const targetFolder =
+          isLocal || isLocalFile ? unpublishedDirUri : publishedDirUri;
 
         // Construct source path
         let sourceUri: string;
@@ -353,7 +377,7 @@ export async function backupUnsyncedAudio(
           // Use the original audio filename (cleaned of "local/" prefix)
           // This matches what's in the CSV, so users can find files directly
           const backupFileName = cleanAudioId;
-          
+
           // Determine extension for mime type
           const extension = cleanAudioId.includes('.')
             ? cleanAudioId.split('.').pop()!
@@ -386,17 +410,22 @@ export async function backupUnsyncedAudio(
               encoding: FileSystem.EncodingType.Base64
             }
           );
-          await FileSystem.writeAsStringAsync(backupFileUri, fileContentBase64, {
-            encoding: FileSystem.EncodingType.Base64
-          });
-          
+          await FileSystem.writeAsStringAsync(
+            backupFileUri,
+            fileContentBase64,
+            {
+              encoding: FileSystem.EncodingType.Base64
+            }
+          );
+
           // Track in existing files set to prevent duplicates
           allExistingFiles.add(backupFileName);
           count++;
           currentStep++;
           onProgress?.(currentStep, totalSteps);
         } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           console.error(
             `[backupUnsyncedAudio] Error backing up ${audioId}:`,
             error
@@ -413,7 +442,8 @@ export async function backupUnsyncedAudio(
       // Check if CSV already exists by looking for any CSV file in backup directories
       let existingCsvRows: Set<string> = new Set();
       try {
-        const entries = await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
+        const entries =
+          await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
         for (const entryUri of entries) {
           try {
             const encoded = entryUri.split('/').pop()!;
@@ -421,7 +451,7 @@ export async function backupUnsyncedAudio(
             const entryName = decodedSegment.includes('/')
               ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
               : decodedSegment;
-            
+
             // Check if it's a backup directory
             if (entryName.startsWith('backup_')) {
               // Look for CSV file inside this backup directory
@@ -451,13 +481,13 @@ export async function backupUnsyncedAudio(
       } catch {
         // If we can't check for existing CSV, proceed with new file
       }
-      
+
       // Filter out rows that already exist
       const newRows = csvRows.filter((row, index) => {
         if (index === 0) return true; // Always include header
         return !existingCsvRows.has(row);
       });
-      
+
       const csvContent = newRows.join('\n');
       const csvUri = await StorageAccessFramework.createFileAsync(
         baseDirectoryUri,
@@ -467,7 +497,9 @@ export async function backupUnsyncedAudio(
       await FileSystem.writeAsStringAsync(csvUri, csvContent, {
         encoding: FileSystem.EncodingType.UTF8
       });
-      console.log(`[backupUnsyncedAudio] CSV exported with ${newRows.length} rows (${newRows.length - 1} new data rows)`);
+      console.log(
+        `[backupUnsyncedAudio] CSV exported with ${newRows.length} rows (${newRows.length - 1} new data rows)`
+      );
       csvRowCount = newRows.length - 1; // Subtract header row
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
