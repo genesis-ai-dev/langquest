@@ -124,7 +124,6 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           onClose();
         }
       }}
-      snapPoints={['60%', '90%']}
     >
       <DrawerContent className="bg-background px-4 pb-4">
         <DrawerHeader className="flex-row items-center justify-between">

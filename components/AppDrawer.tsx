@@ -23,11 +23,9 @@ import {
   requestBackupDirectory
 } from '@/utils/backupUtils';
 import { useRenderCounter } from '@/utils/performanceUtils';
-import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
 import type { LucideIcon } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertTriangle,
   BellIcon,
@@ -49,6 +47,7 @@ import {
   Platform,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IndeterminateProgressBar } from './IndeterminateProgressBar';
 import { Badge } from './ui/badge';
 
@@ -567,38 +566,39 @@ export default function AppDrawer({
     ]);
   };
 
-  const handleRestore = () => {
-    const onStart = () => {
-      setIsRestoring(true);
-      setSyncOperation('restore');
-      setSyncProgress(0);
-      setSyncTotal(1); // Default until we know the total
-    };
+  // const handleRestore = () => {
+  //   const onStart = () => {
+  //     setIsRestoring(true);
+  //     setSyncOperation('restore');
+  //     setSyncProgress(0);
+  //     setSyncTotal(1); // Default until we know the total
+  //   };
 
-    const onFinish = () => {
-      setIsRestoring(false);
-      // Set operation to null after a delay to allow seeing the final progress
-      setTimeout(() => {
-        setSyncOperation(null);
-      }, 1500);
-    };
+  //   const onFinish = () => {
+  //     setIsRestoring(false);
+  //     // Set operation to null after a delay to allow seeing the final progress
+  //     setTimeout(() => {
+  //       setSyncOperation(null);
+  //     }, 1500);
+  //   };
 
-    if (!currentUser?.id) {
-      Alert.alert(t('error'), t('userNotLoggedIn'));
-      return;
-    }
+  //   if (!currentUser?.id) {
+  //     Alert.alert(t('error'), t('userNotLoggedIn'));
+  //     return;
+  //   }
 
-    void selectAndInitiateRestore(
-      system,
-      currentUser.id,
-      t,
-      onStart,
-      onFinish,
-      handleProgress
-    );
-  };
+  //   void selectAndInitiateRestore(
+  //     system,
+  //     currentUser.id,
+  //     t,
+  //     onStart,
+  //     onFinish,
+  //     handleProgress
+  //   );
+  // };
 
   // Calculate progress percentage for the progress bar
+
   const progressPercentage =
     syncTotal > 0 ? (syncProgress / syncTotal) * 100 : 0;
   const isOperationActive = isBackingUp || isRestoring;
@@ -724,8 +724,8 @@ export default function AppDrawer({
       enableDynamicSizing={false}
     >
       <DrawerContent
-        className="p-2 pt-4"
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+      // className="p-2 pt-4"
+      // style={{ paddingBottom: Math.max(insets.bottom, 16) }}
       >
         <DrawerHeader className="hidden">
           <DrawerTitle>{t('menu')}</DrawerTitle>

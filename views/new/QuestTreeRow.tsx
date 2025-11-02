@@ -8,6 +8,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
+import { FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import {
   ChevronDown,
@@ -19,8 +20,6 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Pressable, View } from 'react-native';
-
-const FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST = false;
 
 type Quest = typeof questTable.$inferSelect;
 

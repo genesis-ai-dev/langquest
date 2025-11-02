@@ -11,7 +11,7 @@ import { useBlockedTranslationsCount } from '@/hooks/useBlockedCount';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';

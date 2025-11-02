@@ -62,6 +62,11 @@ export function useExpoUpdates() {
   } = useQuery({
     queryKey: ['updates'],
     queryFn: async () => {
+      if (__DEV__)
+        return {
+          isUpdateAvailable: false,
+          manifest: null
+        };
       try {
         const update = await Updates.checkForUpdateAsync();
         return {

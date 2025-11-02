@@ -55,6 +55,9 @@ function AppViewContent() {
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
 
+  // Track if navigation is in progress
+  const isNavigating = currentView !== deferredView;
+
   // Defer view changes until after animations complete
   // This ensures instant navigation transitions
   useEffect(() => {
@@ -75,6 +78,10 @@ function AppViewContent() {
           setDrawerIsVisible(false);
           return true; // Prevent default behavior (exit app)
         }
+        // Disable back button while navigation is in progress
+        if (isNavigating) {
+          return true; // Prevent default behavior (exit app)
+        }
         // Otherwise, handle navigation
         if (canGoBack) {
           goBack();
@@ -85,7 +92,7 @@ function AppViewContent() {
     );
 
     return () => backHandler.remove();
-  }, [canGoBack, goBack, drawerIsVisible, setDrawerIsVisible]);
+  }, [canGoBack, goBack, drawerIsVisible, setDrawerIsVisible, isNavigating]);
 
   // Use deferred view for rendering to prevent blocking navigation transitions
   const renderCurrentView = () => {
@@ -119,6 +126,7 @@ function AppViewContent() {
         <AppHeader
           drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
           isCloudLoading={isCloudLoading}
+          isNavigating={isNavigating}
         />
 
         {/* OTA Update Banner */}
