@@ -114,19 +114,28 @@ export const RecordingControls = React.memo(
       [isRecording]
     );
 
-    // Animated style for progress bar - shows activation progress and turns red when recording
+    // Animated style for progress bar - shows activation progress, hides when recording starts
+    // Only shown during walkie-talkie mode (not during VAD lock)
     const progressBarStyle = useAnimatedStyle(() => {
       'worklet';
-      // When recording, show full width (red). Otherwise use display progress (blue, slightly lagging)
-      const progress = isRecording ? 1 : displayProgressShared.value;
+      // Hide progress bar entirely when VAD locked or when recording has started
+      if (isVADLocked || isRecording) {
+        return {
+          width: 0,
+          opacity: 0
+        };
+      }
+      
+      // Show activation progress (blue) during button hold
+      const progress = displayProgressShared.value;
       const progressWidth = progress * width;
 
       return {
         width: progressWidth,
-        opacity: progress > 0 || isRecording ? 1 : 0,
-        backgroundColor: isRecording ? '#ef4444' : '#3b82f6' // Red when recording, blue during activation
+        opacity: progress > 0 ? 1 : 0,
+        backgroundColor: '#3b82f6' // Blue during activation
       };
-    }, [isRecording, width]);
+    }, [isRecording, isVADLocked, width]);
 
     const handleRequestPermission = async () => {
       await requestPermission();
@@ -136,6 +145,13 @@ export const RecordingControls = React.memo(
     // Note: useSharedValue is already imported at the top, don't require it again
     const fallbackEnergyShared = useSharedValue(currentEnergy ?? 0);
     const fallbackIsRecordingShared = useSharedValue(isRecording);
+
+    // SharedValue for walkie-talkie recording energy (separate from VAD energy)
+    // This gets updated directly from WalkieTalkieRecorder's metering data
+    const walkieTalkieEnergyShared = useSharedValue(0);
+    
+    // SharedValue for walkie-talkie recording state (ensures waveform bars are red during recording)
+    const walkieTalkieIsRecordingShared = useSharedValue(false);
 
     // Update fallbacks if not provided (backward compat)
     useEffect(() => {
@@ -153,6 +169,21 @@ export const RecordingControls = React.memo(
       isRecordingShared,
       fallbackIsRecordingShared
     ]);
+
+    // Update walkie-talkie recording state SharedValue (for waveform bar color)
+    // Only update when NOT in VAD mode
+    useEffect(() => {
+      if (!isVADLocked) {
+        walkieTalkieIsRecordingShared.value = isRecording;
+      }
+    }, [isRecording, isVADLocked, walkieTalkieIsRecordingShared]);
+
+    // Reset walkie-talkie energy when recording stops
+    useEffect(() => {
+      if (!isRecording && !isVADLocked) {
+        walkieTalkieEnergyShared.value = 0;
+      }
+    }, [isRecording, isVADLocked, walkieTalkieEnergyShared]);
 
     // Show permission UI only if we explicitly know permission is denied
     if (!hasPermission) {
@@ -186,7 +217,7 @@ export const RecordingControls = React.memo(
         style={{ paddingBottom: insets.bottom }}
         onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
       >
-        {/* Progress bar at the top - shows activation progress (fills during hold), turns red when recording */}
+        {/* Progress bar at the top - shows activation progress (blue, fills during hold), hides when recording starts */}
         <Animated.View
           style={[
             {
@@ -199,12 +230,26 @@ export const RecordingControls = React.memo(
           ]}
         />
 
-        {/* Waveform visualization above controls - only visible in footer mode */}
+        {/* Waveform visualization above controls - visible during VAD lock or walkie-talkie recording */}
         <WaveformVisualization
-          isVisible={isVADLocked ?? false}
-          energyShared={energyShared ?? fallbackEnergyShared}
+          isVisible={(isVADLocked ?? false) || isRecording}
+          energyShared={
+            // Use VAD energy during VAD lock, walkie-talkie energy during walkie-talkie recording
+            isVADLocked
+              ? energyShared ?? fallbackEnergyShared
+              : isRecording
+                ? walkieTalkieEnergyShared
+                : energyShared ?? fallbackEnergyShared
+          }
           vadThreshold={vadThreshold ?? 0.085}
-          isRecordingShared={isRecordingShared ?? fallbackIsRecordingShared}
+          isRecordingShared={
+            // Use VAD recording state during VAD lock, walkie-talkie state during walkie-talkie recording
+            isVADLocked
+              ? isRecordingShared ?? fallbackIsRecordingShared
+              : isRecording
+                ? walkieTalkieIsRecordingShared
+                : isRecordingShared ?? fallbackIsRecordingShared
+          }
           barCount={60}
           maxHeight={24}
         />
@@ -237,6 +282,7 @@ export const RecordingControls = React.memo(
               vadThreshold={vadThreshold}
               canRecord={hasPermission}
               activationProgressShared={activationProgressShared}
+              energyShared={walkieTalkieEnergyShared}
               onRecordingDurationUpdate={(duration) => {
                 // Duration tracking for other purposes if needed
                 // Progress bar uses activationProgressShared instead

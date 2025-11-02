@@ -324,19 +324,30 @@ export default function NotificationsView() {
         if (existingRecord.length > 0 && existingRecord[0]) {
           const record = existingRecord[0];
 
+          // Ensure receiver_profile_id is set - required for RLS policy
+          // If invite was sent by email (receiver_profile_id is null), set it now
+          const receiverProfileId = record.receiver_profile_id || currentUser!.id;
+          
+          console.log('[handleAccept] Invite record details:', {
+            inviteId: notificationId,
+            existingReceiverProfileId: record.receiver_profile_id,
+            currentUserId: currentUser!.id,
+            email: record.email,
+            settingReceiverProfileId: receiverProfileId
+          });
+
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
             .update(invite_synced)
             .set({
               status: 'accepted',
               count: 1,
-              receiver_profile_id:
-                record.receiver_profile_id || currentUser!.id,
+              receiver_profile_id: receiverProfileId,
               last_updated: new Date().toISOString()
             })
             .where(eq(invite_synced.id, notificationId));
 
-          console.log('[handleAccept] Invite updated via synced table');
+          console.log('[handleAccept] Invite updated via synced table with receiver_profile_id:', receiverProfileId);
 
           // Also update any corresponding request from this user via synced table
           if (record.receiver_profile_id) {
@@ -526,8 +537,14 @@ export default function NotificationsView() {
         }
       }
 
+      // Wait for PowerSync to sync changes to local database before invalidating
+      // This ensures queries refetch with the updated data
+      console.log('[handleAccept] Waiting for PowerSync to sync...');
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       // Invalidate project queries to refresh the projects list
       // Use exact: false to match all queries starting with these keys
+      console.log('[handleAccept] Invalidating queries...');
       await queryClient.invalidateQueries({
         queryKey: ['my-projects'],
         exact: false
@@ -559,6 +576,13 @@ export default function NotificationsView() {
         exact: false
       });
 
+      // Also explicitly refetch to ensure immediate update
+      await queryClient.refetchQueries({
+        queryKey: ['invited-projects'],
+        exact: false
+      });
+
+      console.log('[handleAccept] Queries invalidated and refetched');
       RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {

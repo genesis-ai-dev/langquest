@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { quest as questTable } from '@/db/drizzleSchema';
+import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -33,13 +33,15 @@ import {
   CheckIcon,
   FlagIcon,
   InfoIcon,
+  LockIcon,
   MicIcon,
   PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
   Share2Icon,
-  ShieldOffIcon
+  ShieldOffIcon,
+  UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
@@ -58,6 +60,7 @@ import { useHybridData } from './useHybridData';
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -98,6 +101,8 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showPrivateAccessModal, setShowPrivateAccessModal] =
+    React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
@@ -123,7 +128,7 @@ export default function NextGenAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData } = useHybridData({
+  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
     dataType: 'current-quest',
     queryKeyParams: [currentQuestId],
     offlineQuery: toCompilableQuery(
@@ -145,13 +150,55 @@ export default function NextGenAssetsView() {
     getItemId: (item) => item.id
   });
 
-  // Prefer passed data for instant rendering!
+  // Prefer queried data (fresh) over navigation data (may be stale)
+  // This ensures UI updates immediately after publishing without needing to navigate away
   const selectedQuest = React.useMemo(() => {
-    const questData = currentQuestData
-      ? [currentQuestData as Quest]
-      : queriedQuestData;
+    // If we have queried data, prefer it (it's fresh from refetch)
+    // Otherwise fall back to currentQuestData for instant initial rendering
+    const questData =
+      queriedQuestData && queriedQuestData.length > 0
+        ? queriedQuestData
+        : currentQuestData
+          ? [currentQuestData as Quest]
+          : undefined;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
+
+  // Query project data to get privacy status if not passed
+  const { data: queriedProjectData } = useHybridData({
+    dataType: 'project-privacy-assets',
+    queryKeyParams: [currentProjectId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: eq(project.id, currentProjectId!),
+        columns: { id: true, private: true, creator_id: true }
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, private, creator_id')
+        .eq('id', currentProjectId);
+      if (error) throw error;
+      return data as Pick<
+        typeof project.$inferSelect,
+        'id' | 'private' | 'creator_id'
+      >[];
+    },
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData,
+    getItemId: (item) => item.id
+  });
+
+  // Prefer passed project data for instant rendering
+  const projectPrivacyData = currentProjectData
+    ? {
+        private: currentProjectData.private,
+        creator_id: currentProjectData.creator_id
+      }
+    : queriedProjectData?.[0];
+  const isPrivateProject = projectPrivacyData?.private ?? false;
 
   const [showRecording, setShowRecording] = React.useState(false);
 
@@ -296,14 +343,19 @@ export default function NextGenAssetsView() {
 
   // debounced search handled by useDebouncedState
 
+  // Check membership status - use actual project privacy value
   const { membership } = useUserPermissions(
     currentProjectId || '',
     'open_project',
-    false
+    !!isPrivateProject
   );
 
   const isOwner = membership === 'owner';
   const isMember = membership === 'member' || membership === 'owner';
+  // Check if user is creator
+  const isCreator = currentUser?.id === projectPrivacyData?.creator_id;
+  // User can see published badge if they are creator, member, or owner
+  const canSeePublishedBadge = isCreator || isMember;
 
   // Initialize offload verification hook
   const verificationState = useQuestOffloadVerification(currentQuestId || '');
@@ -369,29 +421,28 @@ export default function NextGenAssetsView() {
   // Count blocked assets
   const blockedCount = useBlockedAssetsCount(currentQuestId || '');
 
-  // Get attachment state summary
-  // Stabilize Map dependencies by using assetIds as the source of truth
-  // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
-  // This ensures dependency arrays always have consistent size and type
-  const attachmentStatesSize = safeAttachmentStates.size;
+  // // Get attachment state summary
+  // // Stabilize Map dependencies by using assetIds as the source of truth
+  // // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
+  // // This ensures dependency arrays always have consistent size and type
+  // const attachmentStatesSize = safeAttachmentStates.size;
 
-  // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
-  // Access safeAttachmentStates via closure to always get latest value
-  // Using assetIds.length ensures dependency array never changes size (always 1 number)
-  const attachmentStatesKeysString = React.useMemo(() => {
-    // Access current safeAttachmentStates via closure (always gets latest value)
-    const keys = Array.from(safeAttachmentStates.keys());
-    return keys.sort().join(',');
-    // Depend on assetIds.length - when assets change, attachmentStates will update
-    // This ensures dependency array always has exactly 1 number dependency
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetIds.length]);
+  // // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
+  // // Access safeAttachmentStates via closure to always get latest value
+  // // Using assetIds.length ensures dependency array never changes size (always 1 number)
+  // const attachmentStatesKeysString = React.useMemo(() => {
+  //   // Access current safeAttachmentStates via closure (always gets latest value)
+  //   const keys = Array.from(safeAttachmentStates.keys());
+  //   return keys.sort().join(',');
+  //   // Depend on assetIds.length - when assets change, attachmentStates will update
+  //   // This ensures dependency array always has exactly 1 number dependency
+  // }, [safeAttachmentStates]);
 
-  // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
-  const attachmentStatesMemoKey = React.useMemo(
-    () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
-    [attachmentStatesSize, attachmentStatesKeysString]
-  );
+  // // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
+  // const attachmentStatesMemoKey = React.useMemo(
+  //   () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
+  //   [attachmentStatesSize, attachmentStatesKeysString]
+  // );
 
   const attachmentStateSummary = React.useMemo(() => {
     if (safeAttachmentStates.size === 0) {
@@ -408,8 +459,7 @@ export default function NextGenAssetsView() {
     );
     return summary;
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attachmentStatesMemoKey]);
+  }, [safeAttachmentStates]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
@@ -422,8 +472,7 @@ export default function NextGenAssetsView() {
     ),
     // Use stable memo key instead of Map reference to prevent hook dependency issues
     // Always has exactly 2 dependencies (string, string) - never changes size
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [attachmentStatesMemoKey, currentQuestId]
+    [currentQuestId, safeAttachmentStates]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -475,26 +524,66 @@ export default function NextGenAssetsView() {
       }
       console.log(`📤 Publishing quest ${currentQuestId}...`);
       const result = await publishQuestUtils(currentQuestId, currentProjectId);
-      void refetch();
       return result;
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.success) {
-        Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
+        // Wait for PowerSync to sync the published quest before invalidating
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        console.log('📥 [Publish Quest] Invalidating queries...');
+
+        // Invalidate the quest query used by this component
+        await queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'offline', currentQuestId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'cloud', currentQuestId]
+        });
+
+        // Invalidate general quest queries
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests']
+        });
+
+        // Invalidate assets queries to refresh the assets list
+        await queryClient.invalidateQueries({
+          queryKey: ['assets']
+        });
+
+        // Refetch quest data to update the selectedQuest immediately
+        void refetchQuest();
+
+        // Refetch assets to update download indicators
+        void refetch();
+
+        console.log('✅ [Publish Quest] All queries invalidated');
+
+        Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
-        Alert.alert(
-          'Publishing Failed',
-          result.message || 'An unknown error occurred',
-          [{ text: 'OK' }]
-        );
+        Alert.alert(t('error'), result.message || t('error'), [
+          { text: t('ok') }
+        ]);
       }
     },
     onError: (error) => {
       console.error('Publish error:', error);
       Alert.alert(
         t('error'),
-        error instanceof Error ? error.message : 'Failed to publish chapter',
-        [{ text: 'OK' }]
+        error instanceof Error ? error.message : t('failedCreateTranslation'),
+        [{ text: t('ok') }]
       );
     }
   });
@@ -577,17 +666,14 @@ export default function NextGenAssetsView() {
 
       console.log('✅ [Offload] All queries invalidated');
 
-      Alert.alert(
-        t('success'),
-        t('offloadComplete') || 'Quest offloaded successfully'
-      );
+      Alert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError') || 'Failed to offload quest');
+      Alert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }
@@ -619,6 +705,10 @@ export default function NextGenAssetsView() {
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
 
+  // Get project name for PrivateAccessGate
+  // Note: queriedProjectData doesn't include name, so we only use currentProjectData
+  const projectName = currentProjectData?.name || '';
+
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-row items-center justify-between">
@@ -648,13 +738,28 @@ export default function NextGenAssetsView() {
           </Button>
         </View>
         {isPublished ? (
-          <Badge
-            variant="default"
-            className="flex flex-row items-center gap-1 bg-chart-5/80"
-          >
-            <Icon as={CheckIcon} size={14} className="text-white" />
-            <Text className="font-medium text-white">{t('published')}</Text>
-          </Badge>
+          // Only show published badge if user is creator, member, or owner
+          canSeePublishedBadge ? (
+            <Badge
+              variant="default"
+              className="flex flex-row items-center gap-1 bg-chart-5/80"
+            >
+              <Icon as={CheckIcon} size={14} className="text-white" />
+              <Text className="font-medium text-white">{t('published')}</Text>
+            </Badge>
+          ) : (
+            // Show membership request button for non-members viewing published quest
+            isPrivateProject && (
+              <Button
+                variant="default"
+                size="sm"
+                onPress={() => setShowPrivateAccessModal(true)}
+              >
+                <Icon as={UserPlusIcon} size={16} />
+                <Icon as={LockIcon} size={16} />
+              </Button>
+            )
+          )
         ) : (
           <View className="flex flex-row items-center gap-2">
             <Button
@@ -933,6 +1038,19 @@ export default function NextGenAssetsView() {
         verificationState={verificationState}
         isOffloading={isOffloading}
       />
+
+      {/* Private Access Gate Modal for Membership Requests */}
+      {isPrivateProject && (
+        <PrivateAccessGate
+          projectId={currentProjectId || ''}
+          projectName={projectName}
+          isPrivate={isPrivateProject}
+          action="contribute"
+          modal={true}
+          isVisible={showPrivateAccessModal}
+          onClose={() => setShowPrivateAccessModal(false)}
+        />
+      )}
     </View>
   );
 }

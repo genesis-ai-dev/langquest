@@ -376,12 +376,25 @@ export default function ProjectDirectoryView() {
     resolver: zodResolver(formSchema)
   });
 
-  const { hasAccess: canManageProject, membership } = useUserPermissions(
+  // Check membership status separately from settings permission
+  // Use 'open_project' action to get accurate membership status
+  const {
+    membership: membershipStatus,
+    hasAccess: canOpenProject
+  } = useUserPermissions(
     currentProjectId || '',
-    'project_settings_cog'
+    'open_project',
+    isPrivateProject
   );
 
-  const isMember = membership === 'member' || membership === 'owner';
+  // Check if user can manage project settings (separate from membership)
+  const { hasAccess: canManageProject } = useUserPermissions(
+    currentProjectId || '',
+    'project_settings_cog',
+    isPrivateProject
+  );
+
+  const isMember = membershipStatus === 'member' || membershipStatus === 'owner';
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentProjectId!,
