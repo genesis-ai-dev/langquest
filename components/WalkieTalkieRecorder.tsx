@@ -52,6 +52,8 @@ interface WalkieTalkieRecorderProps {
   onRecordingDurationUpdate?: (duration: number) => void;
   // Expose activation progress SharedValue for parent progress bar
   activationProgressShared?: SharedValue<number>;
+  // SharedValue to update with live energy during recording (for waveform visualization)
+  energyShared?: SharedValue<number>;
 }
 
 const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
@@ -67,7 +69,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   vadThreshold: _vadThreshold = 0.03,
   canRecord = true,
   onRecordingDurationUpdate,
-  activationProgressShared
+  activationProgressShared,
+  energyShared
 }) => {
   const mediumHaptic = useHaptic('medium');
   const heavyHaptic = useHaptic('heavy');
@@ -205,6 +208,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const appendLiveSample = (amplitude01: number) => {
     const clampedAmplitude = Math.max(0.01, Math.min(1, amplitude01));
     setRecordedSamples((prev) => [...prev, clampedAmplitude]);
+    // Update SharedValue for waveform visualization during walkie-talkie recording
+    if (energyShared) {
+      energyShared.value = clampedAmplitude;
+    }
   };
 
   // Cleanup recording and timers on unmount
