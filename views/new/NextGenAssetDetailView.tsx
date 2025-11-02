@@ -73,9 +73,7 @@ export default function NextGenAssetDetailView() {
     currentAssetId,
     currentProjectId,
     currentQuestId,
-    currentAssetData,
     currentProjectData,
-    currentQuestData,
     goBack
   } = useAppNavigation();
 
@@ -91,13 +89,12 @@ export default function NextGenAssetDetailView() {
   }, [currentAssetId, currentProjectId, currentQuestId]);
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
-  const [translationLanguageId, setTranslationLanguageId] =
-    useState<string>('');
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<TabType>('text');
-
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+
+  // Use state for activeTab since user can change it
+  const [activeTab, setActiveTab] = useState<TabType>('text');
 
   const {
     data: queriedAsset,
@@ -155,6 +152,12 @@ export default function NextGenAssetDetailView() {
   const projectData =
     (currentProjectData as typeof queriedProjectData) || queriedProjectData;
 
+  // Derive translation language ID from project data instead of storing in state
+  const translationLanguageId = React.useMemo(
+    () => projectData?.target_language_id || '',
+    [projectData?.target_language_id]
+  );
+
   // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
@@ -162,6 +165,37 @@ export default function NextGenAssetDetailView() {
       'translate',
       projectData?.private
     );
+
+  // Determine which asset to display
+  const activeAsset = offlineAsset?.[0] as
+    | (typeof asset.$inferSelect & {
+        content?: (typeof asset_content_link.$inferSelect)[];
+        images?: string[];
+      })
+    | undefined;
+
+  // Track previous asset ID to detect when asset changes
+  const prevAssetIdRef = React.useRef<string | null>(null);
+
+  // Update active tab when asset changes - use queueMicrotask to defer state update
+  React.useEffect(() => {
+    if (!activeAsset) return;
+
+    // Only update if asset ID actually changed
+    if (prevAssetIdRef.current !== activeAsset.id) {
+      prevAssetIdRef.current = activeAsset.id;
+
+      const hasTextContent =
+        activeAsset.content && activeAsset.content.length > 0;
+      const hasImages = activeAsset.images && activeAsset.images.length > 0;
+      const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
+
+      // Defer state update to next microtask to avoid synchronous setState in effect
+      queueMicrotask(() => {
+        setActiveTab(newTab);
+      });
+    }
+  }, [activeAsset]);
 
   useEffect(() => {
     console.log('[ASSET DETAIL] Project data loaded:', {
@@ -171,27 +205,13 @@ export default function NextGenAssetDetailView() {
       fullProjectData: projectData // Show the full object
     });
 
-    if (projectData?.target_language_id) {
-      console.log(
-        '[ASSET DETAIL] Setting translation language to:',
-        projectData.target_language_id
-      );
-      setTranslationLanguageId(projectData.target_language_id);
-    } else if (projectData) {
+    if (projectData && !projectData.target_language_id) {
       console.warn(
         '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
         projectData
       );
     }
   }, [projectData]);
-
-  // Determine which asset to display
-  const activeAsset = offlineAsset?.[0] as
-    | (typeof asset.$inferSelect & {
-        content?: (typeof asset_content_link.$inferSelect)[];
-        images?: string[];
-      })
-    | undefined;
 
   const currentStatus = useStatusContext();
 
@@ -247,20 +267,7 @@ export default function NextGenAssetDetailView() {
 
   const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
 
-  // Set the first available tab when asset data changes
-  useEffect(() => {
-    if (!activeAsset) return;
-
-    const hasTextContent =
-      activeAsset.content && activeAsset.content.length > 0;
-    const hasImages = activeAsset.images && activeAsset.images.length > 0;
-
-    if (hasTextContent) {
-      setActiveTab('text');
-    } else if (hasImages) {
-      setActiveTab('image');
-    }
-  }, [activeAsset]);
+  // Active tab is now derived from asset content via useMemo above
 
   // Get audio URIs for a specific content item (not all content flattened)
   function getContentAudioUris(
