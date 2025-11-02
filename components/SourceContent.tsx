@@ -20,8 +20,6 @@ export const SourceContent: React.FC<SourceContentProps> = ({
 }) => {
   const { t } = useLocalization();
 
-  console.log('Rendering SourceContent with content:', content.text);
-
   return (
     <View className="flex h-[260px] max-h-[260px] flex-col items-center justify-center gap-4 rounded bg-muted p-2">
       {/* <ScrollView className="flex-1"> */}
