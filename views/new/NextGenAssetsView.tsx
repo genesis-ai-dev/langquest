@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { quest as questTable } from '@/db/drizzleSchema';
+import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -33,13 +33,15 @@ import {
   CheckIcon,
   FlagIcon,
   InfoIcon,
+  LockIcon,
   MicIcon,
   PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
   Share2Icon,
-  ShieldOffIcon
+  ShieldOffIcon,
+  UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
@@ -58,6 +60,7 @@ import { useHybridData } from './useHybridData';
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
+import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -98,6 +101,7 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showPrivateAccessModal, setShowPrivateAccessModal] = React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
@@ -152,6 +156,36 @@ export default function NextGenAssetsView() {
       : queriedQuestData;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
+
+  // Query project data to get privacy status if not passed
+  const { data: queriedProjectData } = useHybridData({
+    dataType: 'project-privacy-assets',
+    queryKeyParams: [currentProjectId],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: eq(project.id, currentProjectId!),
+        columns: { id: true, private: true, creator_id: true }
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('id, private, creator_id')
+        .eq('id', currentProjectId);
+      if (error) throw error;
+      return data as Pick<typeof project.$inferSelect, 'id' | 'private' | 'creator_id'>[];
+    },
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData,
+    getItemId: (item) => item.id
+  });
+
+  // Prefer passed project data for instant rendering
+  const projectPrivacyData = currentProjectData
+    ? { private: currentProjectData.private, creator_id: currentProjectData.creator_id }
+    : queriedProjectData?.[0];
+  const isPrivateProject = projectPrivacyData?.private ?? false;
 
   const [showRecording, setShowRecording] = React.useState(false);
 
@@ -296,14 +330,19 @@ export default function NextGenAssetsView() {
 
   // debounced search handled by useDebouncedState
 
+  // Check membership status - use actual project privacy value
   const { membership } = useUserPermissions(
     currentProjectId || '',
     'open_project',
-    false
+    isPrivateProject
   );
 
   const isOwner = membership === 'owner';
   const isMember = membership === 'member' || membership === 'owner';
+  // Check if user is creator
+  const isCreator = currentUser?.id === projectPrivacyData?.creator_id;
+  // User can see published badge if they are creator, member, or owner
+  const canSeePublishedBadge = isCreator || isMember;
 
   // Initialize offload verification hook
   const verificationState = useQuestOffloadVerification(currentQuestId || '');
@@ -480,12 +519,12 @@ export default function NextGenAssetsView() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        Alert.alert(t('success'), result.message, [{ text: 'OK' }]);
+        Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
         Alert.alert(
-          'Publishing Failed',
-          result.message || 'An unknown error occurred',
-          [{ text: 'OK' }]
+          t('error'),
+          result.message || t('error'),
+          [{ text: t('ok') }]
         );
       }
     },
@@ -493,8 +532,8 @@ export default function NextGenAssetsView() {
       console.error('Publish error:', error);
       Alert.alert(
         t('error'),
-        error instanceof Error ? error.message : 'Failed to publish chapter',
-        [{ text: 'OK' }]
+        error instanceof Error ? error.message : t('failedCreateTranslation'),
+        [{ text: t('ok') }]
       );
     }
   });
@@ -577,17 +616,14 @@ export default function NextGenAssetsView() {
 
       console.log('✅ [Offload] All queries invalidated');
 
-      Alert.alert(
-        t('success'),
-        t('offloadComplete') || 'Quest offloaded successfully'
-      );
+      Alert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError') || 'Failed to offload quest');
+      Alert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }
@@ -618,6 +654,9 @@ export default function NextGenAssetsView() {
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
+  
+  // Get project name for PrivateAccessGate
+  const projectName = currentProjectData?.name || queriedProjectData?.[0]?.name || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
@@ -648,13 +687,28 @@ export default function NextGenAssetsView() {
           </Button>
         </View>
         {isPublished ? (
-          <Badge
-            variant="default"
-            className="flex flex-row items-center gap-1 bg-chart-5/80"
-          >
-            <Icon as={CheckIcon} size={14} className="text-white" />
-            <Text className="font-medium text-white">{t('published')}</Text>
-          </Badge>
+          // Only show published badge if user is creator, member, or owner
+          canSeePublishedBadge ? (
+            <Badge
+              variant="default"
+              className="flex flex-row items-center gap-1 bg-chart-5/80"
+            >
+              <Icon as={CheckIcon} size={14} className="text-white" />
+              <Text className="font-medium text-white">{t('published')}</Text>
+            </Badge>
+          ) : (
+            // Show membership request button for non-members viewing published quest
+            isPrivateProject && (
+              <Button
+                variant="default"
+                size="sm"
+                onPress={() => setShowPrivateAccessModal(true)}
+              >
+                <Icon as={UserPlusIcon} size={16} />
+                <Icon as={LockIcon} size={16} />
+              </Button>
+            )
+          )
         ) : (
           <View className="flex flex-row items-center gap-2">
             <Button
@@ -933,6 +987,19 @@ export default function NextGenAssetsView() {
         verificationState={verificationState}
         isOffloading={isOffloading}
       />
+
+      {/* Private Access Gate Modal for Membership Requests */}
+      {isPrivateProject && (
+        <PrivateAccessGate
+          projectId={currentProjectId || ''}
+          projectName={projectName}
+          isPrivate={isPrivateProject}
+          action="contribute"
+          modal={true}
+          isVisible={showPrivateAccessModal}
+          onClose={() => setShowPrivateAccessModal(false)}
+        />
+      )}
     </View>
   );
 }

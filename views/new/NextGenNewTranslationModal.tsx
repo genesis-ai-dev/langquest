@@ -23,10 +23,14 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
+import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useQuery } from '@tanstack/react-query';
+import { eq } from 'drizzle-orm';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
@@ -62,12 +66,46 @@ export default function NextGenNewTranslationModal({
   sourceLanguage,
   translationLanguageId
 }: NextGenNewTranslationModalProps) {
-  const { currentProjectId, currentQuestId } = useAppNavigation();
+  const { currentProjectId, currentQuestId, currentProjectData } = useAppNavigation();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
+
+  // Query project data to get privacy status for permission check
+  const { data: queriedProjectData } = useQuery({
+    queryKey: ['project', 'offline', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      // Try local first then cloud
+      let result = await system.db
+        .select()
+        .from(project)
+        .where(eq(project.id, currentProjectId))
+        .limit(1);
+      if (!result[0]) {
+        result = await system.db
+          .select()
+          .from(project)
+          .where(eq(project.id, currentProjectId))
+          .limit(1);
+      }
+      return result[0] || null;
+    },
+    enabled: !!currentProjectId && !currentProjectData,
+    staleTime: 30000
+  });
+
+  // Prefer passed project data for instant rendering
+  const projectData = currentProjectData || queriedProjectData;
+
+  // Check translate permission
+  const { hasAccess: canTranslate } = useUserPermissions(
+    currentProjectId || '',
+    'translate',
+    projectData?.private
+  );
 
   // Debug logging for context
   React.useEffect(() => {
@@ -109,13 +147,14 @@ export default function NextGenNewTranslationModal({
       audioUri: ''
     },
     resolver: zodResolver(translationSchema),
-    disabled: !currentUser?.id
+    disabled: !currentUser?.id || !canTranslate
   });
 
   const subscription = useWatch({ control: form.control });
   const isValid =
-    (translationType === 'text' && !!subscription.text) ||
-    (translationType === 'audio' && !!subscription.audioUri);
+    canTranslate &&
+    ((translationType === 'text' && !!subscription.text) ||
+      (translationType === 'audio' && !!subscription.audioUri));
 
   // Reset form when modal opens
   React.useEffect(() => {
@@ -123,6 +162,18 @@ export default function NextGenNewTranslationModal({
       form.reset();
     }
   }, [visible, form]);
+
+  // Warn if modal opens without permission
+  React.useEffect(() => {
+    if (visible && !canTranslate) {
+      console.warn('[NEW TRANSLATION MODAL] Modal opened without translate permission');
+      Alert.alert(
+        t('error'),
+        t('membersOnly')
+      );
+      onClose();
+    }
+  }, [visible, canTranslate, onClose, t]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
@@ -389,8 +440,15 @@ export default function NextGenNewTranslationModal({
           </DrawerScrollView>
 
           <DrawerFooter>
+            {!canTranslate && (
+              <View className="mb-4 rounded-md bg-destructive/10 p-3">
+                <Text className="text-center text-sm text-destructive">
+                  {t('membersOnly')}
+                </Text>
+              </View>
+            )}
             <FormSubmit
-              disabled={!isValid}
+              disabled={!isValid || !canTranslate}
               onPress={form.handleSubmit(
                 (data) => {
                   console.log(
