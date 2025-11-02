@@ -6,6 +6,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
+import { FEATURE_FLAG_CAN_OFFLOAD_QUEST } from '@/utils/featureFlags';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
@@ -29,8 +30,6 @@ import {
 } from './ui/drawer';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
-
-const FEATURE_FLAG_CAN_OFFLOAD_QUEST = false;
 
 type Project = typeof project.$inferSelect;
 type Quest = typeof quest.$inferSelect;
@@ -181,7 +180,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       onOpenChange={onClose}
       snapPoints={FEATURE_FLAG_CAN_OFFLOAD_QUEST ? [430, 470] : [260]}
     >
-      <DrawerContent className="bg-background px-4 pb-4">
+      <DrawerContent className="bg-background">
         <DrawerHeader className="flex-row items-center justify-between">
           <DrawerTitle>
             {contentType === 'project' ? t('project') : t('quest')}

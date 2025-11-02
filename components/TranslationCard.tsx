@@ -6,7 +6,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import type { WithSource } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
 import { TouchableOpacity, View } from 'react-native';

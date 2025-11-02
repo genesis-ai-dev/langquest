@@ -28,7 +28,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
