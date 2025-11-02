@@ -242,7 +242,11 @@ export default function NextGenProjectsView() {
     enableOfflineQuery: !!userId
   });
 
-  // Watch for invite changes and invalidate queries when invites are added/updated
+  // Watch for invite changes and membership changes to invalidate queries
+  // We watch both invites and profile_project_link because:
+  // 1. Watching invites detects when new invites arrive
+  // 2. Watching memberships detects when invites are accepted (creates membership)
+  // 3. Watching invites with any status detects when pending invites change to accepted/declined
   React.useEffect(() => {
     if (!userId && !userEmail) return;
 
@@ -252,27 +256,42 @@ export default function NextGenProjectsView() {
 
     const shouldProceed = () => !abortController.signal.aborted && isMounted;
 
-    // Set up a watch on the invite table to detect changes
-    system.powersync.watch(
-      `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?) AND status = 'pending' AND active = 1`,
+    // Helper to invalidate and refetch relevant queries
+    const invalidateProjectQueries = async () => {
+      if (!shouldProceed()) return;
+      
+      // Invalidate queries (triggers automatic refetch in TanStack Query)
+      await queryClient.invalidateQueries({
+        queryKey: ['invited-projects'],
+        exact: false
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['my-projects'],
+        exact: false
+      });
+      
+      // Explicitly refetch to ensure immediate update
+      await queryClient.refetchQueries({
+        queryKey: ['invited-projects'],
+        exact: false
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['my-projects'],
+        exact: false
+      });
+    };
+
+    // Watch 1: Watch all invites (not just pending) to detect status changes
+    // This will fire when an invite changes from pending to accepted/declined
+    const watch1 = system.powersync.watch(
+      `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?)`,
       [userEmail || '', userId || ''],
       {
         onResult: () => {
-          // Memory safety: check abort and mount status before any work
-          if (!shouldProceed()) return;
-
-          // When invites change, invalidate the project queries to refresh the list
-          void queryClient.invalidateQueries({
-            queryKey: ['invited-projects'],
-            exact: false
-          });
-          void queryClient.invalidateQueries({
-            queryKey: ['my-projects'],
-            exact: false
-          });
+          // Fire and forget - don't block the watch callback
+          void invalidateProjectQueries();
         },
         onError: (error) => {
-          // Only log if component still mounted
           if (!shouldProceed()) return;
           console.error('Error watching invites:', error);
         }
@@ -280,11 +299,30 @@ export default function NextGenProjectsView() {
       { signal: abortController.signal }
     );
 
-    // Cleanup: abort watch and mark as unmounted
+    // Watch 2: Watch memberships to detect when invites are accepted (creates membership)
+    const watch2 = userId
+      ? system.powersync.watch(
+          `SELECT id, profile_id, project_id, active, membership, last_updated FROM profile_project_link WHERE profile_id = ?`,
+          [userId],
+          {
+            onResult: () => {
+              // Fire and forget - don't block the watch callback
+              void invalidateProjectQueries();
+            },
+            onError: (error) => {
+              if (!shouldProceed()) return;
+              console.error('Error watching memberships:', error);
+            }
+          },
+          { signal: abortController.signal }
+        )
+      : null;
+
+    // Cleanup: abort all watches and mark as unmounted
     return () => {
       isMounted = false;
       abortController.abort();
-      // Watch will stop calling callbacks due to abort signal
+      // All watches will stop calling callbacks due to abort signal
     };
   }, [userId, userEmail, queryClient]);
 
