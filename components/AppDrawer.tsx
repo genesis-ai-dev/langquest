@@ -27,7 +27,6 @@ import { selectAndInitiateRestore } from '@/utils/restoreUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
 import type { LucideIcon } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertTriangle,
   BellIcon,
@@ -49,6 +48,7 @@ import {
   Platform,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IndeterminateProgressBar } from './IndeterminateProgressBar';
 import { Badge } from './ui/badge';
 
