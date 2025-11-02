@@ -491,7 +491,7 @@ export default function NextGenAssetDetailView() {
                       {/* Audio status indicator */}
                       {__DEV__ &&
                         activeAsset.content[currentContentIndex]?.audio && (
-                          <View className="flex-row items-center gap-1 bg-red-200">
+                          <View className="flex-row items-center gap-1">
                             <Icon
                               as={
                                 attachmentStates.get(
