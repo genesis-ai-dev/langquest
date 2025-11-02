@@ -20,28 +20,34 @@ export const SourceContent: React.FC<SourceContentProps> = ({
 }) => {
   const { t } = useLocalization();
 
+  console.log('Rendering SourceContent with content:', content.text);
+
   return (
-    <View className="flex max-h-[300px] flex-col gap-4">
-      <ScrollView className="flex-1">
-        <View className="flex flex-col gap-2">
-          <Text className="text-base font-bold">
-            {sourceLanguage?.native_name || sourceLanguage?.english_name}
-          </Text>
-          <Text className="text-base">{content.text}</Text>
-        </View>
-      </ScrollView>
-      {content.audio && audioSegments ? (
-        <MiniAudioPlayer
-          audioSegments={audioSegments}
-          id={content.id}
-          title={content.text ?? ''}
-        />
-      ) : content.audio && isLoading ? (
-        <View className="flex flex-row items-center justify-center gap-2">
-          <ActivityIndicator size="small" color={getThemeColor('primary')} />
-          <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
-        </View>
-      ) : null}
+    <View className="flex h-[260px] max-h-[260px] flex-col items-center justify-center gap-4 rounded bg-muted p-2">
+      {/* <ScrollView className="flex-1"> */}
+      <Text className="text-base font-bold">
+        {sourceLanguage?.native_name || sourceLanguage?.english_name}
+      </Text>
+      <View className="flex max-h-36 w-full flex-col gap-2 rounded bg-primary-foreground p-2">
+        <ScrollView>
+          <Text className="text-muted-foreground">{content.text}</Text>
+        </ScrollView>
+      </View>
+      {/* </ScrollView> */}
+      <View className="flex w-full items-center justify-center">
+        {content.audio && audioSegments ? (
+          <MiniAudioPlayer
+            audioSegments={audioSegments}
+            id={content.id}
+            title={content.text ?? ''}
+          />
+        ) : content.audio && isLoading ? (
+          <View className="flex flex-row items-center justify-center gap-2">
+            <ActivityIndicator size="small" color={getThemeColor('primary')} />
+            <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 };

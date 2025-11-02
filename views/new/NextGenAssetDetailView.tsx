@@ -29,6 +29,8 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
 import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CrownIcon,
   FileTextIcon,
   FlagIcon,
@@ -98,6 +100,7 @@ export default function NextGenAssetDetailView() {
 
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [currentContentIndex, setCurrentContentIndex] = useState(0);
 
   const {
     data: queriedAsset,
@@ -261,6 +264,11 @@ export default function NextGenAssetDetailView() {
       setActiveTab('image');
     }
   }, [activeAsset]);
+
+  // Reset content index when asset changes
+  useEffect(() => {
+    setCurrentContentIndex(0);
+  }, [currentAssetId]);
 
   // Get audio URIs for a specific content item (not all content flattened)
   function getContentAudioUris(
@@ -454,54 +462,136 @@ export default function NextGenAssetDetailView() {
 
         {/* Asset Content Viewer */}
         <View
-          className={cn(!allowEditing && 'opacity-50')}
+          className={cn(!allowEditing && 'opacity-50', 'flex overflow-hidden')}
           style={{ height: assetViewerHeight }}
         >
-          <TabsContent value="text">
+          <TabsContent value="text" className="flex w-full flex-col px-2 py-4">
             {activeAsset.content && activeAsset.content.length > 0 ? (
-              activeAsset.content.map((content, index) => (
-                <View
-                  key={index}
-                  style={{
-                    marginBottom:
-                      index < activeAsset.content!.length - 1 ? 8 : 0
-                  }}
-                >
-                  <SourceContent
-                    content={content}
-                    sourceLanguage={
-                      content.source_language_id
-                        ? (languageById.get(content.source_language_id) ?? null)
-                        : null
-                    }
-                    audioSegments={getContentAudioUris(content)}
-                    isLoading={isLoadingAttachments}
-                  />
+              <View>
+                {/* Current content item */}
+                {activeAsset.content[currentContentIndex] && (
+                  <View>
+                    <SourceContent
+                      content={activeAsset.content[currentContentIndex]!}
+                      sourceLanguage={
+                        activeAsset.content[currentContentIndex]
+                          ?.source_language_id
+                          ? (languageById.get(
+                              activeAsset.content[currentContentIndex]
+                                ?.source_language_id
+                            ) ?? null)
+                          : null
+                      }
+                      audioSegments={getContentAudioUris(
+                        activeAsset.content[currentContentIndex]!
+                      )}
+                      isLoading={isLoadingAttachments}
+                    />
+                    <View className="flex w-full flex-row justify-between">
+                      {/* Audio status indicator */}
+                      {__DEV__ &&
+                        activeAsset.content[currentContentIndex]?.audio && (
+                          <View className="flex-row items-center gap-1 bg-red-200">
+                            <Icon
+                              as={
+                                attachmentStates.get(
+                                  activeAsset.content[currentContentIndex]
+                                    ?.audio?.[0]!
+                                )?.local_uri
+                                  ? Volume2Icon
+                                  : VolumeXIcon
+                              }
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                            <Text className="text-sm text-muted-foreground">
+                              {attachmentStates.get(
+                                activeAsset.content[currentContentIndex]
+                                  ?.audio?.[0]!
+                              )?.local_uri
+                                ? t('audioReady')
+                                : t('audioNotAvailable')}
+                            </Text>
+                          </View>
+                        )}
 
-                  {/* Audio status indicator */}
-                  {__DEV__ && content.audio && (
-                    <View
-                      className="flex-row items-center gap-1"
-                      style={{ marginTop: 8 }}
-                    >
-                      <Icon
-                        as={
-                          attachmentStates.get(content.audio[0]!)?.local_uri
-                            ? Volume2Icon
-                            : VolumeXIcon
-                        }
-                        size={16}
-                        className="text-muted-foreground"
-                      />
-                      <Text className="text-sm text-muted-foreground">
-                        {attachmentStates.get(content.audio[0]!)?.local_uri
-                          ? t('audioReady')
-                          : t('audioNotAvailable')}
-                      </Text>
+                      {/* Combined navigation controls and audio status */}
+
+                      {(__DEV__ &&
+                        activeAsset.content[currentContentIndex]?.audio) ||
+                      activeAsset.content.length > 1 ? (
+                        <View
+                          className="flex-row items-center justify-between pt-2"
+                          style={{ marginTop: 8 }}
+                        >
+                          {/* Navigation buttons - only show if multiple items */}
+                          {activeAsset.content.length > 1 ? (
+                            <View className="flex-row items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={currentContentIndex === 0}
+                                onPress={() =>
+                                  setCurrentContentIndex((prev) =>
+                                    Math.max(0, prev - 1)
+                                  )
+                                }
+                              >
+                                <Icon
+                                  as={ChevronLeftIcon}
+                                  size={20}
+                                  className={
+                                    currentContentIndex === 0
+                                      ? 'text-muted-foreground'
+                                      : 'text-foreground'
+                                  }
+                                />
+                              </Button>
+
+                              <Text className="text-sm text-muted-foreground">
+                                {currentContentIndex + 1} /{' '}
+                                {activeAsset.content.length}
+                              </Text>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={
+                                  currentContentIndex ===
+                                  activeAsset.content.length - 1
+                                }
+                                onPress={() =>
+                                  setCurrentContentIndex((prev) =>
+                                    Math.min(
+                                      activeAsset.content!.length - 1,
+                                      prev + 1
+                                    )
+                                  )
+                                }
+                              >
+                                <Icon
+                                  as={ChevronRightIcon}
+                                  size={20}
+                                  className={
+                                    currentContentIndex ===
+                                    activeAsset.content.length - 1
+                                      ? 'text-muted-foreground'
+                                      : 'text-foreground'
+                                  }
+                                />
+                              </Button>
+                            </View>
+                          ) : (
+                            <View />
+                          )}
+                        </View>
+                      ) : null}
                     </View>
-                  )}
-                </View>
-              ))
+                  </View>
+                )}
+              </View>
             ) : (
               <Text className="p-8 text-center text-base italic text-muted-foreground">
                 {t('noContentAvailable')}
