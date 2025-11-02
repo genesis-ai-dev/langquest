@@ -25,6 +25,7 @@ import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel
@@ -120,10 +121,12 @@ export default function RootLayout() {
               <SafeAreaProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <StatusBar style={systemBarsStyle} />
-                  <ThemeProvider value={NAV_THEME[scheme]}>
-                    <Stack screenOptions={{ headerShown: false }} />
-                    <PortalHost />
-                  </ThemeProvider>
+                  <BottomSheetModalProvider>
+                    <ThemeProvider value={NAV_THEME[scheme]}>
+                      <Stack screenOptions={{ headerShown: false }} />
+                      <PortalHost />
+                    </ThemeProvider>
+                  </BottomSheetModalProvider>
                 </GestureHandlerRootView>
               </SafeAreaProvider>
             </AudioProvider>
