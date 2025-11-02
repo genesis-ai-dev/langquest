@@ -1,7 +1,7 @@
 'use no memo';
 
 import * as Slot from '@/components/ui/slot';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type {
   BottomSheetModalProps,
   BottomSheetView,
@@ -18,6 +18,7 @@ import {
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buttonTextVariants, buttonVariants } from '../button';
 import { Text, TextClassContext } from '../text';
 interface DrawerContextValue extends DrawerProps {
@@ -69,7 +70,7 @@ function Drawer({
         }
       };
       presentModal();
-    } else if (!isOpen && ref.current) {
+    } else if (ref.current) {
       ref.current.dismiss();
     }
   }, [isOpen]);
@@ -96,7 +97,7 @@ function Drawer({
         ...drawerProps
       }}
     >
-      <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+      {children}
     </DrawerContext.Provider>
   );
 }
@@ -186,6 +187,9 @@ const DrawerContent = React.forwardRef<
     [context]
   );
 
+  const backgroundColor = useThemeColor('background');
+
+  const { top, bottom } = useSafeAreaInsets();
   return (
     <BottomSheetModal
       ref={context?.ref}
@@ -197,31 +201,35 @@ const DrawerContent = React.forwardRef<
           opacity={0.5}
           animatedIndex={animatedIndex}
           animatedPosition={animatedPosition}
+          style={{ marginBottom: bottom, marginTop: top }}
           {...props}
         />
       )}
+      topInset={top}
+      bottomInset={bottom}
       handleComponent={({ animatedIndex, animatedPosition, ...props }) => (
         <BSHandle
-          className={cn('bg-background pt-4', className)}
+          className={cn('rounded-t-xl bg-background', className)}
           animatedIndex={animatedIndex}
-          indicatorClassName="h-1.5 w-[100px] shrink-0 rounded-full bg-secondary-foreground"
           animatedPosition={animatedPosition}
+          indicatorClassName="h-1 w-[50px] shrink-0 rounded-full bg-secondary-foreground"
           {...props}
         />
       )}
       snapPoints={(_snapPoints ?? [])
         .filter((point) => point !== '100%')
         .concat(['100%'])}
-      backgroundStyle={{ backgroundColor: getThemeColor('background') }}
+      backgroundStyle={{ backgroundColor }}
       // enableContentPanningGesture={false}
       // enableDynamicSizing={typeof context?.snapPoints === 'undefined'}
       // enableOverDrag={false}
       enableBlurKeyboardOnGesture
       keyboardBlurBehavior="restore"
+      // android_keyboardInputMode=""
       {...modalProps}
     >
       <DrawerScrollView
-        className={cn('z-[9998] flex-1 bg-background', className)}
+        className={cn('z-[9998] flex-1 bg-background px-4', className)}
         {...props}
       >
         {children}
@@ -239,7 +247,7 @@ function DrawerHeader({
   return (
     <View
       className={cn(
-        'flex-col gap-0.5 p-4 text-center md:gap-1.5 md:text-left',
+        'flex-col gap-0.5 py-4 text-center md:gap-1.5 md:text-left',
         className
       )}
       {...props}

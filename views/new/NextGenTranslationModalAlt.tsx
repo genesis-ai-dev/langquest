@@ -20,7 +20,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';

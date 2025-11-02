@@ -11,7 +11,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
+import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
 import { EyeOffIcon, HardDriveIcon, PauseIcon } from 'lucide-react-native';
 import React from 'react';
