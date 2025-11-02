@@ -385,7 +385,7 @@ async function validateChapterForPublishing(
         .select('*')
         .eq('project_id', data.chapter.project_id)
         .eq('profile_id', userId)
-        .eq('membership', 'owner')
+        .in('membership', ['owner', 'member']) // Allow both owners and members
         .eq('active', true)
         .limit(1);
 
@@ -394,18 +394,19 @@ async function validateChapterForPublishing(
           '⚠️  Could not check profile_project_link in cloud:',
           error
         );
-        warnings.push('Could not verify project ownership in cloud');
+        warnings.push('Could not verify project membership in cloud');
       } else if (!linkData || linkData.length === 0) {
         errors.push(
-          'You must be a project owner with an active membership link in the cloud database to publish. The project may need to be published first.'
+          'You must be a project owner or member with an active membership link in the cloud database to publish. The project may need to be published first.'
         );
       } else {
-        console.log('✅ Verified project ownership in cloud');
+        const membership = linkData[0]?.membership || 'unknown';
+        console.log(`✅ Verified project membership in cloud: ${membership}`);
       }
     } catch (error) {
       console.error('Error checking profile_project_link:', error);
       warnings.push(
-        'Could not verify project ownership - publish may fail with RLS error'
+        'Could not verify project membership - publish may fail with RLS error'
       );
     }
   } else if (data.project) {
