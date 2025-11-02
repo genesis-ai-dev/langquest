@@ -490,36 +490,36 @@ export default function NextGenAssetDetailView() {
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
                       {__DEV__ &&
-                        activeAsset.content[currentContentIndex]?.audio && (
-                          <View className="flex-row items-center gap-1">
-                            <Icon
-                              as={
-                                attachmentStates.get(
-                                  activeAsset.content[currentContentIndex]
-                                    ?.audio?.[0]!
-                                )?.local_uri
-                                  ? Volume2Icon
-                                  : VolumeXIcon
-                              }
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                            <Text className="text-sm text-muted-foreground">
-                              {attachmentStates.get(
+                      activeAsset.content[currentContentIndex]?.audio ? (
+                        <View className="flex-row items-center gap-1">
+                          <Icon
+                            as={
+                              attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
                                   ?.audio?.[0]!
                               )?.local_uri
-                                ? t('audioReady')
-                                : t('audioNotAvailable')}
-                            </Text>
-                          </View>
-                        )}
+                                ? Volume2Icon
+                                : VolumeXIcon
+                            }
+                            size={16}
+                            className="text-muted-foreground"
+                          />
+                          <Text className="text-sm text-muted-foreground">
+                            {attachmentStates.get(
+                              activeAsset.content[currentContentIndex]
+                                ?.audio?.[0]!
+                            )?.local_uri
+                              ? t('audioReady')
+                              : t('audioNotAvailable')}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View />
+                      )}
 
                       {/* Combined navigation controls and audio status */}
 
-                      {(__DEV__ &&
-                        activeAsset.content[currentContentIndex]?.audio) ||
-                      activeAsset.content.length > 1 ? (
+                      {activeAsset.content.length > 1 ? (
                         <View
                           className="flex-row items-center justify-between pt-2"
                           style={{ marginTop: 8 }}
