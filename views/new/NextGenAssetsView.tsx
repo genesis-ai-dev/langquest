@@ -101,7 +101,8 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
-  const [showPrivateAccessModal, setShowPrivateAccessModal] = React.useState(false);
+  const [showPrivateAccessModal, setShowPrivateAccessModal] =
+    React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
@@ -127,7 +128,7 @@ export default function NextGenAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData } = useHybridData({
+  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
     dataType: 'current-quest',
     queryKeyParams: [currentQuestId],
     offlineQuery: toCompilableQuery(
@@ -149,11 +150,17 @@ export default function NextGenAssetsView() {
     getItemId: (item) => item.id
   });
 
-  // Prefer passed data for instant rendering!
+  // Prefer queried data (fresh) over navigation data (may be stale)
+  // This ensures UI updates immediately after publishing without needing to navigate away
   const selectedQuest = React.useMemo(() => {
-    const questData = currentQuestData
-      ? [currentQuestData as Quest]
-      : queriedQuestData;
+    // If we have queried data, prefer it (it's fresh from refetch)
+    // Otherwise fall back to currentQuestData for instant initial rendering
+    const questData =
+      queriedQuestData && queriedQuestData.length > 0
+        ? queriedQuestData
+        : currentQuestData
+          ? [currentQuestData as Quest]
+          : undefined;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
 
@@ -174,7 +181,10 @@ export default function NextGenAssetsView() {
         .select('id, private, creator_id')
         .eq('id', currentProjectId);
       if (error) throw error;
-      return data as Pick<typeof project.$inferSelect, 'id' | 'private' | 'creator_id'>[];
+      return data as Pick<
+        typeof project.$inferSelect,
+        'id' | 'private' | 'creator_id'
+      >[];
     },
     enableCloudQuery: !!currentProjectId && !currentProjectData,
     enableOfflineQuery: !!currentProjectId && !currentProjectData,
@@ -183,7 +193,10 @@ export default function NextGenAssetsView() {
 
   // Prefer passed project data for instant rendering
   const projectPrivacyData = currentProjectData
-    ? { private: currentProjectData.private, creator_id: currentProjectData.creator_id }
+    ? {
+        private: currentProjectData.private,
+        creator_id: currentProjectData.creator_id
+      }
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
@@ -334,7 +347,7 @@ export default function NextGenAssetsView() {
   const { membership } = useUserPermissions(
     currentProjectId || '',
     'open_project',
-    isPrivateProject
+    !!isPrivateProject
   );
 
   const isOwner = membership === 'owner';
@@ -408,29 +421,28 @@ export default function NextGenAssetsView() {
   // Count blocked assets
   const blockedCount = useBlockedAssetsCount(currentQuestId || '');
 
-  // Get attachment state summary
-  // Stabilize Map dependencies by using assetIds as the source of truth
-  // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
-  // This ensures dependency arrays always have consistent size and type
-  const attachmentStatesSize = safeAttachmentStates.size;
+  // // Get attachment state summary
+  // // Stabilize Map dependencies by using assetIds as the source of truth
+  // // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
+  // // This ensures dependency arrays always have consistent size and type
+  // const attachmentStatesSize = safeAttachmentStates.size;
 
-  // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
-  // Access safeAttachmentStates via closure to always get latest value
-  // Using assetIds.length ensures dependency array never changes size (always 1 number)
-  const attachmentStatesKeysString = React.useMemo(() => {
-    // Access current safeAttachmentStates via closure (always gets latest value)
-    const keys = Array.from(safeAttachmentStates.keys());
-    return keys.sort().join(',');
-    // Depend on assetIds.length - when assets change, attachmentStates will update
-    // This ensures dependency array always has exactly 1 number dependency
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetIds.length]);
+  // // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
+  // // Access safeAttachmentStates via closure to always get latest value
+  // // Using assetIds.length ensures dependency array never changes size (always 1 number)
+  // const attachmentStatesKeysString = React.useMemo(() => {
+  //   // Access current safeAttachmentStates via closure (always gets latest value)
+  //   const keys = Array.from(safeAttachmentStates.keys());
+  //   return keys.sort().join(',');
+  //   // Depend on assetIds.length - when assets change, attachmentStates will update
+  //   // This ensures dependency array always has exactly 1 number dependency
+  // }, [safeAttachmentStates]);
 
-  // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
-  const attachmentStatesMemoKey = React.useMemo(
-    () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
-    [attachmentStatesSize, attachmentStatesKeysString]
-  );
+  // // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
+  // const attachmentStatesMemoKey = React.useMemo(
+  //   () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
+  //   [attachmentStatesSize, attachmentStatesKeysString]
+  // );
 
   const attachmentStateSummary = React.useMemo(() => {
     if (safeAttachmentStates.size === 0) {
@@ -447,8 +459,7 @@ export default function NextGenAssetsView() {
     );
     return summary;
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attachmentStatesMemoKey]);
+  }, [safeAttachmentStates]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
@@ -461,8 +472,7 @@ export default function NextGenAssetsView() {
     ),
     // Use stable memo key instead of Map reference to prevent hook dependency issues
     // Always has exactly 2 dependencies (string, string) - never changes size
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [attachmentStatesMemoKey, currentQuestId]
+    [currentQuestId, safeAttachmentStates]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -514,18 +524,58 @@ export default function NextGenAssetsView() {
       }
       console.log(`📤 Publishing quest ${currentQuestId}...`);
       const result = await publishQuestUtils(currentQuestId, currentProjectId);
-      void refetch();
       return result;
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.success) {
+        // Wait for PowerSync to sync the published quest before invalidating
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        console.log('📥 [Publish Quest] Invalidating queries...');
+
+        // Invalidate the quest query used by this component
+        await queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'offline', currentQuestId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'cloud', currentQuestId]
+        });
+
+        // Invalidate general quest queries
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['quests']
+        });
+
+        // Invalidate assets queries to refresh the assets list
+        await queryClient.invalidateQueries({
+          queryKey: ['assets']
+        });
+
+        // Refetch quest data to update the selectedQuest immediately
+        void refetchQuest();
+
+        // Refetch assets to update download indicators
+        void refetch();
+
+        console.log('✅ [Publish Quest] All queries invalidated');
+
         Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
-        Alert.alert(
-          t('error'),
-          result.message || t('error'),
-          [{ text: t('ok') }]
-        );
+        Alert.alert(t('error'), result.message || t('error'), [
+          { text: t('ok') }
+        ]);
       }
     },
     onError: (error) => {
@@ -654,9 +704,10 @@ export default function NextGenAssetsView() {
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
-  
+
   // Get project name for PrivateAccessGate
-  const projectName = currentProjectData?.name || queriedProjectData?.[0]?.name || '';
+  // Note: queriedProjectData doesn't include name, so we only use currentProjectData
+  const projectName = currentProjectData?.name || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
