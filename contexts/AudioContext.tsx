@@ -37,7 +37,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const sequenceQueue = useRef<string[]>([]);
   const currentSequenceIndex = useRef<number>(0);
   const segmentDurations = useRef<number[]>([]); // Track duration of each segment
-  const isTrackingPosition = useRef(false);
+  // Use SharedValue instead of ref for worklet access (prevents serialization warnings)
+  const isTrackingPosition = useSharedValue(false);
 
   // Clear the position update interval
   const clearPositionInterval = () => {
@@ -50,7 +51,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Start updating position at regular intervals when playing
   const startPositionTracking = () => {
     clearPositionInterval();
-    isTrackingPosition.current = true;
+    isTrackingPosition.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
       if (soundRef.current) {
@@ -76,7 +77,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     'worklet';
     // Only update if actively tracking position
     // The isTrackingPosition check prevents updates after cleanup
-    if (!isTrackingPosition.current) {
+    if (!isTrackingPosition.value) {
       return;
     }
 
@@ -87,7 +88,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const stopCurrentSound = async () => {
     clearPositionInterval();
-    isTrackingPosition.current = false;
+    isTrackingPosition.value = false;
 
     // Reset sequence state
     sequenceQueue.current = [];
@@ -238,7 +239,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         if (status.didJustFinish) {
           console.log('🏁 Sound finished playing');
           clearPositionInterval();
-          isTrackingPosition.current = false;
+          isTrackingPosition.value = false;
           void sound.unloadAsync();
           soundRef.current = null;
 
