@@ -25,6 +25,7 @@ import {
 import { useRenderCounter } from '@/utils/performanceUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
+import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {
   AlertTriangle,
@@ -430,6 +431,63 @@ export default function AppDrawer({
     attachmentSyncProgress.downloadBytesPerSec
   ]);
 
+  // Format OTA patch version
+  const formattedPatchVersion = useMemo(() => {
+    try {
+      // Handle embedded version (no OTA update applied)
+      if (Updates.isEmbeddedLaunch) {
+        return 'Embedded';
+      }
+
+      const updateId = Updates.updateId;
+      const manifest = Updates.manifest;
+
+      // Extract version from updateId (format: try to extract readable version or use short hash)
+      let version = 'unknown';
+      if (updateId) {
+        // Try to extract version number from updateId (e.g., "update-v1.2" -> "v1.2")
+        const versionRegex = /v?(\d+\.?\d*)/;
+        const versionMatch = versionRegex.exec(updateId);
+        if (versionMatch) {
+          version = `v${versionMatch[1]}`;
+        } else {
+          // Use first 8 characters of updateId as short identifier
+          version = updateId.substring(0, 8);
+        }
+      }
+
+      // Format date from manifest createdAt (if available in extra metadata)
+      let dateStr = '';
+      if (manifest) {
+        // Try to get createdAt from manifest extra or metadata
+        const createdAt =
+          (manifest as { createdAt?: string }).createdAt ||
+          (manifest as { extra?: { createdAt?: string } }).extra?.createdAt;
+
+        if (createdAt) {
+          const date = new Date(createdAt);
+          if (!isNaN(date.getTime())) {
+            dateStr = date.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          }
+        }
+      }
+
+      // Combine into format: "Patch v1.2 • Jan 15, 2025"
+      if (dateStr) {
+        return `Patch ${version} • ${dateStr}`;
+      } else {
+        return `Patch ${version}`;
+      }
+    } catch (error) {
+      console.error('Error formatting patch version:', error);
+      return 'Unknown';
+    }
+  }, []);
+
   // Feature flag to toggle notifications visibility
   const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
 
@@ -833,6 +891,13 @@ export default function AppDrawer({
               </View>
             )}
           </Button>
+
+          {/* OTA Patch Version */}
+          <View className="rounded-md bg-muted p-3">
+            <Text className="text-center text-xs text-muted-foreground">
+              {formattedPatchVersion}
+            </Text>
+          </View>
 
           {/* Attachment sync progress section */}
           {(showAttachmentProgress ||

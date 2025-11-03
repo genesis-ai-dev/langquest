@@ -378,14 +378,12 @@ export default function ProjectDirectoryView() {
 
   // Check membership status separately from settings permission
   // Use 'open_project' action to get accurate membership status
-  const {
-    membership: membershipStatus,
-    hasAccess: canOpenProject
-  } = useUserPermissions(
-    currentProjectId || '',
-    'open_project',
-    isPrivateProject
-  );
+  const { membership: membershipStatus, hasAccess: canOpenProject } =
+    useUserPermissions(
+      currentProjectId || '',
+      'open_project',
+      isPrivateProject
+    );
 
   // Check if user can manage project settings (separate from membership)
   const { hasAccess: canManageProject } = useUserPermissions(
@@ -394,7 +392,8 @@ export default function ProjectDirectoryView() {
     isPrivateProject
   );
 
-  const isMember = membershipStatus === 'member' || membershipStatus === 'owner';
+  const isMember =
+    membershipStatus === 'member' || membershipStatus === 'owner';
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentProjectId!,

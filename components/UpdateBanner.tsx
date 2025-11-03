@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useExpoUpdates } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Ionicons } from '@expo/vector-icons';
+import { CloudDownload, XIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
@@ -12,6 +13,7 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 // const USE_MOCK = true;
 
 export function UpdateBanner() {
+  // useLocalization has built-in fallbacks to English, so it should work even before login
   const { t } = useLocalization();
   const {
     updateInfo,
@@ -23,7 +25,7 @@ export function UpdateBanner() {
 
   // For testing, replace above with: USE_MOCK ? useExpoUpdatesMock() : useExpoUpdates()
 
-  if (!updateInfo?.isUpdateAvailable) {
+  if (!updateInfo.isUpdateAvailable) {
     return null;
   }
 
@@ -39,11 +41,7 @@ export function UpdateBanner() {
   return (
     <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
       <View className="flex-1 flex-row items-center gap-2">
-        <Ionicons
-          name="cloud-download-outline"
-          size={20}
-          className="text-primary"
-        />
+        <Icon as={CloudDownload} size={20} className="text-primary" />
         <View className="flex-1">
           <Text className="text-sm font-medium">
             {downloadError ? t('updateFailed') : t('updateAvailable')}
@@ -78,7 +76,7 @@ export function UpdateBanner() {
           disabled={isDownloadingUpdate}
           className="p-1"
         >
-          <Ionicons name="close" size={20} className="text-muted-foreground" />
+          <Icon as={XIcon} size={20} className="text-muted-foreground" />
         </TouchableOpacity>
       </View>
     </View>

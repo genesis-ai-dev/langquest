@@ -66,7 +66,8 @@ export default function NextGenNewTranslationModal({
   sourceLanguage,
   translationLanguageId
 }: NextGenNewTranslationModalProps) {
-  const { currentProjectId, currentQuestId, currentProjectData } = useAppNavigation();
+  const { currentProjectId, currentQuestId, currentProjectData } =
+    useAppNavigation();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -104,7 +105,7 @@ export default function NextGenNewTranslationModal({
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private
+    projectData?.private as boolean | undefined
   );
 
   // Debug logging for context
@@ -166,11 +167,10 @@ export default function NextGenNewTranslationModal({
   // Warn if modal opens without permission
   React.useEffect(() => {
     if (visible && !canTranslate) {
-      console.warn('[NEW TRANSLATION MODAL] Modal opened without translate permission');
-      Alert.alert(
-        t('error'),
-        t('membersOnly')
+      console.warn(
+        '[NEW TRANSLATION MODAL] Modal opened without translate permission'
       );
+      Alert.alert(t('error'), t('membersOnly'));
       onClose();
     }
   }, [visible, canTranslate, onClose, t]);

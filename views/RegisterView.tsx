@@ -234,7 +234,9 @@ export default function RegisterView({
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
-                    <Text className={cn('text-sm', error && 'text-destructive')}>
+                    <Text
+                      className={cn('text-sm', error && 'text-destructive')}
+                    >
                       {t('agreeToTerms') || 'I accept the terms and conditions'}
                     </Text>
                   </Pressable>
