@@ -148,7 +148,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
 
   // Determine when to fetch cloud data
   // If lazy loading, wait for offline query to finish first
-  const shouldFetchCloud = (enableCloudQuery ?? isOnline) && enabled;
+  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
+  const shouldFetchCloud = enableCloudQuery !== false && isOnline && enabled;
   const cloudEnabled = lazyLoadCloud
     ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
     : shouldFetchCloud && !!cloudQueryFn;
@@ -376,7 +377,8 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
-  const shouldFetchCloud = enableCloudQuery ?? isOnline;
+  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
+  const shouldFetchCloud = enableCloudQuery !== false && isOnline;
 
   // Create query keys
   const baseKey = [dataType, 'infinite', ...queryKeyParams];

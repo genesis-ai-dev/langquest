@@ -295,17 +295,24 @@ async function fetchCloudBooks(
  * Filters by metadata.bible.book and excludes quests with metadata.bible.chapter
  */
 export function useBibleBooks(projectId: string) {
+  // Use Drizzle ORM to query the merged quest view (includes quest_local + quest_synced)
+  // This ensures local-only books created offline are included
+  const offlineQueryBuilder = system.db
+    .select()
+    .from(quest)
+    .where(
+      and(
+        eq(quest.project_id, projectId),
+        isNull(quest.parent_id),
+        sql`json_extract(json(${quest.metadata}), '$.bible.book') IS NOT NULL`,
+        sql`json_extract(json(${quest.metadata}), '$.bible.chapter') IS NULL`
+      )
+    );
+
   const { data: books = [], ...rest } = useHybridData({
     dataType: 'bible-books',
     queryKeyParams: [projectId],
-    offlineQuery: `
-      SELECT *
-      FROM quest
-      WHERE project_id = '${projectId}'
-        AND parent_id IS NULL
-        AND json_extract(json(metadata), '$.bible.book') IS NOT NULL
-        AND json_extract(json(metadata), '$.bible.chapter') IS NULL
-    `,
+    offlineQuery: toCompilableQuery(offlineQueryBuilder),
     cloudQueryFn: () => fetchCloudBooks(projectId),
     transformCloudData: (cloudBook) => {
       // Parse metadata from string to object format to match offline data structure
