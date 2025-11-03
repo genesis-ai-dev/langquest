@@ -21,6 +21,9 @@ const SettingsView = React.lazy(() => import('@/views/SettingsView'));
 const CorruptedAttachmentsView = React.lazy(
   () => import('@/views/CorruptedAttachmentsView')
 );
+const AccountDeletionView = React.lazy(
+  () => import('@/views/AccountDeletionView')
+);
 const NextGenAssetDetailView = React.lazy(
   () => import('@/views/new/NextGenAssetDetailView')
 );
@@ -112,6 +115,8 @@ function AppViewContent() {
         return <SettingsView />;
       case 'corrupted-attachments':
         return <CorruptedAttachmentsView />;
+      case 'account-deletion':
+        return <AccountDeletionView />;
       default:
         return <NextGenProjectsView />;
     }

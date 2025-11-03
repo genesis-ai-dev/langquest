@@ -5,9 +5,11 @@ import { initializeNetwork } from '@/store/networkStore';
 import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
 import { AppUpgradeScreen } from '@/components/AppUpgradeScreen';
 import LoadingView from '@/components/LoadingView';
 import { MigrationScreen } from '@/components/MigrationScreen';
+import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
@@ -117,6 +119,24 @@ export default function App() {
     return (
       <AppWrapper>
         <ResetPasswordView />
+      </AppWrapper>
+    );
+  }
+
+  // Check if account is deleted (soft delete: active = false)
+  // This check happens after system is ready and user is authenticated
+  return <AccountStatusCheck />;
+}
+
+function AccountStatusCheck() {
+  const { currentUser } = useAuth();
+  const { profile } = useProfileByUserId(currentUser?.id || '');
+
+  // If profile exists and is inactive, show deleted account overlay
+  if (profile && profile.active === false) {
+    return (
+      <AppWrapper>
+        <AccountDeletedOverlay />
       </AppWrapper>
     );
   }

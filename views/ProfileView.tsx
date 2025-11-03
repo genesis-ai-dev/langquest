@@ -34,8 +34,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AttachmentState } from '@powersync/attachments';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'expo-router';
-import { HomeIcon, InfoIcon, MailIcon, UserIcon } from 'lucide-react-native';
-import { useEffect } from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  HomeIcon,
+  InfoIcon,
+  MailIcon,
+  MoreVertical,
+  UserIcon
+} from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Platform, Alert as RNAlert, ScrollView, View } from 'react-native';
 import { z } from 'zod';
@@ -46,11 +54,13 @@ export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects, navigate } = useAppNavigation();
   const isOnline = useNetworkStatus();
+  const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Derive analytics enabled state (opposite of opt-out)
   const analyticsEnabled = !analyticsOptOut;
@@ -420,6 +430,64 @@ export default function ProfileView() {
           >
             <Text>{t('submit')}</Text>
           </Button>
+
+          {/* Advanced Options Section - Always visible when authenticated */}
+          {currentUser && systemReady && (
+            <View className="flex flex-col gap-4">
+              <View className="h-px bg-border" />
+              <Button
+                variant="ghost"
+                onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="h-auto justify-between p-4"
+              >
+                <View className="flex flex-row items-center gap-2">
+                  <Icon
+                    as={MoreVertical}
+                    size={20}
+                    className="text-muted-foreground"
+                  />
+                  <Text className="text-base font-medium text-foreground">
+                    {t('advanced')}
+                  </Text>
+                </View>
+                <Icon
+                  as={showAdvancedOptions ? ChevronDown : ChevronRight}
+                  size={20}
+                  className="text-muted-foreground"
+                />
+              </Button>
+
+              {showAdvancedOptions && (
+                <>
+                  {!isOnline ? (
+                    <Alert icon={InfoIcon}>
+                      <AlertTitle>
+                        {t('accountDeletionRequiresOnline')}
+                      </AlertTitle>
+                    </Alert>
+                  ) : (
+                    <View className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                      <Text className="text-base font-semibold text-destructive">
+                        {t('accountDeletionTitle')}
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {t('accountDeletionWarning')}
+                      </Text>
+                      <Button
+                        variant="destructive"
+                        onPress={() => {
+                          navigate({ view: 'account-deletion' });
+                        }}
+                        className="mt-2"
+                      >
+                        <Text>{t('deleteAccount')}</Text>
+                      </Button>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
         </View>
         <Link
           href="/terms"
