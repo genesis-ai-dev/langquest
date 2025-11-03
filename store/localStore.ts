@@ -14,7 +14,8 @@ export type AppView =
   | 'profile'
   | 'notifications'
   | 'settings'
-  | 'corrupted-attachments';
+  | 'corrupted-attachments'
+  | 'account-deletion';
 
 export interface NavigationStackItem {
   view: AppView;

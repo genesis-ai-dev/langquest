@@ -164,6 +164,55 @@ export class ProfileService {
       throw error;
     }
   }
+
+  async deleteAccount(userId: string): Promise<void> {
+    try {
+      debug('Deleting account for user:', userId);
+
+      // Get current session for auth token
+      const { data: sessionData } =
+        await supabaseConnector.client.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('No active session found');
+      }
+
+      // Call Edge Function to delete account (anonymizes profile and deletes auth user)
+      // This requires admin privileges which we can only access via Edge Function
+      const result = await supabaseConnector.client.functions.invoke(
+        'delete-account',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      if (result.error) {
+        console.error('Error calling delete-account function:', result.error);
+        throw result.error;
+      }
+
+      const responseData =
+        (result.data as
+          | { success: boolean; error?: string; message?: string }
+          | null
+          | undefined) ?? null;
+
+      if (!responseData?.success) {
+        const errorMessage = responseData?.error ?? 'Failed to delete account';
+        console.error('Delete account failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      debug('Account deleted successfully for user:', userId);
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  }
 }
 
 export const profileService = new ProfileService();

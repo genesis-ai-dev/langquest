@@ -1118,6 +1118,13 @@ export const localizations = {
     tok_pisin: 'Password senisim i ken long taim yu gat internet tasol',
     indonesian: 'Perubahan kata sandi hanya tersedia saat online'
   },
+  accountDeletionRequiresOnline: {
+    english: 'You must be online to delete your account',
+    spanish: 'Debes estar en línea para eliminar tu cuenta',
+    brazilian_portuguese: 'Você deve estar online para excluir sua conta',
+    tok_pisin: 'Yu mas gat internet long rausim account bilong yu',
+    indonesian: 'Anda harus online untuk menghapus akun Anda'
+  },
   termsAndPrivacyTitle: {
     english: 'Terms & Privacy',
     spanish: 'Términos y Privacidad',
@@ -4819,6 +4826,111 @@ export const localizations = {
     brazilian_portuguese: 'Dados na Nuvem Faltando',
     tok_pisin: 'No gat ol data long cloud',
     indonesian: 'Data Cloud Hilang'
+  },
+  deleteAccount: {
+    english: 'Delete Account',
+    spanish: 'Eliminar Cuenta',
+    brazilian_portuguese: 'Excluir Conta',
+    tok_pisin: 'Rausim Account',
+    indonesian: 'Hapus Akun'
+  },
+  accountDeletionTitle: {
+    english: 'Delete Your Account',
+    spanish: 'Eliminar Tu Cuenta',
+    brazilian_portuguese: 'Excluir Sua Conta',
+    tok_pisin: 'Rausim Account Bilong Yu',
+    indonesian: 'Hapus Akun Anda'
+  },
+  accountDeletionWarning: {
+    english:
+      'After deleting your account, you will not be able to register or log in while offline. You must be online to create a new account or log in.',
+    spanish:
+      'Después de eliminar tu cuenta, no podrás registrarte ni iniciar sesión sin conexión. Debes estar en línea para crear una nueva cuenta o iniciar sesión.',
+    brazilian_portuguese:
+      'Após excluir sua conta, você não poderá se registrar ou fazer login enquanto estiver offline. Você deve estar online para criar uma nova conta ou fazer login.',
+    tok_pisin:
+      'Bihain long rausim account bilong yu, yu no inap mekim registration o login taim yu no gat internet. Yu mas gat internet long mekim nupela account o login.',
+    indonesian:
+      'Setelah menghapus akun Anda, Anda tidak akan dapat mendaftar atau masuk saat offline. Anda harus online untuk membuat akun baru atau masuk.'
+  },
+  accountDeletionPIIWarning: {
+    english:
+      'All personally identifiable information will be permanently removed from your account. This includes your email, username, and avatar. Your notifications, subscriptions, project memberships, and block lists will be deleted. Your profile will be anonymized, but your contributions will remain linked to your anonymized profile ID.',
+    spanish:
+      'Toda la información personalmente identificable se eliminará permanentemente de tu cuenta. Esto incluye tu correo electrónico, nombre de usuario y avatar. Tus notificaciones, suscripciones, membresías de proyectos y listas de bloqueo se eliminarán. Tu perfil será anonimizado, pero tus contribuciones permanecerán vinculadas a tu ID de perfil anonimizado.',
+    brazilian_portuguese:
+      'Todas as informações pessoalmente identificáveis serão removidas permanentemente da sua conta. Isso inclui seu e-mail, nome de usuário e avatar. Suas notificações, assinaturas, associações a projetos e listas de bloqueio serão excluídas. Seu perfil será anonimizado, mas suas contribuições permanecerão vinculadas ao seu ID de perfil anonimizado.',
+    tok_pisin:
+      'Olgeta information bilong yu bai raus long olgeta taim. Dispela i includim email, username, na avatar bilong yu. Ol notification, subscription, project membership, na block list bilong yu bai raus. Profile bilong yu bai kamap olsem i no gat nem, tasol ol samting yu bin helpim bai i stap wantaim anonymized profile ID bilong yu.',
+    indonesian:
+      'Semua informasi yang dapat mengidentifikasi pribadi akan dihapus secara permanen dari akun Anda. Ini termasuk email, nama pengguna, dan avatar Anda. Notifikasi, langganan, keanggotaan proyek, dan daftar blokir Anda akan dihapus. Profil Anda akan dianonimkan, tetapi kontribusi Anda akan tetap terhubung ke ID profil yang dianonimkan.'
+  },
+  accountDeletionContributionsInfo: {
+    english:
+      'Any contributions you have made to language data may still be public following the terms you already agreed to when you joined.',
+    spanish:
+      'Cualquier contribución que hayas hecho a los datos de idioma puede seguir siendo pública según los términos que ya aceptaste al unirte.',
+    brazilian_portuguese:
+      'Qualquer contribuição que você fez aos dados de idioma ainda pode ser pública de acordo com os termos que você já concordou ao ingressar.',
+    tok_pisin:
+      'Olgeta samting yu bin helpim long ol language data bai i stap olsem long term yu bin oreti long en taim yu joinim.',
+    indonesian:
+      'Kontribusi yang telah Anda berikan pada data bahasa mungkin masih bersifat publik sesuai dengan syarat yang telah Anda setujui saat bergabung.'
+  },
+  accountDeletionContributionsAnonymized: {
+    english:
+      'Your contributions (projects, quests, assets, translations, votes) will remain public and will be preserved, but your username and email will be removed from your profile. Your contributions will be associated with an anonymized profile.',
+    spanish:
+      'Tus contribuciones (proyectos, búsquedas, activos, traducciones, votos) permanecerán públicas y se conservarán, pero tu nombre de usuario y correo electrónico se eliminarán de tu perfil. Tus contribuciones se asociarán con un perfil anonimizado.',
+    brazilian_portuguese:
+      'Suas contribuições (projetos, missões, ativos, traduções, votos) permanecerão públicas e serão preservadas, mas seu nome de usuário e e-mail serão removidos do seu perfil. Suas contribuições serão associadas a um perfil anonimizado.',
+    tok_pisin:
+      'Ol samting yu bin wokim (project, quest, asset, translation, vote) bai i stap long olgeta na bai i stap, tasol username na email bilong yu bai raus long profile bilong yu. Ol samting yu bin wokim bai i stap wantaim profile we i no gat nem.',
+    indonesian:
+      'Kontribusi Anda (proyek, quest, aset, terjemahan, suara) akan tetap publik dan akan dilestarikan, tetapi nama pengguna dan email Anda akan dihapus dari profil Anda. Kontribusi Anda akan dikaitkan dengan profil yang dianonimkan.'
+  },
+  accountDeletionConfirm: {
+    english:
+      'Are you absolutely sure you want to delete your account? This action cannot be undone.',
+    spanish:
+      '¿Estás absolutamente seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Tem certeza absoluta de que deseja excluir sua conta? Esta ação não pode ser desfeita.',
+    tok_pisin:
+      'Yu tru long rausim account bilong yu? Yu no inap tanim bek dispela.',
+    indonesian:
+      'Apakah Anda benar-benar yakin ingin menghapus akun Anda? Tindakan ini tidak dapat dibatalkan.'
+  },
+  accountDeletionStep1Title: {
+    english: 'Step 1: Understand the Consequences',
+    spanish: 'Paso 1: Entender las Consecuencias',
+    brazilian_portuguese: 'Etapa 1: Entender as Consequências',
+    tok_pisin: 'Step 1: Save ol Samting Bai Kamap',
+    indonesian: 'Langkah 1: Pahami Konsekuensinya'
+  },
+  accountDeletionStep2Title: {
+    english: 'Step 2: Final Confirmation',
+    spanish: 'Paso 2: Confirmación Final',
+    brazilian_portuguese: 'Etapa 2: Confirmação Final',
+    tok_pisin: 'Step 2: Final Confirm',
+    indonesian: 'Langkah 2: Konfirmasi Akhir'
+  },
+  accountDeletionSuccess: {
+    english:
+      'Your account has been successfully deleted. You will be signed out now.',
+    spanish:
+      'Tu cuenta ha sido eliminada exitosamente. Serás desconectado ahora.',
+    brazilian_portuguese:
+      'Sua conta foi excluída com sucesso. Você será desconectado agora.',
+    tok_pisin: 'Account bilong yu i raus pinis. Yu bai sign out nau.',
+    indonesian: 'Akun Anda telah berhasil dihapus. Anda akan keluar sekarang.'
+  },
+  accountDeletionError: {
+    english: 'Failed to delete account: {error}',
+    spanish: 'Error al eliminar la cuenta: {error}',
+    brazilian_portuguese: 'Falha ao excluir conta: {error}',
+    tok_pisin: 'I no inap rausim account: {error}',
+    indonesian: 'Gagal menghapus akun: {error}'
   }
 } as const;
 
