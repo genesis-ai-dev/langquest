@@ -225,13 +225,17 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           height: 48,
           borderWidth: 1,
           borderRadius: 8,
-          paddingHorizontal: 12
+          paddingHorizontal: 12,
+          backgroundColor: getThemeColor('card'),
+          borderColor: getThemeColor('input')
         }}
         placeholderStyle={{
-          fontSize: 16
+          fontSize: 16,
+          color: getThemeColor('muted-foreground')
         }}
         selectedTextStyle={{
-          fontSize: 16
+          fontSize: 16,
+          color: getThemeColor('foreground')
         }}
         iconStyle={{
           width: 20,
@@ -240,11 +244,14 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         containerStyle={{
           borderRadius: 8,
           borderWidth: 1,
-          marginTop: 4
+          marginTop: 4,
+          backgroundColor: getThemeColor('card'),
+          borderColor: getThemeColor('border')
         }}
         dropdownPosition="auto"
         itemTextStyle={{
-          fontSize: 16
+          fontSize: 16,
+          color: getThemeColor('foreground')
         }}
         activeColor={getThemeColor('primary')}
         data={sortedData}
@@ -268,13 +275,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           </View>
         )}
         flatListProps={{
-          style: {},
+          style: {
+            backgroundColor: getThemeColor('card')
+          },
           contentContainerStyle: {}
         }}
         renderLeftIcon={() => (
           <Icon
             as={LanguagesIcon}
-            className="text-muted-foreground"
+            className="mr-2 text-muted-foreground"
             size={20}
           />
         )}
