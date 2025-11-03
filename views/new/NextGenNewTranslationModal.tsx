@@ -29,13 +29,12 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useQuery } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { eq } from 'drizzle-orm';
 import { MicIcon, TextIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -428,7 +427,7 @@ export default function NextGenNewTranslationModal({
             </Tabs>
 
             {/* Network Status */}
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            {}
             {SHOW_DEV_ELEMENTS && (
               <View>
                 <Text className="text-center text-sm text-muted-foreground">
