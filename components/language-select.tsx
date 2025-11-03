@@ -89,6 +89,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         .from('language')
         .select('*')
         .eq('active', true);
+
       if (uiReadyOnly) query = query.eq('ui_ready', true);
 
       const { data, error } = await query.overrideTypes<Language[]>();
