@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
@@ -212,11 +212,40 @@ export const RecordingControls = React.memo(
       }
     }, [isRecording, isVADLocked, walkieTalkieIsRecordingShared]);
 
-    // Reset walkie-talkie energy when recording stops
+    // Continuously tick walkie-talkie energy during recording to progress waveform
+    // This ensures the waveform progresses even during silence - it's time-based, not just energy-based
+    // The WaveformVisualization uses useAnimatedReaction which only fires when energyShared.value changes,
+    // so we need to continuously update it during recording to keep the waveform shifting
+    // We use a simple toggle mechanism: during silence, alternate between two tiny values to trigger updates
+    const tickToggleRef = useRef<boolean>(false);
+
     useEffect(() => {
-      if (!isRecording && !isVADLocked) {
+      if (!isRecording || isVADLocked) {
+        // Reset when not recording
         walkieTalkieEnergyShared.value = 0;
+        tickToggleRef.current = false;
+        return;
       }
+
+      // Update waveform at regular intervals (every ~50ms) to ensure continuous progression
+      // The actual energy value from WalkieTalkieRecorder will naturally override this when audio is detected
+      // During silence, we toggle between two tiny values to ensure the reaction fires continuously
+      const interval = setInterval(() => {
+        const currentEnergy = walkieTalkieEnergyShared.value;
+
+        // Only tick during silence (low energy) - if there's real audio, the actual updates will drive progression
+        // This prevents unnecessary updates when audio is actively being recorded
+        if (currentEnergy <= 0.01) {
+          // Toggle between two tiny values to trigger useAnimatedReaction
+          // This ensures the waveform ring buffer shifts continuously even without audio
+          tickToggleRef.current = !tickToggleRef.current;
+          walkieTalkieEnergyShared.value = tickToggleRef.current ? 0.011 : 0.01;
+        }
+      }, 50); // Update every 50ms for smooth 20fps waveform progression
+
+      return () => {
+        clearInterval(interval);
+      };
     }, [isRecording, isVADLocked, walkieTalkieEnergyShared]);
 
     // Show permission UI only if we explicitly know permission is denied (not while checking)
