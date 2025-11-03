@@ -10,6 +10,7 @@ import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
+import { initializeNetwork } from '@/store/networkStore';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider } from '@react-navigation/native';
@@ -60,31 +61,40 @@ export default function RootLayout() {
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    console.log('[_layout] Setting up deep link handler');
+    // Initialize network store early so it's ready when system.init() is called
+    // This must happen before AuthProvider tries to initialize the system
+    console.log('[_layout] Initializing network store...');
+    const networkCleanup = initializeNetwork();
 
-    // Handle deep links
-    const handleUrl = (url: string) => {
-      console.log('[_layout] Received deep link:', url);
-      void handleAuthDeepLink(url);
-    };
+    let subscription: { remove: () => void } | null = null;
 
-    // Set up deep link listener
-    const subscription = Linking.addEventListener('url', (event) => {
-      handleUrl(event.url);
-    });
+    if (Platform.OS !== 'web') {
+      console.log('[_layout] Setting up deep link handler');
 
-    // Check for initial URL (app opened via deep link)
-    void Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('[_layout] Initial URL:', url);
-        handleUrl(url);
-      }
-    });
+      // Handle deep links
+      const handleUrl = (url: string) => {
+        console.log('[_layout] Received deep link:', url);
+        void handleAuthDeepLink(url);
+      };
+
+      // Set up deep link listener
+      subscription = Linking.addEventListener('url', (event) => {
+        handleUrl(event.url);
+      });
+
+      // Check for initial URL (app opened via deep link)
+      void Linking.getInitialURL().then((url) => {
+        if (url) {
+          console.log('[_layout] Initial URL:', url);
+          handleUrl(url);
+        }
+      });
+    }
 
     return () => {
-      console.log('[_layout] Cleaning up deep link listener');
-      subscription.remove();
+      console.log('[_layout] Cleaning up deep link listener and network store');
+      networkCleanup();
+      subscription?.remove();
     };
   }, []);
 
