@@ -46,9 +46,7 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
 
-import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
-import { useNetworkStore } from '@/store/networkStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
 
@@ -92,10 +90,6 @@ export class System {
   // Migration state
   public migrationNeeded = false;
   private migratingNow = false;
-
-  // Network status tracking
-  private networkUnsubscribe: (() => void) | null = null;
-  private networkListenerInitialized = false;
 
   constructor() {
     // Prevent multiple instantiation
@@ -431,69 +425,6 @@ export class System {
   private connecting = false;
   private connectionPromise: Promise<void> | null = null;
 
-  /**
-   * Initialize network status listener to automatically reconnect when network comes back
-   */
-  private initializeNetworkListener() {
-    if (this.networkListenerInitialized) {
-      return;
-    }
-
-    this.networkListenerInitialized = true;
-    console.log(
-      '[System] Initializing network status listener for PowerSync...'
-    );
-
-    // Subscribe to network state changes
-    this.networkUnsubscribe = useNetworkStore.subscribe((state) => {
-      const isConnected = state.isConnected;
-      const powersyncConnected = this.powersync.connected;
-
-      console.log(
-        `[System] Network status changed: ${isConnected ? 'online' : 'offline'}, PowerSync: ${powersyncConnected ? 'connected' : 'disconnected'}`
-      );
-
-      // If network goes offline and PowerSync is connected, disconnect it
-      // This prevents PowerSync from continuously trying to reconnect internally
-      if (!isConnected && powersyncConnected && this.initialized) {
-        console.log(
-          '[System] Network offline - disconnecting PowerSync to prevent retry attempts...'
-        );
-        void this.powersync
-          .disconnect()
-          .then(() => {
-            console.log('[System] PowerSync disconnected successfully');
-          })
-          .catch((error) => {
-            console.error('[System] Error disconnecting PowerSync:', error);
-          });
-      }
-      // If network just came back online and PowerSync is not connected, reconnect
-      else if (isConnected && !powersyncConnected && this.initialized) {
-        console.log(
-          '[System] Network online - attempting PowerSync reconnection...'
-        );
-        // Use a small delay to avoid rapid reconnection attempts
-        setTimeout(() => {
-          // Only reconnect, don't run full initialization again
-          void this.powersync
-            .connect(this.supabaseConnector)
-            .then(() => {
-              console.log(
-                '[System] PowerSync reconnected successfully after network restored'
-              );
-            })
-            .catch((error) => {
-              console.error(
-                '[System] Failed to reconnect PowerSync after network restored:',
-                error
-              );
-            });
-        }, 500);
-      }
-    });
-  }
-
   async init() {
     // If already connecting, wait for the existing connection
     if (this.connectionPromise) {
@@ -606,34 +537,7 @@ export class System {
       //   }
       // }
 
-      // Initialize network listener to handle reconnection when network returns
-      this.initializeNetworkListener();
-
-      // Check network status before attempting connection
-      const isNetworkConnected = getNetworkStatus();
-
-      if (!isNetworkConnected) {
-        console.log(
-          '[System] Network offline - skipping PowerSync connection. Will reconnect when network returns.'
-        );
-        // Mark as initialized even though we're not connected
-        // This allows the app to work offline with local data
-        // Connection will be retried automatically when network comes back
-        this.initialized = true;
-        console.log('PowerSync marked as initialized (offline mode)');
-
-        // Initialize attachment queues even in offline mode
-        console.log('Starting attachment queues initialization...');
-        await this.initializeAttachmentQueues();
-        console.log('Attachment queues initialization completed');
-
-        // Mark system ready
-        useLocalStore.getState().setSystemReady(true);
-        console.log('System marked as ready (offline mode)');
-        return;
-      }
-
-      // Network is online - proceed with connection
+      // Connect with the current user credentials
       console.log('Connecting PowerSync...');
       await this.powersync.connect(this.supabaseConnector);
       console.log('PowerSync connected successfully');
@@ -1318,13 +1222,6 @@ export class System {
       // Disconnect PowerSync
       if (this.powersync.connected) {
         await this.powersync.disconnect();
-      }
-
-      // Cleanup network listener
-      if (this.networkUnsubscribe) {
-        this.networkUnsubscribe();
-        this.networkUnsubscribe = null;
-        this.networkListenerInitialized = false;
       }
 
       this.initialized = false;

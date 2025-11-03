@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { initializePostHogWithStore } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
+import { initializeNetwork } from '@/store/networkStore';
 import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -41,15 +42,16 @@ export default function App() {
 
   useDrizzleStudio();
 
-  // Initialize PostHog after system is ready
+  // Initialize network listener on app startup
   useEffect(() => {
     if (!isSystemReady) return;
-    console.log('[App] Initializing PostHog...');
-    // Note: Network listener is now initialized in _layout.tsx before system.init()
+    console.log('[App] Initializing network listener...');
+    const cleanup = initializeNetwork();
     const cleanupPostHog = initializePostHogWithStore();
 
     return () => {
-      console.log('[App] Cleaning up PostHog');
+      console.log('[App] Cleaning up network listener');
+      cleanup();
       cleanupPostHog?.();
     };
   }, [isSystemReady]);
