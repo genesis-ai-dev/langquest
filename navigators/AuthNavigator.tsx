@@ -20,7 +20,7 @@ export function AuthNavigator() {
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
     setCurrentView(view);
 
-    // Atualiza o stack de navegação
+    // Updates the navigation stack
     setNavigationStack((prev) => {
       const newStack = [...prev];
       if (newStack[newStack.length - 1] !== view) {
@@ -36,29 +36,29 @@ export function AuthNavigator() {
     }
   }
 
-  // Handler para o botão voltar do sistema
+  // Handler for the system back button
   const handleBackPress = useCallback(() => {
     if (navigationStack.length > 1) {
-      // Remove a view atual do stack
+      // Remove the current view from the stack
       const newStack = [...navigationStack];
       newStack.pop();
       setNavigationStack(newStack);
 
-      // Volta para a view anterior
+      // Go back to the previous view
       const previousView = newStack[newStack.length - 1];
       if (previousView) {
         setCurrentView(previousView);
       }
 
-      return true; // Impede o comportamento padrão do botão voltar
+      return true; // Prevents the default back button behavior
     }
 
-    // Se não há mais views no stack, permite o comportamento padrão
-    // (voltar para Terms ou fechar o app)
+    // If there are no more views in the stack, allows the default behavior
+    // (go back to Terms or close the app)
     return false;
   }, [navigationStack]);
 
-  // Registra o listener do BackHandler
+  // Register the BackHandler listener
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
