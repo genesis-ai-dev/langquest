@@ -104,7 +104,7 @@ export default function NextGenNewTranslationModal({
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private
+    projectData?.private as boolean | undefined
   );
 
   // Debug logging for context

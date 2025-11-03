@@ -3,7 +3,7 @@ import { system } from '@/db/powersync/system';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import React from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
 
@@ -24,6 +24,13 @@ interface QuestWithMetadata {
   quest_created_at: string;
   quest_download_profiles: string[] | null;
   chapter_number: number | null;
+}
+
+interface BibleMetadata {
+  bible?: {
+    book?: string;
+    chapter?: number;
+  };
 }
 
 /**
@@ -61,28 +68,30 @@ async function fetchLocalChapters(
   const results = allQuests
     .filter((q) => {
       if (!q.metadata) return false;
-      
-      const metadata = typeof q.metadata === 'string' 
-        ? JSON.parse(q.metadata) 
-        : q.metadata;
-      
+
+      const metadata: BibleMetadata =
+        typeof q.metadata === 'string'
+          ? (JSON.parse(q.metadata) as BibleMetadata)
+          : (q.metadata as BibleMetadata);
+
       const bibleBook = metadata?.bible?.book;
       const bibleChapter = metadata?.bible?.chapter;
-      
+
       return bibleBook === bookId && bibleChapter != null;
     })
     .map((q) => {
-      const metadata = typeof q.metadata === 'string' 
-        ? JSON.parse(q.metadata) 
-        : q.metadata;
-      
+      const metadata: BibleMetadata =
+        typeof q.metadata === 'string'
+          ? (JSON.parse(q.metadata) as BibleMetadata)
+          : (q.metadata as BibleMetadata);
+
       return {
         quest_id: q.id,
         quest_name: q.name,
         quest_source: q.source,
         quest_created_at: q.created_at,
         quest_download_profiles: q.download_profiles,
-        chapter_number: (metadata?.bible?.chapter as number) || null
+        chapter_number: metadata?.bible?.chapter! || null
       };
     });
 
@@ -102,7 +111,7 @@ async function fetchLocalChapters(
         if (typeof downloadProfiles === 'string') {
           parsedDownloadProfiles = JSON.parse(downloadProfiles) as string[];
         } else if (Array.isArray(downloadProfiles)) {
-          parsedDownloadProfiles = downloadProfiles as string[];
+          parsedDownloadProfiles = downloadProfiles;
         }
       } catch (e) {
         console.warn('Failed to parse download_profiles:', e);
@@ -111,10 +120,15 @@ async function fetchLocalChapters(
 
     // Handle created_at - could be Date, string, or null
     let createdAt: string;
-    if (row.quest_created_at instanceof Date) {
-      createdAt = row.quest_created_at.toISOString();
-    } else if (typeof row.quest_created_at === 'string') {
-      createdAt = row.quest_created_at;
+    const createdAtValue = row.quest_created_at;
+    if (
+      createdAtValue &&
+      typeof createdAtValue === 'object' &&
+      'toISOString' in createdAtValue
+    ) {
+      createdAt = (createdAtValue as Date).toISOString();
+    } else if (typeof createdAtValue === 'string') {
+      createdAt = createdAtValue;
     } else {
       createdAt = new Date().toISOString();
     }
@@ -122,7 +136,7 @@ async function fetchLocalChapters(
     return {
       quest_id: row.quest_id,
       quest_name: row.quest_name,
-      quest_source: row.quest_source as HybridDataSource,
+      quest_source: row.quest_source,
       quest_created_at: createdAt,
       quest_download_profiles: parsedDownloadProfiles,
       chapter_number: row.chapter_number

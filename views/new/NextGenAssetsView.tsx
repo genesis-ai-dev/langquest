@@ -1043,8 +1043,8 @@ export default function NextGenAssetsView() {
       {isPrivateProject && (
         <PrivateAccessGate
           projectId={currentProjectId || ''}
-          projectName={projectName}
-          isPrivate={isPrivateProject}
+          projectName={projectName as string}
+          isPrivate={isPrivateProject as boolean}
           action="contribute"
           modal={true}
           isVisible={showPrivateAccessModal}
