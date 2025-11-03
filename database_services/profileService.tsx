@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
+import { profile_synced } from '@/db/drizzleSchemaSynced';
 import { profile } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -167,49 +168,39 @@ export class ProfileService {
 
   async deleteAccount(userId: string): Promise<void> {
     try {
-      debug('Deleting account for user:', userId);
+      debug('Soft deleting account for user:', userId);
 
-      // Get current session for auth token
-      const { data: sessionData } =
-        await supabaseConnector.client.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
+      // Simply set active = false (soft delete)
+      const { error: profileError } = await supabaseConnector.client
+        .from('profile')
+        .update({ active: false })
+        .eq('id', userId);
 
-      if (!accessToken) {
-        throw new Error('No active session found');
+      if (profileError) {
+        console.error('Error soft deleting profile:', profileError);
+        throw profileError;
       }
 
-      // Call Edge Function to delete account (anonymizes profile and deletes auth user)
-      // This requires admin privileges which we can only access via Edge Function
-      const result = await supabaseConnector.client.functions.invoke(
-        'delete-account',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      );
-
-      if (result.error) {
-        console.error('Error calling delete-account function:', result.error);
-        throw result.error;
-      }
-
-      const responseData =
-        (result.data as
-          | { success: boolean; error?: string; message?: string }
-          | null
-          | undefined) ?? null;
-
-      if (!responseData?.success) {
-        const errorMessage = responseData?.error ?? 'Failed to delete account';
-        console.error('Delete account failed:', errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      debug('Account deleted successfully for user:', userId);
+      debug('Account soft deleted successfully for user:', userId);
     } catch (error) {
-      console.error('Error deleting account:', error);
+      console.error('Error soft deleting account:', error);
+      throw error;
+    }
+  }
+
+  async restoreAccount(userId: string): Promise<void> {
+    try {
+      debug('Restoring account for user:', userId);
+
+      // Set active = true to restore account
+      await system.db
+        .update(profile_synced)
+        .set({ active: true })
+        .where(eq(profile_synced.id, userId));
+
+      debug('Account restored successfully for user:', userId);
+    } catch (error) {
+      console.error('Error restoring account:', error);
       throw error;
     }
   }

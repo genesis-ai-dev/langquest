@@ -285,6 +285,13 @@ export const localizations = {
     tok_pisin: 'Storage Long Freeup',
     indonesian: 'Penyimpanan yang Dibebaskan'
   },
+  continue: {
+    english: 'Continue',
+    spanish: 'Continuar',
+    brazilian_portuguese: 'Continuar',
+    tok_pisin: 'Go Het',
+    indonesian: 'Lanjutkan'
+  },
   continueToOffload: {
     english: 'Offload from Device',
     spanish: 'Descargar del Dispositivo',
@@ -4855,51 +4862,51 @@ export const localizations = {
   },
   accountDeletionPIIWarning: {
     english:
-      'All personally identifiable information will be permanently removed from your account. This includes your email, username, and avatar. Your notifications, subscriptions, project memberships, and block lists will be deleted. Your profile will be anonymized, but your contributions will remain linked to your anonymized profile ID.',
+      'Your account will be deactivated (soft delete). All your data will be preserved, but you will not be able to access the app until you restore your account. You can restore your account at any time, but you must be online to do so.',
     spanish:
-      'Toda la información personalmente identificable se eliminará permanentemente de tu cuenta. Esto incluye tu correo electrónico, nombre de usuario y avatar. Tus notificaciones, suscripciones, membresías de proyectos y listas de bloqueo se eliminarán. Tu perfil será anonimizado, pero tus contribuciones permanecerán vinculadas a tu ID de perfil anonimizado.',
+      'Tu cuenta será desactivada (eliminación suave). Todos tus datos se conservarán, pero no podrás acceder a la aplicación hasta que restaures tu cuenta. Puedes restaurar tu cuenta en cualquier momento, pero debes estar en línea para hacerlo.',
     brazilian_portuguese:
-      'Todas as informações pessoalmente identificáveis serão removidas permanentemente da sua conta. Isso inclui seu e-mail, nome de usuário e avatar. Suas notificações, assinaturas, associações a projetos e listas de bloqueio serão excluídas. Seu perfil será anonimizado, mas suas contribuições permanecerão vinculadas ao seu ID de perfil anonimizado.',
+      'Sua conta será desativada (exclusão suave). Todos os seus dados serão preservados, mas você não poderá acessar o aplicativo até restaurar sua conta. Você pode restaurar sua conta a qualquer momento, mas precisa estar online para fazer isso.',
     tok_pisin:
-      'Olgeta information bilong yu bai raus long olgeta taim. Dispela i includim email, username, na avatar bilong yu. Ol notification, subscription, project membership, na block list bilong yu bai raus. Profile bilong yu bai kamap olsem i no gat nem, tasol ol samting yu bin helpim bai i stap wantaim anonymized profile ID bilong yu.',
+      'Account bilong yu bai stop wok (soft delete). Ol data bilong yu bai stap, tasol yu no inap go long app inap yu restore account. Yu inap restore account long eni taim, tasol yu mas gat internet long mekim.',
     indonesian:
-      'Semua informasi yang dapat mengidentifikasi pribadi akan dihapus secara permanen dari akun Anda. Ini termasuk email, nama pengguna, dan avatar Anda. Notifikasi, langganan, keanggotaan proyek, dan daftar blokir Anda akan dihapus. Profil Anda akan dianonimkan, tetapi kontribusi Anda akan tetap terhubung ke ID profil yang dianonimkan.'
+      'Akun Anda akan dinonaktifkan (penghapusan lunak). Semua data Anda akan dilestarikan, tetapi Anda tidak akan dapat mengakses aplikasi hingga Anda memulihkan akun Anda. Anda dapat memulihkan akun Anda kapan saja, tetapi Anda harus online untuk melakukannya.'
   },
   accountDeletionContributionsInfo: {
     english:
-      'Any contributions you have made to language data may still be public following the terms you already agreed to when you joined.',
+      'All your contributions (projects, quests, assets, translations, votes) will be preserved and will remain public following the terms you already agreed to when you joined. Your account can be restored at any time, and all your data will be accessible again.',
     spanish:
-      'Cualquier contribución que hayas hecho a los datos de idioma puede seguir siendo pública según los términos que ya aceptaste al unirte.',
+      'Todas tus contribuciones (proyectos, búsquedas, activos, traducciones, votos) se conservarán y permanecerán públicas según los términos que ya aceptaste al unirte. Tu cuenta puede ser restaurada en cualquier momento, y todos tus datos volverán a estar accesibles.',
     brazilian_portuguese:
-      'Qualquer contribuição que você fez aos dados de idioma ainda pode ser pública de acordo com os termos que você já concordou ao ingressar.',
+      'Todas as suas contribuições (projetos, missões, ativos, traduções, votos) serão preservadas e permanecerão públicas de acordo com os termos que você já concordou ao ingressar. Sua conta pode ser restaurada a qualquer momento, e todos os seus dados estarão acessíveis novamente.',
     tok_pisin:
-      'Olgeta samting yu bin helpim long ol language data bai i stap olsem long term yu bin oreti long en taim yu joinim.',
+      'Olgeta samting yu bin helpim (project, quest, asset, translation, vote) bai i stap na bai i stap olsem long term yu bin oreti long en taim yu joinim. Account bilong yu inap restore long eni taim, na ol data bilong yu bai kamap bek.',
     indonesian:
-      'Kontribusi yang telah Anda berikan pada data bahasa mungkin masih bersifat publik sesuai dengan syarat yang telah Anda setujui saat bergabung.'
-  },
-  accountDeletionContributionsAnonymized: {
-    english:
-      'Your contributions (projects, quests, assets, translations, votes) will remain public and will be preserved, but your username and email will be removed from your profile. Your contributions will be associated with an anonymized profile.',
-    spanish:
-      'Tus contribuciones (proyectos, búsquedas, activos, traducciones, votos) permanecerán públicas y se conservarán, pero tu nombre de usuario y correo electrónico se eliminarán de tu perfil. Tus contribuciones se asociarán con un perfil anonimizado.',
-    brazilian_portuguese:
-      'Suas contribuições (projetos, missões, ativos, traduções, votos) permanecerão públicas e serão preservadas, mas seu nome de usuário e e-mail serão removidos do seu perfil. Suas contribuições serão associadas a um perfil anonimizado.',
-    tok_pisin:
-      'Ol samting yu bin wokim (project, quest, asset, translation, vote) bai i stap long olgeta na bai i stap, tasol username na email bilong yu bai raus long profile bilong yu. Ol samting yu bin wokim bai i stap wantaim profile we i no gat nem.',
-    indonesian:
-      'Kontribusi Anda (proyek, quest, aset, terjemahan, suara) akan tetap publik dan akan dilestarikan, tetapi nama pengguna dan email Anda akan dihapus dari profil Anda. Kontribusi Anda akan dikaitkan dengan profil yang dianonimkan.'
+      'Semua kontribusi Anda (proyek, quest, aset, terjemahan, suara) akan dilestarikan dan akan tetap publik sesuai dengan syarat yang telah Anda setujui saat bergabung. Akun Anda dapat dipulihkan kapan saja, dan semua data Anda akan dapat diakses lagi.'
   },
   accountDeletionConfirm: {
     english:
-      'Are you absolutely sure you want to delete your account? This action cannot be undone.',
+      'Are you absolutely sure you want to delete your account? You can restore it later, but you will need to be online to do so.',
     spanish:
-      '¿Estás absolutamente seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.',
+      '¿Estás absolutamente seguro de que deseas eliminar tu cuenta? Puedes restaurarla más tarde, pero necesitarás estar en línea para hacerlo.',
     brazilian_portuguese:
-      'Tem certeza absoluta de que deseja excluir sua conta? Esta ação não pode ser desfeita.',
+      'Tem certeza absoluta de que deseja excluir sua conta? Você pode restaurá-la mais tarde, mas precisará estar online para fazer isso.',
     tok_pisin:
-      'Yu tru long rausim account bilong yu? Yu no inap tanim bek dispela.',
+      'Yu tru long rausim account bilong yu? Yu inap restore long bihain, tasol yu mas gat internet long mekim.',
     indonesian:
-      'Apakah Anda benar-benar yakin ingin menghapus akun Anda? Tindakan ini tidak dapat dibatalkan.'
+      'Apakah Anda benar-benar yakin ingin menghapus akun Anda? Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya.'
+  },
+  accountDeletionConfirmMessage: {
+    english:
+      'Your account will be deleted (soft delete). You can restore it later from the login screen, but you must be online to restore it.',
+    spanish:
+      'Tu cuenta será eliminada (eliminación suave). Puedes restaurarla más tarde desde la pantalla de inicio de sesión, pero debes estar en línea para restaurarla.',
+    brazilian_portuguese:
+      'Sua conta será excluída (exclusão suave). Você pode restaurá-la mais tarde da tela de login, mas precisa estar online para restaurá-la.',
+    tok_pisin:
+      'Account bilong yu bai raus (soft delete). Yu inap restore long bihain long login screen, tasol yu mas gat internet long restore.',
+    indonesian:
+      'Akun Anda akan dihapus (penghapusan lunak). Anda dapat memulihkannya nanti dari layar login, tetapi Anda harus online untuk memulihkannya.'
   },
   accountDeletionStep1Title: {
     english: 'Step 1: Understand the Consequences',
@@ -4917,13 +4924,15 @@ export const localizations = {
   },
   accountDeletionSuccess: {
     english:
-      'Your account has been successfully deleted. You will be signed out now.',
+      'Your account has been successfully deleted (soft delete). You can restore it later, but you must be online to do so. You will be signed out now.',
     spanish:
-      'Tu cuenta ha sido eliminada exitosamente. Serás desconectado ahora.',
+      'Tu cuenta ha sido eliminada exitosamente (eliminación suave). Puedes restaurarla más tarde, pero debes estar en línea para hacerlo. Serás desconectado ahora.',
     brazilian_portuguese:
-      'Sua conta foi excluída com sucesso. Você será desconectado agora.',
-    tok_pisin: 'Account bilong yu i raus pinis. Yu bai sign out nau.',
-    indonesian: 'Akun Anda telah berhasil dihapus. Anda akan keluar sekarang.'
+      'Sua conta foi excluída com sucesso (exclusão suave). Você pode restaurá-la mais tarde, mas precisa estar online para fazer isso. Você será desconectado agora.',
+    tok_pisin:
+      'Account bilong yu i raus pinis (soft delete). Yu inap restore long bihain, tasol yu mas gat internet long mekim. Yu bai sign out nau.',
+    indonesian:
+      'Akun Anda telah berhasil dihapus (penghapusan lunak). Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya. Anda akan keluar sekarang.'
   },
   accountDeletionError: {
     english: 'Failed to delete account: {error}',
@@ -4931,6 +4940,73 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao excluir conta: {error}',
     tok_pisin: 'I no inap rausim account: {error}',
     indonesian: 'Gagal menghapus akun: {error}'
+  },
+  accountDeletedTitle: {
+    english: 'Account Deleted',
+    spanish: 'Cuenta Eliminada',
+    brazilian_portuguese: 'Conta Excluída',
+    tok_pisin: 'Account i Raus',
+    indonesian: 'Akun Dihapus'
+  },
+  accountDeletedMessage: {
+    english:
+      'Your account has been deleted. You can restore it to regain access to all your data, or you can log out and return to the login screen.',
+    spanish:
+      'Tu cuenta ha sido eliminada. Puedes restaurarla para recuperar el acceso a todos tus datos, o puedes cerrar sesión y volver a la pantalla de inicio de sesión.',
+    brazilian_portuguese:
+      'Sua conta foi excluída. Você pode restaurá-la para recuperar o acesso a todos os seus dados ou pode sair e retornar à tela de login.',
+    tok_pisin:
+      'Account bilong yu i raus pinis. Yu inap restore long kamap bek ol data bilong yu, o yu inap logout na go bek long login.',
+    indonesian:
+      'Akun Anda telah dihapus. Anda dapat memulihkannya untuk mendapatkan kembali akses ke semua data Anda, atau Anda dapat keluar dan kembali ke layar login.'
+  },
+  restoreAccount: {
+    english: 'Restore Account',
+    spanish: 'Restaurar Cuenta',
+    brazilian_portuguese: 'Restaurar Conta',
+    tok_pisin: 'Restore Account',
+    indonesian: 'Pulihkan Akun'
+  },
+  restoreAccountConfirmTitle: {
+    english: 'Restore Account?',
+    spanish: '¿Restaurar Cuenta?',
+    brazilian_portuguese: 'Restaurar Conta?',
+    tok_pisin: 'Restore Account?',
+    indonesian: 'Pulihkan Akun?'
+  },
+  restoreAccountConfirmMessage: {
+    english:
+      'Your account will be fully restored. All your data will be accessible again, and you can continue using the app normally.',
+    spanish:
+      'Tu cuenta será restaurada por completo. Todos tus datos volverán a estar accesibles y podrás seguir usando la aplicación con normalidad.',
+    brazilian_portuguese:
+      'Sua conta será totalmente restaurada. Todos os seus dados estarão acessíveis novamente e você poderá continuar usando o aplicativo normalmente.',
+    tok_pisin:
+      'Account bilong yu bai restore olgeta. Ol data bilong yu bai kamap bek, na yu inap wokim ol samting olsem bipo.',
+    indonesian:
+      'Akun Anda akan dipulihkan sepenuhnya. Semua data Anda akan dapat diakses lagi, dan Anda dapat melanjutkan menggunakan aplikasi secara normal.'
+  },
+  backToLogin: {
+    english: 'Back to Login/Register',
+    spanish: 'Volver a Iniciar Sesión/Registrarse',
+    brazilian_portuguese: 'Voltar para Login/Registro',
+    tok_pisin: 'Go Bek long Login/Register',
+    indonesian: 'Kembali ke Login/Register'
+  },
+  accountRestoreSuccess: {
+    english: 'Your account has been successfully restored. Welcome back!',
+    spanish: 'Tu cuenta ha sido restaurada exitosamente. ¡Bienvenido de nuevo!',
+    brazilian_portuguese:
+      'Sua conta foi restaurada com sucesso. Bem-vindo de volta!',
+    tok_pisin: 'Account bilong yu i restore pinis. Welkam bek!',
+    indonesian: 'Akun Anda telah berhasil dipulihkan. Selamat datang kembali!'
+  },
+  accountRestoreError: {
+    english: 'Failed to restore account: {error}',
+    spanish: 'Error al restaurar la cuenta: {error}',
+    brazilian_portuguese: 'Falha ao restaurar conta: {error}',
+    tok_pisin: 'I no inap restore account: {error}',
+    indonesian: 'Gagal memulihkan akun: {error}'
   }
 } as const;
 
