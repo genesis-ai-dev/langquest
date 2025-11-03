@@ -259,7 +259,7 @@ export default function NextGenProjectsView() {
     // Helper to invalidate and refetch relevant queries
     const invalidateProjectQueries = async () => {
       if (!shouldProceed()) return;
-      
+
       // Invalidate queries (triggers automatic refetch in TanStack Query)
       await queryClient.invalidateQueries({
         queryKey: ['invited-projects'],
@@ -269,7 +269,7 @@ export default function NextGenProjectsView() {
         queryKey: ['my-projects'],
         exact: false
       });
-      
+
       // Explicitly refetch to ensure immediate update
       await queryClient.refetchQueries({
         queryKey: ['invited-projects'],

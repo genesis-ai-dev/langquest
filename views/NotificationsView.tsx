@@ -326,8 +326,9 @@ export default function NotificationsView() {
 
           // Ensure receiver_profile_id is set - required for RLS policy
           // If invite was sent by email (receiver_profile_id is null), set it now
-          const receiverProfileId = record.receiver_profile_id || currentUser!.id;
-          
+          const receiverProfileId =
+            record.receiver_profile_id || currentUser!.id;
+
           console.log('[handleAccept] Invite record details:', {
             inviteId: notificationId,
             existingReceiverProfileId: record.receiver_profile_id,
@@ -347,7 +348,10 @@ export default function NotificationsView() {
             })
             .where(eq(invite_synced.id, notificationId));
 
-          console.log('[handleAccept] Invite updated via synced table with receiver_profile_id:', receiverProfileId);
+          console.log(
+            '[handleAccept] Invite updated via synced table with receiver_profile_id:',
+            receiverProfileId
+          );
 
           // Also update any corresponding request from this user via synced table
           if (record.receiver_profile_id) {
