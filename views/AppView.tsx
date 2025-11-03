@@ -38,7 +38,6 @@ const ProjectDirectoryView = React.lazy(
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
-import { UpdateBanner } from '@/components/UpdateBanner';
 import {
   CloudLoadingProvider,
   useCloudLoading
@@ -128,9 +127,6 @@ function AppViewContent() {
           isCloudLoading={isCloudLoading}
           isNavigating={isNavigating}
         />
-
-        {/* OTA Update Banner */}
-        <UpdateBanner />
 
         {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
         {/* <OTAUpdateDebugControls /> */}

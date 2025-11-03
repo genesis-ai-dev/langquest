@@ -11,6 +11,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
@@ -121,6 +122,8 @@ export default function RootLayout() {
               <SafeAreaProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <StatusBar style={systemBarsStyle} />
+                  {/* OTA Update Banner - shown before login and after */}
+                  <UpdateBanner />
                   <BottomSheetModalProvider>
                     <ThemeProvider value={NAV_THEME[scheme]}>
                       <Stack screenOptions={{ headerShown: false }} />

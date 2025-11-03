@@ -12,6 +12,7 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 // const USE_MOCK = true;
 
 export function UpdateBanner() {
+  // useLocalization has built-in fallbacks to English, so it should work even before login
   const { t } = useLocalization();
   const {
     updateInfo,
