@@ -14,11 +14,11 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
 import { MicOffIcon, Settings } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
-  type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
@@ -64,15 +64,53 @@ export const RecordingControls = React.memo(
     vadThreshold,
     energyShared,
     isRecordingShared,
-    displayMode = 'footer'
+    displayMode: _displayMode = 'footer'
   }: RecordingControlsProps) {
     const { t } = useLocalization();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    // Get actual audio recording permissions
-    const [permissionResponse, requestPermission] = Audio.usePermissions();
-    const hasPermission =
-      permissionResponse?.status === Audio.PermissionStatus.GRANTED;
+
+    // Lazy permission check - start optimistic, check async to avoid blocking UI
+    // null = checking, true = granted, false = denied
+    const [hasPermission, setHasPermission] = React.useState<boolean | null>(
+      null
+    );
+
+    // Check permissions asynchronously after mount (non-blocking)
+    useEffect(() => {
+      let cancelled = false;
+
+      const checkPermission = async () => {
+        try {
+          const permission = await Audio.getPermissionsAsync();
+          if (!cancelled) {
+            setHasPermission(permission.granted);
+          }
+        } catch (error) {
+          console.error('Failed to check microphone permission:', error);
+          if (!cancelled) {
+            setHasPermission(false);
+          }
+        }
+      };
+
+      void checkPermission();
+
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+
+    // Request permission handler
+    const handleRequestPermission = async () => {
+      try {
+        const permission = await Audio.requestPermissionsAsync();
+        setHasPermission(permission.granted);
+      } catch (error) {
+        console.error('Failed to request microphone permission:', error);
+        setHasPermission(false);
+      }
+    };
 
     // Shared value for activation progress bar - tracks button hold activation (0-1)
     const activationProgressShared = useSharedValue(0);
@@ -80,13 +118,13 @@ export const RecordingControls = React.memo(
     // Track the displayed progress - slightly lags behind actual activation for smoother UX
     const displayProgressShared = useSharedValue(0);
 
-    // Reset progress bar when recording stops
+    // Reset activation progress when recording stops
+    // Note: displayProgressShared is reset in useAnimatedReaction to avoid React Compiler conflicts
     useEffect(() => {
       if (!isRecording) {
         activationProgressShared.value = 0;
-        displayProgressShared.value = 0;
       }
-    }, [isRecording, activationProgressShared, displayProgressShared]);
+    }, [isRecording, activationProgressShared]);
 
     // Animate display progress to lag slightly behind activation progress
     // This makes the bar complete around the same time recording actually starts
@@ -125,7 +163,7 @@ export const RecordingControls = React.memo(
           opacity: 0
         };
       }
-      
+
       // Show activation progress (blue) during button hold
       const progress = displayProgressShared.value;
       const progressWidth = progress * width;
@@ -137,10 +175,6 @@ export const RecordingControls = React.memo(
       };
     }, [isRecording, isVADLocked, width]);
 
-    const handleRequestPermission = async () => {
-      await requestPermission();
-    };
-
     // Fallback SharedValues for backward compatibility
     // Note: useSharedValue is already imported at the top, don't require it again
     const fallbackEnergyShared = useSharedValue(currentEnergy ?? 0);
@@ -149,7 +183,7 @@ export const RecordingControls = React.memo(
     // SharedValue for walkie-talkie recording energy (separate from VAD energy)
     // This gets updated directly from WalkieTalkieRecorder's metering data
     const walkieTalkieEnergyShared = useSharedValue(0);
-    
+
     // SharedValue for walkie-talkie recording state (ensures waveform bars are red during recording)
     const walkieTalkieIsRecordingShared = useSharedValue(false);
 
@@ -178,122 +212,154 @@ export const RecordingControls = React.memo(
       }
     }, [isRecording, isVADLocked, walkieTalkieIsRecordingShared]);
 
-    // Reset walkie-talkie energy when recording stops
+    // Continuously tick walkie-talkie energy during recording to progress waveform
+    // This ensures the waveform progresses even during silence - it's time-based, not just energy-based
+    // The WaveformVisualization uses useAnimatedReaction which only fires when energyShared.value changes,
+    // so we need to continuously update it during recording to keep the waveform shifting
+    // We use a simple toggle mechanism: during silence, alternate between two tiny values to trigger updates
+    const tickToggleRef = useRef<boolean>(false);
+
     useEffect(() => {
-      if (!isRecording && !isVADLocked) {
+      if (!isRecording || isVADLocked) {
+        // Reset when not recording
         walkieTalkieEnergyShared.value = 0;
+        tickToggleRef.current = false;
+        return;
       }
+
+      // Update waveform at regular intervals (every ~50ms) to ensure continuous progression
+      // The actual energy value from WalkieTalkieRecorder will naturally override this when audio is detected
+      // During silence, we toggle between two tiny values to ensure the reaction fires continuously
+      const interval = setInterval(() => {
+        const currentEnergy = walkieTalkieEnergyShared.value;
+
+        // Only tick during silence (low energy) - if there's real audio, the actual updates will drive progression
+        // This prevents unnecessary updates when audio is actively being recorded
+        if (currentEnergy <= 0.01) {
+          // Toggle between two tiny values to trigger useAnimatedReaction
+          // This ensures the waveform ring buffer shifts continuously even without audio
+          tickToggleRef.current = !tickToggleRef.current;
+          walkieTalkieEnergyShared.value = tickToggleRef.current ? 0.011 : 0.01;
+        }
+      }, 50); // Update every 50ms for smooth 20fps waveform progression
+
+      return () => {
+        clearInterval(interval);
+      };
     }, [isRecording, isVADLocked, walkieTalkieEnergyShared]);
 
-    // Show permission UI only if we explicitly know permission is denied
-    if (!hasPermission) {
-      return (
+    // Show permission UI only if we explicitly know permission is denied (not while checking)
+    // During check (hasPermission === null), show controls optimistically
+    const showPermissionOverlay = hasPermission === false;
+
+    return (
+      <>
+        {/* Permission overlay - only shown when permission is explicitly denied */}
+        {showPermissionOverlay && (
+          <View
+            className="absolute bottom-0 left-0 right-0 z-50 border-t border-border bg-background"
+            style={{ paddingBottom: insets.bottom }}
+            onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
+          >
+            <View className="flex w-full items-center justify-center py-6">
+              <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <Icon as={MicOffIcon} size={32} className="text-red-500" />
+              </View>
+              <Button
+                variant="destructive"
+                onPress={handleRequestPermission}
+                className="w-48"
+              >
+                <Text className="text-base font-bold">
+                  {t('grantMicrophonePermission')}
+                </Text>
+              </Button>
+            </View>
+          </View>
+        )}
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
           style={{ paddingBottom: insets.bottom }}
           onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
         >
-          <View className="flex w-full items-center justify-center py-6">
-            <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <Icon as={MicOffIcon} size={32} className="text-red-500" />
-            </View>
+          {/* Progress bar at the top - shows activation progress (blue, fills during hold), hides when recording starts */}
+          <Animated.View
+            style={[
+              {
+                height: 3,
+                position: 'absolute',
+                top: 0,
+                left: 0
+              },
+              progressBarStyle
+            ]}
+          />
+
+          {/* Waveform visualization above controls - visible during VAD lock or walkie-talkie recording */}
+          <WaveformVisualization
+            isVisible={(isVADLocked ?? false) || isRecording}
+            energyShared={
+              // Use VAD energy during VAD lock, walkie-talkie energy during walkie-talkie recording
+              isVADLocked
+                ? (energyShared ?? fallbackEnergyShared)
+                : isRecording
+                  ? walkieTalkieEnergyShared
+                  : (energyShared ?? fallbackEnergyShared)
+            }
+            vadThreshold={vadThreshold ?? 0.085}
+            isRecordingShared={
+              // Use VAD recording state during VAD lock, walkie-talkie state during walkie-talkie recording
+              isVADLocked
+                ? (isRecordingShared ?? fallbackIsRecordingShared)
+                : isRecording
+                  ? walkieTalkieIsRecordingShared
+                  : (isRecordingShared ?? fallbackIsRecordingShared)
+            }
+            barCount={60}
+            maxHeight={24}
+          />
+
+          {/* Controls row */}
+          <View className="flex-row items-center justify-between px-4 py-2">
+            {/* Settings button on the left */}
             <Button
-              variant="destructive"
-              onPress={handleRequestPermission}
-              className="w-48"
+              variant="ghost"
+              size="lg"
+              onPress={onSettingsPress}
+              className="h-20 w-20"
             >
-              <Text className="text-base font-bold">
-                {t('grantMicrophonePermission')}
-              </Text>
+              <Icon as={Settings} size={24} />
             </Button>
+
+            {/* Recorder in center - takes remaining space */}
+            <View className="flex-1 items-center">
+              <WalkieTalkieRecorder
+                onRecordingComplete={onRecordingComplete}
+                onRecordingStart={onRecordingStart}
+                onRecordingStop={onRecordingStop}
+                onRecordingDiscarded={onRecordingDiscarded}
+                onWaveformUpdate={undefined}
+                isRecording={isRecording}
+                isVADLocked={isVADLocked}
+                onVADLockChange={onVADLockChange}
+                // Energy values passed directly - ring buffer handles updates efficiently
+                currentEnergy={currentEnergy}
+                vadThreshold={vadThreshold}
+                canRecord={hasPermission !== false} // Allow recording if granted or still checking
+                activationProgressShared={activationProgressShared}
+                energyShared={walkieTalkieEnergyShared}
+                onRecordingDurationUpdate={(_duration) => {
+                  // Duration tracking for other purposes if needed
+                  // Progress bar uses activationProgressShared instead
+                }}
+              />
+            </View>
+
+            {/* Spacer to balance layout */}
+            <View className="h-20 w-20" />
           </View>
         </View>
-      );
-    }
-
-    return (
-      <View
-        className="absolute bottom-0 left-0 right-0 border-t border-border bg-background"
-        style={{ paddingBottom: insets.bottom }}
-        onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
-      >
-        {/* Progress bar at the top - shows activation progress (blue, fills during hold), hides when recording starts */}
-        <Animated.View
-          style={[
-            {
-              height: 3,
-              position: 'absolute',
-              top: 0,
-              left: 0
-            },
-            progressBarStyle
-          ]}
-        />
-
-        {/* Waveform visualization above controls - visible during VAD lock or walkie-talkie recording */}
-        <WaveformVisualization
-          isVisible={(isVADLocked ?? false) || isRecording}
-          energyShared={
-            // Use VAD energy during VAD lock, walkie-talkie energy during walkie-talkie recording
-            isVADLocked
-              ? energyShared ?? fallbackEnergyShared
-              : isRecording
-                ? walkieTalkieEnergyShared
-                : energyShared ?? fallbackEnergyShared
-          }
-          vadThreshold={vadThreshold ?? 0.085}
-          isRecordingShared={
-            // Use VAD recording state during VAD lock, walkie-talkie state during walkie-talkie recording
-            isVADLocked
-              ? isRecordingShared ?? fallbackIsRecordingShared
-              : isRecording
-                ? walkieTalkieIsRecordingShared
-                : isRecordingShared ?? fallbackIsRecordingShared
-          }
-          barCount={60}
-          maxHeight={24}
-        />
-
-        {/* Controls row */}
-        <View className="flex-row items-center justify-between px-4 py-2">
-          {/* Settings button on the left */}
-          <Button
-            variant="ghost"
-            size="lg"
-            onPress={onSettingsPress}
-            className="h-20 w-20"
-          >
-            <Icon as={Settings} size={24} />
-          </Button>
-
-          {/* Recorder in center - takes remaining space */}
-          <View className="flex-1 items-center">
-            <WalkieTalkieRecorder
-              onRecordingComplete={onRecordingComplete}
-              onRecordingStart={onRecordingStart}
-              onRecordingStop={onRecordingStop}
-              onRecordingDiscarded={onRecordingDiscarded}
-              onWaveformUpdate={undefined}
-              isRecording={isRecording}
-              isVADLocked={isVADLocked}
-              onVADLockChange={onVADLockChange}
-              // Energy values passed directly - ring buffer handles updates efficiently
-              currentEnergy={currentEnergy}
-              vadThreshold={vadThreshold}
-              canRecord={hasPermission}
-              activationProgressShared={activationProgressShared}
-              energyShared={walkieTalkieEnergyShared}
-              onRecordingDurationUpdate={(duration) => {
-                // Duration tracking for other purposes if needed
-                // Progress bar uses activationProgressShared instead
-              }}
-            />
-          </View>
-
-          {/* Spacer to balance layout */}
-          <View className="h-20 w-20" />
-        </View>
-      </View>
+      </>
     );
   },
   // **OPTIMIZATION: Custom equality check - only re-render for critical prop changes**

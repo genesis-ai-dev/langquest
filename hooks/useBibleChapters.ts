@@ -1,7 +1,9 @@
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
+import { and, eq, sql } from 'drizzle-orm';
 import React from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
 
@@ -26,7 +28,8 @@ interface QuestWithMetadata {
 
 /**
  * Fetches chapter quests using metadata field from local database
- * NOTE: Uses union views (quest) that combine local + synced tables
+ * NOTE: Uses Drizzle ORM to query the merged quest view (includes quest_local + quest_synced)
+ * This ensures local-only chapters created offline are included
  * USES: metadata.bible.book and metadata.bible.chapter for identification
  */
 async function fetchLocalChapters(
@@ -37,72 +40,103 @@ async function fetchLocalChapters(
     `[fetchLocalChapters] Querying for projectId: ${projectId}, bookId: ${bookId}`
   );
 
-  // Query using metadata JSON field
-  // NOTE: metadata is stored as JSON text, so we use json() to parse once
-  // Then json_extract to get the nested bible.book and bible.chapter values
-  const rawQuery = `
-    SELECT 
-      q.id as quest_id,
-      q.name as quest_name,
-      q.source as quest_source,
-      q.created_at as quest_created_at,
-      q.download_profiles as quest_download_profiles,
-      CAST(json_extract(json(q.metadata), '$.bible.chapter') AS INTEGER) as chapter_number
-    FROM quest q
-    WHERE q.project_id = ?
-      AND json_extract(json(q.metadata), '$.bible.book') = ?
-      AND json_extract(json(q.metadata), '$.bible.chapter') IS NOT NULL
-  `;
+  // Use Drizzle ORM relational query API to query the merged quest view
+  // This ensures local-only chapters created offline are included
+  // Query all quests matching the criteria, then filter and transform
+  const allQuests = await system.db.query.quest.findMany({
+    where: eq(quest.project_id, projectId),
+    columns: {
+      id: true,
+      name: true,
+      source: true,
+      created_at: true,
+      download_profiles: true,
+      metadata: true
+    }
+  });
 
-  const result = await system.powersync.execute(rawQuery, [projectId, bookId]);
+  // Filter for chapters matching the bookId (have bible.chapter)
+  // Note: We filter in JS because Drizzle's query builder doesn't handle JSON extraction well
+  // This approach ensures we get all records including local-only ones
+  const results = allQuests
+    .filter((q) => {
+      if (!q.metadata) return false;
+      
+      const metadata = typeof q.metadata === 'string' 
+        ? JSON.parse(q.metadata) 
+        : q.metadata;
+      
+      const bibleBook = metadata?.bible?.book;
+      const bibleChapter = metadata?.bible?.chapter;
+      
+      return bibleBook === bookId && bibleChapter != null;
+    })
+    .map((q) => {
+      const metadata = typeof q.metadata === 'string' 
+        ? JSON.parse(q.metadata) 
+        : q.metadata;
+      
+      return {
+        quest_id: q.id,
+        quest_name: q.name,
+        quest_source: q.source,
+        quest_created_at: q.created_at,
+        quest_download_profiles: q.download_profiles,
+        chapter_number: (metadata?.bible?.chapter as number) || null
+      };
+    });
 
   console.log(
-    `[fetchLocalChapters] Query returned ${result.rows?.length || 0} rows`
+    `[fetchLocalChapters] Query returned ${results.length} rows for projectId: ${projectId}, bookId: ${bookId}`
   );
 
-  // Convert SQLite result to array of objects
-  const questResults: QuestWithMetadata[] = [];
-  if (result.rows) {
-    for (let i = 0; i < result.rows.length; i++) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const row = result.rows.item(i);
-      if (row) {
-        // Parse download_profiles (stored as JSON)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const downloadProfiles = row.quest_download_profiles;
-        let parsedDownloadProfiles: string[] | null = null;
+  // Convert Drizzle results to QuestWithMetadata format
+  // download_profiles is already parsed by Drizzle (text mode: 'json')
+  const questResults: QuestWithMetadata[] = results.map((row) => {
+    // Parse download_profiles (stored as JSON)
+    let parsedDownloadProfiles: string[] | null = null;
+    const downloadProfiles = row.quest_download_profiles;
 
-        if (downloadProfiles) {
-          try {
-            if (typeof downloadProfiles === 'string') {
-              parsedDownloadProfiles = JSON.parse(downloadProfiles) as string[];
-            } else if (Array.isArray(downloadProfiles)) {
-              parsedDownloadProfiles = downloadProfiles as string[];
-            }
-          } catch (e) {
-            console.warn('Failed to parse download_profiles:', e);
-          }
+    if (downloadProfiles) {
+      try {
+        if (typeof downloadProfiles === 'string') {
+          parsedDownloadProfiles = JSON.parse(downloadProfiles) as string[];
+        } else if (Array.isArray(downloadProfiles)) {
+          parsedDownloadProfiles = downloadProfiles as string[];
         }
-
-        questResults.push({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          quest_id: row.quest_id as string,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          quest_name: row.quest_name as string,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          quest_source: row.quest_source as HybridDataSource,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          quest_created_at: row.quest_created_at as string,
-          quest_download_profiles: parsedDownloadProfiles,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          chapter_number: row.chapter_number as number | null
-        });
+      } catch (e) {
+        console.warn('Failed to parse download_profiles:', e);
       }
     }
-  }
+
+    // Handle created_at - could be Date, string, or null
+    let createdAt: string;
+    if (row.quest_created_at instanceof Date) {
+      createdAt = row.quest_created_at.toISOString();
+    } else if (typeof row.quest_created_at === 'string') {
+      createdAt = row.quest_created_at;
+    } else {
+      createdAt = new Date().toISOString();
+    }
+
+    return {
+      quest_id: row.quest_id,
+      quest_name: row.quest_name,
+      quest_source: row.quest_source as HybridDataSource,
+      quest_created_at: createdAt,
+      quest_download_profiles: parsedDownloadProfiles,
+      chapter_number: row.chapter_number
+    };
+  });
 
   console.log(
-    `[fetchLocalChapters] Found ${questResults.length} chapter quests`
+    `[fetchLocalChapters] Processed ${questResults.length} chapter quests:`,
+    questResults.map((r) => ({
+      id: r.quest_id.slice(0, 8),
+      name: r.quest_name,
+      chapter: r.chapter_number,
+      source: r.quest_source
+    }))
   );
   return questResults;
 }
