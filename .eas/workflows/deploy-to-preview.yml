@@ -71,7 +71,7 @@ jobs:
     if: ${{ needs.get_android_build.outputs.build_id }}
     type: update
     params:
-      branch: dev
+      branch: preview
       platform: android
   publish_ios_update:
     name: Publish iOS update
@@ -79,5 +79,5 @@ jobs:
     if: ${{ needs.get_ios_build.outputs.build_id }}
     type: update
     params:
-      branch: dev
+      branch: preview
       platform: ios
