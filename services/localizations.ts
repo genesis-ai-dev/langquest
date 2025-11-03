@@ -4986,13 +4986,6 @@ export const localizations = {
     indonesian:
       'Akun Anda akan dipulihkan sepenuhnya. Semua data Anda akan dapat diakses lagi, dan Anda dapat melanjutkan menggunakan aplikasi secara normal.'
   },
-  backToLogin: {
-    english: 'Back to Login/Register',
-    spanish: 'Volver a Iniciar Sesión/Registrarse',
-    brazilian_portuguese: 'Voltar para Login/Registro',
-    tok_pisin: 'Go Bek long Login/Register',
-    indonesian: 'Kembali ke Login/Register'
-  },
   accountRestoreSuccess: {
     english: 'Your account has been successfully restored. Welcome back!',
     spanish: 'Tu cuenta ha sido restaurada exitosamente. ¡Bienvenido de nuevo!',

@@ -60,12 +60,16 @@ export default function AccountDeletionView() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // 3. Cleanup and reinitialize system before signing out
-      console.log('[AccountDeletionView] Cleaning up system before sign out...');
+      console.log(
+        '[AccountDeletionView] Cleaning up system before sign out...'
+      );
       setSystemReady(false);
       try {
         await system.cleanup();
         await resetDatabase();
-        console.log('[AccountDeletionView] System cleanup and database reset complete');
+        console.log(
+          '[AccountDeletionView] System cleanup and database reset complete'
+        );
       } catch (error) {
         console.error('[AccountDeletionView] Error during cleanup:', error);
       }
@@ -92,7 +96,10 @@ export default function AccountDeletionView() {
       console.error('Error deleting account:', error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      RNAlert.alert(t('error'), t('accountDeletionError', { error: errorMessage }));
+      RNAlert.alert(
+        t('error'),
+        t('accountDeletionError', { error: errorMessage })
+      );
     }
   });
 
@@ -105,10 +112,7 @@ export default function AccountDeletionView() {
   const handleDelete = () => {
     // Check current network status (not closure value)
     if (!getNetworkStatus()) {
-      RNAlert.alert(
-        t('error'),
-        t('accountDeletionRequiresOnline')
-      );
+      RNAlert.alert(t('error'), t('accountDeletionRequiresOnline'));
       return;
     }
 
@@ -141,7 +145,9 @@ export default function AccountDeletionView() {
               <Icon as={ChevronLeft} size={24} className="text-foreground" />
             </Button>
             <Text className="text-2xl font-bold text-foreground">
-              {step === 1 ? t('accountDeletionStep1Title') : t('accountDeletionStep2Title')}
+              {step === 1
+                ? t('accountDeletionStep1Title')
+                : t('accountDeletionStep2Title')}
             </Text>
           </View>
           <Button variant="ghost" size="icon" onPress={goToProjects}>
@@ -245,7 +251,11 @@ export default function AccountDeletionView() {
                 className="flex-1"
               >
                 {!isPending && (
-                  <Icon as={Trash2} size={20} className="mr-2 text-destructive-foreground" />
+                  <Icon
+                    as={Trash2}
+                    size={20}
+                    className="mr-2 text-destructive-foreground"
+                  />
                 )}
                 <Text className="text-destructive-foreground">
                   {t('deleteAccount')}
