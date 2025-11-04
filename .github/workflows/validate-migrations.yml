@@ -1,10 +1,7 @@
 name: Validate Migration History
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-    branches: ["ci"]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
