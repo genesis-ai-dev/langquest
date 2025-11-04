@@ -28,6 +28,7 @@ jobs:
     needs: [get_android_build]
     if: ${{ !needs.get_android_build.outputs.build_id }}
     type: build
+    environment: production
     params:
       platform: android
       profile: production
@@ -36,6 +37,7 @@ jobs:
     needs: [get_ios_build]
     if: ${{ !needs.get_ios_build.outputs.build_id }}
     type: build
+    environment: production
     params:
       platform: ios
       profile: production
@@ -56,6 +58,7 @@ jobs:
     needs: [get_android_build]
     if: ${{ needs.get_android_build.outputs.build_id }}
     type: update
+    environment: production
     params:
       branch: production
       platform: android
@@ -64,6 +67,7 @@ jobs:
     needs: [get_ios_build]
     if: ${{ needs.get_ios_build.outputs.build_id }}
     type: update
+    environment: production
     params:
       branch: production
       platform: ios

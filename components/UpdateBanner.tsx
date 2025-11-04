@@ -39,7 +39,7 @@ export function UpdateBanner() {
   };
 
   return (
-    <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
+    <View className="mt-safe flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
       <View className="flex-1 flex-row items-center gap-2">
         <Icon as={CloudDownload} size={20} className="text-primary" />
         <View className="flex-1">
