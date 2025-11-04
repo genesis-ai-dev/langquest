@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "1.3.2",
+  "version": "2.0.0",
   "scripts": {
     "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev",
