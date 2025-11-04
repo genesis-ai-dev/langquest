@@ -39,9 +39,6 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "npm"
 
-      - name: Install Supabase CLI
-        run: npm install -g supabase@latest
-
       - name: Get Database URL
         id: supabase-branch
         uses: 0xbigboss/supabase-branch-gh-action@v1
