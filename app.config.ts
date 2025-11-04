@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: 'LangQuest',
       slug: 'langquest',
-      version: '1.3.2',
+      version: '2.0.0',
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
@@ -33,6 +33,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         bundleIdentifier: uniqueIdentifier,
         config: {
           usesNonExemptEncryption: false
+        },
+        infoPlist: {
+          NSMicrophoneUsageDescription:
+            'LangQuest needs access to your microphone to record voice translations.'
         }
       },
       android: {
