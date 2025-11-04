@@ -39,12 +39,31 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
           wait-for-migrations: true
-          git-branch: "dev"
+
+      - name: Get Pooler URL
+        id: pooler-config
+        run: |
+          # Fetch pooler configuration from Supabase API
+          RESPONSE=$(curl -s -X GET \
+            "https://api.supabase.com/v1/projects/${{ steps.supabase-branch.outputs.project_ref }}/config/database/pooler" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json")
+
+          # Extract connection string from the first item in the array
+          CONNECTION_STRING=$(echo "$RESPONSE" | jq -r '.[0].connection_string')
+
+          echo "Connection String: $CONNECTION_STRING"
+
+          echo "connection_string<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONNECTION_STRING" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Setup PowerSync Environment
         run: |
-          # Construct database URL from branch info
-          DB_URL="postgresql://${{ steps.supabase-branch.outputs.db_user }}.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-1-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres"
+          # Get connection string and replace [YOUR-PASSWORD] with actual password, and port 6543 with 5432
+          CONNECTION_STRING="${{ steps.pooler-config.outputs.connection_string }}"
+          DB_PASSWORD="${{ steps.supabase-branch.outputs.db_pass }}"
+          DB_URL=$(echo "$CONNECTION_STRING" | sed "s|\[YOUR-PASSWORD\]|$DB_PASSWORD|g" | sed "s|:6543|:5432|g")
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
