@@ -1,135 +1,146 @@
-import React, { useMemo, useEffect } from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import '@/global.css';
+import { LogBox, Platform } from 'react-native';
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+
+import { AudioProvider } from '@/contexts/AudioContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import PostHogProvider from '@/contexts/PostHogProvider';
+import { system } from '@/db/powersync/system';
+import { QueryProvider } from '@/providers/QueryProvider';
+import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
+import { PowerSyncContext } from '@powersync/react';
+// Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
+import { UpdateBanner } from '@/components/UpdateBanner';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { ThemeProvider } from '@react-navigation/native';
+import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
-import { router, useRouter } from 'expo-router';
-import { LogBox } from 'react-native';
-
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ProjectProvider } from '@/contexts/ProjectContext';
+import { Stack } from 'expo-router';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useSystem } from '../db/powersync/system';
-import '../global.css';
-import { Drawer } from '@/components/Drawer';
-import { userService } from '@/database_services/userService';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-LogBox.ignoreAllLogs(); // Ignore log notifications in the app
+import { cssTokens } from '@/generated-tokens';
+import { toNavTheme } from '@/utils/styleUtils';
+import { DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 
-// Separate component that will be wrapped by AuthProvider
-function DeepLinkHandler() {
-  const router = useRouter();
-  const system = useSystem();
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel
+} from 'react-native-reanimated';
 
-  // Define the type for our hash parameters
-  type AuthParams = {
-    access_token?: string;
-    refresh_token?: string;
-    type?: string;
-    expires_at?: string;
-    expires_in?: string;
-    token_type?: string;
-  };
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false // Disables warnings with nativewind animations
+});
+
+LogBox.ignoreAllLogs(true);
+
+export const NAV_THEME = {
+  light: {
+    ...DefaultTheme,
+    colors: toNavTheme(cssTokens.light as Record<string, string>)
+  },
+  dark: {
+    ...DarkTheme,
+    colors: toNavTheme(cssTokens.dark as Record<string, string>)
+  }
+};
+
+export default function RootLayout() {
+  if (Platform.OS === 'web') {
+    // @ts-expect-error - globalThis._frameTimestamp is not defined
+    global._frameTimestamp = null;
+  }
+  const hasMounted = useRef(false);
+  const { colorScheme } = useColorScheme();
+  const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+    console.log('[_layout] Setting up deep link handler');
+
+    // Handle deep links
+    const handleUrl = (url: string) => {
+      console.log('[_layout] Received deep link:', url);
+      void handleAuthDeepLink(url);
+    };
+
+    // Set up deep link listener
     const subscription = Linking.addEventListener('url', (event) => {
-      handleDeepLink(event.url);
+      handleUrl(event.url);
     });
 
-    // Check for initial URL (app opened via link)
-    Linking.getInitialURL().then((url) => {
+    // Check for initial URL (app opened via deep link)
+    void Linking.getInitialURL().then((url) => {
       if (url) {
-        handleDeepLink(url);
+        console.log('[_layout] Initial URL:', url);
+        handleUrl(url);
       }
     });
 
     return () => {
+      console.log('[_layout] Cleaning up deep link listener');
       subscription.remove();
     };
   }, []);
 
-  const handleDeepLink = async (url: string) => {
-    console.log('[Deep Link] Received URL:', url);
-    if (url) {
-      // Split URL into base and hash parts
-      const [basePath, hashPart] = url.split('#');
+  console.log('[RootLayout] Rendering...');
 
-      // Parse the base URL
-      const { path, queryParams } = Linking.parse(basePath);
-
-      // Parse the hash fragment if it exists
-      let hashParams: AuthParams = {};
-      if (hashPart) {
-        const hashSearchParams = new URLSearchParams(hashPart);
-        hashParams = Object.fromEntries(
-          hashSearchParams.entries()
-        ) as AuthParams;
-      }
-
-      // Combine query params and hash params
-      const allParams: AuthParams = { ...queryParams, ...hashParams };
-
-      console.log('[Deep Link] Parsed:', {
-        path,
-        params: allParams
-      });
-
-      // Get the actual path without any params
-      const actualPath = (
-        path || basePath.split('://')[1]?.split('?')[0]
-      )?.split('#')[0];
-      console.log('[Deep Link] Actual path:', actualPath);
-
-      // Simply route to the appropriate screen based on the path
-      switch (actualPath) {
-        case 'reset-password':
-          console.log('[Deep Link] Routing to reset-password screen');
-          // Set the session with the tokens before navigating
-          if (allParams.access_token && allParams.refresh_token) {
-            try {
-              await system.supabaseConnector.client.auth.setSession({
-                access_token: allParams.access_token,
-                refresh_token: allParams.refresh_token
-              });
-            } catch (error) {
-              console.error('[Deep Link] Error setting session:', error);
-            }
-          }
-          router.replace('/reset-password');
-          break;
-
-        case 'projects':
-          router.push('/projects');
-          break;
-
-        case 'settings':
-          router.push('/settings');
-          break;
-
-        default:
-          console.log('[Deep Link] Unhandled path:', actualPath);
-          router.replace('/');
-      }
+  useIsomorphicLayoutEffect(() => {
+    if (hasMounted.current) {
+      return;
     }
-  };
 
-  return null;
-}
-
-export default function RootLayout() {
-  const system = useSystem();
-  const db = useMemo(() => {
-    return system.powersync;
+    if (Platform.OS === 'web') {
+      // Adds the background color to the html element to prevent white background on overscroll.
+      document.documentElement.classList.add('bg-background');
+    }
+    setIsColorSchemeLoaded(true);
+    hasMounted.current = true;
   }, []);
 
+  if (!isColorSchemeLoaded) {
+    return null;
+  }
+
+  const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  console.log('[RootLayout] scheme:', scheme);
+
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <DeepLinkHandler />
-            <Drawer />
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </ProjectProvider>
-    </AuthProvider>
+    <PowerSyncContext.Provider value={system.powersync}>
+      <PostHogProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <AudioProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <StatusBar style={systemBarsStyle} />
+                  {/* OTA Update Banner - shown before login and after */}
+                  <UpdateBanner />
+                  <BottomSheetModalProvider>
+                    <ThemeProvider value={NAV_THEME[scheme]}>
+                      <Stack screenOptions={{ headerShown: false }} />
+                      <PortalHost />
+                    </ThemeProvider>
+                  </BottomSheetModalProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </AudioProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </PostHogProvider>
+    </PowerSyncContext.Provider>
   );
 }
+
+const useIsomorphicLayoutEffect =
+  Platform.OS === 'web' && typeof window === 'undefined'
+    ? useEffect
+    : useLayoutEffect;

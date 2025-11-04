@@ -1,93 +1,123 @@
-import { languageService } from '@/database_services/languageService';
-import { language } from '@/db/drizzleSchema';
-import { useTranslation } from '@/hooks/useTranslation';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { language as languageTable } from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
+import { colors, spacing } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
+import { Ionicons } from '@expo/vector-icons';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq } from 'drizzle-orm';
+import {
+  memo,
+  default as React,
+  useCallback,
+  useEffect,
+  useState
+} from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface LanguageSelectProps {
+  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
-  onChange: (language: Language) => void;
+  onChange?: (language: Language) => void;
   label?: boolean;
   containerStyle?: object;
 }
 
-export const LanguageSelect: React.FC<LanguageSelectProps> = ({
-  value,
-  onChange,
-  label = true,
-  containerStyle
-}) => {
-  const [languages, setLanguages] = useState<Language[]>([]);
-  const [showLanguages, setShowLanguages] = useState(false);
-  const { t } = useTranslation();
+const LanguageSelect: React.FC<LanguageSelectProps> = memo(
+  ({ value, onChange, setLanguagesLoaded }) => {
+    const [showLanguages, setShowLanguages] = useState(false);
+    const setLanguage = useLocalStore((state) => state.setUILanguage);
+    const savedLanguage = useLocalStore((state) => state.uiLanguage);
+    const { t } = useLocalization();
 
-  // Load languages
-  useEffect(() => {
-    const loadLanguages = async () => {
-      try {
-        const loadedLanguages = await languageService.getUiReadyLanguages();
-        setLanguages(loadedLanguages);
+    // Use useHybridData directly
+    const { data: languages } = useHybridData<Language>({
+      dataType: 'languages',
+      queryKeyParams: ['ui-ready'],
 
-        // If no value is set, try to get saved language ID
-        if (!value) {
-          const savedLanguageId =
-            await AsyncStorage.getItem('selectedLanguageId');
-          const savedLanguage = loadedLanguages.find(
-            (l) => l.id === savedLanguageId
-          );
-          if (savedLanguage) {
-            onChange(savedLanguage);
-          } else if (loadedLanguages.length > 0) {
-            // Fallback to English or first language
-            const englishLang = loadedLanguages.find(
-              (l) =>
-                l.english_name?.toLowerCase() === 'english' ||
-                l.native_name?.toLowerCase() === 'english'
-            );
-            onChange(englishLang || loadedLanguages[0]);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading languages:', error);
-        Alert.alert('Error', t('failedLoadLanguages'));
+      // PowerSync query using Drizzle
+      offlineQuery: toCompilableQuery(
+        system.db.query.language.findMany({
+          where: and(
+            eq(languageTable.active, true),
+            eq(languageTable.ui_ready, true)
+          )
+        })
+      ),
+
+      // Cloud query
+      cloudQueryFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('language')
+          .select('*')
+          .eq('active', true)
+          .eq('ui_ready', true)
+          .overrideTypes<Language[]>();
+        if (error) throw error;
+        return data;
       }
-    };
-    loadLanguages();
-  }, []);
+    });
 
-  // Save language when it changes
-  useEffect(() => {
-    const saveLanguage = async () => {
-      try {
-        if (value) {
-          await AsyncStorage.setItem('selectedLanguageId', value);
-        }
-      } catch (error) {
-        console.error('Error saving language:', error);
+    useEffect(() => {
+      if (languages.length > 0) {
+        setLanguagesLoaded?.(true);
       }
-    };
-    saveLanguage();
-  }, [value]);
+    }, [languages, setLanguagesLoaded]);
 
-  return (
-    <CustomDropdown
-      value={languages.find((l) => l.id === value)?.native_name || ''}
-      options={languages
-        .filter((l) => l.native_name !== null)
-        .map((l) => l.native_name!)}
-      onSelect={(langName) => {
+    const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
+    const selectedLanguage =
+      languages.find((l) => l.id === value) ?? savedLanguage;
+
+    const handleSelect = useCallback(
+      (langName: string) => {
         const lang = languages.find((l) => l.native_name === langName);
-        if (lang) onChange(lang);
-      }}
-      isOpen={showLanguages}
-      onToggle={() => setShowLanguages(!showLanguages)}
-      search={true}
-      searchPlaceholder={t('search')}
-      fullWidth={true}
-    />
-  );
-};
+        if (lang) {
+          setLanguage(lang);
+          onChange?.(lang);
+        }
+      },
+      [languages, setLanguage, onChange]
+    );
+
+    const handleToggle = useCallback(() => {
+      setShowLanguages(!showLanguages);
+    }, [showLanguages]);
+
+    const renderLeftIcon = useCallback(
+      () => (
+        <Ionicons
+          name="language"
+          size={20}
+          color={colors.text}
+          style={{ marginRight: spacing.medium }}
+        />
+      ),
+      []
+    );
+
+    return (
+      <CustomDropdown
+        renderLeftIcon={renderLeftIcon}
+        value={
+          selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
+        }
+        options={languages
+          .filter((l) => l.native_name)
+          .map((l) => l.native_name!)}
+        onSelect={handleSelect}
+        isOpen={showLanguages}
+        onToggle={handleToggle}
+        search={true}
+        searchPlaceholder={t('search')}
+        fullWidth={true}
+      />
+    );
+  }
+);
+
+LanguageSelect.displayName = 'LanguageSelect';
+
+export { LanguageSelect };

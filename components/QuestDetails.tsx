@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { quest, tag } from '@/db/drizzleSchema';
-import { useRouter } from 'expo-router';
-import { Quest } from '@/database_services/questService';
-import { tagService } from '@/database_services/tagService';
-import { useProjectContext } from '@/contexts/ProjectContext';
-import { useTranslation } from '@/hooks/useTranslation';
+import type { Quest } from '@/database_services/questService';
+import { useTagsByQuestId } from '@/hooks/db/useTags';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface QuestDetailsProps {
@@ -17,22 +13,7 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
   quest,
   onClose
 }) => {
-  const [tags, setTags] = useState<(typeof tag.$inferSelect)[]>([]);
-  const { t } = useTranslation();
-  const { goToQuest } = useProjectContext();
-
-  useEffect(() => {
-    const loadTags = async () => {
-      const questTags = await tagService.getTagsByQuestId(quest.id);
-      setTags(questTags);
-    };
-    loadTags();
-  }, [quest.id]);
-
-  const handleStartQuest = () => {
-    goToQuest(quest);
-    onClose();
-  };
+  const { tags } = useTagsByQuestId(quest.id);
 
   return (
     <View style={styles.overlay}>
@@ -46,21 +27,16 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
 
         {tags.length > 0 && (
           <View style={styles.tagsContainer}>
-            {tags.map((tag, index) => {
-              const [category, value] = tag.name.split(':');
+            {tags.map((tag) => {
               return (
-                <View key={tag.id} style={styles.tagItem}>
-                  <Text style={styles.tagCategory}>{category}:</Text>
-                  <Text style={styles.tagValue}>{value}</Text>
+                <View key={tag.tag.id} style={styles.tagItem}>
+                  <Text style={styles.tagCategory}>{tag.tag.key}:</Text>
+                  <Text style={styles.tagValue}>{tag.tag.value}</Text>
                 </View>
               );
             })}
           </View>
         )}
-
-        <TouchableOpacity style={styles.startButton} onPress={handleStartQuest}>
-          <Text style={styles.startButtonText}>{t('startQuest')}</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

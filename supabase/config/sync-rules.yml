@@ -1,0 +1,74 @@
+bucket_definitions:
+  global_bucket:
+    data:
+      #   Sync all rows-- Select all data from User table
+      - SELECT * FROM "profile"
+      #   Sync all languages globally so they're available for project creation
+      - SELECT * FROM "language" WHERE active = true
+
+  user_profile:
+    parameters: SELECT request.user_id() AS profile_id
+    data:
+      #   - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
+      - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
+      - SELECT project_id || '_' || language_id as id, * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
+      - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
+      - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
+      - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
+      - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
+
+      - SELECT
+        *
+        FROM reports
+        WHERE "reports".reporter_id = bucket.profile_id
+
+      - SELECT
+        blocker_id || '_' || blocked_id as id,
+        *
+        FROM blocked_users
+        WHERE "blocked_users".blocker_id = bucket.profile_id
+
+      - SELECT
+        *
+        FROM blocked_content
+        WHERE "blocked_content".profile_id = bucket.profile_id
+
+      - SELECT * FROM notification
+        WHERE profile_id = bucket.profile_id
+
+      - SELECT * FROM subscription
+        WHERE profile_id = bucket.profile_id
+
+      - SELECT * FROM invite
+        WHERE sender_profile_id = bucket.profile_id
+        OR receiver_profile_id = bucket.profile_id
+
+      - SELECT * FROM request
+        WHERE sender_profile_id = bucket.profile_id
+
+  project_memberships:
+    parameters: |
+      SELECT project_id FROM profile_project_link
+      WHERE profile_id = request.user_id()
+        AND membership IS NOT NULL
+    data:
+      - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
+        WHERE project_id = bucket.project_id
+        AND membership IS NOT NULL
+
+      - SELECT * FROM invite
+        WHERE project_id = bucket.project_id
+
+  project_ownerships:
+    parameters: |
+      SELECT project_id FROM profile_project_link
+      WHERE profile_id = request.user_id()
+        AND membership = 'owner'
+    data:
+      - SELECT * FROM request
+        WHERE project_id = bucket.project_id

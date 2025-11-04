@@ -1,0 +1,22 @@
+---
+description: Guidelines to follow when writing new UI components
+alwaysApply: false
+---
+
+## Methodology
+
+Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/composition).
+
+## Icons
+
+When looking for a suitable icon, use the lucide-icons MCP.
+
+## Implementation Notes
+
+- Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.
+
+- Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap `gap-*`, and `flex-[row|col]`.
+
+- Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
+
+- **React 19**: Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.

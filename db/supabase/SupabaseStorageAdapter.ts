@@ -1,14 +1,25 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { decode as decodeBase64 } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
-import { StorageAdapter } from '@powersync/attachments';
 import { AppConfig } from '@/db/supabase/AppConfig';
+import {
+  base64ToArrayBuffer,
+  copyFile,
+  deleteIfExists,
+  ensureDir,
+  fileExists,
+  getDocumentDirectory,
+  readFile,
+  stringToArrayBuffer,
+  writeFile
+} from '@/utils/fileUtils';
+import type { StorageAdapter } from '@powersync/attachments';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface SupabaseStorageAdapterOptions {
   client: SupabaseClient;
 }
 
 export class SupabaseStorageAdapter implements StorageAdapter {
+  private readonly encoder = new TextEncoder();
+
   constructor(private options: SupabaseStorageAdapterOptions) {}
 
   async uploadFile(
@@ -24,11 +35,16 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
     const { mediaType = 'text/plain' } = options ?? {};
 
+    // Use upsert: true to overwrite existing files and avoid "resource already exists" errors
     const res = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
-      .upload(filename, data, { contentType: mediaType });
+      .upload(filename, data, {
+        contentType: mediaType,
+        upsert: true
+      });
 
     if (res.error) {
+      console.error('[STORAGE] Upload failed:', filename, res.error);
       throw res.error;
     }
   }
@@ -37,6 +53,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     if (!AppConfig.supabaseBucket) {
       throw new Error('Supabase bucket not configured in AppConfig.ts');
     }
+
     const { data, error } = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
       .download(filePath);
@@ -44,92 +61,90 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       throw error;
     }
 
-    return data as Blob;
+    return data;
   }
 
-  async writeFile(
+  writeFile(
     fileURI: string,
     base64Data: string,
     options?: {
-      encoding?: FileSystem.EncodingType;
+      encoding?: 'utf8' | 'base64';
     }
   ): Promise<void> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-    await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
+    return writeFile(fileURI, base64Data, options);
   }
+
   async readFile(
     fileURI: string,
-    options?: { encoding?: FileSystem.EncodingType; mediaType?: string }
+    options?: { encoding?: 'utf8' | 'base64'; mediaType?: string }
   ): Promise<ArrayBuffer> {
-    const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
+    const exists = await fileExists(fileURI);
+
     if (!exists) {
-      throw new Error(`File does not exist: ${fileURI}`);
+      console.error('[STORAGE] File does not exist for upload:', fileURI);
+      throw new Error(`File does not exist for upload: ${fileURI}`);
     }
-    const fileContent = await FileSystem.readAsStringAsync(fileURI, options);
-    if (encoding === FileSystem.EncodingType.Base64) {
-      return this.base64ToArrayBuffer(fileContent);
+
+    try {
+      const result = await readFile(fileURI, options);
+      return result;
+    } catch (error) {
+      console.error('[STORAGE] Error reading file for upload:', error);
+      throw error;
     }
-    return this.stringToArrayBuffer(fileContent);
   }
 
   async deleteFile(
     uri: string,
     options?: { filename?: string }
   ): Promise<void> {
-    if (await this.fileExists(uri)) {
-      await FileSystem.deleteAsync(uri);
-    }
+    await deleteIfExists(uri);
 
     const { filename } = options ?? {};
     if (!filename) {
       return;
     }
 
-    if (!AppConfig.supabaseBucket) {
-      throw new Error('Supabase bucket not configured in AppConfig.ts');
-    }
+    // if (!AppConfig.supabaseBucket) {
+    //   throw new Error('Supabase bucket not configured in AppConfig.ts');
+    // }
 
-    const { data, error } = await this.options.client.storage
-      .from(AppConfig.supabaseBucket)
-      .remove([filename]);
-    if (error) {
-      console.debug('Failed to delete file from Cloud Storage', error);
-      throw error;
-    }
+    // const { data, error } = await this.options.client.storage
+    //   .from(AppConfig.supabaseBucket)
+    //   .remove([filename]);
+    // if (error) {
+    //   console.debug('Failed to delete file from Cloud Storage', error);
+    //   throw error;
+    // }
 
-    console.debug('Deleted file from storage', data);
+    // console.debug('Deleted file from storage', data);
   }
 
-  async fileExists(fileURI: string): Promise<boolean> {
-    const { exists } = await FileSystem.getInfoAsync(fileURI);
-    return exists;
+  fileExists(fileURI: string): Promise<boolean> {
+    return fileExists(fileURI);
   }
 
-  async makeDir(uri: string): Promise<void> {
-    const { exists } = await FileSystem.getInfoAsync(uri);
-    if (!exists) {
-      await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
-    }
+  makeDir(uri: string): Promise<void> {
+    return ensureDir(uri);
   }
 
-  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
-    await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
+  copyFile(sourceUri: string, targetUri: string) {
+    return copyFile(sourceUri, targetUri);
   }
 
   getUserStorageDirectory(): string {
-    return FileSystem.documentDirectory!;
+    return getDocumentDirectory() ?? '';
   }
 
-  async stringToArrayBuffer(str: string) {
-    const encoder = new TextEncoder();
-    return encoder.encode(str).buffer as ArrayBuffer;
+  stringToArrayBuffer(str: string) {
+    return stringToArrayBuffer(str);
   }
 
   /**
    * Converts a base64 string to an ArrayBuffer
    */
-  async base64ToArrayBuffer(base64: string): Promise<ArrayBuffer> {
-    return decodeBase64(base64);
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async base64ToArrayBuffer(base64: string) {
+    return base64ToArrayBuffer(base64);
   }
 }

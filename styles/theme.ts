@@ -1,10 +1,11 @@
-import { StyleSheet } from 'react-native';
 import { adjustColor } from '@/utils/colorUtils';
+import { StyleSheet } from 'react-native';
 
 const themeColor = 'purple'; // Change this to 'green', 'yellow', or any other color
 
 const getColorHex = (color: string) => {
-  const colorMap: { [key: string]: string } = {
+  const colorMap: Record<string, string> = {
+    purpleDark: '#6545B6',
     purple: '#8B5CF6',
     green: '#4CAF50',
     yellow: '#FFEB3B',
@@ -26,6 +27,7 @@ const getColorHex = (color: string) => {
 
 export const colors = {
   primary: getColorHex(themeColor),
+  primaryDark: getColorHex(`${themeColor}Dark`),
   primaryLight: adjustColor(getColorHex(themeColor), 30),
   background: '#1E1E1E', // Dark background
   text: '#FFFFFF',
@@ -40,7 +42,12 @@ export const colors = {
   appTitle: adjustColor(getColorHex(themeColor), 130), // Lighten by 30%
   backgroundSecondary: 'rgba(255, 255, 255, 0.05)', // Slightly lighter than background
   accent: adjustColor(getColorHex(themeColor), 30),
-  error: '#FF0000'
+  error: '#FF0000',
+  disabled: '#999999',
+  inactive: '#777777',
+  success: '#16BFC6', // Green color for success state
+  alert: '#CA59E5', // purple color for alert state
+  downVoted: '#7f6138' // a light brown
 };
 
 export const fontSizes = {
@@ -73,7 +80,8 @@ export const sharedStyles = StyleSheet.create({
   container: {
     flex: 1,
     // backgroundColor: colors.background,
-    padding: spacing.large
+    padding: spacing.large,
+    gap: spacing.medium
   },
   appTitle: {
     fontSize: fontSizes.xxxlarge,
@@ -86,7 +94,6 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.xxlarge,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: spacing.medium,
     textAlign: 'center'
   },
   subtitle: {
@@ -101,7 +108,7 @@ export const sharedStyles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colors.inputBorder,
-    paddingVertical: spacing.medium,
+    paddingVertical: 12,
     paddingHorizontal: spacing.large,
     width: '100%',
     minHeight: 48,
@@ -133,6 +140,9 @@ export const sharedStyles = StyleSheet.create({
     fontSize: fontSizes.medium
   },
   card: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.small,
     backgroundColor: colors.inputBackground,
     borderRadius: borderRadius.medium,
     padding: spacing.medium,
@@ -141,8 +151,7 @@ export const sharedStyles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: fontSizes.large,
-    fontWeight: 'bold',
-    marginBottom: spacing.small
+    fontWeight: 'bold'
   },
   cardDescription: {
     color: colors.text,
@@ -159,9 +168,8 @@ export const sharedStyles = StyleSheet.create({
     marginRight: spacing.medium
   },
   cardLanguageText: {
-    color: colors.text,
-    fontSize: fontSizes.small,
-    marginTop: spacing.small
+    color: colors.textSecondary,
+    fontSize: fontSizes.small
   },
   iconBar: {
     flexDirection: 'row',
@@ -278,5 +286,12 @@ export const sharedStyles = StyleSheet.create({
     paddingVertical: spacing.xsmall,
     borderRadius: borderRadius.small,
     overflow: 'hidden'
+  },
+  invisible: {
+    opacity: 0.2
+  },
+  disabled: {
+    backgroundColor: colors.inactive,
+    opacity: 0.4
   }
 });

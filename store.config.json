@@ -1,0 +1,34 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "categories": ["EDUCATION", "REFERENCE"],
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "title": "LangQuest",
+        "subtitle": "Translate Scripture offline",
+        "description": "Built for the realities of field translation—LangQuest was born from a simple need: a reliable way to capture oral Bible translations and more, even in the most remote conditions.\n\nWhen laptops fail in heat or humidity 🥵💻, when internet is unreliable for months 📶❌, when the work is too important to lose 🛡️—LangQuest is there. It's designed to handle real-world conditions: offline-first 📡, resilient 💪, and simple to use on everyday mobile devices 📱.\n\n🗣️ Translate Easily\nCapture short, meaningful chunks of Scripture, stories, songs, or cultural content (even with images!)—using your own language, by voice or text.\n\n📖 Scripture First, Not Scripture Only\nLangQuest is already being used to translate the Bible, but it's built for more: traditional stories, oral histories, and educational materials.\n\n💬 Collaborate and Validate\nVote on translations, provide feedback, and reach consensus through your community. Every contribution matters.\n\n📡 Offline-First, Seamless Sync\nStore quests and projects locally. Work offline for weeks or months, then sync automatically when back online.\n\n🌍 Open, Public, and Purposeful\nYour contributions become part of a global open-access dataset—freely usable for language preservation, research, and AI training. No strings attached.\n\nWhether you're translating God's Word, preserving culture, or equipping your community for the future, LangQuest gives you the tools to do it—on your terms, even off the grid.\n\n🔗 Terms: langquest.org/terms\n🔒 Privacy: langquest.org/privacy",
+        "keywords": [
+          "Bible",
+          "Scripture",
+          "translate",
+          "offline",
+          "recording",
+          "voice",
+          "language",
+          "mission",
+          "story",
+          "community",
+          "oral",
+          "field"
+        ],
+        "marketingUrl": "https://langquest.org",
+        "privacyPolicyUrl": "https://langquest.org/privacy",
+        "privacyChoicesUrl": "https://langquest.org/account-deletion",
+        "supportUrl": "https://forms.gle/3XdNRMg5Dtj5eVdj9"
+      }
+    }
+  }
+}

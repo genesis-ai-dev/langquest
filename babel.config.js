@@ -2,9 +2,20 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: [
-      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
+      [
+        'babel-preset-expo',
+        {
+          jsxImportSource: 'nativewind',
+          reanimated: false,
+          unstable_transformImportMeta: true
+        }
+      ],
       'nativewind/babel'
     ],
-    plugins: [['inline-import', { extensions: ['.sql'] }]]
+    plugins: [
+      '@babel/plugin-transform-async-generator-functions',
+      '@babel/plugin-transform-export-namespace-from',
+      'react-native-worklets/plugin'
+    ]
   };
 };

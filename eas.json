@@ -1,39 +1,60 @@
 {
   "cli": {
     "version": ">= 12.5.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
       "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "cache": {
-          "key": "android-native-v1"
-        },
-        "developmentClient": true,
-        "gradleCommand": ":app:assembleRelease"
+      "channel": "development",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "development"
       },
-      "prebuildCommand": "npx expo prebuild --platform android --clean"
-    },
-    "preview2": {
-      "android": {
-        "gradleCommand": ":app:assembleRelease"
+      "developmentClient": true,
+      "ios": {
+        "simulator": true,
+        "distribution": "store"
       }
     },
-    "preview3": {
-      "developmentClient": true
-    },
-    "preview4": {
-      "distribution": "internal"
+    "preview": {
+      "autoIncrement": true,
+      "channel": "preview",
+      "environment": "preview",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "preview"
+      },
+      "ios": {
+        "distribution": "store"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production",
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
+        "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
     }
   },
-  "submit": {}
+  "submit": {
+    "preview": {
+      "ios": {
+        "ascAppId": "6752446665"
+      }
+    },
+    "production": {
+      "android": {
+        "track": "production"
+      },
+      "ios": {
+        "ascAppId": "6752446665"
+      }
+    }
+  }
 }

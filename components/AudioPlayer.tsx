@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Audio, AVPlaybackStatus } from 'expo-av';
-import Slider from '@react-native-community/slider';
+import { Slider } from '@/components/ui/slider';
+import { useAudio } from '@/contexts/AudioContext';
+import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Carousel from './Carousel';
-import { useTranslation } from '@/hooks/useTranslation';
 
 interface AudioFile {
   id: string;
@@ -15,39 +16,38 @@ interface AudioFile {
 
 interface AudioPlayerProps {
   audioFiles?: AudioFile[];
-  audioUri?: string;
+  audioSegments?: string[];
   useCarousel?: boolean;
   mini?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   audioFiles = [],
-  audioUri,
+  audioSegments,
   useCarousel = true,
   mini = false
 }) => {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
-  const [activeUri, setActiveUri] = useState<number | string | null>(null);
-  const { t } = useTranslation();
+  const { t } = useLocalization();
+  const {
+    playSound,
+    stopCurrentSound,
+    isPlaying,
+    currentAudioId,
+    position,
+    duration,
+    setPosition
+  } = useAudio();
 
   useEffect(() => {
-    return () => {
-      if (sound) sound.unloadAsync();
-    };
-  }, [sound]);
-
-  useEffect(() => {
-    const setupAudio = async () => {
+    const setupAudioMode = async () => {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true
       });
     };
-    setupAudio();
+
+    void setupAudioMode();
   }, []);
 
   const formatTime = (milliseconds: number) => {
@@ -57,96 +57,62 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setDuration(status.durationMillis || 0);
-      setPosition(status.positionMillis || 0);
-      setIsPlaying(status.isPlaying);
+  const handlePlayPause = async (uri: string, audioId: string) => {
+    const isThisAudioPlaying = isPlaying && currentAudioId === audioId;
 
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
-      }
-    }
-  };
-
-  const loadAndPlaySound = async (uri: string) => {
-    try {
-      // Unload previous sound if exists
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: uri },
-        { shouldPlay: true },
-        onPlaybackStatusUpdate
-      );
-
-      setSound(newSound);
-      setIsPlaying(true);
-      setActiveUri(uri);
-    } catch (error) {
-      console.error('Error loading sound:', error);
-    }
-  };
-
-  const handlePlayPause = async (uri: string) => {
-    if (!sound || uri !== activeUri) {
-      await loadAndPlaySound(uri);
+    if (isThisAudioPlaying) {
+      await stopCurrentSound();
     } else {
-      if (isPlaying) {
-        await sound.pauseAsync();
-      } else {
-        if (position >= duration) {
-          await sound.setPositionAsync(0);
-          setPosition(0);
-        }
-        await sound.playAsync();
-      }
+      await playSound(uri, audioId);
     }
   };
 
   const handleSliderChange = async (value: number) => {
-    if (sound) await sound.setPositionAsync(value);
+    await setPosition(value);
   };
 
-  const renderAudioItem = (item: AudioFile, index: number) => (
-    <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
-      <TouchableOpacity
-        style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-        onPress={() => handlePlayPause(item.uri)}
-      >
-        <Ionicons
-          name={isPlaying && activeUri === item.uri ? 'pause' : 'play'}
-          size={mini ? 24 : 48}
-          color={colors.text}
-        />
-      </TouchableOpacity>
-      {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
-      <View
-        style={[
-          styles.audioProgressContainer,
-          mini && styles.miniAudioProgressContainer
-        ]}
-      >
-        <Slider
-          style={styles.audioProgressBar}
-          minimumValue={0}
-          maximumValue={duration}
-          value={position}
-          onSlidingComplete={handleSliderChange}
-          minimumTrackTintColor={colors.primary}
-          maximumTrackTintColor={colors.inputBorder}
-          thumbTintColor={colors.primary}
-        />
-        <View style={styles.audioTimeContainer}>
-          <Text style={styles.audioTimeText}>{formatTime(position)}</Text>
-          <Text style={styles.audioTimeText}>{formatTime(duration)}</Text>
+  const renderAudioItem = (item: AudioFile) => {
+    const isThisAudioPlaying = isPlaying && currentAudioId === item.id;
+
+    return (
+      <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
+        <TouchableOpacity
+          style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
+          onPress={() => handlePlayPause(item.uri, item.id)}
+        >
+          <Ionicons
+            name={isThisAudioPlaying ? 'pause' : 'play'}
+            size={mini ? 24 : 48}
+            color={colors.text}
+          />
+        </TouchableOpacity>
+        {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
+        <View
+          style={[
+            styles.audioProgressContainer,
+            mini && styles.miniAudioProgressContainer
+          ]}
+        >
+          <Slider
+            style={styles.audioProgressBar}
+            max={duration || 100}
+            value={isThisAudioPlaying ? position : 0}
+            onValueChange={(value) => handleSliderChange(value[0]!)}
+          />
+          <View style={styles.audioTimeContainer}>
+            <Text style={styles.audioTimeText}>
+              {formatTime(isThisAudioPlaying ? position : 0)}
+            </Text>
+            {isThisAudioPlaying && (
+              <Text style={styles.audioTimeText}>
+                {formatTime(duration || 0)}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   if (useCarousel) {
     return (
@@ -154,25 +120,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         items={audioFiles}
         renderItem={renderAudioItem}
         onPageChange={async () => {
-          if (sound) {
-            await sound.unloadAsync();
-            setSound(null);
-            setIsPlaying(false);
-            setPosition(0);
-            setActiveUri(null);
-          }
+          await stopCurrentSound();
         }}
       />
     );
   }
 
-  const audioFilesOrSingle = audioUri
-    ? [{ id: 'single', title: t('recording'), uri: audioUri }]
+  const audioFilesOrSingle = audioSegments
+    ? [{ id: 'single', title: t('recording'), uri: audioSegments[0]! }]
     : audioFiles;
 
-  if (audioFilesOrSingle.length === 0) return null;
+  if (!audioFilesOrSingle[0]) return null;
 
-  return renderAudioItem(audioFilesOrSingle[0], 0);
+  return renderAudioItem(audioFilesOrSingle[0]);
 };
 
 const styles = StyleSheet.create({

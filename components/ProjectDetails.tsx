@@ -1,52 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import type { project } from '@/db/drizzleSchema';
+import {
+  language as languageTable,
+  project_language_link
+} from '@/db/drizzleSchema';
+import { system } from '@/db/powersync/system';
+import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
+import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSizes, spacing, borderRadius } from '@/styles/theme';
-import { project, language } from '@/db/drizzleSchema';
-import { languageService } from '@/database_services/languageService';
-import { useTranslation } from '@/hooks/useTranslation';
-
-// Match the type from projectService
-// type ProjectWithRelations = typeof project.$inferSelect & {
-//   source_language: typeof language.$inferSelect;
-//   target_language: typeof language.$inferSelect;
-// };
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq } from 'drizzle-orm';
+import { default as React } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Project = typeof project.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface ProjectDetailsProps {
   project: Project;
   onClose: () => void;
-  onExplore: () => void;
 }
 
 export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
-  onClose,
-  onExplore
+  onClose
 }) => {
-  const [sourceLanguage, setSourceLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
-  const [targetLanguage, setTargetLanguage] = useState<
-    typeof language.$inferSelect | null
-  >(null);
+  // Fetch project source languages from project_language_link and single target from project
+  const { data: sourceLanguages = [] } = useHybridData<
+    Pick<Language, 'id' | 'native_name' | 'english_name'>,
+    Language
+  >({
+    dataType: 'project-source-languages',
+    queryKeyParams: [project.id],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          id: languageTable.id,
+          native_name: languageTable.native_name,
+          english_name: languageTable.english_name
+        })
+        .from(project_language_link)
+        .innerJoin(
+          languageTable,
+          eq(project_language_link.language_id, languageTable.id)
+        )
+        .where(
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'source')
+          )
+        )
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('language:language_id(id, native_name, english_name)')
+        .eq('project_id', project.id)
+        .eq('language_type', 'source')
+        .overrideTypes<{ language: Language }[]>();
+      if (error) throw error;
+      return data.map((row) => row.language);
+    },
+    transformCloudData: (lang) => ({
+      id: lang.id,
+      native_name: lang.native_name,
+      english_name: lang.english_name
+    })
+  });
 
-  useEffect(() => {
-    const loadLanguages = async () => {
-      const source = await languageService.getLanguageById(
-        project.source_language_id
-      );
-      const target = await languageService.getLanguageById(
-        project.target_language_id
-      );
-      setSourceLanguage(source);
-      setTargetLanguage(target);
-    };
-    loadLanguages();
-  }, [project.source_language_id, project.target_language_id]);
+  const { data: targetLangArr = [] } = useHybridData<
+    Pick<Language, 'id' | 'native_name' | 'english_name'>,
+    Language
+  >({
+    dataType: 'project-target-language',
+    queryKeyParams: [project.target_language_id],
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        columns: { id: true, native_name: true, english_name: true },
+        where: eq(languageTable.id, project.target_language_id)
+      })
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('language')
+        .select('id, native_name, english_name')
+        .eq('id', project.target_language_id)
+        .overrideTypes<Language[]>();
+      if (error) throw error;
+      return data;
+    },
+    transformCloudData: (lang) => ({
+      id: lang.id,
+      native_name: lang.native_name,
+      english_name: lang.english_name
+    })
+  });
 
-  const { t } = useTranslation();
+  const targetLanguage = targetLangArr[0];
+
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.closeArea} onPress={onClose} />
@@ -56,8 +106,13 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            {sourceLanguage?.native_name || sourceLanguage?.english_name} →
-            {targetLanguage?.native_name || targetLanguage?.english_name}
+            {sourceLanguages.length
+              ? sourceLanguages
+                  .map((l) => l.native_name || l.english_name)
+                  .filter(Boolean)
+                  .join(', ')
+              : '—'}{' '}
+            → {targetLanguage?.native_name || targetLanguage?.english_name}
           </Text>
         </View>
 
@@ -71,10 +126,6 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
             <Text style={styles.infoText}>{project.description}</Text>
           </View>
         )}
-
-        <TouchableOpacity style={styles.exploreButton} onPress={onExplore}>
-          <Text style={styles.exploreButtonText}>{t('explore')}</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
