@@ -1,0 +1,175 @@
+name: Validate Migration History
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  wait-for-supabase-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Preview workflow to complete
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'Supabase Preview'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  validate-migrations:
+    needs: [wait-for-supabase-preview]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history to compare with main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          cache-dependency-path: '**/package-lock.json'
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase@latest
+
+      - name: Get Database URL
+        id: supabase-branch
+        uses: 0xbigboss/supabase-branch-gh-action@v1
+        with:
+          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+
+      - name: Get Migration History from Database
+        id: db-migrations
+        env:
+          DB_URL: postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres
+        run: |
+          # Get migration history from database
+          # The supabase_migrations.schema_migrations table stores applied migrations
+          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+
+          if [ -z "$DB_MIGRATIONS" ]; then
+            echo "⚠️  Could not query migration history from database"
+            echo "This might mean migrations haven't been applied yet, or the database is not accessible"
+            echo "db_migrations=" >> $GITHUB_OUTPUT
+          else
+            echo "$DB_MIGRATIONS" > db_migrations.txt
+            echo "✅ Retrieved migration history from database"
+            echo "db_migrations<<EOF" >> $GITHUB_OUTPUT
+            echo "$DB_MIGRATIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get Migration Files from Repository
+        id: repo-migrations
+        run: |
+          # Get list of migration files from supabase/migrations directory
+          # Format: timestamp_name.sql
+          REPO_MIGRATIONS=$(find supabase/migrations -name "*.sql" -type f -exec basename {} \; | sed 's/\.sql$//' | sort)
+
+          if [ -z "$REPO_MIGRATIONS" ]; then
+            echo "❌ No migration files found in supabase/migrations"
+            exit 1
+          fi
+
+          echo "$REPO_MIGRATIONS" > repo_migrations.txt
+          echo "✅ Found migration files in repository"
+          echo "repo_migrations<<EOF" >> $GITHUB_OUTPUT
+          echo "$REPO_MIGRATIONS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Compare Migration History
+        id: compare
+        run: |
+          # Install psql if not available
+          if ! command -v psql &> /dev/null; then
+            echo "Installing PostgreSQL client..."
+            sudo apt-get update && sudo apt-get install -y postgresql-client
+          fi
+
+          # Read migration lists
+          if [ -f db_migrations.txt ] && [ -f repo_migrations.txt ]; then
+            DB_MIGRATIONS=$(cat db_migrations.txt)
+            REPO_MIGRATIONS=$(cat repo_migrations.txt)
+            
+            echo "=== Migration History Comparison ==="
+            echo ""
+            echo "Migrations in database:"
+            echo "$DB_MIGRATIONS" | head -10
+            echo "..."
+            echo ""
+            echo "Migration files in repository:"
+            echo "$REPO_MIGRATIONS" | head -10
+            echo "..."
+            echo ""
+            
+            # Convert to arrays for comparison
+            # Note: DB format is "version_name", repo format is "timestamp_name"
+            # We need to extract just the name part for comparison, or normalize formats
+            
+            # Extract just the migration names (without timestamp/version)
+            DB_NAMES=$(echo "$DB_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort)
+            REPO_NAMES=$(echo "$REPO_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort)
+            
+            # Find migrations in DB but not in repo
+            MISSING_IN_REPO=$(comm -23 <(echo "$DB_NAMES") <(echo "$REPO_NAMES") || echo "")
+            
+            # Find migrations in repo but not in DB
+            MISSING_IN_DB=$(comm -13 <(echo "$DB_NAMES") <(echo "$REPO_NAMES") || echo "")
+            
+            if [ -n "$MISSING_IN_REPO" ]; then
+              echo "❌ CRITICAL: Migrations in database history but NOT in repository files:"
+              echo "$MISSING_IN_REPO"
+              echo ""
+              echo "This means migration files were deleted but the migration history remains."
+              echo "This will cause merge conflicts!"
+              echo "comparison_status=failed" >> $GITHUB_OUTPUT
+              echo "error_message=Migrations exist in database history but not in repository files" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            
+            if [ -n "$MISSING_IN_DB" ]; then
+              echo "⚠️  WARNING: Migration files exist in repository but not in database history:"
+              echo "$MISSING_IN_DB"
+              echo ""
+              echo "These migrations may not have been applied yet."
+              echo "comparison_status=warning" >> $GITHUB_OUTPUT
+            fi
+            
+            if [ -z "$MISSING_IN_REPO" ] && [ -z "$MISSING_IN_DB" ]; then
+              echo "✅ Migration history matches repository files!"
+              echo "comparison_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "comparison_status=warning" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️  Could not compare migrations - missing migration lists"
+            echo "comparison_status=skipped" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status != 'success'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            ## Migration History Validation
+
+            ${{ steps.compare.outputs.comparison_status == 'failed' && '❌ **FAILED**' || '⚠️ **WARNING**' }}
+
+            ${{ steps.compare.outputs.error_message || '' }}
+
+            ${{ steps.compare.outputs.comparison_status == 'failed' && 'This PR has migrations in the database history that do not exist in the migration files. This will cause merge conflicts when merging to main.' || '' }}
+
+            **Next steps:**
+            - Review the migration history comparison above
+            - Ensure all migrations in the database history have corresponding files in `supabase/migrations`
+            - If migrations were intentionally deleted, you may need to repair the migration history
+          comment-tag: migration-validation
