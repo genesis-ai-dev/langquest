@@ -2,7 +2,7 @@ name: Deploy Sync Rules
 
 on:
   push:
-    branches: ['main', 'dev']
+    branches: ["main", "dev"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.ref }}
-          check-name: 'Supabase Preview'
+          check-name: "Supabase Preview"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 

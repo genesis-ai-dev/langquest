@@ -1,47 +1,90 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /**
  * Main App View - Single route with state-driven navigation
  * Replaces the entire file-based routing structure
  */
 
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { Suspense, useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BackHandler,
+  InteractionManager,
+  StyleSheet,
+  View
+} from 'react-native';
 
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { colors } from '@/styles/theme';
 
-// View Components (to be created/migrated)
-import NotificationsView from '@/views/NotificationsView';
-import ProfileView from '@/views/ProfileView';
-// import ProjectsView from '@/views/ProjectsView';
-// import QuestsView from '@/views/QuestsView';
-import SettingsView from '@/views/SettingsView';
-import NextGenAssetDetailView from '@/views/new/NextGenAssetDetailView';
-import NextGenAssetsView from '@/views/new/NextGenAssetsView';
-import NextGenProjectsView from '@/views/new/NextGenProjectsView';
-import NextGenQuestsView from '@/views/new/NextGenQuestsView';
+// Lazy-load view components for instant navigation transitions
+// This prevents blocking the main thread with bundle loading
+const NotificationsView = React.lazy(() => import('@/views/NotificationsView'));
+const ProfileView = React.lazy(() => import('@/views/ProfileView'));
+const SettingsView = React.lazy(() => import('@/views/SettingsView'));
+const CorruptedAttachmentsView = React.lazy(
+  () => import('@/views/CorruptedAttachmentsView')
+);
+const AccountDeletionView = React.lazy(
+  () => import('@/views/AccountDeletionView')
+);
+const NextGenAssetDetailView = React.lazy(
+  () => import('@/views/new/NextGenAssetDetailView')
+);
+const NextGenAssetsView = React.lazy(
+  () => import('@/views/new/NextGenAssetsView')
+);
+const NextGenProjectsView = React.lazy(
+  () => import('@/views/new/NextGenProjectsView')
+);
+const ProjectDirectoryView = React.lazy(
+  () => import('@/views/new/ProjectDirectoryView')
+);
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import LoadingView from '@/components/LoadingView';
-import AssetDetailView from './AssetDetailView';
-import AssetsView from './AssetsView';
-import ProjectsView from './ProjectsView';
-import QuestsView from './QuestsView';
+import {
+  CloudLoadingProvider,
+  useCloudLoading
+} from '@/contexts/CloudLoadingContext';
+import { StatusProvider } from '@/contexts/StatusContext';
 
-export default function AppView() {
+// DEV ONLY: Debug controls for testing OTA updates
+// To test OTA updates in development, uncomment the next line:
+// import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
+
+function AppViewContent() {
   const { currentView, canGoBack, goBack } = useAppNavigation();
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
+  const [deferredView, setDeferredView] = useState(currentView);
+  const { isCloudLoading } = useCloudLoading();
+
+  // Track if navigation is in progress
+  const isNavigating = currentView !== deferredView;
+
+  // Defer view changes until after animations complete
+  // This ensures instant navigation transitions
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      setDeferredView(currentView);
+    });
+
+    return () => task.cancel();
+  }, [currentView]);
 
   // Handle hardware back button and back gestures
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
+        // If drawer is open, close it first
+        if (drawerIsVisible) {
+          setDrawerIsVisible(false);
+          return true; // Prevent default behavior (exit app)
+        }
+        // Disable back button while navigation is in progress
+        if (isNavigating) {
+          return true; // Prevent default behavior (exit app)
+        }
+        // Otherwise, handle navigation
         if (canGoBack) {
           goBack();
           return true; // Prevent default behavior (exit app)
@@ -51,99 +94,80 @@ export default function AppView() {
     );
 
     return () => backHandler.remove();
-  }, [canGoBack, goBack]);
+  }, [canGoBack, goBack, drawerIsVisible, setDrawerIsVisible, isNavigating]);
 
-  const SHOULD_USE_NEXT_GEN_VIEWS = true;
+  // Use deferred view for rendering to prevent blocking navigation transitions
   const renderCurrentView = () => {
-    switch (currentView) {
+    switch (deferredView) {
       case 'projects':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenProjectsView />
-        ) : (
-          <ProjectsView />
-        );
+        return <NextGenProjectsView />;
       case 'quests':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenQuestsView />
-        ) : (
-          <QuestsView />
-        );
+        return <ProjectDirectoryView />;
       case 'assets':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetsView />
-        ) : (
-          <AssetsView />
-        );
+        return <NextGenAssetsView />;
       case 'asset-detail':
-        return SHOULD_USE_NEXT_GEN_VIEWS ? (
-          <NextGenAssetDetailView />
-        ) : (
-          <AssetDetailView />
-        );
+        return <NextGenAssetDetailView />;
       case 'profile':
         return <ProfileView />;
       case 'notifications':
         return <NotificationsView />;
       case 'settings':
         return <SettingsView />;
+      case 'corrupted-attachments':
+        return <CorruptedAttachmentsView />;
+      case 'account-deletion':
+        return <AccountDeletionView />;
       default:
         return <NextGenProjectsView />;
     }
   };
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.container}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          style={styles.gradient}
-        >
-          <SafeAreaView
-            style={styles.safeArea}
-            edges={['left', 'right']} // Remove 'top' to let gradient fill status bar
-          >
-            <View style={styles.appContainer}>
-              {/* Drawer Navigation */}
-              <AppDrawer
-                drawerIsVisible={drawerIsVisible}
-                setDrawerIsVisible={setDrawerIsVisible}
-              />
+    <View style={styles.appContainer}>
+      {/* Main Content Area */}
+      <View style={styles.contentContainer}>
+        {/* App Header */}
+        <AppHeader
+          drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+          isCloudLoading={isCloudLoading}
+          isNavigating={isNavigating}
+        />
 
-              {/* Main Content Area */}
-              <View style={styles.contentContainer}>
-                {/* App Header */}
-                <AppHeader
-                  drawerToggleCallback={() =>
-                    setDrawerIsVisible(!drawerIsVisible)
-                  }
-                />
+        {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
+        {/* <OTAUpdateDebugControls /> */}
 
-                {/* Current View */}
-                <Suspense fallback={<LoadingView />}>
-                  {renderCurrentView()}
-                </Suspense>
-              </View>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+        {/* Current View */}
+        <Suspense fallback={<LoadingView />}>
+          {renderCurrentView()}
+
+          {/* We need to render the drawer in the suspense otherwise the drawer will not size properly, you'll be stuck with the handle on the top but no content */}
+          {/* Drawer Navigation - Rendered last to appear on top */}
+          <AppDrawer
+            drawerIsVisible={drawerIsVisible}
+            setDrawerIsVisible={setDrawerIsVisible}
+          />
+        </Suspense>
+      </View>
+    </View>
+  );
+}
+
+export default function AppView() {
+  return (
+    <StatusProvider>
+      <CloudLoadingProvider>
+        <AppViewContent />
+      </CloudLoadingProvider>
+    </StatusProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
   gradient: {
     flex: 1
   },
-  safeArea: {
-    flex: 1
-  },
   appContainer: {
-    flex: 1,
-    flexDirection: 'row'
+    flex: 1
   },
   contentContainer: {
     flex: 1

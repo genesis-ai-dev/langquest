@@ -1,3 +1,4 @@
+import { resolveTable } from '@/utils/dbUtils';
 import { and, eq } from 'drizzle-orm';
 import { blocked_content, blocked_users } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
@@ -24,7 +25,7 @@ export class BlockService {
     }
 
     // With composite primary key, returning the inserted record directly
-    await db.insert(blocked_users).values({
+    await db.insert(resolveTable('blocked_users')).values({
       ...data,
       id: `${data.blocker_id}_${data.blocked_id}`
     });
@@ -48,7 +49,7 @@ export class BlockService {
 
     // Insert the data and return with generated ID
 
-    await db.insert(blocked_content).values(data);
+    await db.insert(resolveTable('blocked_content')).values(data);
 
     return data;
   }

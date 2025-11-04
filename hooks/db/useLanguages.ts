@@ -1,24 +1,33 @@
 import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq } from 'drizzle-orm';
-import { useHybridQuery } from '../useHybridQuery';
+import { eq } from 'drizzle-orm';
 
 export type Language = InferSelectModel<typeof language>;
 
 export function useUIReadyLanguages() {
-  const { db, supabaseConnector } = system;
-
   // Main query using hybrid realtime query
   const {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['languages'],
-    onlineFn: async () => {
-      const { data, error } = await supabaseConnector.client
+  } = useHybridData({
+    dataType: 'languages',
+    queryKeyParams: ['ui-ready'],
+
+    // PowerSync query using Drizzle
+    offlineQuery: toCompilableQuery(
+      system.db.query.language.findMany({
+        where: (languageTable, { eq, and }) =>
+          and(eq(languageTable.active, true), eq(languageTable.ui_ready, true))
+      })
+    ),
+
+    // Cloud query
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
         .from('language')
         .select('*')
         .eq('active', true)
@@ -26,12 +35,7 @@ export function useUIReadyLanguages() {
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: and(eq(language.active, true), eq(language.ui_ready, true))
-      })
-    )
+    }
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -50,9 +54,15 @@ export function useLanguages() {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['languages'],
-    onlineFn: async () => {
+  } = useHybridData({
+    dataType: 'languages',
+    queryKeyParams: [],
+    offlineQuery: toCompilableQuery(
+      db.query.language.findMany({
+        where: eq(language.active, true)
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
@@ -60,12 +70,7 @@ export function useLanguages() {
         .overrideTypes<Language[]>();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.active, true)
-      })
-    )
+    }
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -77,14 +82,23 @@ export function useLanguageNames(languageIds: string[] | string) {
   const languageIdsArray = Array.isArray(languageIds)
     ? languageIds
     : [languageIds];
-  // Main query using hybrid realtime query
+
+  // Main query using hybrid data
   const {
     data: languages,
     isLoading: isLanguagesLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['languages'],
-    onlineFn: async () => {
+  } = useHybridData({
+    dataType: 'language-names',
+    queryKeyParams: [languageIdsArray.join(',')],
+    offlineQuery: toCompilableQuery(
+      db.query.language.findMany({
+        columns: { id: true, native_name: true, english_name: true },
+        where: (fields, { eq, inArray, and }) =>
+          and(eq(fields.active, true), inArray(fields.id, languageIdsArray))
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('id, native_name, english_name')
@@ -95,14 +109,7 @@ export function useLanguageNames(languageIds: string[] | string) {
         >();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        columns: { id: true, native_name: true, english_name: true },
-        where: (fields, { eq, inArray }) =>
-          and(eq(fields.active, true), inArray(fields.id, languageIdsArray))
-      })
-    )
+    }
   });
 
   return { languages, isLanguagesLoading, ...rest };
@@ -119,10 +126,15 @@ export function useLanguageById(language_id?: string) {
     data: languageArray,
     isLoading: isLanguageLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['language', language_id],
-    enabled: !!language_id,
-    onlineFn: async () => {
+  } = useHybridData({
+    dataType: 'language-by-id',
+    queryKeyParams: [language_id || ''],
+    offlineQuery: toCompilableQuery(
+      db.query.language.findMany({
+        where: eq(language.id, language_id!)
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('language')
         .select('*')
@@ -131,14 +143,11 @@ export function useLanguageById(language_id?: string) {
       if (error) throw error;
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.language.findMany({
-        where: eq(language.id, language_id!)
-      })
-    )
+    enableCloudQuery: !!language_id,
+    enableOfflineQuery: !!language_id
   });
 
-  const language_result = languageArray?.[0] || null;
+  const language_result = languageArray[0] || null;
 
   return { language: language_result, isLanguageLoading, ...rest };
 }

@@ -17,12 +17,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: 'LangQuest',
       slug: 'langquest',
-      version: '1.3.1',
+      version: '1.3.2',
       orientation: 'portrait',
       icon: iconPath,
       scheme: 'langquest',
-      userInterfaceStyle: 'automatic',
-      newArchEnabled: true,
+      userInterfaceStyle: 'dark',
       splash: {
         image: './assets/images/icon.png',
         resizeMode: 'contain',
@@ -37,6 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         }
       },
       android: {
+        edgeToEdgeEnabled: true,
         adaptiveIcon: {
           foregroundImage: iconPath,
           backgroundColor: '#ffffff'
@@ -63,30 +63,13 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       web: {
         bundler: 'metro',
-        output: 'static',
         favicon: iconPath
       },
       plugins: [
-        [
-          'expo-build-properties',
-          {
-            android: {
-              compileSdkVersion: 35,
-              targetSdkVersion: 35,
-              buildToolsVersion: '35.0.0'
-            }
-          }
-        ],
         'expo-font',
         'expo-router',
-        // migrate existing localization to expo-localization
+        // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        [
-          'expo-screen-orientation',
-          {
-            initialOrientation: 'PORTRAIT_UP'
-          }
-        ],
         [
           'expo-splash-screen',
           {
@@ -94,10 +77,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             resizeMode: 'contain',
             backgroundColor: '#ffffff'
           }
-        ]
+        ],
+        ['testflight-dev-deploy', { enabled: profile === 'development' }]
       ],
       experiments: {
-        typedRoutes: true
+        typedRoutes: true,
+        reactCompiler: true
       },
       extra: {
         supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

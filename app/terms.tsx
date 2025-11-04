@@ -1,19 +1,18 @@
-import { LanguageSelect } from '@/components/LanguageSelect';
+import { LanguageSelect } from '@/components/language-select';
+import { Button, buttonTextVariants } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@/components/ui/icon';
+import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { cn } from '@/utils/styleUtils';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { memo, useCallback, useState } from 'react';
-import {
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { XIcon } from 'lucide-react-native';
+import React, { useCallback, useState } from 'react';
+import { Linking, Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 function Terms() {
   const router = useRouter();
@@ -25,7 +24,7 @@ function Terms() {
   const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
     acceptTerms();
-    router.navigate('/app');
+    router.navigate('/');
   }, [acceptTerms, router]);
 
   const handleToggleTerms = useCallback(() => {
@@ -36,7 +35,7 @@ function Terms() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/app');
+      router.replace('/');
     }
   }, [router]);
 
@@ -58,170 +57,78 @@ function Terms() {
   }, [languagesLoaded]);
 
   return (
-    <View style={styles.modalContainer} onLayout={onLayoutView}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>{t('termsAndPrivacyTitle')}</Text>
+    <View
+      // className="my-safe flex-col items-center gap-4 p-4"
+      className="py-safe flex flex-1 flex-col gap-4 bg-background px-4"
+      onLayout={onLayoutView}
+    >
+      <View className="w-full flex-row items-center justify-between bg-background">
+        <Text variant="h4">{t('termsAndPrivacyTitle')}</Text>
         {!canAcceptTerms && (
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={handleClosePress}
-          >
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <Button size="icon" variant="ghost" onPress={handleClosePress}>
+            <Icon as={XIcon} />
+          </Button>
         )}
       </View>
 
       {/* Language Selector */}
-      <View style={styles.languageSelector}>
-        <LanguageSelect
-          setLanguagesLoaded={setLanguagesLoaded}
-          containerStyle={{ flex: 1 }}
-        />
+      <View className="w-full gap-2.5">
+        <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} uiReadyOnly />
       </View>
 
-      <ScrollView
-        style={styles.modalBody}
-        contentContainerStyle={styles.modalBodyContent}
-      >
-        <Text style={styles.modalText}>{t('termsContributionInfo')}</Text>
-        <Text style={styles.modalText}>{t('termsDataInfo')}</Text>
-        <Text style={styles.modalText}>{t('analyticsInfo')}</Text>
-        <TouchableOpacity
-          onPress={handleViewTerms}
-          style={{ marginTop: spacing.medium }}
-        >
-          <Text style={[sharedStyles.link, styles.linkText]}>
-            {t('viewFullTerms')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleViewPrivacy}
-          style={{ marginTop: spacing.medium }}
-        >
-          <Text style={[sharedStyles.link, styles.linkText]}>
-            {t('viewFullPrivacy')}
-          </Text>
-        </TouchableOpacity>
+      <ScrollView contentContainerClassName="flex flex-col gap-4">
+        <Text variant="p">{t('termsContributionInfo')}</Text>
+        <Text variant="p">{t('termsDataInfo')}</Text>
+        <Text variant="p">{t('analyticsInfo')}</Text>
+        <View className="flex flex-col gap-2">
+          <Pressable onPress={handleViewTerms}>
+            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
+              {t('viewFullTerms')}
+            </Text>
+          </Pressable>
+          <Pressable onPress={handleViewPrivacy}>
+            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
+              {t('viewFullPrivacy')}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {canAcceptTerms && (
-        <>
-          <View style={styles.termsCheckbox}>
-            <TouchableOpacity
-              onPress={handleToggleTerms}
-              style={styles.checkboxContainer}
+        <View className="flex flex-col gap-2">
+          <Pressable
+            className={cn(
+              'flex w-full flex-row items-center gap-3 rounded-lg border border-primary bg-primary/5 px-4 py-3',
+              termsAccepted ? 'border-primary bg-primary/10' : 'border-border'
+            )}
+            onPress={handleToggleTerms}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+            accessibilityLabel={t('agreeToTerms')}
+          >
+            <Checkbox
+              checked={termsAccepted}
+              onCheckedChange={handleToggleTerms}
+              className="scale-125 border-primary"
+              indicatorClassName="bg-primary"
+              iconClassName="text-primary-foreground"
+            />
+            <Label
+              className={cn(
+                'flex-1 text-base font-semibold',
+                termsAccepted ? 'text-primary' : 'text-foreground'
+              )}
             >
-              <Ionicons
-                name={termsAccepted ? 'checkbox' : 'square-outline'}
-                size={24}
-                color={colors.text}
-                style={styles.checkboxIcon}
-              />
-              <Text style={styles.checkboxText}>{t('agreeToTerms')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={[
-                sharedStyles.button,
-                { flex: 1 },
-                !termsAccepted && styles.disabledButton
-              ]}
-              onPress={handleAcceptTerms}
-              disabled={!termsAccepted}
-            >
-              <Text style={sharedStyles.buttonText}>{t('accept')}</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+              {t('agreeToTerms')}
+            </Label>
+          </Pressable>
+          <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
+            <Text>{t('accept')}</Text>
+          </Button>
+        </View>
       )}
     </View>
   );
 }
 
-export default memo(Terms);
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: colors.background || 'white',
-    padding: spacing.medium,
-    paddingTop: spacing.xxxlarge
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 15
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    flex: 1
-  },
-  modalVersion: {
-    fontSize: 14,
-    color: colors.textSecondary
-  },
-  languageSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 15,
-    gap: 10
-  },
-  languageLabel: {
-    fontSize: 16,
-    color: colors.text
-  },
-  modalBody: {
-    flex: 1
-  },
-  modalBodyContent: {
-    padding: 10
-  },
-  modalText: {
-    color: colors.text,
-    marginBottom: 15,
-    fontSize: 16,
-    lineHeight: 24
-  },
-  linkText: {
-    fontSize: 16
-  },
-  termsCheckbox: {
-    width: '100%',
-    marginVertical: 20,
-    paddingHorizontal: 10
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  checkboxIcon: {
-    marginRight: 10
-  },
-  checkboxText: {
-    color: colors.text,
-    fontSize: 16,
-    flex: 1,
-    flexWrap: 'wrap'
-  },
-  closeButton: {
-    padding: 8
-  },
-  modalFooter: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingBottom: 20
-  },
-  disabledButton: {
-    opacity: 0.5
-  }
-});
+export default Terms;

@@ -1,12 +1,12 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { deleteIfExists } from '@/utils/fileUtils';
 import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
 import type { RecordingOptions } from 'expo-av/build/Audio';
-import * as FileSystem from 'expo-file-system';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -69,10 +69,35 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   );
   const warningThreshold = maxDuration * 0.85; // Warning at 85% of max duration
 
+  const stopRecording = useCallback(async () => {
+    if (!recording) return;
+
+    try {
+      await recording.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false
+      });
+
+      const uri = recording.getURI();
+      if (recordingUri) {
+        await deleteIfExists(recordingUri);
+        console.log('Deleted previous recording attempt', recordingUri);
+      }
+      console.log('Recording stopped and stored at', uri);
+      setRecordingUri(uri ?? null);
+      setRecording(null);
+      setIsRecording(false);
+      setIsRecordingPaused(false);
+      if (uri) onRecordingComplete(uri);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+    }
+  }, [recording, recordingUri, onRecordingComplete]);
+
   useEffect(() => {
     return () => {
       const cleanup = async () => {
-        if (sound) {
+        if (sound?._loaded) {
           await sound.stopAsync();
           await sound.unloadAsync();
           setSound(null);
@@ -82,7 +107,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       };
       void cleanup();
     };
-  }, [recording, sound]);
+  }, [recording, sound, stopRecording]);
 
   const startRecording = async () => {
     try {
@@ -145,31 +170,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     await recording.pauseAsync();
     setIsRecording(false);
     setIsRecordingPaused(true);
-  };
-
-  const stopRecording = async () => {
-    if (!recording) return;
-
-    try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false
-      });
-
-      const uri = recording.getURI();
-      if (recordingUri) {
-        await FileSystem.deleteAsync(recordingUri);
-        console.log('Deleting previous recording attempt', recordingUri);
-      }
-      console.log('Recording stopped and stored at', uri);
-      setRecordingUri(uri ?? null);
-      setRecording(null);
-      setIsRecording(false);
-      setIsRecordingPaused(false);
-      if (uri) onRecordingComplete(uri);
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
   };
 
   const playRecording = async () => {

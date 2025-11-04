@@ -1,6 +1,13 @@
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "tailwindCSS.classAttributes": ["class", "className", "headerClassName"],
+  "tailwindCSS.classAttributes": [
+    "class",
+    "className",
+    "headerClassName",
+    "indicatorClassName",
+    "containerClassName"
+  ],
+  "tailwindCSS.classFunctions": ["cva", "cx", "cn"],
   "workbench.editor.customLabels.patterns": {
     "*/*/**/index.{ts,js,vue,tsx,jsx}": "${dirname} - ${filename}.${extname}",
     "**/app/**/{page,layout,route}.{tsx,jsx,ts,js}": "${dirname} - ${filename}.${extname}"

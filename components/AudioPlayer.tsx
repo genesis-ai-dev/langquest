@@ -1,8 +1,8 @@
+import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,14 +16,14 @@ interface AudioFile {
 
 interface AudioPlayerProps {
   audioFiles?: AudioFile[];
-  audioUri?: string;
+  audioSegments?: string[];
   useCarousel?: boolean;
   mini?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   audioFiles = [],
-  audioUri,
+  audioSegments,
   useCarousel = true,
   mini = false
 }) => {
@@ -95,13 +95,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         >
           <Slider
             style={styles.audioProgressBar}
-            minimumValue={0}
-            maximumValue={duration || 100}
+            max={duration || 100}
             value={isThisAudioPlaying ? position : 0}
-            onSlidingComplete={handleSliderChange}
-            minimumTrackTintColor={colors.primary}
-            maximumTrackTintColor={colors.inputBorder}
-            thumbTintColor={colors.primary}
+            onValueChange={(value) => handleSliderChange(value[0]!)}
           />
           <View style={styles.audioTimeContainer}>
             <Text style={styles.audioTimeText}>
@@ -130,8 +126,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     );
   }
 
-  const audioFilesOrSingle = audioUri
-    ? [{ id: 'single', title: t('recording'), uri: audioUri }]
+  const audioFilesOrSingle = audioSegments
+    ? [{ id: 'single', title: t('recording'), uri: audioSegments[0]! }]
     : audioFiles;
 
   if (!audioFilesOrSingle[0]) return null;

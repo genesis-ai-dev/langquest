@@ -1,7 +1,10 @@
-import { asset, quest_asset_link } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateAssetStatus,
+  useAssetStatuses
+} from '@/database_services/status/asset';
+import { useQuestById } from '@/hooks/db/useQuests';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
@@ -12,9 +15,6 @@ import {
   spacing
 } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -32,7 +32,6 @@ interface AssetSettingsModalProps {
   isVisible: boolean;
   onClose: () => void;
   assetId: string;
-  questId: string;
 }
 
 type TStatusType = 'active' | 'visible';
@@ -40,67 +39,37 @@ type TStatusType = 'active' | 'visible';
 export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   isVisible,
   onClose,
-  assetId,
-  questId
+  assetId
 }) => {
   const { t } = useLocalization();
-  // TODO: add localization
-  const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAssetLoaded, setIsAssetLoaded] = useState(false);
+  // const [isAssetLoaded, setIsAssetLoaded] = useState(true);
 
-  const { currentProjectId } = useCurrentNavigation();
+  const { currentProjectId, currentQuestId } = useAppNavigation();
+
+  const { quest } = useQuestById(currentQuestId);
+  const questId = quest?.id || '';
 
   const { membership } = useUserPermissions(currentProjectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const queryClient = useQueryClient();
+  const layerStatus = useStatusContext();
 
-  const { data: assetDataArray = [], refetch: refetchAsset } = useHybridQuery({
-    queryKey: ['asset-settings', assetId],
-    onlineFn: async (): Promise<(typeof asset.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('asset')
-        .select('*')
-        .match({ id: assetId })
-        .limit(1);
-      if (error) throw error;
-      return data as (typeof asset.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset.findMany({
-        where: eq(asset.id, assetId)
-      })
-    )
-  });
+  const {
+    data: statusData,
+    isLoading,
+    isError,
+    refetch
+  } = useAssetStatuses(assetId, questId);
 
-  const { data: assetQuestDataArray = [], refetch: refetchAssetQuest } =
-    useHybridQuery({
-      queryKey: ['quest-asset-settings', questId + assetId],
-      onlineFn: async (): Promise<(typeof quest_asset_link.$inferSelect)[]> => {
-        const { data, error } = await supabaseConnector.client
-          .from('quest_asset_link')
-          .select('*')
-          .match({ quest_id: questId, asset_id: assetId })
-          .limit(1);
-        if (error) throw error;
-        return data as (typeof quest_asset_link.$inferSelect)[];
-      },
-      offlineQuery: toCompilableQuery(
-        db.query.quest_asset_link.findMany({
-          where:
-            (eq(quest_asset_link.quest_id, questId),
-            eq(quest_asset_link.asset_id, assetId))
-        })
-      )
-    });
-
-  const assetData = assetDataArray[0];
-  const assetQuestData = assetQuestDataArray[0];
-
-  if (assetData != undefined && assetQuestData != undefined && !isAssetLoaded) {
-    setIsAssetLoaded(true);
+  if (isError) {
+    Alert.alert(t('error'), t('assetSettingsLoadError'));
+    onClose();
+    return null;
   }
+
+  const assetData = statusData?.full;
+  const assetQuestData = statusData?.currentQuest;
 
   const handleToggleStatusGeneral = async (statusType: TStatusType) => {
     if (!assetData) return;
@@ -125,16 +94,27 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         }
       }
 
-      await supabaseConnector.client
-        .from('asset')
-        .update({
+      await updateAssetStatus(
+        'asset',
+        assetId,
+        { visible, active },
+        assetData.source,
+        questId
+      );
+      refetch('asset');
+
+      layerStatus.setLayerStatus(
+        LayerType.ASSET,
+        {
           visible,
           active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: assetId });
-
-      refetchAsset();
+          quest_active: assetQuestData?.active ?? true,
+          quest_visible: assetQuestData?.visible ?? true,
+          source: assetData.source
+        },
+        assetId,
+        questId
+      );
 
       const message =
         statusType === 'visible'
@@ -151,7 +131,6 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
-      removeCachedQueries();
     }
   };
 
@@ -178,16 +157,28 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         }
       }
 
-      await supabaseConnector.client
-        .from('quest_asset_link')
-        .update({
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ quest_id: questId, asset_id: assetId });
+      await updateAssetStatus(
+        'asset_quest',
+        assetId,
+        { visible, active },
+        assetQuestData.source,
+        questId
+      );
 
-      refetchAssetQuest();
+      refetch('asset_quest');
+
+      layerStatus.setLayerStatus(
+        LayerType.ASSET,
+        {
+          visible: assetData?.visible ?? true,
+          active: assetData?.active ?? true,
+          quest_active: active,
+          quest_visible: visible,
+          source: assetQuestData.source
+        },
+        assetId,
+        questId
+      );
 
       const message =
         statusType === 'visible'
@@ -204,37 +195,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
       Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
-      removeCachedQueries();
     }
   };
-
-  function removeCachedQueries() {
-    const allQueries = queryClient.getQueryCache().findAll();
-    const filtered: string[][] = [];
-    allQueries.map((query) => {
-      if (
-        query.queryKey.some(
-          (key) =>
-            typeof key === 'string' &&
-            (key.includes(assetId) || key.includes(questId))
-        ) &&
-        (query.queryKey[0] == 'asset' ||
-          query.queryKey[0] == 'assets' ||
-          query.queryKey[0] == 'asset-content' ||
-          query.queryKey[0] == 'translation' ||
-          query.queryKey[0] == 'quest' ||
-          query.queryKey[0] == 'quest-asset-link')
-      )
-        filtered.push(query.queryKey as string[]);
-    });
-
-    filtered.map((qKey) =>
-      queryClient.removeQueries({
-        queryKey: qKey,
-        exact: false
-      })
-    );
-  }
 
   return (
     <Modal
@@ -269,7 +231,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
                 }
                 value={assetData?.visible ?? false}
                 onChange={() => handleToggleStatusGeneral('visible')}
-                disabled={isSubmitting || !isAssetLoaded || !isOwner}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
 
               <SwitchBox
@@ -281,7 +243,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
                 }
                 value={assetData?.active ?? false}
                 onChange={() => handleToggleStatusGeneral('active')}
-                disabled={isSubmitting || !isAssetLoaded || !isOwner}
+                disabled={isSubmitting || isLoading || !isOwner}
               />
 
               <View style={{ height: 22 }} />
@@ -304,10 +266,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
                 value={assetQuestData?.visible ?? false}
                 onChange={() => handleToggleStatusQuest('visible')}
                 disabled={
-                  isSubmitting ||
-                  !isAssetLoaded ||
-                  !isOwner ||
-                  !assetData?.active
+                  isSubmitting || isLoading || !isOwner || !assetData?.active
                 }
               />
 
@@ -321,10 +280,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
                 value={assetQuestData?.active ?? false}
                 onChange={() => handleToggleStatusQuest('active')}
                 disabled={
-                  isSubmitting ||
-                  !isAssetLoaded ||
-                  !isOwner ||
-                  !assetData?.active
+                  isSubmitting || isLoading || !isOwner || !assetData?.active
                 }
               />
             </View>

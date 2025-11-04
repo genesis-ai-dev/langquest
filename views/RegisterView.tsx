@@ -1,53 +1,113 @@
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { PasswordInput } from '@/components/PasswordInput';
+import { LanguageSelect } from '@/components/language-select';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { safeNavigate } from '@/utils/sharedUtils';
+import { cn } from '@/utils/styleUtils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { Alert, Pressable, View } from 'react-native';
+import { z } from 'zod';
 
-interface RegisterFormData {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  username: string;
-  termsAccepted: boolean;
-}
+const { supabaseConnector } = system;
 
-const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-
-export default function RegisterView() {
-  const { supabaseConnector } = system;
+export default function RegisterView({
+  onNavigate,
+  sharedAuthInfo
+}: {
+  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
+  sharedAuthInfo?: SharedAuthInfo;
+}) {
   const { t } = useLocalization();
-  const currentLanguage = useLocalStore((state) => state.language);
+  const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const setAuthView = useLocalStore((state) => state.setAuthView);
-  const [isRegistering, setIsRegistering] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    formState: { errors }
-  } = useForm<RegisterFormData>({
+  const formSchema = z
+    .object({
+      email: z
+        .string()
+        .email(t('enterValidEmail'))
+        .nonempty(t('emailRequired'))
+        .toLowerCase()
+        .trim(),
+      password: z.string(t('passwordRequired')).min(6, t('passwordMinLength')),
+      confirmPassword: z.string(t('confirmPassword')),
+      username: z
+        .string(t('usernameRequired'))
+        .min(
+          3,
+          t('usernameRequired') || 'Username must be at least 3 characters'
+        ),
+      termsAccepted: z.boolean().refine((val) => val === true, {
+        message: t('termsRequired') || 'You must agree to the Terms and Privacy'
+      })
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: t('passwordsNoMatch') || 'Passwords do not match',
+      path: ['confirmPassword']
+    });
+
+  const { mutateAsync: register, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      const { error } = await supabaseConnector.client.auth.signUp({
+        email: data.email.toLowerCase().trim(),
+        password: data.password.trim(),
+        options: {
+          data: {
+            username: data.username.trim(),
+            terms_accepted: data.termsAccepted,
+            terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
+            ui_language:
+              currentLanguage?.english_name?.toLowerCase() || 'english',
+            ui_language_id: currentLanguage?.id,
+            email_verified: false
+          },
+          emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
+            process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
+              ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
+              : ''
+          }`
+        }
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      safeNavigate(() =>
+        onNavigate('sign-in', { email: form.getValues('email') })
+      );
+    },
+    onError: (error) => {
+      Alert.alert(
+        t('error') || 'Error',
+        error instanceof Error
+          ? error.message
+          : t('registrationFail') || 'Registration failed'
+      );
+    }
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    disabled: isPending,
     defaultValues: {
-      email: '',
+      email: sharedAuthInfo?.email || '',
       password: '',
       confirmPassword: '',
       username: '',
@@ -55,413 +115,160 @@ export default function RegisterView() {
     }
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
-    setIsRegistering(true);
-    try {
-      const {
-        data: { session },
-        error: sessionError
-      } = await supabaseConnector.client.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) {
-        const { error: anonError } =
-          await supabaseConnector.client.auth.signInAnonymously();
-        if (anonError) throw anonError;
-      }
-
-      if (!data.termsAccepted) {
-        Alert.alert(t('error'), t('termsRequired'));
-        return;
-      }
-
-      if (!data.email || !data.username) {
-        Alert.alert(t('error'), 'Required fields are missing');
-        return;
-      }
-
-      // Update the anonymous user with credentials
-      const { error: authError } =
-        await supabaseConnector.client.auth.updateUser({
-          email: data.email.trim(),
-          password: data.password.trim(),
-          data: {
-            username: data.username.trim(),
-            ui_language_id: currentLanguage?.id,
-            ui_language:
-              currentLanguage?.english_name?.toLowerCase() || 'english',
-            terms_accepted: data.termsAccepted,
-            terms_accepted_at: dateTermsAccepted
-          }
-        });
-
-      if (authError) {
-        throw authError;
-      }
-
-      console.log('User updated with terms acceptance in auth metadata');
-
-      // Email confirmation is required
-      Alert.alert(t('success'), t('checkEmail'), [
-        { text: 'OK', onPress: () => setAuthView('sign-in') }
-      ]);
-      return;
-    } catch (error) {
-      console.error('Error registering user:', error);
-      Alert.alert(
-        t('error'),
-        error instanceof Error ? error.message : t('registrationFail')
-      );
-    } finally {
-      setIsRegistering(false);
+  useEffect(() => {
+    if (sharedAuthInfo?.email) {
+      form.reset({
+        email: sharedAuthInfo.email
+      });
     }
-  };
+  }, [form, sharedAuthInfo?.email]);
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View
-              style={[
-                sharedStyles.container,
-                { backgroundColor: 'transparent', gap: spacing.medium }
-              ]}
-            >
-              <View style={{ alignItems: 'center', width: '100%' }}>
-                <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>
-                  {t('newUserRegistration')}
-                </Text>
-              </View>
-
-              {/* Language section */}
-              <View style={{ gap: spacing.medium, width: '100%' }}>
-                <LanguageSelect containerStyle={{ width: '100%' }} />
-              </View>
-
-              {/* Form section */}
-              <View
-                style={{
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: spacing.medium
-                }}
-              >
-                <Ionicons
-                  name="person-add-outline"
-                  size={32}
-                  color={colors.text}
+    <Form {...form}>
+      <View className="m-safe flex flex-col gap-4 p-6">
+        <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('newUserRegistration') || 'New User Registration'}</Text>
+        </View>
+        <LanguageSelect />
+        <FormField
+          control={form.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  mask
+                  prefix={UserIcon}
+                  prefixStyling={false}
+                  placeholder={t('username') || 'Username'}
                 />
-
-                <View style={{ gap: spacing.medium, width: '100%' }}>
-                  {/* Username field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="username"
-                      rules={{
-                        required: t('usernameRequired'),
-                        minLength: {
-                          value: 3,
-                          message: t('usernameRequired')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="person-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <TextInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('username')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                            accessibilityLabel="ph-no-capture"
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.username && (
-                      <Text style={styles.errorText}>
-                        {errors.username.message}
-                      </Text>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  mask
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  prefix={MailIcon}
+                  prefixStyling={false}
+                  placeholder={t('enterYourEmail') || 'Enter your email'}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
+                  prefix={LockIcon}
+                  prefixStyling={false}
+                  placeholder={t('password') || 'Password'}
+                  secureTextEntry
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
+                  prefix={LockIcon}
+                  prefixStyling={false}
+                  placeholder={t('confirmPassword') || 'Confirm Password'}
+                  secureTextEntry
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="termsAccepted"
+          render={({ field }) => {
+            const error = form.formState.errors.termsAccepted;
+            return (
+              <FormItem>
+                <FormControl>
+                  <Pressable
+                    onPress={() => field.onChange(!field.value)}
+                    className={cn(
+                      'flex flex-row items-center gap-2 rounded-lg border p-3',
+                      error
+                        ? 'border-destructive bg-destructive/10'
+                        : 'border-transparent'
                     )}
-                  </View>
-
-                  {/* Email field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="email"
-                      rules={{
-                        required: t('emailRequired'),
-                        pattern: {
-                          value: EMAIL_REGEX,
-                          message: t('emailRequired')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="mail-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <TextInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('enterYourEmail')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            accessibilityLabel="ph-no-capture"
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.email && (
-                      <Text style={styles.errorText}>
-                        {errors.email.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="password"
-                      rules={{
-                        required: t('passwordRequired'),
-                        minLength: {
-                          value: 6,
-                          message: t('passwordMinLength')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('password')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.password && (
-                      <Text style={styles.errorText}>
-                        {errors.password.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Confirm password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="confirmPassword"
-                      rules={{
-                        required: t('confirmPassword'),
-                        validate: (value) =>
-                          value === watch('password') || t('passwordsNoMatch')
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('confirmPassword')}
-                            placeholderTextColor={colors.text}
-                            value={value || ''}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.confirmPassword && (
-                      <Text style={styles.errorText}>
-                        {errors.confirmPassword.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Terms checkbox */}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: spacing.small
-                    }}
                   >
-                    <Controller
-                      control={control}
-                      name="termsAccepted"
-                      render={({ field: { onChange, value } }) => (
-                        <TouchableOpacity
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: spacing.small
-                          }}
-                          onPress={() => onChange(!value)}
-                        >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              value ? styles.checkboxChecked : null
-                            ]}
-                          >
-                            {value && (
-                              <Ionicons
-                                name="checkmark"
-                                size={16}
-                                color={colors.background}
-                              />
-                            )}
-                          </View>
-                          <Text style={{ color: colors.text, fontSize: 14 }}>
-                            {t('agreeToTerms')}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
                     />
-                  </View>
-
-                  {/* Submit button */}
-                  <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center'
-                      }
-                    ]}
-                    onPress={handleSubmit(onSubmit)}
-                    disabled={isRegistering}
-                  >
-                    {isRegistering ? (
-                      <ActivityIndicator color={colors.background} />
-                    ) : (
-                      <Text style={sharedStyles.buttonText}>
-                        {t('register')}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Sign in link */}
-                  <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                    <TouchableOpacity
-                      onPress={() => setAuthView('sign-in')}
-                      style={[
-                        {
-                          paddingVertical: spacing.small,
-                          paddingHorizontal: spacing.medium,
-                          borderWidth: 1,
-                          borderColor: colors.primary,
-                          borderRadius: 8,
-                          backgroundColor: 'transparent'
-                        }
-                      ]}
+                    <Text
+                      className={cn('text-sm', error && 'text-destructive')}
                     >
-                      <Text
-                        style={[sharedStyles.link, { textAlign: 'center' }]}
-                      >
-                        {t('returningHero')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+                      {t('agreeToTerms') || 'I accept the terms and conditions'}
+                    </Text>
+                  </Pressable>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
+        <View className="flex flex-col gap-2">
+          <Button
+            onPress={form.handleSubmit((data) => register(data))}
+            loading={isPending}
+          >
+            <Text>{t('register') || 'Register'}</Text>
+          </Button>
+          <Button
+            onPress={() =>
+              safeNavigate(() =>
+                onNavigate('sign-in', { email: form.watch('email') })
+              )
+            }
+            variant="outline"
+            className="border-border bg-input"
+            disabled={isPending}
+          >
+            <Text>
+              {t('returningHero') || 'Already have an account? Sign In'}
+            </Text>
+          </Button>
+        </View>
+      </View>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    alignSelf: 'flex-start'
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: colors.text,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary
-  }
-});

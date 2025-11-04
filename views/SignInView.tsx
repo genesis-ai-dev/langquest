@@ -1,284 +1,174 @@
-import { LanguageSelect } from '@/components/LanguageSelect';
-import { PasswordInput } from '@/components/PasswordInput';
+import { LanguageSelect } from '@/components/language-select';
+import { Button, buttonTextVariants } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useLocalStore } from '@/store/localStore';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
+import { safeNavigate } from '@/utils/sharedUtils';
+import { cn } from '@/utils/styleUtils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { LockIcon, MailIcon } from 'lucide-react-native';
+import { useForm } from 'react-hook-form';
+import { Alert, Pressable, View } from 'react-native';
+import { z } from 'zod';
 
-interface SignInFormData {
-  email: string;
-  password: string;
-}
+const { supabaseConnector } = system;
 
-const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-
-export default function SignInView() {
-  const { supabaseConnector } = system;
+export default function SignInView({
+  onNavigate,
+  sharedAuthInfo
+}: {
+  onNavigate: (
+    view: 'register' | 'forgot-password',
+    sharedAuthInfo?: SharedAuthInfo
+  ) => void;
+  sharedAuthInfo?: SharedAuthInfo;
+}) {
   const { t } = useLocalization();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors }
-  } = useForm<SignInFormData>({
-    defaultValues: {
-      email: '',
-      password: ''
+  const formSchema = z.object({
+    email: z
+      .email(t('enterValidEmail'))
+      .nonempty(t('emailRequired'))
+      .toLowerCase()
+      .trim(),
+    password: z.string(t('passwordRequired')).min(6, t('passwordMinLength'))
+  });
+
+  const { mutateAsync: login, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      await supabaseConnector.login(
+        data.email.toLowerCase().trim(),
+        data.password.trim()
+      );
+      router.replace('/');
+    },
+    onError: (error) => {
+      Alert.alert(
+        t('error') || 'Error',
+        error instanceof Error
+          ? error.message
+          : t('signInError') || 'Sign in failed',
+        [
+          { text: t('ok') || 'OK' },
+          {
+            text: t('newUser'),
+            onPress: () =>
+              safeNavigate(() =>
+                onNavigate('register', { email: form.getValues('email') })
+              )
+          }
+        ]
+      );
     }
   });
 
-  const onSubmit = async (data: SignInFormData) => {
-    try {
-      const { data: signInData, error: signInError } =
-        await supabaseConnector.client.auth.signInWithPassword({
-          email: data.email.toLowerCase().trim(),
-          password: data.password.trim()
-        });
-
-      if (signInError) {
-        throw signInError;
-      }
-
-      // Check if email is verified
-      if (!signInData.user.email_confirmed_at) {
-        Alert.alert(t('verificationRequired'), t('accountNotVerified'), [
-          { text: 'OK' }
-        ]);
-        return;
-      }
-
-      // Email is verified, proceed with login
-      reset();
-      // Navigation will be handled automatically by app.tsx when user is authenticated
-    } catch (error) {
-      console.error('Error during sign in:', error);
-
-      Alert.alert(t('error'), t('signInError'), [
-        {
-          text: t('ok')
-        },
-        {
-          text: t('newUser'),
-          onPress: () => setAuthView('register')
-        }
-      ]);
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    disabled: isPending,
+    defaultValues: {
+      email: sharedAuthInfo?.email
     }
-  };
+  });
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
+    <Form {...form}>
+      <View className="m-safe flex flex-col gap-4 p-6">
+        <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('welcome')}</Text>
+        </View>
+        <LanguageSelect uiReadyOnly />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  mask
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  prefix={MailIcon}
+                  prefixStyling={false}
+                  placeholder={t('enterYourEmail')}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
+                  prefix={LockIcon}
+                  prefixStyling={false}
+                  placeholder={t('enterYourPassword')}
+                  secureTextEntry
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Pressable
+          onPress={() =>
+            safeNavigate(() =>
+              onNavigate('forgot-password', { email: form.watch('email') })
+            )
+          }
         >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+          <Text
+            className={cn(buttonTextVariants({ variant: 'link' }), 'text-left')}
           >
-            <View
-              style={[
-                sharedStyles.container,
-                { backgroundColor: 'transparent', gap: spacing.medium }
-              ]}
-            >
-              <View style={{ alignItems: 'center', width: '100%' }}>
-                <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>{t('welcome')}</Text>
-              </View>
-
-              {/* Language section */}
-              <View style={{ gap: spacing.medium, width: '100%' }}>
-                <LanguageSelect containerStyle={{ width: '100%' }} />
-              </View>
-
-              {/* Form section */}
-              <View
-                style={{
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: spacing.medium
-                }}
-              >
-                <Ionicons name="person-outline" size={32} color={colors.text} />
-
-                <View style={{ gap: spacing.medium, width: '100%' }}>
-                  {/* Email field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="email"
-                      rules={{
-                        required: t('emailRequired'),
-                        pattern: {
-                          value: EMAIL_REGEX,
-                          message: t('emailRequired')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="mail-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <TextInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('enterYourEmail')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            accessibilityLabel="ph-no-capture"
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.email && (
-                      <Text style={styles.errorText}>
-                        {errors.email.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Password field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="password"
-                      rules={{
-                        required: t('passwordRequired'),
-                        minLength: {
-                          value: 6,
-                          message: t('passwordMinLength')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <PasswordInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('password')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.password && (
-                      <Text style={styles.errorText}>
-                        {errors.password.message}
-                      </Text>
-                    )}
-
-                    {/* Forgot password link */}
-                    <TouchableOpacity
-                      onPress={() => setAuthView('forgot-password')}
-                    >
-                      <Text style={[sharedStyles.link]}>
-                        {t('forgotPassword')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Submit button */}
-                  <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center'
-                      }
-                    ]}
-                    onPress={handleSubmit(onSubmit)}
-                  >
-                    <Text style={sharedStyles.buttonText}>{t('signIn')}</Text>
-                  </TouchableOpacity>
-
-                  {/* Register link */}
-                  <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                    <TouchableOpacity
-                      onPress={() => setAuthView('register')}
-                      style={[
-                        {
-                          paddingVertical: spacing.small,
-                          paddingHorizontal: spacing.medium,
-                          borderWidth: 1,
-                          borderColor: colors.primary,
-                          borderRadius: 8,
-                          backgroundColor: 'transparent'
-                        }
-                      ]}
-                    >
-                      <Text
-                        style={[sharedStyles.link, { textAlign: 'center' }]}
-                      >
-                        {t('newUser')} {t('register')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+            {t('forgotPassword')}
+          </Text>
+        </Pressable>
+        <View className="flex flex-col gap-2">
+          <Button
+            onPress={form.handleSubmit((data) => login(data))}
+            loading={isPending}
+          >
+            <Text>{t('signIn')}</Text>
+          </Button>
+          <Button
+            onPress={() =>
+              safeNavigate(() =>
+                onNavigate('register', { email: form.watch('email') })
+              )
+            }
+            variant="outline"
+            className="border-border bg-input"
+            disabled={isPending}
+          >
+            <Text>
+              {t('newUser')} {t('register')}
+            </Text>
+          </Button>
+        </View>
+      </View>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    alignSelf: 'flex-start'
-  }
-});

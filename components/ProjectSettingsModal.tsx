@@ -1,31 +1,23 @@
-import { project } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateProjectStatus,
+  useProjectStatuses
+} from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
+import { Alert, View } from 'react-native';
 import { SwitchBox } from './SwitchBox';
+import { Button } from './ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from './ui/drawer';
+import { Icon } from './ui/icon';
 
 interface ProjectSettingsModalProps {
   isVisible: boolean;
@@ -41,47 +33,37 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  const { db, supabaseConnector } = system;
-  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPrjLoaded, setIsPrjLoaded] = useState(false);
-
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const { data: projectDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['project-settings', projectId],
-    offlineQuery: toCompilableQuery(
-      db.select().from(project).where(eq(project.id, projectId))
-    ),
-    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('project')
-        .select('*')
-        .eq('id', projectId)
-        .limit(1);
-      if (error) throw error;
-      return data as (typeof project.$inferSelect)[];
+  const layerStatus = useStatusContext();
+
+  const {
+    data: projectData,
+    isLoading,
+    isError,
+    refetch
+  } = useProjectStatuses(projectId);
+
+  React.useEffect(() => {
+    if (isError) {
+      Alert.alert(t('error'), t('projectSettingsLoadError'));
+      onClose();
     }
-  });
+  }, [isError, onClose, t]);
 
-  const projectData = projectDataArray[0];
-  if (projectData != undefined && !isPrjLoaded) {
-    setIsPrjLoaded(true);
+  if (isError) {
+    return null;
   }
-
-  /* To be aware -> The information here is coming from the cache */
-  const [prjPrivate, setPrjPrivate] = useState(projectData?.private ?? false);
-  const [prjVisible, setPrjVisible] = useState(projectData?.visible ?? false);
-  const [prjActive, setPrjActive] = useState(projectData?.active ?? false);
 
   const handleToggleStatus = async (statusType: TProjectStatusType) => {
     if (!projectData) return;
     setIsSubmitting(true);
 
-    let privateProject = prjPrivate;
-    let visible = prjVisible;
-    let active = prjActive;
+    let privateProject = projectData.private;
+    let visible = projectData.visible;
+    let active = projectData.active;
     let message = '';
 
     try {
@@ -108,15 +90,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         message = active ? t('projectMadeActive') : t('projectMadeInactive');
       }
 
-      await supabaseConnector.client
-        .from('project')
-        .update({
+      await updateProjectStatus(
+        projectId,
+        {
           private: privateProject,
           visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: projectId });
+          active
+        },
+        projectData.source
+      );
+      layerStatus.setLayerStatus(
+        LayerType.PROJECT,
+        { visible, active, source: projectData.source },
+        projectId
+      );
 
       refetch();
 
@@ -126,138 +113,66 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       Alert.alert(t('error'), t('failedToUpdateProjectSettings'));
     } finally {
       setIsSubmitting(false);
-      setPrjPrivate(privateProject);
-      setPrjVisible(visible);
-      setPrjActive(active);
-
-      // To reload projects in the main page
-      queryClient.removeQueries({
-        queryKey: ['projects'],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['project', projectId],
-        exact: false
-      });
     }
   };
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <Drawer
+      open={isVisible}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={[sharedStyles.modal, styles.modalContainer]}>
-              <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>
-                  {t('projectSettings')}
-                </Text>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+      <DrawerContent className="bg-background px-4 pb-4">
+        <DrawerHeader className="flex-row items-center justify-between">
+          <DrawerTitle>{t('projectSettings')}</DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="icon">
+              <Icon as={XIcon} size={24} />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
 
-              <SwitchBox
-                title={t('privateProject')}
-                description={
-                  prjPrivate
-                    ? t('privateProjectDescription')
-                    : t('publicProjectDescription')
-                }
-                value={prjPrivate}
-                onChange={() => handleToggleStatus('private')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
-              />
+        <View className="flex-1 gap-4">
+          <SwitchBox
+            title={t('privateProject')}
+            description={
+              projectData?.private
+                ? t('privateProjectDescription')
+                : t('publicProjectDescription')
+            }
+            value={projectData?.private ?? false}
+            onChange={() => handleToggleStatus('private')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
 
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  prjVisible
-                    ? t('visibleProjectDescription')
-                    : t('invisibleProjectDescription')
-                }
-                value={prjVisible}
-                onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
-              />
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              projectData?.visible
+                ? t('visibleProjectDescription')
+                : t('invisibleProjectDescription')
+            }
+            value={projectData?.visible ?? false}
+            onChange={() => handleToggleStatus('visible')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
 
-              <SwitchBox
-                title={t('active')}
-                description={
-                  prjActive
-                    ? t('activeProjectDescription')
-                    : t('inactiveProjectDescription')
-                }
-                value={prjActive}
-                onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isPrjLoaded || !isOwner}
-              />
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+          <SwitchBox
+            title={t('active')}
+            description={
+              projectData?.active
+                ? t('activeProjectDescription')
+                : t('inactiveProjectDescription')
+            }
+            value={projectData?.active ?? false}
+            onChange={() => handleToggleStatus('active')}
+            disabled={isSubmitting || isLoading || !isOwner}
+          />
+        </View>
+      </DrawerContent>
+    </Drawer>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  infoText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.text,
-    lineHeight: 20
-  }
-});

@@ -1,31 +1,27 @@
-import { quest } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import {
+  updateQuestStatus,
+  useQuestStatuses
+} from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
-import React, { useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
+import { offloadQuest } from '@/utils/questOffloadUtils';
+import { CloudUpload, XIcon } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, View } from 'react-native';
+import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
+import { Button } from './ui/button';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from './ui/drawer';
+import { Icon } from './ui/icon';
+import { Text } from './ui/text';
 
 interface QuestSettingsModalProps {
   isVisible: boolean;
@@ -34,7 +30,7 @@ interface QuestSettingsModalProps {
   projectId: string;
 }
 
-type TStatusType = 'active' | 'visible';
+// type TStatusType = 'active' | 'visible';
 
 export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   isVisible,
@@ -43,42 +39,42 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   projectId
 }) => {
   const { t } = useLocalization();
-  // TODO: add localization
-  const { db, supabaseConnector } = system;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isQuestLoaded, setIsQuestLoaded] = useState(false);
+  const [showOffloadDrawer, setShowOffloadDrawer] = useState(false);
+  const [isOffloading, setIsOffloading] = useState(false);
 
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
-  const queryClient = useQueryClient();
+  const layerStatus = useStatusContext();
 
-  const { data: questDataArray = [], refetch } = useHybridQuery({
-    queryKey: ['quest-settings', questId],
-    onlineFn: async (): Promise<(typeof quest.$inferSelect)[]> => {
-      const { data, error } = await supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('id', questId)
-        .limit(1);
+  const {
+    data: questData,
+    isLoading,
+    isError,
+    refetch
+  } = useQuestStatuses(questId);
 
-      if (error) throw error;
-      return data as (typeof quest.$inferSelect)[];
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.quest.findMany({
-        where: eq(quest.id, questId)
-      })
-    )
-  });
+  // Initialize offload verification hook
+  const verificationState = useQuestOffloadVerification(questId);
 
-  const questData = questDataArray[0];
+  // Handle error in useEffect to avoid setState during render
+  useEffect(() => {
+    if (isError && isVisible) {
+      Alert.alert(t('error'), t('questSettingsLoadError'));
+      onClose();
+    }
+  }, [isError, isVisible, onClose, t]);
 
-  if (questData != undefined && !isQuestLoaded) {
-    setIsQuestLoaded(true);
+  if (isError) {
+    return null;
   }
 
-  const handleToggleStatus = async (statusType: TStatusType) => {
+  // Check if quest has local data (source is 'local' or has been downloaded)
+  const hasLocalData =
+    questData?.source === 'local' || questData?.source === 'synced';
+
+  const handleToggleVisible = async () => {
     if (!questData) return;
 
     setIsSubmitting(true);
@@ -86,37 +82,29 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     let [visible, active] = [questData.visible, questData.active];
 
     try {
-      if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
-
-        await supabaseConnector.client
-          .from('quest')
-          .update({
-            visible,
-            active,
-            last_updated: new Date().toISOString()
-          })
-          .match({ id: questId });
-
-        refetch();
-
-        // Localization keys:
-        // success -> 'Success'
-        // questMadeInvisible -> 'The quest has been made invisible'
-        // questMadeVisible -> 'The quest has been made visible'
-        // error -> 'Error'
-        // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-        Alert.alert(
-          t('success'),
-          questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
-        );
+      //      if (statusType === 'visible') {
+      if (visible) {
+        visible = false;
+        active = false;
+      } else {
+        visible = true;
       }
+
+      await updateQuestStatus(questId, { visible, active }, questData.source);
+      refetch();
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
+
+      Alert.alert(
+        t('success'),
+        questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
+      );
+      //    }
     } catch (error) {
+      console.log(error);
       Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
@@ -138,15 +126,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         active = false;
       }
 
-      await supabaseConnector.client
-        .from('quest')
-        .update({
-          visible,
-          active,
-          last_updated: new Date().toISOString()
-        })
-        .match({ id: questId });
+      await updateQuestStatus(questId, { visible, active }, questData.source);
       refetch();
+      layerStatus.setLayerStatus(
+        LayerType.QUEST,
+        { visible, active, source: questData.source },
+        questId
+      );
 
       // Localization keys:
       // success -> 'Success'
@@ -159,140 +145,121 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         questData.active ? t('questMadeInactive') : t('questMadeActive')
       );
     } catch (error) {
+      console.log(error);
       Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
+    }
+  };
 
-      queryClient.removeQueries({
-        queryKey: ['project', projectId],
-        exact: false
+  const handleStartOffload = () => {
+    setShowOffloadDrawer(true);
+    verificationState.startVerification();
+  };
+
+  const handleContinueOffload = async () => {
+    setIsOffloading(true);
+    try {
+      await offloadQuest({
+        questId,
+        verifiedIds: verificationState.verifiedIds,
+        onProgress: (progress, message) => {
+          console.log(`Offload progress: ${progress.toFixed(0)}% - ${message}`);
+        }
       });
 
-      queryClient.removeQueries({
-        queryKey: ['quest', questId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: ['quests', 'by-project', projectId],
-        exact: false
-      });
-
-      queryClient.removeQueries({
-        queryKey: [
-          'assets',
-          'infinite',
-          'by-quest',
-          'with-tags-content',
-          questId
-        ],
-        exact: false
-      });
+      Alert.alert(t('success'), t('offloadComplete'));
+      setShowOffloadDrawer(false);
+      onClose();
+      refetch();
+    } catch (error) {
+      console.error('Failed to offload quest:', error);
+      Alert.alert(t('error'), t('offloadError'));
+    } finally {
+      setIsOffloading(false);
     }
   };
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={[sharedStyles.modal, styles.modalContainer]}>
-              <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>
-                  {t('questSettings')}
-                </Text>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+    <>
+      <Drawer
+        open={isVisible}
+        onOpenChange={onClose}
+        snapPoints={['60%', '90%']}
+      >
+        <DrawerContent className="bg-background px-4 pb-8">
+          <DrawerHeader className="flex-row items-center justify-between">
+            <DrawerTitle>{t('questSettings')}</DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon">
+                <Icon as={XIcon} size={24} />
+              </Button>
+            </DrawerClose>
+          </DrawerHeader>
 
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  questData?.visible
-                    ? t('visibleQuestDescription')
-                    : t('invisibleQuestDescription')
-                }
-                value={questData?.visible ?? false}
-                onChange={() => handleToggleStatus('visible')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
-              />
-              <SwitchBox
-                title={t('active')}
-                description={
-                  questData?.active
-                    ? t('activeQuestDescription')
-                    : t('inactiveQuestDescription')
-                }
-                value={questData?.active ?? false}
-                onChange={() => handleToggleStatus('active')}
-                disabled={isSubmitting || !isQuestLoaded || !isOwner}
-              />
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+          <View className="flex-1 gap-4">
+            <SwitchBox
+              title={t('visibility')}
+              description={
+                questData?.visible
+                  ? t('visibleQuestDescription')
+                  : t('invisibleQuestDescription')
+              }
+              value={questData?.visible ?? false}
+              onChange={() => handleToggleVisible()}
+              disabled={isSubmitting || isLoading || !isOwner}
+            />
+            <SwitchBox
+              title={t('active')}
+              description={
+                questData?.active
+                  ? t('activeQuestDescription')
+                  : t('inactiveQuestDescription')
+              }
+              value={questData?.active ?? false}
+              onChange={() => handleToggleActive()}
+              disabled={isSubmitting || isLoading || !isOwner}
+            />
+
+            {/* Offload Quest Button */}
+            {hasLocalData && isOwner && (
+              <View className="border-t border-border pt-4">
+                <Button
+                  variant="outline"
+                  onPress={handleStartOffload}
+                  disabled={isSubmitting || isLoading}
+                  className="border-destructive"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Icon
+                      as={CloudUpload}
+                      size={20}
+                      className="text-destructive"
+                    />
+                    <View className="flex-1">
+                      <Text className="font-semibold text-destructive">
+                        {t('offloadQuest')}
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {t('offloadQuestDescription')}
+                      </Text>
+                    </View>
+                  </View>
+                </Button>
+              </View>
+            )}
+          </View>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Offload Verification Drawer */}
+      <QuestOffloadVerificationDrawer
+        isOpen={showOffloadDrawer}
+        onOpenChange={setShowOffloadDrawer}
+        onContinue={handleContinueOffload}
+        verificationState={verificationState}
+        isOffloading={isOffloading}
+      />
+    </>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  infoText: {
-    flex: 1,
-    fontSize: fontSizes.small,
-    color: colors.text,
-    lineHeight: 20
-  }
-});

@@ -1,11 +1,15 @@
-import { project as projectTable } from '@/db/drizzleSchema';
+import { project_synced as projectTable } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
+import type { SortOrder } from '@/utils/dbUtils';
+import { sortingHelper } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
+import {
+  useHybridData,
+  useSimpleHybridInfiniteData
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { asc, desc } from 'drizzle-orm';
 import { useMemo } from 'react';
-import { useHybridInfiniteQuery, useHybridQuery } from '../useHybridQuery';
 
 export type Project = InferSelectModel<typeof projectTable>;
 
@@ -17,14 +21,19 @@ export type Project = InferSelectModel<typeof projectTable>;
 export function useProjects() {
   const { db, supabaseConnector } = system;
 
-  // Main query using hybrid realtime query
   const {
     data: projects,
     isLoading: isProjectsLoading,
     ...rest
-  } = useHybridQuery({
-    queryKey: ['projects'],
-    onlineFn: async () => {
+  } = useHybridData({
+    dataType: 'projects',
+    queryKeyParams: [],
+    offlineQuery: toCompilableQuery(
+      db.query.project.findMany({
+        where: (fields, { eq, and }) => and(eq(fields.active, true))
+      })
+    ),
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('*')
@@ -32,12 +41,7 @@ export function useProjects() {
         .overrideTypes<Project[]>();
       if (error) throw error;
       return data;
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: (fields, { eq, and }) => and(eq(fields.active, true))
-      })
-    )
+    }
   });
 
   return { projects, isProjectsLoading, ...rest };
@@ -50,135 +54,62 @@ export function useProjects() {
  */
 export function useInfiniteProjects(
   pageSize = 10,
-  sortField?: 'name' | 'created_at' | 'last_updated',
-  sortOrder?: 'asc' | 'desc'
+  sortField?: keyof (typeof projectTable)['_']['columns'],
+  sortOrder?: SortOrder
 ) {
   const { db, supabaseConnector } = system;
 
-  // FIXED: Create stable query key with useMemo to prevent infinite loops
-  const queryKey = useMemo(() => {
-    const baseKey = ['projects', 'infinite', pageSize];
-
-    // Only add optional parameters if they have values
-    if (sortField) baseKey.push(sortField);
-    if (sortOrder) baseKey.push(sortOrder);
-
-    return baseKey;
+  // Create stable query key parts
+  const queryParams = useMemo(() => {
+    return [pageSize, sortField ?? '', sortOrder ?? ''];
   }, [pageSize, sortField, sortOrder]);
 
-  return useHybridInfiniteQuery({
-    queryKey,
-    onlineFn: async ({ pageParam }) => {
-      const showInvisible = await getOptionShowHiddenContent();
-      // Online query with proper pagination using Supabase range
-      console.log(
-        `[OnlineProjects] >> Loading page ${pageParam} with pageSize ${pageSize}`
-      );
+  return useSimpleHybridInfiniteData<Project>(
+    'projects',
+    queryParams,
+    // Offline query function
+    async ({ pageParam, pageSize }) => {
+      const offsetValue = pageParam * pageSize;
 
-      /* 
-        At this point, we should check if the user has enabled the option to show invisible projects 
-        needed to be verified if the inactive projects should be shown or not.
-      */
-      let query = supabaseConnector.client
-        .from('project')
-        .select('*', { count: 'exact' });
-      //      .eq('active', true);
+      const allProjects = await db.query.project.findMany({
+        where: (fields, { eq, and }) =>
+          and(eq(fields.visible, true), eq(fields.active, true)),
+        limit: pageSize,
+        offset: offsetValue,
+        ...(sortField &&
+          sortOrder && {
+            orderBy: sortingHelper(projectTable, sortField, sortOrder)
+          })
+      });
+
+      return allProjects;
+    },
+    // Cloud query function
+    async ({ pageParam, pageSize }) => {
+      const showInvisible = await getOptionShowHiddenContent();
+
+      let query = supabaseConnector.client.from('project').select('*');
+
       if (!showInvisible) {
         query = query.eq('visible', true);
       }
 
-      // Add sorting if specified
       if (sortField && sortOrder) {
         query = query.order(sortField, { ascending: sortOrder === 'asc' });
       } else {
-        // Default sort by name
         query = query.order('name', { ascending: true });
       }
 
-      // Add pagination
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
       query = query.range(from, to);
 
-      const { data, error, count } = await query.overrideTypes<Project[]>();
-
+      const { data, error } = await query.overrideTypes<Project[]>();
       if (error) throw error;
-
-      const totalCount = count ?? 0;
-      const hasMore = from + pageSize < totalCount;
-
-      return {
-        data,
-        nextCursor: hasMore ? pageParam + 1 : undefined,
-        hasMore,
-        totalCount
-      };
+      return data;
     },
-    offlineFn: async ({ pageParam }) => {
-      // Offline query with manual pagination using Drizzle
-      const offsetValue = pageParam * pageSize;
-
-      try {
-        console.log(
-          `[OfflineProjects] Loading page ${pageParam}, offset: ${offsetValue}`
-        );
-
-        const allProjects = await db.query.project.findMany({
-          where: (fields, { eq, and }) =>
-            and(eq(fields.visible, true), eq(fields.active, true)),
-          limit: pageSize,
-          offset: offsetValue,
-          orderBy:
-            sortField === 'name' && sortOrder
-              ? sortOrder === 'asc'
-                ? asc(projectTable.name)
-                : desc(projectTable.name)
-              : sortField === 'created_at' && sortOrder
-                ? sortOrder === 'asc'
-                  ? asc(projectTable.created_at)
-                  : desc(projectTable.created_at)
-                : sortField === 'last_updated' && sortOrder
-                  ? sortOrder === 'asc'
-                    ? asc(projectTable.last_updated)
-                    : desc(projectTable.last_updated)
-                  : asc(projectTable.name)
-        });
-
-        // Get total count for hasMore calculation
-        const countQuery = await db.query.project.findMany({
-          where: (fields, { eq, and }) =>
-            and(eq(fields.visible, true), eq(fields.active, true))
-        });
-
-        const totalCount = countQuery.length;
-        const hasMore = offsetValue + pageSize < totalCount;
-
-        console.log(
-          `[OfflineProjects] Found ${allProjects.length} projects, total: ${totalCount}, hasMore: ${hasMore}`
-        );
-
-        return {
-          data: allProjects,
-          nextCursor: hasMore ? pageParam + 1 : undefined,
-          hasMore,
-          totalCount
-        };
-      } catch (error) {
-        console.error('[OfflineProjects] Error in offline query:', error);
-        // Return empty result rather than throwing
-        return {
-          data: [],
-          nextCursor: undefined,
-          hasMore: false,
-          totalCount: 0
-        };
-      }
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000 // 10 minutes
-  });
+    pageSize
+  );
 }
 
 /**
@@ -189,43 +120,36 @@ export function useInfiniteProjects(
 export function useProjectById(projectId: string | undefined) {
   const { db, supabaseConnector } = system;
 
-  // Main query using hybrid query
-  const {
-    data: projectArray,
-    isLoading: isProjectLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['project', projectId],
-    enabled: !!projectId, // NOTE: only run the query if projectId is defined
-    onlineFn: async () => {
+  const hybrid = useHybridData({
+    dataType: 'project',
+    queryKeyParams: [projectId || ''],
+    offlineQuery: toCompilableQuery(
+      db.query.project.findFirst({
+        where: (fields, { eq, and }) =>
+          and(
+            eq(fields.id, projectId!)
+            // keep visibility/active unconstrained per original comment
+          )
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!projectId) return [];
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('*')
         .eq('id', projectId)
-        /* Removed visible/active filter */
-        // .eq('visible', true)
-        // .eq('active', true)
         .limit(1)
         .overrideTypes<Project[]>();
       if (error) throw error;
-      console.log(data);
       return data;
     },
-    offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
-        where: (fields, { eq, and }) =>
-          and(
-            eq(fields.id, projectId!)
-            /* Removed visible/active filter */
-            // eq(fields.visible, true),
-            // eq(fields.active, true)
-          ),
-        limit: 1
-      })
-    )
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
-  const project = projectArray?.[0] || null;
-
-  return { project, isProjectLoading, ...rest };
+  return {
+    project: hybrid.data[0] || null,
+    isProjectLoading: hybrid.isLoading,
+    ...hybrid
+  };
 }

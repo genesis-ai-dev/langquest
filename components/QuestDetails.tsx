@@ -25,14 +25,13 @@ export const QuestDetails: React.FC<QuestDetailsProps> = ({
           <Text style={styles.description}>{quest.description}</Text>
         )}
 
-        {tags && tags.length > 0 && (
+        {tags.length > 0 && (
           <View style={styles.tagsContainer}>
             {tags.map((tag) => {
-              const [category, value] = tag.name.split(':');
               return (
-                <View key={tag.id} style={styles.tagItem}>
-                  <Text style={styles.tagCategory}>{category}:</Text>
-                  <Text style={styles.tagValue}>{value}</Text>
+                <View key={tag.tag.id} style={styles.tagItem}>
+                  <Text style={styles.tagCategory}>{tag.tag.key}:</Text>
+                  <Text style={styles.tagValue}>{tag.tag.value}</Text>
                 </View>
               );
             })}

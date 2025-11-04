@@ -4,30 +4,40 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
-interface AudioFile {
-  id: string;
-  uri: string;
-  title?: string;
-}
-
 interface MiniAudioPlayerProps {
-  audioFile: AudioFile;
+  id: string;
+  title: string;
+  audioSegments: string[];
 }
 
-export default function MiniAudioPlayer({ audioFile }: MiniAudioPlayerProps) {
-  const { playSound, stopCurrentSound, isPlaying, currentAudioId } = useAudio();
+export default function MiniAudioPlayer({
+  audioSegments,
+  id,
+  title: _title
+}: MiniAudioPlayerProps) {
+  const {
+    playSound,
+    playSoundSequence,
+    stopCurrentSound,
+    isPlaying,
+    currentAudioId
+  } = useAudio();
 
   const handlePlayPause = async () => {
-    if (isPlaying && currentAudioId === audioFile.id) {
+    if (isPlaying && currentAudioId === id) {
       // Currently playing this audio, so stop it
       await stopCurrentSound();
     } else {
-      // Either no audio is playing, or a different one is playing
-      await playSound(audioFile.uri, audioFile.id);
+      // Handle single or multiple audio segments
+      if (audioSegments.length === 1 && audioSegments[0]) {
+        await playSound(audioSegments[0], id);
+      } else if (audioSegments.length > 1) {
+        await playSoundSequence(audioSegments, id);
+      }
     }
   };
 
-  const isThisAudioPlaying = isPlaying && currentAudioId === audioFile.id;
+  const isThisAudioPlaying = isPlaying && currentAudioId === id;
 
   return (
     <View style={styles.container}>

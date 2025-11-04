@@ -1,4 +1,3 @@
-import type { language } from '@/db/drizzleSchema';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -17,7 +16,7 @@ import {
 } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
-type Language = typeof language.$inferSelect;
+type Language = typeof languageTable.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -30,8 +29,8 @@ interface LanguageSelectProps {
 const LanguageSelect: React.FC<LanguageSelectProps> = memo(
   ({ value, onChange, setLanguagesLoaded }) => {
     const [showLanguages, setShowLanguages] = useState(false);
-    const setLanguage = useLocalStore((state) => state.setLanguage);
-    const savedLanguage = useLocalStore((state) => state.language);
+    const setLanguage = useLocalStore((state) => state.setUILanguage);
+    const savedLanguage = useLocalStore((state) => state.uiLanguage);
     const { t } = useLocalization();
 
     // Use useHybridData directly

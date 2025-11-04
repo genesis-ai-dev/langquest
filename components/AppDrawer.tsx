@@ -1,194 +1,66 @@
+import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { Icon } from '@/components/ui/icon';
+import { Progress } from '@/components/ui/progress';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
+import { getCorruptedCount } from '@/services/corruptedAttachmentsService';
 import { useLocalStore } from '@/store/localStore';
-import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import {
   backupUnsyncedAudio,
   prepareBackupPaths,
   requestBackupDirectory
 } from '@/utils/backupUtils';
 import { useRenderCounter } from '@/utils/performanceUtils';
-import { selectAndInitiateRestore } from '@/utils/restoreUtils';
-import { Ionicons } from '@expo/vector-icons';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { AttachmentState } from '@powersync/attachments';
+import * as Updates from 'expo-updates';
+import type { LucideIcon } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  BellIcon,
+  CloudDownload,
+  CloudUpload,
+  CloudUploadIcon,
+  Download,
+  HomeIcon,
+  LogOutIcon,
+  SaveIcon,
+  SettingsIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { DimensionValue, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Modal,
   Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { IndeterminateProgressBar } from './IndeterminateProgressBar';
+import { Badge } from './ui/badge';
 
 interface DrawerItemType {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  view?: string;
+  icon: LucideIcon;
   onPress: () => void;
   notificationCount?: number;
   disabled?: boolean;
 }
-
-// Custom progress bar component to replace ProgressBarAndroid
-interface CustomProgressBarProps {
-  progress?: number;
-  indeterminate?: boolean;
-  color?: string;
-  style?: ViewStyle;
-}
-
-const CustomProgressBar: React.FC<CustomProgressBarProps> = ({
-  progress = 0,
-  indeterminate = false,
-  color = colors.primary,
-  style
-}) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (indeterminate) {
-      // Create an indeterminate animation
-      const animation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(animatedValue, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: false
-          }),
-          Animated.timing(animatedValue, {
-            toValue: 0,
-            duration: 1000,
-            useNativeDriver: false
-          })
-        ])
-      );
-      animation.start();
-      return () => animation.stop();
-    } else {
-      // Animate to the progress value
-      Animated.timing(animatedValue, {
-        toValue: progress,
-        duration: 300,
-        useNativeDriver: false
-      }).start();
-    }
-  }, [progress, indeterminate, animatedValue]);
-
-  const progressWidth = indeterminate
-    ? animatedValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['20%', '80%']
-      })
-    : animatedValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0%', '100%']
-      });
-
-  const translateX = indeterminate
-    ? animatedValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-50, 50]
-      })
-    : 0;
-
-  return (
-    <View style={[customProgressBarStyles.container, style]}>
-      <View style={customProgressBarStyles.track}>
-        <Animated.View
-          style={[
-            customProgressBarStyles.fill,
-            {
-              width: progressWidth,
-              backgroundColor: color,
-              transform: indeterminate ? [{ translateX }] : []
-            }
-          ]}
-        />
-      </View>
-    </View>
-  );
-};
-
-const customProgressBarStyles = StyleSheet.create({
-  container: {
-    height: 4,
-    width: '100%'
-  },
-  track: {
-    flex: 1,
-    backgroundColor: colors.disabled,
-    borderRadius: 2,
-    overflow: 'hidden'
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 2
-  }
-});
-
-// Shimmer component for grace period
-const ShimmerBar: React.FC<{ width?: DimensionValue }> = ({
-  width = '100%'
-}) => {
-  const shimmerValue = useRef(new Animated.Value(0)).current;
-  const [containerWidth, setContainerWidth] = useState(100); // Default width
-
-  useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false
-        }),
-        Animated.timing(shimmerValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false
-        })
-      ])
-    );
-
-    shimmerAnimation.start();
-
-    return () => {
-      shimmerAnimation.stop();
-    };
-  }, [shimmerValue]);
-
-  const shimmerTranslate = shimmerValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-containerWidth, containerWidth]
-  });
-
-  return (
-    <View
-      style={[styles.shimmerContainer, { width }]}
-      onLayout={(event) => {
-        setContainerWidth(event.nativeEvent.layout.width);
-      }}
-    >
-      <Animated.View
-        style={[
-          styles.shimmerBar,
-          {
-            transform: [{ translateX: shimmerTranslate }]
-          }
-        ]}
-      />
-    </View>
-  );
-};
 
 export default function AppDrawer({
   drawerIsVisible,
@@ -204,13 +76,36 @@ export default function AppDrawer({
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToCorruptedAttachments,
     currentView
   } = useAppNavigation();
+
+  // Get safe area insets for Android navigation bar
+  const insets = useSafeAreaInsets();
 
   // Add performance tracking
   useRenderCounter('AppDrawer');
 
-  const systemReady = system.isInitialized();
+  const systemReady = useLocalStore((state) => state.systemReady);
+
+  // Track corrupted attachments count
+  const [corruptedCount, setCorruptedCount] = useState(0);
+
+  // Load corrupted attachments count when drawer opens
+  useEffect(() => {
+    if (drawerIsVisible && systemReady) {
+      void (async () => {
+        try {
+          const count = await getCorruptedCount();
+          setCorruptedCount(count);
+        } catch (error) {
+          console.error('Failed to get corrupted count:', error);
+          setCorruptedCount(0);
+        }
+      })();
+    }
+  }, [drawerIsVisible, systemReady]);
+
   const isConnected = useNetworkStatus();
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -225,30 +120,139 @@ export default function AppDrawer({
   const [showAttachmentProgress, setShowAttachmentProgress] = useState(false);
   const [isInGracePeriod, setIsInGracePeriod] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const gracePeriodTimer = useRef<NodeJS.Timeout | null>(null);
+  const gracePeriodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const GRACE_PERIOD_MS = 3000; // 3 seconds grace period
 
   // Get PowerSync status
   const powersyncStatus = systemReady ? system.powersync.currentStatus : null;
 
-  // Get attachment sync progress from store
-  const _attachmentSyncProgress = useLocalStore(
+  // Get attachment sync progress from store (no debouncing for real-time updates)
+  const attachmentSyncProgress = useLocalStore(
     (state) => state.attachmentSyncProgress
   );
 
   // Get all attachment states for accurate progress tracking
+  // Only watch attachment states when drawer is open to prevent unnecessary renders
   const { attachmentStates, isLoading: attachmentStatesLoading } =
-    useAttachmentStates([]);
+    useAttachmentStates([], drawerIsVisible);
+
+  // Smooth progress animation state
+  const [animatedProgress, setAnimatedProgress] = useState(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const targetProgressRef = useRef(0);
+
+  // Throttled attachment progress - only update when counts change significantly
+  const [throttledProgress, setThrottledProgress] = useState({
+    total: 0,
+    synced: 0,
+    downloading: 0,
+    queued: 0,
+    hasActivity: false,
+    unsynced: 0
+  });
+
+  const lastUpdateTimeRef = useRef(0);
+  const THROTTLE_MS = 200; // Update at most every 200ms (faster for snappier feel)
+
+  // Animate progress smoothly (Safari-style)
+  // Only animate when drawer is open to prevent unnecessary renders
+  useEffect(() => {
+    // Skip animation updates when drawer is closed
+    if (!drawerIsVisible) {
+      setAnimatedProgress(0);
+      targetProgressRef.current = 0;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
+    if (
+      !attachmentSyncProgress.downloading &&
+      !attachmentSyncProgress.uploading
+    ) {
+      setAnimatedProgress(0);
+      targetProgressRef.current = 0;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
+    // Calculate target progress
+    const downloadProgress =
+      attachmentSyncProgress.downloadTotal > 0
+        ? (attachmentSyncProgress.downloadCurrent /
+            attachmentSyncProgress.downloadTotal) *
+          100
+        : 0;
+
+    targetProgressRef.current = downloadProgress;
+
+    // Smooth animation using requestAnimationFrame
+    const animate = () => {
+      setAnimatedProgress((current) => {
+        const diff = targetProgressRef.current - current;
+
+        // If we're close enough, snap to target
+        if (Math.abs(diff) < 0.1) {
+          return targetProgressRef.current;
+        }
+
+        // For big jumps (>5%), snap immediately to reduce lag
+        if (Math.abs(diff) > 5) {
+          return targetProgressRef.current;
+        }
+
+        // For medium jumps, animate quickly
+        // Use 30% of the difference per frame for very responsive feel
+        const speed = Math.max(1.5, Math.abs(diff) * 0.3);
+        return current + (diff > 0 ? speed : -speed);
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [
+    drawerIsVisible,
+    attachmentSyncProgress.downloading,
+    attachmentSyncProgress.uploading,
+    attachmentSyncProgress.downloadCurrent,
+    attachmentSyncProgress.downloadTotal
+  ]);
 
   // Calculate attachment progress stats
+  // Return empty state when drawer is closed to prevent unnecessary computation
   const attachmentProgress = useMemo(() => {
+    // Short-circuit when drawer is closed - return empty state
+    if (!drawerIsVisible) {
+      return {
+        total: 0,
+        synced: 0,
+        downloading: 0,
+        queued: 0,
+        hasActivity: false,
+        unsynced: 0
+      };
+    }
+
     if (attachmentStatesLoading || attachmentStates.size === 0) {
       return {
         total: 0,
         synced: 0,
         downloading: 0,
         queued: 0,
-        hasActivity: false
+        hasActivity: false,
+        unsynced: 0
       };
     }
 
@@ -276,17 +280,22 @@ export default function AppDrawer({
 
     const hasActivity = downloading > 0 || queued > 0;
 
-    // Debug logging when there's activity
-    if (hasActivity || total > 0) {
-      console.log(`📊 [AppDrawer] Attachment states:`, {
-        total,
-        synced,
-        downloading,
-        queued,
-        hasActivity,
-        statesCounts: Object.fromEntries(statesCounts)
-      });
-    }
+    // Debug logging when there's activity (but throttled)
+    // const now = Date.now();
+    // if (
+    //   (hasActivity || total > 0) &&
+    //   now - lastUpdateTimeRef.current > THROTTLE_MS
+    // ) {
+    //   console.log(`📊 [AppDrawer] Attachment states:`, {
+    //     total,
+    //     synced,
+    //     downloading,
+    //     queued,
+    //     hasActivity,
+    //     statesCounts: Object.fromEntries(statesCounts)
+    //   });
+    //   lastUpdateTimeRef.current = now;
+    // }
 
     return {
       total,
@@ -296,11 +305,50 @@ export default function AppDrawer({
       hasActivity,
       unsynced: total - synced
     };
-  }, [attachmentStates, attachmentStatesLoading]);
+  }, [drawerIsVisible, attachmentStatesLoading, attachmentStates]); // Only recompute when size changes, not on every attachment state change
+
+  // Throttle updates to the rendered progress
+  // Skip throttling when drawer is closed
+  useEffect(() => {
+    // Don't update throttled progress when drawer is closed
+    if (!drawerIsVisible) {
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+
+    // Check if counts have changed meaningfully
+    const countsDifferent =
+      attachmentProgress.total !== throttledProgress.total ||
+      attachmentProgress.synced !== throttledProgress.synced ||
+      attachmentProgress.downloading !== throttledProgress.downloading ||
+      attachmentProgress.queued !== throttledProgress.queued ||
+      attachmentProgress.hasActivity !== throttledProgress.hasActivity;
+
+    if (!countsDifferent) return;
+
+    // Update immediately if enough time has passed or activity state changed
+    if (
+      timeSinceLastUpdate > THROTTLE_MS ||
+      attachmentProgress.hasActivity !== throttledProgress.hasActivity
+    ) {
+      setThrottledProgress(attachmentProgress);
+      lastUpdateTimeRef.current = now;
+    } else {
+      // Schedule an update after throttle period
+      const timeoutId = setTimeout(() => {
+        setThrottledProgress(attachmentProgress);
+        lastUpdateTimeRef.current = Date.now();
+      }, THROTTLE_MS - timeSinceLastUpdate);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [drawerIsVisible, attachmentProgress, throttledProgress]);
 
   // Handle attachment progress visibility with grace period
   useEffect(() => {
-    if (attachmentProgress.hasActivity) {
+    if (throttledProgress.hasActivity) {
       // Clear any existing timer
       if (gracePeriodTimer.current) {
         clearTimeout(gracePeriodTimer.current);
@@ -346,7 +394,7 @@ export default function AppDrawer({
       }
     };
   }, [
-    attachmentProgress.hasActivity,
+    throttledProgress.hasActivity,
     showAttachmentProgress,
     isInGracePeriod,
     fadeAnim
@@ -355,8 +403,85 @@ export default function AppDrawer({
   // Use the notifications hook
   const { totalCount: notificationCount } = useNotifications();
 
+  // Memoize formatted speed to prevent render loops
+  const formattedDownloadSpeed = useMemo(() => {
+    if (
+      !attachmentSyncProgress.downloading ||
+      attachmentSyncProgress.downloadSpeed <= 0
+    ) {
+      return null;
+    }
+
+    const speed = attachmentSyncProgress.downloadSpeed;
+    const bytesPerSec = attachmentSyncProgress.downloadBytesPerSec;
+    const filesPerSec = speed.toFixed(1);
+
+    // Format bytes nicely
+    if (bytesPerSec > 1024 * 1024) {
+      return `${filesPerSec} files/s • ${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+    } else if (bytesPerSec > 1024) {
+      return `${filesPerSec} files/s • ${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    } else if (bytesPerSec > 0) {
+      return `${filesPerSec} files/s`;
+    }
+
+    return `${filesPerSec} files/s`;
+  }, [
+    attachmentSyncProgress.downloading,
+    attachmentSyncProgress.downloadSpeed,
+    attachmentSyncProgress.downloadBytesPerSec
+  ]);
+
+  // Format OTA patch version
+  const formattedPatchVersion = useMemo(() => {
+    try {
+      // Handle embedded version (no OTA update applied)
+      if (Updates.isEmbeddedLaunch) {
+        return 'Embedded';
+      }
+
+      const manifest = Updates.manifest;
+
+      // Extract version from updateId (first 8 characters of UUID from updateId)
+      const version = getUpdateVersion();
+      let dateStr = '';
+
+      // Try to get createdAt from manifest extra or metadata
+      const createdAt =
+        (manifest as { createdAt?: string }).createdAt ||
+        (manifest as { extra?: { createdAt?: string } }).extra?.createdAt;
+
+      if (createdAt) {
+        const date = new Date(createdAt);
+        if (!isNaN(date.getTime())) {
+          dateStr = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+      }
+
+      // Combine into format: "Patch v1.2 • Jan 15, 2025"
+      if (dateStr) {
+        return `Patch ${version} • ${dateStr}`;
+      } else {
+        return `Patch ${version}`;
+      }
+    } catch (error) {
+      console.error('Error formatting patch version:', error);
+      return 'Unknown';
+    }
+  }, []);
+
   // Feature flag to toggle notifications visibility
   const SHOW_NOTIFICATIONS = true; // Set to true to enable notifications
+
+  // Helper function to close drawer and execute action
+  const closeDrawerAndExecute = (action: () => void) => {
+    setDrawerIsVisible(false);
+    action();
+  };
 
   const handleProgress = (current: number, total: number) => {
     setSyncProgress(current);
@@ -364,13 +489,9 @@ export default function AppDrawer({
   };
 
   const handleBackup = async () => {
-    setIsBackingUp(true);
-    setSyncOperation('backup');
-    setSyncProgress(0);
-    setSyncTotal(1); // Default to 1 to avoid division by zero
-
     let finalAlertTitle = t('backupErrorTitle'); // Default to error
     let finalAlertMessage = '';
+    let aborted = false;
 
     try {
       // 1. System & Queue Init Checks
@@ -405,9 +526,11 @@ export default function AppDrawer({
 
       // 2. Permissions
       console.log('[handleBackup] Requesting directory permissions...');
-      const baseDirectoryUri = await requestBackupDirectory(); // Should throw on denial/error
+      const baseDirectoryUri = await requestBackupDirectory();
       if (!baseDirectoryUri) {
-        throw new Error(t('storagePermissionDenied'));
+        // User cancelled or no directory – silently exit
+        aborted = true;
+        return;
       }
       console.log('[handleBackup] Permissions granted, preparing paths...');
 
@@ -416,6 +539,11 @@ export default function AppDrawer({
       prepareBackupPaths(timestamp); // Call it but don't store result if unneeded
       console.log('[handleBackup] Paths prepared, attempting audio backup...');
 
+      setIsBackingUp(true);
+      setSyncOperation('backup');
+      setSyncProgress(0);
+      setSyncTotal(1); // Default to 1 to avoid division by zero
+
       // 4. Execute Backup (Audio Only) with progress callback
       const audioResult = await backupUnsyncedAudio(
         system,
@@ -423,10 +551,18 @@ export default function AppDrawer({
         handleProgress
       );
 
-      // 5. Construct Success Message (Audio Only)
+      // 5. Construct Success Message
       finalAlertTitle = t('backupCompleteTitle');
       console.log('audioResult', audioResult);
-      finalAlertMessage = t('audioBackupStatus', { count: audioResult.count });
+      const copied = audioResult.count;
+      const csvRows = audioResult.csvRows;
+      // Build comprehensive message
+      const msgParts = [
+        `Audio files backed up: ${copied}`,
+        csvRows > 0 ? `CSV export: ${csvRows} records` : ''
+      ].filter(Boolean);
+      const msg = msgParts.join('\n');
+      finalAlertMessage = msg || `Backup completed: ${copied} files`;
     } catch (error: unknown) {
       // Handle errors from any awaited step above
       console.log('[handleBackup] Entered CATCH block.');
@@ -439,28 +575,29 @@ export default function AppDrawer({
     } finally {
       // 6. Final Alert & State Reset
       console.log('[handleBackup] Entered FINALLY block.');
-      setIsBackingUp(false);
-      // Set operation to null after a delay to allow seeing the final progress
-      setTimeout(() => {
-        setSyncOperation(null);
-      }, 1500);
+      if (aborted) {
+        // do not alert on user-cancel; still reset state
+        setIsBackingUp(false);
+        setTimeout(() => setSyncOperation(null), 0);
+      } else {
+        setIsBackingUp(false);
+        // Set operation to null after a delay to allow seeing the final progress
+        setTimeout(() => {
+          setSyncOperation(null);
+        }, 1500);
 
-      // Ensure message isn't empty if something went wrong before catch block assignment
-      if (!finalAlertMessage) {
-        finalAlertMessage = t('criticalBackupError', {
-          error: 'Backup failed unexpectedly'
-        });
+        // Ensure message isn't empty if something went wrong before catch block assignment
+        if (!finalAlertMessage) {
+          finalAlertMessage = t('criticalBackupError', {
+            error: 'Backup failed unexpectedly'
+          });
+        }
+        Alert.alert(finalAlertTitle, finalAlertMessage);
       }
-      Alert.alert(finalAlertTitle, finalAlertMessage);
     }
   };
 
   const confirmAndStartBackup = () => {
-    if (Platform.OS !== 'android') {
-      Alert.alert(t('error'), t('backupAndroidOnly'));
-      return;
-    }
-
     Alert.alert(t('startBackupTitle'), t('startBackupMessageAudioOnly'), [
       {
         text: t('cancel'),
@@ -473,39 +610,41 @@ export default function AppDrawer({
     ]);
   };
 
-  const handleRestore = () => {
-    const onStart = () => {
-      setIsRestoring(true);
-      setSyncOperation('restore');
-      setSyncProgress(0);
-      setSyncTotal(1); // Default until we know the total
-    };
+  // const handleRestore = () => {
+  //   const onStart = () => {
+  //     setIsRestoring(true);
+  //     setSyncOperation('restore');
+  //     setSyncProgress(0);
+  //     setSyncTotal(1); // Default until we know the total
+  //   };
 
-    const onFinish = () => {
-      setIsRestoring(false);
-      // Set operation to null after a delay to allow seeing the final progress
-      setTimeout(() => {
-        setSyncOperation(null);
-      }, 1500);
-    };
+  //   const onFinish = () => {
+  //     setIsRestoring(false);
+  //     // Set operation to null after a delay to allow seeing the final progress
+  //     setTimeout(() => {
+  //       setSyncOperation(null);
+  //     }, 1500);
+  //   };
 
-    if (!currentUser?.id) {
-      Alert.alert(t('error'), t('userNotLoggedIn'));
-      return;
-    }
+  //   if (!currentUser?.id) {
+  //     Alert.alert(t('error'), t('userNotLoggedIn'));
+  //     return;
+  //   }
 
-    void selectAndInitiateRestore(
-      system,
-      currentUser.id,
-      t,
-      onStart,
-      onFinish,
-      handleProgress
-    );
-  };
+  //   void selectAndInitiateRestore(
+  //     system,
+  //     currentUser.id,
+  //     t,
+  //     onStart,
+  //     onFinish,
+  //     handleProgress
+  //   );
+  // };
 
   // Calculate progress percentage for the progress bar
-  const progressPercentage = syncTotal > 0 ? syncProgress / syncTotal : 0;
+
+  const progressPercentage =
+    syncTotal > 0 ? (syncProgress / syncTotal) * 100 : 0;
   const isOperationActive = isBackingUp || isRestoring;
 
   // Progress status text
@@ -537,578 +676,388 @@ export default function AppDrawer({
   const drawerItems: DrawerItemType[] = [
     {
       name: t('projects'),
-      icon: 'home',
-      onPress: () => {
-        goToProjects();
-        setDrawerIsVisible(false);
-      }
+      view: 'projects',
+      icon: HomeIcon,
+      onPress: () => closeDrawerAndExecute(goToProjects)
     },
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     ...(SHOW_NOTIFICATIONS
       ? [
           {
             name: t('notifications'),
-            icon: 'notifications' as keyof typeof Ionicons.glyphMap,
-            onPress: () => {
-              goToNotifications();
-              setDrawerIsVisible(false);
-            },
+            view: 'notifications',
+            icon: BellIcon,
+            onPress: () => closeDrawerAndExecute(goToNotifications),
             notificationCount
           }
         ]
       : []),
     {
       name: t('profile'),
-      icon: 'person',
-      onPress: () => {
-        goToProfile();
-        setDrawerIsVisible(false);
-      }
+      view: 'profile',
+      icon: UserIcon,
+      onPress: () => closeDrawerAndExecute(goToProfile)
     },
     {
       name: t('settings'),
-      icon: 'settings',
-      onPress: () => {
-        goToSettings();
-        setDrawerIsVisible(false);
-      }
-    },
-    {
-      name: isBackingUp ? t('backingUp') : t('backup'),
-      icon: isBackingUp ? 'hourglass-outline' : 'save',
-      onPress: confirmAndStartBackup,
-      disabled: !systemReady || isOperationActive
-    },
-    {
-      name: isRestoring ? t('restoring') : t('restoreBackup'),
-      icon: isRestoring ? 'hourglass-outline' : 'cloud-upload-outline',
-      onPress: handleRestore,
-      disabled: !systemReady || isOperationActive
+      view: 'settings',
+      icon: SettingsIcon,
+      onPress: () => closeDrawerAndExecute(goToSettings)
     }
   ] as const;
 
+  // Add diagnostics menu item if there are corrupted attachments or in dev mode
+
+  if (corruptedCount > 0 || __DEV__) {
+    drawerItems.push({
+      name: __DEV__ ? 'Diagnostics' : 'System Health',
+      view: 'corrupted-attachments',
+      icon: AlertTriangle,
+      onPress: () => closeDrawerAndExecute(goToCorruptedAttachments),
+      notificationCount: corruptedCount > 0 ? corruptedCount : undefined
+    });
+  }
+
+  if (Platform.OS !== 'web') {
+    drawerItems.push({
+      name: isBackingUp ? t('backingUp') : t('backup'),
+      icon: SaveIcon,
+      onPress: confirmAndStartBackup,
+      disabled: !systemReady || isOperationActive
+    });
+    // Restore backup option temporarily hidden
+    // drawerItems.push({
+    //   name: isRestoring ? t('restoring') : t('restoreBackup'),
+    //   icon: CloudUploadIcon,
+    //   onPress: handleRestore,
+    //   disabled: !systemReady || isOperationActive
+    // });
+  }
+
   // Add logout for development
-  if (process.env.EXPO_PUBLIC_APP_VARIANT === 'development' || __DEV__) {
+  if (__DEV__) {
     drawerItems.push({
       name: t('logOut'),
-      icon: 'log-out',
-      onPress: () => {
-        void signOut();
-        setDrawerIsVisible(false);
-      },
+      icon: LogOutIcon,
+      onPress: () => closeDrawerAndExecute(() => void signOut()),
       disabled: !systemReady || isOperationActive
     });
   }
 
-  const closeDrawer = () => {
-    setDrawerIsVisible(false);
-  };
+  // Use a ref to track if drawer has ever been opened to ensure proper initialization
+  const hasOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (drawerIsVisible) {
+      hasOpenedRef.current = true;
+    }
+  }, [drawerIsVisible]);
+
+  // Only render Drawer when it's been opened at least once or is currently visible
+  // This prevents provider conflicts with other views
+  if (!hasOpenedRef.current && !drawerIsVisible) {
+    return null;
+  }
 
   return (
-    <>
-      {/* Drawer Modal */}
-      <Modal
-        visible={drawerIsVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeDrawer}
+    <Drawer
+      open={drawerIsVisible}
+      onOpenChange={setDrawerIsVisible}
+      dismissible={!isOperationActive}
+      snapPoints={['80%']}
+      enableDynamicSizing={false}
+    >
+      <DrawerContent
+      // className="p-2 pt-4"
+      // style={{ paddingBottom: Math.max(insets.bottom, 16) }}
       >
-        <View style={styles.overlay}>
-          <TouchableOpacity
-            style={styles.overlayTouchable}
-            activeOpacity={1}
-            onPress={closeDrawer}
-          />
-
-          <View
-            style={[
-              styles.drawerContainer,
-              { backgroundColor: colors.background }
-            ]}
-          >
-            <View
-              style={[
-                styles.drawerHeader,
-                { backgroundColor: colors.background }
-              ]}
-            >
-              <Text style={styles.drawerTitle}>{t('menu')}</Text>
-              <TouchableOpacity
-                onPress={closeDrawer}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={[
-                styles.drawerContent,
-                { backgroundColor: colors.background }
-              ]}
-            >
-              {/* System status and progress indicators */}
-              {!systemReady && (
-                <View
-                  style={[
-                    styles.initializingIndicator,
-                    { backgroundColor: colors.background }
-                  ]}
-                >
-                  {isConnected ? (
-                    <>
-                      <ActivityIndicator size="small" color={colors.text} />
-                      <Text style={styles.initializingText}>
-                        {t('initializing')}...
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="cloud-offline-outline"
-                        size={16}
-                        color={colors.text}
-                      />
-                      <Text style={styles.initializingText}>
-                        {t('offline')}
-                      </Text>
-                    </>
-                  )}
-                </View>
-              )}
-              {/* File sync progress indicator */}
-              {syncOperation && (
-                <View style={styles.syncProgressContainer}>
-                  <Text style={styles.syncProgressText}>
-                    {syncOperation === 'backup'
-                      ? t('backingUp')
-                      : t('restoring')}
-                  </Text>
-                  <CustomProgressBar
-                    indeterminate={syncTotal === 0}
-                    progress={progressPercentage}
-                    color={colors.primary}
-                    style={styles.progressBar}
+        <DrawerHeader className="hidden">
+          <DrawerTitle>{t('menu')}</DrawerTitle>
+        </DrawerHeader>
+        <View className="flex flex-col gap-4">
+          {/* System status and progress indicators */}
+          {!systemReady && (
+            <View className="flex-row items-center justify-center gap-2 rounded-md bg-muted p-3 opacity-70">
+              {isConnected ? (
+                <>
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
                   />
-                  <Text style={styles.syncProgressText}>
-                    {getProgressText()}
+                  <Text className="text-sm text-foreground">
+                    {t('initializing')}...
                   </Text>
-                </View>
+                </>
+              ) : (
+                <>
+                  <Icon
+                    as={CloudUploadIcon}
+                    size={16}
+                    className="text-foreground"
+                  />
+                  <Text className="text-sm text-foreground">
+                    {t('offline')}
+                  </Text>
+                </>
               )}
+            </View>
+          )}
 
-              {/* PowerSync status section */}
-              <TouchableOpacity
-                style={styles.stalePercentageContainer}
-                onPress={logPowerSyncStatus}
-              >
-                <Text style={styles.stalePercentageText}>
-                  {!isConnected
-                    ? `${attachmentProgress.synced} ${t('filesDownloaded')}`
-                    : attachmentProgress.hasActivity
-                      ? `${t('downloading')} ${attachmentProgress.downloading + attachmentProgress.queued} ${t('files')}...`
+          {/* File sync progress indicator */}
+          {syncOperation && (
+            <View className="rounded-md bg-muted p-3">
+              <Text className="text-center text-sm font-medium text-foreground">
+                {syncOperation === 'backup' ? t('backingUp') : t('restoring')}
+              </Text>
+              <View className="flex flex-col gap-2">
+                <Progress value={progressPercentage} className="h-2" />
+                <Text className="text-center text-sm text-foreground">
+                  {getProgressText()}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* PowerSync status section */}
+          <Button
+            variant="ghost"
+            className="h-auto flex-col items-center justify-center rounded-md bg-muted p-3"
+            onPress={logPowerSyncStatus}
+          >
+            {/* Database sync errors */}
+            {(powersyncStatus?.dataFlowStatus.downloadError ||
+              powersyncStatus?.dataFlowStatus.uploadError) && (
+              <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
+                <Icon
+                  as={AlertTriangle}
+                  size={16}
+                  className="text-destructive"
+                />
+                <Text className="flex-1 text-sm text-destructive">
+                  {t('databaseSyncError')}
+                </Text>
+              </View>
+            )}
+
+            {/* Status text with icon */}
+            <View className="flex-row items-center gap-2">
+              {powersyncStatus?.dataFlowStatus.uploading && (
+                <Icon as={CloudUpload} size={16} className="text-primary" />
+              )}
+              {powersyncStatus?.dataFlowStatus.downloading && (
+                <Icon as={CloudDownload} size={16} className="text-primary" />
+              )}
+              <Text className="text-center text-sm font-medium text-foreground">
+                {!isConnected
+                  ? `${throttledProgress.synced} ${t('filesDownloaded')}`
+                  : powersyncStatus?.dataFlowStatus.uploading
+                    ? t('uploadingData')
+                    : powersyncStatus?.dataFlowStatus.downloading
+                      ? t('downloadingData')
                       : powersyncStatus?.connected
-                        ? powersyncStatus.dataFlowStatus.downloading
-                          ? t('syncingDatabase')
-                          : powersyncStatus.hasSynced
-                            ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
-                            : t('notSynced')
+                        ? powersyncStatus.hasSynced
+                          ? `${t('lastSync')}: ${powersyncStatus.lastSyncedAt?.toLocaleTimeString() || t('unknown')}`
+                          : t('notSynced')
                         : powersyncStatus?.connecting
                           ? t('connecting')
                           : t('disconnected')}
-                </Text>
+              </Text>
+            </View>
 
-                {/* Progress bar for download progress */}
-                {(powersyncStatus?.downloadProgress ||
-                  attachmentProgress.hasActivity) && (
-                  <CustomProgressBar
-                    indeterminate={
-                      powersyncStatus?.downloadProgress ? true : false
-                    }
-                    progress={
-                      attachmentProgress.hasActivity
-                        ? attachmentProgress.total > 0
-                          ? attachmentProgress.synced / attachmentProgress.total
-                          : 0
-                        : 0
-                    }
-                    color={colors.primary}
-                    style={styles.syncStatusProgressBar}
-                  />
-                )}
-              </TouchableOpacity>
-
-              {/* Attachment sync progress section - always show when there are attachments */}
-              {(showAttachmentProgress ||
-                attachmentProgress.hasActivity ||
-                attachmentProgress.total > 0) && (
-                <Animated.View
-                  style={[
-                    styles.attachmentSyncContainer,
-                    {
-                      opacity: showAttachmentProgress ? fadeAnim : 1,
-                      backgroundColor: attachmentProgress.hasActivity
-                        ? colors.primaryLight + '20'
-                        : colors.backgroundSecondary
-                    }
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.attachmentSyncText,
-                      {
-                        fontWeight: attachmentProgress.hasActivity
-                          ? '600'
-                          : '500'
-                      }
-                    ]}
-                  >
-                    {isInGracePeriod ? (
-                      <>
-                        <Text style={styles.completedText}>
-                          {t('downloadComplete')}
-                        </Text>
-                        <Text style={styles.progressText}>
-                          {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('files')})
-                        </Text>
-                      </>
-                    ) : attachmentProgress.downloading > 0 &&
-                      attachmentProgress.queued > 0 ? (
-                      <>
-                        <Text style={styles.downloadingText}>
-                          {t('downloading')}: {attachmentProgress.downloading}
-                        </Text>
-                        <Text style={styles.separatorText}>, </Text>
-                        <Text style={styles.queuedText}>
-                          {t('queued')}: {attachmentProgress.queued}
-                        </Text>
-                        <Text style={styles.progressText}>
-                          {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
-                        </Text>
-                      </>
-                    ) : attachmentProgress.downloading > 0 ? (
-                      <>
-                        <Text style={styles.downloadingText}>
-                          {t('downloading')}: {attachmentProgress.downloading}{' '}
-                          {t('files')}
-                        </Text>
-                        <Text style={styles.progressText}>
-                          {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
-                        </Text>
-                      </>
-                    ) : attachmentProgress.queued > 0 ? (
-                      <>
-                        <Text style={styles.queuedText}>
-                          {t('queuedForDownload')}: {attachmentProgress.queued}{' '}
-                          {t('files')}
-                        </Text>
-                        <Text style={styles.progressText}>
-                          {' '}
-                          ({attachmentProgress.synced}/
-                          {attachmentProgress.total} {t('complete')})
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.progressText}>
-                          {attachmentProgress.synced}/{attachmentProgress.total}{' '}
-                          {t('filesDownloaded')}
-                        </Text>
-                      </>
-                    )}
-                  </Text>
-                  {isInGracePeriod ? (
-                    <ShimmerBar />
-                  ) : (
-                    <CustomProgressBar
-                      indeterminate={
-                        attachmentProgress.hasActivity &&
-                        attachmentProgress.total === 0
-                      }
-                      progress={
-                        attachmentProgress.total > 0
-                          ? attachmentProgress.synced / attachmentProgress.total
-                          : 0
-                      }
-                      color={
-                        attachmentProgress.hasActivity
-                          ? colors.primary
-                          : colors.primaryLight
-                      }
-                      style={styles.attachmentProgressBar}
-                    />
-                  )}
-                </Animated.View>
-              )}
-              {/* Main drawer items */}
-              <View style={styles.drawerItems}>
-                {drawerItems.map((item, index) => {
-                  const isActive =
-                    currentView === 'projects' &&
-                    item.name.toLowerCase() === t('projects').toLowerCase();
-
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.drawerItem,
-                        isActive && styles.drawerItemActive,
-                        item.disabled && styles.drawerItemDisabled
-                      ]}
-                      onPress={item.onPress}
-                      disabled={item.disabled}
-                    >
-                      <View style={styles.drawerItemContent}>
-                        <Ionicons
-                          name={item.icon}
-                          size={20}
-                          color={colors.text}
-                        />
-                        <Text style={styles.drawerItemText}>{item.name}</Text>
-                        {item.notificationCount
-                          ? item.notificationCount > 0 && (
-                              <View style={styles.notificationBadge}>
-                                <Text style={styles.notificationText}>
-                                  {item.notificationCount > 99
-                                    ? '99+'
-                                    : item.notificationCount}
-                                </Text>
-                              </View>
-                            )
-                          : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+            {/* Indeterminate progress bar for database sync */}
+            {(powersyncStatus?.dataFlowStatus.downloading ||
+              powersyncStatus?.dataFlowStatus.uploading) && (
+              <View className="mt-2 w-full">
+                <IndeterminateProgressBar
+                  isActive={
+                    powersyncStatus.dataFlowStatus.downloading ||
+                    powersyncStatus.dataFlowStatus.uploading
+                  }
+                />
               </View>
-            </ScrollView>
+            )}
+          </Button>
+
+          {/* OTA Patch Version */}
+          <View className="rounded-md bg-muted p-3">
+            <Text className="text-center text-xs text-muted-foreground">
+              {formattedPatchVersion}
+            </Text>
+          </View>
+
+          {/* Attachment sync progress section */}
+          {(showAttachmentProgress ||
+            throttledProgress.hasActivity ||
+            throttledProgress.total > 0) && (
+            <Animated.View
+              style={{
+                opacity: showAttachmentProgress ? fadeAnim : 1
+              }}
+            >
+              <View
+                className={cn(
+                  'rounded-md p-3',
+                  throttledProgress.hasActivity ? 'bg-primary/20' : 'bg-muted'
+                )}
+              >
+                <View className="flex flex-col gap-2">
+                  <View className="flex flex-row items-start gap-2">
+                    {throttledProgress.hasActivity && (
+                      <Icon
+                        as={Download}
+                        size={14}
+                        className="mt-1 text-primary"
+                      />
+                    )}
+                    <View className="min-w-0 flex-1">
+                      <Text
+                        className={cn(
+                          'flex-shrink flex-wrap text-sm text-foreground',
+                          throttledProgress.hasActivity
+                            ? 'font-semibold'
+                            : 'font-medium'
+                        )}
+                        style={{ flexWrap: 'wrap' }}
+                      >
+                        {isInGracePeriod ? (
+                          <>
+                            <Text className="font-semibold text-primary">
+                              {t('downloadComplete')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('files')})
+                            </Text>
+                          </>
+                        ) : attachmentSyncProgress.downloading ? (
+                          <>
+                            <Text className="text-sm font-semibold text-foreground">
+                              {t('downloading')}:{' '}
+                              {attachmentSyncProgress.downloadCurrent}/
+                              {attachmentSyncProgress.downloadTotal}
+                            </Text>
+                          </>
+                        ) : throttledProgress.downloading > 0 &&
+                          throttledProgress.queued > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('syncingAttachments')}:{' '}
+                              {throttledProgress.downloading}
+                            </Text>
+                            <Text className="text-sm text-foreground">, </Text>
+                            <Text className="text-sm text-foreground">
+                              {t('queued')}: {throttledProgress.queued}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : throttledProgress.downloading > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('syncingAttachments')}:{' '}
+                              {throttledProgress.downloading} {t('files')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : throttledProgress.queued > 0 ? (
+                          <>
+                            <Text className="text-sm text-foreground">
+                              {t('queuedForDownload')}:{' '}
+                              {throttledProgress.queued} {t('files')}
+                            </Text>
+                            <Text className="text-sm text-foreground">
+                              {' '}
+                              ({throttledProgress.synced}/
+                              {throttledProgress.total} {t('complete')})
+                            </Text>
+                          </>
+                        ) : (
+                          <Text className="text-foreground">
+                            {throttledProgress.synced}/{throttledProgress.total}{' '}
+                            {t('filesDownloaded')}
+                          </Text>
+                        )}
+                      </Text>
+                    </View>
+                    {formattedDownloadSpeed && (
+                      <View className="ml-2">
+                        <Badge className="rounded bg-muted px-2 py-1">
+                          <Text className="text-xs font-medium text-muted-foreground">
+                            {formattedDownloadSpeed}
+                          </Text>
+                        </Badge>
+                      </View>
+                    )}
+                  </View>
+                  <Progress
+                    value={
+                      isInGracePeriod
+                        ? 100
+                        : attachmentSyncProgress.downloading
+                          ? animatedProgress
+                          : throttledProgress.total > 0
+                            ? (throttledProgress.synced /
+                                throttledProgress.total) *
+                              100
+                            : 0
+                    }
+                    className="h-1"
+                  />
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Main drawer items */}
+          <View className="flex flex-col gap-2">
+            {drawerItems.map((item, index) => {
+              const isActive = currentView === item.view;
+
+              return (
+                <Button
+                  key={index}
+                  variant={isActive ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'h-auto justify-start p-4',
+                    item.disabled && 'opacity-50'
+                  )}
+                  onPress={item.onPress}
+                  disabled={item.disabled}
+                >
+                  <View className="w-full flex-row items-center gap-4">
+                    <Icon
+                      as={item.icon}
+                      size={20}
+                      className="text-foreground"
+                    />
+                    <Text className="flex-1 text-foreground">{item.name}</Text>
+                    {!!item.notificationCount && item.notificationCount > 0 && (
+                      <Badge
+                        className="min-w-5 rounded-full px-1"
+                        variant={isActive ? 'secondary' : 'destructive'}
+                      >
+                        <Text>
+                          {item.notificationCount > 99
+                            ? '99+'
+                            : item.notificationCount}
+                        </Text>
+                      </Badge>
+                    )}
+                  </View>
+                </Button>
+              );
+            })}
           </View>
         </View>
-      </Modal>
-    </>
+      </DrawerContent>
+    </Drawer>
   );
 }
-
-const styles = StyleSheet.create({
-  drawerToggle: {
-    position: 'absolute',
-    top: spacing.medium,
-    left: spacing.medium,
-    zIndex: 1000,
-    padding: spacing.small,
-    backgroundColor: colors.inputBackground,
-    borderRadius: borderRadius.medium,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end'
-  },
-  overlayTouchable: {
-    flex: 1
-  },
-  drawerContainer: {
-    backgroundColor: colors.inputBackground,
-    borderTopLeftRadius: borderRadius.large,
-    borderTopRightRadius: borderRadius.large,
-    maxHeight: '90%'
-  },
-  drawerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.textSecondary
-  },
-  drawerTitle: {
-    fontSize: fontSizes.large,
-    fontWeight: '600',
-    color: colors.text
-  },
-  drawerContent: {
-    padding: spacing.medium
-  },
-  drawerCategory: {
-    padding: spacing.small,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.medium,
-    color: colors.text,
-    marginVertical: spacing.small,
-    overflow: 'hidden'
-  },
-  drawerCategoryTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '500',
-    color: colors.text
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xsmall
-  },
-  categoryContent: {
-    overflow: 'hidden'
-  },
-  categoryItem: {
-    paddingVertical: 5
-  },
-  categoryItemText: {
-    color: colors.text
-  },
-  drawerItems: {
-    gap: spacing.small,
-    marginTop: spacing.medium
-  },
-  drawerItem: {
-    paddingVertical: spacing.medium,
-    paddingHorizontal: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing.small,
-    backgroundColor: colors.backgroundSecondary
-  },
-  drawerItemActive: {
-    backgroundColor: colors.primary + '20' // 20% opacity
-  },
-  drawerItemDisabled: {
-    opacity: 0.5
-  },
-  drawerItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  drawerItemText: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginLeft: spacing.medium,
-    flex: 1
-  },
-  notificationBadge: {
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6
-  },
-  notificationText: {
-    fontSize: fontSizes.xsmall,
-    color: '#FFFFFF',
-    fontWeight: '600'
-  },
-  initializingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.medium,
-    gap: spacing.small,
-    opacity: 0.7
-  },
-  initializingText: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  },
-  // New styles for progress indicator
-  syncProgressContainer: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    marginBottom: spacing.small
-  },
-  progressBar: {
-    height: 8,
-    width: '100%',
-    marginVertical: spacing.xsmall
-  },
-  syncProgressText: {
-    fontSize: fontSizes.small,
-    color: colors.text,
-    textAlign: 'center'
-  },
-  stalePercentageContainer: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    alignItems: 'center',
-    marginBottom: spacing.small
-  },
-  stalePercentageText: {
-    fontSize: fontSizes.small,
-    color: colors.text,
-    fontWeight: '500'
-  },
-  syncStatusProgressBar: {
-    height: 4,
-    width: '100%',
-    marginTop: spacing.xsmall
-  },
-  attachmentSyncContainer: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.small,
-    borderRadius: borderRadius.small,
-    marginBottom: spacing.small
-  },
-  attachmentSyncText: {
-    fontSize: fontSizes.small,
-    color: colors.text,
-    fontWeight: '500',
-    marginBottom: spacing.xsmall
-  },
-  attachmentProgressBar: {
-    height: 4,
-    width: '100%',
-    marginTop: spacing.xsmall
-  },
-  downloadingText: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  },
-  separatorText: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  },
-  queuedText: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  },
-  progressText: {
-    color: colors.text,
-    fontSize: fontSizes.small
-  },
-  completedText: {
-    color: colors.primary,
-    fontSize: fontSizes.small,
-    fontWeight: '600'
-  },
-  // Shimmer effect styles
-  shimmerContainer: {
-    height: 4,
-    backgroundColor: colors.disabled,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: spacing.xsmall
-  },
-  shimmerBar: {
-    height: '100%',
-    width: '50%',
-    backgroundColor: colors.primaryLight,
-    borderRadius: 2,
-    opacity: 0.6
-  }
-});

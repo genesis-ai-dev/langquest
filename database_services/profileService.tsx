@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
+import { profile_synced } from '@/db/drizzleSchemaSynced';
 import { profile } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -161,6 +162,45 @@ export class ProfileService {
       return updatedProfile;
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
+    }
+  }
+
+  async deleteAccount(userId: string): Promise<void> {
+    try {
+      debug('Soft deleting account for user:', userId);
+
+      // Simply set active = false (soft delete)
+      const { error: profileError } = await supabaseConnector.client
+        .from('profile')
+        .update({ active: false })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error('Error soft deleting profile:', profileError);
+        throw profileError;
+      }
+
+      debug('Account soft deleted successfully for user:', userId);
+    } catch (error) {
+      console.error('Error soft deleting account:', error);
+      throw error;
+    }
+  }
+
+  async restoreAccount(userId: string): Promise<void> {
+    try {
+      debug('Restoring account for user:', userId);
+
+      // Set active = true to restore account
+      await system.db
+        .update(profile_synced)
+        .set({ active: true })
+        .where(eq(profile_synced.id, userId));
+
+      debug('Account restored successfully for user:', userId);
+    } catch (error) {
+      console.error('Error restoring account:', error);
       throw error;
     }
   }

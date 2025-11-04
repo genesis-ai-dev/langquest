@@ -1,17 +1,67 @@
+import '@/global.css';
+import { LogBox, Platform } from 'react-native';
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
-import { PowerSyncContext } from '@powersync/react-native';
+import { PowerSyncContext } from '@powersync/react';
+// Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
+import { UpdateBanner } from '@/components/UpdateBanner';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { ThemeProvider } from '@react-navigation/native';
+import { PortalHost } from '@rn-primitives/portal';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
-import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { cssTokens } from '@/generated-tokens';
+import { toNavTheme } from '@/utils/styleUtils';
+import { DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel
+} from 'react-native-reanimated';
+
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false // Disables warnings with nativewind animations
+});
+
+LogBox.ignoreAllLogs(true);
+
+export const NAV_THEME = {
+  light: {
+    ...DefaultTheme,
+    colors: toNavTheme(cssTokens.light as Record<string, string>)
+  },
+  dark: {
+    ...DarkTheme,
+    colors: toNavTheme(cssTokens.dark as Record<string, string>)
+  }
+};
 
 export default function RootLayout() {
+  if (Platform.OS === 'web') {
+    // @ts-expect-error - globalThis._frameTimestamp is not defined
+    global._frameTimestamp = null;
+  }
+  const hasMounted = useRef(false);
+  const { colorScheme } = useColorScheme();
+  const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
+
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     console.log('[_layout] Setting up deep link handler');
 
     // Handle deep links
@@ -39,26 +89,58 @@ export default function RootLayout() {
     };
   }, []);
 
+  console.log('[RootLayout] Rendering...');
+
+  useIsomorphicLayoutEffect(() => {
+    if (hasMounted.current) {
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      // Adds the background color to the html element to prevent white background on overscroll.
+      document.documentElement.classList.add('bg-background');
+    }
+    setIsColorSchemeLoaded(true);
+    hasMounted.current = true;
+  }, []);
+
+  if (!isColorSchemeLoaded) {
+    return null;
+  }
+
+  const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  console.log('[RootLayout] scheme:', scheme);
+
   return (
-    <>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <PowerSyncContext.Provider value={system.powersync}>
-        <PostHogProvider>
-          <AuthProvider>
-            <QueryProvider>
-              <AudioProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="app" />
-                </Stack>
-              </AudioProvider>
-            </QueryProvider>
-          </AuthProvider>
-        </PostHogProvider>
-      </PowerSyncContext.Provider>
-    </>
+    <PowerSyncContext.Provider value={system.powersync}>
+      <PostHogProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <AudioProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <StatusBar style={systemBarsStyle} />
+                  {/* OTA Update Banner - shown before login and after */}
+                  <UpdateBanner />
+                  <BottomSheetModalProvider>
+                    <ThemeProvider value={NAV_THEME[scheme]}>
+                      <Stack screenOptions={{ headerShown: false }} />
+                      <PortalHost />
+                    </ThemeProvider>
+                  </BottomSheetModalProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </AudioProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </PostHogProvider>
+    </PowerSyncContext.Provider>
   );
 }
+
+const useIsomorphicLayoutEffect =
+  Platform.OS === 'web' && typeof window === 'undefined'
+    ? useEffect
+    : useLayoutEffect;

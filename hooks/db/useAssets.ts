@@ -1,4 +1,5 @@
-import type { translation, vote } from '@/db/drizzleSchema';
+import { useAuth } from '@/contexts/AuthContext';
+import type { vote } from '@/db/drizzleSchema';
 import {
   asset,
   asset_content_link,
@@ -8,8 +9,13 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import type { WithSource } from '@/utils/dbUtils';
+import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
-import { hybridFetch } from '@/views/new/useHybridData';
+import {
+  hybridFetch,
+  useSimpleHybridInfiniteData
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
@@ -17,11 +23,13 @@ import {
   asc,
   desc,
   eq,
+  getTableColumns,
   inArray,
   isNotNull,
+  isNull,
   like,
-  or,
-  sql
+  notInArray,
+  or
 } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
@@ -34,7 +42,6 @@ import type { Tag } from './useTags';
 export type Asset = InferSelectModel<typeof asset>;
 export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type AssetContent = InferSelectModel<typeof asset_content_link>;
-export type Translation = InferSelectModel<typeof translation>;
 export type Vote = InferSelectModel<typeof vote>;
 
 /**
@@ -236,7 +243,7 @@ function getAssetAudioContentConfig(asset_id: string) {
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -245,7 +252,7 @@ function getAssetAudioContentConfig(asset_id: string) {
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -259,7 +266,7 @@ export function getAssetAudioContent(asset_id: string) {
       system.db.query.asset_content_link.findMany({
         where: and(
           eq(asset_content_link.asset_id, asset_id),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -268,7 +275,7 @@ export function getAssetAudioContent(asset_id: string) {
         .from('asset_content_link')
         .select('*')
         .eq('asset_id', asset_id)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -294,7 +301,7 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -303,7 +310,7 @@ function getAssetsAudioContentConfig(asset_ids: string[]) {
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -317,7 +324,7 @@ export function getAssetsAudioContent(asset_ids: string[]) {
       system.db.query.asset_content_link.findMany({
         where: and(
           inArray(asset_content_link.asset_id, asset_ids),
-          isNotNull(asset_content_link.audio_id)
+          isNotNull(asset_content_link.audio)
         )
       })
     ),
@@ -326,7 +333,7 @@ export function getAssetsAudioContent(asset_ids: string[]) {
         .from('asset_content_link')
         .select('*')
         .in('asset_id', asset_ids)
-        .not('audio_id', 'is', null)
+        .not('audio', 'is', null)
         .overrideTypes<AssetContent[]>();
       if (error) throw error;
       return data;
@@ -617,157 +624,6 @@ export function useAssetsWithTagsAndContentByQuestId(quest_id: string) {
 }
 
 /**
- * Returns { assets, isLoading, error }
- * Fetches assets with translations and votes by quest ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useAssetsWithTranslationsAndVotesByQuestId(quest_id: string) {
-  const { db, supabaseConnector } = system;
-
-  const {
-    data: assets,
-    isLoading: isAssetsLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['assets', 'by-quest', 'with-translations-votes', quest_id],
-    onlineFn: async () => {
-      // Get assets through junction table with translations and votes
-      const { data, error } = await supabaseConnector.client
-        .from('quest_asset_link')
-        .select(
-          `
-          asset:asset_id (
-            *,
-            translations:translation (
-              *,
-              votes:vote (
-                *
-              )
-            )
-          )
-        `
-        )
-        .eq('quest_id', quest_id)
-        .overrideTypes<
-          {
-            asset: Asset & {
-              translations: (Translation & { votes: Vote[] })[];
-            };
-          }[]
-        >();
-
-      if (error) throw error;
-      return data.map((item) => item.asset).filter(Boolean);
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(
-          asset.id,
-          db
-            .select({ asset_id: quest_asset_link.asset_id })
-            .from(quest_asset_link)
-            .where(eq(quest_asset_link.quest_id, quest_id))
-        ),
-        with: {
-          translations: {
-            with: {
-              votes: true
-            }
-          }
-        }
-      })
-    ),
-    enabled: !!quest_id
-  });
-
-  return { assets, isAssetsLoading, ...rest };
-}
-
-/**
- * Returns { assets, isLoading, error }
- * Fetches assets with translations and votes by project ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useAssetsWithTranslationsAndVotesByProjectId(
-  project_id: string
-) {
-  const { db, supabaseConnector } = system;
-
-  const {
-    data: assets,
-    isLoading: isAssetsLoading,
-    ...rest
-  } = useHybridQuery({
-    queryKey: ['assets', 'by-project', 'with-translations-votes', project_id],
-    onlineFn: async () => {
-      // Get assets through quest -> quest_asset_link -> asset with translations and votes
-      const { data, error } = await supabaseConnector.client
-        .from('quest')
-        .select(
-          `
-          quest_asset_link!inner (
-            asset:asset_id (
-              *,
-              translations:translation (
-                *,
-                votes:vote (
-                  *
-                )
-              )
-            )
-          )
-        `
-        )
-        .eq('project_id', project_id)
-        .overrideTypes<
-          {
-            quest_asset_link: {
-              asset: Asset & {
-                translations: (Translation & { votes: Vote[] })[];
-              };
-            }[];
-          }[]
-        >();
-
-      if (error) throw error;
-
-      // Flatten and deduplicate assets
-      const uniqueAssets = new Map<
-        string,
-        Asset & { translations: (Translation & { votes: Vote[] })[] }
-      >();
-      data.forEach((questData) => {
-        questData.quest_asset_link.forEach((link) => {
-          uniqueAssets.set(link.asset.id, link.asset);
-        });
-      });
-
-      return Array.from(uniqueAssets.values());
-    },
-    offlineQuery: toCompilableQuery(
-      db.query.asset.findMany({
-        where: inArray(
-          asset.id,
-          db
-            .selectDistinct({ asset_id: quest_asset_link.asset_id })
-            .from(quest_asset_link)
-            .innerJoin(quest, eq(quest_asset_link.quest_id, quest.id))
-            .where(eq(quest.project_id, project_id))
-        ),
-        with: {
-          translations: {
-            with: {
-              votes: true
-            }
-          }
-        }
-      })
-    ),
-    enabled: !!project_id
-  });
-
-  return { assets, isAssetsLoading, ...rest };
-}
-
-/**
  * Hybrid infinite query for assets with tags and content
  * Automatically switches between online and offline with proper caching
  * Follows TKDodo's best practices for infinite queries
@@ -796,7 +652,7 @@ export function useInfiniteAssetsWithTagsByQuestId(
     if (activeFilters) queryKeyParts.push(JSON.stringify(activeFilters));
 
     return queryKeyParts;
-  }, [quest_id, pageSize, sortField, sortOrder, searchQuery]);
+  }, [quest_id, pageSize, sortField, sortOrder, searchQuery, activeFilters]);
 
   return useHybridInfiniteQuery({
     queryKey: queryKey,
@@ -988,8 +844,11 @@ export function useInfiniteAssetsWithTagsByQuestId(
                 // Create OR conditions for each value in this category
                 const categoryConditions = selectedValues.map((fullValue) => {
                   const valuePart = fullValue.split(':')[1] || fullValue;
-                  // Use SQL template for case-insensitive matching
-                  return sql`${tag.name} LIKE ${`${category}:${valuePart}`}`;
+                  // Use like for case-insensitive matching
+                  return and(
+                    like(tag.key, category),
+                    like(tag.value, valuePart)
+                  );
                 });
 
                 if (categoryConditions.length > 0) {
@@ -1168,4 +1027,96 @@ export function useAssetsQuestLinkById(
   } = useHybridQuery(getAssetQuestLinkById(quest_id, asset_id));
 
   return { quest_asset_link, isDataLoading, ...rest };
+}
+
+type AssetQuestLink = Asset & {
+  quest_active: boolean;
+  quest_visible: boolean;
+};
+
+export function useAssetsByQuest(
+  quest_id: string,
+  searchQuery: string,
+  showHiddenContent: boolean
+) {
+  const { currentUser } = useAuth();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline,
+    isFetching,
+    refetch
+  } = useSimpleHybridInfiniteData<AssetQuestLink>(
+    'assets',
+    ['by-quest', quest_id || '', searchQuery],
+    // Offline query function - Assets must be downloaded to use
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      try {
+        const offset = pageParam * pageSize;
+
+        const conditions = [
+          isNull(asset.source_asset_id),
+          eq(quest_asset_link.quest_id, quest_id),
+          or(
+            !showHiddenContent ? eq(asset.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
+          or(
+            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
+          notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
+          notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
+          searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
+        ];
+
+        // Normal pagination without search
+        const assets = await system.db
+          .select({
+            ...getTableColumns(asset),
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active
+          })
+          .from(asset)
+          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+          .where(and(...conditions.filter(Boolean)))
+          .orderBy(
+            asc(asset.order_index),
+            asc(asset.created_at),
+            asc(asset.name)
+          )
+          .limit(pageSize)
+          .offset(offset);
+
+        return assets;
+      } catch (error) {
+        console.error('[ASSETS] Offline query error:', error);
+        return [];
+      }
+    },
+    // Cloud query function - Since assets must be downloaded, we return empty
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async () => {
+      // Assets must be downloaded to be used, so cloud query returns empty
+      return [] as WithSource<AssetQuestLink>[];
+    },
+    20 // pageSize
+  );
+
+  return {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline,
+    isFetching,
+    refetch
+  };
 }

@@ -2,43 +2,47 @@ import { useAuth } from '@/contexts/AuthContext';
 import { initializePostHogWithStore } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
-import { colors } from '@/styles/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
+import { AppUpgradeScreen } from '@/components/AppUpgradeScreen';
 import LoadingView from '@/components/LoadingView';
+import { MigrationScreen } from '@/components/MigrationScreen';
+import { useProfileByUserId } from '@/hooks/db/useProfiles';
+import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
-import ResetPasswordView2 from '@/views/ResetPasswordView2';
-import TermsView from '@/views/TermsView';
+import ResetPasswordView from '@/views/ResetPasswordView';
+import { useRouter } from 'expo-router';
 
 // Wrapper component to provide consistent gradient background
 function AppWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={styles.container}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          style={styles.gradient}
-        >
-          <SafeAreaView
-            style={styles.safeArea}
-            edges={['left', 'right']} // Remove 'top' to let gradient fill status bar
-          >
-            {children}
-          </SafeAreaView>
-        </LinearGradient>
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+    <SafeAreaView
+      style={{ flex: 1 }}
+      className="bg-background"
+      edges={['top', 'left', 'right']}
+    >
+      {children}
+    </SafeAreaView>
   );
 }
 
 export default function App() {
-  const { isLoading, isAuthenticated, sessionType, isSystemReady } = useAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    sessionType,
+    isSystemReady,
+    migrationNeeded,
+    appUpgradeNeeded,
+    upgradeError
+  } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const router = useRouter();
+
+  useDrizzleStudio();
 
   // Initialize network listener on app startup
   useEffect(() => {
@@ -54,6 +58,12 @@ export default function App() {
     };
   }, [isSystemReady]);
 
+  useEffect(() => {
+    if (!isLoading && !dateTermsAccepted) {
+      router.navigate('/terms');
+    }
+  }, [isLoading, dateTermsAccepted, router]);
+
   // Show loading while checking auth state
   if (isLoading) {
     return (
@@ -63,20 +73,34 @@ export default function App() {
     );
   }
 
-  // Check terms acceptance (before auth)
-  if (!dateTermsAccepted) {
-    return (
-      <AppWrapper>
-        <TermsView />
-      </AppWrapper>
-    );
-  }
-
   // Not authenticated - show auth screens
   if (!isAuthenticated) {
     return (
       <AppWrapper>
         <AuthNavigator />
+      </AppWrapper>
+    );
+  }
+
+  // CRITICAL: App upgrade required - block everything until user upgrades
+  // This takes precedence over migration since the app version is incompatible
+  if (appUpgradeNeeded && upgradeError) {
+    return (
+      <AppWrapper>
+        <AppUpgradeScreen
+          localVersion={upgradeError.localVersion}
+          serverVersion={upgradeError.serverVersion}
+          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+        />
+      </AppWrapper>
+    );
+  }
+
+  // CRITICAL: Migration required - block everything until migration completes
+  if (migrationNeeded) {
+    return (
+      <AppWrapper>
+        <MigrationScreen />
       </AppWrapper>
     );
   }
@@ -94,23 +118,33 @@ export default function App() {
   if (sessionType === 'password-reset') {
     return (
       <AppWrapper>
-        <ResetPasswordView2 />
+        <ResetPasswordView />
+      </AppWrapper>
+    );
+  }
+
+  // Check if account is deleted (soft delete: active = false)
+  // This check happens after system is ready and user is authenticated
+  return <AccountStatusCheck />;
+}
+
+function AccountStatusCheck() {
+  const { currentUser } = useAuth();
+  const { profile } = useProfileByUserId(currentUser?.id || '');
+
+  // If profile exists and is inactive, show deleted account overlay
+  if (profile && profile.active === false) {
+    return (
+      <AppWrapper>
+        <AccountDeletedOverlay />
       </AppWrapper>
     );
   }
 
   // Normal authenticated user - show main app (AppView has its own wrapper)
-  return <AppView />;
+  return (
+    <AppWrapper>
+      <AppView />
+    </AppWrapper>
+  );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
-  gradient: {
-    flex: 1
-  },
-  safeArea: {
-    flex: 1
-  }
-});

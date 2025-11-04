@@ -1,44 +1,66 @@
-import { LanguageSelect } from '@/components/LanguageSelect';
+import { LanguageSelect } from '@/components/language-select';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
+import { system } from '@/db/powersync/system';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { usePostHog } from '@/hooks/usePostHog';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
-import { usePostHog } from 'posthog-react-native';
-import { useEffect } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { resetDatabase } from '@/utils/dbUtils';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  deleteIfExists,
+  ensureDir,
+  getLocalFilePathSuffix,
+  getLocalUri
+} from '@/utils/fileUtils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { AttachmentState } from '@powersync/attachments';
+import { useMutation } from '@tanstack/react-query';
+import { Link } from 'expo-router';
+import {
+  ChevronDown,
+  ChevronRight,
+  HomeIcon,
+  InfoIcon,
+  MailIcon,
+  MoreVertical,
+  UserIcon
+} from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Platform, Alert as RNAlert, ScrollView, View } from 'react-native';
+import { z } from 'zod';
 
-interface ProfileFormData {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
-  selectedLanguageId: string;
-  termsAccepted: boolean;
-}
+// Validation schema
 
 export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
+  const { goToProjects, navigate } = useAppNavigation();
   const isOnline = useNetworkStatus();
+  const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Derive analytics enabled state (opposite of opt-out)
   const analyticsEnabled = !analyticsOptOut;
@@ -51,17 +73,46 @@ export default function ProfileView() {
       console.log('optedOut', posthog.optedOut);
     } catch (error) {
       console.error('Error saving analytics preference:', error);
-      Alert.alert(t('error'), t('failedSaveAnalyticsPreference'));
+      RNAlert.alert(t('error'), t('failedSaveAnalyticsPreference'));
     }
   };
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors }
-  } = useForm<ProfileFormData>({
+  const formSchema = z
+    .object({
+      selectedLanguageId: z.uuid(t('selectLanguage')),
+      currentPassword: z.string().trim().optional(),
+      newPassword: z.string().trim().optional(),
+      confirmPassword: z.string().trim().optional(),
+      termsAccepted: z.boolean().optional()
+    })
+    .superRefine((data, ctx) => {
+      if (data.newPassword && data.newPassword.length > 0) {
+        if (!data.currentPassword || data.currentPassword.length === 0) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'currentPasswordRequired',
+            path: ['currentPassword']
+          });
+        }
+        if (data.newPassword.length < 6) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'passwordMustBeAtLeast6Characters',
+            path: ['newPassword']
+          });
+        }
+        if (data.confirmPassword !== data.newPassword) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'passwordsNoMatch',
+            path: ['confirmPassword']
+          });
+        }
+      }
+    });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       currentPassword: '',
       newPassword: '',
@@ -74,31 +125,20 @@ export default function ProfileView() {
   // Set initial values from user's profile
   useEffect(() => {
     if (currentUser) {
-      reset();
+      form.reset();
     }
-  }, [currentUser, reset]);
+  }, [currentUser, form]);
 
-  const onSubmit = async (data: ProfileFormData) => {
-    if (!currentUser) return;
+  const { mutateAsync: updateProfile, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!currentUser) return;
 
-    try {
-      // Validate password change if attempted
-      if (data.newPassword || data.confirmPassword || data.currentPassword) {
-        if (!data.currentPassword) {
-          Alert.alert(t('error'), t('currentPasswordRequired'));
-          return;
-        }
-        if (data.newPassword !== data.confirmPassword) {
-          Alert.alert(t('error'), t('passwordsNoMatch'));
-          return;
-        }
-      }
-
-      // Update user profile
       const updatedUser = await profileService.updateProfile({
         id: currentUser.id,
         ui_language_id: data.selectedLanguageId,
-        ...(isOnline && data.newPassword ? { password: data.newPassword } : {}),
+        ...(isOnline && data.newPassword
+          ? { password: data.newPassword.trim() }
+          : {}),
         terms_accepted: data.termsAccepted,
         terms_accepted_at: data.termsAccepted
           ? new Date().toISOString()
@@ -106,379 +146,360 @@ export default function ProfileView() {
       });
 
       if (updatedUser) {
-        // setCurrentUser(updatedUser);
-        Alert.alert(t('success'), t('profileUpdateSuccess'));
-
-        // Clear password fields
-        reset({
-          ...data,
+        RNAlert.alert(t('success'), t('profileUpdateSuccess'));
+        form.reset({
+          ...form.getValues(),
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         });
       }
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error updating profile:', error);
-      Alert.alert(t('error'), t('failedUpdateProfile'));
+      RNAlert.alert(t('error'), t('failedUpdateProfile'));
     }
-  };
+  });
+
+  const { mutateAsync: seedDatabase, isPending: seedDatabasePending } =
+    useMutation({
+      mutationFn: async () => {
+        await system.seed();
+      }
+    });
+
+  const { mutateAsync: deleteDatabase, isPending: deleteDatabasePending } =
+    useMutation({
+      mutationFn: resetDatabase
+    });
+
+  const {
+    mutateAsync: deleteAttachments,
+    isPending: deleteAttachmentsPending
+  } = useMutation({
+    mutationFn: async () => {
+      await system.powersync.execute(
+        `DELETE FROM attachments WHERE state <> ${AttachmentState.SYNCED} OR state <> ${AttachmentState.ARCHIVED}`
+      );
+      const path = getLocalFilePathSuffix('local');
+      await deleteIfExists(getLocalUri(path));
+      await ensureDir(getLocalUri(path));
+      await system.permAttachmentQueue?.init();
+    }
+  });
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView style={styles.container}>
-          <View style={styles.contentContainer}>
-            <Text style={styles.pageTitle}>{t('profile')}</Text>
-
-            {/* User Profile Information */}
-            {currentUser && (
-              <View style={styles.profileInfoSection}>
-                <View style={styles.profileInfoRow}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.profileInfoValue}>
-                    {currentUser.email || 'No email provided'}
+    <Form {...form}>
+      <ScrollView
+        className="mb-safe flex-1 bg-background"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="flex flex-col gap-4 p-6">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-foreground">
+              {t('profile')}
+            </Text>
+            <Button variant="default" size="icon-lg" onPress={goToProjects}>
+              <Icon as={HomeIcon} className="text-primary-foreground" />
+            </Button>
+          </View>
+          {__DEV__ && (
+            <View className="flex flex-col gap-2">
+              <View className="flex flex-row gap-2">
+                <Button
+                  variant="destructive"
+                  loading={seedDatabasePending}
+                  className="flex-1"
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      void seedDatabase();
+                    } else {
+                      RNAlert.alert(
+                        'Seed data',
+                        'This will reset local development data and seed the database. Continue?',
+                        [
+                          { text: t('cancel'), style: 'cancel' },
+                          {
+                            text: t('confirm'),
+                            style: 'destructive',
+                            onPress: () => {
+                              void seedDatabase();
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Text>Seed data</Text>
+                </Button>
+                <Button
+                  variant="secondary"
+                  loading={deleteDatabasePending}
+                  className="flex-1"
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      void deleteDatabase();
+                    } else {
+                      RNAlert.alert(
+                        'Delete data',
+                        'This will reset local development data. Continue?',
+                        [
+                          { text: t('cancel'), style: 'cancel' },
+                          {
+                            text: t('confirm'),
+                            style: 'destructive',
+                            onPress: () => {
+                              void deleteDatabase();
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Text>Wipe local db</Text>
+                </Button>
+              </View>
+              <View>
+                <Button
+                  variant="secondary"
+                  loading={deleteAttachmentsPending}
+                  className="flex-1"
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      void deleteAttachments();
+                    } else {
+                      RNAlert.alert(
+                        'Delete local attachments',
+                        'This will reset local attachments. Continue?',
+                        [
+                          { text: t('cancel'), style: 'cancel' },
+                          {
+                            text: t('confirm'),
+                            style: 'destructive',
+                            onPress: () => {
+                              void deleteAttachments();
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Text>Wipe local attachments</Text>
+                </Button>
+              </View>
+            </View>
+          )}
+          {!posthog.isDisabled && (
+            <Button
+              onPress={async () => {
+                posthog.capture('feedback button pressed');
+                await posthog.flush();
+              }}
+            >
+              <Text>{t('submitFeedback')}</Text>
+            </Button>
+          )}
+          {/* User Profile Information */}
+          {currentUser && (
+            <View className="flex flex-col rounded-lg bg-card p-4">
+              <View className="flex flex-row items-center gap-2">
+                <Icon as={MailIcon} className="text-muted-foreground" />
+                <Text className="flex-1 text-foreground" ph-no-capture>
+                  {currentUser.email || 'No email provided'}
+                </Text>
+              </View>
+              {currentUser.user_metadata.username && (
+                <View className="flex-row items-center gap-2">
+                  <Icon as={UserIcon} className="text-muted-foreground" />
+                  <Text className="flex-1 text-foreground" ph-no-capture>
+                    {currentUser.user_metadata.username}
                   </Text>
                 </View>
-                {currentUser.user_metadata.username && (
-                  <View style={styles.profileInfoRow}>
-                    <Ionicons
-                      name="person-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.profileInfoValue}>
-                      {currentUser.user_metadata.username}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {!posthog.isDisabled && (
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={async () => {
-                  posthog.capture('feedback button pressed');
-                  await posthog.flush();
-                }}
-              >
-                <Text style={styles.saveButtonText}>{t('submitFeedback')}</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Analytics Toggle - Now shows "Enable Analytics" */}
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>
-                {t('analyticsOptInLabel')}
-              </Text>
-              <Switch
-                value={analyticsEnabled}
-                onValueChange={handleAnalyticsToggle}
-                trackColor={{
-                  false: colors.textSecondary,
-                  true: colors.primary // Use primary color for better contrast
-                }}
-                thumbColor={
-                  analyticsEnabled ? colors.primary : colors.inputBackground
-                }
-              />
-            </View>
-            <Text style={styles.settingDescription}>
-              {t('analyticsOptInDescription')}
-            </Text>
-
-            {/* Language Selection - Always available */}
-            <View style={styles.controllerContainer}>
-              <Controller
-                control={control}
-                name="selectedLanguageId"
-                rules={{ required: t('selectLanguage') }}
-                render={({ field: { onChange, value } }) => (
-                  <LanguageSelect
-                    value={value}
-                    onChange={(lang) => onChange(lang.id)}
-                  />
-                )}
-              />
-              {errors.selectedLanguageId && (
-                <Text style={styles.errorText}>
-                  {errors.selectedLanguageId.message}
-                </Text>
               )}
             </View>
+          )}
 
-            {/* Password Change - Only when online */}
-            {isOnline ? (
-              <View style={styles.passwordSection}>
-                <Text style={styles.sectionTitle}>{t('changePassword')}</Text>
-                <View style={styles.controllerContainer}>
-                  <Controller
-                    control={control}
-                    name="currentPassword"
-                    rules={{
-                      validate: (value) =>
-                        !watch('newPassword') ||
-                        value.length > 0 ||
-                        'Current password is required'
-                    }}
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        style={styles.input}
-                        placeholderTextColor={colors.textSecondary}
-                        placeholder={t('currentPassword')}
-                        secureTextEntry
-                        value={value}
-                        onChangeText={onChange}
-                      />
-                    )}
-                  />
-                  {errors.currentPassword && (
-                    <Text style={styles.errorText}>
-                      {errors.currentPassword.message}
-                    </Text>
+          {/* Analytics Toggle - Now shows "Enable Analytics" */}
+          <View className="flex flex-col gap-1 rounded-lg bg-card p-4">
+            <View className="flex flex-row items-center">
+              <Text className="flex-1 text-base font-medium text-foreground">
+                {t('enableAnalytics')}
+              </Text>
+              <Switch
+                checked={analyticsEnabled}
+                onCheckedChange={handleAnalyticsToggle}
+              />
+            </View>
+            <Text className="text-sm leading-5 text-muted-foreground">
+              {t('analyticsDescription')}
+            </Text>
+          </View>
+
+          <ThemeToggle />
+
+          {/* Password Change - Only when online */}
+          {isOnline ? (
+            <View className="flex flex-col gap-4">
+              <Text className="text-lg font-semibold">
+                {t('changePassword')}
+              </Text>
+              <View className="flex flex-col gap-2">
+                <FormField
+                  control={form.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          {...transformInputProps(field)}
+                          placeholder={t('currentPassword')}
+                          placeholderTextColor={colors.textSecondary}
+                          secureTextEntry
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </View>
+                />
+              </View>
 
-                <View style={styles.controllerContainer}>
-                  <Controller
-                    control={control}
-                    name="newPassword"
-                    rules={{
-                      minLength: {
-                        value: 6,
-                        message: t('passwordMustBeAtLeast6Characters')
-                      }
-                    }}
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        style={styles.input}
-                        placeholderTextColor={colors.textSecondary}
+              <FormField
+                control={form.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...transformInputProps(field)}
                         placeholder={t('newPassword')}
+                        placeholderTextColor={colors.textSecondary}
                         secureTextEntry
-                        value={value}
-                        onChangeText={onChange}
                       />
-                    )}
-                  />
-                  {errors.newPassword && (
-                    <Text style={styles.errorText}>
-                      {errors.newPassword.message}
-                    </Text>
-                  )}
-                </View>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <View style={styles.controllerContainer}>
-                  <Controller
-                    control={control}
-                    name="confirmPassword"
-                    rules={{
-                      validate: (value) =>
-                        value === watch('newPassword') || t('passwordsNoMatch')
-                    }}
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        style={styles.input}
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...transformInputProps(field)}
                         placeholder={t('confirmPassword')}
                         placeholderTextColor={colors.textSecondary}
                         secureTextEntry
-                        value={value}
-                        onChangeText={onChange}
                       />
-                    )}
-                  />
-                  {errors.confirmPassword && (
-                    <Text style={styles.errorText}>
-                      {errors.confirmPassword.message}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ) : (
-              <View style={styles.offlineMessage}>
-                <Text style={styles.offlineText}>
-                  {t('onlineOnlyFeatures')}
-                </Text>
-              </View>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </View>
+          ) : (
+            <Alert icon={InfoIcon}>
+              <AlertTitle>{t('onlineOnlyFeatures')}</AlertTitle>
+            </Alert>
+          )}
+          {/* Language Selection - Always available */}
+          <FormField
+            control={form.control}
+            name="selectedLanguageId"
+            render={({ field }) => (
+              <FormItem>
+                <LanguageSelect
+                  {...field}
+                  uiReadyOnly
+                  onChange={(lang) => field.onChange(lang.id)}
+                />
+                <FormMessage />
+              </FormItem>
             )}
+          />
 
-            {/* Save Button */}
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSubmit(onSubmit)}
-            >
-              <Text style={styles.saveButtonText}>{t('submit')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.termsSection}>
-            <Link
-              href="/terms"
-              style={[
-                sharedStyles.link,
-                { fontSize: 14, textAlign: 'center', marginTop: spacing.medium }
-              ]}
-              push
-            >
-              {t('viewTerms')}
-            </Link>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+          {/* Save Button */}
+          <Button
+            onPress={form.handleSubmit((data) => updateProfile(data))}
+            disabled={isPending}
+          >
+            <Text>{t('submit')}</Text>
+          </Button>
+
+          {/* Advanced Options Section - Always visible when authenticated */}
+          {currentUser && systemReady && (
+            <View className="flex flex-col gap-4">
+              <View className="h-px bg-border" />
+              <Button
+                variant="ghost"
+                onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="h-auto justify-between p-4"
+              >
+                <View className="flex flex-row items-center gap-2">
+                  <Icon
+                    as={MoreVertical}
+                    size={20}
+                    className="text-muted-foreground"
+                  />
+                  <Text className="text-base font-medium text-foreground">
+                    {t('advanced')}
+                  </Text>
+                </View>
+                <Icon
+                  as={showAdvancedOptions ? ChevronDown : ChevronRight}
+                  size={20}
+                  className="text-muted-foreground"
+                />
+              </Button>
+
+              {showAdvancedOptions && (
+                <>
+                  {!isOnline ? (
+                    <Alert icon={InfoIcon}>
+                      <AlertTitle>
+                        {t('accountDeletionRequiresOnline')}
+                      </AlertTitle>
+                    </Alert>
+                  ) : (
+                    <View className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                      <Text className="text-base font-semibold text-destructive">
+                        {t('accountDeletionTitle')}
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        {t('accountDeletionWarning')}
+                      </Text>
+                      <Button
+                        variant="destructive"
+                        onPress={() => {
+                          navigate({ view: 'account-deletion' });
+                        }}
+                        className="mt-2"
+                      >
+                        <Text>{t('deleteAccount')}</Text>
+                      </Button>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+        </View>
+        <Link
+          href="/terms"
+          style={[
+            sharedStyles.link,
+            { fontSize: 14, textAlign: 'center', marginTop: spacing.medium }
+          ]}
+          push
+        >
+          {t('viewTerms')}
+        </Link>
+      </ScrollView>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.medium
-  },
-  contentContainer: {
-    gap: spacing.large
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.large
-  },
-  passwordSection: {
-    gap: spacing.medium
-  },
-  termsSection: {
-    gap: spacing.medium
-  },
-  termsStatus: {
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8,
-    gap: spacing.small
-  },
-  controllerContainer: {
-    gap: spacing.small
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text
-  },
-  label: {
-    fontSize: 16,
-    color: colors.text
-  },
-  input: {
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8,
-    color: colors.text
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    padding: spacing.medium,
-    borderRadius: 8,
-    alignItems: 'center'
-  },
-  saveButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  offlineMessage: {
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8,
-    alignItems: 'center'
-  },
-  offlineText: {
-    color: colors.textSecondary,
-    textAlign: 'center'
-  },
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 20,
-    width: '80%',
-    maxHeight: '80%',
-    alignItems: 'center'
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%'
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10
-  },
-  modalVersion: {
-    fontSize: 14,
-    color: colors.text
-  },
-  closeButton: {
-    padding: 5
-  },
-  modalBody: {
-    flex: 1,
-    width: '100%',
-    padding: 10
-  },
-  modalText: {
-    color: colors.text,
-    marginBottom: 10
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    width: '100%',
-    marginTop: 20
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: colors.text
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.small
-  },
-  profileInfoSection: {
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8,
-    gap: spacing.small
-  },
-  profileInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
-  },
-  profileInfoValue: {
-    fontSize: 16,
-    color: colors.text,
-    flex: 1
-  }
-});

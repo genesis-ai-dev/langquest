@@ -77,6 +77,32 @@ export const InviteEmail = ({
       button: 'Participar do LangQuest',
       orCopy: 'Ou copie e cole este link no seu navegador:',
       expiry: 'Este link de convite expirará em 7 dias.'
+    },
+    'id-ID': {
+      preview: 'Anda telah diundang untuk bergabung dalam proyek di LangQuest',
+      title: 'Undangan untuk Proyek',
+      greeting: 'Halo!',
+      description: `${inviterName} telah mengundang Anda untuk bergabung dalam proyek "${projectName}" di LangQuest, sebuah platform kolaboratif pembelajaran bahasa.`,
+      whatIsLangQuest:
+        'LangQuest membantu komunitas membuat dan berbagi sumber belajar bahasa. Bergabunglah untuk berkontribusi dalam penerjemahan, rekaman audio, dan membantu menjaga bahasa di seluruh dunia.',
+      instruction:
+        'Klik tombol di bawah ini untuk membuat akun Anda dan bergabung dalam proyek:',
+      button: 'Bergabung di LangQuest',
+      orCopy: 'Atau salin dan tempel tautan ini di peramban Anda:',
+      expiry: 'Tautan undangan ini akan kadaluarsa dalam 7 hari.'
+    },
+    'tpi-PG': {
+      preview: 'Yu telah strongim langquest bilong yu',
+      title: 'Strongim LangQuest bilong yu',
+      greeting: 'Hello,',
+      description: `${inviterName} i salim yu strongim yu long joinim project "{projectName}" long langquest yu, platform collaborative learning language.`,
+      whatIsLangQuest:
+        'LangQuest helpim yu community strongim yu long shareim language learning resources. Joinim yu long contributeim translation, audio recording, and helpim preserveim language long whole world.',
+      instruction:
+        'Click button long yu pastim strongim yu account yu and joinim project yu:',
+      button: 'Joinim LangQuest',
+      orCopy: 'Or copyim pasteim link yu long yu browser:',
+      expiry: 'Link yu no expireim long 7 days.'
     }
   };
 
@@ -89,28 +115,28 @@ export const InviteEmail = ({
       <Preview>{t.preview}</Preview>
       <Tailwind>
         <Body className="bg-white">
-          <Container className="px-3 mx-auto">
-            <Heading className="text-2xl font-bold text-gray-800 my-10">
+          <Container className="mx-auto px-3">
+            <Heading className="my-10 text-2xl font-bold text-gray-800">
               {t.title}
             </Heading>
-            <Text className="text-gray-800 text-sm my-6">{t.greeting}</Text>
-            <Text className="text-gray-800 text-sm my-6">{t.description}</Text>
-            <Text className="text-gray-800 text-sm my-6">
+            <Text className="my-6 text-sm text-gray-800">{t.greeting}</Text>
+            <Text className="my-6 text-sm text-gray-800">{t.description}</Text>
+            <Text className="my-6 text-sm text-gray-800">
               {t.whatIsLangQuest}
             </Text>
-            <Text className="text-gray-800 text-sm my-6">{t.instruction}</Text>
+            <Text className="my-6 text-sm text-gray-800">{t.instruction}</Text>
             <Link
               href={joinUrl}
               target="_blank"
-              className="inline-block bg-green-500 text-white text-sm no-underline text-center py-3.5 px-5 rounded mb-4"
+              className="mb-4 inline-block rounded bg-green-500 px-5 py-3.5 text-center text-sm text-white no-underline"
             >
               {t.button}
             </Link>
-            <Text className="text-gray-800 text-sm mb-3.5">{t.orCopy}</Text>
-            <Text className="inline-block p-4 w-[90.5%] bg-gray-100 rounded border border-gray-200 text-gray-800 break-all font-mono text-sm">
+            <Text className="mb-3.5 text-sm text-gray-800">{t.orCopy}</Text>
+            <Text className="inline-block w-[90.5%] break-all rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm text-gray-800">
               {joinUrl}
             </Text>
-            <Text className="text-gray-400 text-sm mt-3.5">{t.expiry}</Text>
+            <Text className="mt-3.5 text-sm text-gray-400">{t.expiry}</Text>
           </Container>
         </Body>
       </Tailwind>

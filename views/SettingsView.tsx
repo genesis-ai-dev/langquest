@@ -1,25 +1,28 @@
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { colors, spacing } from '@/styles/theme';
-import {
-  getOptionShowHiddenContent,
-  setOptionShowHiddenContent
-} from '@/utils/settingsUtils';
-import { useQueryClient } from '@tanstack/react-query';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalStore } from '@/store/localStore';
+import { cn } from '@/utils/styleUtils';
 import type { Href } from 'expo-router';
-import { Link } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { HomeIcon } from 'lucide-react-native';
+import React from 'react';
 import {
   Alert,
+  Pressable,
   ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SettingsSection {
   title: string;
@@ -39,23 +42,31 @@ interface SettingsItem {
 
 export default function SettingsView() {
   const { t } = useLocalization();
+  const { goToProjects } = useAppNavigation();
   const isOnline = useNetworkStatus();
 
-  // Local state for settings
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [downloadOnWifiOnly, setDownloadOnWifiOnly] = useState(true);
-  const [autoBackup, setAutoBackup] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [showHiddenContent, setShowHiddenContent] = useState(false);
+  // Centralized settings store (select individual slices to avoid broad subscriptions)
+  const notificationsEnabled = useLocalStore(
+    (state) => state.notificationsEnabled
+  );
+  const downloadOnWifiOnly = useLocalStore((state) => state.downloadOnWifiOnly);
+  const autoBackup = useLocalStore((state) => state.autoBackup);
+  const debugMode = useLocalStore((state) => state.debugMode);
+  const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
-  const queryClient = useQueryClient();
+  const setShowHiddenContent = useLocalStore(
+    (state) => state.setShowHiddenContent
+  );
+  const setNotificationsEnabled = useLocalStore(
+    (state) => state.setNotificationsEnabled
+  );
+  const setDownloadOnWifiOnly = useLocalStore(
+    (state) => state.setDownloadOnWifiOnly
+  );
+  const setAutoBackup = useLocalStore((state) => state.setAutoBackup);
+  const setDebugMode = useLocalStore((state) => state.setDebugMode);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      setShowHiddenContent(await getOptionShowHiddenContent());
-    };
-    void loadSettings();
-  });
+  // Settings are loaded from the centralized store
 
   const handleNotificationToggle = (value: boolean) => {
     setNotificationsEnabled(value);
@@ -82,70 +93,40 @@ export default function SettingsView() {
   };
 
   const handleShowHiddenContentToggle = (value: boolean) => {
-    setOptionShowHiddenContent(value)
-      .then(() => {
-        setShowHiddenContent(value);
-        queryClient.removeQueries({
-          queryKey: ['projects'],
-          exact: false
-        });
-      })
-      .catch((error) => {
-        Alert.alert('Error', 'Failed to update setting', [
-          { text: 'OK', style: 'default' }
-        ]);
-        console.error('Error updating show hidden content setting:', error);
-      });
+    setShowHiddenContent(value);
   };
 
   const handleClearCache = () => {
-    Alert.alert(
-      t('clearCache') || 'Clear Cache',
-      t('clearCacheConfirmation') ||
-        'Are you sure you want to clear all cached data?',
-      [
-        { text: t('cancel') || 'Cancel', style: 'cancel' },
-        {
-          text: t('clear') || 'Clear',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement cache clearing logic
-            Alert.alert(
-              t('success') || 'Success',
-              t('cacheClearedSuccess') || 'Cache cleared successfully'
-            );
-          }
+    Alert.alert(t('clearCache'), t('clearCacheConfirmation'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('clear'),
+        style: 'destructive',
+        onPress: () => {
+          // TODO: Implement cache clearing logic
+          Alert.alert(t('success'), t('cacheClearedSuccess'));
         }
-      ]
-    );
+      }
+    ]);
   };
 
   const handleExportData = () => {
     if (!isOnline) {
-      Alert.alert(
-        t('error') || 'Error',
-        t('exportRequiresInternet') ||
-          'This feature requires an internet connection'
-      );
+      Alert.alert(t('error'), t('exportRequiresInternet'));
       return;
     }
     // TODO: Implement data export logic
-    Alert.alert(
-      t('info') || 'Info',
-      t('exportDataComingSoon') || 'Data export feature coming soon'
-    );
+    Alert.alert(t('info'), t('exportDataComingSoon'));
   };
 
   const settingsSections: SettingsSection[] = [
     {
-      title: t('notifications') || 'Notifications',
+      title: t('notifications'),
       items: [
         {
           id: 'notifications',
-          title: t('enableNotifications') || 'Enable Notifications',
-          description:
-            t('notificationsDescription') ||
-            'Receive notifications for app updates and important information',
+          title: t('enableNotifications'),
+          description: t('notificationsDescription'),
           type: 'toggle',
           value: notificationsEnabled,
           onPress: () => handleNotificationToggle(!notificationsEnabled)
@@ -153,14 +134,12 @@ export default function SettingsView() {
       ]
     },
     {
-      title: t('contentPreferences') || 'Content Preferences',
+      title: t('contentPreferences'),
       items: [
         {
           id: 'showHiddenContent',
-          title: t('showHiddenContent') || 'Show Hidden Content',
-          description:
-            t('showHiddenContentDescription') ||
-            'Allow displaying content that has been marked as invisible',
+          title: t('showHiddenContent'),
+          description: t('showHiddenContentDescription'),
           type: 'toggle',
           value: showHiddenContent,
           onPress: () => handleShowHiddenContentToggle(!showHiddenContent)
@@ -168,24 +147,20 @@ export default function SettingsView() {
       ]
     },
     {
-      title: t('dataAndStorage') || 'Data & Storage',
+      title: t('dataAndStorage'),
       items: [
         {
           id: 'wifiOnly',
-          title: t('downloadOnWifiOnly') || 'Download on WiFi Only',
-          description:
-            t('downloadOnWifiOnlyDescription') ||
-            'Only download content when connected to WiFi',
+          title: t('downloadOnWifiOnly'),
+          description: t('downloadOnWifiOnlyDescription'),
           type: 'toggle',
           value: downloadOnWifiOnly,
           onPress: () => handleWifiOnlyToggle(!downloadOnWifiOnly)
         },
         {
           id: 'autoBackup',
-          title: t('autoBackup') || 'Auto Backup',
-          description:
-            t('autoBackupDescription') ||
-            'Automatically backup your data to the cloud',
+          title: t('autoBackup'),
+          description: t('autoBackupDescription'),
           type: 'toggle',
           value: autoBackup,
           onPress: () => handleAutoBackupToggle(!autoBackup),
@@ -193,19 +168,15 @@ export default function SettingsView() {
         },
         {
           id: 'clearCache',
-          title: t('clearCache') || 'Clear Cache',
-          description:
-            t('clearCacheDescription') ||
-            'Clear all cached data to free up storage space',
+          title: t('clearCache'),
+          description: t('clearCacheDescription'),
           type: 'button',
           onPress: handleClearCache
         },
         {
           id: 'exportData',
-          title: t('exportData') || 'Export Data',
-          description:
-            t('exportDataDescription') ||
-            'Export your data for backup or transfer',
+          title: t('exportData'),
+          description: t('exportDataDescription'),
           type: 'button',
           onPress: handleExportData,
           disabled: !isOnline
@@ -213,56 +184,43 @@ export default function SettingsView() {
       ]
     },
     {
-      title: t('support') || 'Support',
+      title: t('support'),
       items: [
         {
           id: 'help',
-          title: t('helpCenter') || 'Help Center',
-          type: 'button',
+          title: t('helpCenter'),
+          type: 'link',
           onPress: () => {
-            Alert.alert(
-              t('info') || 'Info',
-              t('helpCenterComingSoon') || 'Help center feature coming soon'
-            );
+            Alert.alert(t('info'), t('helpCenterComingSoon'));
           }
         },
         {
           id: 'contact',
-          title: t('contactSupport') || 'Contact Support',
-          type: 'button',
+          title: t('contactSupport'),
+          type: 'link',
           onPress: () => {
             // TODO: Implement contact support logic
-            Alert.alert(
-              t('info') || 'Info',
-              t('contactSupportComingSoon') ||
-                'Contact support feature coming soon'
-            );
+            Alert.alert(t('info'), t('contactSupportComingSoon'));
           }
         },
         {
           id: 'terms',
-          title: t('termsAndConditions') || 'Terms & Conditions',
-          type: 'button',
+          title: t('termsAndConditions'),
+          type: 'link',
           onPress: () => {
             // TODO: Navigate to terms page
-            Alert.alert(
-              t('info') || 'Info',
-              t('termsAndConditionsComingSoon') ||
-                'Terms & Conditions feature coming soon'
-            );
+            Alert.alert(t('info'), t('termsAndConditionsComingSoon'));
           }
         }
       ]
     },
     {
-      title: t('advanced') || 'Advanced',
+      title: t('advanced'),
       items: [
         {
           id: 'debug',
-          title: t('debugMode') || 'Debug Mode',
-          description:
-            t('debugModeDescription') ||
-            'Enable debug mode for development features',
+          title: t('debugMode'),
+          description: t('debugModeDescription'),
           type: 'toggle',
           value: debugMode,
           onPress: () => handleDebugToggle(!debugMode)
@@ -277,92 +235,73 @@ export default function SettingsView() {
     switch (item.type) {
       case 'toggle':
         return (
-          <View
+          <Card
             key={item.id}
-            style={[
-              styles.settingItem,
-              isDisabled && styles.settingItemDisabled
-            ]}
+            className={cn(
+              isDisabled && 'opacity-50',
+              'flex w-full flex-row items-center gap-2 p-6'
+            )}
           >
-            <View style={styles.settingContent}>
-              <Text
-                style={[styles.settingTitle, isDisabled && styles.disabledText]}
-              >
-                {item.title}
-              </Text>
-              {item.description && (
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    isDisabled && styles.disabledText
-                  ]}
-                >
-                  {item.description}
-                </Text>
-              )}
-            </View>
+            <CardHeader className="flex-1 p-0">
+              <CardTitle>{item.title}</CardTitle>
+              <CardDescription>{item.description}</CardDescription>
+            </CardHeader>
             <Switch
-              value={item.value || false}
-              onValueChange={item.onPress}
+              checked={item.value || false}
+              onCheckedChange={() => item.onPress?.()}
               disabled={isDisabled}
-              trackColor={{
-                false: colors.textSecondary,
-                true: colors.primary // Use primary color for better contrast
-              }}
-              thumbColor={item.value ? colors.primary : colors.inputBackground} // Different thumb colors for on/off states
+              className={cn(!item.value && 'dark:bg-accent/60')}
             />
-          </View>
+          </Card>
         );
 
       case 'button':
         return (
-          <TouchableOpacity
+          <Card
             key={item.id}
-            style={[
-              styles.settingItem,
-              isDisabled && styles.settingItemDisabled
-            ]}
-            onPress={item.onPress}
-            disabled={isDisabled}
+            className={cn(
+              isDisabled && 'opacity-50',
+              'flex w-full flex-row items-center gap-2 p-6'
+            )}
           >
-            <View style={styles.settingContent}>
-              <Text
-                style={[styles.settingTitle, isDisabled && styles.disabledText]}
-              >
-                {item.title}
-              </Text>
-              {item.description && (
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    isDisabled && styles.disabledText
-                  ]}
-                >
-                  {item.description}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              className="flex-1 flex-row items-center"
+              onPress={item.onPress}
+              disabled={isDisabled}
+            >
+              <CardHeader className="flex-1 p-0">
+                <CardTitle>{item.title}</CardTitle>
+                <CardDescription>{item.description}</CardDescription>
+              </CardHeader>
+            </TouchableOpacity>
+          </Card>
         );
 
       case 'link':
-        if (item.href) {
-          return (
-            <Link key={item.id} href={item.href} asChild>
-              <TouchableOpacity style={styles.settingItem}>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{item.title}</Text>
-                  {item.description && (
-                    <Text style={styles.settingDescription}>
-                      {item.description}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </Link>
-          );
-        }
-        return null;
+        return (
+          <Card
+            key={item.id}
+            className={cn(
+              isDisabled && 'opacity-50',
+              'flex w-full flex-row items-center gap-2 p-6'
+            )}
+          >
+            <Pressable
+              onPress={() => {
+                // Navigate to the href
+                if (item.onPress) {
+                  item.onPress();
+                }
+              }}
+              disabled={isDisabled}
+            >
+              <CardHeader className="flex-1 p-0">
+                <CardTitle className="text-primary">{item.title}</CardTitle>
+                <CardDescription>{item.description}</CardDescription>
+              </CardHeader>
+            </Pressable>
+          </Card>
+        );
 
       default:
         return null;
@@ -370,102 +309,34 @@ export default function SettingsView() {
   };
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView style={styles.container}>
-          <View style={styles.contentContainer}>
-            <Text style={styles.pageTitle}>{t('settings')}</Text>
+    <ScrollView className="p-4">
+      <View className="gap-6">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-2xl font-bold">{t('settings')}</Text>
+          <Button variant="default" size="icon-lg" onPress={goToProjects}>
+            <Icon as={HomeIcon} className="text-primary-foreground" />
+          </Button>
+        </View>
 
-            {!isOnline && (
-              <View style={styles.offlineMessage}>
-                <Text style={styles.offlineText}>
-                  {t('settingsRequireInternet') ||
-                    'Some settings require an internet connection'}
-                </Text>
-              </View>
-            )}
-
-            {settingsSections.map((section) => (
-              <View key={section.title} style={styles.section}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <View style={styles.sectionContent}>
-                  {section.items.map(renderSettingsItem)}
-                </View>
-              </View>
-            ))}
+        {!isOnline && (
+          <View className="items-center rounded-lg bg-card p-4">
+            <Text className="text-center text-muted-foreground">
+              {t('settingsRequireInternet')}
+            </Text>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        )}
+
+        {settingsSections.map((section) => (
+          <View key={section.title} className="gap-4">
+            <Text className="mb-2 text-lg font-bold text-foreground">
+              {section.title}
+            </Text>
+            <View className="gap-2">
+              {section.items.map(renderSettingsItem)}
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.medium
-  },
-  contentContainer: {
-    gap: spacing.large
-  },
-  offlineMessage: {
-    backgroundColor: colors.inputBackground,
-    padding: spacing.medium,
-    borderRadius: 8,
-    alignItems: 'center'
-  },
-  offlineText: {
-    color: colors.textSecondary,
-    textAlign: 'center'
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.large
-  },
-  section: {
-    gap: spacing.small
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: spacing.small
-  },
-  sectionContent: {
-    backgroundColor: colors.inputBackground,
-    borderRadius: 8,
-    overflow: 'hidden'
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.medium,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.inputBorder
-  },
-  settingItemDisabled: {
-    opacity: 0.5
-  },
-  settingContent: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: colors.textSecondary
-  },
-  disabledText: {
-    color: colors.textSecondary
-  }
-});

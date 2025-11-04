@@ -2,7 +2,7 @@ import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -27,7 +27,7 @@ export function SupabaseDiagnosticView() {
     setResults((prev) => [...prev, result]);
   };
 
-  const runDiagnostics = async () => {
+  const runDiagnostics = useCallback(async () => {
     setIsRunning(true);
     setResults([]);
 
@@ -149,11 +149,11 @@ export function SupabaseDiagnosticView() {
     });
 
     setIsRunning(false);
-  };
+  }, []);
 
   useEffect(() => {
     runDiagnostics();
-  }, []);
+  }, [runDiagnostics]);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#1a1a1a', padding: 20 }}>

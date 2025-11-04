@@ -62,9 +62,9 @@ const CategorySection: React.FC<{
   const options = useMemo(() => {
     return tags
       .map((tag) => {
-        const [, option] = tag.name.split(':');
+        const option = tag.value;
         return {
-          id: `${category.toLowerCase()}:${option?.toLowerCase() || ''}`,
+          id: `${category.toLowerCase()}:${option.toLowerCase()}`,
           label: option || ''
         };
       })

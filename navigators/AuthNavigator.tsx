@@ -1,7 +1,8 @@
-import ForgotPasswordView2 from '@/views/ForgotPasswordView2';
-import RegisterView2 from '@/views/RegisterView2';
-import SignInView2 from '@/views/SignInView2';
-import React, { useState } from 'react';
+import ForgotPasswordView from '@/views/ForgotPasswordView';
+import RegisterView from '@/views/RegisterView';
+import SignInView2 from '@/views/SignInView';
+import React, { useCallback, useEffect, useState } from 'react';
+import { BackHandler } from 'react-native';
 
 export type AuthView = 'sign-in' | 'register' | 'forgot-password';
 
@@ -12,15 +13,60 @@ export interface SharedAuthInfo {
 export function AuthNavigator() {
   const [currentView, setCurrentView] = useState<AuthView>('sign-in');
   const [sharedAuthInfo, setSharedAuthInfo] = useState<SharedAuthInfo>({});
+  const [navigationStack, setNavigationStack] = useState<AuthView[]>([
+    'sign-in'
+  ]);
 
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
     setCurrentView(view);
+
+    // Atualiza o stack de navegação
+    setNavigationStack((prev) => {
+      const newStack = [...prev];
+      if (newStack[newStack.length - 1] !== view) {
+        newStack.push(view);
+      }
+      return newStack;
+    });
+
     if (sharedAuthInfo) {
       setSharedAuthInfo(sharedAuthInfo);
     } else {
       setSharedAuthInfo({});
     }
   }
+
+  // Handler para o botão voltar do sistema
+  const handleBackPress = useCallback(() => {
+    if (navigationStack.length > 1) {
+      // Remove a view atual do stack
+      const newStack = [...navigationStack];
+      newStack.pop();
+      setNavigationStack(newStack);
+
+      // Volta para a view anterior
+      const previousView = newStack[newStack.length - 1];
+      if (previousView) {
+        setCurrentView(previousView);
+      }
+
+      return true; // Impede o comportamento padrão do botão voltar
+    }
+
+    // Se não há mais views no stack, permite o comportamento padrão
+    // (voltar para Terms ou fechar o app)
+    return false;
+  }, [navigationStack]);
+
+  // Registra o listener do BackHandler
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
+    return () => backHandler.remove();
+  }, [handleBackPress]);
 
   switch (currentView) {
     case 'sign-in':
@@ -33,7 +79,7 @@ export function AuthNavigator() {
       );
     case 'register':
       return (
-        <RegisterView2
+        <RegisterView
           key="register"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}
@@ -41,7 +87,7 @@ export function AuthNavigator() {
       );
     case 'forgot-password':
       return (
-        <ForgotPasswordView2
+        <ForgotPasswordView
           key="forgot"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}

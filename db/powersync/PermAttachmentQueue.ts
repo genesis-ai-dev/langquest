@@ -1,14 +1,23 @@
-import { system } from '@/db/powersync/system';
+import {
+  getFileInfo,
+  getFileName,
+  getLocalUri,
+  moveFile
+} from '@/utils/fileUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
 } from '@powersync/attachments';
 import { AttachmentState } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { isNotNull } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import type * as drizzleSchema from '../drizzleSchema';
+import {
+  asset_content_link_synced,
+  asset_synced
+} from '../drizzleSchemaSynced';
 import { AppConfig } from '../supabase/AppConfig';
+import type { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
 
 export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
@@ -19,19 +28,26 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   //   asset_id: string;
   //   active: boolean;
   // }[] = [];
+  private supabaseConnector: SupabaseConnector;
 
   constructor(
     options: AttachmentQueueOptions & {
       db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+      supabaseConnector: SupabaseConnector;
     }
   ) {
     super(options);
     // this.db = options.db;
+    this.supabaseConnector = options.supabaseConnector;
   }
 
-  async getCurrentUserId(): Promise<string | null> {
+  getLocalUri(filePath: string) {
+    return getLocalUri(filePath);
+  }
+
+  async getCurrentUserId() {
     // Get user from Supabase auth session
-    const session = await system.supabaseConnector.client.auth.getSession();
+    const session = await this.supabaseConnector.client.auth.getSession();
     return session.data.session?.user.id || null;
   }
 
@@ -40,7 +56,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async init() {
-    console.log('PermAttachmentQueue init');
     if (!AppConfig.supabaseBucket) {
       console.debug(
         'No Supabase bucket configured, skip setting up PermAttachmentQueue watches.'
@@ -54,141 +69,85 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   onAttachmentIdsChange(onUpdate: (ids: string[]) => void): void {
-    console.log('onAttachmentIdsChange in PERM ATTACHMENT QUEUE');
-
     // Use the getCurrentUserId method instead of getCurrentUser
     void this.getCurrentUserId().then((currentUserId) => {
       if (!currentUserId) {
         return;
       }
 
-      let isRefreshing = false;
-      let debounceTimeout: NodeJS.Timeout | null = null;
+      const query = this.db
+        .select({
+          images: asset_synced.images,
+          audio: asset_content_link_synced.audio
+        })
+        .from(asset_synced)
+        .leftJoin(
+          asset_content_link_synced,
+          eq(asset_synced.id, asset_content_link_synced.asset_id)
+        )
+        .where(
+          and(
+            or(
+              isNotNull(asset_content_link_synced.audio),
+              isNotNull(asset_synced.images)
+            )
+          )
+        );
 
-      // Unified function to query all tables and update PowerSync with complete list
-      const refreshAllAttachments = async () => {
-        if (isRefreshing) {
-          console.log('Refresh already in progress, skipping...');
-          return;
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+      const DEBOUNCE_MS = 2000; // 2 seconds - accumulate changes before syncing
+
+      function refreshAllAttachments(data: Awaited<typeof query>) {
+        // Clear existing timer
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
         }
-        isRefreshing = true;
 
-        console.log('Refreshing all attachments from all tables');
+        // Debounce the attachment refresh
+        debounceTimer = setTimeout(() => {
+          const assetImages = data
+            .flatMap((asset_synced) => asset_synced.images)
+            .filter(Boolean);
+          const contentLinkAudioIds = data
+            .flatMap(
+              (asset_content_link_synced) => asset_content_link_synced.audio
+            )
+            .filter(Boolean);
+          const allAttachments = [...assetImages, ...contentLinkAudioIds];
 
-        try {
-          // Query all three tables fresh to get current state
-          const [assets, assetContentLinks, translations] = await Promise.all([
-            this.db.query.asset.findMany({
-              columns: { images: true },
-              where: (asset) => isNotNull(asset.images)
-            }),
-            this.db.query.asset_content_link.findMany({
-              columns: { audio_id: true },
-              where: (asset_content_link) =>
-                isNotNull(asset_content_link.audio_id)
-            }),
-            this.db.query.translation.findMany({
-              columns: { audio: true },
-              where: (translation) => isNotNull(translation.audio)
-            })
-          ]);
-
-          // Collect all attachment IDs
-          const assetImages = assets.flatMap((asset) => asset.images!);
-          const contentLinkAudioIds = assetContentLinks.map(
-            (link) => link.audio_id!
+          // CRITICAL: Filter out blob URLs before processing
+          const validAttachments = allAttachments.filter(
+            (id) => !id.includes('blob:')
           );
-          const translationAudioIds = translations.map(
-            (translation) => translation.audio!
-          );
+          const uniqueAttachments = [...new Set(validAttachments)];
 
-          // Merge and deduplicate
-          const allAttachments = [
-            ...assetImages,
-            ...contentLinkAudioIds,
-            ...translationAudioIds
-          ];
-          const uniqueAttachments = [...new Set(allAttachments)];
+          if (validAttachments.length < allAttachments.length) {
+            console.warn(
+              `[PermAttachmentQueue] Filtered out ${allAttachments.length - validAttachments.length} blob URLs from sync`
+            );
+          }
 
           console.log(
             `Total unique attachments to sync: ${uniqueAttachments.length}`,
             {
               assetImages: assetImages.length,
               contentLinkAudioIds: contentLinkAudioIds.length,
-              translationAudioIds: translationAudioIds.length
+              filtered: allAttachments.length - validAttachments.length
             }
           );
 
-          console.log(
-            'RYDER: about to call onUpdate with ',
-            uniqueAttachments.length,
-            'attachments'
-          );
           // Tell PowerSync which attachments to keep synced
           onUpdate(uniqueAttachments);
-        } catch (error) {
-          console.error('Error refreshing attachments:', error);
-        } finally {
-          isRefreshing = false;
-        }
-      };
-
-      // Debounced refresh function
-      const debouncedRefresh = () => {
-        if (debounceTimeout) {
-          clearTimeout(debounceTimeout);
-        }
-        debounceTimeout = setTimeout(() => {
-          void refreshAllAttachments();
-        }, 500);
-      };
-
-      // Watch for changes in asset images - trigger debounced refresh
-      this.db.watch(
-        this.db.query.asset.findMany({
-          columns: { images: true },
-          where: (asset) => isNotNull(asset.images)
-        }),
-        {
-          onResult: () => {
-            console.log('Asset images changed - triggering debounced refresh');
-            debouncedRefresh();
-          }
-        }
-      );
+        }, DEBOUNCE_MS);
+      }
 
       // Watch for changes in asset content link audio - trigger debounced refresh
-      this.db.watch(
-        this.db.query.asset_content_link.findMany({
-          columns: { audio_id: true },
-          where: (asset_content_link) => isNotNull(asset_content_link.audio_id)
-        }),
-        {
-          onResult: () => {
-            console.log(
-              'Asset content links changed - triggering debounced refresh'
-            );
-            debouncedRefresh();
-          }
-        }
-      );
-
-      // Watch for changes in translation audio - trigger debounced refresh
-      this.db.watch(
-        this.db.query.translation.findMany({
-          columns: { audio: true },
-          where: (translation) => isNotNull(translation.audio)
-        }),
-        {
-          onResult: () => {
-            console.log('Translations changed - triggering debounced refresh');
-            debouncedRefresh();
-          }
-        }
-      );
+      this.db.watch(query, {
+        onResult: (data) => refreshAllAttachments(data)
+      });
 
       // Initial load
-      void refreshAllAttachments();
+      void query.then((data) => refreshAllAttachments(data));
     });
   }
 
@@ -200,40 +159,59 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
   }
 
   async savePhoto(base64Data: string): Promise<AttachmentRecord> {
-    const photoAttachment = await this.newAttachmentRecord();
-    const localUri = this.getLocalUri(photoAttachment.local_uri!);
-    await this.storage.writeFile(localUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64
+    const photoAttachment = await this.newAttachmentRecord({
+      id: getFileName(base64Data)!
     });
-
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const localUri = this.getLocalUri(photoAttachment.local_uri!);
+    const fileInfo = await getFileInfo(localUri);
     if (fileInfo.exists) {
+      await moveFile(localUri, base64Data);
       photoAttachment.size = fileInfo.size;
     }
-
     return this.saveToQueue(photoAttachment);
   }
 
-  async saveAudio(tempUri: string): Promise<AttachmentRecord> {
-    const extension = tempUri.split('.').pop();
-    const audioAttachment = await this.newAttachmentRecord(
-      {
-        media_type: 'audio/mpeg'
-      },
-      extension
-    );
-    const localUri = this.getLocalUri(audioAttachment.local_uri!);
-    await FileSystem.moveAsync({
-      from: tempUri,
-      to: localUri
+  async saveAudio(
+    tempUri: string,
+    tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
+  ): Promise<AttachmentRecord> {
+    // Reject blob URLs - they must be converted to files first
+    if (tempUri.includes('blob:')) {
+      console.error(
+        '[PermAttachmentQueue] Attempted to save blob URL:',
+        tempUri
+      );
+      throw new Error(
+        'Cannot save blob URL directly. Must be converted to file first.'
+      );
+    }
+
+    const recordId = getFileName(tempUri)!;
+
+    // Double-check the recordId doesn't contain blob URL
+    if (recordId.includes('blob:')) {
+      console.error(
+        '[PermAttachmentQueue] getFileName returned blob URL:',
+        recordId
+      );
+      throw new Error(
+        'Invalid file path - contains blob URL. Must use proper file path.'
+      );
+    }
+
+    const audioAttachment = await this.newAttachmentRecord({
+      id: recordId
     });
 
-    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    const localUri = this.getLocalUri(audioAttachment.local_uri!);
+    const fileInfo = await getFileInfo(tempUri);
+
     if (fileInfo.exists) {
+      await moveFile(tempUri, localUri);
       audioAttachment.size = fileInfo.size;
     }
 
-    return this.saveToQueue(audioAttachment);
+    return this.saveToQueue(audioAttachment, tx);
   }
 
   async expireCache() {

@@ -1,25 +1,37 @@
+// Import from native SDK - will be empty on web
 import type {
-  AbstractPowerSyncDatabase,
-  CrudEntry,
-  PowerSyncBackendConnector
+  AbstractPowerSyncDatabase as AbstractPowerSyncDatabaseNative,
+  CrudEntry as CrudEntryNative,
+  PowerSyncBackendConnector as PowerSyncBackendConnectorNative
 } from '@powersync/react-native';
-import { UpdateType } from '@powersync/react-native';
+import { UpdateType as UpdateTypeNative } from '@powersync/react-native';
+
+// Import from web SDK - will be empty on native
+import { UpdateType as UpdateTypeWeb } from '@powersync/web';
+
+// Use the correct types based on platform
+
+type AbstractPowerSyncDatabase = AbstractPowerSyncDatabaseNative;
+
+type CrudEntry = CrudEntryNative;
+
+type PowerSyncBackendConnector = PowerSyncBackendConnectorNative;
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const UpdateType = UpdateTypeNative || UpdateTypeWeb;
 
 import type { Profile } from '@/database_services/profileService';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {
-  PostgrestSingleResponse,
-  Session,
-  SupabaseClient
-} from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
+import { Alert } from 'react-native';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
+import type { OpMetadata } from '../powersync/opMetadata';
+import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
-import { SupabaseStorageAdapter } from './SupabaseStorageAdapter';
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -30,7 +42,9 @@ const FATAL_RESPONSE_CODES = [
   // Examples include NOT NULL, FOREIGN KEY and UNIQUE violations.
   new RegExp('^23...$'),
   // INSUFFICIENT PRIVILEGE - typically a row-level security violation
-  new RegExp('^42501$')
+  new RegExp('^42501$'),
+  // UNIQUE CONSTRAINT VIOLATION - typically a row-level security violation
+  new RegExp('^23505$')
 ];
 
 interface CompositeKeyConfig {
@@ -41,7 +55,6 @@ interface CompositeKeyConfig {
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
-  storage: SupabaseStorageAdapter;
   private currentSession: Session | null = null;
 
   constructor(protected system: System) {
@@ -54,17 +67,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       throw new Error('PowerSync URL is not defined');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.client = createClient(
       AppConfig.supabaseUrl,
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          storage: AsyncStorage
+          storage: AsyncStorage,
+          detectSessionInUrl: false // Important for React Native
         }
       }
     );
-
-    this.storage = new SupabaseStorageAdapter({ client: this.client });
 
     // console.log('Supabase client created: ', this.client);
     this.client.auth.onAuthStateChange((event, session) => {
@@ -289,15 +302,25 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
     const transaction = await database.getNextCrudTransaction();
+    console.log('uploadData transaction', transaction);
     if (!transaction) return;
 
     let lastOp: CrudEntry | null = null;
     try {
+      // Build a single transactional batch of ops
+      const batchOps: {
+        table_name: string;
+        op: 'put' | 'patch' | 'delete';
+        record: Record<string, unknown> | null | undefined;
+        client_meta: OpMetadata;
+      }[] = [];
+
       for (const op of transaction.crud) {
         lastOp = op;
-        const table = this.client.from(op.table);
-        let result: PostgrestSingleResponse<unknown> | null = null;
-        let record;
+        // Default metadata if none was stamped (covers any raw SQL writes)
+        const metadata =
+          (op as unknown as { metadata: OpMetadata | null }).metadata ??
+          getDefaultOpMetadata();
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -305,13 +328,13 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         );
         const isCompositeTable = !!compositeConfig;
 
-        let compositeKeys = {};
+        let compositeKeys: Record<string, unknown> = {};
         if (isCompositeTable && op.id) {
           const [firstId, secondId] = op.id.split('_');
           compositeKeys = {
             [compositeConfig.keys[0]!]: firstId,
             [compositeConfig.keys[1]!]: secondId
-          };
+          } as Record<string, unknown>;
         }
 
         if (
@@ -334,17 +357,18 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         ): Record<string, unknown> | null | undefined => {
           if (!data) return data;
 
-          const processed = { ...data };
+          const processed = { ...data } as Record<string, unknown>;
 
           // List of known array fields in the schema
           const arrayFields = [
             'download_profiles',
-            'images', // in asset table
+            'images',
+            'audio',
             'asset_ids',
             'translation_ids',
             'vote_ids',
             'tag_ids',
-            'language_ids', // closure tables
+            'language_ids',
             'quest_ids',
             'quest_asset_link_ids',
             'asset_content_link_ids',
@@ -352,13 +376,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
             'asset_tag_link_ids'
           ];
 
-          // Process each array field
           for (const field of arrayFields) {
             if (field in processed && typeof processed[field] === 'string') {
               try {
                 let parsed: unknown = processed[field];
-
-                // Handle double-encoded strings (string containing escaped JSON)
                 if (
                   typeof parsed === 'string' &&
                   parsed.startsWith('"') &&
@@ -366,8 +387,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
                 ) {
                   parsed = JSON.parse(parsed);
                 }
-
-                // Now parse the actual array
                 processed[field] =
                   typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
                 console.log(`Parsed ${field}:`, processed[field]);
@@ -381,65 +400,179 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           return processed;
         };
 
+        if (opData && 'source' in opData) {
+          delete opData.source;
+        }
+
+        let record: Record<string, unknown> | null | undefined = undefined;
+        let opName: 'put' | 'patch' | 'delete';
+
         switch (op.op) {
           case UpdateType.PUT: {
+            opName = 'put';
             record = isCompositeTable
               ? { ...compositeKeys, ...opData }
               : { ...opData, id: op.id };
-
-            // Process array fields
-            record = processArrayFields(record);
-
-            // Log the record for debugging
+            record = processArrayFields(record) ?? undefined;
             if (op.table === 'vote') {
               console.log(
                 'Vote record after processing:',
                 JSON.stringify(record, null, 2)
               );
             }
-
-            result = await table.upsert(record);
             break;
           }
-
           case UpdateType.PATCH: {
-            // Process array fields for PATCH operations
+            opName = 'patch';
             const patchData = processArrayFields(opData);
-
-            if (isCompositeTable && patchData) {
-              result = await table.update(patchData).match(compositeKeys);
-            } else {
-              result = await table.update(patchData).eq('id', op.id);
-            }
+            record = isCompositeTable
+              ? { ...compositeKeys, ...(patchData ?? {}) }
+              : { id: op.id, ...(patchData ?? {}) };
             break;
           }
-
-          case UpdateType.DELETE:
-            if (isCompositeTable) {
-              result = await table.delete().match(compositeKeys);
-            } else {
-              result = await table.delete().eq('id', op.id);
-            }
-            console.log('delete result', result);
+          case UpdateType.DELETE: {
+            opName = 'delete';
+            record = isCompositeTable ? compositeKeys : { id: op.id };
             break;
+          }
+          default: {
+            // Skip unknown operation types
+            console.warn('Unknown operation type:', op.op);
+            continue;
+          }
         }
 
-        if (result.error) {
-          console.error(result.error);
-          console.debug('Upload data:', result.data, opData);
-          result.error.message = `Could not ${op.op} data to Supabase error: ${JSON.stringify(
-            result
-          )}`;
-          throw result.error;
-        }
+        batchOps.push({
+          table_name: op.table,
+          op: opName,
+          record,
+          client_meta: { ...metadata }
+        });
       }
 
-      await transaction.complete();
+      // Single transactional RPC call
+      const result = await this.client.rpc('apply_table_mutation_transaction', {
+        p_ops: batchOps
+      });
+
+      if (result.error) {
+        console.error(
+          'apply_table_mutation_transaction result',
+          JSON.stringify(result, null, 2)
+        );
+        throw result.error;
+      }
+
+      const response = result.data as {
+        status: string;
+        logs?: string;
+        ref_code?: string | null;
+        error_code?: string | null;
+        error_message?: string | null;
+        failed_op?: {
+          op: string;
+          table: string;
+          record: unknown;
+        } | null;
+        op_count?: number | null;
+        ops_summary?:
+          | {
+              table: string;
+              op: string;
+              has_record: boolean;
+            }[]
+          | null;
+      } | null;
+
+      if (!response || typeof response !== 'object') {
+        throw new Error(
+          'Unexpected response from apply_table_mutation_transaction'
+        );
+      }
+
+      // Enhanced logging with all available diagnostic info
+      console.log(
+        '[apply_table_mutation_transaction] Status:',
+        response.status
+      );
+      console.log(
+        '[apply_table_mutation_transaction] Op count:',
+        response.op_count ?? 'unknown'
+      );
+      if (response.ops_summary && response.ops_summary.length > 0) {
+        console.log(
+          '[apply_table_mutation_transaction] Operations:',
+          JSON.stringify(response.ops_summary, null, 2)
+        );
+      }
+      if (response.logs) {
+        console.log(
+          '[apply_table_mutation_transaction] Logs:\n',
+          response.logs
+        );
+      }
+      if (response.failed_op) {
+        console.error(
+          '[apply_table_mutation_transaction] Failed operation:',
+          JSON.stringify(response.failed_op, null, 2)
+        );
+      }
+
+      if (response.status === '2xx') {
+        await transaction.complete();
+        return;
+      }
+
+      if (response.status === '4xx') {
+        console.warn(
+          `[apply_table_mutation_transaction] Client error. ref_code=${response.ref_code} error_code=${response.error_code}`
+        );
+        if (response.error_message) {
+          console.warn(
+            '[apply_table_mutation_transaction] Error message:',
+            response.error_message
+          );
+        }
+        try {
+          Alert.alert(
+            'Upload issue',
+            `There was an issue uploading your content. We're investigating and your data will be made available to others as soon as possible. Reference code: ${response.ref_code ?? 'N/A'}`
+          );
+        } catch {
+          // In non-RN contexts, Alert may be unavailable; ignore
+        }
+        // Clear the local queue for this transaction and proceed
+        await transaction.complete();
+        return;
+      }
+
+      if (response.status === '5xx') {
+        // Transient server error; throw to retry later
+        const errorDetails = [
+          response.error_code ? `code: ${response.error_code}` : null,
+          response.error_message ? `message: ${response.error_message}` : null,
+          response.failed_op
+            ? `failed_op: ${response.failed_op.op} on ${response.failed_op.table}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        const err = new Error(
+          `[apply_table_mutation_transaction] Server error: ${errorDetails || 'unknown'}`
+        );
+        // Do not complete the transaction so it will be retried
+        throw err;
+      }
+
+      // Unknown status
+      throw new Error(
+        `Unknown status from apply_table_mutation_transaction: ${JSON.stringify(response)}`
+      );
     } catch (ex) {
-      console.debug(ex);
       const error = ex as Error & { code?: string };
+      console.error(`Upload data exception: ${error.message}`);
       // Note: PostHog integration moved to avoid circular dependency
-      console.error('Upload data exception:', error);
       if (
         typeof error.code == 'string' &&
         FATAL_RESPONSE_CODES.some((regex) => regex.test(error.code!))
@@ -453,7 +586,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * elsewhere instead of discarding, and/or notify the user.
          */
         console.error('Data upload error - discarding:', lastOp, ex);
-        await transaction.complete();
+        // await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
         // Throwing an error here causes this call to be retried after a delay.

@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.4.1
         with:
-          ref: ${{ github.ref }}
-          check-name: 'Supabase Preview'
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: "Supabase Preview"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 
@@ -34,15 +34,17 @@ jobs:
 
       - name: Get Database URL
         id: supabase-branch
-        uses: 0xbigboss/supabase-branch-gh-action@v1
+        uses: 0xbigboss/supabase-branch-gh-action@master
         with:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+          wait-for-migrations: true
+          git-branch: "dev"
 
       - name: Setup PowerSync Environment
         run: |
           # Construct database URL from branch info
-          DB_URL="postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres"
+          DB_URL="postgresql://${{ steps.supabase-branch.outputs.db_user }}.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-1-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres"
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
 
@@ -73,6 +75,8 @@ jobs:
             
             if [ "$HEALTH_STATUS" = "healthy" ]; then
               echo "PowerSync is healthy and ready"
+              # echo "Waiting an additional 5 seconds for full initialization..."
+              # sleep 5
               exit 0
             fi
             
@@ -106,14 +110,10 @@ jobs:
           # Make the API call and store response
           echo "Making validation API call..."
           RESPONSE=$(curl -s -X POST \
+            "http://localhost:${PS_PORT}/api/sync-rules/v1/validate" \
             -H "Authorization: Bearer $PS_API_TOKEN" \
             -H "Content-Type: application/yaml" \
-            --data-binary "@supabase/config/sync-rules.yml" \
-            "http://localhost:${PS_PORT}/api/sync-rules/v1/validate")
-
-          # Debug: Print raw response
-          echo "Raw response:"
-          echo "$RESPONSE"
+            --data-binary @./supabase/config/sync-rules.yml)
 
           # Extract the valid field directly using jq
           VALID=$(echo "$RESPONSE" | jq -r '.valid')
@@ -130,6 +130,11 @@ jobs:
           else
             echo "❌ PowerSync sync rules validation failed"
             echo "status=failed" >> $GITHUB_OUTPUT
+            
+            # Output container logs for debugging (shown in workflow logs)
+            echo "PowerSync container logs:"
+            docker logs $POWERSYNC_CONTAINER 2>&1 || echo "Failed to retrieve logs"
+            
             exit 1
           fi
 

@@ -98,8 +98,8 @@ file_size_limit = "50MiB"
 [storage.buckets.local]
 public = true
 file_size_limit = "50MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "video/mp4", "application/octet-stream"]
-objects_path = "./assets"
+allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "video/mp4", "video/webm", "application/octet-stream"]
+# objects_path = "./assets"
 
 [auth]
 enabled = true
@@ -281,7 +281,7 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 [edge_runtime]
-enabled = false
+enabled = true
 # Configure one of the supported request policies: `oneshot`, `per_worker`.
 # Use `oneshot` for hot reload, or `per_worker` for load testing.
 policy = "oneshot"
@@ -306,6 +306,11 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+
+[functions.clone-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/clone-worker/index.ts"
 
 [functions.sqltr]
 enabled = true

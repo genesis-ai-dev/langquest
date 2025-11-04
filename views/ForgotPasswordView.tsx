@@ -1,204 +1,134 @@
+import { LanguageSelect } from '@/components/language-select';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  transformInputProps
+} from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useLocalStore } from '@/store/localStore';
-import { colors, sharedStyles, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
+import { safeNavigate } from '@/utils/sharedUtils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useForm } from 'react-hook-form';
+import { Alert, View } from 'react-native';
+import { z } from 'zod';
 
-interface ForgotPasswordFormData {
-  email: string;
-}
+const { supabaseConnector } = system;
 
-const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-
-export default function ForgotPasswordView() {
-  const { supabaseConnector } = system;
+export default function ForgotPasswordView({
+  onNavigate,
+  sharedAuthInfo
+}: {
+  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
+  sharedAuthInfo?: SharedAuthInfo;
+}) {
   const { t } = useLocalization();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<ForgotPasswordFormData>({
-    defaultValues: {
-      email: ''
-    }
+  const formSchema = z.object({
+    email: z
+      .email(t('enterValidEmail'))
+      .nonempty(t('emailRequired'))
+      .toLowerCase()
+      .trim()
   });
 
-  const onSubmit = async (data: ForgotPasswordFormData) => {
-    try {
+  const { mutateAsync: resetPassword, isPending } = useMutation({
+    mutationFn: async (data: z.infer<typeof formSchema>) => {
       const { error } =
-        await supabaseConnector.client.auth.resetPasswordForEmail(
-          data.email.toLowerCase().trim(),
-          {
-            redirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}/reset-password${process.env.EXPO_PUBLIC_APP_VARIANT !== 'production' ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}` : ''}`
-          }
-        );
-
+        await supabaseConnector.client.auth.resetPasswordForEmail(data.email);
       if (error) throw error;
-
+    },
+    onSuccess: () => {
       Alert.alert(t('success'), t('checkEmailForResetLink'), [
-        { text: t('ok'), onPress: () => setAuthView('sign-in') }
+        {
+          text: t('ok'),
+          onPress: () =>
+            safeNavigate(() =>
+              onNavigate('sign-in', { email: form.getValues('email') })
+            )
+        }
       ]);
-    } catch (error) {
-      console.error('Error requesting password reset:', error);
+    },
+    onError: (error) => {
       Alert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedSendResetEmail')
       );
     }
-  };
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    disabled: isPending,
+    defaultValues: {
+      email: sharedAuthInfo?.email || ''
+    }
+  });
 
   return (
-    <LinearGradient
-      colors={[colors.gradientStart, colors.gradientEnd]}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View
-              style={[
-                sharedStyles.container,
-                { backgroundColor: 'transparent', gap: spacing.medium }
-              ]}
+    <Form {...form}>
+      <View className="m-safe flex flex-col gap-4 p-6">
+        <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('resetPassword')}</Text>
+        </View>
+        <LanguageSelect uiReadyOnly />
+        <View className="flex flex-col items-center gap-4">
+          <Icon as={LockIcon} size={32} />
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem className="w-full">
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    mask
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    prefix={MailIcon}
+                    prefixStyling={false}
+                    placeholder={t('enterEmailForPasswordReset')}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <View className="flex w-full flex-col">
+            <Button
+              onPress={form.handleSubmit((data) => resetPassword(data))}
+              disabled={isPending}
             >
-              <View style={{ alignItems: 'center', width: '100%' }}>
-                <Text style={sharedStyles.appTitle}>LangQuest</Text>
-                <Text style={sharedStyles.subtitle}>{t('resetPassword')}</Text>
-              </View>
+              <Text>{t('sendResetEmail')}</Text>
+            </Button>
 
-              {/* Form section */}
-              <View
-                style={{
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: spacing.medium
-                }}
-              >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={32}
-                  color={colors.text}
-                />
-
-                <View style={{ gap: spacing.medium, width: '100%' }}>
-                  <Text style={{ color: colors.text, textAlign: 'center' }}>
-                    {t('enterEmailForPasswordReset') ||
-                      "Enter your email address and we'll send you a link to reset your password."}
-                  </Text>
-
-                  {/* Email field */}
-                  <View style={{ gap: spacing.small }}>
-                    <Controller
-                      control={control}
-                      name="email"
-                      rules={{
-                        required: t('emailRequired'),
-                        pattern: {
-                          value: EMAIL_REGEX,
-                          message: t('emailRequired')
-                        }
-                      }}
-                      render={({ field: { onChange, value } }) => (
-                        <View
-                          style={[
-                            sharedStyles.input,
-                            {
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              width: '100%',
-                              gap: spacing.medium
-                            }
-                          ]}
-                        >
-                          <Ionicons
-                            name="mail-outline"
-                            size={20}
-                            color={colors.text}
-                          />
-                          <TextInput
-                            style={{ flex: 1, color: colors.text }}
-                            placeholder={t('enterYourEmail')}
-                            placeholderTextColor={colors.text}
-                            value={value}
-                            onChangeText={onChange}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            accessibilityLabel="ph-no-capture"
-                          />
-                        </View>
-                      )}
-                    />
-                    {errors.email && (
-                      <Text style={styles.errorText}>
-                        {errors.email.message}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Submit button */}
-                  <TouchableOpacity
-                    style={[
-                      sharedStyles.button,
-                      {
-                        width: '100%',
-                        marginTop: spacing.large,
-                        alignSelf: 'center'
-                      }
-                    ]}
-                    onPress={handleSubmit(onSubmit)}
-                  >
-                    <Text style={sharedStyles.buttonText}>
-                      {t('sendResetEmail')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Back to login link */}
-                  <View style={{ alignItems: 'center', gap: spacing.medium }}>
-                    <TouchableOpacity onPress={() => setAuthView('sign-in')}>
-                      <Text
-                        style={[sharedStyles.link, { textAlign: 'center' }]}
-                      >
-                        {t('backToLogin')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+            <Button
+              onPress={() =>
+                safeNavigate(() =>
+                  onNavigate('sign-in', { email: form.watch('email') })
+                )
+              }
+              disabled={isPending}
+              variant="link"
+            >
+              <Text>{t('backToLogin')}</Text>
+            </Button>
+          </View>
+        </View>
+      </View>
+    </Form>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: colors.error || '#ff0000',
-    fontSize: 12,
-    alignSelf: 'flex-start'
-  }
-});

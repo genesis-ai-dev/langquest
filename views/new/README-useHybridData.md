@@ -151,27 +151,9 @@ const items = React.useMemo(() => {
 }, [data.pages]);
 ```
 
-### Using with FlashList
+### Using with LegendList
 
-Example implementation with FlashList for optimal performance:
-
-```typescript
-<FlashList
-  data={items}
-  renderItem={renderItem}
-  keyExtractor={keyExtractor}
-  onEndReached={() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }}
-  onEndReachedThreshold={0.5}
-  ListFooterComponent={() => {
-    if (!isFetchingNextPage) return null;
-    return <ActivityIndicator />;
-  }}
-/>
-```
+Example implementation with LegendList for optimal performance:
 
 ## API Reference
 
@@ -268,7 +250,7 @@ function useNextGenCloudQuests(projectId: string, isOnline: boolean) {
       if (error) throw error;
       return data.map((quest) => ({
         ...quest,
-        source: 'cloudSupabase'
+        source: 'cloud'
       }));
     },
     enabled: !!projectId && isOnline

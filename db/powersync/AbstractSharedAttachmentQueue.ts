@@ -1,6 +1,5 @@
-import { getAssetAudioContent, getAssetById } from '@/hooks/db/useAssets';
-import { getTranslationsByAssetId } from '@/hooks/db/useTranslations';
 import { useLocalStore } from '@/store/localStore';
+import { toColumns } from '@/utils/dbUtils';
 import type {
   AttachmentQueueOptions,
   AttachmentRecord
@@ -10,8 +9,14 @@ import {
   AttachmentState
 } from '@powersync/attachments';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { randomUUID } from 'expo-crypto';
+import BiMap from 'bidirectional-map';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
 import type * as drizzleSchema from '../drizzleSchema';
+import {
+  asset_content_link_synced,
+  asset_synced
+} from '../drizzleSchemaSynced';
 
 // Extended interface that includes our storage_type field
 export interface ExtendedAttachmentRecord extends AttachmentRecord {
@@ -22,6 +27,11 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   // Common directory for all attachments
   static SHARED_DIRECTORY = 'shared_attachments';
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  private downloadAccumulationTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private uploadAccumulationTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly DOWNLOAD_BATCH_DELAY_MS = 500; // Wait 500ms to accumulate downloads (very snappy)
+  private readonly UPLOAD_BATCH_DELAY_MS = 5000; // Wait 5s to accumulate uploads (longer to reduce spam)
 
   constructor(
     options: Omit<
@@ -46,29 +56,72 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // eslint-disable-next-line
   async newAttachmentRecord(
-    record?: Partial<AttachmentRecord>,
-    extension?: string
+    record?: Partial<AttachmentRecord>
   ): Promise<AttachmentRecord> {
-    // When downloading existing attachments, use the provided ID directly
-    if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
-      // Validate that the ID is not empty
-      if (!record.id.trim()) {
-        throw new Error('Attachment ID cannot be empty');
-      }
-      const localUri = this.getLocalFilePathSuffix(record.id);
+    // CRITICAL: Silently skip blob URLs - they're filtered upstream but check defensively
+    if (
+      record?.id?.includes('blob:') ||
+      record?.local_uri?.includes('blob:') ||
+      record?.filename?.includes('blob:')
+    ) {
+      console.warn(
+        '[AttachmentQueue] Skipping blob URL (filtered):',
+        record.id?.substring(0, 30)
+      );
+      // Return a dummy rejected record that won't be processed
       return {
-        ...record,
-        filename: record.id,
-        local_uri: localUri,
-        timestamp: new Date().getTime()
+        id: '',
+        filename: '',
+        local_uri: '',
+        state: AttachmentState.ARCHIVED,
+        media_type: '',
+        timestamp: 0
       } as AttachmentRecord;
     }
 
+    // When downloading existing attachments, use the provided ID directly
+    // if (record?.id && record.state === AttachmentState.QUEUED_SYNC) {
+    //   console.log('downloading attachment', record);
+    //   // Validate that the ID is not empty
+    //   if (!record.id.trim()) {
+    //     throw new Error('Attachment ID cannot be empty');
+    //   }
+    //   const localUri = this.getLocalFilePathSuffix(record.id);
+    //   return {
+    //     ...record,
+    //     filename: record.id,
+    //     local_uri: localUri,
+    //     timestamp: new Date().getTime()
+    //   } as AttachmentRecord;
+    // }
+
+    const mediaType = record?.media_type
+      ? record.media_type
+      : this.getMediaTypeFromExtension(record?.id?.split('.').pop());
+    const extension = this.getExtensionFromMediaType(mediaType);
+
     // For new uploads, generate a new ID
-    const photoId = record?.id ?? randomUUID();
-    const filename =
-      record?.filename ?? `${photoId}${extension ? `.${extension}` : ''}`;
+    const recordId = record?.id ?? uuid.v4();
+    const filename = recordId.endsWith(extension)
+      ? recordId
+      : `${recordId}.${extension}`;
     const localUri = this.getLocalFilePathSuffix(filename);
+
+    // Final validation - ensure no blob URLs slipped through
+    if (
+      filename.includes('blob:') ||
+      localUri.includes('blob:') ||
+      recordId.includes('blob:')
+    ) {
+      console.error('[AttachmentQueue] Generated record contains blob URL:', {
+        recordId,
+        filename,
+        localUri
+      });
+      throw new Error(
+        'Generated attachment record contains blob URL. This should never happen.'
+      );
+    }
 
     return {
       ...record,
@@ -76,6 +129,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       id: filename,
       filename: filename,
       local_uri: localUri,
+      media_type: mediaType,
       timestamp: new Date().getTime()
     } as AttachmentRecord;
   }
@@ -85,8 +139,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     this.onAttachmentIdsChange((ids) => {
       void (async () => {
         try {
-          console.log(`[WATCH IDS] Processing ${ids.length} attachment IDs`);
-
           // Filter out empty or invalid IDs
           const validIds = ids.filter((id) => id && id.trim() !== '');
           if (validIds.length !== ids.length) {
@@ -95,28 +147,21 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             );
           }
 
-          console.log(
-            '[WATCH IDS] skipping the following empty/invalid IDs:',
-            ids.filter((id) => id && id.trim() === '')
-          );
           // Use validIds from here on
           ids = validIds;
 
           // Process in smaller batches to avoid SQL query size limits
-          const BATCH_SIZE = 100;
+          const BATCH_SIZE = 500;
 
           if (this.initialSync) {
             this.initialSync = false;
-            console.log(
-              '[WATCH IDS] Initial sync: Updating existing records to QUEUED_SYNC'
-            );
 
             // Update in batches
             for (let i = 0; i < ids.length; i += BATCH_SIZE) {
               const batchIds = ids.slice(i, i + BATCH_SIZE);
               const _batchIds = `${batchIds.map((id) => `'${id}'`).join(',')}`;
 
-              const updateResult = await this.powersync.execute(
+              await this.powersync.execute(
                 `UPDATE
                     ${this.table}
                   SET state = ${AttachmentState.QUEUED_SYNC}
@@ -125,21 +170,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                   AND
                    id IN (${_batchIds})`
               );
-              console.log(
-                `[WATCH IDS] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Updated ${updateResult.rowsAffected} records`
-              );
             }
           }
 
-          console.log('[WATCH IDS] Fetching current attachments from database');
           const attachmentsInDatabase =
             await this.powersync.getAll<ExtendedAttachmentRecord>(
               `SELECT * FROM ${this.table} WHERE state < ${AttachmentState.ARCHIVED}`
             );
-          console.log(
-            '[WATCH IDS] Current attachments in DB:',
-            attachmentsInDatabase.length
-          );
 
           const storageType = this.getStorageType();
 
@@ -197,11 +234,21 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
                 skipped++;
               }
             } catch (error) {
-              console.error(
-                `[WATCH IDS] Error processing attachment ${id}:`,
-                error
-              );
-              console.error(`[WATCH IDS] Error stack:`, (error as Error).stack);
+              // Don't log full stack traces for blob URLs (they're filtered upstream)
+              if (id.includes('blob:')) {
+                console.warn(
+                  `[WATCH IDS] Skipped blob URL: ${id.substring(0, 30)}...`
+                );
+              } else {
+                console.error(
+                  `[WATCH IDS] Error processing attachment ${id}:`,
+                  error
+                );
+                console.error(
+                  `[WATCH IDS] Error stack:`,
+                  (error as Error).stack
+                );
+              }
               errors++;
               // Continue processing other attachments
             }
@@ -232,7 +279,8 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
   // Override saveToQueue to add storage_type (using type assertion for compatibility)
   async saveToQueue(
-    record: Omit<AttachmentRecord, 'timestamp'>
+    record: Omit<AttachmentRecord, 'timestamp'>,
+    tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
   ): Promise<AttachmentRecord> {
     const updatedRecord: AttachmentRecord = {
       ...record,
@@ -260,19 +308,23 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         `Invalid attachment record: missing id or filename. Record: ${JSON.stringify(updatedRecord)}`
       );
     }
-
     try {
-      await this.powersync.execute(
+      await (tx ?? this.db).run(
         `INSERT OR REPLACE INTO ${this.table} 
          (id, timestamp, filename, local_uri, media_type, size, state, storage_type) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values
+         VALUES (${toColumns(values as string[])})`
       );
     } catch (error) {
       console.error('[saveToQueue] SQL Error:', error);
       console.error('[saveToQueue] Values:', values);
       console.error('[saveToQueue] Record:', updatedRecord);
       throw error;
+    }
+
+    // Trigger upload process for QUEUED_UPLOAD records
+    if (updatedRecord.state === AttachmentState.QUEUED_UPLOAD) {
+      // Trigger upload asynchronously
+      void this.uploadRecordsWithProgress();
     }
 
     // Return the record with storage_type (using type assertion for compatibility)
@@ -340,69 +392,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     );
   }
 
-  // Common method to identify all attachments related to an asset
-  async getAllAssetAttachments(assetId: string): Promise<string[]> {
-    // const queueType =
-    //   this.getStorageType() === 'temporary' ? '[TEMP QUEUE]' : '[PERM QUEUE]';
-    // console.log(`${queueType} Finding all attachments for asset: ${assetId}`);
-    const attachmentIds: string[] = [];
-
-    try {
-      // 1. Get the asset itself for images
-      const asset = await getAssetById(assetId);
-
-      if (asset?.images) {
-        // console.log(
-        //   `${queueType} Found ${asset.images.length} images in asset`
-        // );
-        attachmentIds.push(...asset.images);
-      }
-
-      // 2. Get asset_content_link entries for audio
-      const assetContents = await getAssetAudioContent(assetId);
-
-      const contentAudioIds = assetContents
-        .filter((content) => content.audio_id)
-        .map((content) => content.audio_id!);
-
-      if (contentAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${contentAudioIds.length} audio files in asset_content_link`
-        // );
-        attachmentIds.push(...contentAudioIds);
-      }
-
-      // 3. Get translations for the asset and their audio
-      const translations = await getTranslationsByAssetId(assetId);
-
-      const translationAudioIds = translations
-        .filter(
-          (translation) => translation.audio && translation.audio.trim() !== ''
-        )
-        .map((translation) => translation.audio!);
-
-      if (translationAudioIds.length) {
-        // console.log(
-        //   `${queueType} Found ${translationAudioIds.length} audio files in translations`
-        // );
-        attachmentIds.push(...translationAudioIds);
-      }
-
-      // Log all found attachments
-      // console.log(
-      //   `${queueType} Total attachments for asset ${assetId}: ${attachmentIds.length}`
-      // );
-
-      return attachmentIds;
-    } catch {
-      // console.error(
-      //   `${queueType} Error getting attachments for asset ${assetId}:`,
-      //   error
-      // );
-      return [];
-    }
-  }
-
   // Override downloadRecords to track progress
   async downloadRecordsWithProgress() {
     if (!this.options.downloadAttachments) {
@@ -422,11 +411,21 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     const totalToDownload = this.downloadQueue.size;
     let downloaded = 0;
 
+    // Speed tracking variables
+    const startTime = Date.now();
+    let lastUpdateTime = startTime;
+    let downloadedSinceLastSpeedCalc = 0;
+    let totalBytesDownloaded = 0;
+
     // Update store with download starting
     useLocalStore.getState().setAttachmentSyncProgress({
       downloading: true,
       downloadCurrent: 0,
-      downloadTotal: totalToDownload
+      downloadTotal: totalToDownload,
+      downloadStartTime: startTime,
+      lastDownloadUpdate: startTime,
+      downloadSpeed: 0,
+      downloadBytesPerSec: 0
     });
 
     try {
@@ -436,17 +435,58 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const idsArray = Array.from(this.downloadQueue);
       this.downloadQueue.clear();
 
-      // Create a progress update function that's thread-safe
-      const updateProgress = () => {
+      // Create a progress update function with speed calculation
+      const updateProgress = (bytesDownloaded?: number) => {
         downloaded++;
-        useLocalStore.getState().setAttachmentSyncProgress({
-          downloadCurrent: downloaded,
-          downloadTotal: totalToDownload
-        });
+        downloadedSinceLastSpeedCalc++;
+        if (bytesDownloaded) {
+          totalBytesDownloaded += bytesDownloaded;
+        }
+
+        const now = Date.now();
+        const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
+        const totalElapsed = (now - startTime) / 1000; // total time since start
+
+        // CRITICAL: Always update count immediately on every file
+        // This ensures per-file UI updates for responsive feel
+        const shouldRecalcSpeed = timeSinceLastUpdate >= 0.2;
+
+        if (shouldRecalcSpeed) {
+          const filesPerSec =
+            timeSinceLastUpdate > 0
+              ? downloadedSinceLastSpeedCalc / timeSinceLastUpdate
+              : downloadedSinceLastSpeedCalc / 0.2;
+          const bytesPerSec =
+            totalElapsed > 0 ? totalBytesDownloaded / totalElapsed : 0;
+
+          // Log every 50 files or when speed changes significantly
+          if (downloaded % 50 === 0 || downloadedSinceLastSpeedCalc >= 10) {
+            console.log(
+              `[DOWNLOAD] ${downloaded}/${totalToDownload} • ${filesPerSec.toFixed(1)} files/s • ${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`
+            );
+          }
+
+          useLocalStore.getState().setAttachmentSyncProgress({
+            downloadCurrent: downloaded,
+            downloadSpeed: filesPerSec,
+            downloadBytesPerSec: bytesPerSec,
+            lastDownloadUpdate: now
+          });
+
+          lastUpdateTime = now;
+          downloadedSinceLastSpeedCalc = 0;
+        } else {
+          // Update progress count immediately (but keep previous speed values)
+          useLocalStore.getState().setAttachmentSyncProgress({
+            downloadCurrent: downloaded,
+            lastDownloadUpdate: now
+          });
+        }
       };
 
-      // Download with higher concurrency limit (8 simultaneous downloads)
-      const CONCURRENCY_LIMIT = 8;
+      // Balance concurrency for smooth UI updates vs speed
+      // Lower concurrency = more frequent UI updates but slightly slower overall
+      const CONCURRENCY_LIMIT = 25; // Balanced: fast enough, but updates visible
 
       // Create a queue-based concurrent download system
       const downloadQueue = [...idsArray];
@@ -456,13 +496,13 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         try {
           const record = await this.record(id);
           if (!record) {
-            updateProgress(); // Count as completed even if no record
+            updateProgress(); // No bytes for missing record
             return;
           }
           await this.downloadRecord(record);
-          updateProgress(); // Update progress after successful download
+          updateProgress(record.size || 0); // Pass file size
         } catch (error) {
-          console.error(`Failed to download attachment ${id}:`, error);
+          console.error(`Failed to download attachment ${id}: `, error);
           updateProgress(); // Count as completed even if failed
         } finally {
           // Start next download if queue not empty
@@ -498,6 +538,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   // Override uploadRecords to track progress
   async uploadRecordsWithProgress() {
     if (this.uploading) {
+      console.log('[UPLOAD TRIGGER] Upload already in progress, skipping');
       return;
     }
     this.uploading = true;
@@ -511,12 +552,22 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const totalToUpload = uploadCount.count;
       let uploaded = 0;
 
+      // Speed tracking variables
+      const startTime = Date.now();
+      let lastUpdateTime = startTime;
+      let uploadedSinceLastSpeedCalc = 0;
+      let totalBytesUploaded = 0;
+
       if (totalToUpload > 0) {
         // Update store with upload starting
         useLocalStore.getState().setAttachmentSyncProgress({
           uploading: true,
           uploadCurrent: 0,
-          uploadTotal: totalToUpload
+          uploadTotal: totalToUpload,
+          uploadStartTime: startTime,
+          lastUploadUpdate: startTime,
+          uploadSpeed: 0,
+          uploadBytesPerSec: 0
         });
       }
 
@@ -525,7 +576,6 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         return;
       }
 
-      console.log(`Uploading attachments...`);
       while (record) {
         const uploadedSuccessfully = await this.uploadAttachment(record);
         if (!uploadedSuccessfully) {
@@ -533,12 +583,37 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
           break;
         }
         uploaded++;
+        uploadedSinceLastSpeedCalc++;
+        if (record.size) {
+          totalBytesUploaded += record.size;
+        }
 
-        // Update progress
-        useLocalStore.getState().setAttachmentSyncProgress({
-          uploadCurrent: uploaded,
-          uploadTotal: totalToUpload
-        });
+        const now = Date.now();
+        const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
+
+        // Calculate speed every 500ms minimum to reduce render thrashing
+        if (timeSinceLastUpdate >= 0.5) {
+          const filesPerSec = uploadedSinceLastSpeedCalc / timeSinceLastUpdate;
+          const bytesPerSec = totalBytesUploaded / ((now - startTime) / 1000);
+
+          useLocalStore.getState().setAttachmentSyncProgress({
+            uploadCurrent: uploaded,
+            uploadTotal: totalToUpload,
+            uploadSpeed: filesPerSec,
+            uploadBytesPerSec: bytesPerSec,
+            lastUploadUpdate: now
+          });
+
+          lastUpdateTime = now;
+          uploadedSinceLastSpeedCalc = 0;
+        } else {
+          // Still update progress count
+          useLocalStore.getState().setAttachmentSyncProgress({
+            uploadCurrent: uploaded,
+            uploadTotal: totalToUpload,
+            lastUploadUpdate: now
+          });
+        }
 
         record = await this.getNextUploadRecord();
       }
@@ -561,25 +636,96 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
   //   void this.expireCache();
   // }
 
-  // Override watchDownloads to use our progress-tracking method
+  // Override watchDownloads to use our progress-tracking method with batching
   watchDownloads() {
     if (!this.options.downloadAttachments) {
       return;
     }
     this.idsToDownload((ids) => {
       ids.forEach((id) => this.downloadQueue.add(id));
-      // Use our progress-tracking method
-      void this.downloadRecordsWithProgress();
+
+      // Debounce download trigger to accumulate larger batches
+      if (this.downloadAccumulationTimer) {
+        clearTimeout(this.downloadAccumulationTimer);
+      }
+
+      this.downloadAccumulationTimer = setTimeout(() => {
+        // Use our progress-tracking method
+        void this.downloadRecordsWithProgress();
+      }, this.DOWNLOAD_BATCH_DELAY_MS);
     });
   }
 
-  // Override watchUploads to use our progress-tracking method
+  // Override watchUploads to use our progress-tracking method with debouncing
   watchUploads() {
     this.idsToUpload((ids) => {
-      if (ids.length > 0) {
+      if (ids.length === 0) return;
+
+      // Debounce upload trigger to accumulate larger batches and reduce spam
+      if (this.uploadAccumulationTimer) {
+        clearTimeout(this.uploadAccumulationTimer);
+      }
+
+      this.uploadAccumulationTimer = setTimeout(() => {
         // Use our progress-tracking method
         void this.uploadRecordsWithProgress();
-      }
+      }, this.UPLOAD_BATCH_DELAY_MS);
     });
+  }
+
+  static mediaMap = new BiMap({
+    'audio/mp4': 'm4a', // Standard MIME type for M4A/AAC in MP4 container
+    'audio/wav': 'wav', // Standard MIME type for WAV
+    'audio/webm': 'webm',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif'
+  });
+
+  getExtensionFromMediaType(mediaType: string) {
+    return AbstractSharedAttachmentQueue.mediaMap.has(mediaType)
+      ? AbstractSharedAttachmentQueue.mediaMap.get(mediaType)!
+      : 'audio/mp4'; // Default to standard M4A MIME type
+  }
+
+  getMediaTypeFromExtension(extension?: string) {
+    return extension &&
+      AbstractSharedAttachmentQueue.mediaMap.hasValue(extension)
+      ? AbstractSharedAttachmentQueue.mediaMap.getKey(extension)!
+      : 'audio/mp4'; // Default to standard M4A MIME type
+  }
+
+  async getAllAssetAttachments(assetId: string) {
+    const data = await this.db
+      .select({
+        images: asset_synced.images,
+        audio: asset_content_link_synced.audio
+      })
+      .from(asset_synced)
+      .leftJoin(
+        asset_content_link_synced,
+        eq(asset_synced.id, asset_content_link_synced.asset_id)
+      )
+      .where(
+        and(
+          eq(asset_synced.id, assetId),
+          or(
+            isNotNull(asset_content_link_synced.audio),
+            isNotNull(asset_synced.images)
+          )
+        )
+      );
+
+    const assetImages = data
+      .flatMap((asset_synced) => asset_synced.images)
+      .filter(Boolean);
+    const contentLinkAudioIds = data
+      .flatMap((link) => link.audio)
+      .filter(Boolean);
+    const allAttachments = [...assetImages, ...contentLinkAudioIds];
+    const uniqueAttachments = [...new Set(allAttachments)];
+
+    return uniqueAttachments;
   }
 }

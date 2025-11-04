@@ -1,57 +1,74 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import type { language, project } from '@/db/drizzleSchema';
-import { language as languageTable } from '@/db/drizzleSchema';
+import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { Project } from '@/database_services/projectService';
+import type { LayerStatus } from '@/database_services/types';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { colors } from '@/styles/theme';
-import { SHOW_DEV_ELEMENTS } from '@/utils/devConfig';
-import { Ionicons } from '@expo/vector-icons';
+import type { Language } from '@/store/localStore';
+import { cn } from '@/utils/styleUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
+import {
+  useHybridData,
+  useItemDownloadStatus
+} from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
+import {
+  BookIcon,
+  CrownIcon,
+  EyeOffIcon,
+  HardDriveIcon,
+  LockIcon,
+  MailIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './NextGenProjectsView';
-import { useHybridData, useItemDownloadStatus } from './useHybridData';
+import { Pressable, View } from 'react-native';
 
-type Project = typeof project.$inferSelect;
-type Language = typeof language.$inferSelect;
-
-// Define props locally to avoid require cycle
-export interface ProjectListItemProps {
-  project: Project & { source?: string };
-}
-
-function renderSourceTag(source: string | undefined) {
-  if (source === 'cloudSupabase') {
-    return <Text style={{ color: 'red' }}>Cloud</Text>;
-  }
-  return <Text style={{ color: 'blue' }}>Offline</Text>;
-}
-
-export const ProjectListItem: React.FC<ProjectListItemProps> = ({
-  project
-}) => {
-  const { goToProject } = useAppNavigation();
-  const { currentUser } = useAuth();
-  const [showPrivateModal, setShowPrivateModal] = useState(false);
+export function ProjectListItem({
+  project,
+  isInvited = false,
+  className
+}: {
+  project: Project & { source: HybridDataSource };
+  isInvited?: boolean;
+  className?: string;
+}) {
   const { t } = useLocalization();
-
-  // Check if project is downloaded
+  const { currentUser } = useAuth();
+  const { goToProject, goToNotifications } = useAppNavigation();
+  const layerStatus = useStatusContext();
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
-  // Check user permissions for the project
-  const { hasAccess, membership } = useUserPermissions(
+  const [showPrivateModal, setShowPrivateModal] = useState(false);
+
+  const { membership } = useUserPermissions(
     project.id,
     'open_project',
     project.private
   );
 
-  // Fetch language information for source and target languages
-  // Fetch multiple source languages via project_language_link and single target via project
+  const { allowEditing: _allowEditing, invisible: _invisible } =
+    layerStatus.getStatusParams(
+      LayerType.PROJECT,
+      project.id || '',
+      project as LayerStatus
+    );
+
   const { data: sourceLanguages = [] } = useHybridData<Language, Language>({
     dataType: 'project-source-languages',
     queryKeyParams: [project.id],
@@ -79,7 +96,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
     queryKeyParams: [project.target_language_id],
     offlineQuery: toCompilableQuery(
       system.db.query.language.findMany({
-        where: eq(languageTable.id, project.target_language_id)
+        where: (language, { eq }) => eq(language.id, project.target_language_id)
       })
     ),
     cloudQueryFn: async () => {
@@ -95,116 +112,161 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
 
   const targetLanguage = targetLangArr[0];
 
-  // Helper function to get display name for a language
-  const getLanguageDisplayName = (language: Language | undefined) => {
+  const getLanguageDisplayName = (
+    language: Pick<Language, 'native_name' | 'english_name'> | undefined
+  ) => {
     if (!language) return 'Unknown';
     return language.native_name || language.english_name || 'Unknown';
   };
 
-  const handlePress = () => {
-    // If project is private and user doesn't have access, show the modal
-    if (project.private && !hasAccess) {
-      setShowPrivateModal(true);
-    } else {
-      goToProject({
-        id: project.id,
-        name: project.name
-      });
-    }
-  };
-
   const handleMembershipGranted = () => {
     // Navigate to project after membership is granted
-    goToProject({
-      id: project.id,
-      name: project.name
-    });
+    layerStatus.setLayerStatus(
+      LayerType.PROJECT,
+      project as LayerStatus,
+      project.id
+    );
+    goToProjectHelper();
   };
 
   const handleBypass = () => {
     // Allow viewing the project even without membership
-    goToProject({
-      id: project.id,
-      name: project.name
-    });
+    layerStatus.setLayerStatus(
+      LayerType.PROJECT,
+      project as LayerStatus,
+      project.id
+    );
+    goToProjectHelper();
   };
 
-  // TODO: Get actual stats for download confirmation
-  const downloadStats = {
-    totalAssets: 0,
-    totalQuests: 0
-  };
+  function goToProjectHelper() {
+    goToProject({
+      id: project.id,
+      name: project.name,
+      template: project.template,
+      projectData: project // Pass full project data for instant rendering!
+    });
+  }
 
   return (
     <>
-      <TouchableOpacity onPress={handlePress}>
-        <View style={styles.listItem}>
-          <View style={styles.listItemHeader}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                flex: 1
-              }}
-            >
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                {project.private && (
-                  <Ionicons
-                    name="lock-closed"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                )}
-                {membership === 'owner' && (
-                  <Ionicons name="ribbon" size={16} color={colors.primary} />
-                )}
-                {membership === 'member' && (
-                  <Ionicons name="person" size={16} color={colors.primary} />
-                )}
-              </View>
-              <Text style={styles.projectName}>{project.name}</Text>
-            </View>
-
-            {/* Only show download indicator when project is downloaded */}
-            {isDownloaded && (
-              <DownloadIndicator
-                isFlaggedForDownload={true}
-                isLoading={false}
-                onPress={() => undefined} // Non-interactive
-                downloadType="project"
-                stats={downloadStats}
-              />
-            )}
-          </View>
-
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              marginTop: 4
-            }}
-          >
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-            {SHOW_DEV_ELEMENTS && renderSourceTag(project.source)}
-          </View>
-
-          <Text style={styles.languagePair}>
-            {sourceLanguages.length
-              ? sourceLanguages.map((l) => getLanguageDisplayName(l)).join(', ')
-              : '—'}{' '}
-            → {getLanguageDisplayName(targetLanguage)}
-          </Text>
-          {project.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {project.description}
-            </Text>
+      <Pressable
+        className={className}
+        key={project.id}
+        onPress={() => goToProjectHelper()}
+      >
+        <Card
+          className={cn(
+            className,
+            !project.visible && 'opacity-50',
+            isInvited && 'border-2 border-primary bg-primary/5 shadow-md'
           )}
-        </View>
-      </TouchableOpacity>
+        >
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <View className="flex flex-1 gap-1">
+              <CardTitle numberOfLines={2}>{project.name}</CardTitle>
+              <CardDescription>
+                <Text>
+                  {sourceLanguages.length > 0
+                    ? `${sourceLanguages
+                        .map((l) => getLanguageDisplayName(l))
+                        .join(
+                          ', '
+                        )} → ${getLanguageDisplayName(targetLanguage)}`
+                    : getLanguageDisplayName(targetLanguage)}
+                </Text>
+              </CardDescription>
+            </View>
+            <View className="flex flex-shrink-0 flex-row items-center gap-1.5">
+              {isInvited && (
+                <View className="flex flex-row items-center gap-1.5">
+                  <View className="rounded-full bg-primary px-2 py-0.5">
+                    <Text className="text-xs font-semibold text-primary-foreground">
+                      {t('invited')}
+                    </Text>
+                  </View>
+                  <Icon as={MailIcon} className="text-primary" size={16} />
+                </View>
+              )}
+              {(project.private ||
+                !!membership ||
+                project.source === 'local') && (
+                <View className="flex flex-row items-center gap-1.5">
+                  {!project.visible && (
+                    <Icon
+                      as={EyeOffIcon}
+                      className="text-secondary-foreground"
+                    />
+                  )}
+                  {project.source === 'local' && (
+                    <Icon
+                      as={HardDriveIcon}
+                      className="text-secondary-foreground"
+                    />
+                  )}
+                  {project.private && (
+                    <Icon as={LockIcon} className="text-secondary-foreground" />
+                  )}
+                  {project.template === 'bible' && (
+                    <Icon as={BookIcon} className="text-secondary-foreground" />
+                  )}
+                  {membership === 'owner' && (
+                    <Icon as={CrownIcon} className="text-primary" />
+                  )}
+                  {membership === 'member' && (
+                    <Icon as={UserIcon} className="text-primary" />
+                  )}
+                </View>
+              )}
+              {isDownloaded && (
+                <DownloadIndicator
+                  isFlaggedForDownload={true}
+                  isLoading={false}
+                  onPress={() => undefined} // Non-interactive
+                  downloadType="project"
+                  stats={{
+                    totalAssets: 0,
+                    totalQuests: 0
+                  }}
+                />
+              )}
+            </View>
+          </CardHeader>
+          {(project.description || isInvited) && (
+            <CardContent>
+              {project.description && (
+                <Text numberOfLines={4}>{project.description}</Text>
+              )}
+              {isInvited && (
+                <View
+                  className={cn(
+                    'flex-row gap-2',
+                    project.description && 'mt-3'
+                  )}
+                >
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 flex-row items-center gap-2"
+                    onPress={() => {
+                      goToNotifications();
+                    }}
+                  >
+                    <Icon
+                      as={MailIcon}
+                      size={16}
+                      className="text-primary-foreground"
+                    />
+                    <Text className="text-primary-foreground">
+                      {t('viewInvitation')}
+                    </Text>
+                  </Button>
+                </View>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      </Pressable>
 
       {/* Private Access Gate Modal */}
       <PrivateAccessGate
@@ -222,4 +284,4 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
       />
     </>
   );
-};
+}

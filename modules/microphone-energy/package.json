@@ -1,0 +1,31 @@
+{
+  "name": "microphone-energy",
+  "version": "1.0.0",
+  "description": "Expo module for real-time microphone energy detection",
+  "main": "index.ts",
+  "types": "index.ts",
+  "plugin": "plugin/build/index.js",
+  "scripts": {
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "expo-module lint",
+    "test": "expo-module test"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "microphone",
+    "audio",
+    "energy"
+  ],
+  "repository": "https://github.com/your-username/microphone-energy",
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/microphone-energy#readme",
+  "devDependencies": {
+    "expo-module-scripts": "^3.0.0"
+  },
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

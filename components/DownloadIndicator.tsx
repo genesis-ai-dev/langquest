@@ -1,16 +1,12 @@
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { colors } from '@/styles/theme';
 import { storage } from '@/utils/storage';
-import { Ionicons } from '@expo/vector-icons';
+import { cn, useThemeColor } from '@/utils/styleUtils';
+import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { ActivityIndicator, TouchableOpacity } from 'react-native';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
+import { Icon } from './ui/icon';
 
 interface DownloadIndicatorProps {
   isFlaggedForDownload: boolean;
@@ -27,17 +23,22 @@ interface DownloadIndicatorProps {
     totalTranslations?: number;
     totalQuests?: number;
   };
+  className?: string;
+  // Override default icon color logic
+  iconColor?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   isFlaggedForDownload,
   isLoading,
   onPress,
-  size = 24,
+  size = 20,
   progressPercentage = 0,
   showProgress = false,
   downloadType,
-  stats
+  stats,
+  className,
+  iconColor
 }) => {
   const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isFlaggedForDownload;
@@ -85,70 +86,40 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   const getIconAndColor = () => {
     if (isFlaggedForDownload) {
       return {
-        name: 'checkmark-circle' as const,
-        color: colors.primary
+        Icon: CircleCheckIcon,
+        className: iconColor || 'text-primary'
       };
     }
 
     if (showProgress && progressPercentage > 0) {
       return {
-        name: 'arrow-down-circle-outline' as const, // Will show a partial download indicator
-        color: colors.accent
+        Icon: CircleArrowDownIcon,
+        className: iconColor || 'text-accent'
       };
     }
 
     return {
-      name: 'arrow-down-circle-outline' as const,
-      color: isDisabled ? colors.disabled : colors.text
+      Icon: CircleArrowDownIcon,
+      className: iconColor || (isDisabled ? 'text-muted' : 'text-foreground')
     };
   };
 
-  const { name: iconName, color } = getIconAndColor();
+  const { Icon: IconComponent, className: iconClassName } = getIconAndColor();
+
+  const primaryColor = useThemeColor('primary');
 
   return (
     <>
       <TouchableOpacity
         onPress={handlePress}
-        style={[isDisabled && styles.disabled]}
+        className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         disabled={isDisabled || isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator size={size} color={colors.primary} />
-        ) : showProgress && progressPercentage > 0 && !isFlaggedForDownload ? (
-          // Custom progress indicator for quests
-          <View
-            style={[styles.progressContainer, { width: size, height: size }]}
-          >
-            <View
-              style={[
-                styles.progressBackground,
-                {
-                  width: size,
-                  height: size,
-                  borderRadius: size / 2
-                }
-              ]}
-            />
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: size * (progressPercentage / 100),
-                  height: size,
-                  borderRadius: size / 2
-                }
-              ]}
-            />
-            <Ionicons
-              name="arrow-down-circle-outline"
-              size={size}
-              color={color}
-              style={styles.progressIcon}
-            />
-          </View>
+          <ActivityIndicator size={size} color={primaryColor} />
         ) : (
-          <Ionicons name={iconName} size={size} color={color} />
+          <Icon as={IconComponent} size={size} className={iconClassName} />
         )}
       </TouchableOpacity>
 
@@ -172,28 +143,3 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  disabled: {
-    opacity: 0.5
-  },
-  progressContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  progressBackground: {
-    position: 'absolute',
-    backgroundColor: colors.disabled,
-    opacity: 0.3
-  },
-  progressFill: {
-    position: 'absolute',
-    left: 0,
-    backgroundColor: colors.accent,
-    opacity: 0.6
-  },
-  progressIcon: {
-    position: 'absolute'
-  }
-});

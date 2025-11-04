@@ -1,7 +1,7 @@
+import { Skeleton } from '@/components/ui/skeleton';
 import { sharedStyles, spacing } from '@/styles/theme';
 import React from 'react';
 import { View } from 'react-native';
-import { Shimmer } from './Shimmer';
 
 // Skeleton loader component for project cards
 export const ProjectSkeleton = React.memo(() => (
@@ -22,40 +22,20 @@ export const ProjectSkeleton = React.memo(() => (
           gap: spacing.xsmall
         }}
       >
-        <Shimmer
-          width="100%"
-          height={20}
-          borderRadius={4}
-          style={{ flex: 1 }}
-        />
+        <Skeleton style={{ flex: 1, height: 20 }} />
         {/* Privacy/membership icon placeholders */}
-        <Shimmer width={16} height={16} borderRadius={8} />
-        <Shimmer width={16} height={16} borderRadius={8} />
+        <Skeleton className="rounded-lg" style={{ width: 16, height: 16 }} />
+        <Skeleton className="rounded-lg" style={{ width: 16, height: 16 }} />
       </View>
       {/* Download indicator */}
-      <Shimmer width={32} height={32} borderRadius={16} />
+      <Skeleton className="rounded-full" style={{ width: 32, height: 32 }} />
     </View>
 
     {/* Language pair */}
-    <Shimmer
-      width="70%"
-      height={14}
-      borderRadius={4}
-      style={{ marginTop: spacing.small }}
-    />
+    <Skeleton style={{ width: '70%', height: 14, marginTop: spacing.small }} />
 
     {/* Description */}
-    <Shimmer
-      width="100%"
-      height={16}
-      borderRadius={4}
-      style={{ marginTop: spacing.small }}
-    />
-    <Shimmer
-      width="80%"
-      height={16}
-      borderRadius={4}
-      style={{ marginTop: spacing.xsmall }}
-    />
+    <Skeleton style={{ width: '100%', height: 16, marginTop: spacing.small }} />
+    <Skeleton style={{ width: '80%', height: 16, marginTop: spacing.xsmall }} />
   </View>
 ));

@@ -121,7 +121,7 @@ export function useDownloadStatus(
       offlineQuery: `SELECT id FROM ${recordTable} WHERE id = '${recordId}' AND json_array_length(download_profiles) > 0 AND EXISTS (SELECT 1 FROM json_each(download_profiles) WHERE value = '${currentUser?.id}') LIMIT 1`,
       enabled: !!recordId && !!currentUser?.id
     });
-  }, [recordTable, recordId, currentUser?.id]);
+  }, [recordTable, recordId, currentUser]);
 
   const { data, isLoading, ...rest } = useHybridQuery(queryConfig);
 
@@ -209,7 +209,6 @@ export async function downloadRecord(
 
       if (!downloadTree) throw new Error('No download tree found.');
 
-      console.log('RYDER5', { downloaded });
       const isCurrentlyDownloaded =
         downloaded ??
         (await getDownloadStatus(recordTable, recordId, currentUser.id));
@@ -278,6 +277,16 @@ export function useDownload(
       await queryClient.invalidateQueries({
         queryKey: ['download-status', recordTable, recordId]
       });
+
+      // Invalidate quest and asset queries to refresh lists
+      if (recordTable === 'quest') {
+        await queryClient.invalidateQueries({
+          queryKey: ['quests']
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['assets']
+        });
+      }
     }
   });
 

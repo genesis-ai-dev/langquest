@@ -1,38 +1,56 @@
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
-import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import { AttachmentState } from '@powersync/attachments';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
+  AlertTriangle,
+  ChevronRight,
+  CloudOff,
+  Menu,
+  RefreshCw
+} from 'lucide-react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Alert, Pressable, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
   Easing,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
+import { Button } from './ui/button';
 
 export default function AppHeader({
-  drawerToggleCallback
+  drawerToggleCallback,
+  isCloudLoading = false,
+  isNavigating = false
 }: {
   drawerToggleCallback: () => void;
+  isCloudLoading?: boolean;
+  isNavigating?: boolean;
 }) {
-  const insets = useSafeAreaInsets();
   const {
     breadcrumbs,
     canGoBack: _canGoBack,
     goBack: _goBack
   } = useAppNavigation();
 
-  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  const { t } = useLocalization();
   const { totalCount: notificationCount } = useNotifications();
-  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
-    useSyncState();
+  const {
+    isDownloadOperationInProgress,
+    isUpdateInProgress,
+    isConnecting,
+    downloadError,
+    uploadError
+  } = useSyncState();
 
   // Get attachment states to monitor download queue
   const { attachmentStates } = useAttachmentStates([]);
@@ -52,290 +70,194 @@ export default function AppHeader({
     return false;
   }, [attachmentStates]);
 
+  const hasSyncError = !!(downloadError || uploadError);
+  // Don't show syncing state if there's an error - prevents eternal syncing loop
   const isSyncing =
-    isDownloadOperationInProgress ||
-    isUpdateInProgress ||
-    isConnecting ||
-    hasDownloadsInProgress;
+    !hasSyncError &&
+    (isDownloadOperationInProgress ||
+      isUpdateInProgress ||
+      isConnecting ||
+      hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
 
+  // Handler for sync error tap
+  const handleSyncErrorTap = () => {
+    const errorMessage =
+      downloadError?.message || uploadError?.message || t('syncError');
+    Alert.alert(t('syncError'), errorMessage);
+  };
+
   // Animation for sync indicator
-  const spinValue = useRef(new Animated.Value(0)).current;
+  const spinValue = useSharedValue(0);
 
   useEffect(() => {
     if (isSyncing) {
-      // Start spinning animation
-      const spinAnimation = Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.linear,
-          useNativeDriver: true
-        })
+      spinValue.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.linear }),
+        -1
       );
-      spinAnimation.start();
-
-      return () => {
-        spinAnimation.stop();
-        spinValue.setValue(0);
-      };
+    } else {
+      cancelAnimation(spinValue);
+      spinValue.value = 0;
     }
   }, [isSyncing, spinValue]);
 
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
-  });
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinValue.value * 360}deg` }]
+  }));
+
+  // Animation for cloud loading bar
+  const loadingProgress = useSharedValue(0);
+  const loadingOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isCloudLoading) {
+      // Start loading animation
+      loadingOpacity.value = withTiming(1, { duration: 200 });
+      loadingProgress.value = withTiming(0.9, {
+        duration: 1500,
+        easing: Easing.bezier(0.4, 0, 0.2, 1)
+      });
+    } else {
+      // Complete and fade out
+      if (loadingProgress.value > 0) {
+        loadingProgress.value = withTiming(1, { duration: 200 });
+        loadingOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
+          if (finished) {
+            loadingProgress.value = 0;
+          }
+        });
+      }
+    }
+  }, [isCloudLoading, loadingOpacity, loadingProgress]);
+
+  const loadingBarStyle = useAnimatedStyle(() => ({
+    width: `${loadingProgress.value * 100}%`,
+    opacity: loadingOpacity.value
+  }));
 
   return (
-    <View
-      style={[styles.container, { paddingTop: insets.top + spacing.small }]}
-    >
-      <View style={styles.header}>
-        {/* Back Button */}
-        {/* {canGoBack && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={goBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-        )} */}
+    <View className="relative bg-transparent p-4">
+      {/* Cloud Loading Bar */}
+      <Animated.View
+        style={loadingBarStyle}
+        className="absolute left-0 right-0 top-0 h-[2px] bg-primary shadow-sm"
+      />
 
+      <View className="flex-row items-center">
         {/* Breadcrumbs */}
-        <View style={styles.breadcrumbContainer}>
-          {breadcrumbs.map((crumb, index) => {
-            const isLast = index === breadcrumbs.length - 1;
-            const isFirst = index === 0;
+        <View className="flex-1 flex-row items-center overflow-hidden">
+          {Array.isArray(breadcrumbs) && breadcrumbs.length > 0
+            ? breadcrumbs.map((crumb, index) => {
+                const isLast = index === breadcrumbs.length - 1;
+                const isFirst = index === 0;
 
-            return (
-              <View key={index} style={styles.breadcrumbItem}>
-                {!isFirst && (
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={colors.textSecondary}
-                    style={styles.breadcrumbSeparator}
-                  />
-                )}
+                return (
+                  <View
+                    key={index}
+                    className="flex-shrink flex-row items-center"
+                  >
+                    {!isFirst && (
+                      <Icon
+                        as={ChevronRight}
+                        className="mx-1 flex-shrink-0 text-muted-foreground"
+                        size={16}
+                      />
+                    )}
 
-                <View
-                  style={
-                    isLast
-                      ? styles.currentBreadcrumbTextContainer
-                      : styles.breadcrumbTextContainer
-                  }
-                >
-                  {crumb.onPress ? (
-                    <Pressable
-                      onPress={crumb.onPress}
-                      onPressIn={() => setPressedIndex(index)}
-                      onPressOut={() => setPressedIndex(null)}
-                      hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-                      style={({ pressed }) => [
-                        styles.breadcrumbTouchable,
-                        pressed && styles.breadcrumbPressed
-                      ]}
+                    <View
+                      className={`flex-shrink ${
+                        isLast ? 'max-w-[150px]' : 'max-w-[80px]'
+                      }`}
                     >
-                      <Text
-                        style={[
-                          styles.breadcrumbLink,
-                          pressedIndex === index && styles.breadcrumbTextPressed
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {crumb.label}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Text
-                      style={styles.breadcrumbCurrent}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {crumb.label}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            );
-          })}
+                      {crumb.onPress ? (
+                        <Pressable
+                          onPress={isNavigating ? undefined : crumb.onPress}
+                          disabled={isNavigating}
+                          // onPressIn={() => setPressedIndex(index)}
+                          // onPressOut={() => setPressedIndex(null)}
+                          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                          className={`flex-shrink rounded p-1 ${
+                            isNavigating ? 'opacity-50' : ''
+                          }`}
+                          style={({ pressed }) => [
+                            {
+                              backgroundColor:
+                                !isNavigating && pressed
+                                  ? 'rgba(255, 255, 255, 0.15)'
+                                  : '',
+                              opacity: pressed ? 0.8 : isNavigating ? 0.5 : 1,
+                              transform: [{ scale: pressed ? 0.98 : 1 }]
+                            }
+                          ]}
+                        >
+                          <Text
+                            className="font-medium text-primary"
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {crumb.label}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Text
+                          className="font-semibold text-foreground"
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {crumb.label}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            : null}
         </View>
 
         {/* Menu Button with Indicators */}
-        <View style={styles.menuButtonContainer}>
-          <Pressable
+        <View className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
             onPress={drawerToggleCallback}
+            className="relative size-8"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={({ pressed }) => [
-              styles.menuButton,
-              pressed && styles.menuButtonPressed
-            ]}
           >
-            <Ionicons name="menu" size={24} color={colors.text} />
+            <Icon as={Menu} size={24} />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (
-              <View style={styles.offlineIndicator}>
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={10}
-                  color="white"
-                />
+              <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                <Icon as={CloudOff} size={10} className="text-white" />
               </View>
+            ) : hasSyncError ? (
+              <Pressable
+                onPress={handleSyncErrorTap}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
+                  <Icon as={AlertTriangle} size={10} className="text-white" />
+                </View>
+              </Pressable>
             ) : isSyncing ? (
               <Animated.View
-                style={[
-                  styles.syncIndicator,
-                  { transform: [{ rotate: spin }] }
-                ]}
+                style={spinStyle}
+                className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-primary shadow-sm"
               >
-                <Ionicons name="sync-outline" size={10} color="white" />
+                <Icon as={RefreshCw} size={10} className="text-white" />
               </Animated.View>
             ) : null}
 
             {/* Notification Badge - Top Right Corner */}
             {notificationCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <View style={styles.notificationDot} />
+              <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                <View className="h-1.5 w-1.5 rounded-full bg-white" />
               </View>
             )}
-          </Pressable>
+          </Button>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.small
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 54 // Standard touch target
-  },
-  backButton: {
-    marginRight: spacing.small,
-    padding: spacing.xsmall
-  },
-  breadcrumbContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    overflow: 'hidden' // Prevent overflow
-  },
-  breadcrumbItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1 // Allow items to shrink
-  },
-  breadcrumbTextContainer: {
-    maxWidth: 80, // Short max width for previous breadcrumbs
-    flexShrink: 1
-  },
-  currentBreadcrumbTextContainer: {
-    maxWidth: 150, // Longer max width for current breadcrumb
-    flexShrink: 1
-  },
-  breadcrumbTouchable: {
-    flexShrink: 1,
-    padding: 4,
-    borderRadius: 4
-  },
-  breadcrumbPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Subtle white overlay
-    transform: [{ scale: 0.98 }] // Slight scale down for tactile feedback
-  },
-  breadcrumbTextPressed: {
-    opacity: 0.8 // Less opacity reduction
-  },
-  menuButtonContainer: {
-    position: 'relative'
-  },
-  menuButton: {
-    padding: spacing.xsmall,
-    borderRadius: 4,
-    position: 'relative'
-  },
-  menuButtonPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Match breadcrumb style
-    transform: [{ scale: 0.98 }]
-  },
-  syncIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  offlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#FF6B6B', // Orange-red for offline
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FF4444', // Red color for notifications
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2
-  },
-  notificationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'white'
-  },
-  breadcrumbSeparator: {
-    marginHorizontal: spacing.xsmall,
-    flexShrink: 0 // Don't shrink separators
-  },
-  breadcrumbLink: {
-    fontSize: fontSizes.medium,
-    color: colors.primary,
-    fontWeight: '500'
-  },
-  breadcrumbCurrent: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    fontWeight: '600'
-  },
-  spacer: {
-    width: 32 // Balance the back button
-  }
-});
