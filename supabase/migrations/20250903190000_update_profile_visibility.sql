@@ -8,6 +8,7 @@
 
 -- Replace self-only profile select policy with co-member visibility
 drop policy if exists "Users can read own profile" on "public"."profile";
+drop policy if exists "Project co-members can view profiles" on "public"."profile";
 
 create policy "Project co-members can view profiles"
 on "public"."profile"
