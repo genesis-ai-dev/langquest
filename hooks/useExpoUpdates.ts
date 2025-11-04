@@ -107,9 +107,11 @@ export function useExpoUpdates() {
       return false;
     }
 
-    // Get current update version (use id as version identifier)
+    // Get current update version (use first 8 chars of group UUID as version identifier)
+    const manifest = updateInfo.manifest as { group?: string } | null;
+    const groupUUID = manifest?.group || '';
     const currentUpdateVersion =
-      (updateInfo.manifest as { id?: string })?.id || 'unknown';
+      groupUUID.length >= 8 ? groupUUID.substring(0, 8) : 'unknown';
 
     // Never dismissed - show banner
     if (!dismissedUpdateTimestamp || !dismissedUpdateVersion) {
@@ -133,8 +135,10 @@ export function useExpoUpdates() {
 
   // Handle dismissal
   const handleDismiss = () => {
+    const manifest = updateInfo?.manifest as { group?: string } | null;
+    const groupUUID = manifest?.group || '';
     const currentUpdateVersion =
-      (updateInfo?.manifest as { id?: string })?.id || 'unknown';
+      groupUUID.length >= 8 ? groupUUID.substring(0, 8) : 'unknown';
     dismissUpdate(currentUpdateVersion);
   };
 
