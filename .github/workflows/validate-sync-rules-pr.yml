@@ -20,7 +20,7 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: 'Supabase Preview'
+          check-name: "Supabase Preview"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 
@@ -39,6 +39,7 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
           wait-for-migrations: true
+          git-branch: "dev"
 
       - name: Setup PowerSync Environment
         run: |
@@ -129,6 +130,11 @@ jobs:
           else
             echo "❌ PowerSync sync rules validation failed"
             echo "status=failed" >> $GITHUB_OUTPUT
+            
+            # Output container logs for debugging (shown in workflow logs)
+            echo "PowerSync container logs:"
+            docker logs $POWERSYNC_CONTAINER 2>&1 || echo "Failed to retrieve logs"
+            
             exit 1
           fi
 
