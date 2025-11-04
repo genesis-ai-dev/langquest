@@ -3,6 +3,8 @@ name: Validate Migration History
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  push:
+    branches: ["ci"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +18,7 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.ref }}
-          check-name: 'Supabase Preview'
+          check-name: "Supabase Preview"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 
@@ -33,9 +35,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          cache-dependency-path: '**/package-lock.json'
-          node-version-file: '.nvmrc'
-          cache: 'npm'
+          cache-dependency-path: "**/package-lock.json"
+          node-version-file: ".nvmrc"
+          cache: "npm"
 
       - name: Install Supabase CLI
         run: npm install -g supabase@latest
