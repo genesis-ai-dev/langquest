@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -439,40 +440,25 @@ export default function AppDrawer({
         return 'Embedded';
       }
 
-      const updateId = Updates.updateId;
       const manifest = Updates.manifest;
 
-      // Extract version from updateId (format: try to extract readable version or use short hash)
-      let version = 'unknown';
-      if (updateId) {
-        // Try to extract version number from updateId (e.g., "update-v1.2" -> "v1.2")
-        const versionRegex = /v?(\d+\.?\d*)/;
-        const versionMatch = versionRegex.exec(updateId);
-        if (versionMatch) {
-          version = `v${versionMatch[1]}`;
-        } else {
-          // Use first 8 characters of updateId as short identifier
-          version = updateId.substring(0, 8);
-        }
-      }
-
-      // Format date from manifest createdAt (if available in extra metadata)
+      // Extract version from group UUID (first 8 characters of UUID from group attribute)
+      const version = getUpdateVersion(manifest as { group?: string } | null);
       let dateStr = '';
-      if (manifest) {
-        // Try to get createdAt from manifest extra or metadata
-        const createdAt =
-          (manifest as { createdAt?: string }).createdAt ||
-          (manifest as { extra?: { createdAt?: string } }).extra?.createdAt;
 
-        if (createdAt) {
-          const date = new Date(createdAt);
-          if (!isNaN(date.getTime())) {
-            dateStr = date.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            });
-          }
+      // Try to get createdAt from manifest extra or metadata
+      const createdAt =
+        (manifest as { createdAt?: string }).createdAt ||
+        (manifest as { extra?: { createdAt?: string } }).extra?.createdAt;
+
+      if (createdAt) {
+        const date = new Date(createdAt);
+        if (!isNaN(date.getTime())) {
+          dateStr = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
         }
       }
 
