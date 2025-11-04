@@ -5,12 +5,12 @@ import { useEffect, useRef } from 'react';
 
 const DISMISSAL_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-// Helper function to extract version identifier from manifest group UUID
-export function getUpdateVersion(
-  manifest: { group?: string } | null | undefined
-): string {
-  const groupUUID = manifest?.group || '';
-  return groupUUID.length >= 8 ? groupUUID.substring(0, 8) : 'unknown';
+// Helper function to extract version identifier from updateId UUID
+export function getUpdateVersion(): string {
+  const updateId = Updates.updateId;
+  return updateId && updateId.length >= 8
+    ? updateId.substring(0, 8)
+    : 'unknown';
 }
 
 export function useExpoUpdates() {
@@ -115,10 +115,8 @@ export function useExpoUpdates() {
       return false;
     }
 
-    // Get current update version (use first 8 chars of group UUID as version identifier)
-    const currentUpdateVersion = getUpdateVersion(
-      updateInfo.manifest as { group?: string } | null
-    );
+    // Get current update version (use first 8 chars of updateId UUID as version identifier)
+    const currentUpdateVersion = getUpdateVersion();
 
     // Never dismissed - show banner
     if (!dismissedUpdateTimestamp || !dismissedUpdateVersion) {
@@ -142,9 +140,7 @@ export function useExpoUpdates() {
 
   // Handle dismissal
   const handleDismiss = () => {
-    const currentUpdateVersion = getUpdateVersion(
-      updateInfo?.manifest as { group?: string } | null
-    );
+    const currentUpdateVersion = getUpdateVersion();
     dismissUpdate(currentUpdateVersion);
   };
 
