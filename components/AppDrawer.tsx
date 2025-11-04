@@ -442,8 +442,8 @@ export default function AppDrawer({
 
       const manifest = Updates.manifest;
 
-      // Extract version from group UUID (first 8 characters of UUID from group attribute)
-      const version = getUpdateVersion(manifest as { group?: string } | null);
+      // Extract version from updateId (first 8 characters of UUID from updateId)
+      const version = getUpdateVersion();
       let dateStr = '';
 
       // Try to get createdAt from manifest extra or metadata
