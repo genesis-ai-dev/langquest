@@ -3,8 +3,6 @@ name: Validate Sync Rules on PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  push:
-    branches: ["ci"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

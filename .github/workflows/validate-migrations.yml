@@ -1,7 +1,8 @@
 name: Validate Migration History
 
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,12 +30,8 @@ jobs:
         with:
           fetch-depth: 0 # Need full history to compare with main
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          cache-dependency-path: "**/package-lock.json"
-          node-version-file: ".nvmrc"
-          cache: "npm"
+      - name: Setup
+        uses: ./tooling/github/setup-ci
 
       - name: Get Database URL
         id: supabase-branch
@@ -43,7 +40,6 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
           wait-for-migrations: true
-          git-branch: dev
 
       - name: Get Pooler URL
         id: pooler-config
