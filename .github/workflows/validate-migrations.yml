@@ -9,63 +9,49 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  wait-for-supabase-preview:
+  wait:
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.conclusion }}
     steps:
-      - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.4.1
+      - uses: fountainhead/action-wait-for-check@v1.2.0
+        id: check
         with:
+          checkName: Supabase Preview
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: "Supabase Preview"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-migrations:
-    needs: [wait-for-supabase-preview]
+    needs: [wait]
+    if: ${{ needs.wait.outputs.status == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
         with:
-          fetch-depth: 0 # Need full history to compare with main
+          version: latest
 
-      - name: Setup
-        uses: ./tooling/github/setup-ci
-
-      - name: Get Database URL
-        id: supabase-branch
-        uses: 0xbigboss/supabase-branch-gh-action@master
-        with:
-          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
-          wait-for-migrations: true
-
-      - name: Get Pooler URL
-        id: pooler-config
+      - name: Get Branch Environment Variables
         run: |
-          # Fetch pooler configuration from Supabase API
-          RESPONSE=$(curl -s -X GET \
-            "https://api.supabase.com/v1/projects/${{ steps.supabase-branch.outputs.project_ref }}/config/database/pooler" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-            -H "Content-Type: application/json")
-
-          # Extract connection string from the first item in the array
-          CONNECTION_STRING=$(echo "$RESPONSE" | jq -r '.[0].connection_string')
-
-          echo "Connection String: $CONNECTION_STRING"
-
-          echo "connection_string<<EOF" >> $GITHUB_OUTPUT
-          echo "$CONNECTION_STRING" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          # Mask JWT secret in logs immediately after retrieval
+          if [ -n "$SUPABASE_JWT_SECRET" ]; then
+            echo "::add-mask::${SUPABASE_JWT_SECRET}"
+          fi
 
       - name: Get Migration History from Database
         id: db-migrations
         run: |
-          # Get connection string and replace [YOUR-PASSWORD] with actual password, and port 6543 with 5432
-          CONNECTION_STRING="${{ steps.pooler-config.outputs.connection_string }}"
-          DB_PASSWORD="${{ steps.supabase-branch.outputs.db_pass }}"
-          DB_URL=$(echo "$CONNECTION_STRING" | sed "s|\[YOUR-PASSWORD\]|$DB_PASSWORD|g" | sed "s|:6543|:5432|g")
+          # Replace port 6543 with 5432 for direct Postgres connection
+          # Remove all query parameters from the URL
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
+          echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
 
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
