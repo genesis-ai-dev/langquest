@@ -200,8 +200,8 @@ jobs:
         if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status == 'success'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: ""
           comment-tag: migration-validation
+          mode: delete
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status != 'success'

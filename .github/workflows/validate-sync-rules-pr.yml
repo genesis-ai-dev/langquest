@@ -173,8 +173,8 @@ jobs:
         if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: ""
           comment-tag: validation
+          mode: delete
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'failed'
