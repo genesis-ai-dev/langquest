@@ -88,7 +88,7 @@ function Terms() {
           </Pressable>
           <Pressable onPress={handleViewPrivacy}>
             <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
-              {t('viewFullPrivacy')} ryder
+              {t('viewFullPrivacy')}
             </Text>
           </Pressable>
         </View>
