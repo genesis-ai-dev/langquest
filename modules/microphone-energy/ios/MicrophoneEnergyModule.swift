@@ -96,8 +96,10 @@ public class MicrophoneEnergyModule: Module {
       isActive = true
       
     } catch {
-      DispatchQueue.main.async { [weak self] in
-        self?.sendEvent("onError", ["message": "Failed to start energy detection: \(error.localizedDescription)"])
+      let errorMessage = error.localizedDescription
+      Task { @MainActor [weak self] in
+        guard let self = self else { return }
+        self.sendEvent("onError", ["message": "Failed to start energy detection: \(errorMessage)"])
       }
     }
   }
@@ -107,7 +109,7 @@ public class MicrophoneEnergyModule: Module {
     
     // Stop any active segment
     if isRecordingSegment {
-      try? await stopSegment()
+      _ = try? await stopSegment()
     }
     
     audioEngine.inputNode.removeTap(onBus: 0)
@@ -221,10 +223,11 @@ public class MicrophoneEnergyModule: Module {
     
     // Send energy level to JavaScript (for UI visualization) - on main thread
     let timestamp = Date().timeIntervalSince1970 * 1000
-    DispatchQueue.main.async { [weak self] in
+    let energyValue = smoothedEnergy
+    Task { @MainActor [weak self] in
       guard let self = self else { return }
       self.sendEvent("onEnergyResult", [
-        "energy": Double(self.smoothedEnergy),
+        "energy": Double(energyValue),
         "timestamp": timestamp
       ])
     }
@@ -274,7 +277,7 @@ public class MicrophoneEnergyModule: Module {
         recordingStartTime = now
         
         // Emit event to JS (for UI update - create pending card) - on main thread
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
           self?.sendEvent("onSegmentStart", [:])
         }
         
@@ -307,7 +310,7 @@ public class MicrophoneEnergyModule: Module {
         Task { [weak self] in
           guard let self = self else { return }
           do {
-            try await self.stopSegment()
+            _ = try await self.stopSegment()
           } catch {
             print("⚠️ Native VAD: Failed to stop segment: \(error.localizedDescription)")
           }
@@ -462,14 +465,15 @@ public class MicrophoneEnergyModule: Module {
       
       // Send completion event with file URI - on main thread
       let uri = fileURL.absoluteString
-      DispatchQueue.main.async { [weak self] in
+      let eventData: [String: Any] = [
+        "uri": uri,
+        "startTime": startTimeMs,
+        "endTime": endTimeMs,
+        "duration": durationMs
+      ]
+      Task { @MainActor [weak self] in
         guard let self = self else { return }
-        self.sendEvent("onSegmentComplete", [
-          "uri": uri,
-          "startTime": startTimeMs,
-          "endTime": endTimeMs,
-          "duration": durationMs
-        ])
+        self.sendEvent("onSegmentComplete", eventData)
       }
       
       segmentFile = nil
@@ -511,3 +515,4 @@ public class MicrophoneEnergyModule: Module {
     
     fileHandle.write(header)
   }
+}
