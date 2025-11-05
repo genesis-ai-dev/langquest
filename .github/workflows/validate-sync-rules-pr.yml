@@ -71,14 +71,25 @@ jobs:
           fi
 
           echo "Testing database connection..."
-          if psql "$DB_URL" -c "SELECT 1;" > /dev/null 2>&1; then
+          # Ensure SSL mode is set (Supabase requires SSL)
+          if [[ "$DB_URL" != *"sslmode"* ]]; then
+            if [[ "$DB_URL" == *"?"* ]]; then
+              DB_URL="${DB_URL}&sslmode=require"
+            else
+              DB_URL="${DB_URL}?sslmode=require"
+            fi
+          fi
+          
+          # Test connection and capture output
+          CONNECTION_OUTPUT=$(psql "$DB_URL" -c "SELECT 1;" 2>&1)
+          CONNECTION_STATUS=$?
+          
+          if [ $CONNECTION_STATUS -eq 0 ]; then
             echo "✅ Database connection successful"
           else
             echo "❌ Failed to connect to database"
-            echo "Please check:"
-            echo "  - Database URL is correct"
-            echo "  - Network connectivity"
-            echo "  - Database credentials"
+            echo "Connection error output:"
+            echo "$CONNECTION_OUTPUT"
             exit 1
           fi
 
