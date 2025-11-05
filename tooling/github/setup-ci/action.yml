@@ -10,7 +10,3 @@ runs:
         cache-dependency-path: '**/package-lock.json'
         node-version-file: '.nvmrc'
         cache: 'npm'
-
-    - name: Install dependencies
-      shell: bash
-      run: npm install
