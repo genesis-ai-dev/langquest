@@ -1,7 +1,8 @@
 name: Validate Migration History
 
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.4.1
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           check-name: "Supabase Preview"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
@@ -29,25 +30,43 @@ jobs:
         with:
           fetch-depth: 0 # Need full history to compare with main
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          cache-dependency-path: "**/package-lock.json"
-          node-version-file: ".nvmrc"
-          cache: "npm"
+      - name: Setup
+        uses: ./tooling/github/setup-ci
 
       - name: Get Database URL
         id: supabase-branch
-        uses: 0xbigboss/supabase-branch-gh-action@v1
+        uses: 0xbigboss/supabase-branch-gh-action@master
         with:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+          wait-for-migrations: true
+
+      - name: Get Pooler URL
+        id: pooler-config
+        run: |
+          # Fetch pooler configuration from Supabase API
+          RESPONSE=$(curl -s -X GET \
+            "https://api.supabase.com/v1/projects/${{ steps.supabase-branch.outputs.project_ref }}/config/database/pooler" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json")
+
+          # Extract connection string from the first item in the array
+          CONNECTION_STRING=$(echo "$RESPONSE" | jq -r '.[0].connection_string')
+
+          echo "Connection String: $CONNECTION_STRING"
+
+          echo "connection_string<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONNECTION_STRING" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Get Migration History from Database
         id: db-migrations
-        env:
-          DB_URL: postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres
         run: |
+          # Get connection string and replace [YOUR-PASSWORD] with actual password, and port 6543 with 5432
+          CONNECTION_STRING="${{ steps.pooler-config.outputs.connection_string }}"
+          DB_PASSWORD="${{ steps.supabase-branch.outputs.db_pass }}"
+          DB_URL=$(echo "$CONNECTION_STRING" | sed "s|\[YOUR-PASSWORD\]|$DB_PASSWORD|g" | sed "s|:6543|:5432|g")
+
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
           DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
