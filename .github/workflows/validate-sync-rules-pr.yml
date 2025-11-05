@@ -3,9 +3,6 @@ name: Validate Sync Rules on PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "supabase/config/sync-rules.yml"
-      - ".github/workflows/validate-sync-rules-pr.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,8 +13,32 @@ env:
   PS_API_TOKEN: use_a_better_token_in_production
 
 jobs:
+  check-paths:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.filter.outputs.sync-rules }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sync-rules:
+              - 'supabase/config/sync-rules.yml'
+              - '.github/workflows/validate-sync-rules-pr.yml'
+
+  skip:
+    runs-on: ubuntu-latest
+    needs: [check-paths]
+    if: ${{ needs.check-paths.outputs.should-run != 'true' }}
+    steps:
+      - name: Skip validation
+        run: echo "No sync rules changes detected, skipping validation"
+
   wait:
     runs-on: ubuntu-latest
+    needs: [check-paths]
+    if: ${{ needs.check-paths.outputs.should-run == 'true' }}
     outputs:
       status: ${{ steps.check.outputs.conclusion }}
     steps:
@@ -29,8 +50,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-sync-rules-on-pr:
-    needs: [wait]
-    if: ${{ needs.wait.outputs.status == 'success' }}
+    needs: [check-paths, wait]
+    if: ${{ needs.check-paths.outputs.should-run == 'true' && (needs.wait.result == 'success' && needs.wait.outputs.status == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
