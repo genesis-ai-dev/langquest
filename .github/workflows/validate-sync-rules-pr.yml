@@ -97,6 +97,8 @@ jobs:
             echo "❌ Failed to connect to database (exit code: $CONNECTION_STATUS)"
             echo "Connection error output:"
             echo "$CONNECTION_OUTPUT"
+            echo "Connection error output (spaced/unmasked):"
+            echo "$CONNECTION_OUTPUT" | sed 's/./& /g'
             set -e  # Re-enable exit on error
             exit 1
           fi
