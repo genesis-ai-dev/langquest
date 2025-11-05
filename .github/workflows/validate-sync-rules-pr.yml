@@ -97,14 +97,19 @@ jobs:
           if [ $CONNECTION_STATUS -ne 0 ]; then
             echo "URI format failed, trying individual connection parameters..."
             # Parse URI: postgresql://user:password@host:port/database?params
-            # Extract components using sed
+            # Extract components using sed with proper capture groups
             DB_USER=$(echo "$TEST_DB_URL" | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
             DB_PASS=$(echo "$TEST_DB_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
             DB_HOST=$(echo "$TEST_DB_URL" | sed -n 's|.*@\([^:]*\):.*|\1|p')
             DB_PORT=$(echo "$TEST_DB_URL" | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
-            DB_NAME=$(echo "$TEST_DB_URL" | sed -n 's|.*/[^?]*|\1|p' | sed 's|.*/\([^?]*\).*|\1|')
+            DB_NAME=$(echo "$TEST_DB_URL" | sed -n 's|.*/\([^?]*\).*|\1|p')
             
-            echo "Parsed connection params - Host: $DB_HOST, Port: $DB_PORT, Database: $DB_NAME"
+            echo "Parsed connection params - User: $DB_USER, Host: $DB_HOST, Port: $DB_PORT, Database: $DB_NAME"
+            echo "Parsed values (spaced for debugging):"
+            echo "  User: $(echo "$DB_USER" | sed 's/./& /g')"
+            echo "  Host: $(echo "$DB_HOST" | sed 's/./& /g')"
+            echo "  Database: $(echo "$DB_NAME" | sed 's/./& /g')"
+            
             # Use SSL mode require for Supabase
             CONNECTION_OUTPUT=$(PGPASSWORD="$DB_PASS" PGSSLMODE=require psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" 2>&1)
             CONNECTION_STATUS=$?
