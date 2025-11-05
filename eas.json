@@ -8,7 +8,7 @@
     "development": {
       "distribution": "internal",
       "channel": "development",
-      "environment": "preview",
+      "environment": "development",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "development"
@@ -23,13 +23,10 @@
       "autoIncrement": true,
       "channel": "preview",
       "environment": "preview",
-      "distribution": "internal",
+      "distribution": "store",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "preview"
-      },
-      "ios": {
-        "distribution": "store"
       }
     },
     "production": {
