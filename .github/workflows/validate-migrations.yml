@@ -48,18 +48,40 @@ jobs:
       - name: Get Migration History from Database
         id: db-migrations
         run: |
+          # Check if POSTGRES_URL is set
+          if [ -z "$POSTGRES_URL" ]; then
+            echo "❌ POSTGRES_URL environment variable is not set"
+            exit 1
+          fi
+
           # Replace port 6543 with 5432 for direct Postgres connection
-          # Remove all query parameters from the URL
+          # Remove all query parameters from the URL (including pgbouncer=true)
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
+
+          # Verify port replacement worked
+          if echo "$DB_URL" | grep -q ":6543"; then
+            echo "⚠️  Warning: Port 6543 still present in connection string"
+          fi
+
+          # Mask password in logs for security
+          DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
+          echo "Using database URL: ${DB_URL_MASKED}"
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
 
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
-          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+          # Capture both stdout and stderr separately for better error reporting
+          PSQL_ERROR=$(mktemp)
+          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>"$PSQL_ERROR" || echo "")
+          PSQL_ERROR_CONTENT=$(cat "$PSQL_ERROR")
+          rm -f "$PSQL_ERROR"
 
           if [ -z "$DB_MIGRATIONS" ]; then
             echo "⚠️  Could not query migration history from database"
             echo "This might mean migrations haven't been applied yet, or the database is not accessible"
+            if [ -n "$PSQL_ERROR_CONTENT" ]; then
+              echo "psql error: $PSQL_ERROR_CONTENT"
+            fi
             echo "db_migrations=" >> $GITHUB_OUTPUT
           else
             echo "$DB_MIGRATIONS" > db_migrations.txt

@@ -4,28 +4,30 @@ on:
   push:
     branches: ["main", "dev"]
     paths:
-      - 'supabase/config/sync-rules.yml'
-      - '.github/workflows/deploy-sync-rules.yml'
+      - "supabase/config/sync-rules.yml"
+      - ".github/workflows/deploy-sync-rules.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  wait-for-supabase-preview:
+  wait:
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.conclusion }}
     steps:
-      - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.4.1
+      - uses: fountainhead/action-wait-for-check@v1.2.0
+        id: check
         with:
-          ref: ${{ github.ref }}
-          check-name: "Supabase Preview"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+          checkName: Supabase Preview
+          ref: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-sync-rules:
     runs-on: ubuntu-latest
-    needs: [wait-for-supabase-preview]
+    needs: [wait]
+    if: ${{ needs.wait.outputs.status == 'success' }}
     permissions:
       pull-requests: write
     env:
