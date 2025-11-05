@@ -64,6 +64,8 @@ jobs:
 
       - name: Test Database Connection
         run: |
+          set +e  # Don't exit on error immediately
+
           # Install psql if not available
           if ! command -v psql &> /dev/null; then
             echo "Installing PostgreSQL client..."
@@ -71,6 +73,8 @@ jobs:
           fi
 
           echo "Testing database connection..."
+          echo "DB_URL is set: $([ -n "$DB_URL" ] && echo "yes" || echo "no")"
+
           # Ensure SSL mode is set (Supabase requires SSL)
           if [[ "$DB_URL" != *"sslmode"* ]]; then
             if [[ "$DB_URL" == *"?"* ]]; then
@@ -78,18 +82,22 @@ jobs:
             else
               DB_URL="${DB_URL}?sslmode=require"
             fi
+            echo "Added sslmode=require to connection string"
           fi
 
           # Test connection and capture output
+          echo "Attempting connection..."
           CONNECTION_OUTPUT=$(psql "$DB_URL" -c "SELECT 1;" 2>&1)
           CONNECTION_STATUS=$?
 
           if [ $CONNECTION_STATUS -eq 0 ]; then
             echo "✅ Database connection successful"
+            set -e  # Re-enable exit on error
           else
-            echo "❌ Failed to connect to database"
+            echo "❌ Failed to connect to database (exit code: $CONNECTION_STATUS)"
             echo "Connection error output:"
             echo "$CONNECTION_OUTPUT"
+            set -e  # Re-enable exit on error
             exit 1
           fi
 
