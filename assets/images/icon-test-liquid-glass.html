@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Icon Liquid Glass Background Test</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding: 40px;
+        background: #f5f5f5;
+      }
+
+      .test-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 40px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .test-card {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .test-card h3 {
+        margin-bottom: 20px;
+        color: #333;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .icon-wrapper {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Liquid Glass Effect - Light Mode */
+      .liquid-glass {
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        background: rgba(255, 255, 255, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      }
+
+      /* Liquid Glass Effect - Dark Mode (Improved Contrast) */
+      .liquid-glass-dark {
+        backdrop-filter: blur(24px) saturate(200%) brightness(1.1);
+        -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.1);
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.4),
+          0 0 0 1px rgba(255, 255, 255, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      }
+
+      /* Enhanced Dark Mode - Maximum Contrast */
+      .liquid-glass-dark-enhanced {
+        backdrop-filter: blur(28px) saturate(220%) brightness(1.15)
+          contrast(1.1);
+        -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.15)
+          contrast(1.1);
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        box-shadow:
+          0 12px 40px rgba(0, 0, 0, 0.5),
+          0 0 0 1px rgba(255, 255, 255, 0.15),
+          inset 0 2px 4px rgba(255, 255, 255, 0.2),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+      }
+
+      /* Icon brightness enhancement for dark backgrounds */
+      .bg-option-2 object,
+      .bg-option-2 svg {
+        filter: brightness(1.1) contrast(1.05);
+      }
+
+      .icon-wrapper svg,
+      .icon-wrapper object {
+        width: 100%;
+        height: 100%;
+      }
+
+      .icon-wrapper object {
+        pointer-events: none;
+      }
+
+      /* Background Option 1: Light Purple Gradient */
+      .bg-option-1 {
+        background: linear-gradient(135deg, #f9f7fd 0%, #f1ebfa 100%);
+      }
+
+      /* Background Option 2: Dark Purple-Blue Gradient */
+      .bg-option-2 {
+        background: linear-gradient(
+          135deg,
+          hsl(262.5, 67%, 15%) 0%,
+          hsl(240, 25.49%, 10%) 100%
+        );
+      }
+
+      /* Background Option 3: Subtle Purple Tint */
+      .bg-option-3 {
+        background: hsl(262.5, 100%, 98%);
+      }
+
+      /* Background Option 4: White with Purple Tint */
+      .bg-option-4 {
+        background: hsl(262.5, 60%, 98.04%);
+      }
+
+      /* Background Option 5: Pure White (current) */
+      .bg-option-5 {
+        background: #ffffff;
+      }
+
+      /* Background Option 6: Light Purple-Blue */
+      .bg-option-6 {
+        background: linear-gradient(
+          135deg,
+          hsl(262.5, 50%, 96%) 0%,
+          hsl(240, 40%, 94%) 100%
+        );
+      }
+
+      .code-snippet {
+        margin-top: 15px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 12px;
+        color: #333;
+        overflow-x: auto;
+      }
+
+      .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-top: 40px;
+      }
+
+      .comparison-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      }
+
+      .comparison-card h4 {
+        margin-bottom: 15px;
+        color: #555;
+        font-size: 16px;
+      }
+
+      .comparison-icons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+      }
+
+      .comparison-icons .icon-wrapper {
+        width: 120px;
+        height: 120px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 style="text-align: center; margin-bottom: 40px; color: #333">
+      Liquid Glass Background Test
+    </h1>
+
+    <div class="test-container">
+      <!-- Option 1: Light Purple Gradient -->
+      <div class="test-card">
+        <h3>Option 1: Light Purple Gradient</h3>
+        <div class="icon-wrapper bg-option-1 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">
+          background: linear-gradient(135deg, #f9f7fd, #f1ebfa);
+        </div>
+      </div>
+
+      <!-- Option 2: Dark Purple-Blue Gradient -->
+      <div class="test-card">
+        <h3>Option 2: Dark Purple-Blue (Original)</h3>
+        <div class="icon-wrapper bg-option-2 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">
+          background: linear-gradient(135deg, hsl(262.5, 67%, 15%), hsl(240,
+          25.49%, 10%));
+        </div>
+      </div>
+
+      <!-- Option 2a: Dark Purple-Blue with Improved Contrast -->
+      <div class="test-card">
+        <h3>Option 2a: Dark with Enhanced Glass</h3>
+        <div class="icon-wrapper bg-option-2 liquid-glass-dark">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">Improved blur, brightness, and contrast</div>
+      </div>
+
+      <!-- Option 2b: Dark Purple-Blue with Maximum Contrast -->
+      <div class="test-card">
+        <h3>Option 2b: Dark with Maximum Contrast</h3>
+        <div class="icon-wrapper bg-option-2 liquid-glass-dark-enhanced">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">
+          Maximum blur, brightness, contrast, and enhanced shadows
+        </div>
+      </div>
+
+      <!-- Option 3: Subtle Purple Tint -->
+      <div class="test-card">
+        <h3>Option 3: Subtle Purple Tint</h3>
+        <div class="icon-wrapper bg-option-3 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">background: hsl(262.5, 100%, 98%);</div>
+      </div>
+
+      <!-- Option 4: White with Purple Tint -->
+      <div class="test-card">
+        <h3>Option 4: White with Purple Tint</h3>
+        <div class="icon-wrapper bg-option-4 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">background: hsl(262.5, 60%, 98.04%);</div>
+      </div>
+
+      <!-- Option 5: Pure White -->
+      <div class="test-card">
+        <h3>Option 5: Pure White (Current)</h3>
+        <div class="icon-wrapper bg-option-5 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">background: #ffffff;</div>
+      </div>
+
+      <!-- Option 6: Light Purple-Blue -->
+      <div class="test-card">
+        <h3>Option 6: Light Purple-Blue</h3>
+        <div class="icon-wrapper bg-option-6 liquid-glass">
+          <object data="icon 1.svg" type="image/svg+xml"></object>
+        </div>
+        <div class="code-snippet">
+          background: linear-gradient(135deg, hsl(262.5, 50%, 96%), hsl(240,
+          40%, 94%));
+        </div>
+      </div>
+    </div>
+
+    <div
+      style="
+        text-align: center;
+        margin-top: 60px;
+        padding: 30px;
+        background: white;
+        border-radius: 20px;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+      "
+    >
+      <h2 style="margin-bottom: 20px; color: #333">Liquid Glass CSS</h2>
+      <div class="code-snippet" style="text-align: left; margin-bottom: 20px">
+        <strong>Light Mode:</strong><br />
+        .liquid-glass {<br />
+        &nbsp;&nbsp;backdrop-filter: blur(20px) saturate(180%);<br />
+        &nbsp;&nbsp;background: rgba(255, 255, 255, 0.25);<br />
+        &nbsp;&nbsp;border: 1px solid rgba(255, 255, 255, 0.3);<br />
+        &nbsp;&nbsp;box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0
+        rgba(255, 255, 255, 0.4);<br />
+        }
+      </div>
+      <div class="code-snippet" style="text-align: left; margin-bottom: 20px">
+        <strong>Dark Mode (Enhanced):</strong><br />
+        .liquid-glass-dark {<br />
+        &nbsp;&nbsp;backdrop-filter: blur(24px) saturate(200%)
+        brightness(1.1);<br />
+        &nbsp;&nbsp;background: rgba(255, 255, 255, 0.15);<br />
+        &nbsp;&nbsp;border: 1px solid rgba(255, 255, 255, 0.25);<br />
+        &nbsp;&nbsp;box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px
+        rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3);<br />
+        }
+      </div>
+      <div class="code-snippet" style="text-align: left">
+        <strong>Dark Mode (Maximum Contrast):</strong><br />
+        .liquid-glass-dark-enhanced {<br />
+        &nbsp;&nbsp;backdrop-filter: blur(28px) saturate(220%) brightness(1.15)
+        contrast(1.1);<br />
+        &nbsp;&nbsp;background: rgba(255, 255, 255, 0.12);<br />
+        &nbsp;&nbsp;border: 1px solid rgba(255, 255, 255, 0.35);<br />
+        &nbsp;&nbsp;box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px
+        rgba(255, 255, 255, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.2);<br />
+        }
+      </div>
+      <div class="code-snippet" style="text-align: left; margin-top: 20px">
+        <strong>Icon Enhancement for Dark Backgrounds:</strong><br />
+        .bg-dark object, .bg-dark svg {<br />
+        &nbsp;&nbsp;filter: brightness(1.1) contrast(1.05);<br />
+        }
+      </div>
+    </div>
+  </body>
+</html>

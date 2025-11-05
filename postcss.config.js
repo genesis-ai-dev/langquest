@@ -120,8 +120,5 @@ const generateTokensPlugin = () => {
 generateTokensPlugin.postcss = true;
 
 module.exports = {
-  plugins: {
-    tailwindcss: {},
-    [generateTokensPlugin.name]: generateTokensPlugin
-  }
+  plugins: [require('tailwindcss'), generateTokensPlugin]
 };
