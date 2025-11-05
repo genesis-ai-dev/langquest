@@ -76,6 +76,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         bundleIdentifier: getBundleIdentifier(appVariant),
         config: {
           usesNonExemptEncryption: false
+        },
+        infoPlist: {
+          NSMicrophoneUsageDescription:
+            'LangQuest needs access to your microphone to record voice translations.'
         }
       },
       android: {
