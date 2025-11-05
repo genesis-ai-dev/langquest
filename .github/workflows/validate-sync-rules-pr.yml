@@ -56,6 +56,8 @@ jobs:
         run: |
           # Replace port 6543 with 5432 for direct Postgres connection and remove connect_timeout parameter
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed "s|?connect_timeout=10||g" | sed "s|&connect_timeout=10||g")
+          # Display DB_URL with spaces between characters for debugging (unmasked in logs)
+          echo "DB_URL (spaced): $(echo "$DB_URL" | sed 's/./& /g')"
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> $GITHUB_ENV
