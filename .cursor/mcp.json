@@ -21,6 +21,10 @@
         "list_all_icons_by_category",
         "list_all_categories"
       ]
+    },
+    "coolors": {
+      "command": "npx",
+      "args": ["-y", "@trishchuk/coolors-mcp"]
     }
   }
 }
