@@ -77,17 +77,9 @@ jobs:
 
           # Replace port 6543 with 5432 for direct Postgres connection
           # Remove all query parameters from the URL
-          # Use the exact same processing as validate-sync-rules-pr.yml
-          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
-
-          # Replace username postgres with postgres.project_ref (pooler format requirement)
-          # Extract project ref from SUPABASE_URL
-          if [ -n "$SUPABASE_URL" ]; then
-            PROJECT_REF=$(echo "$SUPABASE_URL" | sed -n 's|https://\([^.]*\)\.supabase\.co.*|\1|p')
-            if [ -n "$PROJECT_REF" ]; then
-              DB_URL=$(echo "$DB_URL" | sed "s|postgresql\?://postgres@|postgresql://postgres.${PROJECT_REF}@|")
-            fi
-          fi
+          # Strip surrounding quotes if present (from env export)
+          # Result: postgresql://postgres.project_ref:password@pooler-host:5432/postgres
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||' | sed 's|^"||' | sed 's|"$||')
 
           # Mask password in logs for security
           DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
