@@ -8,9 +8,15 @@ public class MicrophoneEnergyModule: Module {
   // Ring buffer for capturing speech onset (1000ms for better onset capture)
   private var ringBuffer: [[Float]] = []
   private var ringBufferMaxSize = 32 // ~1000ms at 1024 samples/buffer, 16kHz (~64ms per buffer)
+  private let ringBufferQueue = DispatchQueue(label: "com.microphoneenergy.ringbuffer")
+  
   private var isRecordingSegment = false
-  private var segmentFile: AVAudioFile?
+  private var segmentFile: URL?
   private var segmentStartTime: Date?
+  
+  // Segment audio data collected in memory (like Android)
+  private var segmentBuffers: [[Float]] = []
+  private let segmentBuffersQueue = DispatchQueue(label: "com.microphoneenergy.segmentbuffers")
   
   // Native VAD state
   private var vadEnabled = false
@@ -29,6 +35,8 @@ public class MicrophoneEnergyModule: Module {
   private var onsetTime: Date?
   private var lastSpeechTime: Date?
   private var recordingStartTime: Date?
+  private var lastSegmentEndTime: Date? // Track when last segment ended
+  private let cooldownPeriodMs: Int = 500 // Cooldown after segment ends before detecting new onset
   
   public func definition() -> ModuleDefinition {
     Name("MicrophoneEnergy")
@@ -88,7 +96,9 @@ public class MicrophoneEnergyModule: Module {
       isActive = true
       
     } catch {
-      sendEvent("onError", ["message": "Failed to start energy detection: \(error.localizedDescription)"])
+      DispatchQueue.main.async { [weak self] in
+        self?.sendEvent("onError", ["message": "Failed to start energy detection: \(error.localizedDescription)"])
+      }
     }
   }
   
@@ -112,6 +122,15 @@ public class MicrophoneEnergyModule: Module {
     isActive = false
     vadEnabled = false
     onsetDetected = false
+    lastSegmentEndTime = nil // Reset cooldown when stopping detection
+    
+    // Clean up buffers
+    ringBufferQueue.sync {
+      ringBuffer.removeAll()
+    }
+    segmentBuffersQueue.sync {
+      segmentBuffers.removeAll()
+    }
   }
   
   private func configureVAD(config: [String: Any]) {
@@ -138,6 +157,7 @@ public class MicrophoneEnergyModule: Module {
     vadEnabled = true
     onsetDetected = false
     smoothedEnergy = 0.0
+    lastSegmentEndTime = nil // Reset cooldown when VAD enabled
     print("🎯 Native VAD enabled")
   }
   
@@ -177,19 +197,20 @@ public class MicrophoneEnergyModule: Module {
       samplesArray[i] = samples[i]
     }
     
-    // Manage ring buffer (always buffer when not recording segment)
+    // Manage ring buffer (always buffer when not recording segment) - thread-safe
     if !isRecordingSegment {
-      ringBuffer.append(samplesArray)
-      if ringBuffer.count > ringBufferMaxSize {
-        ringBuffer.removeFirst()
+      ringBufferQueue.sync {
+        ringBuffer.append(samplesArray)
+        if ringBuffer.count > ringBufferMaxSize {
+          ringBuffer.removeFirst()
+        }
       }
     }
     
-    // If recording a segment, write buffer to file
-    if isRecordingSegment, let audioFile = segmentFile {
-      // Write current buffer to file
-      if let pcmBuffer = createPCMBuffer(from: samplesArray, format: buffer.format) {
-        try? audioFile.write(from: pcmBuffer)
+    // If recording a segment, collect buffers in memory (like Android)
+    if isRecordingSegment {
+      segmentBuffersQueue.sync {
+        segmentBuffers.append(samplesArray)
       }
     }
     
@@ -198,15 +219,20 @@ public class MicrophoneEnergyModule: Module {
       handleNativeVAD()
     }
     
-    // Send energy level to JavaScript (for UI visualization)
-    sendEvent("onEnergyResult", [
-      "energy": Double(smoothedEnergy),
-      "timestamp": Date().timeIntervalSince1970 * 1000
-    ])
+    // Send energy level to JavaScript (for UI visualization) - on main thread
+    let timestamp = Date().timeIntervalSince1970 * 1000
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      self.sendEvent("onEnergyResult", [
+        "energy": Double(self.smoothedEnergy),
+        "timestamp": timestamp
+      ])
+    }
   }
   
   private func handleNativeVAD() {
     let now = Date()
+    let nowMs = now.timeIntervalSince1970 * 1000
     let onsetThreshold = vadThreshold * vadOnsetMultiplier
     let confirmThreshold = vadThreshold * vadConfirmMultiplier
     
@@ -217,11 +243,23 @@ public class MicrophoneEnergyModule: Module {
     
     // State machine
     if !isRecordingSegment && !onsetDetected {
-      // IDLE: Check for onset
+      // IDLE: Check for onset (with cooldown to prevent rapid re-triggers)
+      let timeSinceLastSegment: Double
+      if let lastSegmentEnd = lastSegmentEndTime {
+        timeSinceLastSegment = nowMs - (lastSegmentEnd.timeIntervalSince1970 * 1000)
+      } else {
+        timeSinceLastSegment = Double(cooldownPeriodMs) // No previous segment, allow onset
+      }
+      
       if smoothedEnergy > onsetThreshold {
-        print("🎯 Native VAD: Onset detected (\(smoothedEnergy) > \(onsetThreshold))")
-        onsetDetected = true
-        onsetTime = now
+        if timeSinceLastSegment >= Double(cooldownPeriodMs) || lastSegmentEndTime == nil {
+          print("🎯 Native VAD: Onset detected (\(smoothedEnergy) > \(onsetThreshold))")
+          onsetDetected = true
+          onsetTime = now
+        } else {
+          // Still in cooldown period - ignore onset
+          print("⏳ Native VAD: Onset ignored (cooldown: \(Int(timeSinceLastSegment))ms/\(cooldownPeriodMs)ms)")
+        }
       }
     } else if !isRecordingSegment && onsetDetected {
       // ONSET: Wait for confirmation or timeout
@@ -235,12 +273,19 @@ public class MicrophoneEnergyModule: Module {
         lastSpeechTime = now
         recordingStartTime = now
         
-        // Emit event to JS (for UI update - create pending card)
-        sendEvent("onSegmentStart", [:])
+        // Emit event to JS (for UI update - create pending card) - on main thread
+        DispatchQueue.main.async { [weak self] in
+          self?.sendEvent("onSegmentStart", [:])
+        }
         
         // Start segment with preroll
-        Task {
-          try? await startSegment(options: ["prerollMs": 1000])
+        Task { [weak self] in
+          guard let self = self else { return }
+          do {
+            try await self.startSegment(options: ["prerollMs": 1000])
+          } catch {
+            print("⚠️ Native VAD: Failed to start segment: \(error.localizedDescription)")
+          }
         }
       } else if timeSinceOnset > 300 {
         // Timeout - false alarm
@@ -258,9 +303,14 @@ public class MicrophoneEnergyModule: Module {
       if silenceMs >= Double(vadSilenceDuration) && durationMs >= Double(vadMinSegmentDuration) {
         print("💤 Native VAD: \(Int(silenceMs))ms silence - auto-stopping segment")
         
-        // Stop segment (will emit onSegmentComplete)
-        Task {
-          try? await stopSegment()
+        // Stop segment (will emit onSegmentComplete) - on main thread
+        Task { [weak self] in
+          guard let self = self else { return }
+          do {
+            try await self.stopSegment()
+          } catch {
+            print("⚠️ Native VAD: Failed to stop segment: \(error.localizedDescription)")
+          }
         }
       }
     }
@@ -294,48 +344,39 @@ public class MicrophoneEnergyModule: Module {
     // Get preroll duration (default 500ms)
     let prerollMs = options?["prerollMs"] as? Int ?? 500
     
-    // Create temp file for segment (use .m4a for compatibility)
+    // Create temp file path for segment (WAV format for consistency with Android)
     let tempDir = FileManager.default.temporaryDirectory
-    let fileName = "segment_\(UUID().uuidString).m4a"
+    let fileName = "segment_\(UUID().uuidString).wav"
     let fileURL = tempDir.appendingPathComponent(fileName)
+    
+    segmentFile = fileURL
+    segmentStartTime = Date()
     
     // Get audio format from engine
     let inputNode = audioEngine.inputNode
     let format = inputNode.outputFormat(forBus: 0)
     
-    // Create audio file
-    let settings: [String: Any] = [
-      AVFormatIDKey: kAudioFormatLinearPCM,
-      AVSampleRateKey: format.sampleRate,
-      AVNumberOfChannelsKey: format.channelCount,
-      AVLinearPCMBitDepthKey: 32,
-      AVLinearPCMIsFloatKey: true
-    ]
-    
-    guard let outputFormat = AVAudioFormat(settings: settings) else {
-      throw NSError(domain: "MicrophoneEnergy", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create output format"])
-    }
-    
-    segmentFile = try AVAudioFile(forWriting: fileURL, settings: outputFormat.settings)
-    segmentStartTime = Date()
-    
-    // Write buffered audio to file (preroll)
-    let bufferSampleRate = format.sampleRate
-    let samplesPerMs = bufferSampleRate / 1000.0
-    let maxPrerollBuffers = Int(ceil(Double(prerollMs) / (1024.0 / samplesPerMs)))
-    let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
-    
-    print("📼 Writing \(buffersToWrite) buffered chunks (~\(prerollMs)ms preroll)")
-    
-    for i in (ringBuffer.count - buffersToWrite)..<ringBuffer.count {
-      if let pcmBuffer = createPCMBuffer(from: ringBuffer[i], format: format) {
-        try? segmentFile?.write(from: pcmBuffer)
+    // Copy preroll from ring buffer to segmentBuffers (like Android)
+    ringBufferQueue.sync {
+      let bufferSampleRate = format.sampleRate
+      let samplesPerMs = bufferSampleRate / 1000.0
+      let maxPrerollBuffers = Int(ceil(Double(prerollMs) / (1024.0 / samplesPerMs)))
+      let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
+      
+      segmentBuffersQueue.sync {
+        segmentBuffers.removeAll()
+        if buffersToWrite > 0 {
+          let startIndex = ringBuffer.count - buffersToWrite
+          segmentBuffers.append(contentsOf: ringBuffer[startIndex..<ringBuffer.count])
+        }
       }
+      
+      print("📼 Preroll: \(buffersToWrite) chunks (~\(prerollMs)ms)")
     }
     
-    // Start recording new audio
+    // Start recording new audio (buffers will be collected in memory)
     isRecordingSegment = true
-    print("🎬 Segment recording started with \(buffersToWrite) preroll buffers")
+    print("🎬 Segment recording started with preroll")
   }
   
   private func stopSegment() async throws -> String? {
@@ -346,29 +387,127 @@ public class MicrophoneEnergyModule: Module {
     
     isRecordingSegment = false
     
-    guard let audioFile = segmentFile else {
+    // Record when segment ended for cooldown logic
+    let endTime = Date()
+    lastSegmentEndTime = endTime
+    
+    guard let fileURL = segmentFile else {
+      segmentBuffersQueue.sync {
+        segmentBuffers.removeAll()
+      }
       return nil
     }
     
-    let fileURL = audioFile.url
-    let startTime = segmentStartTime?.timeIntervalSince1970 ?? 0
-    let endTime = Date().timeIntervalSince1970
-    let duration = endTime - startTime
+    let startTime = segmentStartTime ?? endTime
+    let startTimeMs = startTime.timeIntervalSince1970 * 1000
+    let endTimeMs = endTime.timeIntervalSince1970 * 1000
+    let durationMs = endTimeMs - startTimeMs
     
-    // Close file
-    segmentFile = nil
-    segmentStartTime = nil
+    // Get audio format from engine
+    let inputNode = audioEngine.inputNode
+    let format = inputNode.outputFormat(forBus: 0)
+    let sampleRate = Int(format.sampleRate)
     
-    print("🎬 Segment recording stopped, duration: \(duration)s")
+    // Collect all buffers and calculate total samples
+    var allBuffers: [[Float]] = []
+    var totalSamples = 0
     
-    // Send completion event with file URI
-    sendEvent("onSegmentComplete", [
-      "uri": fileURL.absoluteString,
-      "startTime": startTime * 1000,
-      "endTime": endTime * 1000,
-      "duration": duration * 1000
-    ])
+    segmentBuffersQueue.sync {
+      allBuffers = segmentBuffers
+      for buffer in segmentBuffers {
+        totalSamples += buffer.count
+      }
+    }
     
-    return fileURL.absoluteString
+    print("🎬 Writing WAV file: \(totalSamples) samples, \(Int(durationMs))ms")
+    
+    // Write WAV file synchronously (like Android)
+    do {
+      // Create file if it doesn't exist
+      FileManager.default.createFile(atPath: fileURL.path, contents: nil, attributes: nil)
+      let fileHandle = try FileHandle(forWritingTo: fileURL)
+      defer {
+        fileHandle.closeFile()
+      }
+      
+      // Calculate data size (16-bit PCM = 2 bytes per sample)
+      let dataSize = totalSamples * 2
+      
+      // Write WAV header
+      writeWAVHeader(to: fileHandle, dataSize: UInt32(dataSize), sampleRate: sampleRate, channels: 1, bitsPerSample: 16)
+      
+      // Write all audio data (convert Float to Int16)
+      for buffer in allBuffers {
+        var pcmData = Data(capacity: buffer.count * 2)
+        for sample in buffer {
+          // Clamp sample to [-1.0, 1.0] and convert to Int16
+          let clampedSample = max(-1.0, min(1.0, Double(sample)))
+          let int16Sample = Int16(clampedSample * 32767.0)
+          withUnsafeBytes(of: int16Sample.littleEndian) {
+            pcmData.append(contentsOf: $0)
+          }
+        }
+        fileHandle.write(pcmData)
+      }
+      
+      fileHandle.synchronizeFile()
+      
+      print("✅ WAV file written: \(fileURL.path)")
+      print("⏳ Cooldown active: \(cooldownPeriodMs)ms before next onset detection")
+      
+      // Clear buffers
+      segmentBuffersQueue.sync {
+        segmentBuffers.removeAll()
+      }
+      
+      // Send completion event with file URI - on main thread
+      let uri = fileURL.absoluteString
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
+        self.sendEvent("onSegmentComplete", [
+          "uri": uri,
+          "startTime": startTimeMs,
+          "endTime": endTimeMs,
+          "duration": durationMs
+        ])
+      }
+      
+      segmentFile = nil
+      segmentStartTime = nil
+      
+      return uri
+    } catch {
+      print("❌ Failed to write WAV file: \(error.localizedDescription)")
+      segmentBuffersQueue.sync {
+        segmentBuffers.removeAll()
+      }
+      segmentFile = nil
+      segmentStartTime = nil
+      throw NSError(domain: "MicrophoneEnergy", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to write WAV file: \(error.localizedDescription)"])
+    }
   }
-}
+  
+  private func writeWAVHeader(to fileHandle: FileHandle, dataSize: UInt32, sampleRate: Int, channels: Int, bitsPerSample: Int) {
+    var header = Data()
+    
+    // RIFF header
+    header.append("RIFF".data(using: .ascii)!)
+    header.append(contentsOf: withUnsafeBytes(of: UInt32(36 + dataSize).littleEndian) { Data($0) })
+    header.append("WAVE".data(using: .ascii)!)
+    
+    // fmt chunk
+    header.append("fmt ".data(using: .ascii)!)
+    header.append(contentsOf: withUnsafeBytes(of: UInt32(16).littleEndian) { Data($0) }) // fmt chunk size
+    header.append(contentsOf: withUnsafeBytes(of: UInt16(1).littleEndian) { Data($0) }) // Audio format (1 = PCM)
+    header.append(contentsOf: withUnsafeBytes(of: UInt16(channels).littleEndian) { Data($0) })
+    header.append(contentsOf: withUnsafeBytes(of: UInt32(sampleRate).littleEndian) { Data($0) })
+    header.append(contentsOf: withUnsafeBytes(of: UInt32(sampleRate * channels * bitsPerSample / 8).littleEndian) { Data($0) }) // Byte rate
+    header.append(contentsOf: withUnsafeBytes(of: UInt16(channels * bitsPerSample / 8).littleEndian) { Data($0) }) // Block align
+    header.append(contentsOf: withUnsafeBytes(of: UInt16(bitsPerSample).littleEndian) { Data($0) })
+    
+    // data chunk
+    header.append("data".data(using: .ascii)!)
+    header.append(contentsOf: withUnsafeBytes(of: dataSize.littleEndian) { Data($0) })
+    
+    fileHandle.write(header)
+  }
