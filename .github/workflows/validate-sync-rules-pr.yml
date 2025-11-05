@@ -77,8 +77,9 @@ jobs:
           echo "DB_URL is set: $([ -n "$DB_URL" ] && echo "yes" || echo "no")"
 
           # Test connection with SSL mode via environment variable (Supabase requires SSL)
+          # Use -d flag to explicitly tell psql to use the URI as a database connection string
           echo "Attempting connection..."
-          CONNECTION_OUTPUT=$(PGSSLMODE=require psql "$DB_URL" -c "SELECT 1;" 2>&1)
+          CONNECTION_OUTPUT=$(PGSSLMODE=require psql -d "$DB_URL" -c "SELECT 1;" 2>&1)
           CONNECTION_STATUS=$?
 
           if [ $CONNECTION_STATUS -eq 0 ]; then
