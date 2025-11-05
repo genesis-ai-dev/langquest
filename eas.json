@@ -8,7 +8,7 @@
     "development": {
       "distribution": "internal",
       "channel": "development",
-      "environment": "preview",
+      "environment": "development",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "development"
