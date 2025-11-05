@@ -32,8 +32,6 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history to compare with main
 
       - name: Setup
         uses: ./tooling/github/setup-ci
