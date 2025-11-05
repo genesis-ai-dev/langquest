@@ -76,19 +76,39 @@ jobs:
           echo "DB_URL is set: $([ -n "$DB_URL" ] && echo "yes" || echo "no")"
 
           # Ensure SSL mode is set (Supabase requires SSL)
-          if [[ "$DB_URL" != *"sslmode"* ]]; then
-            if [[ "$DB_URL" == *"?"* ]]; then
-              DB_URL="${DB_URL}&sslmode=require"
+          TEST_DB_URL="$DB_URL"
+          if [[ "$TEST_DB_URL" != *"sslmode"* ]]; then
+            if [[ "$TEST_DB_URL" == *"?"* ]]; then
+              TEST_DB_URL="${TEST_DB_URL}&sslmode=require"
             else
-              DB_URL="${DB_URL}?sslmode=require"
+              TEST_DB_URL="${TEST_DB_URL}?sslmode=require"
             fi
             echo "Added sslmode=require to connection string"
           fi
 
-          # Test connection and capture output
+          # Test connection - psql should handle URI format directly
           echo "Attempting connection..."
-          CONNECTION_OUTPUT=$(psql "$DB_URL" -c "SELECT 1;" 2>&1)
+          # Export as environment variable and use PGDATABASE format, or use URI directly
+          # psql can accept URIs directly, but we need to ensure proper escaping
+          CONNECTION_OUTPUT=$(psql "$TEST_DB_URL" -c "SELECT 1;" 2>&1)
           CONNECTION_STATUS=$?
+
+          # If URI fails, try parsing and using individual parameters
+          if [ $CONNECTION_STATUS -ne 0 ]; then
+            echo "URI format failed, trying individual connection parameters..."
+            # Parse URI: postgresql://user:password@host:port/database?params
+            # Extract components using sed
+            DB_USER=$(echo "$TEST_DB_URL" | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+            DB_PASS=$(echo "$TEST_DB_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+            DB_HOST=$(echo "$TEST_DB_URL" | sed -n 's|.*@\([^:]*\):.*|\1|p')
+            DB_PORT=$(echo "$TEST_DB_URL" | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+            DB_NAME=$(echo "$TEST_DB_URL" | sed -n 's|.*/[^?]*|\1|p' | sed 's|.*/\([^?]*\).*|\1|')
+            
+            echo "Parsed connection params - Host: $DB_HOST, Port: $DB_PORT, Database: $DB_NAME"
+            # Use SSL mode require for Supabase
+            CONNECTION_OUTPUT=$(PGPASSWORD="$DB_PASS" PGSSLMODE=require psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" 2>&1)
+            CONNECTION_STATUS=$?
+          fi
 
           if [ $CONNECTION_STATUS -eq 0 ]; then
             echo "✅ Database connection successful"
