@@ -14,8 +14,6 @@ function getAppName(variant: string) {
   switch (variant) {
     case 'development':
       return 'LangQuest (Dev)';
-    case 'preview':
-      return 'LangQuest (Preview)';
     case 'production':
       return 'LangQuest';
     default:
@@ -27,8 +25,6 @@ function getBundleIdentifier(variant: string) {
   switch (variant) {
     case 'development':
       return `${uniqueIdentifier}.dev`;
-    case 'preview':
-      return `${uniqueIdentifier}.preview`;
     case 'production':
       return uniqueIdentifier;
     default:
@@ -40,8 +36,6 @@ function getScheme(variant: string) {
   switch (variant) {
     case 'development':
       return 'langquest-dev';
-    case 'preview':
-      return 'langquest-preview';
     case 'production':
       return 'langquest';
     default:
