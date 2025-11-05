@@ -63,38 +63,6 @@ jobs:
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
           echo "PS_SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> $GITHUB_ENV
 
-      - name: Test Database Connection
-        run: |
-          set +e  # Don't exit on error immediately
-
-          # Install psql if not available
-          if ! command -v psql &> /dev/null; then
-            echo "Installing PostgreSQL client..."
-            sudo apt-get update && sudo apt-get install -y postgresql-client
-          fi
-
-          echo "Testing database connection..."
-          echo "DB_URL is set: $([ -n "$DB_URL" ] && echo "yes" || echo "no")"
-
-          # Test connection with SSL mode via environment variable (Supabase requires SSL)
-          # Use -d flag to explicitly tell psql to use the URI as a database connection string
-          echo "Attempting connection..."
-          CONNECTION_OUTPUT=$(PGSSLMODE=require psql -d "$DB_URL" -c "SELECT 1;" 2>&1)
-          CONNECTION_STATUS=$?
-
-          if [ $CONNECTION_STATUS -eq 0 ]; then
-            echo "✅ Database connection successful"
-            set -e  # Re-enable exit on error
-          else
-            echo "❌ Failed to connect to database (exit code: $CONNECTION_STATUS)"
-            echo "Connection error output:"
-            echo "$CONNECTION_OUTPUT"
-            echo "Connection error output (spaced/unmasked):"
-            echo "$CONNECTION_OUTPUT" | sed 's/./& /g'
-            set -e  # Re-enable exit on error
-            exit 1
-          fi
-
       - name: Run PowerSync Container
         uses: hoverkraft-tech/compose-action@v2.2.0
         with:

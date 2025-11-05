@@ -33,9 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup
-        uses: ./tooling/github/setup-ci
-
       - uses: supabase/setup-cli@v1
         with:
           version: latest
