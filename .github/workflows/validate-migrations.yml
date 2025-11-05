@@ -80,6 +80,15 @@ jobs:
           # Use the exact same processing as validate-sync-rules-pr.yml
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
 
+          # Replace username postgres with postgres.project_ref (pooler format requirement)
+          # Extract project ref from SUPABASE_URL
+          if [ -n "$SUPABASE_URL" ]; then
+            PROJECT_REF=$(echo "$SUPABASE_URL" | sed -n 's|https://\([^.]*\)\.supabase\.co.*|\1|p')
+            if [ -n "$PROJECT_REF" ]; then
+              DB_URL=$(echo "$DB_URL" | sed "s|postgresql\?://postgres@|postgresql://postgres.${PROJECT_REF}@|")
+            fi
+          fi
+
           # Mask password in logs for security
           DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
           echo "Using database URL: ${DB_URL_MASKED}"
