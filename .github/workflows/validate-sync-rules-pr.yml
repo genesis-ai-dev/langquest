@@ -79,11 +79,11 @@ jobs:
               DB_URL="${DB_URL}?sslmode=require"
             fi
           fi
-          
+
           # Test connection and capture output
           CONNECTION_OUTPUT=$(psql "$DB_URL" -c "SELECT 1;" 2>&1)
           CONNECTION_STATUS=$?
-          
+
           if [ $CONNECTION_STATUS -eq 0 ]; then
             echo "✅ Database connection successful"
           else
