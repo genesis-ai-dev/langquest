@@ -125,7 +125,7 @@ function Terms() {
             </View>
           </Pressable>
           <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
-            <Text>{t('accept')}</Text> ryder
+            <Text>{t('accept')}</Text>
           </Button>
         </View>
       )}
