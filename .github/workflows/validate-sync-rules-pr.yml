@@ -169,6 +169,13 @@ jobs:
             exit 1
           fi
 
+      - name: Remove PR comment if validation passed
+        if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'passed'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ""
+          comment-tag: validation
+
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.validate.outputs.status == 'failed'
         uses: thollander/actions-comment-pull-request@v3

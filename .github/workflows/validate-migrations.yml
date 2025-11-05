@@ -196,6 +196,13 @@ jobs:
             echo "comparison_status=skipped" >> $GITHUB_OUTPUT
           fi
 
+      - name: Remove PR comment if validation passed
+        if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status == 'success'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: ""
+          comment-tag: migration-validation
+
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status != 'success'
         uses: thollander/actions-comment-pull-request@v3
