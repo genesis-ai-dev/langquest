@@ -3,6 +3,21 @@ name: Deploy to production
 on:
   push:
     branches: ['main']
+    paths:
+      - '!**/*.md'
+      - '!readme_images/**'
+      - '!scripts/**'
+      - '!tooling/**'
+      - '!restore-remote-db-backup/**'
+      - '!debug_closure_issue.sql'
+      - '!supabase/**'
+      - '!**/*.backup'
+      - '!.github/**'
+      - '!.prettierignore'
+      - '!prettier.config.mjs'
+      - '!eslint.config.mts'
+      - '!knip.json'
+      - '!deno.json'
 
 jobs:
   fingerprint:

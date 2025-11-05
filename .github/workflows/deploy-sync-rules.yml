@@ -3,6 +3,9 @@ name: Deploy Sync Rules
 on:
   push:
     branches: ["main", "dev"]
+    paths:
+      - 'supabase/config/sync-rules.yml'
+      - '.github/workflows/deploy-sync-rules.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

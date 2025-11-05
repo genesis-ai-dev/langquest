@@ -1,53 +1,58 @@
 name: Validate Migration History
 
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  wait-for-supabase-preview:
+  wait:
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.conclusion }}
     steps:
-      - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
+      - uses: fountainhead/action-wait-for-check@v1.2.0
+        id: check
         with:
-          ref: ${{ github.ref }}
-          check-name: "Supabase Preview"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+          checkName: Supabase Preview
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-migrations:
-    needs: [wait-for-supabase-preview]
+    needs: [wait]
+    if: ${{ needs.wait.outputs.status == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history to compare with main
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: supabase/setup-cli@v1
         with:
-          cache-dependency-path: "**/package-lock.json"
-          node-version-file: ".nvmrc"
-          cache: "npm"
+          version: latest
 
-      - name: Get Database URL
-        id: supabase-branch
-        uses: 0xbigboss/supabase-branch-gh-action@v1
-        with:
-          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
+      - name: Get Branch Environment Variables
+        run: |
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          # Mask JWT secret in logs immediately after retrieval
+          if [ -n "$SUPABASE_JWT_SECRET" ]; then
+            echo "::add-mask::${SUPABASE_JWT_SECRET}"
+          fi
 
       - name: Get Migration History from Database
         id: db-migrations
-        env:
-          DB_URL: postgresql://postgres.${{ steps.supabase-branch.outputs.project_ref }}:${{ steps.supabase-branch.outputs.db_pass }}@aws-0-ca-central-1.pooler.supabase.com:${{ steps.supabase-branch.outputs.db_port }}/postgres
         run: |
+          # Replace port 6543 with 5432 for direct Postgres connection
+          # Remove all query parameters from the URL
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
+          echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
+
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
           DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
