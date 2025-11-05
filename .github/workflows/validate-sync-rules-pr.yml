@@ -3,6 +3,9 @@ name: Validate Sync Rules on PR
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "supabase/config/sync-rules.yml"
+      - ".github/workflows/validate-sync-rules-pr.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,59 +16,42 @@ env:
   PS_API_TOKEN: use_a_better_token_in_production
 
 jobs:
-  wait-for-supabase-preview:
+  wait:
     runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.conclusion }}
     steps:
-      - name: Wait for Preview workflow to complete
-        uses: lewagon/wait-on-check-action@v1.4.1
+      - uses: fountainhead/action-wait-for-check@v1.2.0
+        id: check
         with:
+          checkName: Supabase Preview
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: "Supabase Preview"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-sync-rules-on-pr:
-    needs: [wait-for-supabase-preview]
+    needs: [wait]
+    if: ${{ needs.wait.outputs.status == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get Database URL
-        id: supabase-branch
-        uses: 0xbigboss/supabase-branch-gh-action@master
+      - uses: supabase/setup-cli@v1
         with:
-          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
-          wait-for-migrations: true
+          version: latest
 
-      - name: Get Pooler URL
-        id: pooler-config
-        run: |
-          # Fetch pooler configuration from Supabase API
-          RESPONSE=$(curl -s -X GET \
-            "https://api.supabase.com/v1/projects/${{ steps.supabase-branch.outputs.project_ref }}/config/database/pooler" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
-            -H "Content-Type: application/json")
-
-          # Extract connection string from the first item in the array
-          CONNECTION_STRING=$(echo "$RESPONSE" | jq -r '.[0].connection_string')
-
-          echo "Connection String: $CONNECTION_STRING"
-
-          echo "connection_string<<EOF" >> $GITHUB_OUTPUT
-          echo "$CONNECTION_STRING" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Get Branch Environment Variables
+        run: supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
 
       - name: Setup PowerSync Environment
         run: |
-          # Get connection string and replace [YOUR-PASSWORD] with actual password, and port 6543 with 5432
-          CONNECTION_STRING="${{ steps.pooler-config.outputs.connection_string }}"
-          DB_PASSWORD="${{ steps.supabase-branch.outputs.db_pass }}"
-          DB_URL=$(echo "$CONNECTION_STRING" | sed "s|\[YOUR-PASSWORD\]|$DB_PASSWORD|g" | sed "s|:6543|:5432|g")
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g")
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
-          echo "PS_SUPABASE_JWT_SECRET=${{ steps.supabase-branch.outputs.jwt_secret }}" >> $GITHUB_ENV
+          echo "PS_SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> $GITHUB_ENV
 
       - name: Run PowerSync Container
         uses: hoverkraft-tech/compose-action@v2.2.0
