@@ -23,14 +23,6 @@ jobs:
               - 'supabase/migrations/**/*.sql'
               - '.github/workflows/validate-migrations.yml'
 
-  skip:
-    runs-on: ubuntu-latest
-    needs: [check-paths]
-    if: ${{ needs.check-paths.outputs.should-run != 'true' }}
-    steps:
-      - name: Skip validation
-        run: echo "No migration files changed, skipping validation"
-
   wait:
     runs-on: ubuntu-latest
     needs: [check-paths]
