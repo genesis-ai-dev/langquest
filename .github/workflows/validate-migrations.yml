@@ -43,6 +43,7 @@ jobs:
           supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           supabase-project-id: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
           wait-for-migrations: true
+          git-branch: dev
 
       - name: Get Pooler URL
         id: pooler-config
