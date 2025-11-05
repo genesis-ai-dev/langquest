@@ -1,25 +1,23 @@
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
-import { colors, fontSizes, spacing } from '@/styles/theme';
 import { deleteIfExists } from '@/utils/fileUtils';
-import { Ionicons } from '@expo/vector-icons';
 import type { AVPlaybackStatus } from 'expo-av';
 import { Audio } from 'expo-av';
 import type { RecordingOptions } from 'expo-av/build/Audio';
+import type { LucideIcon } from 'lucide-react-native';
+import { Check, Mic, Pause, Play } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 
 // Maximum file size in bytes (50MB)
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 interface ButtonConfig {
-  icon: 'mic' | 'pause' | 'play' | 'checkmark';
+  icon: LucideIcon;
   onPress: (() => Promise<void>) | undefined;
   disabled?: boolean;
 }
@@ -242,11 +240,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     if (isRecording || isRecordingPaused) {
       return [
         {
-          icon: isRecordingPaused ? 'mic' : 'pause',
+          icon: isRecordingPaused ? Mic : Pause,
           onPress: isRecordingPaused ? startRecording : pauseRecording
         },
         {
-          icon: 'checkmark',
+          icon: Check,
           onPress: stopRecording
         }
       ];
@@ -255,11 +253,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     if (recordingUri) {
       return [
         {
-          icon: 'mic',
+          icon: Mic,
           onPress: startRecording
         },
         {
-          icon: isPlaying ? 'pause' : 'play',
+          icon: isPlaying ? Pause : Play,
           onPress: isPlaying ? pausePlayback : playRecording
         }
       ];
@@ -267,11 +265,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
     return [
       {
-        icon: 'mic',
+        icon: Mic,
         onPress: startRecording
       },
       {
-        icon: 'checkmark',
+        icon: Check,
         onPress: undefined,
         disabled: !recording
       }
@@ -281,120 +279,53 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const buttons = getButtonConfig();
 
   return (
-    <View style={styles.container}>
+    <View className="items-center p-4">
       {showWarning && (
-        <Text style={styles.warningMessage}>
+        <Text className="text-sm text-destructive">
           Recording will stop in {formatTime(maxDuration - warningThreshold)}
         </Text>
       )}
-      <Text style={[styles.duration]}>{getDurationDisplay()}</Text>
-      <View style={styles.buttonContainer}>
+      <Text className="mb-2 text-center text-foreground">
+        {getDurationDisplay()}
+      </Text>
+      <View className="w-full flex-row justify-around">
         {buttons.map((button, index) => (
-          <TouchableOpacity
+          <Button
             key={index}
-            style={[styles.button, button.disabled && styles.buttonDisabled]}
+            size="icon-2xl"
+            variant="default"
+            className="rounded-full"
             onPress={button.onPress}
             disabled={button.disabled}
           >
-            <Ionicons name={button.icon} size={24} color={colors.buttonText} />
-          </TouchableOpacity>
+            <Icon
+              as={button.icon}
+              size={24}
+              className="text-primary-foreground"
+            />
+          </Button>
         ))}
       </View>
       {Platform.OS === 'ios' && (
-        <View style={styles.qualityContainer}>
-          <TouchableOpacity
-            style={styles.qualityOption}
-            onPress={() => {
-              const newQuality =
-                quality === 'HIGH_QUALITY' ? 'LOW_QUALITY' : 'HIGH_QUALITY';
-              setQuality(newQuality);
+        <Pressable
+          className="mt-4 flex-row items-center gap-2"
+          onPress={() => {
+            const newQuality =
+              quality === 'HIGH_QUALITY' ? 'LOW_QUALITY' : 'HIGH_QUALITY';
+            setQuality(newQuality);
+          }}
+        >
+          <Checkbox
+            checked={quality === 'LOW_QUALITY'}
+            onCheckedChange={(checked) => {
+              setQuality(checked ? 'LOW_QUALITY' : 'HIGH_QUALITY');
             }}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                quality === 'LOW_QUALITY' && styles.checkboxSelected
-              ]}
-            >
-              {quality === 'LOW_QUALITY' && (
-                <Ionicons
-                  name="checkmark"
-                  size={16}
-                  color={colors.buttonText}
-                />
-              )}
-            </View>
-            <Text style={styles.qualityText}>Low quality</Text>
-          </TouchableOpacity>
-        </View>
+          />
+          <Text className="text-foreground">Low quality</Text>
+        </Pressable>
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    padding: spacing.medium
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%'
-  },
-  button: {
-    backgroundColor: colors.primary,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  buttonDisabled: {
-    opacity: 0.5
-  },
-  duration: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginBottom: spacing.small,
-    textAlign: 'center'
-  },
-  warningMessage: {
-    fontSize: fontSizes.small,
-    color: colors.error
-  },
-  qualityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  qualityLabel: {
-    fontSize: fontSizes.medium,
-    color: colors.text,
-    marginRight: spacing.small
-  },
-  qualityOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.small
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primary
-  },
-  qualityText: {
-    fontSize: fontSizes.medium,
-    color: colors.text
-  }
-});
 
 export default AudioRecorder;

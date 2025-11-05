@@ -88,7 +88,7 @@ function Terms() {
           </Pressable>
           <Pressable onPress={handleViewPrivacy}>
             <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
-              {t('viewFullPrivacy')}
+              {t('viewFullPrivacy')} ryder
             </Text>
           </Pressable>
         </View>
@@ -109,21 +109,23 @@ function Terms() {
             <Checkbox
               checked={termsAccepted}
               onCheckedChange={handleToggleTerms}
-              className="scale-125 border-primary"
+              className="shrink-0 scale-125 border-primary"
               indicatorClassName="bg-primary"
               iconClassName="text-primary-foreground"
             />
-            <Label
-              className={cn(
-                'flex-1 text-base font-semibold',
-                termsAccepted ? 'text-primary' : 'text-foreground'
-              )}
-            >
-              {t('agreeToTerms')}
-            </Label>
+            <View className="min-w-0 flex-1 flex-shrink">
+              <Label
+                className={cn(
+                  'text-base font-semibold',
+                  termsAccepted ? 'text-primary' : 'text-foreground'
+                )}
+              >
+                {t('agreeToTerms')}
+              </Label>
+            </View>
           </Pressable>
           <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
-            <Text>{t('accept')}</Text>
+            <Text>{t('accept')}</Text> ryder
           </Button>
         </View>
       )}
