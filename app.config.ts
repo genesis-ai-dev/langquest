@@ -10,19 +10,52 @@ const iconLight = './assets/icons/icon_light.png';
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
-const profile = process.env.EAS_BUILD_PROFILE;
+const appVariant = process.env.EXPO_PUBLIC_APP_VARIANT || 'production';
+
+function getAppName(variant: string) {
+  switch (variant) {
+    case 'development':
+      return 'LangQuest (Dev)';
+    case 'production':
+      return 'LangQuest';
+    default:
+      return 'LangQuest';
+  }
+}
+
+function getBundleIdentifier(variant: string) {
+  switch (variant) {
+    case 'development':
+      return `${uniqueIdentifier}.dev`;
+    case 'production':
+      return uniqueIdentifier;
+    default:
+      return uniqueIdentifier;
+  }
+}
+
+function getScheme(variant: string) {
+  switch (variant) {
+    case 'development':
+      return 'langquest-dev';
+    case 'production':
+      return 'langquest';
+    default:
+      return 'langquest';
+  }
+}
 
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod(
     {
       ...config,
       owner: 'eten-genesis',
-      name: 'LangQuest',
+      name: getAppName(appVariant),
       slug: 'langquest',
       version: '2.0.0',
       orientation: 'portrait',
       icon: iconLight,
-      scheme: 'langquest',
+      scheme: getScheme(appVariant),
       userInterfaceStyle: 'automatic',
       splash: {
         image: iconLight,
@@ -40,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         },
         supportsTablet: true,
         requireFullScreen: true,
-        bundleIdentifier: uniqueIdentifier,
+        bundleIdentifier: getBundleIdentifier(appVariant),
         config: {
           usesNonExemptEncryption: false
         }
@@ -52,7 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           monochromeImage: './assets/icons/adaptive-icon-mono.png',
           backgroundColor: '#ffffff'
         },
-        package: uniqueIdentifier,
+        package: getBundleIdentifier(appVariant),
         intentFilters: [
           {
             action: 'VIEW',
@@ -64,7 +97,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
                 pathPrefix: '/app'
               },
               {
-                scheme: 'langquest',
+                scheme: getScheme(appVariant),
                 host: siteHost
               }
             ],
@@ -81,7 +114,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         'expo-router',
         // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        ['testflight-dev-deploy', { enabled: profile === 'development' }]
+        'expo-dev-client',
+        ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
       ],
       experiments: {
         typedRoutes: true,

@@ -326,7 +326,12 @@ export default function NextGenNewTranslationModal({
   const contentPreview = assetContent?.[0]?.text || '';
 
   return (
-    <Drawer open={visible} onOpenChange={(open) => !open && handleClose()}>
+    <Drawer
+      open={visible}
+      onOpenChange={(open) => !open && handleClose()}
+      snapPoints={['80%']}
+      enableDynamicSizing={false}
+    >
       <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>
