@@ -41,7 +41,12 @@ jobs:
           version: latest
 
       - name: Get Branch Environment Variables
-        run: supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+        run: |
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          # Mask JWT secret in logs immediately after retrieval
+          if [ -n "$SUPABASE_JWT_SECRET" ]; then
+            echo "::add-mask::${SUPABASE_JWT_SECRET}"
+          fi
 
       - name: Get Migration History from Database
         id: db-migrations
