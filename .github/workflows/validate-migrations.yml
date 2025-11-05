@@ -51,8 +51,8 @@ jobs:
       - name: Get Migration History from Database
         id: db-migrations
         run: |
-          # Replace port 6543 with 5432 for direct Postgres connection and remove connect_timeout parameter
-          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed "s|?connect_timeout=10||g" | sed "s|&connect_timeout=10||g")
+          # Replace port 6543 with 5432 for direct Postgres connection
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g")
 
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
