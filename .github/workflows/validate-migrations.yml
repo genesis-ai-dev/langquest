@@ -79,6 +79,14 @@ jobs:
           # Remove all query parameters from the URL (including pgbouncer=true)
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
 
+          # Ensure the URL starts with postgresql:// (psql requires this format)
+          if ! echo "$DB_URL" | grep -q "^postgresql://"; then
+            DB_URL="postgresql://${DB_URL#postgres://}"
+          fi
+          if ! echo "$DB_URL" | grep -q "^postgresql://"; then
+            DB_URL="postgresql://${DB_URL}"
+          fi
+
           # Verify port replacement worked
           if echo "$DB_URL" | grep -q ":6543"; then
             echo "⚠️  Warning: Port 6543 still present in connection string"
@@ -89,12 +97,30 @@ jobs:
           echo "Using database URL: ${DB_URL_MASKED}"
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
 
+          # Parse connection string components for psql
+          # Extract host, port, database, user, and password from URI
+          # Format: postgresql://user:password@host:port/database
+          DB_HOST=$(echo "$DB_URL" | sed -n 's|.*@\([^:/]*\).*|\1|p')
+          DB_PORT=$(echo "$DB_URL" | sed -n 's|.*:\([0-9]*\)/.*|\1|p' || echo "5432")
+          DB_NAME=$(echo "$DB_URL" | sed -n 's|.*/\([^?]*\).*|\1|p')
+          DB_USER=$(echo "$DB_URL" | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+          DB_PASS=$(echo "$DB_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+
+          # URL-decode username and password if needed (handle special characters like %40 for @)
+          if command -v python3 &> /dev/null; then
+            DB_USER=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('$DB_USER'))")
+            DB_PASS=$(python3 -c "import urllib.parse; print(urllib.parse.unquote('$DB_PASS'))")
+          fi
+
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
           # Capture both stdout and stderr separately for better error reporting
+          # Use PGPASSWORD environment variable and explicit connection parameters to force TCP/IP
           PSQL_ERROR=$(mktemp)
-          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>"$PSQL_ERROR" || echo "")
+          export PGPASSWORD="$DB_PASS"
+          DB_MIGRATIONS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>"$PSQL_ERROR" || echo "")
           PSQL_ERROR_CONTENT=$(cat "$PSQL_ERROR")
+          unset PGPASSWORD
           rm -f "$PSQL_ERROR"
 
           if [ -z "$DB_MIGRATIONS" ]; then
