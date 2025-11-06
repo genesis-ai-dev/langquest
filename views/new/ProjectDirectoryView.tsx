@@ -101,7 +101,7 @@ export default function ProjectDirectoryView() {
     currentProjectData
   } = useCurrentNavigation();
   const { navigate, goBack } = useAppNavigation();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
   const { setCloudLoading } = useCloudLoading();
@@ -1146,33 +1146,40 @@ export default function ProjectDirectoryView() {
       >
         <SpeedDial>
           <SpeedDialItems>
-            {!isMember && isPrivateProject && (
-              <SpeedDialItem
-                icon={LockIcon}
-                variant="outline"
-                onPress={() => setShowPrivateAccessModal(true)}
-              />
-            )}
-            {canManageProject ? (
-              <SpeedDialItem
-                icon={SettingsIcon}
-                variant="outline"
-                onPress={() => setShowSettingsModal(true)}
-              />
-            ) : !hasReported && !isReportLoading ? (
-              <SpeedDialItem
-                icon={FlagIcon}
-                variant="outline"
-                onPress={() => setShowReportModal(true)}
-              />
+            {/* For anonymous users, only show info button */}
+            {isAuthenticated ? (
+              <>
+                {!isMember && isPrivateProject && (
+                  <SpeedDialItem
+                    icon={LockIcon}
+                    variant="outline"
+                    onPress={() => setShowPrivateAccessModal(true)}
+                  />
+                )}
+                {canManageProject ? (
+                  <SpeedDialItem
+                    icon={SettingsIcon}
+                    variant="outline"
+                    onPress={() => setShowSettingsModal(true)}
+                  />
+                ) : !hasReported && !isReportLoading ? (
+                  <SpeedDialItem
+                    icon={FlagIcon}
+                    variant="outline"
+                    onPress={() => setShowReportModal(true)}
+                  />
+                ) : null}
+                {project?.source !== 'local' &&
+                  (isMember || !isPrivateProject) && (
+                    <SpeedDialItem
+                      icon={UsersIcon}
+                      variant="outline"
+                      onPress={() => setShowMembershipModal(true)}
+                    />
+                  )}
+              </>
             ) : null}
-            {project?.source !== 'local' && (isMember || !isPrivateProject) && (
-              <SpeedDialItem
-                icon={UsersIcon}
-                variant="outline"
-                onPress={() => setShowMembershipModal(true)}
-              />
-            )}
+            {/* Info button always visible */}
             <SpeedDialItem
               icon={InfoIcon}
               variant="outline"

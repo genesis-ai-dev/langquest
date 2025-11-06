@@ -8,21 +8,19 @@ import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import {
-  asset,
-  language as languageTable,
-  project,
-  project as projectCloud
-} from '@/db/drizzleSchema';
+import { asset, language as languageTable, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -52,17 +50,48 @@ const ASSET_VIEWER_PROPORTION = 0.35;
 type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
+  const { isAuthenticated } = useAuth();
+
+  // Only create offline query if PowerSync is initialized and user is authenticated
+  // This prevents PowerSync access warnings for anonymous users
+  // Use a factory function that only creates the query when needed
+  const getOfflineQuery = React.useCallback(() => {
+    // For anonymous users, return a placeholder SQL string that won't access system.db
+    if (!isAuthenticated) {
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+
+    // Only create CompilableQuery when user is authenticated
+    // Check PowerSync status at query creation time
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        return 'SELECT * FROM asset WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.asset.findFirst({
+          where: eq(asset.id, assetId),
+          with: {
+            content: true
+          }
+        })
+      );
+    } catch (error) {
+      // If query creation fails, return placeholder
+      console.warn('Failed to create offline query, using placeholder:', error);
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+  }, [assetId, isAuthenticated]);
+
+  // Create query lazily - only when needed
+  const offlineQuery = React.useMemo(
+    () => getOfflineQuery(),
+    [getOfflineQuery]
+  );
+
   return useHybridData({
     dataType: 'asset',
     queryKeyParams: [assetId],
-    offlineQuery: toCompilableQuery(
-      system.db.query.asset.findFirst({
-        where: eq(asset.id, assetId),
-        with: {
-          content: true
-        }
-      })
-    ),
+    offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
 
@@ -80,10 +109,7 @@ function useNextGenOfflineAsset(assetId: string) {
         .eq('id', assetId)
         .limit(1)
         .overrideTypes<
-          (Omit<
-            typeof asset.$inferSelect,
-            'images'
-          > & {
+          (Omit<typeof asset.$inferSelect, 'images'> & {
             images: string;
             content?: (typeof asset_content_link.$inferSelect)[];
           })[]
@@ -111,6 +137,8 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const {
     currentAssetId,
     currentProjectId,
@@ -160,14 +188,38 @@ export default function NextGenAssetDetailView() {
 
   // Use passed project data if available (instant!), otherwise query using hybrid data
   // This supports both authenticated (offline) and anonymous (cloud-only) users
+  // Use a factory function that only creates the query when needed
+  const getProjectOfflineQuery = React.useCallback(() => {
+    if (!isAuthenticated) {
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        return 'SELECT * FROM project WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.project.findFirst({
+          where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+        })
+      );
+    } catch (error) {
+      console.warn(
+        'Failed to create project offline query, using placeholder:',
+        error
+      );
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+  }, [currentProjectId, isAuthenticated]);
+
+  const projectOfflineQuery = React.useMemo(
+    () => getProjectOfflineQuery(),
+    [getProjectOfflineQuery]
+  );
+
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-detail',
     queryKeyParams: [currentProjectId || ''],
-    offlineQuery: toCompilableQuery(
-      system.db.query.project.findFirst({
-        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
-      })
-    ),
+    offlineQuery: projectOfflineQuery,
     cloudQueryFn: async () => {
       if (!currentProjectId) return [];
       const { data, error } = await system.supabaseConnector.client
@@ -175,7 +227,7 @@ export default function NextGenAssetDetailView() {
         .select('*')
         .eq('id', currentProjectId)
         .limit(1)
-        .overrideTypes<typeof project.$inferSelect[]>();
+        .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
       return data;
     },
@@ -288,16 +340,39 @@ export default function NextGenAssetDetailView() {
   })();
 
   // Fetch all languages used by content items
+  const getLanguagesOfflineQuery = React.useCallback(() => {
+    if (!isAuthenticated) {
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        return 'SELECT * FROM language WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.language.findMany({
+          where: contentLanguageIds.length
+            ? inArray(languageTable.id, contentLanguageIds)
+            : undefined
+        })
+      );
+    } catch (error) {
+      console.warn(
+        'Failed to create languages offline query, using placeholder:',
+        error
+      );
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+  }, [contentLanguageIds, isAuthenticated]);
+
+  const languagesOfflineQuery = React.useMemo(
+    () => getLanguagesOfflineQuery(),
+    [getLanguagesOfflineQuery]
+  );
+
   const { data: contentLanguages = [] } = useHybridData({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: contentLanguageIds.length
-          ? inArray(languageTable.id, contentLanguageIds)
-          : undefined
-      })
-    ),
+    offlineQuery: languagesOfflineQuery,
     enableCloudQuery: false
   });
 
@@ -332,13 +407,44 @@ export default function NextGenAssetDetailView() {
           return audioValue;
         }
 
-        // Handle attachment IDs (look up in attachment queue)
+        // For anonymous users, get cloud URLs from Supabase storage
+        if (!isAuthenticated || !isPowerSyncReady) {
+          // Get public URL from Supabase storage
+          try {
+            if (!AppConfig.supabaseBucket) {
+              console.warn('Supabase bucket not configured');
+              return null;
+            }
+            const { data } = system.supabaseConnector.client.storage
+              .from(AppConfig.supabaseBucket)
+              .getPublicUrl(audioValue);
+            return data.publicUrl;
+          } catch (error) {
+            console.error('Failed to get cloud audio URL:', error);
+            return null;
+          }
+        }
+
+        // Handle attachment IDs (look up in attachment queue) for authenticated users
         const attachmentState = attachmentStates.get(audioValue);
         if (attachmentState?.local_uri) {
           return getLocalUri(attachmentState.local_uri);
         }
 
-        return null;
+        // Fallback: try to get cloud URL if local not available
+        try {
+          if (!AppConfig.supabaseBucket) {
+            console.warn('Supabase bucket not configured');
+            return null;
+          }
+          const { data } = system.supabaseConnector.client.storage
+            .from(AppConfig.supabaseBucket)
+            .getPublicUrl(audioValue);
+          return data.publicUrl;
+        } catch (error) {
+          console.error('Failed to get fallback cloud audio URL:', error);
+          return null;
+        }
       })
       .filter((uri: string | null): uri is string => uri !== null);
   }
@@ -454,6 +560,7 @@ export default function NextGenAssetDetailView() {
         )}
 
         {allowSettings &&
+          isAuthenticated &&
           (translateMembership === 'owner' ? (
             <Button
               onPress={() => setShowAssetSettingsModal(true)}
@@ -512,7 +619,7 @@ export default function NextGenAssetDetailView() {
                 {activeAsset.content[currentContentIndex] && (
                   <View>
                     <SourceContent
-                      content={activeAsset.content[currentContentIndex]!}
+                      content={activeAsset.content[currentContentIndex]}
                       sourceLanguage={
                         activeAsset.content[currentContentIndex]
                           ?.source_language_id
@@ -523,7 +630,7 @@ export default function NextGenAssetDetailView() {
                           : null
                       }
                       audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]!
+                        activeAsset.content[currentContentIndex]
                       )}
                       isLoading={isLoadingAttachments}
                     />
@@ -702,6 +809,17 @@ export default function NextGenAssetDetailView() {
           )}
           onAccessGranted={() => setShowNewTranslationModal(true)}
         />
+      ) : // Show login prompt for anonymous users
+      !isAuthenticated ? (
+        <Button
+          className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
+          onPress={() => setAuthView('sign-in')}
+        >
+          <Icon as={LockIcon} size={24} />
+          <Text className="font-bold text-secondary">
+            {t('signInToSaveOrContribute')}
+          </Text>
+        </Button>
       ) : (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
@@ -737,21 +855,23 @@ export default function NextGenAssetDetailView() {
         onClose={() => setShowAssetSettingsModal(false)}
         assetId={activeAsset.id}
       />
-      <ReportModal
-        isVisible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        recordId={activeAsset.id}
-        creatorId={activeAsset?.creator_id ?? undefined}
-        recordTable="asset"
-        hasAlreadyReported={hasReported}
-        onReportSubmitted={(contentBlocked) => {
-          refetchOfflineAsset();
-          // Navigate back to assets list if content was blocked
-          if (contentBlocked) {
-            goBack();
-          }
-        }}
-      />
+      {isAuthenticated && (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={activeAsset.id}
+          creatorId={activeAsset?.creator_id ?? undefined}
+          recordTable="asset"
+          hasAlreadyReported={hasReported}
+          onReportSubmitted={(contentBlocked) => {
+            refetchOfflineAsset();
+            // Navigate back to assets list if content was blocked
+            if (contentBlocked) {
+              goBack();
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

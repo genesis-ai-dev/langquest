@@ -22,6 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStore } from '@/store/localStore';
+import { useHybridData } from './useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -68,34 +71,49 @@ export default function NextGenNewTranslationModal({
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
 
-  // Query project data to get privacy status for permission check
-  const { data: queriedProjectData } = useQuery({
-    queryKey: ['project', 'offline', currentProjectId],
-    queryFn: async () => {
-      if (!currentProjectId) return null;
-      // Try local first then cloud
-      let result = await system.db
-        .select()
-        .from(project)
-        .where(eq(project.id, currentProjectId))
-        .limit(1);
-      if (!result[0]) {
-        result = await system.db
-          .select()
-          .from(project)
-          .where(eq(project.id, currentProjectId))
-          .limit(1);
-      }
-      return result[0] || null;
+  // Query project data using hybrid data (supports anonymous users)
+  const isPowerSyncReady = React.useMemo(
+    () => system.isPowerSyncInitialized(),
+    []
+  );
+
+  const projectOfflineQuery = React.useMemo(() => {
+    if (!isPowerSyncReady || !isAuthenticated) {
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+    return toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+      })
+    );
+  }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
+
+  const { data: queriedProjectDataArray } = useHybridData({
+    dataType: 'project-new-translation',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: projectOfflineQuery,
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .limit(1)
+        .overrideTypes<typeof project.$inferSelect[]>();
+      if (error) throw error;
+      return data;
     },
-    enabled: !!currentProjectId && !currentProjectData,
-    staleTime: 30000
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
+
+  const queriedProjectData = queriedProjectDataArray?.[0];
 
   // Prefer passed project data for instant rendering
   const projectData = currentProjectData || queriedProjectData;
@@ -163,16 +181,21 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, form]);
 
-  // Warn if modal opens without permission
+  // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
-    if (visible && !canTranslate) {
+    if (visible && (!isAuthenticated || !canTranslate)) {
       console.warn(
-        '[NEW TRANSLATION MODAL] Modal opened without translate permission'
+        '[NEW TRANSLATION MODAL] Modal opened without permission or anonymous user'
       );
-      Alert.alert(t('error'), t('membersOnly'));
+      if (!isAuthenticated) {
+        Alert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
+        setAuthView('sign-in');
+      } else {
+        Alert.alert(t('error'), t('membersOnly'));
+      }
       onClose();
     }
-  }, [visible, canTranslate, onClose, t]);
+  }, [visible, canTranslate, isAuthenticated, onClose, t, setAuthView]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
@@ -226,6 +249,16 @@ export default function NextGenNewTranslationModal({
         );
         audioAttachment = attachment.filename;
         console.log('[CREATE TRANSLATION] Audio saved:', audioAttachment);
+      }
+
+      // Guard against anonymous users
+      if (!currentUser?.id || !isAuthenticated) {
+        throw new Error('Must be logged in to create translations');
+      }
+
+      // Guard against PowerSync not being initialized
+      if (!system.isPowerSyncInitialized()) {
+        throw new Error('System not initialized - cannot create translations');
       }
 
       console.log('[CREATE TRANSLATION] Starting transaction...');

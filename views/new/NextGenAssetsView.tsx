@@ -963,19 +963,25 @@ export default function NextGenAssetsView() {
       >
         <SpeedDial>
           <SpeedDialItems>
-            {allowSettings && isOwner ? (
-              <SpeedDialItem
-                icon={SettingsIcon}
-                variant="outline"
-                onPress={() => setShowSettingsModal(true)}
-              />
-            ) : !hasReported ? (
-              <SpeedDialItem
-                icon={FlagIcon}
-                variant="outline"
-                onPress={() => setShowReportModal(true)}
-              />
+            {/* For anonymous users, only show info button */}
+            {currentUser ? (
+              <>
+                {allowSettings && isOwner ? (
+                  <SpeedDialItem
+                    icon={SettingsIcon}
+                    variant="outline"
+                    onPress={() => setShowSettingsModal(true)}
+                  />
+                ) : !hasReported ? (
+                  <SpeedDialItem
+                    icon={FlagIcon}
+                    variant="outline"
+                    onPress={() => setShowReportModal(true)}
+                  />
+                ) : null}
+              </>
             ) : null}
+            {/* Info button always visible */}
             <SpeedDialItem
               icon={InfoIcon}
               variant="outline"

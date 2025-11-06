@@ -5028,6 +5028,25 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao restaurar conta: {error}',
     tok_pisin: 'I no inap restore account: {error}',
     indonesian: 'Gagal memulihkan akun: {error}'
+  },
+  signInRequired: {
+    english: 'Sign In Required',
+    spanish: 'Inicio de Sesión Requerido',
+    brazilian_portuguese: 'Login Necessário',
+    tok_pisin: 'Mas I Mas Sign In',
+    indonesian: 'Masuk Diperlukan'
+  },
+  blockContentLoginMessage: {
+    english:
+      'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+    spanish:
+      'Almacenamos información sobre qué bloquear en tu cuenta. Por favor regístrate para asegurar que el contenido bloqueado pueda ocultarse correctamente.',
+    brazilian_portuguese:
+      'Armazenamos informações sobre o que bloquear em sua conta. Por favor, registre-se para garantir que o conteúdo bloqueado possa ser ocultado adequadamente.',
+    tok_pisin:
+      'Mipela save long ol samting yu laik block long account bilong yu. Plis register long ol samting i ken hide stret.',
+    indonesian:
+      'Kami menyimpan informasi tentang apa yang akan diblokir di akun Anda. Silakan daftar untuk memastikan konten yang diblokir dapat disembunyikan dengan benar.'
   }
 } as const;
 

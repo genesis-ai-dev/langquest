@@ -8,6 +8,7 @@ import type { QueryResult as QueryResultWeb } from '@powersync/web';
 import { useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { system } from '../db/powersync/system';
+import { useAuth } from '../contexts/AuthContext';
 // Use the correct type based on platform
 type QueryResult = QueryResultNative;
 
@@ -15,6 +16,8 @@ export function useAttachmentStates(
   attachmentIds: string[] = [],
   enabled = true
 ) {
+  const { isAuthenticated } = useAuth();
+  const isPowerSyncReady = system.isPowerSyncInitialized();
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>
   >(new Map());
@@ -30,6 +33,16 @@ export function useAttachmentStates(
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
+      setIsLoading(false);
+      return;
+    }
+
+    // For anonymous users or when PowerSync isn't initialized, skip local queries
+    // Audio will be loaded directly from Supabase storage URLs
+    if (!isAuthenticated || !isPowerSyncReady) {
+      setIsLoading(false);
+      // Return empty map for anonymous users - audio will be handled via cloud URLs
+      setAttachmentStates(new Map());
       return;
     }
 
@@ -108,7 +121,7 @@ export function useAttachmentStates(
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [enabled, attachmentIds]);
+  }, [enabled, attachmentIds, isAuthenticated, isPowerSyncReady]);
 
   return { attachmentStates, isLoading };
 }
