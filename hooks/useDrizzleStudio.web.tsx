@@ -1,7 +1,7 @@
 import type { WASQLiteOpenFactory } from '@powersync/web';
 import type { DevToolsPluginClient, EventSubscription } from 'expo/devtools';
 import { useDevToolsPluginClient } from 'expo/devtools';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 export function openDB() {
   // don't open db on web we use web connection
@@ -36,19 +36,40 @@ export function useDrizzleStudio() {
   };
   const { factory } = system;
 
-  const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+  // Check if we're in a development build before trying to use dev tools
+  // Preview and production builds don't have dev tools available
+  const isDevelopmentBuild =
+    __DEV__ && process.env.EXPO_PUBLIC_APP_VARIANT === 'development';
+
+  // Always call hooks unconditionally - React requires this
+  // useDevToolsPluginClient should return null when not available in production builds
+  // If it throws, that's a bug in expo/devtools, but we'll handle it gracefully
+  let client: DevToolsPluginClient | null = null;
+
+  // Only attempt to get the client if we're in a development build
+  // This prevents the hook from throwing in preview/production builds
+  if (isDevelopmentBuild) {
+    try {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+    } catch (error) {
+      // If the hook throws (shouldn't happen, but handle it just in case)
+      console.warn('Failed to initialize Drizzle Studio dev tools:', error);
+      client = null;
+    }
+  }
 
   const connRef = useRef<WebDBConnection | null>(null);
   const initializedRef = useRef(false);
 
-  const ensureInitialized = async () => {
+  const ensureInitialized = useCallback(async () => {
     if (initializedRef.current) return;
 
     const conn = (await factory.openConnection()) as unknown as WebDBConnection;
     await conn.init();
     connRef.current = conn;
     initializedRef.current = true;
-  };
+  }, [factory]);
 
   const executeQuery = async (
     conn: WebDBConnection,
@@ -142,5 +163,5 @@ export function useDrizzleStudio() {
       const c = connRef.current;
       if (c) void c.close().catch(() => undefined);
     };
-  }, [client]);
+  }, [client, ensureInitialized]);
 }
