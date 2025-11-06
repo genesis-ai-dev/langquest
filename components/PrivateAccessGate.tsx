@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { useLocalStore } from '@/store/localStore';
 import {
   profile_project_link,
   project as projectTable,
@@ -62,6 +64,7 @@ interface PrivateAccessGateProps {
   onMembershipGranted?: () => void;
   onClose?: () => void;
   isVisible?: boolean; // For modal mode
+  onLoginRequest?: () => void; // Callback when anonymous user requests login
 }
 
 export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
@@ -81,15 +84,27 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   viewProjectButtonText,
   onMembershipGranted,
   onClose,
-  isVisible = false
+  isVisible = false,
+  onLoginRequest
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { db } = system;
+  const router = useRouter();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { hasAccess } = useUserPermissions(projectId, action, isPrivate);
+
+  const handleLoginRequest = () => {
+    if (onLoginRequest) {
+      onLoginRequest();
+    } else {
+      // Default: show auth modal
+      setAuthView('sign-in');
+    }
+  };
 
   // Determine if we should watch for request updates (when modal is visible)
   const shouldWatchRequests = modal ? isVisible : true;
@@ -401,7 +416,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   };
 
   const renderContent = () => {
-    // Handle not logged in case
+    // Handle not logged in case - show login prompt instead of membership request
     if (!currentUser) {
       return (
         <>
@@ -419,6 +434,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                   {t('privateProjectLoginRequired')}
                 </Text>
               </View>
+              <Button
+                onPress={handleLoginRequest}
+                className="mb-2"
+              >
+                <Text>{t('signIn') || 'Sign In'}</Text>
+              </Button>
             </>
           ) : (
             <>
@@ -428,6 +449,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               <Text className="mb-6 px-4 text-center leading-5 text-muted-foreground">
                 {t('privateProjectNotLoggedInInline')}
               </Text>
+              <Button
+                onPress={handleLoginRequest}
+                className="mt-4"
+              >
+                <Text>{t('signIn') || 'Sign In'}</Text>
+              </Button>
             </>
           )}
         </>

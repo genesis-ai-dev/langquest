@@ -26,7 +26,6 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
 import {
   ChevronLeftIcon,
@@ -64,7 +63,48 @@ function useNextGenOfflineAsset(assetId: string) {
         }
       })
     ),
-    enableCloudQuery: false,
+    cloudQueryFn: async () => {
+      if (!assetId) return [];
+
+      // Fetch asset with content relationships
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select(
+          `
+          *,
+          content:asset_content_link (
+            *
+          )
+        `
+        )
+        .eq('id', assetId)
+        .limit(1)
+        .overrideTypes<
+          (Omit<
+            typeof asset.$inferSelect,
+            'images'
+          > & {
+            images: string;
+            content?: (typeof asset_content_link.$inferSelect)[];
+          })[]
+        >();
+
+      if (error) throw error;
+
+      // Parse images JSON and map to asset format
+      return data.map((item) => {
+        const parsedImages = item.images
+          ? (JSON.parse(item.images) as string[])
+          : [];
+
+        return {
+          ...item,
+          images: parsedImages,
+          content: item.content || []
+        };
+      });
+    },
+    enableCloudQuery: !!assetId,
     enableOfflineQuery: !!assetId
   });
 }
@@ -101,7 +141,7 @@ export default function NextGenAssetDetailView() {
 
   const {
     data: queriedAsset,
-    isLoading: isOfflineLoading,
+    isLoading: isAssetLoading,
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
 
@@ -118,40 +158,33 @@ export default function NextGenAssetDetailView() {
   //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
   // }, [currentAssetId]);
 
-  // Use passed project data if available (instant!), otherwise query
-  const { data: rawProjectData } = useQuery({
-    queryKey: ['project', 'offline', currentProjectId],
-    queryFn: async () => {
-      if (!currentProjectId) return null;
-      console.log(
-        '[ASSET DETAIL] Fetching project data for:',
-        currentProjectId
-      );
-      // Try local first then cloud
-      let result = await system.db
-        .select()
-        .from(project)
-        .where(eq(project.id, currentProjectId))
-        .limit(1);
-      console.log('[ASSET DETAIL] Local project query result:', result[0]);
-      if (!result[0]) {
-        result = await system.db
-          .select()
-          .from(projectCloud)
-          .where(eq(projectCloud.id, currentProjectId))
-          .limit(1);
-        console.log('[ASSET DETAIL] Cloud project query result:', result[0]);
-      }
-      return result[0] || null;
+  // Use passed project data if available (instant!), otherwise query using hybrid data
+  // This supports both authenticated (offline) and anonymous (cloud-only) users
+  const { data: queriedProjectDataArray } = useHybridData({
+    dataType: 'project-detail',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .limit(1)
+        .overrideTypes<typeof project.$inferSelect[]>();
+      if (error) throw error;
+      return data;
     },
-    enabled: !!currentProjectId && !currentProjectData, // Skip query if we have passed data!
-    staleTime: 30000 // Cache for 30 seconds
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
 
   // Prefer passed data for instant rendering!
-  const queriedProjectData = (
-    Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData
-  ) as typeof rawProjectData;
+  const queriedProjectData = queriedProjectDataArray?.[0];
   const projectData =
     (currentProjectData as typeof queriedProjectData) || queriedProjectData;
 
@@ -350,7 +383,7 @@ export default function NextGenAssetDetailView() {
 
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
-  if (isOfflineLoading || (!activeAsset && currentAssetId)) {
+  if (isAssetLoading || (!activeAsset && currentAssetId)) {
     return <AssetSkeleton />;
   }
 

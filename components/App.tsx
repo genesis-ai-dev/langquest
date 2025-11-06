@@ -73,59 +73,62 @@ export default function App() {
     );
   }
 
-  // Not authenticated - show auth screens
-  if (!isAuthenticated) {
-    return (
-      <AppWrapper>
-        <AuthNavigator />
-      </AppWrapper>
-    );
+  // Anonymous users can browse without authentication
+  // Allow anonymous browsing - only block if authenticated AND upgrade/migration needed
+  if (isAuthenticated) {
+    // CRITICAL: App upgrade required - block everything until user upgrades
+    // This takes precedence over migration since the app version is incompatible
+    if (appUpgradeNeeded && upgradeError) {
+      return (
+        <AppWrapper>
+          <AppUpgradeScreen
+            localVersion={upgradeError.localVersion}
+            serverVersion={upgradeError.serverVersion}
+            reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+          />
+        </AppWrapper>
+      );
+    }
+
+    // CRITICAL: Migration required - block everything until migration completes
+    if (migrationNeeded) {
+      return (
+        <AppWrapper>
+          <MigrationScreen />
+        </AppWrapper>
+      );
+    }
+
+    // Authenticated but system still initializing
+    if (!isSystemReady) {
+      return (
+        <AppWrapper>
+          <LoadingView />
+        </AppWrapper>
+      );
+    }
+
+    // Password reset flow - user is authenticated but needs to set new password
+    if (sessionType === 'password-reset') {
+      return (
+        <AppWrapper>
+          <ResetPasswordView />
+        </AppWrapper>
+      );
+    }
+
+    // Check if account is deleted (soft delete: active = false)
+    // This check happens after system is ready and user is authenticated
+    return <AccountStatusCheck />;
   }
 
-  // CRITICAL: App upgrade required - block everything until user upgrades
-  // This takes precedence over migration since the app version is incompatible
-  if (appUpgradeNeeded && upgradeError) {
-    return (
-      <AppWrapper>
-        <AppUpgradeScreen
-          localVersion={upgradeError.localVersion}
-          serverVersion={upgradeError.serverVersion}
-          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
-        />
-      </AppWrapper>
-    );
-  }
-
-  // CRITICAL: Migration required - block everything until migration completes
-  if (migrationNeeded) {
-    return (
-      <AppWrapper>
-        <MigrationScreen />
-      </AppWrapper>
-    );
-  }
-
-  // Authenticated but system still initializing
-  if (!isSystemReady) {
-    return (
-      <AppWrapper>
-        <LoadingView />
-      </AppWrapper>
-    );
-  }
-
-  // Password reset flow - user is authenticated but needs to set new password
-  if (sessionType === 'password-reset') {
-    return (
-      <AppWrapper>
-        <ResetPasswordView />
-      </AppWrapper>
-    );
-  }
-
-  // Check if account is deleted (soft delete: active = false)
-  // This check happens after system is ready and user is authenticated
-  return <AccountStatusCheck />;
+  // Anonymous user - allow browsing (system ready is set immediately for anonymous)
+  // System ready check is not needed for anonymous users as they use cloud-only queries
+  return (
+    <AppWrapper>
+      <AppView />
+    </AppWrapper>
+  );
 }
 
 function AccountStatusCheck() {

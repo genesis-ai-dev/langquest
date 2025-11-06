@@ -395,10 +395,11 @@ export default function ProjectDirectoryView() {
   const isMember =
     membershipStatus === 'member' || membershipStatus === 'owner';
 
+  // Only check for reports if user is logged in
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentProjectId!,
     'projects',
-    currentUser!.id
+    currentUser?.id || ''
   );
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
@@ -501,6 +502,12 @@ export default function ProjectDirectoryView() {
 
   // Handle download/offload click - check if quest is downloaded
   const handleDownloadClick = async (questId: string) => {
+    // Anonymous users cannot download - this should not be called, but guard anyway
+    if (!currentUser) {
+      console.log('[ProjectDirectoryView] Download requested but user is anonymous');
+      return;
+    }
+
     // Check if quest is already downloaded
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
@@ -514,7 +521,7 @@ export default function ProjectDirectoryView() {
     }
 
     const isDownloaded =
-      data.download_profiles?.includes(currentUser?.id) ?? false;
+      data.download_profiles?.includes(currentUser.id) ?? false;
 
     setQuestIdToDownload(questId);
 
@@ -1034,21 +1041,24 @@ export default function ProjectDirectoryView() {
             downloadingQuestIds={downloadingQuestIds}
           />
 
-          <View
-            style={{
-              paddingBottom: insets.bottom,
-              paddingRight: 80 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
-            }}
-          >
-            <Button
-              onPress={() => openCreateForParent(null)}
-              variant="default"
-              size="sm"
-              disabled={!isMember}
+          {/* Only show create button for authenticated users */}
+          {currentUser && (
+            <View
+              style={{
+                paddingBottom: insets.bottom,
+                paddingRight: 80 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+              }}
             >
-              <Text>{t('createObject')}</Text>
-            </Button>
-          </View>
+              <Button
+                onPress={() => openCreateForParent(null)}
+                variant="default"
+                size="sm"
+                disabled={!isMember}
+              >
+                <Text>{t('createObject')}</Text>
+              </Button>
+            </View>
+          )}
         </View>
       </View>
     );

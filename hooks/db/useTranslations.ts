@@ -132,8 +132,11 @@ export function useTargetAssetsWithVoteCountByAssetId(
   const conditions = [
     eq(asset.source_asset_id, asset_id),
     !retrieveHiddenContent && eq(asset.visible, true),
-    notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
-    notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id))
+    // Only filter blocked content/users if user is authenticated
+    currentUser?.id &&
+      notInArray(asset.id, blockedContentQuery(currentUser.id, 'asset')),
+    currentUser?.id &&
+      notInArray(asset.creator_id, blockedUsersQuery(currentUser.id))
   ];
 
   const {
@@ -196,36 +199,77 @@ export function useTargetAssetsWithVoteCountByAssetId(
         )
     ),
 
-    // Cloud query function
+    // Cloud query function - fetch translations (assets with source_asset_id) from Supabase
     cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('translation')
-        .select(
-          `
-          *,
-          up_votes:vote(count).eq(polarity,up).eq(active,true),
-          down_votes:vote(count).eq(polarity,down).eq(active,true),
-          net_votes:vote(count).eq(active,true),
-          asset_content_link:asset_content_link(id,text,audio)
+      let query = system.supabaseConnector.client.from('asset').select(
         `
-        )
-        .eq('asset_id', asset_id)
-        .eq('visible', retrieveHiddenContent ? undefined : true)
-        .order('asset_content_link.id', {
-          ascending: true
-        })
-        .order(sort === 'dateSubmitted' ? 'created_at' : 'net_votes', {
-          ascending: sortOrder === 'asc'
-        })
-        .overrideTypes<AssetWithVoteCount[]>();
+          *,
+          up_votes:vote(count).filter(polarity,eq.up).filter(active,eq.true),
+          down_votes:vote(count).filter(polarity,eq.down).filter(active,eq.true),
+          net_votes:vote(count).filter(active,eq.true),
+          text:asset_content_link(text),
+          audio:asset_content_link(audio),
+          content_created_at:asset_content_link(created_at)
+        `
+      );
+
+      // Filter by source asset
+      query = query.eq('source_asset_id', asset_id);
+
+      // Filter by visibility if not retrieving hidden content
+      if (!retrieveHiddenContent) {
+        query = query.eq('visible', true);
+      }
+
+      // Add sorting - for vote count, we'll sort client-side
+      query = query.order('created_at', {
+        ascending: sortOrder === 'asc'
+      });
+
+      const { data, error } = await query.overrideTypes<
+        (AssetWithVoteCount & {
+          text?: string[];
+          audio?: string[];
+        })[]
+      >();
 
       if (error) throw error;
-      return data;
+
+      // Transform data to match expected format and apply vote-based sorting if needed
+      let transformedData = data.map((item) => {
+        // Calculate net_votes if not provided
+        const netVotes =
+          (item.net_votes || 0) ||
+          ((item.up_votes || 0) - (item.down_votes || 0));
+
+        return {
+          ...item,
+          net_votes: netVotes,
+          up_votes: item.up_votes || 0,
+          down_votes: item.down_votes || 0,
+          // Handle text and audio as arrays from the nested select
+          text: Array.isArray(item.text) ? item.text[0] : item.text || '',
+          audio: Array.isArray(item.audio)
+            ? item.audio.filter(Boolean)
+            : item.audio
+            ? [item.audio]
+            : null
+        } as AssetWithVoteCount;
+      });
+
+      // Client-side sorting for vote count (Supabase doesn't support sorting by aggregated fields easily)
+      if (sort === 'voteCount') {
+        transformedData = transformedData.sort((a, b) => {
+          const diff = (b.net_votes || 0) - (a.net_votes || 0);
+          return sortOrder === 'asc' ? -diff : diff;
+        });
+      }
+
+      return transformedData;
     },
 
-    // Disable cloud query when user explicitly wants offline data
-    // enableCloudQuery: !useOfflineData
-    enableCloudQuery: false
+    // Enable cloud query for anonymous users or when not using offline data
+    enableCloudQuery: !useOfflineData
   });
 
   // Aggregate the content for each asset

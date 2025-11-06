@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { useLocalStore } from '@/store/localStore';
 import type {
   AuthError,
   AuthResponse,
@@ -43,13 +44,47 @@ interface AuthContextType {
   ) => Promise<{ data: unknown; error: AuthError | null }>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
   const context = useContext(AuthContext);
+  // Always call hooks unconditionally - get currentUser from localStore for fallback
+  const currentUserFromStore = useLocalStore((state) => state.currentUser);
+  
+  // If context is not available (e.g., component rendered before AuthProvider),
+  // fall back to local store for anonymous state
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Return anonymous state - allows components to work outside AuthProvider
+    // This is useful for components that render during initialization or
+    // in parts of the app that don't require authentication
+    return {
+      isLoading: false,
+      isAuthenticated: false,
+      sessionType: null,
+      session: null,
+      currentUser: currentUserFromStore || null,
+      isSystemReady: true, // Allow queries to work for anonymous browsing
+      migrationNeeded: false,
+      appUpgradeNeeded: false,
+      upgradeError: null,
+      signIn: async () => {
+        throw new Error('AuthProvider not available - cannot sign in');
+      },
+      signUp: async () => {
+        throw new Error('AuthProvider not available - cannot sign up');
+      },
+      signOut: async () => {
+        throw new Error('AuthProvider not available - cannot sign out');
+      },
+      resetPassword: async () => {
+        throw new Error('AuthProvider not available - cannot reset password');
+      },
+      updatePassword: async () => {
+        throw new Error('AuthProvider not available - cannot update password');
+      }
+    } as AuthContextType;
   }
+  
   return context;
 }
 
@@ -182,6 +217,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             '[AuthContext] Starting system initialization from existing session'
           );
           void initializeSystem();
+        } else {
+          // No session - anonymous mode
+          console.log('[AuthContext] No session found - anonymous mode');
+          setSession(null);
+          setSessionType(null);
+          // Skip PowerSync initialization for anonymous users
+          // Set system ready immediately to allow TanStack Query to work
+          setIsSystemReady(true);
         }
         setIsLoading(false);
       });
@@ -233,6 +276,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('[AuthContext] User signed out');
             setSessionType(null);
             await cleanupSystem();
+            // Set system ready for anonymous browsing after sign out
+            setIsSystemReady(true);
             break;
 
           case 'TOKEN_REFRESHED':

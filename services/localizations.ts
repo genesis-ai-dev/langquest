@@ -822,6 +822,13 @@ export const localizations = {
     tok_pisin: 'Register',
     indonesian: 'Daftar'
   },
+  createAccount: {
+    english: 'Create Account',
+    spanish: 'Crear Cuenta',
+    brazilian_portuguese: 'Criar Conta',
+    tok_pisin: 'Mekim Account',
+    indonesian: 'Buat Akun'
+  },
   registrationFail: {
     english: 'Registration failed',
     spanish: 'Error en el registro',
@@ -940,6 +947,27 @@ export const localizations = {
     brazilian_portuguese: 'Entrar',
     tok_pisin: 'Sign In',
     indonesian: 'Masuk'
+  },
+  signInToSaveOrContribute: {
+    english: 'Sign in to save or contribute to projects',
+    spanish: 'Inicia sesión para guardar o contribuir a proyectos',
+    brazilian_portuguese: 'Entre para salvar ou contribuir com projetos',
+    tok_pisin: 'Sign in long seivim o helpim ol project',
+    indonesian: 'Masuk untuk menyimpan atau berkontribusi pada proyek'
+  },
+  orBrowseAllProjects: {
+    english: 'Or browse all public projects',
+    spanish: 'O navega todos los proyectos públicos',
+    brazilian_portuguese: 'Ou navegue por todos os projetos públicos',
+    tok_pisin: 'O lukluk long olgeta public project',
+    indonesian: 'Atau jelajahi semua proyek publik'
+  },
+  viewAllProjects: {
+    english: 'View All Projects',
+    spanish: 'Ver Todos los Proyectos',
+    brazilian_portuguese: 'Ver Todos os Projetos',
+    tok_pisin: 'Lukim Olgeta Project',
+    indonesian: 'Lihat Semua Proyek'
   },
   signInError: {
     english: 'Something went wrong… Please, check your email and password.',

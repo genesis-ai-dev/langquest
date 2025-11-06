@@ -1,6 +1,8 @@
 import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { AuthContext } from '@/contexts/AuthContext';
+import { useContext } from 'react';
 
 import type { WithSource } from '@/utils/dbUtils';
 // import { normalizeUuid } from '@/utils/uuidUtils';
@@ -132,6 +134,13 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
+  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
+  const authContext = useContext(AuthContext);
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
+
+  // Disable offline queries for anonymous users (cloud-only browsing)
+  // Anonymous users should only use cloud queries with TanStack Query caching
+  const shouldEnableOfflineQuery = enableOfflineQuery && enabled && isAuthenticated;
 
   // Fetch offline data using PowerSync's useQuery
   const {
@@ -142,7 +151,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   } = usePowerSyncQuery<TOfflineData>({
     queryKey: [dataType, 'offline', ...queryKeyParams],
     query: offlineQuery,
-    enabled: enableOfflineQuery && enabled,
+    enabled: shouldEnableOfflineQuery,
     ...offlineQueryOptions
   });
 
@@ -232,7 +241,11 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    isLoading: isOfflineLoading && isCloudLoading,
+    // For anonymous users, only cloud loading matters (offline is disabled)
+    // For authenticated users, show loading if either is loading
+    isLoading: shouldEnableOfflineQuery
+      ? isOfflineLoading || isCloudLoading
+      : isCloudLoading,
     isError: !!offlineError || !!cloudError,
     offlineError,
     cloudError,
@@ -377,8 +390,14 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
+  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
+  const authContext = useContext(AuthContext);
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
   const shouldFetchCloud = enableCloudQuery !== false && isOnline;
+
+  // Disable offline queries for anonymous users (cloud-only browsing)
+  const shouldEnableOfflineQuery = isAuthenticated;
 
   // Create query keys
   const baseKey = [dataType, 'infinite', ...queryKeyParams];
@@ -391,6 +410,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     initialPageParam: 0,
     getNextPageParam: (lastPage: HybridPageData<TOfflineData>) =>
       lastPage.nextCursor,
+    enabled: shouldEnableOfflineQuery,
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const context: InfiniteQueryContext = {
         pageParam: pageParam,
@@ -528,7 +548,11 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    isLoading: offlineQuery.isLoading, // Only block on offline loading
+    // For anonymous users, only cloud loading matters (offline is disabled)
+    // For authenticated users, show loading if either is loading
+    isLoading: shouldEnableOfflineQuery
+      ? offlineQuery.isLoading || cloudQuery.isLoading
+      : cloudQuery.isLoading,
     isOfflineLoading: offlineQuery.isLoading,
     isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
     isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
@@ -539,9 +563,13 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     status:
       offlineQuery.isError || cloudQuery.isError
         ? 'error'
-        : offlineQuery.isLoading
-          ? 'pending'
-          : 'success'
+        : shouldEnableOfflineQuery
+          ? offlineQuery.isLoading || cloudQuery.isLoading
+            ? 'pending'
+            : 'success'
+          : cloudQuery.isLoading
+            ? 'pending'
+            : 'success'
   };
 }
 

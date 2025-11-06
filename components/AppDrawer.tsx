@@ -673,38 +673,54 @@ export default function AppDrawer({
     console.log('==============================');
   };
 
+  // Build drawer items based on auth status
   const drawerItems: DrawerItemType[] = [
     {
       name: t('projects'),
       view: 'projects',
       icon: HomeIcon,
       onPress: () => closeDrawerAndExecute(goToProjects)
-    },
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    ...(SHOW_NOTIFICATIONS
-      ? [
-          {
-            name: t('notifications'),
-            view: 'notifications',
-            icon: BellIcon,
-            onPress: () => closeDrawerAndExecute(goToNotifications),
-            notificationCount
-          }
-        ]
-      : []),
-    {
-      name: t('profile'),
-      view: 'profile',
-      icon: UserIcon,
-      onPress: () => closeDrawerAndExecute(goToProfile)
-    },
-    {
-      name: t('settings'),
-      view: 'settings',
-      icon: SettingsIcon,
-      onPress: () => closeDrawerAndExecute(goToSettings)
     }
-  ] as const;
+  ];
+
+  // Only show authenticated-only items if user is logged in
+  if (currentUser) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (SHOW_NOTIFICATIONS) {
+      drawerItems.push({
+        name: t('notifications'),
+        view: 'notifications',
+        icon: BellIcon,
+        onPress: () => closeDrawerAndExecute(goToNotifications),
+        notificationCount
+      });
+    }
+    drawerItems.push(
+      {
+        name: t('profile'),
+        view: 'profile',
+        icon: UserIcon,
+        onPress: () => closeDrawerAndExecute(goToProfile)
+      },
+      {
+        name: t('settings'),
+        view: 'settings',
+        icon: SettingsIcon,
+        onPress: () => closeDrawerAndExecute(goToSettings)
+      }
+    );
+  } else {
+    // Anonymous user - show Sign In button prominently
+    const setAuthView = useLocalStore((state) => state.setAuthView);
+    drawerItems.push({
+      name: t('signIn') || 'Sign In',
+      icon: UserIcon,
+      onPress: () => {
+        setDrawerIsVisible(false);
+        setAuthView('sign-in');
+      }
+    });
+  }
 
   // Add diagnostics menu item if there are corrupted attachments or in dev mode
 

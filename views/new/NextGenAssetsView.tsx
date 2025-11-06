@@ -761,67 +761,70 @@ export default function NextGenAssetsView() {
             )
           )
         ) : (
-          <View className="flex flex-row items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={isPublishing || !isOnline || !isMember}
-              onPress={() => {
-                if (!isOnline) {
-                  Alert.alert(t('error'), t('cannotPublishWhileOffline'));
-                  return;
-                }
+          // Only show publish/record buttons for authenticated users
+          currentUser && (
+            <View className="flex flex-row items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={isPublishing || !isOnline || !isMember}
+                onPress={() => {
+                  if (!isOnline) {
+                    Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                    return;
+                  }
 
-                if (!isMember) {
-                  Alert.alert(t('error'), t('membersOnlyPublish'));
-                  return;
-                }
+                  if (!isMember) {
+                    Alert.alert(t('error'), t('membersOnlyPublish'));
+                    return;
+                  }
 
-                if (!currentQuestId) {
-                  console.error('No current quest id');
-                  return;
-                }
+                  if (!currentQuestId) {
+                    console.error('No current quest id');
+                    return;
+                  }
 
-                // Use quest name if available, otherwise generic message
-                const questName = selectedQuest?.name || 'this chapter';
+                  // Use quest name if available, otherwise generic message
+                  const questName = selectedQuest?.name || 'this chapter';
 
-                Alert.alert(
-                  t('publishChapter'),
-                  t('publishChapterMessage').replace('{questName}', questName),
-                  [
-                    {
-                      text: t('cancel'),
-                      style: 'cancel'
-                    },
-                    {
-                      text: t('publish'),
-                      style: 'default',
-                      onPress: () => {
-                        publishQuest();
+                  Alert.alert(
+                    t('publishChapter'),
+                    t('publishChapterMessage').replace('{questName}', questName),
+                    [
+                      {
+                        text: t('cancel'),
+                        style: 'cancel'
+                      },
+                      {
+                        text: t('publish'),
+                        style: 'default',
+                        onPress: () => {
+                          publishQuest();
+                        }
                       }
-                    }
-                  ]
-                );
-              }}
-            >
-              {isPublishing ? (
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-              ) : (
-                <Icon as={Share2Icon} />
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="border-[1.5px] border-primary"
-              onPress={() => setShowRecording(true)}
-            >
-              <Icon as={PencilIcon} className="text-primary" />
-            </Button>
-          </View>
+                    ]
+                  );
+                }}
+              >
+                {isPublishing ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                ) : (
+                  <Icon as={Share2Icon} />
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="border-[1.5px] border-primary"
+                onPress={() => setShowRecording(true)}
+              >
+                <Icon as={PencilIcon} className="text-primary" />
+              </Button>
+            </View>
+          )
         )}
       </View>
 
@@ -925,8 +928,8 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* Sticky Record Button Footer */}
-      {!isPublished && (
+      {/* Sticky Record Button Footer - only show for authenticated users */}
+      {!isPublished && currentUser && (
         <View
           style={{
             paddingBottom: insets.bottom,

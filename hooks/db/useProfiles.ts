@@ -67,7 +67,7 @@ export function useUserMemberships(userId?: string) {
   const { currentUser } = useAuth();
   const user_id = userId || currentUser?.id;
 
-  const { data: memberships, isLoading } = useHybridData<ProfileProjectLink>({
+  const { data: membershipsData, isLoading } = useHybridData<ProfileProjectLink>({
     dataType: 'user-memberships',
     queryKeyParams: [user_id || ''],
 
@@ -95,6 +95,9 @@ export function useUserMemberships(userId?: string) {
       return data as ProfileProjectLink[];
     }
   });
+
+  // Ensure memberships is always an array
+  const memberships = Array.isArray(membershipsData) ? membershipsData : [];
 
   const getUserMembership = useCallback(
     (projectId: string): ProfileProjectLink | undefined => {

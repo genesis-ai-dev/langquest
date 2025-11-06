@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
@@ -40,10 +41,16 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   className,
   iconColor
 }) => {
+  const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
   const isDisabled = !isConnected && !isFlaggedForDownload;
   const [showWarning, setShowWarning] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Hide download indicator for anonymous users (they can't download)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const handlePress = async () => {
     if (!isConnected && isFlaggedForDownload) {
