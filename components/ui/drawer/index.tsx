@@ -135,6 +135,7 @@ function DrawerClose({
   const context = React.useContext(DrawerContext);
 
   const handlePress = () => {
+    // Also update state to keep things in sync
     context?.setOpen(false);
   };
 
@@ -143,7 +144,8 @@ function DrawerClose({
   return (
     <TextClassContext.Provider
       value={buttonTextVariants({
-        variant: 'outline'
+        variant: 'outline',
+        className: cn('web:pointer-events-none', props.disabled && 'opacity-50')
       })}
     >
       <Component
@@ -202,7 +204,6 @@ const DrawerContent = React.forwardRef<
           animatedIndex={animatedIndex}
           animatedPosition={animatedPosition}
           style={{ marginBottom: bottom, marginTop: top }}
-          {...props}
         />
       )}
       topInset={top}
@@ -228,12 +229,15 @@ const DrawerContent = React.forwardRef<
       // android_keyboardInputMode=""
       {...modalProps}
     >
-      <DrawerScrollView
-        className={cn('z-[9998] flex-1 bg-background px-4', className)}
-        {...props}
-      >
-        {children}
-      </DrawerScrollView>
+      {/* Re-provide DrawerContext inside the portal so children can access it */}
+      <DrawerContext.Provider value={context}>
+        <DrawerScrollView
+          className={cn('z-[9998] flex-1 bg-background px-4', className)}
+          {...props}
+        >
+          {children}
+        </DrawerScrollView>
+      </DrawerContext.Provider>
     </BottomSheetModal>
   );
 });

@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: ['*']
+    branches: ["*"]
   push:
-    branches: ['main', 'dev', 'ci']
+    branches: ["ci"]
   merge_group:
 
 concurrency:
@@ -23,6 +23,10 @@ jobs:
       - name: Setup
         uses: ./tooling/github/setup-ci
 
+      - name: Install dependencies
+        shell: bash
+        run: npm install
+
       - name: Copy env
         shell: bash
         run: cp .env.example .env
@@ -38,6 +42,10 @@ jobs:
       - name: Setup
         uses: ./tooling/github/setup-ci
 
+      - name: Install dependencies
+        shell: bash
+        run: npm install
+
       - name: Format
         run: npm run format
 
@@ -48,6 +56,10 @@ jobs:
 
       - name: Setup
         uses: ./tooling/github/setup-ci
+
+      - name: Install dependencies
+        shell: bash
+        run: npm install
 
       - name: Typecheck
         run: npm run typecheck

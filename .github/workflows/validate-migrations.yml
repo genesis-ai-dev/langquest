@@ -9,8 +9,28 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  check-paths:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should-run: ${{ steps.filter.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            migrations:
+              - 'supabase/migrations/**/*.sql'
+              - '.github/workflows/validate-migrations.yml'
+
   wait:
     runs-on: ubuntu-latest
+    needs: [check-paths]
+    if: ${{ needs.check-paths.outputs.should-run == 'true' }}
+    permissions:
+      checks: read
     outputs:
       status: ${{ steps.check.outputs.conclusion }}
     steps:
@@ -22,10 +42,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   validate-migrations:
-    needs: [wait]
-    if: ${{ needs.wait.outputs.status == 'success' }}
+    needs: [check-paths, wait]
+    if: ${{ needs.check-paths.outputs.should-run == 'true' && (needs.wait.result == 'success' && needs.wait.outputs.status == 'success') }}
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -48,18 +69,37 @@ jobs:
       - name: Get Migration History from Database
         id: db-migrations
         run: |
+          # Check if POSTGRES_URL is set
+          if [ -z "$POSTGRES_URL" ]; then
+            echo "❌ POSTGRES_URL environment variable is not set"
+            exit 1
+          fi
+
           # Replace port 6543 with 5432 for direct Postgres connection
           # Remove all query parameters from the URL
-          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
-          echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
+          # Strip surrounding quotes if present (from env export)
+          # Result: postgresql://postgres.project_ref:password@pooler-host:5432/postgres
+          DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||' | sed 's|^"||' | sed 's|"$||')
+
+          # Mask password in logs for security
+          DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
+          echo "Using database URL: ${DB_URL_MASKED}"
 
           # Get migration history from database
           # The supabase_migrations.schema_migrations table stores applied migrations
-          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+          # Capture both stdout and stderr separately for better error reporting
+          # Use the same approach as sync-rules workflow - pass URL directly to psql
+          PSQL_ERROR=$(mktemp)
+          DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>"$PSQL_ERROR" || echo "")
+          PSQL_ERROR_CONTENT=$(cat "$PSQL_ERROR")
+          rm -f "$PSQL_ERROR"
 
           if [ -z "$DB_MIGRATIONS" ]; then
             echo "⚠️  Could not query migration history from database"
             echo "This might mean migrations haven't been applied yet, or the database is not accessible"
+            if [ -n "$PSQL_ERROR_CONTENT" ]; then
+              echo "psql error: $PSQL_ERROR_CONTENT"
+            fi
             echo "db_migrations=" >> $GITHUB_OUTPUT
           else
             echo "$DB_MIGRATIONS" > db_migrations.txt
@@ -155,6 +195,13 @@ jobs:
             echo "⚠️  Could not compare migrations - missing migration lists"
             echo "comparison_status=skipped" >> $GITHUB_OUTPUT
           fi
+
+      - name: Remove PR comment if validation passed
+        if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status == 'success'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: migration-validation
+          mode: delete
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.compare.outputs.comparison_status != 'success'

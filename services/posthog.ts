@@ -1,5 +1,7 @@
 import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Device from 'expo-device';
+import * as Updates from 'expo-updates';
 import PostHog from 'posthog-react-native';
 
 // Simple initialization without circular dependency
@@ -27,8 +29,48 @@ const posthog = createPostHogInstance();
 const changeAnalyticsState = async (newState: boolean) => {
   if (newState) {
     await posthog.optIn();
+    // Set device info after opt-in
+    void setDeviceInfo();
   } else {
     await posthog.optOut();
+  }
+};
+
+/**
+ * Collects additional device information not automatically captured by PostHog React Native SDK.
+ * PostHog already captures: OS name, OS version, app build, app name, app namespace, app version, device type.
+ * This function adds: device manufacturer, model, and OTA update ID.
+ * These properties will be included with all events automatically.
+ * Only runs if user has opted in to analytics.
+ */
+const setDeviceInfo = async () => {
+  try {
+    const deviceProperties: Record<string, string | null> = {};
+
+    // Additional device properties not auto-captured by PostHog SDK
+    if (Device.brand) {
+      deviceProperties.$device_manufacturer = Device.brand;
+    }
+    if (Device.modelName) {
+      deviceProperties.$device_model = Device.modelName;
+    }
+
+    // OTA update ID from expo-updates (not automatically captured)
+    if (Updates.updateId) {
+      deviceProperties.$update_id = Updates.updateId;
+    }
+
+    // Filter out null values and register as super properties
+    const validProperties = Object.fromEntries(
+      Object.entries(deviceProperties).filter(([_, value]) => value !== null)
+    );
+
+    if (Object.keys(validProperties).length > 0) {
+      await posthog.register(validProperties);
+    }
+  } catch (error) {
+    // Silently handle errors - device info is optional and shouldn't break analytics
+    console.warn('Failed to set device info for PostHog:', error);
   }
 };
 
