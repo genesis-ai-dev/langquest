@@ -29,6 +29,7 @@ import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
+import { OnboardingFlow } from './OnboardingFlow';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
@@ -526,6 +527,35 @@ export default function NextGenProjectsView() {
   // Use the appropriate query based on active tab
   const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
   const { data: projectData, isLoading } = currentQuery;
+  
+  // Check if user has no projects (for onboarding)
+  const hasNoProjects = React.useMemo(() => {
+    if (activeTab !== 'my') return false;
+    if (isLoading) return false;
+    if (!currentUser?.id) return false;
+    
+    // Check if myProjectsQuery has no data
+    if (Array.isArray(projectData)) {
+      return projectData.length === 0;
+    }
+    return false;
+  }, [activeTab, isLoading, currentUser?.id, projectData]);
+  
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
+  
+  // Show onboarding when user has no projects
+  React.useEffect(() => {
+    if (hasNoProjects && !showOnboarding) {
+      setShowOnboarding(true);
+    } else if (!hasNoProjects && showOnboarding) {
+      setShowOnboarding(false);
+    }
+  }, [hasNoProjects, showOnboarding]);
+
+  // Function to open onboarding wizard
+  const handleOpenOnboarding = () => {
+    setShowOnboarding(true);
+  };
 
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
@@ -622,15 +652,20 @@ export default function NextGenProjectsView() {
   const dimensions = useWindowDimensions();
 
   return (
-    <Drawer
-      open={isCreateOpen}
-      onOpenChange={(open) => {
-        setIsCreateOpen(open);
-        resetForm();
-      }}
-      dismissible={!isCreatingProject}
-    >
-      <View className="flex flex-1 flex-col gap-6 p-6">
+    <>
+      <OnboardingFlow
+        visible={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
+      <Drawer
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          resetForm();
+        }}
+        dismissible={!isCreatingProject}
+      >
+        <View className="flex flex-1 flex-col gap-6 p-6">
         <View className="flex flex-col gap-4">
           {/* Tabs */}
           <Tabs
@@ -668,9 +703,12 @@ export default function NextGenProjectsView() {
               suffixStyling={false}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             />
-            <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
+            <Button
+              className={buttonVariants({ size: 'icon-lg' })}
+              onPress={handleOpenOnboarding}
+            >
               <Icon as={PlusIcon} className="text-primary-foreground" />
-            </DrawerTrigger>
+            </Button>
           </View>
         </View>
 
@@ -723,7 +761,7 @@ export default function NextGenProjectsView() {
                   {activeTab === 'my' && !searchQuery && (
                     <Button
                       variant="default"
-                      onPress={() => setIsCreateOpen(true)}
+                      onPress={handleOpenOnboarding}
                       className="mt-2"
                     >
                       <Icon as={PlusIcon} size={16} />
@@ -854,5 +892,6 @@ export default function NextGenProjectsView() {
         </Form>
       </DrawerContent>
     </Drawer>
+    </>
   );
 }

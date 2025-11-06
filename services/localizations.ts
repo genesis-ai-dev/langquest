@@ -899,6 +899,160 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
   },
+  selectRegion: {
+    english: 'Select Region',
+    spanish: 'Seleccionar Región',
+    brazilian_portuguese: 'Selecionar Região',
+    tok_pisin: 'Makim Region',
+    indonesian: 'Pilih Wilayah'
+  },
+  selectRegionToFilterLanguages: {
+    english: 'Select a region to see languages from that area',
+    spanish: 'Seleccione una región para ver idiomas de esa área',
+    brazilian_portuguese: 'Selecionar uma região para ver idiomas dessa área',
+    tok_pisin: 'Makim wanpela region long lukim ol tokples bilong ples ya',
+    indonesian: 'Pilih wilayah untuk melihat bahasa dari area tersebut'
+  },
+  selectYourLanguage: {
+    english: 'Select Your Language',
+    spanish: 'Seleccione Su Idioma',
+    brazilian_portuguese: 'Selecionar Seu Idioma',
+    tok_pisin: 'Makim Tokples Bilong Yu',
+    indonesian: 'Pilih Bahasa Anda'
+  },
+  createLanguage: {
+    english: 'Create Language',
+    spanish: 'Crear Idioma',
+    brazilian_portuguese: 'Criar Idioma',
+    tok_pisin: 'Mekim Tokples',
+    indonesian: 'Buat Bahasa'
+  },
+  createNewLanguage: {
+    english: 'Create New Language',
+    spanish: 'Crear Nuevo Idioma',
+    brazilian_portuguese: 'Criar Novo Idioma',
+    tok_pisin: 'Mekim Nupela Tokples',
+    indonesian: 'Buat Bahasa Baru'
+  },
+  languageNotInList: {
+    english: 'My language is not in the list',
+    spanish: 'Mi idioma no está en la lista',
+    brazilian_portuguese: 'Meu idioma não está na lista',
+    tok_pisin: 'Tokples bilong mi i no stap long list',
+    indonesian: 'Bahasa saya tidak ada dalam daftar'
+  },
+  willCreateLanguage: {
+    english: 'Will create language',
+    spanish: 'Creará idioma',
+    brazilian_portuguese: 'Criará idioma',
+    tok_pisin: 'Bai mekim tokples',
+    indonesian: 'Akan membuat bahasa'
+  },
+  nativeName: {
+    english: 'Native Name',
+    spanish: 'Nombre Nativo',
+    brazilian_portuguese: 'Nome Nativo',
+    tok_pisin: 'Nem Bilong Tokples',
+    indonesian: 'Nama Asli'
+  },
+  englishName: {
+    english: 'English Name',
+    spanish: 'Nombre en Inglés',
+    brazilian_portuguese: 'Nome em Inglês',
+    tok_pisin: 'Nem Long English',
+    indonesian: 'Nama dalam Bahasa Inggris'
+  },
+  iso6393Code: {
+    english: 'ISO 639-3 Code',
+    spanish: 'Código ISO 639-3',
+    brazilian_portuguese: 'Código ISO 639-3',
+    tok_pisin: 'ISO 639-3 Code',
+    indonesian: 'Kode ISO 639-3'
+  },
+  locale: {
+    english: 'Locale',
+    spanish: 'Idioma',
+    brazilian_portuguese: 'Idioma',
+    tok_pisin: 'Locale',
+    indonesian: 'Lokalisasi'
+  },
+  createAndContinue: {
+    english: 'Create and Continue',
+    spanish: 'Crear y Continuar',
+    brazilian_portuguese: 'Criar e Continuar',
+    tok_pisin: 'Mekim na Go Long',
+    indonesian: 'Buat dan Lanjutkan'
+  },
+  whatWouldYouLikeToCreate: {
+    english: 'What would you like to create?',
+    spanish: '¿Qué te gustaría crear?',
+    brazilian_portuguese: 'O que você gostaria de criar?',
+    tok_pisin: 'Wanem samting yu laik mekim?',
+    indonesian: 'Apa yang ingin Anda buat?'
+  },
+  createBibleProject: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Baibel',
+    indonesian: 'Alkitab'
+  },
+  translateBibleIntoYourLanguage: {
+    english: 'Translate the Bible into your language',
+    spanish: 'Traduce la Biblia a tu idioma',
+    brazilian_portuguese: 'Traduza a Bíblia para o seu idioma',
+    tok_pisin: 'Translate Baibel long tokples bilong yu',
+    indonesian: 'Terjemahkan Alkitab ke bahasa Anda'
+  },
+  createOtherProject: {
+    english: 'Other Translation',
+    spanish: 'Otra Traducción',
+    brazilian_portuguese: 'Outra Tradução',
+    tok_pisin: 'Narapela Translation',
+    indonesian: 'Terjemahan Lain'
+  },
+  createGeneralTranslationProject: {
+    english: 'Create a general translation project',
+    spanish: 'Crear un proyecto de traducción general',
+    brazilian_portuguese: 'Criar um projeto de tradução geral',
+    tok_pisin: 'Mekim wanpela project long translate ol samting',
+    indonesian: 'Buat proyek terjemahan umum'
+  },
+  selectProject: {
+    english: 'Select Project',
+    spanish: 'Seleccionar Proyecto',
+    brazilian_portuguese: 'Selecionar Projeto',
+    tok_pisin: 'Makim Project',
+    indonesian: 'Pilih Proyek'
+  },
+  createFirstProject: {
+    english: 'Create First Project',
+    spanish: 'Crear Primer Proyecto',
+    brazilian_portuguese: 'Criar Primeiro Projeto',
+    tok_pisin: 'Mekim Nambawan Project',
+    indonesian: 'Buat Proyek Pertama'
+  },
+  createNewProject: {
+    english: 'Create New Project',
+    spanish: 'Crear Nuevo Proyecto',
+    brazilian_portuguese: 'Criar Novo Projeto',
+    tok_pisin: 'Mekim Nupela Project',
+    indonesian: 'Buat Proyek Baru'
+  },
+  existingProjectsInLanguage: {
+    english: 'Existing projects in {language}',
+    spanish: 'Proyectos existentes en {language}',
+    brazilian_portuguese: 'Projetos existentes em {language}',
+    tok_pisin: 'Ol project i stap pinis long {language}',
+    indonesian: 'Proyek yang ada dalam {language}'
+  },
+  noProjectsInLanguage: {
+    english: 'No projects yet in {language}',
+    spanish: 'Aún no hay proyectos en {language}',
+    brazilian_portuguese: 'Ainda não há projetos em {language}',
+    tok_pisin: 'I no gat project yet long {language}',
+    indonesian: 'Belum ada proyek dalam {language}'
+  },
   searchLanguages: {
     english: 'Search languages...',
     spanish: 'Buscar idiomas...',
@@ -912,6 +1066,18 @@ export const localizations = {
     brazilian_portuguese: 'Nenhum idioma encontrado',
     tok_pisin: 'I no gat tokples',
     indonesian: 'Tidak ada bahasa ditemukan'
+  },
+  noLanguagesInRegion: {
+    english:
+      'No languages found in this region. You can create a new language below.',
+    spanish:
+      'No se encontraron idiomas en esta región. Puedes crear un nuevo idioma a continuación.',
+    brazilian_portuguese:
+      'Nenhum idioma encontrado nesta região. Você pode criar um novo idioma abaixo.',
+    tok_pisin:
+      'I no gat tokples long dispela region. Yu ken mekim nupela tokples long bihain.',
+    indonesian:
+      'Tidak ada bahasa ditemukan di wilayah ini. Anda dapat membuat bahasa baru di bawah ini.'
   },
   typeToSearch: {
     english: 'Type at least {min} characters to search',
@@ -1031,6 +1197,13 @@ export const localizations = {
     brazilian_portuguese: 'Bem-vindo de volta, herói!',
     tok_pisin: 'Welkam bek, hero!',
     indonesian: 'Selamat datang kembali, pahlawan!'
+  },
+  welcomeToApp: {
+    english: 'Welcome',
+    spanish: 'Bienvenido',
+    brazilian_portuguese: 'Bem-vindo',
+    tok_pisin: 'Welkam',
+    indonesian: 'Selamat datang'
   },
   recentlyVisited: {
     english: 'Recently Visited',
@@ -2155,7 +2328,14 @@ export const localizations = {
     english: 'Go Back',
     spanish: 'Volver',
     brazilian_portuguese: 'Voltar',
-    tok_pisin: 'Go bek',
+    tok_pisin: 'Go Bek',
+    indonesian: 'Kembali'
+  },
+  back: {
+    english: 'Back',
+    spanish: 'Atrás',
+    brazilian_portuguese: 'Voltar',
+    tok_pisin: 'Go Bek',
     indonesian: 'Kembali'
   },
   confirmRemove: {
