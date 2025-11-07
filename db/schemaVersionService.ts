@@ -73,25 +73,79 @@ function compareVersions(a: string, b: string): number {
 }
 
 /**
+ * Create a promise that rejects after a timeout
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ]);
+}
+
+/**
  * Fetch server schema version from Supabase RPC
  * @param supabaseClient - Supabase client instance
  * @returns Server schema version string
- * @throws Error if RPC call fails
+ * @throws Error if RPC call fails or times out
  */
 export async function fetchServerSchemaVersion(
   supabaseClient: SupabaseClient
 ): Promise<string> {
   console.log('[SchemaVersionService] Fetching server schema version...');
 
+  // Check if client has a valid URL (accessing internal property for diagnostics)
+  const clientUrl = (supabaseClient as unknown as { rest?: { url?: string } })
+    .rest?.url;
+  if (clientUrl) {
+    console.log(
+      '[SchemaVersionService] Supabase client URL:',
+      clientUrl.substring(0, 50) + '...'
+    );
+  } else {
+    console.warn(
+      '[SchemaVersionService] Warning: Supabase client URL not detected - this may indicate initialization issues'
+    );
+  }
+
   try {
-    const { data, error } = await supabaseClient.rpc('get_schema_info');
+    // Add a 10 second timeout to prevent hanging indefinitely
+    // Convert PromiseLike to Promise explicitly
+    const rpcCall = supabaseClient.rpc('get_schema_info');
+    const rpcPromise = Promise.resolve(rpcCall);
+
+    console.log('[SchemaVersionService] Making RPC call with 10s timeout...');
+
+    const result = await withTimeout(
+      rpcPromise,
+      10000,
+      'Server schema version fetch timed out after 10 seconds'
+    );
+
+    // Type-safe destructuring
+    const { data, error } = result as { data: unknown; error: unknown };
 
     if (error) {
       console.error(
         '[SchemaVersionService] Failed to fetch server schema:',
         error
       );
-      throw new Error(`Failed to fetch server schema: ${error.message}`);
+      let errorMessage: string;
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        try {
+          errorMessage = JSON.stringify(error);
+        } catch {
+          errorMessage = 'Unknown error occurred';
+        }
+      }
+      throw new Error(`Failed to fetch server schema: ${errorMessage}`);
     }
 
     if (!data || typeof data !== 'object' || !('schema_version' in data)) {
@@ -110,6 +164,24 @@ export async function fetchServerSchemaVersion(
       '[SchemaVersionService] Error fetching server schema:',
       error
     );
+
+    // Add more diagnostic information
+    if (error instanceof Error) {
+      console.error('[SchemaVersionService] Error message:', error.message);
+      console.error('[SchemaVersionService] Error stack:', error.stack);
+
+      // Check if it's a timeout
+      if (error.message.includes('timed out')) {
+        console.error(
+          '[SchemaVersionService] ⚠️  RPC call timed out - this may indicate:',
+          '\n  1. Network connectivity issues',
+          '\n  2. Supabase server is unreachable',
+          '\n  3. CORS configuration issues',
+          '\n  4. Environment variables not set correctly'
+        );
+      }
+    }
+
     throw error;
   }
 }
