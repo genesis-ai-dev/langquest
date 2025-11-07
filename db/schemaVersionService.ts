@@ -102,6 +102,32 @@ export async function fetchServerSchemaVersion(
   // Check if client has a valid URL (accessing internal property for diagnostics)
   const clientUrl = (supabaseClient as unknown as { rest?: { url?: string } })
     .rest?.url;
+
+  // Log environment variable status for debugging (only in web builds)
+  if (typeof window !== 'undefined') {
+    const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const envKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    console.log('[SchemaVersionService] Environment check:');
+    console.log(
+      '  EXPO_PUBLIC_SUPABASE_URL:',
+      envUrl ? `${envUrl.substring(0, 30)}...` : '❌ NOT SET'
+    );
+    console.log(
+      '  EXPO_PUBLIC_SUPABASE_ANON_KEY:',
+      envKey ? '✅ SET' : '❌ NOT SET'
+    );
+
+    if (!envUrl || !envKey) {
+      console.error(
+        '[SchemaVersionService] ⚠️  CRITICAL: Environment variables not set!',
+        '\n  This will cause RPC calls to fail in production.',
+        '\n  Make sure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY',
+        '\n  are set in Vercel environment variables.'
+      );
+    }
+  }
+
   if (clientUrl) {
     console.log(
       '[SchemaVersionService] Supabase client URL:',
@@ -109,8 +135,26 @@ export async function fetchServerSchemaVersion(
     );
   } else {
     console.warn(
-      '[SchemaVersionService] Warning: Supabase client URL not detected - this may indicate initialization issues'
+      '[SchemaVersionService] ⚠️  Warning: Supabase client URL not detected',
+      '\n  This may indicate:',
+      '\n  1. Environment variables not set during build',
+      '\n  2. Supabase client initialization failed',
+      '\n  3. Client created with undefined URL'
     );
+  }
+
+  // Validate client URL before making request
+  if (
+    !clientUrl ||
+    clientUrl === 'undefined' ||
+    clientUrl.includes('undefined')
+  ) {
+    const errorMsg =
+      'Supabase client URL is invalid. This usually means environment variables ' +
+      'were not set during the build. For Expo web, environment variables must be ' +
+      'available at BUILD TIME, not runtime. Check Vercel environment variables.';
+    console.error('[SchemaVersionService]', errorMsg);
+    throw new Error(errorMsg);
   }
 
   try {
