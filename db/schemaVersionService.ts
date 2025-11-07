@@ -100,33 +100,18 @@ export async function fetchServerSchemaVersion(
 ): Promise<string> {
   console.log('[SchemaVersionService] Fetching server schema version...');
 
-  // Check if client has a valid URL (accessing internal property for diagnostics)
-  const clientUrl = (supabaseClient as unknown as { rest?: { url?: string } })
-    .rest?.url;
-  if (clientUrl) {
-    console.log(
-      '[SchemaVersionService] Supabase client URL:',
-      clientUrl.substring(0, 50) + '...'
-    );
-  } else {
-    console.warn(
-      '[SchemaVersionService] Warning: Supabase client URL not detected - this may indicate initialization issues'
-    );
-  }
-
   try {
     // Try using fetch directly first (works better on deployed web)
     // This matches the pattern used for regular queries that work
+    // Note: Other RPC calls (e.g., in bulkDownload.ts) work fine with the Supabase client,
+    // but this particular call during app initialization hangs on deployed web.
+    // Using direct fetch here matches the pattern used for regular queries that work reliably.
     const useDirectFetch =
       typeof window !== 'undefined' &&
       AppConfig.supabaseUrl &&
       AppConfig.supabaseAnonKey;
 
     if (useDirectFetch) {
-      console.log(
-        '[SchemaVersionService] Using direct fetch for RPC call (web deployment)...'
-      );
-
       try {
         const fetchPromise = fetch(
           `${AppConfig.supabaseUrl}/rest/v1/rpc/get_schema_info`,
@@ -165,24 +150,14 @@ export async function fetchServerSchemaVersion(
           }
 
           const schemaInfo = data as ServerSchemaInfo;
-          console.log(
-            '[SchemaVersionService] Server schema version (via direct fetch):',
-            schemaInfo.schema_version
-          );
-
           return schemaInfo.schema_version;
         }
-      } catch (fetchError) {
-        console.warn(
-          '[SchemaVersionService] Direct fetch failed, falling back to Supabase client RPC:',
-          fetchError
-        );
+      } catch {
         // Fall through to Supabase client method
       }
     }
 
     // Fallback to Supabase client RPC (works better locally)
-    console.log('[SchemaVersionService] Using Supabase client RPC method...');
 
     // Add a 10 second timeout to prevent hanging indefinitely
     // Convert PromiseLike to Promise explicitly
@@ -232,24 +207,6 @@ export async function fetchServerSchemaVersion(
       '[SchemaVersionService] Error fetching server schema:',
       error
     );
-
-    // Add more diagnostic information
-    if (error instanceof Error) {
-      console.error('[SchemaVersionService] Error message:', error.message);
-      console.error('[SchemaVersionService] Error stack:', error.stack);
-
-      // Check if it's a timeout
-      if (error.message.includes('timed out')) {
-        console.error(
-          '[SchemaVersionService] ⚠️  RPC call timed out - this may indicate:',
-          '\n  1. Network connectivity issues',
-          '\n  2. Supabase server is unreachable',
-          '\n  3. CORS configuration issues',
-          '\n  4. Environment variables not set correctly'
-        );
-      }
-    }
-
     throw error;
   }
 }
