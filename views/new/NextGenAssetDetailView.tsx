@@ -278,37 +278,49 @@ export default function NextGenAssetDetailView() {
   }, [currentAssetId]);
 
   // Get audio URIs for a specific content item (not all content flattened)
-  function getContentAudioUris(
-    content: typeof asset_content_link.$inferSelect
-  ): string[] {
-    if (!content.audio) return [];
+  // Both web and native now use async OPFS resolution
+  const [resolvedAudioUris, setResolvedAudioUris] = useState<string[]>([]);
 
-    return content.audio
-      .filter(
+  useEffect(() => {
+    const content = activeAsset?.content?.[currentContentIndex];
+    if (!content?.audio) {
+      // Use queueMicrotask to avoid synchronous setState warning
+      queueMicrotask(() => {
+        setResolvedAudioUris([]);
+      });
+      return;
+    }
+
+    // Resolve OPFS URIs asynchronously (works for both web and native)
+    const resolveUris = async () => {
+      const audioValues = content.audio!.filter(
         (audioValue: unknown): audioValue is string =>
           typeof audioValue === 'string'
-      )
-      .map((audioValue: string) => {
-        // Handle direct local URIs (from recording view before publish)
-        if (audioValue.startsWith('local/')) {
-          return getLocalAttachmentUriWithOPFS(audioValue);
-        }
+      );
 
-        // Handle full file URIs
-        if (audioValue.startsWith('file://')) {
-          return audioValue;
-        }
+      const resolved = await Promise.all(
+        audioValues.map(async (audioValue: string): Promise<string | null> => {
+          // Handle full file URIs
+          if (audioValue.startsWith('file://')) {
+            return audioValue;
+          }
 
-        // Handle attachment IDs (look up in attachment queue)
-        const attachmentState = attachmentStates.get(audioValue);
-        if (attachmentState?.local_uri) {
-          return getLocalUri(attachmentState.local_uri);
-        }
+          // Handle attachment IDs - extract filename and use OPFS
+          const attachmentState = attachmentStates.get(audioValue);
+          if (attachmentState?.local_uri)
+            return await getLocalAttachmentUriWithOPFS(
+              attachmentState.filename
+            );
 
-        return null;
-      })
-      .filter((uri: string | null): uri is string => uri !== null);
-  }
+          return null;
+        })
+      );
+      const filtered = resolved.filter((uri): uri is string => uri !== null);
+      setResolvedAudioUris(filtered);
+    };
+
+    void resolveUris();
+  }, [activeAsset?.content, currentContentIndex, attachmentStates]);
 
   // Debug logging
   useEffect(() => {
@@ -479,7 +491,7 @@ export default function NextGenAssetDetailView() {
                 {activeAsset.content[currentContentIndex] && (
                   <View>
                     <SourceContent
-                      content={activeAsset.content[currentContentIndex]!}
+                      content={activeAsset.content[currentContentIndex]}
                       sourceLanguage={
                         activeAsset.content[currentContentIndex]
                           ?.source_language_id
@@ -489,10 +501,13 @@ export default function NextGenAssetDetailView() {
                             ) ?? null)
                           : null
                       }
-                      audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]!
-                      )}
-                      isLoading={isLoadingAttachments}
+                      audioSegments={resolvedAudioUris}
+                      isLoading={
+                        isLoadingAttachments ||
+                        (resolvedAudioUris.length === 0 &&
+                          (activeAsset?.content?.[currentContentIndex]?.audio
+                            ?.length ?? 0) > 0)
+                      }
                     />
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
@@ -503,7 +518,7 @@ export default function NextGenAssetDetailView() {
                             as={
                               attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
-                                  ?.audio?.[0]!
+                                  ?.audio?.[0] ?? ''
                               )?.local_uri
                                 ? Volume2Icon
                                 : VolumeXIcon
@@ -514,7 +529,7 @@ export default function NextGenAssetDetailView() {
                           <Text className="text-sm text-muted-foreground">
                             {attachmentStates.get(
                               activeAsset.content[currentContentIndex]
-                                ?.audio?.[0]!
+                                ?.audio?.[0] ?? ''
                             )?.local_uri
                               ? t('audioReady')
                               : t('audioNotAvailable')}

@@ -171,6 +171,7 @@ export function getLocalFilePathSuffix(filename: string): string {
 }
 
 export async function getLocalAttachmentUriWithOPFS(filePath: string) {
+  console.log('getLocalAttachmentUriWithOPFS', filePath);
   const localUri = getLocalUri(getLocalFilePathSuffix(filePath));
   const opfsUri = opfsFileToBlobUrl(localUri);
   return opfsUri;

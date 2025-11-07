@@ -112,7 +112,8 @@ export function getLocalFilePathSuffix(filename: string): string {
   return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
 }
 
-export function getLocalAttachmentUriWithOPFS(filePath: string) {
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function getLocalAttachmentUriWithOPFS(filePath: string) {
   return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
