@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { APP_SCHEMA_VERSION } from './constants';
 import type { DrizzleDB } from './migrations/index';
 import { getMinimumSchemaVersion } from './migrations/index';
+import { AppConfig } from './supabase/AppConfig';
 
 // ============================================================================
 // ERROR TYPES
@@ -102,32 +103,6 @@ export async function fetchServerSchemaVersion(
   // Check if client has a valid URL (accessing internal property for diagnostics)
   const clientUrl = (supabaseClient as unknown as { rest?: { url?: string } })
     .rest?.url;
-
-  // Log environment variable status for debugging (only in web builds)
-  if (typeof window !== 'undefined') {
-    const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const envKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-    console.log('[SchemaVersionService] Environment check:');
-    console.log(
-      '  EXPO_PUBLIC_SUPABASE_URL:',
-      envUrl ? `${envUrl.substring(0, 30)}...` : '❌ NOT SET'
-    );
-    console.log(
-      '  EXPO_PUBLIC_SUPABASE_ANON_KEY:',
-      envKey ? '✅ SET' : '❌ NOT SET'
-    );
-
-    if (!envUrl || !envKey) {
-      console.error(
-        '[SchemaVersionService] ⚠️  CRITICAL: Environment variables not set!',
-        '\n  This will cause RPC calls to fail in production.',
-        '\n  Make sure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY',
-        '\n  are set in Vercel environment variables.'
-      );
-    }
-  }
-
   if (clientUrl) {
     console.log(
       '[SchemaVersionService] Supabase client URL:',
@@ -135,35 +110,84 @@ export async function fetchServerSchemaVersion(
     );
   } else {
     console.warn(
-      '[SchemaVersionService] ⚠️  Warning: Supabase client URL not detected',
-      '\n  This may indicate:',
-      '\n  1. Environment variables not set during build',
-      '\n  2. Supabase client initialization failed',
-      '\n  3. Client created with undefined URL'
+      '[SchemaVersionService] Warning: Supabase client URL not detected - this may indicate initialization issues'
     );
   }
 
-  // Validate client URL before making request
-  if (
-    !clientUrl ||
-    clientUrl === 'undefined' ||
-    clientUrl.includes('undefined')
-  ) {
-    const errorMsg =
-      'Supabase client URL is invalid. This usually means environment variables ' +
-      'were not set during the build. For Expo web, environment variables must be ' +
-      'available at BUILD TIME, not runtime. Check Vercel environment variables.';
-    console.error('[SchemaVersionService]', errorMsg);
-    throw new Error(errorMsg);
-  }
-
   try {
+    // Try using fetch directly first (works better on deployed web)
+    // This matches the pattern used for regular queries that work
+    const useDirectFetch =
+      typeof window !== 'undefined' &&
+      AppConfig.supabaseUrl &&
+      AppConfig.supabaseAnonKey;
+
+    if (useDirectFetch) {
+      console.log(
+        '[SchemaVersionService] Using direct fetch for RPC call (web deployment)...'
+      );
+
+      try {
+        const fetchPromise = fetch(
+          `${AppConfig.supabaseUrl}/rest/v1/rpc/get_schema_info`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${AppConfig.supabaseAnonKey}`,
+              'Content-Type': 'application/json',
+              apikey: AppConfig.supabaseAnonKey || ''
+            },
+            body: JSON.stringify({})
+          }
+        ).then(async (response) => {
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `RPC call failed: ${response.status} ${response.statusText} - ${errorText}`
+            );
+          }
+          const data = (await response.json()) as unknown;
+          return { data, error: null };
+        });
+
+        const result = await withTimeout(
+          fetchPromise,
+          10000,
+          'Server schema version fetch timed out after 10 seconds'
+        );
+
+        const { data } = result;
+
+        if (data) {
+          // Success with direct fetch
+          if (typeof data !== 'object' || !('schema_version' in data)) {
+            throw new Error('Invalid schema info response from server');
+          }
+
+          const schemaInfo = data as ServerSchemaInfo;
+          console.log(
+            '[SchemaVersionService] Server schema version (via direct fetch):',
+            schemaInfo.schema_version
+          );
+
+          return schemaInfo.schema_version;
+        }
+      } catch (fetchError) {
+        console.warn(
+          '[SchemaVersionService] Direct fetch failed, falling back to Supabase client RPC:',
+          fetchError
+        );
+        // Fall through to Supabase client method
+      }
+    }
+
+    // Fallback to Supabase client RPC (works better locally)
+    console.log('[SchemaVersionService] Using Supabase client RPC method...');
+
     // Add a 10 second timeout to prevent hanging indefinitely
     // Convert PromiseLike to Promise explicitly
     const rpcCall = supabaseClient.rpc('get_schema_info');
     const rpcPromise = Promise.resolve(rpcCall);
-
-    console.log('[SchemaVersionService] Making RPC call with 10s timeout...');
 
     const result = await withTimeout(
       rpcPromise,
