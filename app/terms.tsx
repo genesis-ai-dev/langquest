@@ -88,7 +88,7 @@ function Terms() {
           </Pressable>
           <Pressable onPress={handleViewPrivacy}>
             <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
-              {t('viewFullPrivacy')} ryder
+              {t('viewFullPrivacy')}
             </Text>
           </Pressable>
         </View>
@@ -125,7 +125,7 @@ function Terms() {
             </View>
           </Pressable>
           <Button onPress={handleAcceptTerms} disabled={!termsAccepted}>
-            <Text>{t('accept')}</Text> ryder
+            <Text>{t('accept')}</Text>
           </Button>
         </View>
       )}

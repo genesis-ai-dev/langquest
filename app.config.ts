@@ -3,7 +3,9 @@ import { withPodfileProperties } from '@expo/config-plugins';
 import { ConfigContext, ExpoConfig } from 'expo/config';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
-const iconPath = './assets/images/langquest_icon_v1.png';
+const iconDark = './assets/icons/icon_dark.png';
+const iconLight = './assets/icons/icon_light.png';
+// const iconMono = './assets/icons/icon_mono.png';
 
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
@@ -14,8 +16,6 @@ function getAppName(variant: string) {
   switch (variant) {
     case 'development':
       return 'LangQuest (Dev)';
-    case 'preview':
-      return 'LangQuest (Preview)';
     case 'production':
       return 'LangQuest';
     default:
@@ -27,8 +27,6 @@ function getBundleIdentifier(variant: string) {
   switch (variant) {
     case 'development':
       return `${uniqueIdentifier}.dev`;
-    case 'preview':
-      return `${uniqueIdentifier}.preview`;
     case 'production':
       return uniqueIdentifier;
     default:
@@ -40,8 +38,6 @@ function getScheme(variant: string) {
   switch (variant) {
     case 'development':
       return 'langquest-dev';
-    case 'preview':
-      return 'langquest-preview';
     case 'production':
       return 'langquest';
     default:
@@ -58,15 +54,23 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       slug: 'langquest',
       version: '2.0.0',
       orientation: 'portrait',
-      icon: iconPath,
+      icon: iconLight,
       scheme: getScheme(appVariant),
       userInterfaceStyle: 'automatic',
       splash: {
-        image: './assets/images/icon.png',
-        resizeMode: 'contain',
-        backgroundColor: '#ffffff'
+        image: iconLight,
+        backgroundColor: '#f5f5ff',
+        dark: {
+          image: iconDark,
+          backgroundColor: '#131320'
+        }
       },
       ios: {
+        icon: {
+          light: iconLight,
+          dark: iconDark
+          // tinted: iconMono
+        },
         supportsTablet: true,
         requireFullScreen: true,
         bundleIdentifier: getBundleIdentifier(appVariant),
@@ -81,7 +85,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       android: {
         edgeToEdgeEnabled: true,
         adaptiveIcon: {
-          foregroundImage: iconPath,
+          foregroundImage: './assets/icons/adaptive-icon.png',
+          monochromeImage: './assets/icons/adaptive-icon-mono.png',
           backgroundColor: '#ffffff'
         },
         package: getBundleIdentifier(appVariant),
@@ -106,21 +111,13 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       web: {
         bundler: 'metro',
-        favicon: iconPath
+        favicon: iconLight
       },
       plugins: [
         'expo-font',
         'expo-router',
         // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        [
-          'expo-splash-screen',
-          {
-            image: './assets/images/icon.png',
-            resizeMode: 'contain',
-            backgroundColor: '#ffffff'
-          }
-        ],
         'expo-dev-client',
         ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
       ],
