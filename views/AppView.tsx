@@ -79,6 +79,19 @@ function AppViewContent() {
     }
   }, [isAuthenticated, authView, setAuthView]);
 
+  // Reset drawer state when auth state changes
+  // This ensures drawer closes when switching between anonymous and authenticated states
+  React.useEffect(() => {
+    setDrawerIsVisible(false);
+  }, [isAuthenticated, setDrawerIsVisible]);
+
+  // Close drawer when auth modal opens or closes
+  // Prevents drawer and auth modal from being visible simultaneously
+  React.useEffect(() => {
+    // Always close drawer when auth modal state changes (opens or closes)
+    setDrawerIsVisible(false);
+  }, [authView, setDrawerIsVisible]);
+
   // Block profile/settings/notifications views for anonymous users
   // Redirect to projects view if anonymous user tries to access these
   useEffect(() => {

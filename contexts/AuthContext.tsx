@@ -44,13 +44,15 @@ interface AuthContextType {
   ) => Promise<{ data: unknown; error: AuthError | null }>;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 export function useAuth() {
   const context = useContext(AuthContext);
   // Always call hooks unconditionally - get currentUser from localStore for fallback
   const currentUserFromStore = useLocalStore((state) => state.currentUser);
-  
+
   // If context is not available (e.g., component rendered before AuthProvider),
   // fall back to local store for anonymous state
   if (!context) {
@@ -84,7 +86,7 @@ export function useAuth() {
       }
     } as AuthContextType;
   }
-  
+
   return context;
 }
 
@@ -276,6 +278,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('[AuthContext] User signed out');
             setSessionType(null);
             await cleanupSystem();
+            // Clear authView from localStore to prevent showing auth modal after sign out
+            useLocalStore.getState().setAuthView(null);
             // Set system ready for anonymous browsing after sign out
             setIsSystemReady(true);
             break;

@@ -75,9 +75,9 @@ type TabType = 'my' | 'all';
 
 type Project = typeof project.$inferSelect;
 
-const { db } = system;
-
 export default function NextGenProjectsView() {
+  // Access db inside component to avoid module-level access before PowerSync is ready
+  const { db } = system;
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
   const setAuthView = useLocalStore((state) => state.setAuthView);

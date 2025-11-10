@@ -11,7 +11,6 @@ import LoadingView from '@/components/LoadingView';
 import { MigrationScreen } from '@/components/MigrationScreen';
 import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
-import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
 import ResetPasswordView from '@/views/ResetPasswordView';
 import { useRouter } from 'expo-router';
@@ -40,6 +39,7 @@ export default function App() {
     upgradeError
   } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const authView = useLocalStore((state) => state.authView);
   const router = useRouter();
 
   useDrizzleStudio();
@@ -65,7 +65,9 @@ export default function App() {
   }, [isLoading, dateTermsAccepted, router]);
 
   // Show loading while checking auth state
-  if (isLoading) {
+  // BUT: If authView is set (user is interacting with auth modal), keep showing AppView
+  // to prevent visual restart when isLoading changes
+  if (isLoading && !authView) {
     return (
       <AppWrapper>
         <LoadingView />
@@ -100,7 +102,9 @@ export default function App() {
     }
 
     // Authenticated but system still initializing
-    if (!isSystemReady) {
+    // BUT: If authView is set (auth modal was visible), keep showing AppView
+    // to prevent app from disappearing during system initialization after login
+    if (!isSystemReady && !authView) {
       return (
         <AppWrapper>
           <LoadingView />
@@ -123,7 +127,17 @@ export default function App() {
   }
 
   // Anonymous user - allow browsing (system ready is set immediately for anonymous)
+  // BUT: Show loading briefly during sign-out transition to prevent components from
+  // accessing system.db before PowerSync cleanup completes
   // System ready check is not needed for anonymous users as they use cloud-only queries
+  if (!isSystemReady) {
+    return (
+      <AppWrapper>
+        <LoadingView />
+      </AppWrapper>
+    );
+  }
+
   return (
     <AppWrapper>
       <AppView />
