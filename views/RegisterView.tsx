@@ -13,13 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, Pressable, View } from 'react-native';
@@ -35,6 +36,7 @@ export default function RegisterView({
   sharedAuthInfo?: SharedAuthInfo;
 }) {
   const { t } = useLocalization();
+  const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
 
@@ -65,6 +67,9 @@ export default function RegisterView({
 
   const { mutateAsync: register, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!isOnline) {
+        throw new Error(t('internetConnectionRequired') || 'Internet connection required to register');
+      }
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
         password: data.password.trim(),
@@ -246,10 +251,19 @@ export default function RegisterView({
             );
           }}
         />
+        {!isOnline && (
+          <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+            <WifiOffIcon size={20} className="text-destructive" />
+            <Text className="flex-1 text-sm text-destructive">
+              {t('internetConnectionRequired') || 'Internet connection required to register'}
+            </Text>
+          </View>
+        )}
         <View className="flex flex-col gap-2">
           <Button
             onPress={form.handleSubmit((data) => register(data))}
             loading={isPending}
+            disabled={!isOnline || isPending}
           >
             <Text>{t('register') || 'Register'}</Text>
           </Button>
@@ -261,7 +275,7 @@ export default function RegisterView({
             }
             variant="outline"
             className="border-border bg-input"
-            disabled={isPending}
+            disabled={isPending || !isOnline}
           >
             <Text>
               {t('returningHero') || 'Already have an account? Sign In'}

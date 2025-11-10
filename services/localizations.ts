@@ -5047,6 +5047,88 @@ export const localizations = {
       'Mipela save long ol samting yu laik block long account bilong yu. Plis register long ol samting i ken hide stret.',
     indonesian:
       'Kami menyimpan informasi tentang apa yang akan diblokir di akun Anda. Silakan daftar untuk memastikan konten yang diblokir dapat disembunyikan dengan benar.'
+  },
+  connected: {
+    english: 'Connected',
+    spanish: 'Conectado',
+    brazilian_portuguese: 'Conectado',
+    tok_pisin: 'i connect pinis',
+    indonesian: 'Terhubung'
+  },
+  downloadStatus: {
+    english: 'Download Status',
+    spanish: 'Estado de Descarga',
+    brazilian_portuguese: 'Status de Download',
+    tok_pisin: 'Download Status',
+    indonesian: 'Status Unduhan'
+  },
+  powersyncStatus: {
+    english: 'PowerSync Status',
+    spanish: 'Estado de PowerSync',
+    brazilian_portuguese: 'Status do PowerSync',
+    tok_pisin: 'PowerSync Status',
+    indonesian: 'Status PowerSync'
+  },
+  networkStatus: {
+    english: 'Network Status',
+    spanish: 'Estado de Red',
+    brazilian_portuguese: 'Status da Rede',
+    tok_pisin: 'Network Status',
+    indonesian: 'Status Jaringan'
+  },
+  attachmentDownloadProgress: {
+    english: 'Attachment Download Progress',
+    spanish: 'Progreso de Descarga de Archivos',
+    brazilian_portuguese: 'Progresso de Download de Anexos',
+    tok_pisin: 'Attachment Download Progress',
+    indonesian: 'Kemajuan Unduhan Lampiran'
+  },
+  overallProgress: {
+    english: 'Overall Progress',
+    spanish: 'Progreso General',
+    brazilian_portuguese: 'Progresso Geral',
+    tok_pisin: 'Overall Progress',
+    indonesian: 'Kemajuan Keseluruhan'
+  },
+  currentDownload: {
+    english: 'Current Download',
+    spanish: 'Descarga Actual',
+    brazilian_portuguese: 'Download Atual',
+    tok_pisin: 'Current Download',
+    indonesian: 'Unduhan Saat Ini'
+  },
+  queueStatus: {
+    english: 'Queue Status',
+    spanish: 'Estado de Cola',
+    brazilian_portuguese: 'Status da Fila',
+    tok_pisin: 'Queue Status',
+    indonesian: 'Status Antrian'
+  },
+  allSynced: {
+    english: 'All files synced',
+    spanish: 'Todos los archivos sincronizados',
+    brazilian_portuguese: 'Todos os arquivos sincronizados',
+    tok_pisin: 'Olgeta file i sync pinis',
+    indonesian: 'Semua file disinkronkan'
+  },
+  signInToViewDownloadStatus: {
+    english:
+      'Please sign in to view download status and sync information.',
+    spanish:
+      'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
+    brazilian_portuguese:
+      'Por favor, faça login para ver o status de download e informações de sincronização.',
+    tok_pisin:
+      'Plis sign in long lukim download status na sync info.',
+    indonesian:
+      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.'
+  },
+  unsynced: {
+    english: 'Unsynced',
+    spanish: 'No sincronizado',
+    brazilian_portuguese: 'Não sincronizado',
+    tok_pisin: 'i no sync yet',
+    indonesian: 'Tidak disinkronkan'
   }
 } as const;
 

@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -15,7 +16,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
@@ -65,23 +66,51 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
 
   const { t } = useLocalization();
+  const { isAuthenticated } = useAuth();
 
   const conditions = [
     eq(languageTable.active, true),
     uiReadyOnly && eq(languageTable.ui_ready, true)
   ];
 
+  // Factory function to create offline query conditionally
+  // This prevents PowerSync access warnings for anonymous users
+  const getOfflineQuery = useCallback(() => {
+    // For anonymous users, return a placeholder SQL string that won't access system.db
+    if (!isAuthenticated) {
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+
+    // Only create CompilableQuery when user is authenticated
+    // Check PowerSync status at query creation time
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        return 'SELECT * FROM language WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.language.findMany({
+          where: and(...conditions.filter(Boolean))
+        })
+      );
+    } catch (error) {
+      // If query creation fails, return placeholder
+      console.warn('Failed to create languages offline query, using placeholder:', error);
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+  }, [isAuthenticated, uiReadyOnly]);
+
+  // Create query lazily - only when needed
+  const offlineQuery = useMemo(() => getOfflineQuery(), [getOfflineQuery]);
+
   // Use useHybridData to fetch ALL languages (not just UI-ready ones)
+  // Always enabled - languages are needed for UI even for anonymous users (terms page, login, etc.)
   const { data: languages } = useHybridData({
     dataType: 'all-languages',
     queryKeyParams: [uiReadyOnly],
-
-    // PowerSync query using Drizzle - get all active languages
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: and(...conditions.filter(Boolean))
-      })
-    ),
+    offlineQuery,
+    enabled: true, // Always enabled - needed for anonymous users on terms/login pages
+    // Enable cloud queries for anonymous users (needed for terms page, login pages, etc.)
+    enableCloudQuery: true,
 
     // Cloud query - get all active languages
     cloudQueryFn: async () => {

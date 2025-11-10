@@ -1,3 +1,4 @@
+import type { LocalState } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { toColumns } from '@/utils/dbUtils';
 import type {
@@ -417,6 +418,16 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
     let downloadedSinceLastSpeedCalc = 0;
     let totalBytesDownloaded = 0;
 
+    // Internal state tracking to compare before updating store
+    let lastStoredCurrent = 0;
+    let lastStoredSpeed = 0;
+    let lastStoredBytesPerSec = 0;
+    let lastStoreUpdateTime = startTime;
+
+    // Throttle store updates to reduce re-renders
+    const COUNT_UPDATE_THROTTLE_MS = 200; // Update count at most every 200ms
+    const SPEED_UPDATE_THROTTLE_MS = 1000; // Update speed at most every 1s
+
     // Update store with download starting
     useLocalStore.getState().setAttachmentSyncProgress({
       downloading: true,
@@ -435,7 +446,7 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       const idsArray = Array.from(this.downloadQueue);
       this.downloadQueue.clear();
 
-      // Create a progress update function with speed calculation
+      // Create a progress update function with batched/throttled store updates
       const updateProgress = (bytesDownloaded?: number) => {
         downloaded++;
         downloadedSinceLastSpeedCalc++;
@@ -446,19 +457,37 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
         const now = Date.now();
         const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
         const totalElapsed = (now - startTime) / 1000; // total time since start
+        const timeSinceLastStoreUpdate = now - lastStoreUpdateTime;
 
-        // CRITICAL: Always update count immediately on every file
-        // This ensures per-file UI updates for responsive feel
+        // Calculate speed values (but don't update store yet)
         const shouldRecalcSpeed = timeSinceLastUpdate >= 0.2;
+        let filesPerSec = 0;
+        let bytesPerSec = 0;
 
         if (shouldRecalcSpeed) {
-          const filesPerSec =
+          filesPerSec =
             timeSinceLastUpdate > 0
               ? downloadedSinceLastSpeedCalc / timeSinceLastUpdate
               : downloadedSinceLastSpeedCalc / 0.2;
-          const bytesPerSec =
+          bytesPerSec =
             totalElapsed > 0 ? totalBytesDownloaded / totalElapsed : 0;
 
+          lastUpdateTime = now;
+          downloadedSinceLastSpeedCalc = 0;
+        }
+
+        // Only update store if values changed AND throttle period passed
+        const countChanged = downloaded !== lastStoredCurrent;
+        const speedChanged =
+          Math.abs(filesPerSec - lastStoredSpeed) > 0.1 ||
+          Math.abs(bytesPerSec - lastStoredBytesPerSec) > 1024; // 1KB difference
+
+        const shouldUpdateCount =
+          countChanged && timeSinceLastStoreUpdate >= COUNT_UPDATE_THROTTLE_MS;
+        const shouldUpdateSpeed =
+          speedChanged && timeSinceLastStoreUpdate >= SPEED_UPDATE_THROTTLE_MS;
+
+        if (shouldUpdateCount || shouldUpdateSpeed) {
           // Log every 50 files or when speed changes significantly
           if (downloaded % 50 === 0 || downloadedSinceLastSpeedCalc >= 10) {
             console.log(
@@ -466,21 +495,27 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
             );
           }
 
-          useLocalStore.getState().setAttachmentSyncProgress({
-            downloadCurrent: downloaded,
-            downloadSpeed: filesPerSec,
-            downloadBytesPerSec: bytesPerSec,
-            lastDownloadUpdate: now
-          });
+          // Update store only with changed values
+          const update: Partial<LocalState['attachmentSyncProgress']> = {};
 
-          lastUpdateTime = now;
-          downloadedSinceLastSpeedCalc = 0;
-        } else {
-          // Update progress count immediately (but keep previous speed values)
-          useLocalStore.getState().setAttachmentSyncProgress({
-            downloadCurrent: downloaded,
-            lastDownloadUpdate: now
-          });
+          if (shouldUpdateCount) {
+            update.downloadCurrent = downloaded;
+            update.lastDownloadUpdate = now;
+            lastStoredCurrent = downloaded;
+          }
+
+          if (shouldUpdateSpeed && shouldRecalcSpeed) {
+            update.downloadSpeed = filesPerSec;
+            update.downloadBytesPerSec = bytesPerSec;
+            lastStoredSpeed = filesPerSec;
+            lastStoredBytesPerSec = bytesPerSec;
+          }
+
+          // Only call store update if there are changes
+          if (Object.keys(update).length > 0) {
+            useLocalStore.getState().setAttachmentSyncProgress(update);
+            lastStoreUpdateTime = now;
+          }
         }
       };
 
@@ -558,6 +593,16 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
       let uploadedSinceLastSpeedCalc = 0;
       let totalBytesUploaded = 0;
 
+      // Internal state tracking to compare before updating store
+      let lastStoredCurrent = 0;
+      let lastStoredSpeed = 0;
+      let lastStoredBytesPerSec = 0;
+      let lastStoreUpdateTime = startTime;
+
+      // Throttle store updates to reduce re-renders
+      const COUNT_UPDATE_THROTTLE_MS = 200; // Update count at most every 200ms
+      const SPEED_UPDATE_THROTTLE_MS = 1000; // Update speed at most every 1s
+
       if (totalToUpload > 0) {
         // Update store with upload starting
         useLocalStore.getState().setAttachmentSyncProgress({
@@ -590,29 +635,55 @@ export abstract class AbstractSharedAttachmentQueue extends AbstractAttachmentQu
 
         const now = Date.now();
         const timeSinceLastUpdate = (now - lastUpdateTime) / 1000; // seconds
+        const timeSinceLastStoreUpdate = now - lastStoreUpdateTime;
 
-        // Calculate speed every 500ms minimum to reduce render thrashing
-        if (timeSinceLastUpdate >= 0.5) {
-          const filesPerSec = uploadedSinceLastSpeedCalc / timeSinceLastUpdate;
-          const bytesPerSec = totalBytesUploaded / ((now - startTime) / 1000);
+        // Calculate speed values (but don't update store yet)
+        const shouldRecalcSpeed = timeSinceLastUpdate >= 0.5;
+        let filesPerSec = 0;
+        let bytesPerSec = 0;
 
-          useLocalStore.getState().setAttachmentSyncProgress({
-            uploadCurrent: uploaded,
-            uploadTotal: totalToUpload,
-            uploadSpeed: filesPerSec,
-            uploadBytesPerSec: bytesPerSec,
-            lastUploadUpdate: now
-          });
+        if (shouldRecalcSpeed) {
+          filesPerSec = uploadedSinceLastSpeedCalc / timeSinceLastUpdate;
+          bytesPerSec = totalBytesUploaded / ((now - startTime) / 1000);
 
           lastUpdateTime = now;
           uploadedSinceLastSpeedCalc = 0;
-        } else {
-          // Still update progress count
-          useLocalStore.getState().setAttachmentSyncProgress({
-            uploadCurrent: uploaded,
-            uploadTotal: totalToUpload,
-            lastUploadUpdate: now
-          });
+        }
+
+        // Only update store if values changed AND throttle period passed
+        const countChanged = uploaded !== lastStoredCurrent;
+        const speedChanged =
+          Math.abs(filesPerSec - lastStoredSpeed) > 0.1 ||
+          Math.abs(bytesPerSec - lastStoredBytesPerSec) > 1024; // 1KB difference
+
+        const shouldUpdateCount =
+          countChanged && timeSinceLastStoreUpdate >= COUNT_UPDATE_THROTTLE_MS;
+        const shouldUpdateSpeed =
+          speedChanged && timeSinceLastStoreUpdate >= SPEED_UPDATE_THROTTLE_MS;
+
+        if (shouldUpdateCount || shouldUpdateSpeed) {
+          // Update store only with changed values
+          const update: Partial<LocalState['attachmentSyncProgress']> = {};
+
+          if (shouldUpdateCount) {
+            update.uploadCurrent = uploaded;
+            update.uploadTotal = totalToUpload;
+            update.lastUploadUpdate = now;
+            lastStoredCurrent = uploaded;
+          }
+
+          if (shouldUpdateSpeed && shouldRecalcSpeed) {
+            update.uploadSpeed = filesPerSec;
+            update.uploadBytesPerSec = bytesPerSec;
+            lastStoredSpeed = filesPerSec;
+            lastStoredBytesPerSec = bytesPerSec;
+          }
+
+          // Only call store update if there are changes
+          if (Object.keys(update).length > 0) {
+            useLocalStore.getState().setAttachmentSyncProgress(update);
+            lastStoreUpdateTime = now;
+          }
         }
 
         record = await this.getNextUploadRecord();

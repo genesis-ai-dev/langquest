@@ -75,28 +75,90 @@ function Drawer({
     }
   }, [isOpen]);
 
+  // Use ref to store onOpenChange to avoid recreating handleSetOpen when it changes
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+  
   const handleSetOpen = React.useCallback(
     (newOpen: boolean) => {
       setIsOpen(newOpen);
-      onOpenChange?.(newOpen);
+      onOpenChangeRef.current?.(newOpen);
       if (newOpen) {
         ref.current?.present();
       } else {
         ref.current?.dismiss();
       }
     },
-    [onOpenChange]
+    [] // Empty deps - use ref to access latest onOpenChange
   );
 
+  // Extract only stable props we need from drawerProps
+  // Don't spread drawerProps directly as it's a new object reference on every render
+  const stableSnapPoints = drawerProps.snapPoints;
+  const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
+  
+  // Memoize snapPoints array to prevent unnecessary re-renders
+  const memoizedSnapPoints = React.useMemo(
+    () => {
+      const serialized = JSON.stringify(stableSnapPoints);
+      if (__DEV__) {
+        console.log('[Drawer] Memoizing snapPoints:', serialized);
+      }
+      return stableSnapPoints;
+    },
+    [JSON.stringify(stableSnapPoints)]
+  );
+  
+  // Track previous values for debugging
+  const prevValuesRef = React.useRef({
+    ref,
+    isOpen,
+    handleSetOpen,
+    memoizedSnapPoints,
+    stableEnableDynamicSizing
+  });
+  
+  // Memoize context value to prevent re-renders when only isOpen changes
+  // Only include stable props that are actually used by DrawerContent
+  // Don't spread drawerProps - only include what's needed
+  const contextValue = React.useMemo(() => {
+    const newValue = {
+      ref,
+      open: isOpen,
+      setOpen: handleSetOpen,
+      snapPoints: memoizedSnapPoints,
+      enableDynamicSizing: stableEnableDynamicSizing
+    };
+    
+    if (__DEV__) {
+      const prev = prevValuesRef.current;
+      const changes: string[] = [];
+      if (prev.ref !== newValue.ref) changes.push('ref');
+      if (prev.isOpen !== newValue.open) changes.push(`isOpen: ${prev.isOpen} -> ${newValue.open}`);
+      if (prev.handleSetOpen !== newValue.setOpen) changes.push('handleSetOpen');
+      if (prev.memoizedSnapPoints !== newValue.snapPoints) changes.push('snapPoints');
+      if (prev.stableEnableDynamicSizing !== newValue.enableDynamicSizing) changes.push('enableDynamicSizing');
+      
+      if (changes.length > 0) {
+        console.log('[Drawer] Context value changed:', changes.join(', '));
+      }
+      
+      prevValuesRef.current = {
+        ref: newValue.ref,
+        isOpen: newValue.open,
+        handleSetOpen: newValue.setOpen,
+        memoizedSnapPoints: newValue.snapPoints,
+        stableEnableDynamicSizing: newValue.enableDynamicSizing
+      };
+    }
+    
+    return newValue;
+  }, [ref, isOpen, handleSetOpen, memoizedSnapPoints, stableEnableDynamicSizing]);
+
   return (
-    <DrawerContext.Provider
-      value={{
-        ref,
-        open: isOpen,
-        setOpen: handleSetOpen,
-        ...drawerProps
-      }}
-    >
+    <DrawerContext.Provider value={contextValue}>
       {children}
     </DrawerContext.Provider>
   );
@@ -173,6 +235,36 @@ const DrawerContent = React.forwardRef<
   } & Partial<React.ComponentProps<typeof BottomSheetView>>
 >(({ className, children, ...props }, _forwardedRef) => {
   const context = React.useContext(DrawerContext);
+  
+  // Track renders for debugging
+  const renderCountRef = React.useRef(0);
+  const prevContextRef = React.useRef(context);
+  
+  if (__DEV__) {
+    renderCountRef.current += 1;
+    const renderCount = renderCountRef.current;
+    
+    if (renderCount > 1 && prevContextRef.current !== context) {
+      const prev = prevContextRef.current;
+      const changes: string[] = [];
+      if (prev?.open !== context?.open) changes.push(`open: ${prev?.open} -> ${context?.open}`);
+      if (prev?.setOpen !== context?.setOpen) changes.push('setOpen');
+      if (prev?.snapPoints !== context?.snapPoints) changes.push('snapPoints');
+      if (prev?.enableDynamicSizing !== context?.enableDynamicSizing) changes.push('enableDynamicSizing');
+      if (prev?.ref !== context?.ref) changes.push('ref');
+      
+      console.log(`[DrawerContent] Render #${renderCount} - Context changed:`, changes.join(', '));
+      
+      if (renderCount > 10) {
+        console.warn(`[DrawerContent] ⚠️ High render count: ${renderCount} renders detected!`);
+      }
+    } else if (renderCount > 1) {
+      console.log(`[DrawerContent] Render #${renderCount} - Context unchanged (same reference)`);
+    }
+    
+    prevContextRef.current = context;
+  }
+  
   const {
     open: _open,
     setOpen: _setOpen,
@@ -180,13 +272,22 @@ const DrawerContent = React.forwardRef<
     snapPoints: _snapPoints,
     ...modalProps
   } = context ?? {};
+  // Extract setOpen to avoid depending on entire context object (which changes on every render)
+  const setOpen = context?.setOpen;
+  
+  const prevSetOpenRef = React.useRef(setOpen);
+  if (__DEV__ && prevSetOpenRef.current !== setOpen) {
+    console.log('[DrawerContent] setOpen changed:', prevSetOpenRef.current !== setOpen);
+    prevSetOpenRef.current = setOpen;
+  }
+  
   const handleSheetChanges = React.useCallback(
     (index: number) => {
       if (index === -1) {
-        context?.setOpen(false);
+        setOpen?.(false);
       }
     },
-    [context]
+    [setOpen]
   );
 
   const backgroundColor = useThemeColor('background');

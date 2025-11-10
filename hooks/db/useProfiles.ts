@@ -70,6 +70,7 @@ export function useUserMemberships(userId?: string) {
   const { data: membershipsData, isLoading } = useHybridData<ProfileProjectLink>({
     dataType: 'user-memberships',
     queryKeyParams: [user_id || ''],
+    enabled: !!user_id, // Only query if user ID exists
 
     // PowerSync query using Drizzle - this will be reactive!
     offlineQuery: toCompilableQuery(
@@ -83,6 +84,7 @@ export function useUserMemberships(userId?: string) {
 
     // Cloud query
     cloudQueryFn: async () => {
+      // Guard: return empty array if no user ID (anonymous users)
       if (!user_id) return [];
 
       const { data, error } = await system.supabaseConnector.client

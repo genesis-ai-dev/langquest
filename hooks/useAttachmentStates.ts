@@ -3,12 +3,10 @@ import type { AttachmentRecord } from '@powersync/attachments';
 import { ATTACHMENT_TABLE } from '@powersync/attachments';
 // Import from native SDK - will be empty on web
 import type { QueryResult as QueryResultNative } from '@powersync/react-native';
-// Import from web SDK - will be empty on native
-import type { QueryResult as QueryResultWeb } from '@powersync/web';
 import { useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
-import { system } from '../db/powersync/system';
 import { useAuth } from '../contexts/AuthContext';
+import { system } from '../db/powersync/system';
 // Use the correct type based on platform
 type QueryResult = QueryResultNative;
 
@@ -33,16 +31,20 @@ export function useAttachmentStates(
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
-      setIsLoading(false);
+      // Use setTimeout to avoid calling setState synchronously in effect
+      setTimeout(() => setIsLoading(false), 0);
       return;
     }
 
     // For anonymous users or when PowerSync isn't initialized, skip local queries
     // Audio will be loaded directly from Supabase storage URLs
     if (!isAuthenticated || !isPowerSyncReady) {
-      setIsLoading(false);
-      // Return empty map for anonymous users - audio will be handled via cloud URLs
-      setAttachmentStates(new Map());
+      // Use setTimeout to avoid calling setState synchronously in effect
+      setTimeout(() => {
+        setIsLoading(false);
+        // Return empty map for anonymous users - audio will be handled via cloud URLs
+        setAttachmentStates(new Map());
+      }, 0);
       return;
     }
 
@@ -50,10 +52,6 @@ export function useAttachmentStates(
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-
-    // Extract complex expression to a separate variable for dependency array
-    const sortedAttachmentIds = [...attachmentIds].sort();
-    const attachmentIdsKey = JSON.stringify(sortedAttachmentIds);
 
     // Build query based on whether we have specific IDs or want all records
     const query =
@@ -77,8 +75,8 @@ export function useAttachmentStates(
             if (results.rows?._array) {
               // Process in a single pass - more efficient than forEach
               const rows = results.rows._array;
-              for (let i = 0; i < rows.length; i++) {
-                const record = rows[i] as unknown as AttachmentRecord;
+              for (const row of rows) {
+                const record = row as unknown as AttachmentRecord;
                 newStates.set(record.id, record);
               }
             }
@@ -90,24 +88,16 @@ export function useAttachmentStates(
               clearTimeout(debounceTimeoutRef.current);
             }
 
-            // Dynamic debounce based on activity
-            const getDebounceTiming = () => {
-              const { useLocalStore } = require('../store/localStore');
-              const attachmentSyncProgress =
-                useLocalStore.getState().attachmentSyncProgress;
-              // Use shorter debounce during active sync for snappier feel
-              return attachmentSyncProgress.downloading ||
-                attachmentSyncProgress.uploading
-                ? 200 // 200ms during sync
-                : 500; // 500ms when idle
-            };
+            // Fixed debounce timing to avoid circular dependency with store
+            // Using 300ms as a balanced value for responsive UI without excessive updates
+            const DEBOUNCE_MS = 300;
 
             debounceTimeoutRef.current = setTimeout(() => {
               if (!abortController.signal.aborted) {
                 setAttachmentStates(new Map(newStates));
                 setIsLoading(false);
               }
-            }, getDebounceTiming());
+            }, DEBOUNCE_MS);
           });
         },
         onError: (err) => console.error('useAttachmentStates watch error', err)

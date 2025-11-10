@@ -12,13 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { LockIcon, MailIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
 import { Alert, Pressable, View } from 'react-native';
 import { z } from 'zod';
@@ -37,6 +38,7 @@ export default function SignInView({
 }) {
   const { t } = useLocalization();
   const router = useRouter();
+  const isOnline = useNetworkStatus();
 
   const formSchema = z.object({
     email: z
@@ -49,6 +51,9 @@ export default function SignInView({
 
   const { mutateAsync: login, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!isOnline) {
+        throw new Error(t('internetConnectionRequired') || 'Internet connection required to sign in');
+      }
       await supabaseConnector.login(
         data.email.toLowerCase().trim(),
         data.password.trim()
@@ -146,10 +151,19 @@ export default function SignInView({
             {t('forgotPassword')}
           </Text>
         </Pressable>
+        {!isOnline && (
+          <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+            <WifiOffIcon size={20} className="text-destructive" />
+            <Text className="flex-1 text-sm text-destructive">
+              {t('internetConnectionRequired') || 'Internet connection required to sign in'}
+            </Text>
+          </View>
+        )}
         <View className="flex flex-col gap-2">
           <Button
             onPress={form.handleSubmit((data) => login(data))}
             loading={isPending}
+            disabled={!isOnline || isPending}
           >
             <Text>{t('signIn')}</Text>
           </Button>
@@ -161,7 +175,7 @@ export default function SignInView({
             }
             variant="outline"
             className="border-border bg-input"
-            disabled={isPending}
+            disabled={isPending || !isOnline}
           >
             <Text>
               {t('newUser')} {t('register')}

@@ -11,8 +11,8 @@ import {
   View
 } from 'react-native';
 
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 
 // Lazy-load view components for instant navigation transitions
 // This prevents blocking the main thread with bundle loading
@@ -24,6 +24,9 @@ const CorruptedAttachmentsView = React.lazy(
 );
 const AccountDeletionView = React.lazy(
   () => import('@/views/AccountDeletionView')
+);
+const DownloadStatusView = React.lazy(
+  () => import('@/views/DownloadStatusView')
 );
 const NextGenAssetDetailView = React.lazy(
   () => import('@/views/new/NextGenAssetDetailView')
@@ -39,9 +42,9 @@ const ProjectDirectoryView = React.lazy(
 );
 
 // Common UI Components
-import { AuthModal } from '@/components/AuthModal';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
+import { AuthModal } from '@/components/AuthModal';
 import LoadingView from '@/components/LoadingView';
 import {
   CloudLoadingProvider,
@@ -63,6 +66,12 @@ function AppViewContent() {
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
 
+  // Memoize drawer toggle callback to prevent AppHeader re-renders
+  const drawerToggleCallback = React.useCallback(
+    () => setDrawerIsVisible((prev) => !prev),
+    []
+  );
+
   // Close auth modal when user becomes authenticated
   React.useEffect(() => {
     if (isAuthenticated && authView) {
@@ -74,7 +83,13 @@ function AppViewContent() {
   // Redirect to projects view if anonymous user tries to access these
   useEffect(() => {
     if (!isAuthenticated) {
-      const blockedViews: typeof currentView[] = ['profile', 'settings', 'notifications', 'corrupted-attachments', 'account-deletion'];
+      const blockedViews: (typeof currentView)[] = [
+        'profile',
+        'settings',
+        'notifications',
+        'corrupted-attachments',
+        'account-deletion'
+      ];
       if (blockedViews.includes(currentView)) {
         // Redirect anonymous users to projects view
         goToProjects();
@@ -142,6 +157,8 @@ function AppViewContent() {
         return <CorruptedAttachmentsView />;
       case 'account-deletion':
         return <AccountDeletionView />;
+      case 'download-status':
+        return <DownloadStatusView />;
       default:
         return <NextGenProjectsView />;
     }
@@ -153,7 +170,7 @@ function AppViewContent() {
       <View style={styles.contentContainer}>
         {/* App Header */}
         <AppHeader
-          drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+          drawerToggleCallback={drawerToggleCallback}
           isCloudLoading={isCloudLoading}
           isNavigating={isNavigating}
         />
