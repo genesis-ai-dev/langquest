@@ -718,7 +718,7 @@ export default function AppDrawer({
     });
   }
 
-  if (Platform.OS !== 'web') {
+  if (Platform.OS === 'android') {
     drawerItems.push({
       name: isBackingUp ? t('backingUp') : t('backup'),
       icon: SaveIcon,

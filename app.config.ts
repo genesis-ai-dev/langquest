@@ -3,34 +3,77 @@ import { withPodfileProperties } from '@expo/config-plugins';
 import { ConfigContext, ExpoConfig } from 'expo/config';
 
 const projectId = 'fafd03a9-a42c-44c7-849c-b0f84fbffe93';
-const iconPath = './assets/images/langquest_icon_v1.png';
+const iconDark = './assets/icons/icon_dark.png';
+const iconLight = './assets/icons/icon_light.png';
+// const iconMono = './assets/icons/icon_mono.png';
 
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
-const profile = process.env.EAS_BUILD_PROFILE;
+const appVariant = process.env.EXPO_PUBLIC_APP_VARIANT || 'production';
+
+function getAppName(variant: string) {
+  switch (variant) {
+    case 'development':
+      return 'LangQuest (Dev)';
+    case 'production':
+      return 'LangQuest';
+    default:
+      return 'LangQuest';
+  }
+}
+
+function getBundleIdentifier(variant: string) {
+  switch (variant) {
+    case 'development':
+      return `${uniqueIdentifier}.dev`;
+    case 'production':
+      return uniqueIdentifier;
+    default:
+      return uniqueIdentifier;
+  }
+}
+
+function getScheme(variant: string) {
+  switch (variant) {
+    case 'development':
+      return 'langquest-dev';
+    case 'production':
+      return 'langquest';
+    default:
+      return 'langquest';
+  }
+}
 
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod(
     {
       ...config,
       owner: 'eten-genesis',
-      name: 'LangQuest',
+      name: getAppName(appVariant),
       slug: 'langquest',
       version: '2.0.0',
       orientation: 'portrait',
-      icon: iconPath,
-      scheme: 'langquest',
-      userInterfaceStyle: 'dark',
+      icon: iconLight,
+      scheme: getScheme(appVariant),
+      userInterfaceStyle: 'automatic',
       splash: {
-        image: './assets/images/icon.png',
-        resizeMode: 'contain',
-        backgroundColor: '#ffffff'
+        image: iconLight,
+        backgroundColor: '#f5f5ff',
+        dark: {
+          image: iconDark,
+          backgroundColor: '#131320'
+        }
       },
       ios: {
+        icon: {
+          light: iconLight,
+          dark: iconDark
+          // tinted: iconMono
+        },
         supportsTablet: true,
         requireFullScreen: true,
-        bundleIdentifier: uniqueIdentifier,
+        bundleIdentifier: getBundleIdentifier(appVariant),
         config: {
           usesNonExemptEncryption: false
         },
@@ -42,10 +85,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       android: {
         edgeToEdgeEnabled: true,
         adaptiveIcon: {
-          foregroundImage: iconPath,
+          foregroundImage: './assets/icons/adaptive-icon.png',
+          monochromeImage: './assets/icons/adaptive-icon-mono.png',
           backgroundColor: '#ffffff'
         },
-        package: uniqueIdentifier,
+        package: getBundleIdentifier(appVariant),
         intentFilters: [
           {
             action: 'VIEW',
@@ -57,7 +101,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
                 pathPrefix: '/app'
               },
               {
-                scheme: 'langquest',
+                scheme: getScheme(appVariant),
                 host: siteHost
               }
             ],
@@ -67,22 +111,15 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       },
       web: {
         bundler: 'metro',
-        favicon: iconPath
+        favicon: iconLight
       },
       plugins: [
         'expo-font',
         'expo-router',
         // TODO: migrate existing localization to expo-localization
         'expo-localization',
-        [
-          'expo-splash-screen',
-          {
-            image: './assets/images/icon.png',
-            resizeMode: 'contain',
-            backgroundColor: '#ffffff'
-          }
-        ],
-        ['testflight-dev-deploy', { enabled: profile === 'development' }]
+        'expo-dev-client',
+        ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
       ],
       experiments: {
         typedRoutes: true,
