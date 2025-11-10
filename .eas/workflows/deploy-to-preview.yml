@@ -4,6 +4,7 @@ on:
   push:
     branches: ['dev']
     paths:
+      - '**'
       - '!**/*.md'
       - '!readme_images/**'
       - '!scripts/**'
