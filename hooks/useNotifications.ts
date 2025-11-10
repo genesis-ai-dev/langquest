@@ -43,31 +43,32 @@ export const useNotifications = () => {
   // Only query if user is authenticated and has an ID
   const userId = currentUser?.id;
   const shouldQueryOwnerProjects = !!userId && isAuthenticated;
-  
+
   const { data: ownerProjects } = useHybridData<{ project_id: string }>({
     dataType: 'owner-projects-count',
     queryKeyParams: [userId || 'anonymous'],
     enabled: shouldQueryOwnerProjects, // Only query if user ID exists and user is authenticated
 
     // PowerSync query using Drizzle - only create if we have a valid user ID
-    offlineQuery: shouldQueryOwnerProjects && userId
-      ? toCompilableQuery(
-          system.db.query.profile_project_link.findMany({
-            where: and(
-              eq(profile_project_link.profile_id, userId),
-              eq(profile_project_link.membership, 'owner'),
-              eq(profile_project_link.active, true)
-            ),
-            columns: { project_id: true }
-          })
-        )
-      : ('SELECT * FROM profile_project_link WHERE 1=0' as any), // Placeholder query when disabled
+    offlineQuery:
+      shouldQueryOwnerProjects && userId
+        ? toCompilableQuery(
+            system.db.query.profile_project_link.findMany({
+              where: and(
+                eq(profile_project_link.profile_id, userId),
+                eq(profile_project_link.membership, 'owner'),
+                eq(profile_project_link.active, true)
+              ),
+              columns: { project_id: true }
+            })
+          )
+        : ('SELECT * FROM profile_project_link WHERE 1=0' as any), // Placeholder query when disabled
 
     // Cloud query
     cloudQueryFn: async () => {
       // Guard: return empty array if no user ID (anonymous users or not yet loaded)
       if (!userId) return [];
-      
+
       const { data, error } = await system.supabaseConnector.client
         .from('profile_project_link')
         .select('project_id')

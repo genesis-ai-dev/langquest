@@ -216,7 +216,9 @@ export default function NextGenAssetDetailView() {
     [getProjectOfflineQuery]
   );
 
-  const { data: queriedProjectDataArray } = useHybridData({
+  const { data: queriedProjectDataArray } = useHybridData<
+    typeof project.$inferSelect
+  >({
     dataType: 'project-detail',
     queryKeyParams: [currentProjectId || ''],
     offlineQuery: projectOfflineQuery,
@@ -237,7 +239,9 @@ export default function NextGenAssetDetailView() {
 
   // Prefer passed data for instant rendering!
   const queriedProjectData = queriedProjectDataArray?.[0];
-  const projectData =
+  const projectData:
+    | (typeof project.$inferSelect & { source?: 'local' | 'synced' | 'cloud' })
+    | undefined =
     (currentProjectData as typeof queriedProjectData) || queriedProjectData;
 
   // Derive translation language ID from project data instead of storing in state
@@ -369,7 +373,9 @@ export default function NextGenAssetDetailView() {
     [getLanguagesOfflineQuery]
   );
 
-  const { data: contentLanguages = [] } = useHybridData({
+  const { data: contentLanguages = [] } = useHybridData<
+    typeof languageTable.$inferSelect
+  >({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
     offlineQuery: languagesOfflineQuery,
@@ -408,6 +414,7 @@ export default function NextGenAssetDetailView() {
         }
 
         // For anonymous users, get cloud URLs from Supabase storage
+        const isPowerSyncReady = system.isPowerSyncInitialized();
         if (!isAuthenticated || !isPowerSyncReady) {
           // Get public URL from Supabase storage
           try {

@@ -52,7 +52,7 @@ export default function SignInView({
   const { mutateAsync: login, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
-        throw new Error(t('internetConnectionRequired') || 'Internet connection required to sign in');
+        throw new Error(t('internetConnectionRequired'));
       }
       await supabaseConnector.login(
         data.email.toLowerCase().trim(),
@@ -155,7 +155,7 @@ export default function SignInView({
           <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
             <WifiOffIcon size={20} className="text-destructive" />
             <Text className="flex-1 text-sm text-destructive">
-              {t('internetConnectionRequired') || 'Internet connection required to sign in'}
+              {t('internetConnectionRequired')}
             </Text>
           </View>
         )}

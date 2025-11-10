@@ -105,7 +105,7 @@ export default function NextGenNewTranslationModal({
         .select('*')
         .eq('id', currentProjectId)
         .limit(1)
-        .overrideTypes<typeof project.$inferSelect[]>();
+        .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
       return data;
     },
@@ -122,7 +122,7 @@ export default function NextGenNewTranslationModal({
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private as boolean | undefined
+    (projectData as Record<string, unknown>)?.private as boolean | undefined
   );
 
   // Debug logging for context

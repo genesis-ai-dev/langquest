@@ -2758,6 +2758,13 @@ export const localizations = {
     tok_pisin: 'i download nau',
     indonesian: 'mengunduh'
   },
+  uploading: {
+    english: 'uploading',
+    spanish: 'subiendo',
+    brazilian_portuguese: 'enviando',
+    tok_pisin: 'i upload nau',
+    indonesian: 'mengunggah'
+  },
   files: {
     english: 'files',
     spanish: 'archivos',
@@ -2778,6 +2785,13 @@ export const localizations = {
     brazilian_portuguese: 'última sincronização',
     tok_pisin: 'las sync',
     indonesian: 'sinkron terakhir'
+  },
+  never: {
+    english: 'Never',
+    spanish: 'Nunca',
+    brazilian_portuguese: 'Nunca',
+    tok_pisin: 'Nogat',
+    indonesian: 'Tidak pernah'
   },
   unknown: {
     english: 'unknown',
@@ -3740,6 +3754,13 @@ export const localizations = {
       'Algumas configurações requerem uma conexão com a internet',
     tok_pisin: 'Sampela settings i nidim internet connection',
     indonesian: 'Beberapa pengaturan memerlukan koneksi internet'
+  },
+  internetConnectionRequired: {
+    english: 'Internet connection required',
+    spanish: 'Se requiere conexión a internet',
+    brazilian_portuguese: 'Conexão com a internet necessária',
+    tok_pisin: 'Internet connection i mas',
+    indonesian: 'Koneksi internet diperlukan'
   },
   clear: {
     english: 'Clear',
@@ -5097,6 +5118,13 @@ export const localizations = {
     tok_pisin: 'Current Download',
     indonesian: 'Unduhan Saat Ini'
   },
+  currentUpload: {
+    english: 'Current Upload',
+    spanish: 'Carga Actual',
+    brazilian_portuguese: 'Upload Atual',
+    tok_pisin: 'Current Upload',
+    indonesian: 'Unggahan Saat Ini'
+  },
   queueStatus: {
     english: 'Queue Status',
     spanish: 'Estado de Cola',
@@ -5112,14 +5140,12 @@ export const localizations = {
     indonesian: 'Semua file disinkronkan'
   },
   signInToViewDownloadStatus: {
-    english:
-      'Please sign in to view download status and sync information.',
+    english: 'Please sign in to view download status and sync information.',
     spanish:
       'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
     brazilian_portuguese:
       'Por favor, faça login para ver o status de download e informações de sincronização.',
-    tok_pisin:
-      'Plis sign in long lukim download status na sync info.',
+    tok_pisin: 'Plis sign in long lukim download status na sync info.',
     indonesian:
       'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.'
   },

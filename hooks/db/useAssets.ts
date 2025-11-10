@@ -1129,9 +1129,7 @@ export function useAssetsByQuest(
       // Authenticated users can see their own hidden assets if showHiddenContent is true
       if (!showHiddenContent) {
         // Show only visible assets
-        query = query
-          .eq('visible', true)
-          .filter('asset.visible', 'eq', true);
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
       } else if (currentUser?.id) {
         // Show all assets, but still filter by link visibility for non-creators
         // For creators, show all their assets even if hidden
@@ -1140,9 +1138,7 @@ export function useAssetsByQuest(
         );
       } else {
         // Anonymous users with showHiddenContent=true still only see visible (for safety)
-        query = query
-          .eq('visible', true)
-          .filter('asset.visible', 'eq', true);
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
       }
 
       // Add search filtering
@@ -1154,15 +1150,13 @@ export function useAssetsByQuest(
       query = query.order('created_at', { ascending: true });
 
       // Add pagination
-      const { data, error } = await query
-        .range(from, to)
-        .overrideTypes<
-          {
-            visible: boolean;
-            active: boolean;
-            asset: Asset;
-          }[]
-        >();
+      const { data, error } = await query.range(from, to).overrideTypes<
+        {
+          visible: boolean;
+          active: boolean;
+          asset: Asset;
+        }[]
+      >();
 
       if (error) throw error;
 

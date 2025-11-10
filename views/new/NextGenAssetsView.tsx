@@ -789,7 +789,10 @@ export default function NextGenAssetsView() {
 
                   Alert.alert(
                     t('publishChapter'),
-                    t('publishChapterMessage').replace('{questName}', questName),
+                    t('publishChapterMessage').replace(
+                      '{questName}',
+                      questName
+                    ),
                     [
                       {
                         text: t('cancel'),

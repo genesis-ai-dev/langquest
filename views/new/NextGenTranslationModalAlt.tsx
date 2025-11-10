@@ -13,7 +13,7 @@ import { useLocalStore } from '@/store/localStore';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { asset } from '@/db/drizzleSchema';
+import { asset, asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -86,7 +86,20 @@ function useNextGenTranslation(assetId: string) {
     );
   }, [assetId, isPowerSyncReady, isAuthenticated]);
 
-  return useHybridData({
+  return useHybridData<
+    Omit<typeof asset.$inferSelect, 'images'> & {
+      images: string[];
+      content: (typeof asset_content_link.$inferSelect)[];
+      votes: Array<{
+        id: string;
+        asset_id: string;
+        creator_id: string;
+        polarity: 'up' | 'down';
+        active: boolean;
+        created_at: string;
+      }>;
+    }
+  >({
     dataType: 'translation',
     queryKeyParams: [assetId],
     offlineQuery,
@@ -505,31 +518,31 @@ export default function NextGenTranslationModal({
                       {/* Voting Section with PrivateAccessGate */}
                       {!isOwnTranslation &&
                         !isEditing &&
-                        !hasReported && (
-                          // Show login prompt for anonymous users
-                          !isAuthenticated ? (
-                            <Alert icon={UserCircleIcon}>
-                              <AlertTitle>
-                                {t('pleaseLogInToVoteOnTranslations')}
-                              </AlertTitle>
-                              <Button
-                                onPress={() => {
-                                  onOpenChange(false);
-                                  setAuthView('sign-in');
-                                }}
-                                className="mt-4"
-                              >
-                                <Text>{t('signIn') || 'Sign In'}</Text>
-                              </Button>
-                            </Alert>
-                          ) : (
-                            <PrivateAccessGate
-                              projectId={projectId || ''}
-                              projectName={projectName || ''}
-                              isPrivate={isPrivateProject}
-                              action="vote"
-                              inline={true}
+                        !hasReported &&
+                        // Show login prompt for anonymous users
+                        (!isAuthenticated ? (
+                          <Alert icon={UserCircleIcon}>
+                            <AlertTitle>
+                              {t('pleaseLogInToVoteOnTranslations')}
+                            </AlertTitle>
+                            <Button
+                              onPress={() => {
+                                onOpenChange(false);
+                                setAuthView('sign-in');
+                              }}
+                              className="mt-4"
                             >
+                              <Text>{t('signIn') || 'Sign In'}</Text>
+                            </Button>
+                          </Alert>
+                        ) : (
+                          <PrivateAccessGate
+                            projectId={projectId || ''}
+                            projectName={projectName || ''}
+                            isPrivate={isPrivateProject}
+                            action="vote"
+                            inline={true}
+                          >
                             <View className="flex-col gap-2.5">
                               <View className="border-b border-foreground">
                                 <Text className="text-center text-base font-bold text-foreground">
@@ -604,9 +617,8 @@ export default function NextGenTranslationModal({
                                 </Button>
                               </View>
                             </View>
-                            </PrivateAccessGate>
-                          )
-                        )}
+                          </PrivateAccessGate>
+                        ))}
                       {isOwnTranslation ? (
                         <TranslationSettingsModal
                           isVisible={showSettingsModal}

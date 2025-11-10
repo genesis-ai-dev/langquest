@@ -575,9 +575,7 @@ export default function NextGenProjectsView() {
 
   // Only fetch invited projects if authenticated and on "my" tab
   const { data: invitedProjectsData = [] } =
-    isAuthenticated && activeTab === 'my'
-      ? invitedProjectsQuery
-      : { data: [] };
+    isAuthenticated && activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -766,7 +764,9 @@ export default function NextGenProjectsView() {
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 />
                 {currentUser && (
-                  <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
+                  <DrawerTrigger
+                    className={buttonVariants({ size: 'icon-lg' })}
+                  >
                     <Icon as={PlusIcon} className="text-primary-foreground" />
                   </DrawerTrigger>
                 )}
@@ -777,7 +777,7 @@ export default function NextGenProjectsView() {
 
         {/* Show project list only if not showing login invitation */}
         {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
-        (isFetchingProjects && searchQuery && data.length === 0) ? (
+          (isFetchingProjects && searchQuery && data.length === 0) ? (
           <ProjectListSkeleton />
         ) : (
           <LegendList

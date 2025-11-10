@@ -36,4 +36,3 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
     </Modal>
   );
 }
-

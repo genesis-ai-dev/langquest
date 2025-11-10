@@ -145,7 +145,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
       );
     } catch (error) {
       // If query creation fails, return placeholder
-      console.warn('Failed to create languages offline query, using placeholder:', error);
+      console.warn(
+        'Failed to create languages offline query, using placeholder:',
+        error
+      );
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
   }, [isAuthenticated, uiReadyOnly, searchConditions, INITIAL_LANGUAGE_LIMIT]);
@@ -154,7 +157,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   const offlineQuery = useMemo(() => getOfflineQuery(), [getOfflineQuery]);
 
   // Use useHybridData to fetch languages - debounced search triggers new queries
-  const { data: languages, isLoading } = useHybridData({
+  const { data: languages, isLoading } = useHybridData<Language>({
     dataType: 'all-languages',
     queryKeyParams: [uiReadyOnly, debouncedSearchQuery.trim()], // Include search in query key
     enabled: true, // Always enabled - limited query is fast
@@ -171,7 +174,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         .from('language')
         .select('*')
         .eq('active', true);
-      
+
       if (uiReadyOnly) query = query.eq('ui_ready', true);
 
       // Add search filtering if search query exists
@@ -184,7 +187,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
       const { data, error } = await query.overrideTypes<Language[]>();
       if (error) throw error;
-      
+
       // Sort client-side to match offline query ordering
       return data.sort((a, b) => {
         // UI-ready languages first

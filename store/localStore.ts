@@ -324,8 +324,9 @@ export const useLocalStore = create<LocalState>()(
 
       // Attachment sync methods with batching to prevent rapid updates
       setAttachmentSyncProgress: (() => {
-        let pendingUpdate: Partial<LocalState['attachmentSyncProgress']> | null =
-          null;
+        let pendingUpdate: Partial<
+          LocalState['attachmentSyncProgress']
+        > | null = null;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
         const BATCH_DELAY_MS = 50; // Batch updates within 50ms
 
@@ -348,14 +349,13 @@ export const useLocalStore = create<LocalState>()(
                 const updated = { ...current, ...pendingUpdate };
 
                 // Only update if values actually changed
-                const hasChanges =
-                  Object.keys(pendingUpdate!).some(
-                    (key) =>
-                      current[
-                        key as keyof LocalState['attachmentSyncProgress']
-                      ] !==
-                      updated[key as keyof LocalState['attachmentSyncProgress']]
-                  );
+                const hasChanges = Object.keys(pendingUpdate!).some(
+                  (key) =>
+                    current[
+                      key as keyof LocalState['attachmentSyncProgress']
+                    ] !==
+                    updated[key as keyof LocalState['attachmentSyncProgress']]
+                );
 
                 if (!hasChanges) {
                   return state; // No changes, return same state

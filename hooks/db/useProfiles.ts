@@ -67,36 +67,37 @@ export function useUserMemberships(userId?: string) {
   const { currentUser } = useAuth();
   const user_id = userId || currentUser?.id;
 
-  const { data: membershipsData, isLoading } = useHybridData<ProfileProjectLink>({
-    dataType: 'user-memberships',
-    queryKeyParams: [user_id || ''],
-    enabled: !!user_id, // Only query if user ID exists
+  const { data: membershipsData, isLoading } =
+    useHybridData<ProfileProjectLink>({
+      dataType: 'user-memberships',
+      queryKeyParams: [user_id || ''],
+      enabled: !!user_id, // Only query if user ID exists
 
-    // PowerSync query using Drizzle - this will be reactive!
-    offlineQuery: toCompilableQuery(
-      system.db.query.profile_project_link.findMany({
-        where: and(
-          eq(profile_project_link.profile_id, user_id || ''),
-          eq(profile_project_link.active, true)
-        )
-      })
-    ),
+      // PowerSync query using Drizzle - this will be reactive!
+      offlineQuery: toCompilableQuery(
+        system.db.query.profile_project_link.findMany({
+          where: and(
+            eq(profile_project_link.profile_id, user_id || ''),
+            eq(profile_project_link.active, true)
+          )
+        })
+      ),
 
-    // Cloud query
-    cloudQueryFn: async () => {
-      // Guard: return empty array if no user ID (anonymous users)
-      if (!user_id) return [];
+      // Cloud query
+      cloudQueryFn: async () => {
+        // Guard: return empty array if no user ID (anonymous users)
+        if (!user_id) return [];
 
-      const { data, error } = await system.supabaseConnector.client
-        .from('profile_project_link')
-        .select('*')
-        .eq('profile_id', user_id)
-        .eq('active', true);
+        const { data, error } = await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('*')
+          .eq('profile_id', user_id)
+          .eq('active', true);
 
-      if (error) throw error;
-      return data as ProfileProjectLink[];
-    }
-  });
+        if (error) throw error;
+        return data as ProfileProjectLink[];
+      }
+    });
 
   // Ensure memberships is always an array
   const memberships = Array.isArray(membershipsData) ? membershipsData : [];

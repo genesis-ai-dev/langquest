@@ -504,7 +504,9 @@ export default function ProjectDirectoryView() {
   const handleDownloadClick = async (questId: string) => {
     // Anonymous users cannot download - this should not be called, but guard anyway
     if (!currentUser) {
-      console.log('[ProjectDirectoryView] Download requested but user is anonymous');
+      console.log(
+        '[ProjectDirectoryView] Download requested but user is anonymous'
+      );
       return;
     }
 

@@ -44,7 +44,7 @@ export default function DownloadStatusView() {
   // Format last sync time
   const formattedLastSync = useMemo(() => {
     if (!powerSyncStatus.lastSyncedAt) {
-      return t('never') || 'Never';
+      return t('never');
     }
     try {
       return powerSyncStatus.lastSyncedAt.toLocaleString();
@@ -55,12 +55,27 @@ export default function DownloadStatusView() {
 
   // Format download speed
   const formattedDownloadSpeed = useMemo(() => {
-    if (!syncProgress.downloading || syncProgress.downloadSpeed <= 0) {
+    if (!syncProgress.downloading || !('downloadSpeed' in syncProgress)) {
       return null;
     }
 
-    const speed = syncProgress.downloadSpeed;
-    const bytesPerSec = syncProgress.downloadBytesPerSec;
+    const speed = (
+      syncProgress as typeof syncProgress & {
+        downloadSpeed: number;
+        downloadBytesPerSec: number;
+      }
+    ).downloadSpeed;
+    if (speed <= 0) {
+      return null;
+    }
+
+    const bytesPerSec =
+      (
+        syncProgress as typeof syncProgress & {
+          downloadSpeed: number;
+          downloadBytesPerSec: number;
+        }
+      ).downloadBytesPerSec ?? 0;
 
     const filesPerSec = speed.toFixed(1);
 
@@ -75,8 +90,8 @@ export default function DownloadStatusView() {
     return `${filesPerSec} files/s`;
   }, [
     syncProgress.downloading,
-    syncProgress.downloadSpeed,
-    syncProgress.downloadBytesPerSec
+    'downloadSpeed' in syncProgress ? syncProgress.downloadSpeed : 0,
+    'downloadBytesPerSec' in syncProgress ? syncProgress.downloadBytesPerSec : 0
   ]);
 
   // Calculate download progress percentage
@@ -294,18 +309,19 @@ export default function DownloadStatusView() {
                 <View className="gap-2">
                   <View className="flex-row items-center justify-between">
                     <Text className="text-sm font-medium text-foreground">
-                      {t('currentUpload') || 'Current Upload'}
+                      {t('currentUpload')}
                     </Text>
                     <Text className="text-sm text-muted-foreground">
-                      {syncProgress.uploadCurrent}/
-                      {syncProgress.uploadTotal}
+                      {syncProgress.uploadCurrent}/{syncProgress.uploadTotal}
                     </Text>
                   </View>
                   <Progress
                     value={
                       syncProgress.uploadTotal === 0
                         ? 0
-                        : (syncProgress.uploadCurrent / syncProgress.uploadTotal) * 100
+                        : (syncProgress.uploadCurrent /
+                            syncProgress.uploadTotal) *
+                          100
                     }
                     className="h-2"
                   />
@@ -337,7 +353,7 @@ export default function DownloadStatusView() {
                   {progress.uploading > 0 && (
                     <Badge variant="default" className="bg-green-500 px-3 py-1">
                       <Text className="text-xs">
-                        {t('uploading') || 'Uploading'}: {progress.uploading}
+                        {t('uploading')}: {progress.uploading}
                       </Text>
                     </Badge>
                   )}

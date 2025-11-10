@@ -140,7 +140,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
 
   // Disable offline queries for anonymous users (cloud-only browsing)
   // Anonymous users should only use cloud queries with TanStack Query caching
-  const shouldEnableOfflineQuery = enableOfflineQuery && enabled && isAuthenticated;
+  const shouldEnableOfflineQuery =
+    enableOfflineQuery && enabled && isAuthenticated;
 
   // Fetch offline data using PowerSync's useQuery
   const {

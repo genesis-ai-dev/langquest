@@ -94,7 +94,10 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
       );
     } catch (error) {
       // If query creation fails, return placeholder
-      console.warn('Failed to create languages offline query, using placeholder:', error);
+      console.warn(
+        'Failed to create languages offline query, using placeholder:',
+        error
+      );
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
   }, [isAuthenticated, uiReadyOnly]);
@@ -104,7 +107,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
 
   // Use useHybridData to fetch ALL languages (not just UI-ready ones)
   // Always enabled - languages are needed for UI even for anonymous users (terms page, login, etc.)
-  const { data: languages } = useHybridData({
+  const { data: languages } = useHybridData<Language>({
     dataType: 'all-languages',
     queryKeyParams: [uiReadyOnly],
     offlineQuery,

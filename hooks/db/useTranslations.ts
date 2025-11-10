@@ -239,8 +239,7 @@ export function useTargetAssetsWithVoteCountByAssetId(
       let transformedData = data.map((item) => {
         // Calculate net_votes if not provided
         const netVotes =
-          (item.net_votes || 0) ||
-          ((item.up_votes || 0) - (item.down_votes || 0));
+          item.net_votes || 0 || (item.up_votes || 0) - (item.down_votes || 0);
 
         return {
           ...item,
@@ -252,8 +251,8 @@ export function useTargetAssetsWithVoteCountByAssetId(
           audio: Array.isArray(item.audio)
             ? item.audio.filter(Boolean)
             : item.audio
-            ? [item.audio]
-            : null
+              ? [item.audio]
+              : null
         } as AssetWithVoteCount;
       });
 

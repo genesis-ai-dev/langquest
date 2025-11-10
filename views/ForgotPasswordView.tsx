@@ -47,7 +47,7 @@ export default function ForgotPasswordView({
   const { mutateAsync: resetPassword, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
-        throw new Error(t('internetConnectionRequired') || 'Internet connection required to reset password');
+        throw new Error(t('internetConnectionRequired'));
       }
       const { error } =
         await supabaseConnector.client.auth.resetPasswordForEmail(data.email);
@@ -116,7 +116,7 @@ export default function ForgotPasswordView({
             <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
               <WifiOffIcon size={20} className="text-destructive" />
               <Text className="flex-1 text-sm text-destructive">
-                {t('internetConnectionRequired') || 'Internet connection required to reset password'}
+                {t('internetConnectionRequired')}
               </Text>
             </View>
           )}

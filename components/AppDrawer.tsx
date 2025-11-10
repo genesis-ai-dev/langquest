@@ -13,9 +13,9 @@ import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
+import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
-import { usePowerSyncStatus } from '@powersync/react-native';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {

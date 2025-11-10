@@ -109,15 +109,17 @@ export function usePowerSyncStatus(): PowerSyncStatus {
   }, [updateStatus]);
 
   // Memoize the returned status to ensure stable reference when values don't change
-  return useMemo(() => status, [
-    status.connected,
-    status.connecting,
-    status.downloading,
-    status.uploading,
-    status.hasSynced,
-    status.downloadError,
-    status.uploadError
-    // Intentionally exclude lastSyncedAt from deps to prevent re-renders
-  ]);
+  return useMemo(
+    () => status,
+    [
+      status.connected,
+      status.connecting,
+      status.downloading,
+      status.uploading,
+      status.hasSynced,
+      status.downloadError,
+      status.uploadError
+      // Intentionally exclude lastSyncedAt from deps to prevent re-renders
+    ]
+  );
 }
-
