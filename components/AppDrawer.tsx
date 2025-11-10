@@ -9,11 +9,13 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import { usePowerSyncStatus } from '@powersync/react-native';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {
@@ -22,6 +24,7 @@ import {
   CheckCircle2,
   CloudDownload,
   CloudOff,
+  CloudUpload,
   HomeIcon,
   LogOutIcon,
   RefreshCw,
@@ -32,8 +35,6 @@ import {
 import React, { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { Badge } from './ui/badge';
-import { usePowerSyncStatus } from '@powersync/react-native';
-import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 
 interface DrawerItemType {
   name: string;
@@ -76,7 +77,7 @@ export default function AppDrawer({
 
   // Get attachment progress - hook handles enabled state internally
   // Only query when drawer is visible and user is authenticated
-  const { progress: stableProgress } = useAttachmentProgress(
+  const { progress: stableProgress, syncProgress } = useAttachmentProgress(
     drawerIsVisible && isAuthenticated
   );
 
@@ -368,22 +369,32 @@ export default function AppDrawer({
             </View>
           )}
 
-          {/* Attachment Download Progress - Compact */}
+          {/* Attachment Sync Progress - Compact with Download/Upload */}
           {isAuthenticated && drawerIsVisible && stableProgress.total > 0 && (
             <View className="rounded-md bg-muted p-2">
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-1 flex-row items-center gap-2">
-                  <Icon
-                    as={CloudDownload}
-                    size={14}
-                    className={cn(
-                      stableProgress.hasActivity
-                        ? 'text-primary'
-                        : stableProgress.synced === stableProgress.total
+                  <View className="flex-row items-center gap-1">
+                    <Icon
+                      as={CloudDownload}
+                      size={12}
+                      className={cn(
+                        stableProgress.downloading > 0 ||
+                          syncProgress.downloading
+                          ? 'text-blue-500'
+                          : 'text-muted-foreground'
+                      )}
+                    />
+                    <Icon
+                      as={CloudUpload}
+                      size={12}
+                      className={cn(
+                        stableProgress.uploading > 0 || syncProgress.uploading
                           ? 'text-green-500'
                           : 'text-muted-foreground'
-                    )}
-                  />
+                      )}
+                    />
+                  </View>
                   <View className="flex-1">
                     <View className="flex-row items-center gap-1.5">
                       <Text className="text-xs text-foreground">
@@ -391,25 +402,70 @@ export default function AppDrawer({
                         {t('files')}
                       </Text>
                       {stableProgress.hasActivity && (
-                        <Text className="text-xs text-primary">
-                          {stableProgress.downloading > 0
-                            ? `↓${stableProgress.downloading}`
-                            : stableProgress.queued > 0
-                              ? `⏳${stableProgress.queued}`
-                              : ''}
-                        </Text>
+                        <View className="flex-row items-center gap-1">
+                          {stableProgress.downloading > 0 ||
+                          syncProgress.downloading ? (
+                            <Text className="text-xs text-blue-500">
+                              ↓
+                              {syncProgress.downloading
+                                ? `${syncProgress.downloadCurrent}/${syncProgress.downloadTotal}`
+                                : stableProgress.downloading}
+                            </Text>
+                          ) : null}
+                          {stableProgress.uploading > 0 ||
+                          syncProgress.uploading ? (
+                            <Text className="text-xs text-green-500">
+                              ↑
+                              {syncProgress.uploading
+                                ? `${syncProgress.uploadCurrent}/${syncProgress.uploadTotal}`
+                                : stableProgress.uploading}
+                            </Text>
+                          ) : null}
+                          {stableProgress.queued > 0 &&
+                            !syncProgress.downloading &&
+                            !syncProgress.uploading && (
+                              <Text className="text-xs text-muted-foreground">
+                                ⏳{stableProgress.queued}
+                              </Text>
+                            )}
+                        </View>
                       )}
                     </View>
-                    {stableProgress.total > 0 && (
-                      <View className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted-foreground/20">
+                    {/* Stacked progress bars - download from top, upload from bottom */}
+                    <View className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-muted-foreground/20">
+                      {/* Overall sync progress background (shows synced/total) */}
+                      {stableProgress.total > 0 && (
                         <View
-                          className="h-full bg-primary transition-all"
+                          className="absolute left-0 right-0 bg-primary/30 transition-all"
                           style={{
+                            top: 0,
+                            bottom: 0,
                             width: `${(stableProgress.synced / stableProgress.total) * 100}%`
                           }}
                         />
-                      </View>
-                    )}
+                      )}
+                      {/* Download progress bar (from top, blue) - overlays on top */}
+                      {syncProgress.downloading &&
+                        syncProgress.downloadTotal > 0 && (
+                          <View
+                            className="absolute left-0 right-0 bg-blue-500 transition-all"
+                            style={{
+                              top: 0,
+                              height: `${(syncProgress.downloadCurrent / syncProgress.downloadTotal) * 100}%`
+                            }}
+                          />
+                        )}
+                      {/* Upload progress bar (from bottom, green) - overlays on bottom */}
+                      {syncProgress.uploading &&
+                        syncProgress.uploadTotal > 0 && (
+                          <View
+                            className="absolute bottom-0 left-0 right-0 bg-green-500 transition-all"
+                            style={{
+                              height: `${(syncProgress.uploadCurrent / syncProgress.uploadTotal) * 100}%`
+                            }}
+                          />
+                        )}
+                    </View>
                   </View>
                 </View>
               </View>

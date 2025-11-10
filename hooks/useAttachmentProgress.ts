@@ -10,6 +10,7 @@ export interface AttachmentProgress {
   total: number;
   synced: number;
   downloading: number;
+  uploading: number;
   queued: number;
   unsynced: number;
   hasActivity: boolean;
@@ -136,6 +137,7 @@ export function useAttachmentProgress(enabled = true): {
       total: 0,
       synced: 0,
       downloading: 0,
+      uploading: 0,
       queued: 0,
       unsynced: 0,
       hasActivity: false
@@ -152,9 +154,11 @@ export function useAttachmentProgress(enabled = true): {
     }
 
     // Calculate counts efficiently in a single pass
+    // Note: ARCHIVED attachments are already filtered out by useAttachmentStates query
     const total = attachmentStates.size;
     let synced = 0;
     let downloading = 0;
+    let uploading = 0;
     let queued = 0;
 
     for (const record of attachmentStates.values()) {
@@ -162,12 +166,16 @@ export function useAttachmentProgress(enabled = true): {
         synced++;
       } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
         downloading++;
+      } else if (record.state === AttachmentState.QUEUED_UPLOAD) {
+        uploading++;
       } else if (record.state === AttachmentState.QUEUED_SYNC) {
+        // QUEUED_SYNC can be either download or upload, but we'll count it as queued
+        // The actual direction is determined by whether local_uri exists
         queued++;
       }
     }
 
-    const hasActivity = downloading > 0 || queued > 0;
+    const hasActivity = downloading > 0 || uploading > 0 || queued > 0;
     const unsynced = total - synced;
 
     // Create new object - useMemo ensures this only happens when dependencies change
@@ -175,6 +183,7 @@ export function useAttachmentProgress(enabled = true): {
       total,
       synced,
       downloading,
+      uploading,
       queued,
       hasActivity,
       unsynced

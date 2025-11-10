@@ -289,6 +289,29 @@ export default function DownloadStatusView() {
                 </View>
               )}
 
+              {/* Current Upload Progress */}
+              {syncProgress.uploading && (
+                <View className="gap-2">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-sm font-medium text-foreground">
+                      {t('currentUpload') || 'Current Upload'}
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {syncProgress.uploadCurrent}/
+                      {syncProgress.uploadTotal}
+                    </Text>
+                  </View>
+                  <Progress
+                    value={
+                      syncProgress.uploadTotal === 0
+                        ? 0
+                        : (syncProgress.uploadCurrent / syncProgress.uploadTotal) * 100
+                    }
+                    className="h-2"
+                  />
+                </View>
+              )}
+
               {/* Queue Status */}
               <View className="gap-2">
                 <Text className="text-sm font-medium text-foreground">
@@ -304,10 +327,17 @@ export default function DownloadStatusView() {
                     </Text>
                   </Badge>
                   {progress.downloading > 0 && (
-                    <Badge variant="default" className="bg-primary px-3 py-1">
+                    <Badge variant="default" className="bg-blue-500 px-3 py-1">
                       <Text className="text-xs">
                         {t('downloading') || 'Downloading'}:{' '}
                         {progress.downloading}
+                      </Text>
+                    </Badge>
+                  )}
+                  {progress.uploading > 0 && (
+                    <Badge variant="default" className="bg-green-500 px-3 py-1">
+                      <Text className="text-xs">
+                        {t('uploading') || 'Uploading'}: {progress.uploading}
                       </Text>
                     </Badge>
                   )}

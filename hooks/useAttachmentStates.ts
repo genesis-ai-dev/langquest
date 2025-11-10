@@ -1,6 +1,6 @@
 // In a new hook file (useAttachmentStates.ts)
 import type { AttachmentRecord } from '@powersync/attachments';
-import { ATTACHMENT_TABLE } from '@powersync/attachments';
+import { ATTACHMENT_TABLE, AttachmentState } from '@powersync/attachments';
 // Import from native SDK - will be empty on web
 import type { QueryResult as QueryResultNative } from '@powersync/react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -54,10 +54,11 @@ export function useAttachmentStates(
     abortControllerRef.current = abortController;
 
     // Build query based on whether we have specific IDs or want all records
+    // Filter out ARCHIVED attachments - they're not part of active sync progress
     const query =
       attachmentIds.length > 0
-        ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')})`
-        : `SELECT * FROM ${ATTACHMENT_TABLE}`;
+        ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')}) AND state < ${AttachmentState.ARCHIVED}`
+        : `SELECT * FROM ${ATTACHMENT_TABLE} WHERE state < ${AttachmentState.ARCHIVED}`;
 
     system.powersync.watch(
       query,
