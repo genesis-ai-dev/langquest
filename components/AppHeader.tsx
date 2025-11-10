@@ -14,7 +14,7 @@ import {
   Menu,
   RefreshCw
 } from 'lucide-react-native';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -72,13 +72,29 @@ export default function AppHeader({
 
   const hasSyncError = !!(downloadError || uploadError);
   // Don't show syncing state if there's an error - prevents eternal syncing loop
-  const isSyncing =
+  const rawIsSyncing =
     !hasSyncError &&
     (isDownloadOperationInProgress ||
       isUpdateInProgress ||
       isConnecting ||
       hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
+
+  // Debounce sync status to prevent flickering and allow animations to complete
+  const [isSyncing, setIsSyncing] = useState(rawIsSyncing);
+
+  useEffect(() => {
+    if (rawIsSyncing) {
+      // Immediately show syncing when it starts
+      setIsSyncing(true);
+    } else {
+      // Delay hiding sync indicator to allow animation to complete smoothly
+      const timeout = setTimeout(() => {
+        setIsSyncing(false);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [rawIsSyncing]);
 
   // Handler for sync error tap
   const handleSyncErrorTap = () => {

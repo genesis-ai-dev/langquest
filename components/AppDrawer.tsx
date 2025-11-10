@@ -32,8 +32,13 @@ import {
   UserIcon,
   XCircle
 } from 'lucide-react-native';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
@@ -80,6 +85,88 @@ export default function AppDrawer({
   const { progress: stableProgress, syncProgress } = useAttachmentProgress(
     drawerIsVisible && isAuthenticated
   );
+
+  // Debounced animated values for progress bars - allows animations to complete smoothly
+  const animatedSyncProgress = useSharedValue(0);
+  const animatedDownloadProgress = useSharedValue(0);
+  const animatedUploadProgress = useSharedValue(0);
+
+  // Track visibility state for progress bars (debounced)
+  const [showDownloadBar, setShowDownloadBar] = useState(false);
+  const [showUploadBar, setShowUploadBar] = useState(false);
+
+  // Debounce progress updates with a delay to allow animations to complete
+  useEffect(() => {
+    if (stableProgress.total > 0) {
+      const syncPercent = (stableProgress.synced / stableProgress.total) * 100;
+      animatedSyncProgress.value = withTiming(syncPercent, { duration: 300 });
+    } else {
+      animatedSyncProgress.value = withTiming(0, { duration: 300 });
+    }
+  }, [stableProgress.synced, stableProgress.total, animatedSyncProgress]);
+
+  useEffect(() => {
+    if (syncProgress.downloading && syncProgress.downloadTotal > 0) {
+      // Immediately show download bar when downloading starts
+      setTimeout(() => setShowDownloadBar(true), 0);
+      const downloadPercent =
+        (syncProgress.downloadCurrent / syncProgress.downloadTotal) * 100;
+      animatedDownloadProgress.value = withTiming(downloadPercent, {
+        duration: 300
+      });
+    } else {
+      // Delay hiding download bar to allow animation to complete
+      const timeout = setTimeout(() => {
+        animatedDownloadProgress.value = withTiming(0, { duration: 300 });
+        // Hide bar after animation completes
+        setTimeout(() => setShowDownloadBar(false), 300);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [
+    syncProgress.downloading,
+    syncProgress.downloadCurrent,
+    syncProgress.downloadTotal,
+    animatedDownloadProgress
+  ]);
+
+  useEffect(() => {
+    if (syncProgress.uploading && syncProgress.uploadTotal > 0) {
+      // Immediately show upload bar when uploading starts
+      setTimeout(() => setShowUploadBar(true), 0);
+      const uploadPercent =
+        (syncProgress.uploadCurrent / syncProgress.uploadTotal) * 100;
+      animatedUploadProgress.value = withTiming(uploadPercent, {
+        duration: 300
+      });
+    } else {
+      // Delay hiding upload bar to allow animation to complete
+      const timeout = setTimeout(() => {
+        animatedUploadProgress.value = withTiming(0, { duration: 300 });
+        // Hide bar after animation completes
+        setTimeout(() => setShowUploadBar(false), 300);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [
+    syncProgress.uploading,
+    syncProgress.uploadCurrent,
+    syncProgress.uploadTotal,
+    animatedUploadProgress
+  ]);
+
+  // Animated styles for progress bars
+  const syncBarStyle = useAnimatedStyle(() => ({
+    width: `${animatedSyncProgress.value}%`
+  }));
+
+  const downloadBarStyle = useAnimatedStyle(() => ({
+    height: `${animatedDownloadProgress.value}%`
+  }));
+
+  const uploadBarStyle = useAnimatedStyle(() => ({
+    height: `${animatedUploadProgress.value}%`
+  }));
 
   // Memoize progress values to prevent re-renders when object reference changes
   // but values are the same - extract individual values for dependency tracking
@@ -405,28 +492,47 @@ export default function AppDrawer({
                         <View className="flex-row items-center gap-1">
                           {stableProgress.downloading > 0 ||
                           syncProgress.downloading ? (
-                            <Text className="text-xs text-blue-500">
-                              ↓
-                              {syncProgress.downloading
-                                ? `${syncProgress.downloadCurrent}/${syncProgress.downloadTotal}`
-                                : stableProgress.downloading}
-                            </Text>
+                            <View className="flex-row items-center gap-0.5">
+                              <Icon
+                                as={CloudDownload}
+                                size={10}
+                                className="text-blue-500"
+                              />
+                              <Text className="text-xs text-blue-500">
+                                {syncProgress.downloading
+                                  ? `${syncProgress.downloadCurrent}/${syncProgress.downloadTotal}`
+                                  : stableProgress.downloading}
+                              </Text>
+                            </View>
                           ) : null}
                           {stableProgress.uploading > 0 ||
                           syncProgress.uploading ? (
-                            <Text className="text-xs text-green-500">
-                              ↑
-                              {syncProgress.uploading
-                                ? `${syncProgress.uploadCurrent}/${syncProgress.uploadTotal}`
-                                : stableProgress.uploading}
-                            </Text>
+                            <View className="flex-row items-center gap-0.5">
+                              <Icon
+                                as={CloudUpload}
+                                size={10}
+                                className="text-green-500"
+                              />
+                              <Text className="text-xs text-green-500">
+                                {syncProgress.uploading
+                                  ? `${syncProgress.uploadCurrent}/${syncProgress.uploadTotal}`
+                                  : stableProgress.uploading}
+                              </Text>
+                            </View>
                           ) : null}
                           {stableProgress.queued > 0 &&
                             !syncProgress.downloading &&
                             !syncProgress.uploading && (
-                              <Text className="text-xs text-muted-foreground">
-                                ⏳{stableProgress.queued}
-                              </Text>
+                              <View className="flex-row items-center gap-0.5">
+                                <Icon
+                                  as={RefreshCw}
+                                  size={10}
+                                  className="text-muted-foreground"
+                                />
+                                <Text className="text-xs text-muted-foreground">
+                                  {stableProgress.queued}
+                                </Text>
+                              </View>
                             )}
                         </View>
                       )}
@@ -435,36 +541,36 @@ export default function AppDrawer({
                     <View className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-muted-foreground/20">
                       {/* Overall sync progress background (shows synced/total) */}
                       {stableProgress.total > 0 && (
-                        <View
-                          className="absolute left-0 right-0 bg-primary/30 transition-all"
-                          style={{
-                            top: 0,
-                            bottom: 0,
-                            width: `${(stableProgress.synced / stableProgress.total) * 100}%`
-                          }}
+                        <Animated.View
+                          className="absolute left-0 right-0 bg-primary/30"
+                          style={[
+                            {
+                              top: 0,
+                              bottom: 0
+                            },
+                            syncBarStyle
+                          ]}
                         />
                       )}
                       {/* Download progress bar (from top, blue) - overlays on top */}
-                      {syncProgress.downloading &&
-                        syncProgress.downloadTotal > 0 && (
-                          <View
-                            className="absolute left-0 right-0 bg-blue-500 transition-all"
-                            style={{
-                              top: 0,
-                              height: `${(syncProgress.downloadCurrent / syncProgress.downloadTotal) * 100}%`
-                            }}
-                          />
-                        )}
+                      {showDownloadBar && (
+                        <Animated.View
+                          className="absolute left-0 right-0 bg-blue-500"
+                          style={[
+                            {
+                              top: 0
+                            },
+                            downloadBarStyle
+                          ]}
+                        />
+                      )}
                       {/* Upload progress bar (from bottom, green) - overlays on bottom */}
-                      {syncProgress.uploading &&
-                        syncProgress.uploadTotal > 0 && (
-                          <View
-                            className="absolute bottom-0 left-0 right-0 bg-green-500 transition-all"
-                            style={{
-                              height: `${(syncProgress.uploadCurrent / syncProgress.uploadTotal) * 100}%`
-                            }}
-                          />
-                        )}
+                      {showUploadBar && (
+                        <Animated.View
+                          className="absolute bottom-0 left-0 right-0 bg-green-500"
+                          style={uploadBarStyle}
+                        />
+                      )}
                     </View>
                   </View>
                 </View>
