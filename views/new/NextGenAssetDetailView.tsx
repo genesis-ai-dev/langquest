@@ -14,8 +14,7 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import {
   asset,
   language as languageTable,
-  project,
-  project as projectCloud
+  project
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -105,68 +104,35 @@ export default function NextGenAssetDetailView() {
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
 
-  // IMPORTANT: Asset detail needs full data with content/audio relationships
-  // Passed asset data from list is just metadata - always use queried data which includes content
-  // We could use passed data as placeholder, but it's better to wait for full data
   const offlineAsset = queriedAsset;
 
-  // Load asset attachments when asset ID changes
-  // useEffect(() => {
-  //   if (!currentAssetId) return;
-
-  //   // Load attachments for audio support
-  //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
-  // }, [currentAssetId]);
-
-  // Use passed project data if available (instant!), otherwise query
   const { data: rawProjectData } = useQuery({
     queryKey: ['project', 'offline', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
-      console.log(
-        '[ASSET DETAIL] Fetching project data for:',
-        currentProjectId
-      );
-      // Try local first then cloud
-      let result = await system.db
+      const result = await system.db
         .select()
         .from(project)
         .where(eq(project.id, currentProjectId))
         .limit(1);
-      console.log('[ASSET DETAIL] Local project query result:', result[0]);
-      if (!result[0]) {
-        result = await system.db
-          .select()
-          .from(projectCloud)
-          .where(eq(projectCloud.id, currentProjectId))
-          .limit(1);
-        console.log('[ASSET DETAIL] Cloud project query result:', result[0]);
-      }
       return result[0] || null;
     },
-    enabled: !!currentProjectId && !currentProjectData, // Skip query if we have passed data!
-    staleTime: 30000 // Cache for 30 seconds
+    enabled: !!currentProjectId && !currentProjectData,
+    staleTime: 30000
   });
 
-  // Prefer passed data for instant rendering!
-  const queriedProjectData = (
-    Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData
-  ) as typeof rawProjectData;
-  const projectData =
-    (currentProjectData as typeof queriedProjectData) || queriedProjectData;
+  const projectData = currentProjectData || rawProjectData;
 
-  // Derive translation language ID from project data instead of storing in state
   const translationLanguageId = React.useMemo(
-    () => projectData?.target_language_id || '',
+    () => (projectData?.target_language_id as string | undefined) || '',
     [projectData?.target_language_id]
   );
 
-  // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
       currentProjectId || '',
       'translate',
-      projectData?.private
+      Boolean(projectData?.private)
     );
 
   // Determine which asset to display
@@ -180,11 +146,9 @@ export default function NextGenAssetDetailView() {
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);
 
-  // Update active tab when asset changes - use queueMicrotask to defer state update
   React.useEffect(() => {
     if (!activeAsset) return;
 
-    // Only update if asset ID actually changed
     if (prevAssetIdRef.current !== activeAsset.id) {
       prevAssetIdRef.current = activeAsset.id;
 
@@ -193,22 +157,13 @@ export default function NextGenAssetDetailView() {
       const hasImages = activeAsset.images && activeAsset.images.length > 0;
       const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
 
-      // Defer state update to next microtask to avoid synchronous setState in effect
-      queueMicrotask(() => {
-        setActiveTab(newTab);
-      });
+      setActiveTab(newTab);
+      setCurrentContentIndex(0);
     }
   }, [activeAsset]);
 
   useEffect(() => {
-    console.log('[ASSET DETAIL] Project data loaded:', {
-      hasProjectData: !!projectData,
-      target_language_id: projectData?.target_language_id,
-      project_id: projectData?.id,
-      fullProjectData: projectData // Show the full object
-    });
-
-    if (projectData && !projectData.target_language_id) {
+    if (__DEV__ && projectData && !projectData.target_language_id) {
       console.warn(
         '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
         projectData
@@ -218,12 +173,8 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const {
-    allowEditing,
-    allowSettings,
-    invisible: _invisible
-  } = !activeAsset
-    ? { allowEditing: false, allowSettings: false, invisible: false }
+  const { allowEditing, allowSettings } = !activeAsset
+    ? { allowEditing: false, allowSettings: false }
     : currentStatus.getStatusParams(
         LayerType.ASSET,
         activeAsset.id || '',
@@ -231,28 +182,24 @@ export default function NextGenAssetDetailView() {
         currentQuestId
       );
 
-  // Collect attachment IDs for audio support
-  const allAttachmentIds = !activeAsset?.content
-    ? []
-    : [
-        ...activeAsset.content
-          .filter((content) => content.audio)
-          .flatMap((content) => content.audio!)
-          .filter(Boolean),
-        ...(activeAsset.images ?? [])
-      ];
+  const allAttachmentIds = React.useMemo(() => {
+    if (!activeAsset) return [];
+    const audioIds = (activeAsset.content ?? [])
+      .flatMap((content) => content.audio ?? [])
+      .filter(Boolean);
+    return [...audioIds, ...(activeAsset.images ?? [])];
+  }, [activeAsset]);
 
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  // Collect content-level language IDs for this asset
-  const contentLanguageIds = (() => {
+  const contentLanguageIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
       if (c.source_language_id) ids.add(c.source_language_id);
     });
     return Array.from(ids);
-  })();
+  }, [activeAsset?.content]);
 
   // Fetch all languages used by content items
   const { data: contentLanguages = [] } = useHybridData({
@@ -269,13 +216,6 @@ export default function NextGenAssetDetailView() {
   });
 
   const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
-
-  // Active tab is now derived from asset content via useMemo above
-
-  // Reset content index when asset changes
-  useEffect(() => {
-    setCurrentContentIndex(0);
-  }, [currentAssetId]);
 
   // Get audio URIs for a specific content item (not all content flattened)
   function getContentAudioUris(
@@ -401,7 +341,7 @@ export default function NextGenAssetDetailView() {
           <Text className="flex-1 text-xl font-bold text-foreground">
             {activeAsset.name}
           </Text>
-          {projectData?.private && (
+          {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
               <Icon as={LockIcon} className="text-muted-foreground" />
               {translateMembership === 'owner' && (
@@ -479,7 +419,7 @@ export default function NextGenAssetDetailView() {
                 {activeAsset.content[currentContentIndex] && (
                   <View>
                     <SourceContent
-                      content={activeAsset.content[currentContentIndex]!}
+                      content={activeAsset.content[currentContentIndex]}
                       sourceLanguage={
                         activeAsset.content[currentContentIndex]
                           ?.source_language_id
@@ -490,20 +430,20 @@ export default function NextGenAssetDetailView() {
                           : null
                       }
                       audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]!
+                        activeAsset.content[currentContentIndex]
                       )}
                       isLoading={isLoadingAttachments}
                     />
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
                       {__DEV__ &&
-                      activeAsset.content[currentContentIndex]?.audio ? (
+                      activeAsset.content[currentContentIndex]?.audio?.[0] && (
                         <View className="flex-row items-center gap-1">
                           <Icon
                             as={
                               attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
-                                  ?.audio?.[0]!
+                                  .audio[0]
                               )?.local_uri
                                 ? Volume2Icon
                                 : VolumeXIcon
@@ -513,15 +453,12 @@ export default function NextGenAssetDetailView() {
                           />
                           <Text className="text-sm text-muted-foreground">
                             {attachmentStates.get(
-                              activeAsset.content[currentContentIndex]
-                                ?.audio?.[0]!
+                              activeAsset.content[currentContentIndex].audio[0]
                             )?.local_uri
                               ? t('audioReady')
                               : t('audioNotAvailable')}
                           </Text>
                         </View>
-                      ) : (
-                        <View />
                       )}
 
                       {/* Combined navigation controls and audio status */}
@@ -572,7 +509,7 @@ export default function NextGenAssetDetailView() {
                                 onPress={() =>
                                   setCurrentContentIndex((prev) =>
                                     Math.min(
-                                      activeAsset.content!.length - 1,
+                                      (activeAsset.content?.length ?? 1) - 1,
                                       prev + 1
                                     )
                                   )
@@ -634,7 +571,15 @@ export default function NextGenAssetDetailView() {
           assetId={currentAssetId}
           assetName={activeAsset.name}
           refreshKey={translationsRefreshKey}
-          projectData={projectData}
+          projectData={
+            projectData
+              ? {
+                  private: Boolean(projectData.private),
+                  name: projectData.name as string | undefined,
+                  id: projectData.id as string | undefined
+                }
+              : undefined
+          }
           canVote={canTranslate}
           membership={translateMembership}
         />
@@ -644,7 +589,7 @@ export default function NextGenAssetDetailView() {
       {projectData?.private && !canTranslate ? (
         <PrivateAccessGate
           projectId={currentProjectId || ''}
-          projectName={projectData.name || ''}
+          projectName={(projectData?.name as string | undefined) ?? ''}
           isPrivate={true}
           action="translate"
           renderTrigger={({ onPress }) => (
