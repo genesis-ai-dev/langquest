@@ -15,6 +15,7 @@ import { voteService } from '@/database_services/voteService';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -91,6 +92,7 @@ export default function NextGenTranslationModal({
   projectName
 }: NextGenTranslationModalProps) {
   const { project } = useProjectById(projectId);
+  const { currentQuestId } = useAppNavigation();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -204,41 +206,78 @@ export default function NextGenTranslationModal({
           throw new Error('Project is required');
         }
 
+        if (!currentQuestId) {
+          throw new Error(
+            'Quest context is missing. This is an unexpected error.'
+          );
+        }
+
+        // Get the original source asset ID (the asset being translated, not the translation itself)
+        const originalSourceAssetId = asset.source_asset_id || asset.id;
+
+        // Validate source_language_id exists and store it
+        if (!asset.source_language_id) {
+          throw new Error(
+            'Source language is missing. This is an unexpected error.'
+          );
+        }
+        const sourceLanguageId = asset.source_language_id;
+
         const translationAudio = asset.content
           .flatMap((c) => c.audio ?? [])
           .filter(Boolean);
         await system.db.transaction(async (tx) => {
+          // Create a new asset that points to the original source asset
           const [newAsset] = await tx
-            .insert(
-              resolveTable('asset', {
-                localOverride: project.source === 'local'
-              })
-            )
+            .insert(resolveTable('asset')) // Use synced table like the working version
             .values({
               name: asset.name,
-              source_language_id: asset.source_language_id,
-              source_asset_id: asset.id,
+              source_language_id: sourceLanguageId,
+              source_asset_id: originalSourceAssetId, // Point to the original asset being translated
               creator_id: currentUser.id,
-              project_id: project.id
+              project_id: project.id,
+              download_profiles: [currentUser.id]
             })
             .returning();
+
           if (!newAsset) {
             throw new Error('Failed to insert asset');
           }
+
+          // Create asset_content_link with the transcribed text and audio
+          const contentValues: {
+            asset_id: string;
+            source_language_id: string;
+            download_profiles: string[];
+            text?: string;
+            audio?: string[];
+          } = {
+            asset_id: newAsset.id,
+            source_language_id: sourceLanguageId,
+            download_profiles: [currentUser.id],
+            text: editedText.trim()
+          };
+
+          // Add audio if it exists
+          if (translationAudio.length > 0) {
+            contentValues.audio = translationAudio;
+          }
+
+          console.log(
+            '[CREATE TRANSCRIPTION] Inserting asset_content_link:',
+            JSON.stringify(contentValues, null, 2)
+          );
+
           await tx
-            .insert(
-              resolveTable('asset_content_link', {
-                localOverride: project.source === 'local'
-              })
-            )
-            .values({
-              text: editedText.trim(),
-              asset_id: newAsset.id,
-              source_language_id: asset.source_language_id,
-              ...(translationAudio.length > 0
-                ? { audio: translationAudio }
-                : {})
-            });
+            .insert(resolveTable('asset_content_link'))
+            .values(contentValues);
+
+          // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
+          await tx.insert(resolveTable('quest_asset_link')).values({
+            quest_id: currentQuestId,
+            asset_id: newAsset.id,
+            download_profiles: [currentUser.id]
+          });
         });
       },
       onSuccess: () => {
