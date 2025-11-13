@@ -128,6 +128,15 @@ export function QuestDownloadDiscoveryDrawer({
   });
   const [totalRecords, setTotalRecords] = useState(0);
 
+  // Wrapper functions for scheduleOnRN (must be function references, not anonymous functions)
+  const updateProgress = (progressData: typeof progress) => {
+    setProgress(progressData);
+  };
+
+  const updateTotalRecords = (total: number) => {
+    setTotalRecords(total);
+  };
+
   // Sync shared values to React state using useAnimatedReaction
   useAnimatedReaction(
     () => ({
@@ -146,23 +155,19 @@ export function QuestDownloadDiscoveryDrawer({
     (result, prev) => {
       // Only update if values actually changed to prevent render loops
       if (!prev || JSON.stringify(result) !== JSON.stringify(prev)) {
-        scheduleOnRN(() => {
-          setProgress({
-            quest: result.quest,
-            project: result.project,
-            questAssetLinks: result.questAssetLinks,
-            assets: result.assets,
-            assetContentLinks: result.assetContentLinks,
-            votes: result.votes,
-            questTagLinks: result.questTagLinks,
-            assetTagLinks: result.assetTagLinks,
-            tags: result.tags,
-            languages: result.languages
-          });
+        scheduleOnRN(updateProgress, {
+          quest: result.quest,
+          project: result.project,
+          questAssetLinks: result.questAssetLinks,
+          assets: result.assets,
+          assetContentLinks: result.assetContentLinks,
+          votes: result.votes,
+          questTagLinks: result.questTagLinks,
+          assetTagLinks: result.assetTagLinks,
+          tags: result.tags,
+          languages: result.languages
         });
-        scheduleOnRN(() => {
-          setTotalRecords(result.total);
-        });
+        scheduleOnRN(updateTotalRecords, result.total);
       }
     }
   );
