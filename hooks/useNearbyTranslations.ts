@@ -82,11 +82,11 @@ export function useNearbyTranslations(
         currentQuestAssets.forEach((a) => {
           if (a.sourceText) {
             sourceTextMap.set(a.assetId, a.sourceText);
-          }
+        }
         });
 
         const currentQuestAssetIds = currentQuestAssets.map((a) => a.assetId);
-        
+
         if (currentQuestAssetIds.length > 0) {
           const currentQuestExamples = await getExamplesFromAssets(
             currentQuestAssetIds,
@@ -120,38 +120,38 @@ export function useNearbyTranslations(
 
           if (__DEV__) {
             console.log('[useNearbyTranslations] Other quests in project:', otherQuests.length);
-          }
+        }
 
           // Get assets from other quests
           const otherQuestIds = otherQuests.map((q) => q.id);
           if (otherQuestIds.length > 0) {
             const otherQuestAssets = await system.db
-              .select({
+          .select({
                 assetId: asset.id,
                 assetContentId: asset_content_link.id,
                 sourceText: asset_content_link.text
-              })
+          })
               .from(quest_asset_link)
               .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
               .leftJoin(
-                asset_content_link,
-                eq(asset_content_link.asset_id, asset.id)
-              )
-              .where(
-                and(
+            asset_content_link,
+            eq(asset_content_link.asset_id, asset.id)
+          )
+          .where(
+            and(
                   inArray(quest_asset_link.quest_id, otherQuestIds),
                   isNull(asset.source_asset_id), // Only original assets, not translations
-                  eq(asset.active, true),
+              eq(asset.active, true),
                   isNotNull(asset_content_link.text) // Only assets with text content
-                )
-              )
+            )
+          )
               .limit(200); // Get more assets from other quests
 
             // Add other quest assets to the source text map
             otherQuestAssets.forEach((a) => {
               if (a.sourceText && !sourceTextMap.has(a.assetId)) {
                 sourceTextMap.set(a.assetId, a.sourceText);
-              }
+          }
             });
 
             const otherQuestAssetIds = otherQuestAssets.map((a) => a.assetId);
@@ -162,12 +162,12 @@ export function useNearbyTranslations(
                 targetLanguageId,
                 sourceTextMap
               );
-              
+
               // Add examples up to MAX_EXAMPLES
               for (const example of otherQuestExamples) {
                 if (examples.length >= MAX_EXAMPLES) {
-                  break;
-                }
+              break;
+            }
                 examples.push(example);
               }
             }

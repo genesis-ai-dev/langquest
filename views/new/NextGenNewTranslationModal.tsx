@@ -534,7 +534,7 @@ export default function NextGenNewTranslationModal({
                             >
                               <Text className="text-base leading-6 text-foreground">
                                 {word}
-                              </Text>
+                  </Text>
                             </Pressable>
                           ))}
                         </View>
