@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -28,13 +28,12 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   useAnimatedReaction,
   useAnimatedStyle
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { Spinner } from './ui/spinner';
 
 interface QuestOffloadVerificationDrawerProps {
   isOpen: boolean;
@@ -80,6 +79,8 @@ function CategoryRow({
   const isPartiallyVerified =
     !isVerifying && !hasError && verified > 0 && verified < count;
 
+  const primaryColor = useThemeColor('primary');
+
   return (
     <View className="flex-row items-center justify-between border-b border-border py-1.5">
       <View className="flex-row items-center gap-2">
@@ -103,7 +104,7 @@ function CategoryRow({
           </Animated.View>
         )}
 
-        {isVerifying && <Spinner size="small" />}
+        {isVerifying && <ActivityIndicator size="small" color={primaryColor} />}
         {isFullyVerified && (
           <Icon as={CloudIcon} size={14} className="text-green-600" />
         )}
