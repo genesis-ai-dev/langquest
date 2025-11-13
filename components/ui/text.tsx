@@ -1,4 +1,4 @@
-import { cn } from '@/utils/styleUtils';
+import { cn, useNotoSans } from '@/utils/styleUtils';
 import * as Slot from '@rn-primitives/slot';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
@@ -83,26 +83,30 @@ function Text({
     asChild?: boolean;
   }) {
   const textClass = React.useContext(TextClassContext);
+  const mergedClassName = cn(textVariants({ variant }), textClass, className);
+  const { style, ...restProps } = props;
 
   // Render directly as RNText to avoid Slot navigation context issues during transitions
   // Only use Slot.Text when explicitly using asChild pattern
   if (!asChild) {
     return (
       <RNText
-        className={cn(textVariants({ variant }), textClass, className)}
+        className={mergedClassName}
         role={variant ? ROLE[variant] : undefined}
         aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-        {...props}
+        style={useNotoSans(mergedClassName, style)}
+        {...restProps}
       />
     );
   }
 
   return (
     <Slot.Text
-      className={cn(textVariants({ variant }), textClass, className)}
+      className={mergedClassName}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-      {...props}
+      style={useNotoSans(mergedClassName, style)}
+      {...restProps}
     />
   );
 }

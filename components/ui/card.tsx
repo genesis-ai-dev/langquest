@@ -1,4 +1,4 @@
-import { cn } from '@/utils/styleUtils';
+import { cn, useNotoSans } from '@/utils/styleUtils';
 import type { TextRef, ViewRef } from '@rn-primitives/types';
 import * as React from 'react';
 import type { TextProps, ViewProps } from 'react-native';
@@ -30,7 +30,7 @@ const CardHeader = React.forwardRef<ViewRef, ViewProps>(
 CardHeader.displayName = 'CardHeader';
 
 const CardTitle = React.forwardRef<TextRef, TextProps>(
-  ({ className, ...props }, ref) => (
+  ({ className, style, ...props }, ref) => (
     <Text
       role="heading"
       aria-level={3}
@@ -39,6 +39,7 @@ const CardTitle = React.forwardRef<TextRef, TextProps>(
         'text-lg font-semibold leading-none tracking-tight text-card-foreground',
         className
       )}
+      style={useNotoSans(className, style)}
       {...props}
     />
   )
@@ -46,10 +47,11 @@ const CardTitle = React.forwardRef<TextRef, TextProps>(
 CardTitle.displayName = 'CardTitle';
 
 const CardDescription = React.forwardRef<TextRef, TextProps>(
-  ({ className, ...props }, ref) => (
+  ({ className, style, ...props }, ref) => (
     <Text
       ref={ref}
       className={cn('text-sm text-muted-foreground', className)}
+      style={useNotoSans(className, style)}
       {...props}
     />
   )
