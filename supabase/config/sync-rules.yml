@@ -47,12 +47,10 @@ bucket_definitions:
       - SELECT * FROM invite
         WHERE sender_profile_id = bucket.profile_id
         OR receiver_profile_id = bucket.profile_id
-        AND status = 'pending'
         AND active = true
 
       - SELECT * FROM request
         WHERE sender_profile_id = bucket.profile_id
-        AND status = 'pending'
         AND active = true
 
   project_memberships:
