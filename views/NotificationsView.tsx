@@ -26,7 +26,7 @@ import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import {
   BellIcon,
   CheckIcon,
@@ -109,9 +109,7 @@ export default function NotificationsView() {
                 ].filter(Boolean)
               ),
             eq(invite.status, 'pending'),
-            eq(invite.active, true),
-            // Filter out expired invites (7 days expiry) - SQLite datetime function
-            sql`datetime(${invite.last_updated}) >= datetime('now', '-7 days')`
+            eq(invite.active, true)
           ].filter(Boolean)
         )
       })
@@ -127,12 +125,7 @@ export default function NotificationsView() {
     // PowerSync query using Drizzle - filter expired requests (7 days expiry)
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
-        where: and(
-          eq(request.status, 'pending'),
-          eq(request.active, true),
-          // Filter out expired requests (7 days expiry) - SQLite datetime function
-          sql`datetime(${request.last_updated}) >= datetime('now', '-7 days')`
-        )
+        where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
     )
   });

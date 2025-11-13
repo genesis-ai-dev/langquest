@@ -194,9 +194,7 @@ export default function NextGenAssetDetailView() {
       const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
 
       // Defer state update to next microtask to avoid synchronous setState in effect
-      scheduleOnRN(() => {
-        setActiveTab(newTab);
-      });
+      scheduleOnRN(setActiveTab, newTab);
     }
   }, [activeAsset]);
 
@@ -279,9 +277,7 @@ export default function NextGenAssetDetailView() {
     if (currentAssetId && prevAssetIdForIndexRef.current !== currentAssetId) {
       prevAssetIdForIndexRef.current = currentAssetId;
       // Defer state update to next microtask to avoid synchronous setState in effect
-      scheduleOnRN(() => {
-        setCurrentContentIndex(0);
-      });
+      scheduleOnRN(setCurrentContentIndex, 0);
     }
   }, [currentAssetId]);
 

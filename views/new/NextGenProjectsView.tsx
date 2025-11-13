@@ -262,8 +262,6 @@ export default function NextGenProjectsView() {
                 ),
               eq(invite.status, 'pending'),
               eq(invite.active, true),
-              // Filter out expired invites (7 days expiry) - SQLite datetime function
-              sql`datetime(${invite.last_updated}) >= datetime('now', '-7 days')`,
               // Exclude projects where user is already a member (only if userId exists)
               userId &&
                 sql`NOT EXISTS (

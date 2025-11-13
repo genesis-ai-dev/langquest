@@ -9,7 +9,11 @@ Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/co
 
 ## Icons
 
-When looking for a suitable icon, use the lucide-icons MCP.
+- When looking for a suitable icon, use the lucide-icons MCP.
+- Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.
+- Use the `Icon` component from `components/ui/icon.tsx` with the `as` prop to render icons, ex. `<Icon as={MailIcon} />`.
+
+- **Loading Indicators**: Always use `ActivityIndicator` from `react-native` for loading states. Don't use custom spinners or loading icons like `Loader2Icon` with animations.
 
 ## Implementation Notes
 
@@ -24,8 +28,6 @@ When looking for a suitable icon, use the lucide-icons MCP.
 
 - **React 19**: Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.
 
-- **Colors in JavaScript**: When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
+- **Colors accessed in JavaScript**: When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
 
-- **Loading Indicators**: Always use `ActivityIndicator` from `react-native` for loading states. Don't use custom spinners or loading icons like `Loader2Icon` with animations.
-
-- **Worklet Threading**: Don't use `runOnJS` from `react-native-reanimated`. Instead, use `react-native-worklets` for scheduling work on the React Native thread from worklets. Don't use `queueMicrotask` directly - always use `scheduleOnRN` from `react-native-worklets` to defer state updates and ensure they run on the React Native thread.
+- **Worklet Threading**: Don't use `runOnJS` from `react-native-reanimated`. Instead, use `react-native-worklets` for scheduling work on the React Native thread from worklets. Don't use `queueMicrotask` directly - always use `scheduleOnRN` from `react-native-worklets` to defer state updates and ensure they run on the React Native thread. **CRITICAL**: When using `scheduleOnRN`, you MUST pass function references (named functions declared outside the worklet), never anonymous functions or arrow functions inline - these will cause crashes. Always declare wrapper functions outside your worklet and pass them by reference. Example: Declare `const updateState = (value) => setState(value);` outside the worklet, then use `scheduleOnRN(updateState, newValue)`.

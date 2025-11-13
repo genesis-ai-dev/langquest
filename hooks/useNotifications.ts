@@ -3,7 +3,7 @@ import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import React from 'react';
 
 export const useNotifications = () => {
@@ -32,9 +32,7 @@ export const useNotifications = () => {
                   : undefined
               ),
             eq(invite.status, 'pending'),
-            eq(invite.active, true),
-            // Filter out expired invites (7 days expiry) - SQLite datetime function
-            sql`datetime(${invite.last_updated}) >= datetime('now', '-7 days')`
+            eq(invite.active, true)
           ].filter(Boolean)
         )
       })

@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -28,12 +28,13 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { Spinner } from './ui/spinner';
 
 interface QuestOffloadVerificationDrawerProps {
   isOpen: boolean;
@@ -102,9 +103,7 @@ function CategoryRow({
           </Animated.View>
         )}
 
-        {isVerifying && (
-          <ActivityIndicator size="small" color={getThemeColor('primary')} />
-        )}
+        {isVerifying && <Spinner size="small" />}
         {isFullyVerified && (
           <Icon as={CloudIcon} size={14} className="text-green-600" />
         )}
@@ -180,6 +179,15 @@ export function QuestOffloadVerificationDrawer({
   });
   const [totalRecords, setTotalRecords] = useState(0);
 
+  // Wrapper functions for scheduleOnRN (must be function references, not anonymous functions)
+  const updateProgress = (progressData: typeof progress) => {
+    setProgress(progressData);
+  };
+
+  const updateTotalRecords = (total: number) => {
+    setTotalRecords(total);
+  };
+
   // Sync shared values to React state using useAnimatedReaction
   useAnimatedReaction(
     () => ({
@@ -199,7 +207,7 @@ export function QuestOffloadVerificationDrawer({
     (result, prev) => {
       // Only update if values actually changed to prevent render loops
       if (!prev || JSON.stringify(result) !== JSON.stringify(prev)) {
-        runOnJS(setProgress)({
+        scheduleOnRN(updateProgress, {
           quest: result.quest,
           project: result.project,
           questAssetLinks: result.questAssetLinks,
@@ -212,7 +220,7 @@ export function QuestOffloadVerificationDrawer({
           languages: result.languages,
           attachments: result.attachments
         });
-        runOnJS(setTotalRecords)(result.total);
+        scheduleOnRN(updateTotalRecords, result.total);
       }
     }
   );
