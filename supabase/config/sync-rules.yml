@@ -47,19 +47,28 @@ bucket_definitions:
       - SELECT * FROM invite
         WHERE sender_profile_id = bucket.profile_id
         OR receiver_profile_id = bucket.profile_id
+        AND status = 'pending'
+        AND active = true
 
       - SELECT * FROM request
         WHERE sender_profile_id = bucket.profile_id
+        AND status = 'pending'
+        AND active = true
 
   project_memberships:
     parameters: |
       SELECT project_id FROM profile_project_link
       WHERE profile_id = request.user_id()
         AND membership IS NOT NULL
+        AND active = true
     data:
       - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
         WHERE project_id = bucket.project_id
         AND membership IS NOT NULL
+
+      # Sync project record for the project_id, this makes the my projects tab reactive to changes
+      - SELECT * FROM project
+        WHERE id = bucket.project_id
 
       - SELECT * FROM invite
         WHERE project_id = bucket.project_id
@@ -69,6 +78,7 @@ bucket_definitions:
       SELECT project_id FROM profile_project_link
       WHERE profile_id = request.user_id()
         AND membership = 'owner'
+        AND active = true
     data:
       - SELECT * FROM request
         WHERE project_id = bucket.project_id

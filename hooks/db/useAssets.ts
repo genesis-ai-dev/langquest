@@ -9,12 +9,11 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { WithSource } from '@/utils/dbUtils';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
   hybridFetch,
-  useSimpleHybridInfiniteData
+  useHybridPaginatedInfiniteData
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
@@ -1029,11 +1028,6 @@ export function useAssetsQuestLinkById(
   return { quest_asset_link, isDataLoading, ...rest };
 }
 
-type AssetQuestLink = Asset & {
-  quest_active: boolean;
-  quest_visible: boolean;
-};
-
 export function useAssetsByQuest(
   quest_id: string,
   searchQuery: string,
@@ -1050,34 +1044,37 @@ export function useAssetsByQuest(
     isOnline,
     isFetching,
     refetch
-  } = useSimpleHybridInfiniteData<AssetQuestLink>(
-    'assets',
-    ['by-quest', quest_id || '', searchQuery],
-    // Offline query function - Assets must be downloaded to use
-    async ({ pageParam, pageSize }) => {
-      if (!quest_id) return [];
+  } = useHybridPaginatedInfiniteData({
+    dataType: 'assets',
+    queryKeyParams: ['by-quest', quest_id || '', searchQuery],
+    pageSize: 20,
+    enabled: !!quest_id,
+    // Offline query - Assets must be downloaded to use
+    offlineQuery: ({ page, pageSize }) => {
+      const offset = page * pageSize;
 
-      try {
-        const offset = pageParam * pageSize;
-
-        const conditions = [
-          isNull(asset.source_asset_id),
-          eq(quest_asset_link.quest_id, quest_id),
-          or(
-            !showHiddenContent ? eq(asset.visible, true) : undefined,
+      const conditions = [
+        isNull(asset.source_asset_id),
+        eq(quest_asset_link.quest_id, quest_id),
+        or(
+          ...[
+            !showHiddenContent && eq(asset.visible, true),
             eq(asset.creator_id, currentUser!.id)
-          ),
-          or(
-            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+          ].filter(Boolean)
+        ),
+        or(
+          ...[
+            !showHiddenContent && eq(quest_asset_link.visible, true),
             eq(asset.creator_id, currentUser!.id)
-          ),
-          notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
-          notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
-          searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
-        ];
+          ].filter(Boolean)
+        ),
+        notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
+        notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
+        searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
+      ];
 
-        // Normal pagination without search
-        const assets = await system.db
+      return toCompilableQuery(
+        system.db
           .select({
             ...getTableColumns(asset),
             quest_visible: quest_asset_link.visible,
@@ -1092,22 +1089,10 @@ export function useAssetsByQuest(
             asc(asset.name)
           )
           .limit(pageSize)
-          .offset(offset);
-
-        return assets;
-      } catch (error) {
-        console.error('[ASSETS] Offline query error:', error);
-        return [];
-      }
-    },
-    // Cloud query function - Since assets must be downloaded, we return empty
-    // eslint-disable-next-line @typescript-eslint/require-await
-    async () => {
-      // Assets must be downloaded to be used, so cloud query returns empty
-      return [] as WithSource<AssetQuestLink>[];
-    },
-    20 // pageSize
-  );
+          .offset(offset)
+      );
+    }
+  });
 
   return {
     data,

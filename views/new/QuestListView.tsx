@@ -7,11 +7,12 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
 import { LegendList } from '@legendapp/list';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { QuestTreeRow } from './QuestTreeRow';
-import { useHybridInfiniteData } from './useHybridData';
+import { useHybridPaginatedInfiniteData } from './useHybridData';
 
 interface QuestListViewProps {
   projectId: string;
@@ -54,15 +55,15 @@ export function QuestListView({
   const { t } = useLocalization();
   const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = 20;
   const trimmedSearch = searchQuery.trim();
 
-  const questsInfiniteQuery = useHybridInfiniteData({
+  const questsInfiniteQuery = useHybridPaginatedInfiniteData({
     dataType: 'quests',
     queryKeyParams: ['for-project', projectId, searchQuery],
     pageSize: PAGE_SIZE,
-    offlineQueryFn: async ({ pageParam, pageSize }) => {
-      const offset = pageParam * pageSize;
+    offlineQuery: ({ page, pageSize }) => {
+      const offset = page * pageSize;
 
       const conditions = [
         eq(quest.project_id, projectId),
@@ -77,24 +78,25 @@ export function QuestListView({
           )
       ].filter(Boolean);
 
-      const results = await system.db.query.quest.findMany({
-        columns: {
-          id: true,
-          name: true,
-          description: true,
-          parent_id: true,
-          source: true,
-          visible: true,
-          download_profiles: true
-        },
-        where: and(...conditions),
-        limit: pageSize,
-        offset: offset
-      });
-      return results;
+      return toCompilableQuery(
+        system.db.query.quest.findMany({
+          columns: {
+            id: true,
+            name: true,
+            description: true,
+            parent_id: true,
+            source: true,
+            visible: true,
+            download_profiles: true
+          },
+          where: and(...conditions),
+          limit: pageSize,
+          offset: offset
+        })
+      );
     },
-    cloudQueryFn: async ({ pageParam, pageSize }) => {
-      const offset = pageParam * pageSize;
+    cloudQueryFn: async ({ page, pageSize }) => {
+      const offset = page * pageSize;
 
       let query = system.supabaseConnector.client
         .from('quest')
@@ -235,7 +237,7 @@ export function QuestListView({
   }
 
   // Show empty state only when NOT loading and no results
-  if (roots.length === 0 && !questsInfiniteQuery.isOfflineLoading) {
+  if (roots.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-4">
         <Text className="text-center text-muted-foreground">

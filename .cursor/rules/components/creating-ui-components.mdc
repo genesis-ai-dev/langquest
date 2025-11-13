@@ -14,9 +14,18 @@ When looking for a suitable icon, use the lucide-icons MCP.
 ## Implementation Notes
 
 - Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.
+- Use the `Icon` component from `components/ui/icon.tsx` with the `as` prop to render icons, ex. `<Icon as={MailIcon} />`.
 
-- Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap `gap-*`, and `flex-[row|col]`.
+- Always use the `Text` component from `components/ui/text.tsx` for rendering text, not the `Text` component from `react-native`.
+
+- Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
 
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
 
 - **React 19**: Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.
+
+- **Colors in JavaScript**: When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
+
+- **Loading Indicators**: Always use `ActivityIndicator` from `react-native` for loading states. Don't use custom spinners or loading icons like `Loader2Icon` with animations.
+
+- **Worklet Threading**: Don't use `runOnJS` from `react-native-reanimated`. Instead, use `react-native-worklets` for scheduling work on the React Native thread from worklets. Don't use `queueMicrotask` directly - always use `scheduleOnRN` from `react-native-worklets` to defer state updates and ensure they run on the React Native thread.

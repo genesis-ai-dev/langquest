@@ -12,7 +12,6 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -38,7 +37,6 @@ import {
 } from 'react-native';
 
 // Type definitions
-type Request = InferSelectModel<typeof request>;
 type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
 interface PrivateAccessGateProps {
@@ -100,7 +98,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
     dataType: 'membership-request',
     queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
 
-    // PowerSync query using Drizzle
+    // PowerSync query using Drizzle - overwrite status to 'expired' for old pending requests
     offlineQuery: toCompilableQuery(
       db.query.request.findMany({
         where: and(
@@ -109,27 +107,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         )
       })
     ),
-
-    // Cloud query - enable when modal is visible to get latest status
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('request')
-        .select('*')
-        .eq('sender_profile_id', currentUser?.id || '')
-        .eq('project_id', projectId);
-      if (error) throw error;
-      return data as Request[];
-    },
-
-    // Enable cloud query when modal is visible
-    enableCloudQuery: shouldWatchRequests,
-
-    // Add refetch interval when modal is open to catch newly created requests
-    cloudQueryOptions: {
-      // ? Do we need this?
-      refetchInterval: shouldWatchRequests && modal ? 2000 : false,
-      staleTime: modal ? 0 : undefined // Always consider stale when in modal mode
-    },
 
     offlineQueryOptions: {
       // PowerSync's useQuery is reactive, but add refetch interval as backup
@@ -142,16 +119,9 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const existingRequest = existingRequests[0];
 
   // Determine the current status
+  // Status is already computed in SQL (offline) or JavaScript (cloud) to show 'expired' for old pending requests
   const getRequestStatus = () => {
     if (!existingRequest) return null;
-
-    if (
-      existingRequest.status === 'pending' &&
-      isExpiredByLastUpdated(existingRequest.last_updated)
-    ) {
-      return 'expired';
-    }
-
     return existingRequest.status;
   };
 

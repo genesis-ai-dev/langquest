@@ -44,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -64,7 +65,6 @@ function useNextGenOfflineAsset(assetId: string) {
         }
       })
     ),
-    enableCloudQuery: false,
     enableOfflineQuery: !!assetId
   });
 }
@@ -194,7 +194,7 @@ export default function NextGenAssetDetailView() {
       const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
 
       // Defer state update to next microtask to avoid synchronous setState in effect
-      queueMicrotask(() => {
+      scheduleOnRN(() => {
         setActiveTab(newTab);
       });
     }
@@ -264,17 +264,25 @@ export default function NextGenAssetDetailView() {
           ? inArray(languageTable.id, contentLanguageIds)
           : undefined
       })
-    ),
-    enableCloudQuery: false
+    )
   });
 
   const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
 
   // Active tab is now derived from asset content via useMemo above
 
-  // Reset content index when asset changes
+  // Track previous asset ID to detect when asset changes
+  const prevAssetIdForIndexRef = React.useRef<string | null>(null);
+
+  // Reset content index when asset changes - use queueMicrotask to defer state update
   useEffect(() => {
-    setCurrentContentIndex(0);
+    if (currentAssetId && prevAssetIdForIndexRef.current !== currentAssetId) {
+      prevAssetIdForIndexRef.current = currentAssetId;
+      // Defer state update to next microtask to avoid synchronous setState in effect
+      scheduleOnRN(() => {
+        setCurrentContentIndex(0);
+      });
+    }
   }, [currentAssetId]);
 
   // Get audio URIs for a specific content item (not all content flattened)
@@ -479,7 +487,7 @@ export default function NextGenAssetDetailView() {
                 {activeAsset.content[currentContentIndex] && (
                   <View>
                     <SourceContent
-                      content={activeAsset.content[currentContentIndex]!}
+                      content={activeAsset.content[currentContentIndex]}
                       sourceLanguage={
                         activeAsset.content[currentContentIndex]
                           ?.source_language_id
@@ -490,7 +498,7 @@ export default function NextGenAssetDetailView() {
                           : null
                       }
                       audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]!
+                        activeAsset.content[currentContentIndex]
                       )}
                       isLoading={isLoadingAttachments}
                     />

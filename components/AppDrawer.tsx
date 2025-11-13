@@ -49,7 +49,6 @@ import {
   Platform,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IndeterminateProgressBar } from './IndeterminateProgressBar';
 import { Badge } from './ui/badge';
 
@@ -70,7 +69,8 @@ export default function AppDrawer({
   setDrawerIsVisible: (isVisible: boolean) => void;
 }) {
   const { t } = useLocalization();
-  const { signOut, currentUser } = useAuth();
+  // const { signOut, currentUser } = useAuth();
+  const { signOut } = useAuth();
   const {
     goToProjects,
     goToProfile,
@@ -81,7 +81,7 @@ export default function AppDrawer({
   } = useAppNavigation();
 
   // Get safe area insets for Android navigation bar
-  const insets = useSafeAreaInsets();
+  // const insets = useSafeAreaInsets();
 
   // Add performance tracking
   useRenderCounter('AppDrawer');
@@ -108,7 +108,7 @@ export default function AppDrawer({
 
   const isConnected = useNetworkStatus();
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
+  // const [isRestoring, setIsRestoring] = useState(false);
   // Progress tracking states
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncTotal, setSyncTotal] = useState(0);
@@ -645,7 +645,8 @@ export default function AppDrawer({
 
   const progressPercentage =
     syncTotal > 0 ? (syncProgress / syncTotal) * 100 : 0;
-  const isOperationActive = isBackingUp || isRestoring;
+  // const isOperationActive = isBackingUp || isRestoring;
+  const isOperationActive = isBackingUp;
 
   // Progress status text
   const getProgressText = () => {
@@ -826,18 +827,19 @@ export default function AppDrawer({
           >
             {/* Database sync errors */}
             {(powersyncStatus?.dataFlowStatus.downloadError ||
-              powersyncStatus?.dataFlowStatus.uploadError) && (
-              <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
-                <Icon
-                  as={AlertTriangle}
-                  size={16}
-                  className="text-destructive"
-                />
-                <Text className="flex-1 text-sm text-destructive">
-                  {t('databaseSyncError')}
-                </Text>
-              </View>
-            )}
+              powersyncStatus?.dataFlowStatus.uploadError) &&
+              isConnected && (
+                <View className="mb-2 flex-row items-center gap-2 rounded-md bg-destructive/20 p-2">
+                  <Icon
+                    as={AlertTriangle}
+                    size={16}
+                    className="text-destructive"
+                  />
+                  <Text className="flex-1 text-sm text-destructive">
+                    {t('databaseSyncError')}
+                  </Text>
+                </View>
+              )}
 
             {/* Status text with icon */}
             <View className="flex-row items-center gap-2">

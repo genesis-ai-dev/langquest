@@ -5,7 +5,7 @@ import { sortingHelper } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
   useHybridData,
-  useSimpleHybridInfiniteData
+  useHybridPaginatedInfiniteData
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -64,28 +64,29 @@ export function useInfiniteProjects(
     return [pageSize, sortField ?? '', sortOrder ?? ''];
   }, [pageSize, sortField, sortOrder]);
 
-  return useSimpleHybridInfiniteData<Project>(
-    'projects',
-    queryParams,
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
-      const offsetValue = pageParam * pageSize;
+  return useHybridPaginatedInfiniteData({
+    dataType: 'projects',
+    queryKeyParams: queryParams,
+    pageSize,
+    // Offline query - returns CompilableQuery
+    offlineQuery: ({ page, pageSize }) => {
+      const offsetValue = page * pageSize;
 
-      const allProjects = await db.query.project.findMany({
-        where: (fields, { eq, and }) =>
-          and(eq(fields.visible, true), eq(fields.active, true)),
-        limit: pageSize,
-        offset: offsetValue,
-        ...(sortField &&
-          sortOrder && {
-            orderBy: sortingHelper(projectTable, sortField, sortOrder)
-          })
-      });
-
-      return allProjects;
+      return toCompilableQuery(
+        db.query.project.findMany({
+          where: (fields, { eq, and }) =>
+            and(eq(fields.visible, true), eq(fields.active, true)),
+          limit: pageSize,
+          offset: offsetValue,
+          ...(sortField &&
+            sortOrder && {
+              orderBy: sortingHelper(projectTable, sortField, sortOrder)
+            })
+        })
+      );
     },
     // Cloud query function
-    async ({ pageParam, pageSize }) => {
+    cloudQueryFn: async ({ page, pageSize }) => {
       const showInvisible = await getOptionShowHiddenContent();
 
       let query = supabaseConnector.client.from('project').select('*');
@@ -100,16 +101,15 @@ export function useInfiniteProjects(
         query = query.order('name', { ascending: true });
       }
 
-      const from = pageParam * pageSize;
+      const from = page * pageSize;
       const to = from + pageSize - 1;
       query = query.range(from, to);
 
       const { data, error } = await query.overrideTypes<Project[]>();
       if (error) throw error;
       return data;
-    },
-    pageSize
-  );
+    }
+  });
 }
 
 /**

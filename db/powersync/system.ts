@@ -651,14 +651,35 @@ export class System {
           for (const col of localColumnNames) {
             if (!remoteSet.has(col)) unified.push(col);
           }
+          // Special handling for invite and request tables: compute expired status dynamically
+          const isExpirableTable = name === 'invite' || name === 'request';
+
           const syncedSelect = unified
-            .map((col) =>
-              remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`
-            )
+            .map((col) => {
+              // For invite/request tables, replace status column with CASE statement
+              if (isExpirableTable && col === 'status') {
+                return `CASE 
+                  WHEN "${synced}"."status" = 'pending' AND datetime("${synced}"."last_updated") < datetime('now', '-7 days') 
+                  THEN 'expired' 
+                  ELSE "${synced}"."status" 
+                END AS "status"`;
+              }
+              return remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
+            })
             .filter((col) => col !== 'source')
             .join(', ');
           const localSelect = unified
-            .map((col) => (localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`))
+            .map((col) => {
+              // For invite/request tables, replace status column with CASE statement
+              if (isExpirableTable && col === 'status') {
+                return `CASE 
+                  WHEN "${local}"."status" = 'pending' AND datetime("${local}"."last_updated") < datetime('now', '-7 days') 
+                  THEN 'expired' 
+                  ELSE "${local}"."status" 
+                END AS "status"`;
+              }
+              return localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
+            })
             .filter((col) => col !== 'source')
             .join(', ');
 

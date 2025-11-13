@@ -12,8 +12,8 @@ export const statusOptions = [
   'pending',
   'accepted',
   'declined',
-  'withdrawn'
-  // 'expired'
+  'withdrawn',
+  'expired'
 ] as const;
 
 export const templateOptions = ['unstructured', 'bible'] as const;

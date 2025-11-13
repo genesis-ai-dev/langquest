@@ -75,8 +75,7 @@ function useNextGenTranslation(assetId: string) {
         }
       })
     ),
-    enabled: !!assetId,
-    enableCloudQuery: false
+    enabled: !!assetId
   });
 }
 
@@ -556,7 +555,7 @@ export default function NextGenTranslationModal({
                         />
                       )}
                       {/* Debug Info */}
-                      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                      {}
                       {SHOW_DEV_ELEMENTS && (
                         <View className="items-center">
                           <Text className="text-sm text-muted-foreground">

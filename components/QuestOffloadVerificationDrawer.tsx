@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -22,14 +22,13 @@ import {
   FolderIcon,
   LanguagesIcon,
   LinkIcon,
-  Loader2Icon,
   TagIcon,
   ThumbsUpIcon,
   UploadCloudIcon,
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedReaction,
@@ -104,11 +103,7 @@ function CategoryRow({
         )}
 
         {isVerifying && (
-          <Icon
-            as={Loader2Icon}
-            size={14}
-            className="animate-spin text-primary"
-          />
+          <ActivityIndicator size="small" color={getThemeColor('primary')} />
         )}
         {isFullyVerified && (
           <Icon as={CloudIcon} size={14} className="text-green-600" />
@@ -245,8 +240,8 @@ export function QuestOffloadVerificationDrawer({
     <Drawer
       open={isOpen}
       onOpenChange={onOpenChange}
-      snapPoints={[1000, 770]}
       dismissible={!isOffloading}
+      enableDynamicSizing={false}
     >
       <DrawerContent className="pb-safe">
         <DrawerHeader>

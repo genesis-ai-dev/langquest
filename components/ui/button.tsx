@@ -4,6 +4,7 @@ import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
 import { ActivityIndicator, Pressable } from 'react-native';
+import * as Slot from './slot';
 
 const buttonVariants = cva(
   'group flex items-center justify-center rounded-md active:scale-95 web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
@@ -84,47 +85,71 @@ const activityIndicatorColorVariants = cva('', {
   }
 });
 
-type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
+type ButtonProps = React.ComponentPropsWithoutRef<typeof Slot.Pressable> &
   VariantProps<typeof buttonVariants> & {
     loading?: boolean;
+    asChild?: boolean;
+    activityIndicatorClassName?: string;
+    activityIndicatorColor?: string;
   };
 
 const Button = React.forwardRef<
-  React.ComponentRef<typeof Pressable>,
+  React.ComponentRef<typeof Slot.Pressable>,
   ButtonProps
->(({ children, className, variant, size, ...props }, ref) => {
-  const isDisabled = props.disabled || props.loading;
-  return (
-    <TextClassContext.Provider
-      value={buttonTextVariants({
-        variant,
-        size,
-        className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
-      })}
-    >
-      <Pressable
-        className={cn(
-          'flex flex-row items-center gap-2',
-          isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
-          buttonVariants({ variant, size, className })
-        )}
-        ref={ref}
-        role="button"
-        {...props}
+>(
+  (
+    {
+      children,
+      className,
+      variant,
+      size,
+      asChild,
+      activityIndicatorClassName,
+      activityIndicatorColor,
+      ...props
+    },
+    ref
+  ) => {
+    const isDisabled = props.disabled || props.loading;
+    const Component = asChild ? Slot.Pressable : Pressable;
+
+    return (
+      <TextClassContext.Provider
+        value={buttonTextVariants({
+          variant,
+          size,
+          className: cn('web:pointer-events-none')
+        })}
       >
-        <>
-          {props.loading && (
-            <ActivityIndicator
-              size="small"
-              color={activityIndicatorColorVariants({ variant })}
-            />
+        <Component
+          className={cn(
+            'flex flex-row items-center gap-2',
+            isDisabled &&
+              'opacity-50 web:pointer-events-none web:cursor-default',
+            buttonVariants({ variant, size, className })
           )}
-          {children}
-        </>
-      </Pressable>
-    </TextClassContext.Provider>
-  );
-});
+          ref={ref}
+          role="button"
+          {...props}
+        >
+          <>
+            {props.loading && (
+              <ActivityIndicator
+                size="small"
+                color={
+                  activityIndicatorColor ||
+                  activityIndicatorColorVariants({ variant })
+                }
+                className={activityIndicatorClassName}
+              />
+            )}
+            {children}
+          </>
+        </Component>
+      </TextClassContext.Provider>
+    );
+  }
+);
 Button.displayName = 'Button';
 
 export { Button, buttonTextVariants, buttonVariants };

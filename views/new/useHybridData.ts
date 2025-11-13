@@ -1,6 +1,7 @@
 import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 import type { WithSource } from '@/utils/dbUtils';
 // import { normalizeUuid } from '@/utils/uuidUtils';
@@ -8,12 +9,9 @@ import type { WithSource } from '@/utils/dbUtils';
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
-import type {
-  UseInfiniteQueryOptions,
-  UseQueryOptions
-} from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import {
-  useInfiniteQuery,
+  keepPreviousData,
   useMutation,
   useQueryClient,
   useQuery as useTanstackQuery
@@ -82,6 +80,16 @@ export interface HybridDataOptions<TOfflineData, TCloudData = TOfflineData> {
   lazyLoadCloud?: boolean;
 
   enabled?: boolean;
+
+  // Realtime subscription options
+  subscribeRealtime?: {
+    channelName: string;
+    subscriptionConfig: {
+      table: string;
+      schema: string;
+      filter?: string;
+    };
+  };
 }
 
 export interface HybridDataResult<T> {
@@ -119,8 +127,11 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     enableCloudQuery,
     enableOfflineQuery = true,
     lazyLoadCloud = false,
-    enabled = true
+    enabled = true,
+    subscribeRealtime
   } = options;
+
+  const queryClient = useQueryClient();
 
   // Stabilize getItemId to prevent render loops
   // Use a ref-based approach to maintain function stability
@@ -147,9 +158,13 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   });
 
   // Determine when to fetch cloud data
+  // If cloudQueryFn is not provided, automatically disable cloud query
   // If lazy loading, wait for offline query to finish first
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  const shouldFetchCloud = enableCloudQuery !== false && isOnline && enabled;
+  const effectiveEnableCloudQuery =
+    enableCloudQuery ?? (cloudQueryFn ? undefined : false);
+  const shouldFetchCloud =
+    effectiveEnableCloudQuery !== false && isOnline && enabled;
   const cloudEnabled = lazyLoadCloud
     ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
     : shouldFetchCloud && !!cloudQueryFn;
@@ -228,6 +243,96 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     return [...offlineArray, ...uniqueCloudItems] as WithSource<TOfflineData>[];
   }, [offlineData, cloudData, getItemId]);
 
+  // Set up realtime subscription for cloud data updates
+  React.useEffect(() => {
+    if (!subscribeRealtime || !isOnline || !shouldFetchCloud) return;
+
+    const cloudCacheKey = [dataType, 'cloud', ...queryKeyParams];
+    const channel = system.supabaseConnector.client
+      .channel(subscribeRealtime.channelName)
+      .on(
+        'postgres_changes',
+        { ...subscribeRealtime.subscriptionConfig, event: '*' },
+        (
+          payload: RealtimePostgresChangesPayload<
+            TCloudData & Record<string, unknown>
+          >
+        ) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          queryClient.setQueryData<TCloudData[]>(cloudCacheKey, (prev = []) => {
+            switch (eventType) {
+              case 'INSERT': {
+                const recordId = getItemId({
+                  ...newRow,
+                  source: 'cloud' as const
+                } as WithSource<TCloudData>);
+                // Avoid duplicates
+                if (
+                  prev.some((record) => {
+                    const id = getItemId({
+                      ...record,
+                      source: 'cloud' as const
+                    } as WithSource<TCloudData>);
+                    return id === recordId;
+                  })
+                ) {
+                  return prev;
+                }
+                return [...prev, newRow];
+              }
+              case 'UPDATE': {
+                const recordId = getItemId({
+                  ...newRow,
+                  source: 'cloud' as const
+                } as WithSource<TCloudData>);
+                return prev.map((record) => {
+                  const id = getItemId({
+                    ...record,
+                    source: 'cloud' as const
+                  } as WithSource<TCloudData>);
+                  return id === recordId ? newRow : record;
+                });
+              }
+              case 'DELETE': {
+                const recordId = getItemId({
+                  ...oldRow,
+                  source: 'cloud' as const
+                } as WithSource<TCloudData>);
+                return prev.filter((record) => {
+                  const id = getItemId({
+                    ...record,
+                    source: 'cloud' as const
+                  } as WithSource<TCloudData>);
+                  return id !== recordId;
+                });
+              }
+              default: {
+                console.warn(
+                  'useHybridData: Unhandled realtime event type',
+                  eventType
+                );
+                return prev;
+              }
+            }
+          });
+        }
+      );
+    channel.subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [
+    subscribeRealtime,
+    isOnline,
+    shouldFetchCloud,
+    dataType,
+    queryKeyParams,
+    queryClient,
+    getItemId
+  ]);
+
   return {
     data: combinedData,
     isOfflineLoading,
@@ -244,35 +349,14 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   };
 }
 
-// Helper hook for simple cases where offline and cloud data have the same shape
-export function useSimpleHybridData<T extends { id: string }>(
-  dataType: string,
-  queryKeyParams: QueryKeyParam[],
-  offlineQuery: string | CompilableQuery<T>,
-  cloudQueryFn?: () => Promise<T[]>
-): HybridDataResult<T> {
-  return useHybridData({
-    dataType,
-    queryKeyParams,
-    offlineQuery,
-    cloudQueryFn
-  });
-}
+// ============== Paginated Query Support ==============
 
-// ============== Infinite Query Support ==============
-
-export interface InfiniteQueryContext {
-  pageParam: number;
+export interface PaginatedQueryContext {
+  page: number;
   pageSize: number;
 }
 
-export interface HybridPageData<T> {
-  data: T[];
-  nextCursor?: number;
-  hasMore: boolean;
-}
-
-export interface HybridInfiniteDataOptions<
+export interface HybridPaginatedDataOptions<
   TOfflineData,
   TCloudData = TOfflineData
 > {
@@ -282,44 +366,366 @@ export interface HybridInfiniteDataOptions<
   // Additional query key elements (e.g., projectId, assetId)
   queryKeyParams: QueryKeyParam[];
 
-  // Function to fetch offline data from SQLite
-  offlineQueryFn: (context: InfiniteQueryContext) => Promise<TOfflineData[]>;
-
-  // Function to fetch cloud data from Supabase
-  cloudQueryFn: (context: InfiniteQueryContext) => Promise<TCloudData[]>;
+  // Current page number (0-indexed)
+  page: number;
 
   // Page size for pagination
-  pageSize?: number;
+  pageSize: number;
+
+  // PowerSync query definition - function that takes pagination context and returns SQL string or Drizzle query
+  // For SQL strings, embed parameters directly in the query
+  // e.g., (context) => `SELECT * FROM assets LIMIT ${context.pageSize} OFFSET ${context.page * context.pageSize}`
+  offlineQuery: (
+    context: PaginatedQueryContext
+  ) => string | CompilableQuery<TOfflineData>;
+
+  // Function to fetch cloud data from Supabase
+  cloudQueryFn?: (context: PaginatedQueryContext) => Promise<TCloudData[]>;
 
   // Function to get unique ID from an item (defaults to 'id' property)
-  getItemId?: (item: WithSource<TOfflineData | TCloudData>) => string | number;
+  getItemId?: (item: WithSource<TOfflineData | TCloudData>) => string;
 
   // Transform function to convert cloud data to offline format (if different types)
-  transformCloudData?: (cloudData: TCloudData) => WithSource<TOfflineData>;
+  transformCloudData?: (cloudData: TCloudData) => TOfflineData;
 
-  // Additional options for offline query
+  // Function to determine if there are more pages (based on returned data)
+  // If not provided, will check if returned data length equals pageSize
+  hasMore?: (data: TOfflineData[], page: number, pageSize: number) => boolean;
+
+  // Additional options for offline query (PowerSync useQuery options)
   offlineQueryOptions?: Omit<
-    UseInfiniteQueryOptions<HybridPageData<TOfflineData>>,
-    'queryKey' | 'queryFn' | 'initialPageParam' | 'getNextPageParam' | 'select'
+    UseQueryOptions<TOfflineData[]>,
+    'queryKey' | 'query' | 'placeholderData'
   >;
 
   // Additional options for cloud query
   cloudQueryOptions?: Omit<
-    UseInfiniteQueryOptions<HybridPageData<TCloudData>>,
-    | 'queryKey'
-    | 'queryFn'
-    | 'enabled'
-    | 'initialPageParam'
-    | 'getNextPageParam'
-    | 'select'
+    UseQueryOptions<TCloudData[]>,
+    'queryKey' | 'queryFn' | 'enabled' | 'placeholderData'
   >;
 
   // Whether to fetch cloud data (defaults to isOnline)
   enableCloudQuery?: boolean;
+
+  // Whether to fetch offline data (defaults to true)
+  enableOfflineQuery?: boolean;
+
+  // Whether to lazy load cloud data (wait for offline to finish first)
+  // Improves perceived performance by showing local data immediately
+  lazyLoadCloud?: boolean;
+
+  enabled?: boolean;
 }
 
-export interface HybridInfiniteDataResult<T> {
-  // Combined pages with source tracking
+export interface HybridPaginatedDataResult<T> {
+  // Combined data with source tracking
+  data: WithSource<T>[];
+
+  // Pagination metadata
+  hasMore: boolean;
+  isPlaceholderData: boolean;
+
+  // Loading states
+  isOfflineLoading: boolean;
+  isCloudLoading: boolean;
+  isLoading: boolean;
+  isFetching: boolean;
+  isError: boolean;
+
+  // Error states
+  offlineError: Error | null;
+  cloudError: Error | null;
+
+  // Network status
+  isOnline: boolean;
+
+  // Current page info
+  page: number;
+  pageSize: number;
+
+  refetch: () => void;
+}
+
+export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
+  options: HybridPaginatedDataOptions<TOfflineData, TCloudData>
+): HybridPaginatedDataResult<TOfflineData> {
+  const {
+    dataType,
+    queryKeyParams,
+    page,
+    pageSize,
+    offlineQuery,
+    cloudQueryFn,
+    getItemId: getItemIdProp,
+    transformCloudData,
+    hasMore: hasMoreFn,
+    offlineQueryOptions = {},
+    cloudQueryOptions = {},
+    enableCloudQuery,
+    enableOfflineQuery = true,
+    lazyLoadCloud = false,
+    enabled = true
+  } = options;
+
+  // Stabilize getItemId to prevent render loops
+  const defaultGetItemId = React.useCallback(
+    (item: WithSource<TOfflineData | TCloudData>) =>
+      (item as unknown as { id: string }).id,
+    []
+  );
+  const getItemId = getItemIdProp || defaultGetItemId;
+
+  const isOnline = useNetworkStatus();
+
+  // Create query context
+  const queryContext: PaginatedQueryContext = React.useMemo(
+    () => ({
+      page,
+      pageSize
+    }),
+    [page, pageSize]
+  );
+
+  // Generate the offline query based on pagination context
+  const offlineQueryValue = React.useMemo(
+    () => offlineQuery(queryContext),
+    [offlineQuery, queryContext]
+  );
+
+  // Fetch offline data using PowerSync's useQuery
+  const {
+    data: rawOfflineData,
+    isLoading: isOfflineLoading,
+    isFetching: isOfflineFetching,
+    error: offlineError,
+    refetch: offlineRefetch,
+    isPlaceholderData: isOfflinePlaceholderData
+  } = usePowerSyncQuery<TOfflineData>({
+    queryKey: [
+      dataType,
+      'paginated',
+      'offline',
+      ...queryKeyParams,
+      page,
+      pageSize
+    ],
+    query: offlineQueryValue,
+    enabled: enableOfflineQuery && enabled,
+    placeholderData: keepPreviousData,
+    ...offlineQueryOptions
+  });
+
+  // Determine when to fetch cloud data
+  // If cloudQueryFn is not provided, automatically disable cloud query
+  // If lazy loading, wait for offline query to finish first
+  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
+  const effectiveEnableCloudQuery =
+    enableCloudQuery ?? (cloudQueryFn ? undefined : false);
+  const shouldFetchCloud =
+    effectiveEnableCloudQuery !== false && isOnline && enabled;
+  const cloudEnabled = lazyLoadCloud
+    ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
+    : shouldFetchCloud && !!cloudQueryFn;
+
+  // Fetch cloud data using standard TanStack Query
+  const {
+    data: rawCloudData,
+    isLoading: isCloudLoading,
+    isFetching: isCloudFetching,
+    error: cloudError,
+    refetch: cloudRefetch,
+    isPlaceholderData: isCloudPlaceholderData
+  } = useTanstackQuery({
+    queryKey: [
+      dataType,
+      'paginated',
+      'cloud',
+      ...queryKeyParams,
+      page,
+      pageSize
+    ],
+    queryFn: () => {
+      if (!cloudQueryFn) {
+        throw new Error(
+          'cloudQueryFn is required when enableCloudQuery is true'
+        );
+      }
+      return cloudQueryFn(queryContext);
+    },
+    enabled: cloudEnabled,
+    placeholderData: keepPreviousData,
+    ...cloudQueryOptions
+  });
+
+  // Add source tracking to data
+  const offlineData = React.useMemo(() => {
+    // Ensure we always have an array
+    const dataArray = Array.isArray(rawOfflineData) ? rawOfflineData : [];
+    return dataArray.filter(Boolean).map((item) => {
+      const typedItem = item as unknown as TOfflineData & {
+        source?: OfflineDataSource;
+      };
+      return {
+        ...typedItem,
+        source: typedItem.source ?? 'synced' // don't override the source if it comes in from merge query
+      } as WithSource<TOfflineData>;
+    }) as WithSource<TOfflineData>[];
+  }, [rawOfflineData]);
+
+  const cloudData = React.useMemo(() => {
+    // Ensure we always have an array
+    const dataArray = Array.isArray(rawCloudData) ? rawCloudData : [];
+    return dataArray.map((item) => {
+      const transformedItem = transformCloudData
+        ? transformCloudData(item)
+        : (item as unknown as TCloudData);
+
+      return {
+        ...transformedItem,
+        source: 'cloud' as const
+      } as WithSource<typeof transformedItem>;
+    });
+  }, [rawCloudData, transformCloudData]);
+
+  // Combine data with offline taking precedence
+  const combinedData = React.useMemo(() => {
+    const offlineArray = offlineData;
+    const cloudArray = cloudData;
+
+    // Create a map of offline items by normalized ID for quick lookup
+    // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
+    const offlineMap = new Map(
+      offlineArray.map((item) => [getItemId(item), item])
+    );
+
+    // Add cloud items that don't exist in offline (using normalized IDs)
+    const uniqueCloudItems = cloudArray.filter(
+      (item) => !offlineMap.has(getItemId(item))
+    );
+
+    // Return offline items first, then unique cloud items
+    return [...offlineArray, ...uniqueCloudItems] as WithSource<TOfflineData>[];
+  }, [offlineData, cloudData, getItemId]);
+
+  // Determine if there are more pages
+  const hasMore = React.useMemo(() => {
+    if (hasMoreFn) {
+      // Extract data without source wrapper for hasMoreFn
+      const dataWithoutSource = combinedData.map((item) => {
+        const { source: _source, ...data } =
+          item as WithSource<TOfflineData> & {
+            source: string;
+          };
+        return data as TOfflineData;
+      });
+      return hasMoreFn(dataWithoutSource, page, pageSize);
+    }
+    // Default: if we got a full page from either source, assume there might be more
+    // Check raw data lengths, not combinedData, since combinedData may have duplicates removed
+    const offlineFullPage = offlineData.length === pageSize;
+    const cloudFullPage = cloudData.length === pageSize;
+    return offlineFullPage || cloudFullPage;
+  }, [combinedData, offlineData, cloudData, page, pageSize, hasMoreFn]);
+
+  // Check if we're showing placeholder data
+  const isPlaceholderData = isOfflinePlaceholderData || isCloudPlaceholderData;
+
+  return {
+    data: combinedData,
+    hasMore,
+    isPlaceholderData,
+    isOfflineLoading,
+    isCloudLoading,
+    isLoading: isOfflineLoading || isCloudLoading,
+    isFetching: isOfflineFetching || isCloudFetching,
+    isError: !!offlineError || !!cloudError,
+    offlineError,
+    cloudError,
+    isOnline,
+    page,
+    pageSize,
+    refetch: () => {
+      void offlineRefetch();
+      if (shouldFetchCloud) void cloudRefetch();
+    }
+  };
+}
+
+// ============== Infinite-Compatible API using Paginated Queries ==============
+
+export interface HybridPageData<T> {
+  data: T[];
+  nextCursor?: number;
+  hasMore: boolean;
+}
+
+export interface HybridPaginatedInfiniteDataOptions<
+  TOfflineData,
+  TCloudData = TOfflineData
+> {
+  // Unique key for this data type (e.g., 'assets', 'quests', 'translations')
+  dataType: string;
+
+  // Additional query key elements (e.g., projectId, assetId)
+  queryKeyParams: QueryKeyParam[];
+
+  // Page size for pagination
+  pageSize?: number;
+
+  // PowerSync query definition - function that takes pagination context and returns SQL string or Drizzle query
+  offlineQuery: (
+    context: PaginatedQueryContext
+  ) => string | CompilableQuery<TOfflineData>;
+
+  // Function to fetch cloud data from Supabase
+  cloudQueryFn?: (context: PaginatedQueryContext) => Promise<TCloudData[]>;
+
+  // Function to get unique ID from an item (defaults to 'id' property)
+  getItemId?: (item: WithSource<TOfflineData | TCloudData>) => string;
+
+  // Transform function to convert cloud data to offline format (if different types)
+  transformCloudData?: (cloudData: TCloudData) => TOfflineData;
+
+  // Function to determine if there are more pages (based on returned data)
+  // If not provided, will check if returned data length equals pageSize
+  hasMore?: (data: TOfflineData[], page: number, pageSize: number) => boolean;
+
+  // Additional options for offline query (PowerSync useQuery options)
+  offlineQueryOptions?: Omit<
+    UseQueryOptions<TOfflineData[]>,
+    'queryKey' | 'query' | 'placeholderData'
+  >;
+
+  // Additional options for cloud query
+  cloudQueryOptions?: Omit<
+    UseQueryOptions<TCloudData[]>,
+    'queryKey' | 'queryFn' | 'enabled' | 'placeholderData'
+  >;
+
+  // Whether to fetch cloud data (defaults to isOnline)
+  enableCloudQuery?: boolean;
+
+  // Whether to fetch offline data (defaults to true)
+  enableOfflineQuery?: boolean;
+
+  // Whether to lazy load cloud data (wait for offline to finish first)
+  lazyLoadCloud?: boolean;
+
+  enabled?: boolean;
+
+  // Realtime subscription options
+  subscribeRealtime?: {
+    channelName: string;
+    subscriptionConfig: {
+      table: string;
+      schema: string;
+      filter?: string;
+    };
+  };
+}
+
+export interface HybridPaginatedInfiniteDataResult<T> {
+  // Combined pages with source tracking (infinite query format)
   data: {
     pages: HybridPageData<WithSource<T>>[];
     pageParams: number[];
@@ -344,6 +750,8 @@ export interface HybridInfiniteDataResult<T> {
 
   // Errors
   error: Error | null;
+  offlineError: Error | null;
+  cloudError: Error | null;
 
   // Network status
   isOnline: boolean;
@@ -352,214 +760,326 @@ export interface HybridInfiniteDataResult<T> {
   status: 'error' | 'pending' | 'success';
 }
 
-export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
-  options: HybridInfiniteDataOptions<TOfflineData, TCloudData>
-): HybridInfiniteDataResult<TOfflineData> {
+export function useHybridPaginatedInfiniteData<
+  TOfflineData,
+  TCloudData = TOfflineData
+>(
+  options: HybridPaginatedInfiniteDataOptions<TOfflineData, TCloudData>
+): HybridPaginatedInfiniteDataResult<TOfflineData> {
   const {
     dataType,
     queryKeyParams,
-    offlineQueryFn,
+    pageSize = 20,
+    offlineQuery,
     cloudQueryFn,
-    pageSize = 10,
     getItemId: getItemIdProp,
     transformCloudData,
-    offlineQueryOptions: _offlineQueryOptions = {},
-    cloudQueryOptions: _cloudQueryOptions = {},
-    enableCloudQuery
+    hasMore: hasMoreFn,
+    offlineQueryOptions = {},
+    cloudQueryOptions = {},
+    enableCloudQuery,
+    enableOfflineQuery = true,
+    lazyLoadCloud = false,
+    enabled = true,
+    subscribeRealtime
   } = options;
 
-  // Stabilize getItemId to prevent render loops
-  const defaultGetItemId = React.useCallback(
-    (item: WithSource<TOfflineData | TCloudData>) =>
-      (item as unknown as { id: string | number }).id,
-    []
+  const queryClient = useQueryClient();
+  const [page, setPage] = React.useState(0);
+  const [accumulatedPages, setAccumulatedPages] = React.useState<
+    WithSource<TOfflineData>[]
+  >([]);
+
+  // Reset page and accumulated data when query key params change (e.g., search query)
+  const queryKeyString = React.useMemo(
+    () => JSON.stringify([dataType, ...queryKeyParams]),
+    [dataType, queryKeyParams]
   );
-  const getItemId = getItemIdProp || defaultGetItemId;
 
-  const isOnline = useNetworkStatus();
-  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  const shouldFetchCloud = enableCloudQuery !== false && isOnline;
+  React.useEffect(() => {
+    setPage(0);
+    setAccumulatedPages([]);
+  }, [queryKeyString]);
 
-  // Create query keys
-  const baseKey = [dataType, 'infinite', ...queryKeyParams];
-  const offlineQueryKey = [...baseKey, 'offline'];
-  const cloudQueryKey = [...baseKey, 'cloud'];
-
-  // Offline infinite query
-  const offlineQuery = useInfiniteQuery({
-    queryKey: offlineQueryKey,
-    initialPageParam: 0,
-    getNextPageParam: (lastPage: HybridPageData<TOfflineData>) =>
-      lastPage.nextCursor,
-    queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const context: InfiniteQueryContext = {
-        pageParam: pageParam,
-        pageSize
-      };
-
-      const results = await offlineQueryFn(context);
-
-      return {
-        data: results,
-        nextCursor: results.length === pageSize ? pageParam + 1 : undefined,
-        hasMore: results.length === pageSize
-      } satisfies HybridPageData<TOfflineData>;
-    }
-  });
-
-  // Cloud infinite query
-  const cloudQuery = useInfiniteQuery({
-    queryKey: cloudQueryKey,
-    initialPageParam: 0,
-    getNextPageParam: (lastPage: HybridPageData<TCloudData>) =>
-      lastPage.nextCursor,
-    enabled: shouldFetchCloud,
-    queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const context: InfiniteQueryContext = {
-        pageParam: pageParam,
-        pageSize
-      };
-
-      const results = await cloudQueryFn(context);
-
-      return {
-        data: results,
-        nextCursor: results.length === pageSize ? pageParam + 1 : undefined,
-        hasMore: results.length === pageSize
-      } satisfies HybridPageData<TCloudData>;
-    }
-  });
-
-  // Merge pages with local priority
-  const mergedData = React.useMemo(() => {
-    const offlinePages = offlineQuery.data?.pages || [];
-    const cloudPages = cloudQuery.data?.pages || [];
-
-    // Merge pages at the same level
-    const maxPages = Math.max(offlinePages.length, cloudPages.length);
-    const mergedPages: HybridPageData<WithSource<TOfflineData | TCloudData>>[] =
-      [];
-
-    for (let i = 0; i < maxPages; i++) {
-      const offlinePage = offlinePages[i];
-      const cloudPage = cloudPages[i];
-
-      if (offlinePage || cloudPage) {
-        const offlineDataWithSource = offlinePage
-          ? offlinePage.data.map((item) => {
-              return {
-                ...item,
-                source:
-                  (item as unknown as { source?: OfflineDataSource }).source ??
-                  'synced'
-              } as WithSource<TOfflineData>;
-            })
-          : [];
-
-        const cloudDataTransformed = cloudPage
-          ? cloudPage.data.map((item: TCloudData) => {
-              const transformedItem = transformCloudData
-                ? (transformCloudData(item) as TOfflineData)
-                : (item as unknown as TCloudData);
-
-              return {
-                ...transformedItem,
-                source: 'cloud' as const
-              } as WithSource<typeof transformedItem>;
-            })
-          : [];
-
-        // IMPORTANT: Normalize IDs when comparing (local *may* have no dashes, cloud has dashes)
-        const offlineMap = new Map(
-          offlineDataWithSource.map((item) => [getItemId(item), item])
-        );
-
-        const uniqueCloudItems = cloudDataTransformed.filter((item) => {
-          const id = getItemId(item);
-          return !offlineMap.has(id);
-        });
-
-        mergedPages.push({
-          data: [...offlineDataWithSource, ...uniqueCloudItems],
-          nextCursor: offlinePage?.nextCursor || cloudPage?.nextCursor,
-          hasMore: Boolean(offlinePage?.hasMore) || Boolean(cloudPage?.hasMore)
-        });
-      }
-    }
-
-    const pageParams = (offlineQuery.data?.pageParams ||
-      cloudQuery.data?.pageParams ||
-      []) as number[];
-
-    return {
-      pages: mergedPages,
-      pageParams
-    };
-  }, [offlineQuery, cloudQuery, getItemId, transformCloudData]);
-
-  // Stabilize callback functions to prevent dependency array size changes
-  // Use the stable functions from React Query directly
-  const fetchNextPage = React.useCallback(() => {
-    void offlineQuery.fetchNextPage();
-    if (shouldFetchCloud) void cloudQuery.fetchNextPage();
-  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
-
-  const fetchPreviousPage = React.useCallback(() => {
-    void offlineQuery.fetchPreviousPage();
-    if (shouldFetchCloud) void cloudQuery.fetchPreviousPage();
-  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
-
-  const refetch = React.useCallback(() => {
-    void offlineQuery.refetch();
-    if (shouldFetchCloud) void cloudQuery.refetch();
-  }, [shouldFetchCloud, cloudQuery, offlineQuery]);
-
-  return {
-    data: mergedData as unknown as {
-      pages: HybridPageData<WithSource<TOfflineData>>[];
-      pageParams: number[];
-    },
-    fetchNextPage,
-    fetchPreviousPage,
-    refetch,
-    hasNextPage: offlineQuery.hasNextPage || cloudQuery.hasNextPage,
-    hasPreviousPage: offlineQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
-    isFetchingNextPage:
-      offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
-    isFetchingPreviousPage:
-      offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    isLoading: offlineQuery.isLoading, // Only block on offline loading
-    isOfflineLoading: offlineQuery.isLoading,
-    isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
-    isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
-    isError: offlineQuery.isError || cloudQuery.isError,
-    isSuccess: offlineQuery.isSuccess || cloudQuery.isSuccess,
-    error: offlineQuery.error || cloudQuery.error,
-    isOnline,
-    status:
-      offlineQuery.isError || cloudQuery.isError
-        ? 'error'
-        : offlineQuery.isLoading
-          ? 'pending'
-          : 'success'
-  };
-}
-
-// Helper hook for simple infinite cases
-export function useSimpleHybridInfiniteData<T extends { id: string }>(
-  dataType: string,
-  queryKeyParams: QueryKeyParam[],
-  offlineQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
-  cloudQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
-  pageSize?: number
-): HybridInfiniteDataResult<T> {
-  return useHybridInfiniteData({
+  // Use the paginated query hook
+  const paginatedQuery = useHybridPaginatedData({
     dataType,
     queryKeyParams,
-    offlineQueryFn,
+    page,
+    pageSize,
+    offlineQuery,
     cloudQueryFn,
-    pageSize
+    getItemId: getItemIdProp,
+    transformCloudData,
+    hasMore: hasMoreFn,
+    offlineQueryOptions,
+    cloudQueryOptions,
+    enableCloudQuery,
+    enableOfflineQuery,
+    lazyLoadCloud,
+    enabled
   });
+
+  // Accumulate pages automatically
+  React.useEffect(() => {
+    if (page === 0) {
+      // First page - replace accumulated data
+      setAccumulatedPages(paginatedQuery.data);
+    } else {
+      // Subsequent pages - append to accumulated data
+      setAccumulatedPages((prev) => {
+        const getItemId =
+          getItemIdProp || ((item) => (item as unknown as { id: string }).id);
+        const existingIds = new Set(prev.map((item) => getItemId(item)));
+        const newItems = paginatedQuery.data.filter(
+          (item) => !existingIds.has(getItemId(item))
+        );
+        return [...prev, ...newItems];
+      });
+    }
+  }, [paginatedQuery.data, page, getItemIdProp]);
+
+  // Convert accumulated data to infinite query format
+  const infiniteData = React.useMemo(() => {
+    const pageSize = options.pageSize || 20;
+    const pages: HybridPageData<WithSource<TOfflineData>>[] = [];
+    const pageParams: number[] = [];
+
+    // Split accumulated data into pages
+    for (let i = 0; i < accumulatedPages.length; i += pageSize) {
+      const pageData = accumulatedPages.slice(i, i + pageSize);
+      const pageNum = i / pageSize;
+      const isLastAccumulatedPage = i + pageSize >= accumulatedPages.length;
+
+      pages.push({
+        data: pageData,
+        nextCursor: pageNum + 1,
+        hasMore: isLastAccumulatedPage ? paginatedQuery.hasMore : true
+      });
+      pageParams.push(pageNum);
+    }
+
+    // If no accumulated pages yet but we have current page data, add it
+    if (pages.length === 0 && paginatedQuery.data.length > 0) {
+      pages.push({
+        data: paginatedQuery.data,
+        nextCursor: paginatedQuery.hasMore ? 1 : undefined,
+        hasMore: paginatedQuery.hasMore
+      });
+      pageParams.push(0);
+    }
+
+    return {
+      pages,
+      pageParams
+    };
+  }, [
+    accumulatedPages,
+    paginatedQuery.data,
+    paginatedQuery.hasMore,
+    options.pageSize
+  ]);
+
+  // Determine if we're fetching next/previous page
+  const isFetchingNextPage = React.useMemo(() => {
+    return paginatedQuery.isFetching && page > 0;
+  }, [paginatedQuery.isFetching, page]);
+
+  const isFetchingPreviousPage = React.useMemo(() => {
+    return (
+      paginatedQuery.isFetching &&
+      page < accumulatedPages.length / (options.pageSize || 20) - 1
+    );
+  }, [
+    paginatedQuery.isFetching,
+    page,
+    accumulatedPages.length,
+    options.pageSize
+  ]);
+
+  // Calculate hasNextPage based on current query state
+  const hasNextPage = React.useMemo(() => {
+    return paginatedQuery.hasMore;
+  }, [paginatedQuery.hasMore]);
+
+  const hasPreviousPage = React.useMemo(() => {
+    return page > 0;
+  }, [page]);
+
+  // Callbacks for infinite query interface
+  const fetchNextPage = React.useCallback(() => {
+    if (
+      hasNextPage &&
+      !paginatedQuery.isPlaceholderData &&
+      !paginatedQuery.isFetching
+    ) {
+      setPage((prev) => prev + 1);
+    }
+  }, [
+    hasNextPage,
+    paginatedQuery.isPlaceholderData,
+    paginatedQuery.isFetching
+  ]);
+
+  const fetchPreviousPage = React.useCallback(() => {
+    if (
+      hasPreviousPage &&
+      !paginatedQuery.isPlaceholderData &&
+      !paginatedQuery.isFetching
+    ) {
+      setPage((prev) => Math.max(0, prev - 1));
+    }
+  }, [
+    hasPreviousPage,
+    paginatedQuery.isPlaceholderData,
+    paginatedQuery.isFetching
+  ]);
+
+  // Set up realtime subscription for cloud data updates (infinite query format)
+  React.useEffect(() => {
+    // If cloudQueryFn is not provided, automatically disable cloud query
+    const effectiveEnableCloudQuery =
+      enableCloudQuery ?? (cloudQueryFn ? undefined : false);
+    if (
+      !subscribeRealtime ||
+      !paginatedQuery.isOnline ||
+      effectiveEnableCloudQuery === false
+    )
+      return;
+
+    const cloudCacheKey = [
+      dataType,
+      'paginated',
+      'cloud',
+      ...queryKeyParams,
+      page,
+      pageSize
+    ];
+    const channel = system.supabaseConnector.client
+      .channel(subscribeRealtime.channelName)
+      .on(
+        'postgres_changes',
+        { ...subscribeRealtime.subscriptionConfig, event: '*' },
+        (
+          payload: RealtimePostgresChangesPayload<
+            TCloudData & Record<string, unknown>
+          >
+        ) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          queryClient.setQueryData<TCloudData[]>(cloudCacheKey, (prev = []) => {
+            switch (eventType) {
+              case 'INSERT': {
+                const recordId = getItemIdProp
+                  ? getItemIdProp({
+                      ...newRow,
+                      source: 'cloud' as const
+                    } as WithSource<TCloudData>)
+                  : (newRow as unknown as { id: string }).id;
+                // Avoid duplicates
+                if (
+                  prev.some((record) => {
+                    const id = getItemIdProp
+                      ? getItemIdProp({
+                          ...record,
+                          source: 'cloud' as const
+                        } as WithSource<TCloudData>)
+                      : (record as unknown as { id: string }).id;
+                    return id === recordId;
+                  })
+                ) {
+                  return prev;
+                }
+                return [...prev, newRow];
+              }
+              case 'UPDATE': {
+                const recordId = getItemIdProp
+                  ? getItemIdProp({
+                      ...newRow,
+                      source: 'cloud' as const
+                    } as WithSource<TCloudData>)
+                  : (newRow as unknown as { id: string }).id;
+                return prev.map((record) => {
+                  const id = getItemIdProp
+                    ? getItemIdProp({
+                        ...record,
+                        source: 'cloud' as const
+                      } as WithSource<TCloudData>)
+                    : (record as unknown as { id: string }).id;
+                  return id === recordId ? newRow : record;
+                });
+              }
+              case 'DELETE': {
+                const recordId = getItemIdProp
+                  ? getItemIdProp({
+                      ...oldRow,
+                      source: 'cloud' as const
+                    } as WithSource<TCloudData>)
+                  : (oldRow as unknown as { id: string }).id;
+                return prev.filter((record) => {
+                  const id = getItemIdProp
+                    ? getItemIdProp({
+                        ...record,
+                        source: 'cloud' as const
+                      } as WithSource<TCloudData>)
+                    : (record as unknown as { id: string }).id;
+                  return id !== recordId;
+                });
+              }
+              default: {
+                console.warn(
+                  'useHybridPaginatedInfiniteData: Unhandled realtime event type',
+                  eventType
+                );
+                return prev;
+              }
+            }
+          });
+        }
+      );
+    channel.subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [
+    subscribeRealtime,
+    paginatedQuery.isOnline,
+    enableCloudQuery,
+    dataType,
+    queryKeyParams,
+    page,
+    pageSize,
+    queryClient,
+    getItemIdProp,
+    cloudQueryFn
+  ]);
+
+  return {
+    data: infiniteData,
+    fetchNextPage,
+    fetchPreviousPage,
+    refetch: paginatedQuery.refetch,
+    hasNextPage,
+    hasPreviousPage,
+    isFetchingNextPage,
+    isFetchingPreviousPage,
+    isLoading: paginatedQuery.isLoading,
+    isOfflineLoading: paginatedQuery.isOfflineLoading,
+    isCloudLoading: paginatedQuery.isCloudLoading,
+    isFetching: paginatedQuery.isFetching,
+    isError: paginatedQuery.isError,
+    isSuccess: !paginatedQuery.isError && !paginatedQuery.isLoading,
+    error: paginatedQuery.offlineError || paginatedQuery.cloudError,
+    offlineError: paginatedQuery.offlineError,
+    cloudError: paginatedQuery.cloudError,
+    isOnline: paginatedQuery.isOnline,
+    status: paginatedQuery.isError
+      ? 'error'
+      : paginatedQuery.isLoading
+        ? 'pending'
+        : 'success'
+  };
 }
 
 /**

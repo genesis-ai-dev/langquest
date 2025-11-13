@@ -49,7 +49,6 @@ export function useBlockedTranslationsCount(assetId: string) {
           )
         )
     ),
-    enableCloudQuery: false,
     enableOfflineQuery: !!(currentUser && assetId)
   });
 
@@ -94,7 +93,6 @@ export function useBlockedAssetsCount(questId: string) {
           )
         )
     ),
-    enableCloudQuery: false,
     enableOfflineQuery: !!(currentUser && questId)
   });
 

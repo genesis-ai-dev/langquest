@@ -16,8 +16,8 @@ function getAppName(variant: string) {
   switch (variant) {
     case 'development':
       return 'LangQuest (Dev)';
-    case 'production':
-      return 'LangQuest';
+    case 'preview':
+      return 'LangQuest (Preview)';
     default:
       return 'LangQuest';
   }
@@ -27,8 +27,8 @@ function getBundleIdentifier(variant: string) {
   switch (variant) {
     case 'development':
       return `${uniqueIdentifier}.dev`;
-    case 'production':
-      return uniqueIdentifier;
+    case 'preview':
+      return `${uniqueIdentifier}.preview`;
     default:
       return uniqueIdentifier;
   }
@@ -38,8 +38,8 @@ function getScheme(variant: string) {
   switch (variant) {
     case 'development':
       return 'langquest-dev';
-    case 'production':
-      return 'langquest';
+    case 'preview':
+      return 'langquest-preview';
     default:
       return 'langquest';
   }
@@ -137,7 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         url: `https://u.expo.dev/${projectId}`
       },
       runtimeVersion: {
-        policy: 'appVersion'
+        policy: 'fingerprint'
       }
     },
     undefined

@@ -11,7 +11,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { DiscoveryState } from '@/hooks/useQuestDownloadDiscovery';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -19,17 +19,16 @@ import {
   FileTextIcon,
   FolderIcon,
   LinkIcon,
-  Loader2Icon,
   TagIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 interface QuestDownloadDiscoveryDrawerProps {
   isOpen: boolean;
@@ -91,11 +90,7 @@ function CategoryRow({
         )}
 
         {isLoading && (
-          <Icon
-            as={Loader2Icon}
-            size={16}
-            className="animate-spin text-primary"
-          />
+          <ActivityIndicator size="small" color={getThemeColor('primary')} />
         )}
         {!isLoading && !hasError && (
           <Icon as={CheckCircleIcon} size={16} className="text-green-600" />
@@ -151,19 +146,23 @@ export function QuestDownloadDiscoveryDrawer({
     (result, prev) => {
       // Only update if values actually changed to prevent render loops
       if (!prev || JSON.stringify(result) !== JSON.stringify(prev)) {
-        runOnJS(setProgress)({
-          quest: result.quest,
-          project: result.project,
-          questAssetLinks: result.questAssetLinks,
-          assets: result.assets,
-          assetContentLinks: result.assetContentLinks,
-          votes: result.votes,
-          questTagLinks: result.questTagLinks,
-          assetTagLinks: result.assetTagLinks,
-          tags: result.tags,
-          languages: result.languages
+        scheduleOnRN(() => {
+          setProgress({
+            quest: result.quest,
+            project: result.project,
+            questAssetLinks: result.questAssetLinks,
+            assets: result.assets,
+            assetContentLinks: result.assetContentLinks,
+            votes: result.votes,
+            questTagLinks: result.questTagLinks,
+            assetTagLinks: result.assetTagLinks,
+            tags: result.tags,
+            languages: result.languages
+          });
         });
-        runOnJS(setTotalRecords)(result.total);
+        scheduleOnRN(() => {
+          setTotalRecords(result.total);
+        });
       }
     }
   );
