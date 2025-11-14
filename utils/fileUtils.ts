@@ -16,7 +16,19 @@ export function getFileName(uri: string) {
 }
 
 export function getDirectory(uri: string) {
-  return uri.split('/').slice(0, -1).join('/');
+  // Handle file:// URIs properly
+  // file:///path/to/file.txt -> file:///path/to
+  // /path/to/file.txt -> /path/to
+  if (uri.startsWith('file://')) {
+    const pathWithoutProtocol = uri.replace('file://', '');
+    // Remove any trailing slashes or path components like '/..'
+    const cleanPath = pathWithoutProtocol.replace(/\/\.\.?\/?$/, '').replace(/\/+$/, '');
+    const dir = cleanPath.split('/').slice(0, -1).join('/');
+    return `file://${dir}`;
+  }
+  // Remove any trailing slashes or path components like '/..'
+  const cleanPath = uri.replace(/\/\.\.?\/?$/, '').replace(/\/+$/, '');
+  return cleanPath.split('/').slice(0, -1).join('/');
 }
 
 /**
@@ -124,18 +136,80 @@ export async function saveAudioLocally(uri: string) {
     );
   }
 
-  const newUri = `local/${uuid.v4()}.${uri.split('.').pop()}`;
-  console.log('🔍 Saving audio file locally:', uri, newUri);
-  if (await fileExists(uri)) {
-    const newPath = getLocalUri(getLocalFilePathSuffix(newUri));
-    await ensureDir(getDirectory(newPath));
-    await moveFile(uri, newPath);
-    console.log(
-      '🔍 Audio file saved locally:',
-      `${getLocalUri(getLocalFilePathSuffix('local'))}/${newUri}`
-    );
+  // Normalize the source URI - remove any path traversal components and trailing slashes
+  // Handle both file:// URIs and regular paths
+  let cleanSourceUri = uri.trim();
+  
+  // CRITICAL: Ensure file:// URIs have exactly 3 slashes (file:///)
+  // iOS returns file:///Users/... (correct), but we need to preserve this
+  if (cleanSourceUri.startsWith('file://')) {
+    // Normalize to file:/// (three slashes) if it's file:// (two slashes)
+    if (cleanSourceUri.startsWith('file:///')) {
+      // Already correct - file:///Users/...
+      // Remove any trailing /.. or /. components from the path part only
+      cleanSourceUri = cleanSourceUri.replace(/\/\.\.?(\/|$)/g, '/');
+    } else {
+      // file://Users/... -> file:///Users/...
+      cleanSourceUri = cleanSourceUri.replace(/^file:\/\//, 'file:///');
+      // Remove any trailing /.. or /. components
+      cleanSourceUri = cleanSourceUri.replace(/\/\.\.?(\/|$)/g, '/');
+    }
+    
+    // Remove any trailing slashes (but keep file:///)
+    cleanSourceUri = cleanSourceUri.replace(/\/+$/, '');
+    
+    // Remove any double slashes in the path part (after file:///)
+    // This handles cases like file:///Users//path -> file:///Users/path
+    cleanSourceUri = cleanSourceUri.replace(/file:\/\/(.+)/, (match, path) => {
+      return `file:///${path.replace(/\/+/g, '/')}`;
+    });
   } else {
-    throw new Error(`File does not exist: ${uri}`);
+    // Not a file:// URI - just clean up path traversal and double slashes
+    cleanSourceUri = cleanSourceUri.replace(/\/\.\.?(\/|$)/g, '/');
+    cleanSourceUri = cleanSourceUri.replace(/\/+$/, '');
+    cleanSourceUri = cleanSourceUri.replace(/\/\/+/g, '/');
   }
+  
+  // Extract extension before further processing
+  const extension = cleanSourceUri.split('.').pop() || 'wav';
+  
+  const newUri = `local/${uuid.v4()}.${extension}`;
+  console.log('🔍 Saving audio file locally:', cleanSourceUri, newUri);
+  
+  // Retry logic for file existence - iOS Simulator can have timing issues
+  // where the file isn't immediately available after Swift writes it
+  const maxRetries = 5;
+  const retryDelayMs = 100;
+  let fileExistsNow = false;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    fileExistsNow = await fileExists(cleanSourceUri);
+    if (fileExistsNow) {
+      break;
+    }
+    
+    if (attempt < maxRetries - 1) {
+      console.log(
+        `⏳ File not found yet (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelayMs}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+  
+  if (!fileExistsNow) {
+    // Get file info for better error message
+    const fileInfo = await getFileInfo(cleanSourceUri);
+    const errorMsg = `File does not exist after ${maxRetries} attempts: ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
+    console.error('❌', errorMsg);
+    throw new Error(errorMsg);
+  }
+  
+  const newPath = getLocalUri(getLocalFilePathSuffix(newUri));
+  await ensureDir(getDirectory(newPath));
+  await moveFile(cleanSourceUri, newPath);
+  console.log(
+    '✅ Audio file saved locally:',
+    `${getLocalUri(getLocalFilePathSuffix('local'))}/${newUri}`
+  );
   return newUri;
 }

@@ -90,18 +90,35 @@ export function useVADRecording({
         console.log(
           '🎯 Energy monitoring activated for manual recording (waveform only)'
         );
-        void startEnergyDetection();
+        void startEnergyDetection().catch((error) => {
+          console.error(
+            '❌ Failed to start energy detection for manual recording:',
+            error
+          );
+        });
         // Don't enable VAD auto-recording during manual mode
       } else {
         console.log('🎯 VAD mode activated - native VAD takes over');
-        void startEnergyDetection().then(() => {
-          void MicrophoneEnergyModule.enableVAD();
-        });
+        void startEnergyDetection()
+          .then(() => {
+            console.log('✅ Energy detection started, enabling VAD...');
+            void MicrophoneEnergyModule.enableVAD();
+          })
+          .catch((error) => {
+            console.error(
+              '❌ Failed to start energy detection for VAD mode:',
+              error
+            );
+            // Error details should already be logged via onError event listener
+            // But log here for visibility in this specific context
+          });
       }
     } else if (!isVADActive && isActive) {
       console.log('🎯 Energy monitoring deactivated');
       void MicrophoneEnergyModule.disableVAD();
-      void stopEnergyDetection();
+      void stopEnergyDetection().catch((error) => {
+        console.error('❌ Failed to stop energy detection:', error);
+      });
     }
   }, [
     isVADActive,
@@ -127,14 +144,16 @@ export function useVADRecording({
         segmentStartTimeRef.current = Date.now();
 
         // Set a timeout to clean up if segment never completes (e.g., discarded for being too short)
-        // Timeout is generously long (10 seconds) to avoid false positives
+        // Timeout is very long (60 seconds) to handle long recordings and avoid false positives
+        // Real segments should complete within silence duration (typically 300-3000ms)
         if (segmentTimeoutRef.current) {
           clearTimeout(segmentTimeoutRef.current);
         }
         segmentTimeoutRef.current = setTimeout(() => {
           if (segmentStartTimeRef.current) {
+            const elapsed = Date.now() - segmentStartTimeRef.current;
             console.log(
-              '⚠️ Native VAD: Segment timeout - likely discarded, cleaning up'
+              `⚠️ Native VAD: Segment timeout after ${elapsed}ms - likely stuck, cleaning up`
             );
             isRecordingShared.value = false;
             setIsRecording(false);
@@ -142,7 +161,7 @@ export function useVADRecording({
             // Notify parent with empty URI to trigger cleanup
             onSegmentCompleteRef.current('');
           }
-        }, 10000);
+        }, 60000); // 60 seconds - very generous for long recordings
 
         onSegmentStartRef.current();
       }

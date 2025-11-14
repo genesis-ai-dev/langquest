@@ -46,8 +46,13 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
 
     const errorSubscription = MicrophoneEnergyModule.addListener(
       'onError',
-      (error: { message: string }) => {
-        console.error('🎤 Microphone energy error:', error);
+      (error: { message: string; code?: number; domain?: string }) => {
+        console.error('❌ [JS] Microphone energy error received from native:');
+        console.error('   Message:', error.message);
+        if (error.code !== undefined) {
+          console.error(`   Code: ${error.code}, Domain: ${error.domain ?? 'unknown'}`);
+        }
+        console.error('   Full error object:', error);
         setState((prev) => ({ ...prev, error: error.message }));
       }
     );
