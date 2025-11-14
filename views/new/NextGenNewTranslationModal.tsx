@@ -29,6 +29,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
@@ -90,6 +91,9 @@ export default function NextGenNewTranslationModal({
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
+  const enableAiSuggestions = useLocalStore(
+    (state) => state.enableAiSuggestions
+  );
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
 
@@ -508,7 +512,7 @@ export default function NextGenNewTranslationModal({
                 <TabsContent value="text" className="min-h-36">
                   <View className="gap-3">
                     {/* AI Prediction Preview */}
-                    {predictedTranslation ? (
+                    {enableAiSuggestions && predictedTranslation ? (
                       <View className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
                         <View className="mb-3 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
@@ -575,6 +579,7 @@ export default function NextGenNewTranslationModal({
                         </View>
                       </View>
                     ) : (
+                      enableAiSuggestions &&
                       translationType === 'text' && (
                         <View className="flex-row justify-end">
                           <Pressable
@@ -599,11 +604,16 @@ export default function NextGenNewTranslationModal({
                                 </Text>
                               </>
                             ) : (
-                              <Icon
-                                as={Lightbulb}
-                                size={18}
-                                className="text-primary-foreground"
-                              />
+                              <>
+                                <Icon
+                                  as={Lightbulb}
+                                  size={18}
+                                  className="text-primary-foreground"
+                                />
+                                <Text className="text-sm font-semibold text-primary-foreground">
+                                  Predict Translation
+                                </Text>
+                              </>
                             )}
                           </Pressable>
                         </View>
@@ -700,8 +710,9 @@ export default function NextGenNewTranslationModal({
       </DrawerContent>
 
       {/* AI Prediction Details Modal */}
-      <Modal
-        visible={showDetailsModal}
+      {enableAiSuggestions && (
+        <Modal
+          visible={showDetailsModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowDetailsModal(false)}
@@ -810,7 +821,8 @@ export default function NextGenNewTranslationModal({
             </TouchableWithoutFeedback>
           </Pressable>
         </TouchableWithoutFeedback>
-      </Modal>
+        </Modal>
+      )}
     </Drawer>
   );
 }
