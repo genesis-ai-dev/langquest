@@ -492,12 +492,17 @@ export function VADSettingsDrawer({
         return;
       }
 
-      // Calculate average background noise
+      // Calculate average background noise (raw RMS energy)
       const average =
         samples.reduce((sum, val) => sum + val, 0) / samples.length;
 
+      // Normalize the average energy to 0-1 range (matching visualization)
+      // Swift/Android send raw RMS energy values that need normalization
+      const MAX_ENERGY = 20.0;
+      const normalizedAverage = Math.min(1.0, Math.max(0, average / MAX_ENERGY));
+
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
-      if (average < 0.0001) {
+      if (normalizedAverage < 0.0001) {
         setCalibrationError(
           t('vadCalibrationFailed') ||
             'Calibration failed. Please ensure there is some background noise.'
@@ -507,10 +512,11 @@ export function VADSettingsDrawer({
         return;
       }
 
-      // Calculate new threshold: 4x background noise (12 dB above)
+      // Calculate new threshold: 4x normalized background noise (12 dB above)
+      // Threshold is stored in normalized 0-1 range
       const newThreshold = Math.max(
         THRESHOLD_MIN,
-        Math.min(THRESHOLD_MAX, average * CALIBRATION_MULTIPLIER)
+        Math.min(THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
       );
 
       // Apply threshold automatically
