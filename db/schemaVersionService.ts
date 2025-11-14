@@ -84,7 +84,15 @@ export async function fetchServerSchemaVersion(
   console.log('[SchemaVersionService] Fetching server schema version...');
 
   try {
-    const { data, error } = await supabaseClient.rpc('get_schema_info');
+    // Add timeout to prevent infinite hanging
+    const rpcPromise = supabaseClient.rpc('get_schema_info');
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Schema version check timed out after 5 seconds'));
+      }, 5000);
+    });
+
+    const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
     if (error) {
       console.error(

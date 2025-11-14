@@ -3,8 +3,6 @@ import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 import type { WithSource } from '@/utils/dbUtils';
-// import { normalizeUuid } from '@/utils/uuidUtils';
-// Import from native SDK - will be empty on web
 import type { CompilableQuery as CompilableQueryNative } from '@powersync/react-native';
 // Import from web SDK - will be empty on native
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
@@ -172,10 +170,6 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     enabled: cloudEnabled,
     ...cloudQueryOptions
   });
-
-  // [["receiver-profiles","cloud"]]: No queryFn was passed as an option, and no default queryFn was found. The queryFn parameter is only optional when using a default queryFn. More info here: https://tanstack.com/query/latest/docs/framework/react/guides/default-query-function Component Stack:
-
-  // console.log('localOnlyData', dataType, localOnlyData);
 
   // Add source tracking to data
   const offlineData = React.useMemo(() => {

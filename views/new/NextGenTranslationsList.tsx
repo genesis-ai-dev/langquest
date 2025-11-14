@@ -47,8 +47,7 @@ export default function NextGenTranslationsList({
   assetId,
   refreshKey,
   projectData,
-  canVote: canVoteProp,
-  membership: _membershipProp
+  canVote: canVoteProp
 }: NextGenTranslationsListProps) {
   const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
@@ -60,15 +59,9 @@ export default function NextGenTranslationsList({
   >(null);
   const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
-  const _currentLayer = useStatusContext();
-
-  const {
-    data: assets,
-    isLoading,
-    hasError: _hasError
-  } = useTargetAssetsWithVoteCountByAssetId(
+  const { data: assets, isLoading } = useTargetAssetsWithVoteCountByAssetId(
     assetId,
-    false, // showInvisibleContent - using false as default since property doesn't exist
+    false,
     String(refreshKey),
     String(voteRefreshKey),
     useOfflineData,
@@ -79,17 +72,14 @@ export default function NextGenTranslationsList({
   // Count blocked translations
   const blockedCount = useBlockedTranslationsCount(assetId);
 
-  // Use props from parent if available, otherwise default behavior
   const isPrivateProject = projectData?.private || false;
   const canVote = canVoteProp !== undefined ? canVoteProp : !isPrivateProject;
 
-  // Collect audio IDs for attachment states
   const audioIds = React.useMemo(() => {
     return assets.flatMap((trans) => trans.audio).filter(Boolean);
   }, [assets]);
 
-  const { attachmentStates, isLoading: _isLoadingAttachments } =
-    useAttachmentStates(audioIds);
+  const { attachmentStates } = useAttachmentStates(audioIds);
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
     if (!fullText) return '(Empty translation)';

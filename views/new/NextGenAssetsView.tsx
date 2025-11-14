@@ -202,148 +202,6 @@ export default function NextGenAssetsView() {
 
   const [showRecording, setShowRecording] = React.useState(false);
 
-  // const handleRecordingComplete = React.useCallback(
-  //   async (uri: string, duration: number, waveformData: number[]) => {
-  //     // Fixed number of bars for visual consistency - stretch/compress recorded data to fit
-  //     const DISPLAY_BARS = 48;
-
-  //     const interpolateToFixedBars = (
-  //       samples: number[],
-  //       targetBars: number
-  //     ): number[] => {
-  //       if (samples.length === 0) {
-  //         return new Array<number>(targetBars).fill(0.01);
-  //       }
-
-  //       const result: number[] = [];
-
-  //       if (samples.length === targetBars) {
-  //         // Perfect match, just clamp values
-  //         return samples.map((v) => Math.max(0.01, Math.min(0.99, v)));
-  //       } else if (samples.length < targetBars) {
-  //         // Expand: linear interpolation to stretch recorded data across fixed bars
-  //         for (let i = 0; i < targetBars; i++) {
-  //           const sourceIndex = (i / (targetBars - 1)) * (samples.length - 1);
-  //           const lowerIndex = Math.floor(sourceIndex);
-  //           const upperIndex = Math.min(
-  //             samples.length - 1,
-  //             Math.ceil(sourceIndex)
-  //           );
-  //           const fraction = sourceIndex - lowerIndex;
-
-  //           const lowerValue = samples[lowerIndex] ?? 0.01;
-  //           const upperValue = samples[upperIndex] ?? 0.01;
-  //           const interpolatedValue =
-  //             lowerValue + (upperValue - lowerValue) * fraction;
-  //           result.push(Math.max(0.01, Math.min(0.99, interpolatedValue)));
-  //         }
-  //       } else {
-  //         // Compress: average bins to fit recorded data into fixed bars
-  //         const binSize = samples.length / targetBars;
-  //         for (let i = 0; i < targetBars; i++) {
-  //           const start = Math.floor(i * binSize);
-  //           const end = Math.floor((i + 1) * binSize);
-  //           let sum = 0;
-  //           let count = 0;
-  //           for (let j = start; j < end && j < samples.length; j++) {
-  //             sum += samples[j] ?? 0;
-  //             count++;
-  //           }
-  //           const avgValue = count > 0 ? sum / count : 0.01;
-  //           result.push(Math.max(0.01, Math.min(0.99, avgValue)));
-  //         }
-  //       }
-
-  //       // Apply light smoothing for better visual appearance
-  //       const smoothed: number[] = [...result];
-  //       for (let i = 1; i < smoothed.length - 1; i++) {
-  //         const prev = result[i - 1] ?? 0.01;
-  //         const curr = result[i] ?? 0.01;
-  //         const next = result[i + 1] ?? 0.01;
-  //         // Light 3-point smoothing (80% original, 20% neighbors)
-  //         smoothed[i] = curr * 0.8 + (prev + next) * 0.1;
-  //       }
-
-  //       return smoothed;
-  //     };
-
-  //     const interpolatedWaveform = interpolateToFixedBars(
-  //       waveformData,
-  //       DISPLAY_BARS
-  //     );
-  //     const newSegment: AudioSegment = {
-  //       id: uuid.v4(),
-  //       uri,
-  //       duration,
-  //       waveformData: interpolatedWaveform,
-  //       name: generateAssetName(audioSegments.length + 1)
-  //     };
-
-  //     if (!currentProject) {
-  //       throw new Error('Current project is required');
-  //     }
-
-  //     if (!currentQuestId) {
-  //       throw new Error('Current quest ID is required');
-  //     }
-
-  //     // TODO: create a record in the asset_local table for local-only temp storage
-  //     await system.db.transaction(async (tx) => {
-  //       const [newAsset] = await tx
-  //         .insert(resolveTable('asset', { localOverride: true }))
-  //         .values({
-  //           name: newSegment.name,
-  //           id: newSegment.id,
-  //           source_language_id: currentProject.target_language_id, // the target language is the source language for the asset
-  //           creator_id: currentUser!.id,
-  //           download_profiles: [currentUser!.id]
-  //         })
-  //         .returning();
-
-  //       if (!newAsset) {
-  //         throw new Error('Failed to insert asset');
-  //       }
-
-  //       await tx
-  //         .insert(resolveTable('quest_asset_link', { localOverride: true }))
-  //         .values({
-  //           id: `${currentQuestId}_${newAsset.id}`,
-  //           quest_id: currentQuestId,
-  //           asset_id: newAsset.id,
-  //           download_profiles: [currentUser!.id]
-  //         });
-
-  //       // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
-  //       // await system.permAttachmentQueue?.saveAudio(uri);
-
-  //       await tx
-  //         .insert(resolveTable('asset_content_link', { localOverride: true }))
-  //         .values({
-  //           asset_id: newAsset.id,
-  //           source_language_id: currentProject.target_language_id,
-  //           text: newSegment.name,
-  //           audio_id: newSegment.id,
-  //           download_profiles: [currentUser!.id]
-  //         });
-  //     });
-
-  //     // TODO: save the audio file to the device, then add to attachment queue, etc. like in a regular translation creation
-
-  //     setAudioSegments((prev) => {
-  //       const newSegments = [...prev];
-  //       newSegments.splice(insertionIndex, 0, newSegment);
-  //       return newSegments;
-  //     });
-
-  //     // Move insertion cursor to after the new segment
-  //     setInsertionIndex((prev) => prev + 1);
-  //   },
-  //   [audioSegments.length, insertionIndex]
-  // );
-
-  // debounced search handled by useDebouncedState
-
-  // Check membership status - use actual project privacy value
   const { membership } = useUserPermissions(
     currentProjectId || '',
     'open_project',
@@ -405,44 +263,16 @@ export default function NextGenAssetsView() {
     return Array.from(assetMap.values());
   }, [data.pages]);
 
-  // Watch attachment states for all assets
-  // Ensure assetIds is always an array (never undefined) to prevent hook dependency issues
   const assetIds = React.useMemo(() => {
-    if (!assets || !Array.isArray(assets)) return [];
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
 
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
     useAttachmentStates(assetIds);
 
-  // Ensure attachmentStates is always a Map (handle edge cases)
-  const safeAttachmentStates = attachmentStates || new Map();
+  const safeAttachmentStates = attachmentStates;
 
-  // Count blocked assets
   const blockedCount = useBlockedAssetsCount(currentQuestId || '');
-
-  // // Get attachment state summary
-  // // Stabilize Map dependencies by using assetIds as the source of truth
-  // // Since attachmentStates updates when assetIds change, we can use assetIds as dependency
-  // // This ensures dependency arrays always have consistent size and type
-  // const attachmentStatesSize = safeAttachmentStates.size;
-
-  // // Serialize keys for stable dependency - use assetIds.length as proxy for Map changes
-  // // Access safeAttachmentStates via closure to always get latest value
-  // // Using assetIds.length ensures dependency array never changes size (always 1 number)
-  // const attachmentStatesKeysString = React.useMemo(() => {
-  //   // Access current safeAttachmentStates via closure (always gets latest value)
-  //   const keys = Array.from(safeAttachmentStates.keys());
-  //   return keys.sort().join(',');
-  //   // Depend on assetIds.length - when assets change, attachmentStates will update
-  //   // This ensures dependency array always has exactly 1 number dependency
-  // }, [safeAttachmentStates]);
-
-  // // Create a stable memo key - ensure this always has consistent dependencies (always 2 items)
-  // const attachmentStatesMemoKey = React.useMemo(
-  //   () => `${attachmentStatesSize}:${attachmentStatesKeysString}`,
-  //   [attachmentStatesSize, attachmentStatesKeysString]
-  // );
 
   const attachmentStateSummary = React.useMemo(() => {
     if (safeAttachmentStates.size === 0) {
@@ -484,8 +314,8 @@ export default function NextGenAssetsView() {
   // footer handled inline in ListFooterComponent
 
   const statusText = React.useMemo(() => {
-    const offlineCount = assets.filter((a) => a.source !== 'cloud').length;
     const cloudCount = assets.filter((a) => a.source === 'cloud').length;
+    const offlineCount = assets.length - cloudCount;
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
   }, [isOnline, assets]);
 
