@@ -1,374 +1,552 @@
 import ExpoModulesCore
 import AVFoundation
+import Foundation
 
 public class MicrophoneEnergyModule: Module {
-  private var audioEngine = AVAudioEngine()
-  private var isActive = false
-  
-  // Ring buffer for capturing speech onset (1000ms for better onset capture)
-  private var ringBuffer: [[Float]] = []
-  private var ringBufferMaxSize = 32 // ~1000ms at 1024 samples/buffer, 16kHz (~64ms per buffer)
-  private var isRecordingSegment = false
-  private var segmentFile: AVAudioFile?
-  private var segmentStartTime: Date?
-  
-  // Native VAD state
-  private var vadEnabled = false
-  private var vadThreshold: Float = 0.5
-  private var vadOnsetMultiplier: Float = 0.25
-  private var vadConfirmMultiplier: Float = 0.5
-  private var vadSilenceDuration: Int = 300 // ms
-  private var vadMinSegmentDuration: Int = 500 // ms
-  
-  // EMA smoothing
-  private var emaAlpha: Float = 0.3
-  private var smoothedEnergy: Float = 0.0
-  
-  // Schmitt trigger state
-  private var onsetDetected = false
-  private var onsetTime: Date?
-  private var lastSpeechTime: Date?
-  private var recordingStartTime: Date?
-  
-  public func definition() -> ModuleDefinition {
-    Name("MicrophoneEnergy")
+    private var audioEngine: AVAudioEngine?
+    private var inputNode: AVAudioInputNode?
+    private var isActive = false
+    private var audioConverter: AVAudioConverter?
+    private var desiredFormat: AVAudioFormat?
     
-    Events("onEnergyResult", "onError", "onSegmentComplete", "onSegmentStart")
+    // Ring buffer for capturing speech onset (1000ms for better onset capture)
+    private var ringBuffer: [AVAudioPCMBuffer] = []
+    private let ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+    private var isRecordingSegment = false
+    private var segmentFile: URL?
+    private var segmentStartTime: TimeInterval = 0
     
-    AsyncFunction("startEnergyDetection") {
-      await self.startEnergyDetection()
-    }
+    // Segment audio data collected in memory
+    private var segmentBuffers: [AVAudioPCMBuffer] = []
     
-    AsyncFunction("stopEnergyDetection") {
-      await self.stopEnergyDetection()
-    }
+    // Native VAD state
+    private var vadEnabled = false
+    private var vadThreshold: Float = 0.5
+    private var vadOnsetMultiplier: Float = 0.25
+    private var vadConfirmMultiplier: Float = 0.5
+    private var vadSilenceDuration: Int = 300 // ms
+    private var vadMinSegmentDuration: Int = 500 // ms
     
-    AsyncFunction("configureVAD") { (config: [String: Any]) in
-      self.configureVAD(config: config)
-    }
+    // EMA smoothing
+    private let emaAlpha: Float = 0.3
+    private var smoothedEnergy: Float = 0.0
     
-    AsyncFunction("enableVAD") {
-      self.enableVAD()
-    }
+    // Schmitt trigger state
+    private var onsetDetected = false
+    private var onsetTime: TimeInterval = 0
+    private var lastSpeechTime: TimeInterval = 0
+    private var recordingStartTime: TimeInterval = 0
+    private var lastSegmentEndTime: TimeInterval = 0 // Track when last segment ended
+    private let cooldownPeriodMs: TimeInterval = 500 // Cooldown after segment ends before detecting new onset
     
-    AsyncFunction("disableVAD") {
-      self.disableVAD()
-    }
+    private let sampleRate: Double = 16000
     
-    AsyncFunction("startSegment") { (options: [String: Any]?) in
-      return try await self.startSegment(options: options)
-    }
-    
-    AsyncFunction("stopSegment") {
-      return try await self.stopSegment()
-    }
-  }
-  
-  private func startEnergyDetection() async {
-    if isActive {
-      // Restart: stop current detection first
-      await stopEnergyDetection()
-    }
-    
-    do {
-      // Simple audio session setup
-      let audioSession = AVAudioSession.sharedInstance()
-      try audioSession.setCategory(.record, mode: .measurement, options: [])
-      try audioSession.setPreferredSampleRate(16000.0) // Fixed sample rate for simplicity
-      try audioSession.setActive(true)
-      
-      let inputNode = audioEngine.inputNode
-      let format = inputNode.outputFormat(forBus: 0)
-      
-      inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] (buffer, time) in
-        self?.processAudio(buffer: buffer)
-      }
-      
-      try audioEngine.start()
-      isActive = true
-      
-    } catch {
-      sendEvent("onError", ["message": "Failed to start energy detection: \(error.localizedDescription)"])
-    }
-  }
-  
-  private func stopEnergyDetection() async {
-    guard isActive else { return }
-    
-    // Stop any active segment
-    if isRecordingSegment {
-      try? await stopSegment()
-    }
-    
-    audioEngine.inputNode.removeTap(onBus: 0)
-    audioEngine.stop()
-    
-    do {
-      try AVAudioSession.sharedInstance().setActive(false)
-    } catch {
-      print("Error deactivating audio session: \(error)")
-    }
-    
-    isActive = false
-    vadEnabled = false
-    onsetDetected = false
-  }
-  
-  private func configureVAD(config: [String: Any]) {
-    if let threshold = config["threshold"] as? Double {
-      vadThreshold = Float(threshold)
-    }
-    if let silenceDuration = config["silenceDuration"] as? Int {
-      vadSilenceDuration = silenceDuration
-    }
-    if let onsetMult = config["onsetMultiplier"] as? Double {
-      vadOnsetMultiplier = Float(onsetMult)
-    }
-    if let confirmMult = config["confirmMultiplier"] as? Double {
-      vadConfirmMultiplier = Float(confirmMult)
-    }
-    if let minDuration = config["minSegmentDuration"] as? Int {
-      vadMinSegmentDuration = minDuration
-    }
-    
-    print("🎯 VAD configured: threshold=\(vadThreshold), silence=\(vadSilenceDuration)ms")
-  }
-  
-  private func enableVAD() {
-    vadEnabled = true
-    onsetDetected = false
-    smoothedEnergy = 0.0
-    print("🎯 Native VAD enabled")
-  }
-  
-  private func disableVAD() {
-    vadEnabled = false
-    onsetDetected = false
-    
-    // Stop any active segment
-    if isRecordingSegment {
-      Task {
-        try? await stopSegment()
-      }
-    }
-    
-    print("🎯 Native VAD disabled")
-  }
-  
-  private func processAudio(buffer: AVAudioPCMBuffer) {
-    guard let channelData = buffer.floatChannelData else { return }
-    
-    let frameLength = Int(buffer.frameLength)
-    let samples = channelData[0]
-    
-    // Simple energy calculation (RMS - Root Mean Square)
-    var energy: Float = 0.0
-    for i in 0..<frameLength {
-      energy += samples[i] * samples[i]
-    }
-    energy = sqrt(energy / Float(frameLength))
-    
-    // Apply EMA smoothing
-    smoothedEnergy = emaAlpha * energy + (1.0 - emaAlpha) * smoothedEnergy
-    
-    // Copy samples to array for ring buffer
-    var samplesArray = [Float](repeating: 0, count: frameLength)
-    for i in 0..<frameLength {
-      samplesArray[i] = samples[i]
-    }
-    
-    // Manage ring buffer (always buffer when not recording segment)
-    if !isRecordingSegment {
-      ringBuffer.append(samplesArray)
-      if ringBuffer.count > ringBufferMaxSize {
-        ringBuffer.removeFirst()
-      }
-    }
-    
-    // If recording a segment, write buffer to file
-    if isRecordingSegment, let audioFile = segmentFile {
-      // Write current buffer to file
-      if let pcmBuffer = createPCMBuffer(from: samplesArray, format: buffer.format) {
-        try? audioFile.write(from: pcmBuffer)
-      }
-    }
-    
-    // Native VAD logic (if enabled)
-    if vadEnabled {
-      handleNativeVAD()
-    }
-    
-    // Send energy level to JavaScript (for UI visualization)
-    sendEvent("onEnergyResult", [
-      "energy": Double(smoothedEnergy),
-      "timestamp": Date().timeIntervalSince1970 * 1000
-    ])
-  }
-  
-  private func handleNativeVAD() {
-    let now = Date()
-    let onsetThreshold = vadThreshold * vadOnsetMultiplier
-    let confirmThreshold = vadThreshold * vadConfirmMultiplier
-    
-    // Update last speech time if above confirm threshold
-    if smoothedEnergy > confirmThreshold {
-      lastSpeechTime = now
-    }
-    
-    // State machine
-    if !isRecordingSegment && !onsetDetected {
-      // IDLE: Check for onset
-      if smoothedEnergy > onsetThreshold {
-        print("🎯 Native VAD: Onset detected (\(smoothedEnergy) > \(onsetThreshold))")
-        onsetDetected = true
-        onsetTime = now
-      }
-    } else if !isRecordingSegment && onsetDetected {
-      // ONSET: Wait for confirmation or timeout
-      let timeSinceOnset = now.timeIntervalSince(onsetTime ?? now) * 1000
-      
-      if smoothedEnergy > confirmThreshold {
-        print("🎤 Native VAD: Speech CONFIRMED (\(smoothedEnergy) > \(confirmThreshold)) - auto-starting segment")
+    public func definition() -> ModuleDefinition {
+        Name("MicrophoneEnergy")
         
-        // Start recording segment
-        onsetDetected = false
-        lastSpeechTime = now
-        recordingStartTime = now
+        Events("onEnergyResult", "onError", "onSegmentComplete", "onSegmentStart")
         
-        // Emit event to JS (for UI update - create pending card)
-        sendEvent("onSegmentStart", [:])
-        
-        // Start segment with preroll
-        Task {
-          try? await startSegment(options: ["prerollMs": 1000])
+        AsyncFunction("startEnergyDetection") { () -> Void in
+            try await self.startEnergyDetection()
         }
-      } else if timeSinceOnset > 300 {
-        // Timeout - false alarm
-        print("⚠️ Native VAD: Onset timeout - false alarm")
-        onsetDetected = false
-      }
-    } else if isRecordingSegment {
-      // RECORDING: Monitor for silence
-      guard let lastSpeech = lastSpeechTime,
-            let recordingStart = recordingStartTime else { return }
-      
-      let silenceMs = now.timeIntervalSince(lastSpeech) * 1000
-      let durationMs = now.timeIntervalSince(recordingStart) * 1000
-      
-      if silenceMs >= Double(vadSilenceDuration) && durationMs >= Double(vadMinSegmentDuration) {
-        print("💤 Native VAD: \(Int(silenceMs))ms silence - auto-stopping segment")
         
-        // Stop segment (will emit onSegmentComplete)
-        Task {
-          try? await stopSegment()
+        AsyncFunction("stopEnergyDetection") { () -> Void in
+            try await self.stopEnergyDetection()
         }
-      }
-    }
-  }
-  
-  private func createPCMBuffer(from samples: [Float], format: AVAudioFormat) -> AVAudioPCMBuffer? {
-    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else {
-      return nil
-    }
-    
-    buffer.frameLength = AVAudioFrameCount(samples.count)
-    guard let channelData = buffer.floatChannelData else { return nil }
-    
-    for i in 0..<samples.count {
-      channelData[0][i] = samples[i]
-    }
-    
-    return buffer
-  }
-  
-  private func startSegment(options: [String: Any]?) async throws {
-    guard isActive else {
-      throw NSError(domain: "MicrophoneEnergy", code: 1, userInfo: [NSLocalizedDescriptionKey: "Energy detection not active"])
+        
+        AsyncFunction("configureVAD") { (config: [String: Any?]) -> Void in
+            self.configureVAD(config: config)
+        }
+        
+        AsyncFunction("enableVAD") { () -> Void in
+            self.enableVAD()
+        }
+        
+        AsyncFunction("disableVAD") { () -> Void in
+            self.disableVAD()
+        }
+        
+        AsyncFunction("startSegment") { (options: [String: Any?]?) -> Void in
+            try await self.startSegment(options: options)
+        }
+        
+        AsyncFunction("stopSegment") { () -> String? in
+            return try await self.stopSegment()
+        }
     }
     
-    guard !isRecordingSegment else {
-      print("⚠️ Segment already recording, ignoring duplicate start")
-      return
+    private func startEnergyDetection() async throws {
+        if isActive {
+            // Restart: stop current detection first
+            await stopEnergyDetectionInternal()
+        }
+        
+        // Request microphone permission
+        let audioSession = AVAudioSession.sharedInstance()
+        
+        // Check and request permission
+        let permissionGranted = await withCheckedContinuation { continuation in
+            audioSession.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+        guard permissionGranted else {
+            let error = NSError(domain: "MicrophoneEnergy", code: 1, userInfo: [NSLocalizedDescriptionKey: "Microphone permission not granted"])
+            sendEvent("onError", ["message": "Microphone permission not granted"])
+            throw error
+        }
+        
+        do {
+            // Configure audio session
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            try audioSession.setActive(true)
+            
+            // Create audio engine
+            audioEngine = AVAudioEngine()
+            guard let engine = audioEngine else {
+                throw NSError(domain: "MicrophoneEnergy", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio engine"])
+            }
+            
+            inputNode = engine.inputNode
+            guard let input = inputNode else {
+                throw NSError(domain: "MicrophoneEnergy", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to get input node"])
+            }
+            
+            let inputFormat = input.inputFormat(forBus: 0)
+            
+            // Convert to desired sample rate if needed
+            desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: sampleRate, channels: 1, interleaved: false)
+            
+            // Only create converter if formats differ
+            if inputFormat.sampleRate != sampleRate || inputFormat.channelCount != 1 {
+                guard let desired = desiredFormat else {
+                    throw NSError(domain: "MicrophoneEnergy", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create desired audio format"])
+                }
+                guard let converter = AVAudioConverter(from: inputFormat, to: desired) else {
+                    throw NSError(domain: "MicrophoneEnergy", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio converter"])
+                }
+                audioConverter = converter
+            }
+            
+            let bufferSize: AVAudioFrameCount = 2048
+            
+            // Install tap on input node
+            input.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] (buffer, time) in
+                guard let self = self else { return }
+                
+                let timestamp = Date().timeIntervalSince1970 * 1000 // milliseconds
+                
+                // Convert buffer if needed
+                if let converter = self.audioConverter, let desired = self.desiredFormat {
+                    // Convert to desired format
+                    guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: desired, frameCapacity: buffer.frameLength) else { return }
+                    
+                    var error: NSError?
+                    var inputProvided = false
+                    let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+                        if !inputProvided {
+                            outStatus.pointee = .haveData
+                            inputProvided = true
+                            return buffer
+                        } else {
+                            outStatus.pointee = .noDataNow
+                            return nil
+                        }
+                    }
+                    
+                    converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+                    
+                    if error == nil && convertedBuffer.frameLength > 0 {
+                        self.processAudioData(buffer: convertedBuffer, timestamp: timestamp)
+                    }
+                } else {
+                    // Use buffer directly if no conversion needed
+                    self.processAudioData(buffer: buffer, timestamp: timestamp)
+                }
+            }
+            
+            // Start audio engine
+            try engine.start()
+            isActive = true
+            
+        } catch {
+            sendEvent("onError", ["message": "Failed to start energy detection: \(error.localizedDescription)"])
+            throw error
+        }
     }
     
-    // Get preroll duration (default 500ms)
-    let prerollMs = options?["prerollMs"] as? Int ?? 500
-    
-    // Create temp file for segment (use .m4a for compatibility)
-    let tempDir = FileManager.default.temporaryDirectory
-    let fileName = "segment_\(UUID().uuidString).m4a"
-    let fileURL = tempDir.appendingPathComponent(fileName)
-    
-    // Get audio format from engine
-    let inputNode = audioEngine.inputNode
-    let format = inputNode.outputFormat(forBus: 0)
-    
-    // Create audio file
-    let settings: [String: Any] = [
-      AVFormatIDKey: kAudioFormatLinearPCM,
-      AVSampleRateKey: format.sampleRate,
-      AVNumberOfChannelsKey: format.channelCount,
-      AVLinearPCMBitDepthKey: 32,
-      AVLinearPCMIsFloatKey: true
-    ]
-    
-    guard let outputFormat = AVAudioFormat(settings: settings) else {
-      throw NSError(domain: "MicrophoneEnergy", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create output format"])
+    private func stopEnergyDetection() async throws {
+        if !isActive {
+            return
+        }
+        
+        await stopEnergyDetectionInternal()
     }
     
-    segmentFile = try AVAudioFile(forWriting: fileURL, settings: outputFormat.settings)
-    segmentStartTime = Date()
-    
-    // Write buffered audio to file (preroll)
-    let bufferSampleRate = format.sampleRate
-    let samplesPerMs = bufferSampleRate / 1000.0
-    let maxPrerollBuffers = Int(ceil(Double(prerollMs) / (1024.0 / samplesPerMs)))
-    let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
-    
-    print("📼 Writing \(buffersToWrite) buffered chunks (~\(prerollMs)ms preroll)")
-    
-    for i in (ringBuffer.count - buffersToWrite)..<ringBuffer.count {
-      if let pcmBuffer = createPCMBuffer(from: ringBuffer[i], format: format) {
-        try? segmentFile?.write(from: pcmBuffer)
-      }
+    private func stopEnergyDetectionInternal() async {
+        isActive = false
+        vadEnabled = false
+        onsetDetected = false
+        
+        // Stop any active segment
+        if isRecordingSegment {
+            do {
+                _ = try await stopSegment()
+            } catch {
+                // Ignore errors when stopping segment during shutdown
+            }
+        }
+        
+        // Remove tap and stop engine
+        inputNode?.removeTap(onBus: 0)
+        audioEngine?.stop()
+        audioEngine = nil
+        inputNode = nil
+        audioConverter = nil
+        desiredFormat = nil
+        
+        // Deactivate audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false)
+        } catch {
+            // Ignore errors when deactivating session
+        }
     }
     
-    // Start recording new audio
-    isRecordingSegment = true
-    print("🎬 Segment recording started with \(buffersToWrite) preroll buffers")
-  }
-  
-  private func stopSegment() async throws -> String? {
-    guard isRecordingSegment else {
-      print("⚠️ No segment recording active")
-      return nil
+    private func configureVAD(config: [String: Any?]) {
+        if let threshold = config["threshold"] as? NSNumber {
+            vadThreshold = threshold.floatValue
+        }
+        if let silenceDuration = config["silenceDuration"] as? NSNumber {
+            vadSilenceDuration = silenceDuration.intValue
+        }
+        if let onsetMultiplier = config["onsetMultiplier"] as? NSNumber {
+            vadOnsetMultiplier = onsetMultiplier.floatValue
+        }
+        if let confirmMultiplier = config["confirmMultiplier"] as? NSNumber {
+            vadConfirmMultiplier = confirmMultiplier.floatValue
+        }
+        if let minSegmentDuration = config["minSegmentDuration"] as? NSNumber {
+            vadMinSegmentDuration = minSegmentDuration.intValue
+        }
+        
+        print("🎯 VAD configured: threshold=\(vadThreshold), silence=\(vadSilenceDuration)ms")
     }
     
-    isRecordingSegment = false
-    
-    guard let audioFile = segmentFile else {
-      return nil
+    private func enableVAD() {
+        vadEnabled = true
+        onsetDetected = false
+        smoothedEnergy = 0.0
+        lastSegmentEndTime = 0 // Reset cooldown when VAD enabled
+        print("🎯 Native VAD enabled")
     }
     
-    let fileURL = audioFile.url
-    let startTime = segmentStartTime?.timeIntervalSince1970 ?? 0
-    let endTime = Date().timeIntervalSince1970
-    let duration = endTime - startTime
+    private func disableVAD() {
+        vadEnabled = false
+        onsetDetected = false
+        
+        // Stop any active segment
+        if isRecordingSegment {
+            Task {
+                do {
+                    _ = try await stopSegment()
+                } catch {
+                    // Ignore errors
+                }
+            }
+        }
+        
+        print("🎯 Native VAD disabled")
+    }
     
-    // Close file
-    segmentFile = nil
-    segmentStartTime = nil
+    private func processAudioData(buffer: AVAudioPCMBuffer, timestamp: TimeInterval) {
+        let now = timestamp
+        
+        // Calculate energy (RMS - Root Mean Square)
+        // Handle both Int16 and Float32 formats
+        var energy: Double = 0.0
+        let frameLength = Int(buffer.frameLength)
+        
+        if let int16Data = buffer.int16ChannelData {
+            let channelDataPointer = int16Data.pointee
+            for i in 0..<frameLength {
+                let sample = Double(channelDataPointer[i]) / 32768.0 // Normalize to -1.0 to 1.0
+                energy += sample * sample
+            }
+        } else if let float32Data = buffer.floatChannelData {
+            let channelDataPointer = float32Data.pointee
+            for i in 0..<frameLength {
+                let sample = Double(channelDataPointer[i])
+                energy += sample * sample
+            }
+        } else {
+            return // Unsupported format
+        }
+        
+        energy = sqrt(energy / Double(frameLength))
+        
+        // Apply EMA smoothing
+        smoothedEnergy = emaAlpha * Float(energy) + (1.0 - emaAlpha) * smoothedEnergy
+        
+        // Create a copy of the buffer for ring buffer
+        guard let bufferCopy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameCapacity) else { return }
+        bufferCopy.frameLength = buffer.frameLength
+        
+        // Copy audio data
+        if let srcInt16 = buffer.int16ChannelData, let dstInt16 = bufferCopy.int16ChannelData {
+            memcpy(dstInt16.pointee, srcInt16.pointee, frameLength * MemoryLayout<Int16>.size)
+        } else if let srcFloat32 = buffer.floatChannelData, let dstFloat32 = bufferCopy.floatChannelData {
+            memcpy(dstFloat32.pointee, srcFloat32.pointee, frameLength * MemoryLayout<Float32>.size)
+        }
+        
+        // Manage ring buffer (always buffer when not recording segment)
+        if !isRecordingSegment {
+            ringBuffer.append(bufferCopy)
+            if ringBuffer.count > ringBufferMaxSize {
+                ringBuffer.removeFirst()
+            }
+        }
+        
+        // If recording a segment, collect in memory
+        if isRecordingSegment {
+            segmentBuffers.append(bufferCopy)
+        }
+        
+        // Native VAD logic (if enabled)
+        if vadEnabled {
+            handleNativeVAD(now: now)
+        }
+        
+        // Send energy level to JavaScript (for UI visualization)
+        sendEvent("onEnergyResult", [
+            "energy": smoothedEnergy,
+            "timestamp": now
+        ])
+    }
     
-    print("🎬 Segment recording stopped, duration: \(duration)s")
+    private func handleNativeVAD(now: TimeInterval) {
+        let onsetThreshold = vadThreshold * vadOnsetMultiplier
+        let confirmThreshold = vadThreshold * vadConfirmMultiplier
+        
+        // Update last speech time if above confirm threshold
+        if smoothedEnergy > confirmThreshold {
+            lastSpeechTime = now
+        }
+        
+        // State machine
+        if !isRecordingSegment && !onsetDetected {
+            // IDLE: Check for onset (with cooldown to prevent rapid re-triggers)
+            let timeSinceLastSegment = now - lastSegmentEndTime
+            if smoothedEnergy > onsetThreshold {
+                if timeSinceLastSegment >= cooldownPeriodMs || lastSegmentEndTime == 0 {
+                    print("🎯 Native VAD: Onset detected (\(smoothedEnergy) > \(onsetThreshold))")
+                    onsetDetected = true
+                    onsetTime = now
+                } else {
+                    // Still in cooldown period - ignore onset
+                    print("⏳ Native VAD: Onset ignored (cooldown: \(Int(timeSinceLastSegment))ms/\(Int(cooldownPeriodMs))ms)")
+                }
+            }
+        } else if !isRecordingSegment && onsetDetected {
+            // ONSET: Wait for confirmation or timeout
+            let timeSinceOnset = now - onsetTime
+            
+            if smoothedEnergy > confirmThreshold {
+                print("🎤 Native VAD: Speech CONFIRMED (\(smoothedEnergy) > \(confirmThreshold)) - auto-starting segment")
+                
+                // Start recording segment
+                onsetDetected = false
+                lastSpeechTime = now
+                recordingStartTime = now
+                
+                // Emit event to JS (for UI update - create pending card)
+                sendEvent("onSegmentStart", [:])
+                
+                // Start segment with preroll
+                Task {
+                    do {
+                        try await startSegment(options: ["prerollMs": 1000])
+                    } catch {
+                        print("⚠️ Native VAD: Failed to start segment: \(error.localizedDescription)")
+                    }
+                }
+            } else if timeSinceOnset > 300 {
+                // Timeout - false alarm
+                print("⚠️ Native VAD: Onset timeout - false alarm")
+                onsetDetected = false
+            }
+        } else if isRecordingSegment {
+            // RECORDING: Monitor for silence
+            let silenceMs = now - lastSpeechTime
+            let durationMs = now - recordingStartTime
+            
+            if silenceMs >= Double(vadSilenceDuration) && durationMs >= Double(vadMinSegmentDuration) {
+                print("💤 Native VAD: \(Int(silenceMs))ms silence - auto-stopping segment")
+                
+                // Stop segment (will emit onSegmentComplete)
+                Task {
+                    do {
+                        _ = try await stopSegment()
+                    } catch {
+                        print("⚠️ Native VAD: Failed to stop segment: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
     
-    // Send completion event with file URI
-    sendEvent("onSegmentComplete", [
-      "uri": fileURL.absoluteString,
-      "startTime": startTime * 1000,
-      "endTime": endTime * 1000,
-      "duration": duration * 1000
-    ])
+    private func startSegment(options: [String: Any?]?) async throws {
+        guard isActive else {
+            throw NSError(domain: "MicrophoneEnergy", code: 4, userInfo: [NSLocalizedDescriptionKey: "Energy detection not active"])
+        }
+        
+        if isRecordingSegment {
+            print("⚠️ Segment already recording, ignoring duplicate start")
+            return
+        }
+        
+        // Get preroll duration (default 500ms)
+        let prerollMs = (options?["prerollMs"] as? NSNumber)?.intValue ?? 500
+        
+        // Create temp file for segment (WAV format for compatibility)
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileName = "segment_\(UUID().uuidString).wav"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        
+        segmentFile = fileURL
+        segmentStartTime = Date().timeIntervalSince1970 * 1000 // milliseconds
+        
+        // Copy preroll from ring buffer
+        let samplesPerMs = sampleRate / 1000.0
+        let typicalBufferSize = 2048.0
+        let maxPrerollBuffers = Int(Double(prerollMs) / (typicalBufferSize / samplesPerMs))
+        let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
+        
+        segmentBuffers.removeAll()
+        segmentBuffers.append(contentsOf: ringBuffer.suffix(buffersToWrite))
+        
+        print("📼 Preroll: \(buffersToWrite) chunks (~\(prerollMs)ms)")
+        
+        isRecordingSegment = true
+        print("🎬 Segment recording started with preroll")
+    }
     
-    return fileURL.absoluteString
-  }
+    private func stopSegment() async throws -> String? {
+        guard isRecordingSegment else {
+            print("⚠️ No segment recording active")
+            return nil
+        }
+        
+        isRecordingSegment = false
+        
+        // Record when segment ended for cooldown logic
+        lastSegmentEndTime = Date().timeIntervalSince1970 * 1000 // milliseconds
+        
+        guard let fileURL = segmentFile else {
+            segmentBuffers.removeAll()
+            return nil
+        }
+        
+        let startTime = segmentStartTime
+        let endTime = lastSegmentEndTime
+        let duration = endTime - startTime
+        
+        // Calculate total samples
+        var totalSamples = 0
+        for buffer in segmentBuffers {
+            totalSamples += Int(buffer.frameLength)
+        }
+        
+        let dataSize = totalSamples * 2 // 16-bit = 2 bytes per sample
+        
+        print("🎬 Writing WAV file: \(totalSamples) samples, \(Int(duration))ms")
+        
+        // Create file if it doesn't exist
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            FileManager.default.createFile(atPath: fileURL.path, contents: nil, attributes: nil)
+        }
+        
+        // Write WAV file
+        let fileHandle = try FileHandle(forWritingTo: fileURL)
+        defer { try? fileHandle.close() }
+        
+        // Truncate file to start fresh
+        try fileHandle.truncate(atOffset: 0)
+        
+        // Write WAV header
+        try writeWAVHeader(fileHandle: fileHandle, dataSize: Int64(dataSize), sampleRate: Int(sampleRate), channels: 1, bitsPerSample: 16)
+        
+        // Write all audio data
+        for buffer in segmentBuffers {
+            let frameLength = Int(buffer.frameLength)
+            
+            if let int16Data = buffer.int16ChannelData {
+                let channelDataPointer = int16Data.pointee
+                let audioData = Data(bytes: channelDataPointer, count: frameLength * MemoryLayout<Int16>.size)
+                try fileHandle.write(contentsOf: audioData)
+            } else if let float32Data = buffer.floatChannelData {
+                // Convert Float32 to Int16
+                let channelDataPointer = float32Data.pointee
+                var int16Samples = [Int16](repeating: 0, count: frameLength)
+                for i in 0..<frameLength {
+                    let floatSample = channelDataPointer[i]
+                    let clampedSample = max(-1.0, min(1.0, Double(floatSample)))
+                    int16Samples[i] = Int16(clampedSample * 32767.0)
+                }
+                let audioData = Data(bytes: int16Samples, count: frameLength * MemoryLayout<Int16>.size)
+                try fileHandle.write(contentsOf: audioData)
+            }
+        }
+        
+        try fileHandle.synchronize()
+        
+        print("✅ WAV file written: \(fileURL.path)")
+        print("⏳ Cooldown active: \(Int(cooldownPeriodMs))ms before next onset detection")
+        
+        // Send completion event with file URI
+        // fileURL.path returns absolute path like "/Users/.../tmp/segment.wav"
+        // We need "file:///Users/..." (3 slashes total: file:// + /Users/...)
+        let pathString = fileURL.path
+        // Ensure path starts with / for absolute paths
+        let normalizedPath = pathString.hasPrefix("/") ? pathString : "/\(pathString)"
+        // Create file:// URI with exactly 3 slashes total
+        let uri = "file://\(normalizedPath)"
+        
+        sendEvent("onSegmentComplete", [
+            "uri": uri,
+            "startTime": startTime,
+            "endTime": endTime,
+            "duration": duration
+        ])
+        
+        segmentFile = nil
+        segmentBuffers.removeAll()
+        
+        return uri
+    }
+    
+    private func writeWAVHeader(fileHandle: FileHandle, dataSize: Int64, sampleRate: Int, channels: Int, bitsPerSample: Int) throws {
+        var header = Data()
+        
+        // RIFF header
+        header.append("RIFF".data(using: .ascii)!)
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(36 + dataSize).littleEndian) { Data($0) })
+        header.append("WAVE".data(using: .ascii)!)
+        
+        // fmt chunk
+        header.append("fmt ".data(using: .ascii)!)
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(16).littleEndian) { Data($0) }) // fmt chunk size
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(1).littleEndian) { Data($0) }) // Audio format (1 = PCM)
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(channels).littleEndian) { Data($0) })
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(sampleRate).littleEndian) { Data($0) })
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(sampleRate * channels * bitsPerSample / 8).littleEndian) { Data($0) }) // Byte rate
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(channels * bitsPerSample / 8).littleEndian) { Data($0) }) // Block align
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(bitsPerSample).littleEndian) { Data($0) })
+        
+        // data chunk
+        header.append("data".data(using: .ascii)!)
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(dataSize).littleEndian) { Data($0) })
+        
+        try fileHandle.write(contentsOf: header)
+    }
 }

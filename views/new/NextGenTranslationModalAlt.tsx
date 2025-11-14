@@ -9,12 +9,14 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStore } from '@/store/localStore';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { asset } from '@/db/drizzleSchema';
+import { asset, asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -63,10 +65,18 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  return useHybridData({
-    dataType: 'translation',
-    queryKeyParams: [assetId],
-    offlineQuery: toCompilableQuery(
+  const { isAuthenticated } = useAuth();
+  const isPowerSyncReady = React.useMemo(
+    () => system.isPowerSyncInitialized(),
+    []
+  );
+
+  // Only create offline query if PowerSync is initialized and user is authenticated
+  const offlineQuery = React.useMemo(() => {
+    if (!isPowerSyncReady || !isAuthenticated) {
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+    return toCompilableQuery(
       system.db.query.asset.findFirst({
         where: eq(asset.id, assetId),
         with: {
@@ -74,9 +84,79 @@ function useNextGenTranslation(assetId: string) {
           votes: true
         }
       })
-    ),
+    );
+  }, [assetId, isPowerSyncReady, isAuthenticated]);
+
+  return useHybridData<
+    Omit<typeof asset.$inferSelect, 'images'> & {
+      images: string[];
+      content: (typeof asset_content_link.$inferSelect)[];
+      votes: Array<{
+        id: string;
+        asset_id: string;
+        creator_id: string;
+        polarity: 'up' | 'down';
+        active: boolean;
+        created_at: string;
+      }>;
+    }
+  >({
+    dataType: 'translation',
+    queryKeyParams: [assetId],
+    offlineQuery,
+    cloudQueryFn: async () => {
+      if (!assetId) return [];
+
+      // Fetch asset with content and votes from Supabase
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select(
+          `
+          *,
+          content:asset_content_link (
+            *
+          ),
+          votes:vote (
+            *
+          )
+        `
+        )
+        .eq('id', assetId)
+        .limit(1)
+        .overrideTypes<
+          (Omit<typeof asset.$inferSelect, 'images'> & {
+            images: string;
+            content?: (typeof asset_content_link.$inferSelect)[];
+            votes?: Array<{
+              id: string;
+              asset_id: string;
+              creator_id: string;
+              polarity: 'up' | 'down';
+              active: boolean;
+              created_at: string;
+            }>;
+          })[]
+        >();
+
+      if (error) throw error;
+
+      // Parse images JSON
+      return data.map((item) => {
+        const parsedImages = item.images
+          ? (JSON.parse(item.images) as string[])
+          : [];
+
+        return {
+          ...item,
+          images: parsedImages,
+          content: item.content || [],
+          votes: item.votes || []
+        };
+      });
+    },
     enabled: !!assetId,
-    enableCloudQuery: false
+    enableCloudQuery: !!assetId,
+    enableOfflineQuery: !!assetId
   });
 }
 
@@ -91,8 +171,10 @@ export default function NextGenTranslationModal({
   projectName
 }: NextGenTranslationModalProps) {
   const { project } = useProjectById(projectId);
+  const { currentQuestId } = useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -204,41 +286,78 @@ export default function NextGenTranslationModal({
           throw new Error('Project is required');
         }
 
+        if (!currentQuestId) {
+          throw new Error(
+            'Quest context is missing. This is an unexpected error.'
+          );
+        }
+
+        // Get the original source asset ID (the asset being translated, not the translation itself)
+        const originalSourceAssetId = asset.source_asset_id || asset.id;
+
+        // Validate source_language_id exists and store it
+        if (!asset.source_language_id) {
+          throw new Error(
+            'Source language is missing. This is an unexpected error.'
+          );
+        }
+        const sourceLanguageId = asset.source_language_id;
+
         const translationAudio = asset.content
           .flatMap((c) => c.audio ?? [])
           .filter(Boolean);
         await system.db.transaction(async (tx) => {
+          // Create a new asset that points to the original source asset
           const [newAsset] = await tx
-            .insert(
-              resolveTable('asset', {
-                localOverride: project.source === 'local'
-              })
-            )
+            .insert(resolveTable('asset')) // Use synced table like the working version
             .values({
               name: asset.name,
-              source_language_id: asset.source_language_id,
-              source_asset_id: asset.id,
+              source_language_id: sourceLanguageId,
+              source_asset_id: originalSourceAssetId, // Point to the original asset being translated
               creator_id: currentUser.id,
-              project_id: project.id
+              project_id: project.id,
+              download_profiles: [currentUser.id]
             })
             .returning();
+
           if (!newAsset) {
             throw new Error('Failed to insert asset');
           }
+
+          // Create asset_content_link with the transcribed text and audio
+          const contentValues: {
+            asset_id: string;
+            source_language_id: string;
+            download_profiles: string[];
+            text?: string;
+            audio?: string[];
+          } = {
+            asset_id: newAsset.id,
+            source_language_id: sourceLanguageId,
+            download_profiles: [currentUser.id],
+            text: editedText.trim()
+          };
+
+          // Add audio if it exists
+          if (translationAudio.length > 0) {
+            contentValues.audio = translationAudio;
+          }
+
+          console.log(
+            '[CREATE TRANSCRIPTION] Inserting asset_content_link:',
+            JSON.stringify(contentValues, null, 2)
+          );
+
           await tx
-            .insert(
-              resolveTable('asset_content_link', {
-                localOverride: project.source === 'local'
-              })
-            )
-            .values({
-              text: editedText.trim(),
-              asset_id: newAsset.id,
-              source_language_id: asset.source_language_id,
-              ...(translationAudio.length > 0
-                ? { audio: translationAudio }
-                : {})
-            });
+            .insert(resolveTable('asset_content_link'))
+            .values(contentValues);
+
+          // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
+          await tx.insert(resolveTable('quest_asset_link')).values({
+            quest_id: currentQuestId,
+            asset_id: newAsset.id,
+            download_profiles: [currentUser.id]
+          });
         });
       },
       onSuccess: () => {
@@ -437,9 +556,25 @@ export default function NextGenTranslationModal({
 
                       {/* Voting Section with PrivateAccessGate */}
                       {!isOwnTranslation &&
-                        currentUser &&
                         !isEditing &&
-                        !hasReported && (
+                        !hasReported &&
+                        // Show login prompt for anonymous users
+                        (!isAuthenticated ? (
+                          <Alert icon={UserCircleIcon}>
+                            <AlertTitle>
+                              {t('pleaseLogInToVoteOnTranslations')}
+                            </AlertTitle>
+                            <Button
+                              onPress={() => {
+                                onOpenChange(false);
+                                setAuthView('sign-in');
+                              }}
+                              className="mt-4"
+                            >
+                              <Text>{t('signIn') || 'Sign In'}</Text>
+                            </Button>
+                          </Alert>
+                        ) : (
                           <PrivateAccessGate
                             projectId={projectId || ''}
                             projectName={projectName || ''}
@@ -522,16 +657,7 @@ export default function NextGenTranslationModal({
                               </View>
                             </View>
                           </PrivateAccessGate>
-                        )}
-
-                      {/* Show login prompt if not logged in */}
-                      {!currentUser && !isEditing && (
-                        <Alert icon={UserCircleIcon}>
-                          <AlertTitle>
-                            {t('pleaseLogInToVoteOnTranslations')}
-                          </AlertTitle>
-                        </Alert>
-                      )}
+                        ))}
                       {isOwnTranslation ? (
                         <TranslationSettingsModal
                           isVisible={showSettingsModal}
