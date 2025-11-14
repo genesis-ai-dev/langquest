@@ -1,4 +1,3 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,23 +11,15 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
-import type { quest_closure } from '@/db/drizzleSchema';
-import { quest as questTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import type { quest_closure, quest as questTable } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq } from 'drizzle-orm';
 import { HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import type { HybridDataSource } from './useHybridData';
-import {
-  useHybridData,
-  useItemDownload,
-  useItemDownloadStatus
-} from './useHybridData';
+import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 type Quest = typeof questTable.$inferSelect;
 type QuestClosure = typeof quest_closure.$inferSelect;
@@ -46,61 +37,61 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
   onAddSubquest
 }) => {
   // Fetch child quests (one level) for display
-  const { data: childQuests } = useHybridData<Quest>({
-    dataType: 'child-quests',
-    queryKeyParams: [quest.project_id, quest.id, 'children'],
-    offlineQuery: toCompilableQuery(
-      system.db.query.quest.findMany({
-        where: and(
-          eq(questTable.project_id, quest.project_id),
-          eq(questTable.parent_id, quest.id)
-        )
-      })
-    ),
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('project_id', quest.project_id)
-        .eq('parent_id', quest.id)
-        .overrideTypes<Quest[]>();
-      if (error) {
-        console.warn('Error fetching child quests from cloud:', error);
-        return [];
-      }
-      return data;
-    },
-    getItemId: (item) => item.id
-  });
+  // const { data: childQuests } = useHybridData<Quest>({
+  //   dataType: 'child-quests',
+  //   queryKeyParams: [quest.project_id, quest.id, 'children'],
+  //   offlineQuery: toCompilableQuery(
+  //     system.db.query.quest.findMany({
+  //       where: and(
+  //         eq(questTable.project_id, quest.project_id),
+  //         eq(questTable.parent_id, quest.id)
+  //       )
+  //     })
+  //   ),
+  //   cloudQueryFn: async () => {
+  //     const { data, error } = await system.supabaseConnector.client
+  //       .from('quest')
+  //       .select('*')
+  //       .eq('project_id', quest.project_id)
+  //       .eq('parent_id', quest.id)
+  //       .overrideTypes<Quest[]>();
+  //     if (error) {
+  //       console.warn('Error fetching child quests from cloud:', error);
+  //       return [];
+  //     }
+  //     return data;
+  //   },
+  //   getItemId: (item) => item.id
+  // });
   const { goToQuest } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
 
   // Fetch quest closure data for download stats
-  const { data: questClosureData } = useHybridData<QuestClosure>({
-    dataType: 'quest_closure',
-    queryKeyParams: [quest.id],
-    offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${quest.id}' LIMIT 1`,
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest_closure')
-        .select('*')
-        .eq('quest_id', quest.id)
-        .limit(1)
-        .overrideTypes<QuestClosure[]>();
+  // const { data: questClosureData } = useHybridData<QuestClosure>({
+  //   dataType: 'quest_closure',
+  //   queryKeyParams: [quest.id],
+  //   offlineQuery: `SELECT * FROM quest_closure WHERE quest_id = '${quest.id}' LIMIT 1`,
+  //   cloudQueryFn: async () => {
+  //     const { data, error } = await system.supabaseConnector.client
+  //       .from('quest_closure')
+  //       .select('*')
+  //       .eq('quest_id', quest.id)
+  //       .limit(1)
+  //       .overrideTypes<QuestClosure[]>();
 
-      if (error) {
-        console.warn('Error fetching quest closure from cloud:', error);
-        return [];
-      }
+  //     if (error) {
+  //       console.warn('Error fetching quest closure from cloud:', error);
+  //       return [];
+  //     }
 
-      return data;
-    },
-    getItemId: (item) => item.quest_id
-  });
+  //     return data;
+  //   },
+  //   getItemId: (item) => item.quest_id
+  // });
 
-  const questClosure = questClosureData[0];
+  // const questClosure = questClosureData[0];
 
   const { mutate: downloadQuest, isPending: isDownloading } = useItemDownload(
     'quest',
@@ -141,8 +132,10 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
   };
 
   const downloadStats = {
-    totalAssets: questClosure?.total_assets || 0,
-    totalTranslations: questClosure?.total_translations || 0
+    // totalAssets: questClosure?.total_assets || 0,
+    // totalTranslations: questClosure?.total_translations || 0
+    totalAssets: 0,
+    totalTranslations: 0
   };
 
   const cardDisabled = needsDownload || !allowEditing;
@@ -176,13 +169,13 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                   {quest.name}
                 </CardTitle>
               </View>
-              <DownloadIndicator
+              {/* <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}
                 isLoading={isDownloading}
                 onPress={handleDownloadToggle}
                 downloadType="quest"
                 stats={downloadStats}
-              />
+              /> */}
             </View>
             <CardDescription>
               {needsDownload && (
@@ -201,7 +194,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
         <CardContent>
           <Text numberOfLines={4}>{quest.description}</Text>
           <View className="mt-2 flex flex-col gap-2">
-            {!!childQuests.length && (
+            {/* {!!childQuests.length && (
               <View className="flex flex-col gap-1">
                 <Text className="text-xs text-muted-foreground">
                   Sub-quests
@@ -221,7 +214,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                   </Pressable>
                 ))}
               </View>
-            )}
+            )} */}
             {onAddSubquest && (
               <Button
                 variant="outline"

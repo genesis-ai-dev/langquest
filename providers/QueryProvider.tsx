@@ -1,3 +1,4 @@
+import { useReactQueryDevTools } from '@dev-plugins/react-query';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
@@ -9,12 +10,11 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             // Cache data for 30 days
-            gcTime: 1000 * 60 * 60 * 24 * 30,
+            // gcTime: 1000 * 60 * 60 * 24 * 30,
             // Keep data fresh for 30 seconds
             staleTime: 30 * 1000,
             // Automatically refetch queries every 30 seconds
-            refetchInterval: 30 * 1000,
-            // Don't refetch on mount - use cached data for instant navigation
+            // refetchInterval: 30 * 1000,
             refetchOnMount: true,
             // Don't refetch on window focus
             refetchOnWindowFocus: false,
@@ -29,6 +29,8 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       }),
     []
   );
+
+  useReactQueryDevTools(queryClient);
 
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

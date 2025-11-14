@@ -5,7 +5,7 @@ import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, desc, eq, like, or } from 'drizzle-orm';
@@ -120,10 +120,6 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     queryKeyParams: [uiReadyOnly, debouncedSearchQuery.trim()], // Include search in query key
     enabled: true, // Always enabled - limited query is fast
 
-    // Disable cloud query - only use offline for immediate performance
-    enableCloudQuery: false,
-    enableOfflineQuery: true,
-
     // PowerSync query using Drizzle - search-aware query
     // When searching: no limit, filter by search terms
     // When not searching: limit to 100, order by ui_ready first
@@ -139,20 +135,20 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         ],
         ...(INITIAL_LANGUAGE_LIMIT && { limit: INITIAL_LANGUAGE_LIMIT }) // Only limit when not searching
       })
-    ),
+    )
 
     // Cloud query - get all active languages (disabled for performance)
-    cloudQueryFn: async () => {
-      let query = system.supabaseConnector.client
-        .from('language')
-        .select('*')
-        .eq('active', true);
-      if (uiReadyOnly) query = query.eq('ui_ready', true);
+    // cloudQueryFn: async () => {
+    //   let query = system.supabaseConnector.client
+    //     .from('language')
+    //     .select('*')
+    //     .eq('active', true);
+    //   if (uiReadyOnly) query = query.eq('ui_ready', true);
 
-      const { data, error } = await query.overrideTypes<Language[]>();
-      if (error) throw error;
-      return data;
-    }
+    //   const { data, error } = await query.overrideTypes<Language[]>();
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
   useEffect(() => {
@@ -204,6 +200,13 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     [onChange, setSavedLanguage]
   );
 
+  const mutedForeground = useThemeColor('muted-foreground');
+  const foreground = useThemeColor('foreground');
+  const card = useThemeColor('card');
+  const border = useThemeColor('border');
+  const input = useThemeColor('input');
+  const primary = useThemeColor('primary');
+
   // Show loading state while fetching
   if (isLoading || languages.length === 0) {
     return (
@@ -226,16 +229,16 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           borderWidth: 1,
           borderRadius: 8,
           paddingHorizontal: 12,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('input')
+          backgroundColor: card,
+          borderColor: input
         }}
         placeholderStyle={{
           fontSize: 16,
-          color: getThemeColor('muted-foreground')
+          color: mutedForeground
         }}
         selectedTextStyle={{
           fontSize: 16,
-          color: getThemeColor('foreground')
+          color: foreground
         }}
         iconStyle={{
           width: 20,
@@ -245,15 +248,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           borderRadius: 8,
           borderWidth: 1,
           marginTop: 4,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
+          backgroundColor: card,
+          borderColor: border
         }}
         dropdownPosition="auto"
         itemTextStyle={{
           fontSize: 16,
-          color: getThemeColor('foreground')
+          color: foreground
         }}
-        activeColor={getThemeColor('primary')}
+        activeColor={primary}
         data={sortedData}
         search
         maxHeight={400}
@@ -268,15 +271,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
               placeholder={t('searchLanguages') || 'Search languages...'}
-              placeholderTextColor={getThemeColor('muted-foreground')}
+              placeholderTextColor={mutedForeground}
               className="h-10 rounded-md bg-card px-3 text-base text-foreground"
-              selectionColor={getThemeColor('primary')}
+              selectionColor={primary}
             />
           </View>
         )}
         flatListProps={{
           style: {
-            backgroundColor: getThemeColor('card')
+            backgroundColor: card
           },
           contentContainerStyle: {}
         }}

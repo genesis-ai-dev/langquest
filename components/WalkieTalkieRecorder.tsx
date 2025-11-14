@@ -8,6 +8,7 @@ import { LockIcon, MicIcon, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -17,8 +18,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  type SharedValue
+  withTiming
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -390,6 +390,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           onRecordingDiscarded?.();
         }
       }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true
+      });
 
       setRecording(null);
       setRecordingDuration(0);

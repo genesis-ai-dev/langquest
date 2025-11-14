@@ -129,10 +129,10 @@ export default function RootLayout() {
   console.log('[RootLayout] scheme:', scheme);
 
   return (
-    <PowerSyncContext.Provider value={system.powersync}>
-      <PostHogProvider>
-        <AuthProvider>
-          <QueryProvider>
+    <PostHogProvider>
+      <PowerSyncContext.Provider value={system.powersync}>
+        <QueryProvider>
+          <AuthProvider>
             <AudioProvider>
               <SafeAreaProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
@@ -148,10 +148,10 @@ export default function RootLayout() {
                 </GestureHandlerRootView>
               </SafeAreaProvider>
             </AudioProvider>
-          </QueryProvider>
-        </AuthProvider>
-      </PostHogProvider>
-    </PowerSyncContext.Provider>
+          </AuthProvider>
+        </QueryProvider>
+      </PowerSyncContext.Provider>
+    </PostHogProvider>
   );
 }
 

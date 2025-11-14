@@ -18,7 +18,6 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { isInvitationExpired, shouldHideInvitation } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
@@ -219,7 +218,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   // console.log('members', members);
 
   // Query for invited users - get invites first
-  const { data: invites } = useHybridData<typeof invite.$inferSelect>({
+  const { data: invites } = useHybridData({
     dataType: 'project-invites',
     queryKeyParams: [projectId],
 
@@ -287,18 +286,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         count: inv.count
       }));
   }, [invites]);
-
-  // Filter invitations based on visibility rules
-  const visibleInvitations = invitations.filter((inv) => {
-    if (shouldHideInvitation(inv.status, inv.last_updated, inv.created_at)) {
-      return false;
-    }
-    // Update status to expired if needed
-    if (inv.status === 'pending' && isInvitationExpired(inv.created_at)) {
-      inv.status = 'expired';
-    }
-    return true;
-  });
 
   // Query for pending membership requests (owners only)
   const { data: requestsData = [] } = useHybridData({
@@ -1063,7 +1050,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                           numberOfLines={1}
                           className="truncate"
                         >
-                          {t('invited')} ({visibleInvitations.length})
+                          {t('invited')} ({invitations.length})
                         </Text>
                       </TabsTrigger>
                       {sendInvitePermissions.hasAccess && (
@@ -1115,8 +1102,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
                       >
-                        {visibleInvitations.length > 0 ? (
-                          visibleInvitations.map(renderInvitation)
+                        {invitations.length > 0 ? (
+                          invitations.map(renderInvitation)
                         ) : (
                           <Text className="py-6 text-center text-muted-foreground">
                             {t('noInvitations')}

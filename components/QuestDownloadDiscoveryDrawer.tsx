@@ -11,7 +11,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { DiscoveryState } from '@/hooks/useQuestDownloadDiscovery';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -19,17 +19,16 @@ import {
   FileTextIcon,
   FolderIcon,
   LinkIcon,
-  Loader2Icon,
   TagIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 interface QuestDownloadDiscoveryDrawerProps {
   isOpen: boolean;
@@ -91,11 +90,7 @@ function CategoryRow({
         )}
 
         {isLoading && (
-          <Icon
-            as={Loader2Icon}
-            size={16}
-            className="animate-spin text-primary"
-          />
+          <ActivityIndicator size="small" color={getThemeColor('primary')} />
         )}
         {!isLoading && !hasError && (
           <Icon as={CheckCircleIcon} size={16} className="text-green-600" />
@@ -133,6 +128,15 @@ export function QuestDownloadDiscoveryDrawer({
   });
   const [totalRecords, setTotalRecords] = useState(0);
 
+  // Wrapper functions for scheduleOnRN (must be function references, not anonymous functions)
+  const updateProgress = (progressData: typeof progress) => {
+    setProgress(progressData);
+  };
+
+  const updateTotalRecords = (total: number) => {
+    setTotalRecords(total);
+  };
+
   // Sync shared values to React state using useAnimatedReaction
   useAnimatedReaction(
     () => ({
@@ -151,7 +155,7 @@ export function QuestDownloadDiscoveryDrawer({
     (result, prev) => {
       // Only update if values actually changed to prevent render loops
       if (!prev || JSON.stringify(result) !== JSON.stringify(prev)) {
-        runOnJS(setProgress)({
+        scheduleOnRN(updateProgress, {
           quest: result.quest,
           project: result.project,
           questAssetLinks: result.questAssetLinks,
@@ -163,7 +167,7 @@ export function QuestDownloadDiscoveryDrawer({
           tags: result.tags,
           languages: result.languages
         });
-        runOnJS(setTotalRecords)(result.total);
+        scheduleOnRN(updateTotalRecords, result.total);
       }
     }
   );

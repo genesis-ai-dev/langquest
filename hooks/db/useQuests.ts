@@ -4,7 +4,7 @@ import { system } from '@/db/powersync/system';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import {
   useHybridData,
-  useSimpleHybridInfiniteData
+  useHybridPaginatedInfiniteData
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { keepPreviousData } from '@tanstack/react-query';
@@ -421,24 +421,23 @@ export function useInfiniteQuestsByProjectId(
   const { currentUser } = useAuth();
 
   const {
-    data,
+    data: infiniteData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: isQuestsLoading,
     isOnline,
     isFetching
-  } = useSimpleHybridInfiniteData(
-    'quests',
-    [projectId || '', debouncedSearchQuery], // Use debounced search query
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
-      if (!projectId) return [];
-
-      const offset = pageParam * pageSize;
+  } = useHybridPaginatedInfiniteData({
+    dataType: 'quests',
+    queryKeyParams: [projectId || '', debouncedSearchQuery],
+    pageSize: 20,
+    // Offline query - returns CompilableQuery
+    offlineQuery: ({ page, pageSize: pageSizeParam }) => {
+      const offset = page * pageSizeParam;
 
       // Build where conditions
-      const baseCondition = eq(quest.project_id, projectId);
+      const baseCondition = eq(quest.project_id, projectId!);
 
       // Add search filtering for offline
       const whereConditions = and(
@@ -457,20 +456,20 @@ export function useInfiniteQuestsByProjectId(
         notInArray(quest.creator_id, blockedUsersQuery(currentUser!.id))
       );
 
-      const quests = await system.db.query.quest.findMany({
-        where: whereConditions,
-        limit: pageSize,
-        offset
-      });
-
-      return quests;
+      return toCompilableQuery(
+        system.db.query.quest.findMany({
+          where: whereConditions,
+          limit: pageSizeParam,
+          offset
+        })
+      );
     },
     // Cloud query function
-    async ({ pageParam, pageSize }) => {
+    cloudQueryFn: async ({ page, pageSize: pageSizeParam }) => {
       if (!projectId) return [];
 
-      const from = pageParam * pageSize;
-      const to = from + pageSize - 1;
+      const from = page * pageSizeParam;
+      const to = from + pageSizeParam - 1;
 
       let query = system.supabaseConnector.client
         .from('quest')
@@ -505,8 +504,13 @@ export function useInfiniteQuestsByProjectId(
       if (error) throw error;
       return data;
     },
-    20 // pageSize
-  );
+    enabled: !!projectId
+  });
+
+  // Flatten pages data to match expected format
+  const data = useMemo(() => {
+    return infiniteData.pages.flatMap((page) => page.data);
+  }, [infiniteData.pages]);
 
   const isLoading = isQuestsLoading || isRestrictionsLoading;
 
