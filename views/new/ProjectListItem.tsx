@@ -248,7 +248,7 @@ export function ProjectListItem({
                     variant="default"
                     size="sm"
                     className="flex-1 flex-row items-center gap-2"
-                    onPress={() => {
+                    onPress={async () => {
                       goToNotifications();
                     }}
                   >

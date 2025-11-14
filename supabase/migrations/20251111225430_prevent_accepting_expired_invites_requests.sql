@@ -86,12 +86,23 @@ for insert
 to authenticated
 with check (
   -- Case 1: User is creating their own project (creator gets owner access)
+  -- BUT: Prevent if there's an expired invite for this user/project (can't bypass expired invite check)
   (
     profile_id = auth.uid() 
     AND EXISTS (
       SELECT 1 FROM public.project p 
       WHERE p.id = profile_project_link.project_id 
       AND p.creator_id = auth.uid()
+    )
+    -- Prevent inserting if there's an expired invite for this user/project
+    -- This ensures creators can't bypass expired invite checks
+    AND NOT EXISTS (
+      SELECT 1 FROM public.invite i
+      WHERE i.project_id = profile_project_link.project_id
+      AND i.receiver_profile_id = auth.uid()
+      AND i.status = 'pending'
+      AND i.last_updated < (now() - interval '7 days')
+      AND i.active = true
     )
   )
   OR

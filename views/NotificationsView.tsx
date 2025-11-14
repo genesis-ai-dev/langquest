@@ -531,6 +531,12 @@ export default function NotificationsView() {
       // Invalidate project queries to refresh the projects list
       // Use exact: false to match all queries starting with these keys
       console.log('[handleAccept] Invalidating queries...');
+
+      await queryClient.invalidateQueries({
+        queryKey: ['my-projects'],
+        exact: false
+      });
+
       await queryClient.invalidateQueries({
         queryKey: ['all-projects'],
         exact: false
@@ -538,6 +544,11 @@ export default function NotificationsView() {
       // Also invalidate user-memberships since that drives what projects show up
       await queryClient.invalidateQueries({
         queryKey: ['user-memberships'],
+        exact: false
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['invited-invites'],
         exact: false
       });
 

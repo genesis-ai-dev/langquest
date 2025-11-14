@@ -22,9 +22,9 @@ import {
   like,
   notExists,
   notInArray,
-  or,
-  sql
+  or
 } from 'drizzle-orm';
+import { modelName } from 'expo-device';
 import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
@@ -240,42 +240,41 @@ export default function NextGenProjectsView() {
   // Offline-only: PowerSync syncs invite table (via user_profile and project_memberships buckets)
   // When an invite is withdrawn/expired, PowerSync removes it from local DB, and the query
   // automatically updates due to PowerSync watches being reactive
-  type Invite = typeof invite.$inferSelect;
 
-  const invitedInvitesQuery = useHybridData<Invite>({
+  const invitedInvitesQuery = useHybridData({
     dataType: 'invited-invites',
-    queryKeyParams: [userId || '', userEmail || '', searchQuery],
+    queryKeyParams: [userEmail, searchQuery, modelName],
     offlineQuery: toCompilableQuery(
       system.db
-        .select()
+        .select({ project_id: invite.project_id, status: invite.status })
         .from(invite)
         .where(
           and(
             ...[
-              // Build invite matching condition - at least one must be true
-              (userId || userEmail) &&
-                or(
-                  ...[
-                    userId && eq(invite.receiver_profile_id, userId),
-                    userEmail && eq(invite.email, userEmail)
-                  ].filter(Boolean)
-                ),
+              eq(invite.email, userEmail!),
               eq(invite.status, 'pending'),
-              eq(invite.active, true),
+              eq(invite.active, true)
               // Exclude projects where user is already a member (only if userId exists)
-              userId &&
-                sql`NOT EXISTS (
-                  SELECT 1 FROM ${profile_project_link}
-                  WHERE ${profile_project_link.project_id} = ${invite.project_id}
-                  AND ${profile_project_link.profile_id} = ${userId}
-                  AND ${profile_project_link.active} = 1
-                )`
+              // userId &&
+              // notExists(
+              //   system.db
+              //     .select()
+              //     .from(profile_project_link)
+              //     .where(
+              //       and(
+              //         eq(profile_project_link.project_id, invite.project_id),
+              //         eq(profile_project_link.profile_id, userId),
+              //         eq(profile_project_link.active, true)
+              //       )
+              //     )
+              //     .limit(1)
+              // )
             ].filter(Boolean)
           )
         )
     ),
     enableCloudQuery: false, // Disabled: rely on offline query + PowerSync sync
-    enableOfflineQuery: !!(userId || userEmail) && activeTab === 'my'
+    enableOfflineQuery: !!userEmail
     // No realtime subscription needed: PowerSync watches are reactive to local DB changes
   });
 
@@ -492,14 +491,14 @@ export default function NextGenProjectsView() {
   // Combine invites and regular projects for rendering
   const allItems = React.useMemo(() => {
     const items: (
-      | { type: 'invite'; invite: Invite }
+      | { type: 'invite'; projectId: string }
       | { type: 'project'; project: Project }
     )[] = [];
 
     // Add invites first
     if (activeTab === 'my') {
       for (const inv of filteredInvites) {
-        items.push({ type: 'invite', invite: inv });
+        items.push({ type: 'invite', projectId: inv.project_id });
       }
     }
 
@@ -577,7 +576,7 @@ export default function NextGenProjectsView() {
             numColumns={dimensions.width > 768 && allItems.length > 1 ? 2 : 1}
             keyExtractor={(item) =>
               item.type === 'invite'
-                ? `invite-${item.invite.id}`
+                ? `invite-${item.projectId}`
                 : `project-${item.project.id}`
             }
             recycleItems
@@ -587,7 +586,7 @@ export default function NextGenProjectsView() {
               if (item.type === 'invite') {
                 return (
                   <InvitedProjectListItem
-                    invite={item.invite}
+                    projectId={item.projectId}
                     searchQuery={searchQuery}
                     className={cn(dimensions.width > 768 && 'h-[212px]')}
                   />

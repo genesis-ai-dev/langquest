@@ -13,28 +13,28 @@ import { ProjectListItem } from './ProjectListItem';
 type Invite = typeof invite.$inferSelect;
 
 export function InvitedProjectListItem({
-  invite: inviteRecord,
+  projectId,
   className,
   searchQuery
 }: {
-  invite: Invite;
+  projectId: string;
   className?: string;
   searchQuery?: string;
 }) {
   // Fetch project data via cloud query only
   const { data: projectData, isLoading } = useHybridData({
     dataType: 'invited-project-data',
-    queryKeyParams: [inviteRecord.project_id],
+    queryKeyParams: [projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
-        where: eq(projectTable.id, inviteRecord.project_id)
+        where: eq(projectTable.id, projectId)
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('id', inviteRecord.project_id)
+        .eq('id', projectId)
         .overrideTypes<Project[]>();
       if (error) throw error;
       return data;

@@ -63,6 +63,7 @@ bucket_definitions:
       - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
         WHERE project_id = bucket.project_id
         AND membership IS NOT NULL
+        AND active = true
 
       # Sync project record for the project_id, this makes the my projects tab reactive to changes
       - SELECT * FROM project

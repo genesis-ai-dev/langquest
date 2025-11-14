@@ -74,10 +74,16 @@ function generateTokens() {
   try {
     console.log('[PostCSS] Generating tailwindcss tokens');
     const cssPath = path.resolve(process.cwd(), 'global.css');
-    if (!fs.existsSync(cssPath)) return;
+    if (!fs.existsSync(cssPath)) {
+      console.warn('[PostCSS] global.css not found at:', cssPath);
+      return;
+    }
     const css = fs.readFileSync(cssPath, 'utf8');
     const { rootBlock, darkRootBlock } = extractCssVariableBlocks(css);
-    if (!rootBlock || !darkRootBlock) return;
+    if (!rootBlock || !darkRootBlock) {
+      console.warn('[PostCSS] Could not extract CSS variable blocks');
+      return;
+    }
 
     const lightVars = parseVariables(rootBlock);
     const darkVars = parseVariables(darkRootBlock);
@@ -98,20 +104,42 @@ function generateTokens() {
     console.log('[PostCSS] Successfully generated tailwindcss tokens');
   } catch (error) {
     console.error('[PostCSS] Error generating tailwindcss tokens:', error);
+    throw error;
   }
+}
+
+// Export for manual use
+if (require.main === module) {
+  generateTokens();
 }
 
 // PostCSS plugin that regenerates tokens when global.css is processed
 const generateTokensPlugin = () => {
+  let hasGenerated = false;
   return {
     postcssPlugin: 'generate-tokens',
     Once(root, { result }) {
-      // Only regenerate tokens when processing global.css
-      if (result.root.source && result.root.source.input.file) {
-        const filePath = result.root.source.input.file;
-        if (filePath.includes('global.css')) {
-          generateTokens();
-        }
+      // Generate tokens when processing global.css
+      // Check multiple ways the file path might be represented
+      const filePath =
+        result.root.source?.input?.file ||
+        result.root.source?.input?.from ||
+        result.opts?.from ||
+        '';
+
+      // Log for debugging
+      if (process.env.DEBUG_POSTCSS) {
+        console.log('[PostCSS] Processing file:', filePath);
+      }
+
+      const isGlobalCss =
+        filePath.includes('global.css') ||
+        filePath.endsWith('global.css') ||
+        (filePath === '' && !hasGenerated); // Fallback: generate once if no file path detected
+
+      if (isGlobalCss && !hasGenerated) {
+        generateTokens();
+        hasGenerated = true;
       }
     }
   };

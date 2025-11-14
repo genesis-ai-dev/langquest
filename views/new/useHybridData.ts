@@ -161,10 +161,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // If cloudQueryFn is not provided, automatically disable cloud query
   // If lazy loading, wait for offline query to finish first
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  const effectiveEnableCloudQuery =
-    enableCloudQuery ?? (cloudQueryFn ? undefined : false);
-  const shouldFetchCloud =
-    effectiveEnableCloudQuery !== false && isOnline && enabled;
+  const shouldFetchCloud = enableCloudQuery && isOnline && enabled;
   const cloudEnabled = lazyLoadCloud
     ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
     : shouldFetchCloud && !!cloudQueryFn;

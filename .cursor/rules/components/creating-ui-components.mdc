@@ -17,11 +17,6 @@ Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/co
 
 ## Implementation Notes
 
-- Always import icons from `lucide-react-native` using the suffix `Icon` ex. `MailIcon`, `BellIcon` not `Mail` or `Bell`.
-- Use the `Icon` component from `components/ui/icon.tsx` with the `as` prop to render icons, ex. `<Icon as={MailIcon} />`.
-
-- Always use the `Text` component from `components/ui/text.tsx` for rendering text, not the `Text` component from `react-native`.
-
 - Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
 
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
