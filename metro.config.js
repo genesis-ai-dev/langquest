@@ -1,5 +1,9 @@
-const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
+const {
+  getDefaultConfig
+} = require('expo/metro-config');
+const {
+  withNativeWind
+} = require('nativewind/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 
@@ -9,7 +13,10 @@ const config = getDefaultConfig(__dirname);
 // config.resolver.assetExts.push('mjs');
 
 // Configure SVG transformer
-const { transformer, resolver } = config;
+const {
+  transformer,
+  resolver
+} = config;
 
 config.transformer = {
   ...transformer,
@@ -27,6 +34,25 @@ config.resolver.unstable_enablePackageExports = true;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (platform === 'web') {
+    // Stub react-native-reanimated for web
+    if (moduleName === 'react-native-reanimated') {
+      const stubPath = require.resolve('./web-stubs/react-native-reanimated.ts');
+      return {
+        type: 'sourceFile',
+        filePath: stubPath
+      };
+    }
+
+    // Stub react-native-worklets for web
+    if (moduleName === 'react-native-worklets') {
+      const workletsStub = require.resolve('./web-stubs/react-native-worklets.ts');
+      return {
+        type: 'sourceFile',
+        filePath: workletsStub
+      };
+    }
+
+    // Empty out native-only PowerSync modules
     if (
       [
         '@powersync/react-native',
@@ -38,6 +64,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
         type: 'empty'
       };
     }
+
+    // Map react-native to react-native-web and PowerSync web to UMD
     const mapping = {
       'react-native': 'react-native-web',
       '@powersync/web': '@powersync/web/umd'
