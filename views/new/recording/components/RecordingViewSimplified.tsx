@@ -580,10 +580,18 @@ const RecordingViewSimplified = ({
         );
 
         // Native module flushes the file before sending onSegmentComplete event.
-        // File should be ready, but Android file system may need a moment.
+        // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
-        // Save audio file locally
-        const localUri = await saveAudioLocally(uri);
+        // Save audio file locally (with retry logic for timing issues)
+        let localUri: string;
+        try {
+          localUri = await saveAudioLocally(uri);
+        } catch (error) {
+          // Release the reserved name on error
+          pendingAssetNamesRef.current.delete(assetName);
+          console.error('❌ Failed to save audio file locally:', error);
+          throw error; // Re-throw to be caught by outer catch block
+        }
 
         // Queue DB write (serialized to prevent race conditions)
         dbWriteQueueRef.current = dbWriteQueueRef.current

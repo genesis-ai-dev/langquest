@@ -4526,6 +4526,31 @@ export const localizations = {
     indonesian:
       'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
   },
+  vadAutoCalibrate: {
+    english: 'Auto-Calibrate',
+    spanish: 'Auto-Calibrar',
+    brazilian_portuguese: 'Auto-Calibrar',
+    tok_pisin: 'Olsem wanem yet',
+    indonesian: 'Auto-Kalibrasi'
+  },
+  vadCalibrating: {
+    english: 'Calibrating...',
+    spanish: 'Calibrando...',
+    brazilian_portuguese: 'Calibrando...',
+    tok_pisin: 'Wokim nau...',
+    indonesian: 'Mengkalibrasi...'
+  },
+  vadCalibrationFailed: {
+    english: 'Calibration failed. Please try again in a quieter environment.',
+    spanish:
+      'La calibración falló. Por favor, inténtalo de nuevo en un entorno más silencioso.',
+    brazilian_portuguese:
+      'Calibração falhou. Por favor, tente novamente em um ambiente mais silencioso.',
+    tok_pisin:
+      'Em i no wok. Traim gen long ples i no gat tumas nois.',
+    indonesian:
+      'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
+  },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
     spanish: 'Actualización de App Requerida',
