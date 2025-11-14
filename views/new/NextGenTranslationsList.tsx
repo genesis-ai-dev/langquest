@@ -59,10 +59,7 @@ export default function NextGenTranslationsList({
   >(null);
   const [voteRefreshKey, setVoteRefreshKey] = useState(0);
 
-  const {
-    data: assets,
-    isLoading
-  } = useTargetAssetsWithVoteCountByAssetId(
+  const { data: assets, isLoading } = useTargetAssetsWithVoteCountByAssetId(
     assetId,
     false,
     String(refreshKey),

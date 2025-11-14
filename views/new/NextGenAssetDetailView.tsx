@@ -11,11 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import {
-  asset,
-  language as languageTable,
-  project
-} from '@/db/drizzleSchema';
+import { asset, language as languageTable, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -437,29 +433,31 @@ export default function NextGenAssetDetailView() {
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
                       {__DEV__ &&
-                      activeAsset.content[currentContentIndex]?.audio?.[0] && (
-                        <View className="flex-row items-center gap-1">
-                          <Icon
-                            as={
-                              attachmentStates.get(
+                        activeAsset.content[currentContentIndex]
+                          ?.audio?.[0] && (
+                          <View className="flex-row items-center gap-1">
+                            <Icon
+                              as={
+                                attachmentStates.get(
+                                  activeAsset.content[currentContentIndex]
+                                    .audio[0]
+                                )?.local_uri
+                                  ? Volume2Icon
+                                  : VolumeXIcon
+                              }
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                            <Text className="text-sm text-muted-foreground">
+                              {attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
                                   .audio[0]
                               )?.local_uri
-                                ? Volume2Icon
-                                : VolumeXIcon
-                            }
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                          <Text className="text-sm text-muted-foreground">
-                            {attachmentStates.get(
-                              activeAsset.content[currentContentIndex].audio[0]
-                            )?.local_uri
-                              ? t('audioReady')
-                              : t('audioNotAvailable')}
-                          </Text>
-                        </View>
-                      )}
+                                ? t('audioReady')
+                                : t('audioNotAvailable')}
+                            </Text>
+                          </View>
+                        )}
 
                       {/* Combined navigation controls and audio status */}
 

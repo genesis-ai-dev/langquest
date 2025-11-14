@@ -24,17 +24,18 @@ const SPANISH_LANGUAGE_ID = '7c37870b-7d52-4589-934f-576f03781263';
 async function createTestUser() {
   console.log('🔧 Creating test user...');
 
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email: TEST_USER.email,
-    password: TEST_USER.password,
-    email_confirm: true,
-    user_metadata: {
-      username: TEST_USER.username,
-      ui_language_id: ENGLISH_LANGUAGE_ID,
-      terms_accepted: true,
-      terms_accepted_at: new Date().toISOString()
-    }
-  });
+  const { data: authUser, error: authError } =
+    await supabase.auth.admin.createUser({
+      email: TEST_USER.email,
+      password: TEST_USER.password,
+      email_confirm: true,
+      user_metadata: {
+        username: TEST_USER.username,
+        ui_language_id: ENGLISH_LANGUAGE_ID,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString()
+      }
+    });
 
   if (authError) {
     if (
@@ -43,7 +44,9 @@ async function createTestUser() {
     ) {
       console.log('⚠️  User already exists, fetching existing user...');
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existingUser = existingUsers?.users.find((u) => u.email === TEST_USER.email);
+      const existingUser = existingUsers?.users.find(
+        (u) => u.email === TEST_USER.email
+      );
       if (!existingUser) {
         throw new Error('User exists but could not be found');
       }
@@ -116,20 +119,24 @@ async function createProfile(userId: string) {
     });
 
     if (!sqlResponse.ok) {
-      console.log('⚠️  Trying to check if profile already exists and update via Supabase client...');
+      console.log(
+        '⚠️  Trying to check if profile already exists and update via Supabase client...'
+      );
       const { data, error } = await supabase
         .from('profile')
         .select('id')
         .eq('id', userId)
         .single();
-      
+
       if (data) {
         console.log('✅ Profile already exists, skipping creation');
         return;
       }
-      
+
       if (error && error.code !== 'PGRST116') {
-        console.log('⚠️  Schema cache issue detected. Profile may be created by trigger.');
+        console.log(
+          '⚠️  Schema cache issue detected. Profile may be created by trigger.'
+        );
         console.log('⚠️  Continuing with project creation...');
         return;
       }
@@ -152,25 +159,34 @@ async function createProject(userId: string) {
     active: true
   };
 
-  const { error: projectError } = await supabase.from('project').upsert(project);
+  const { error: projectError } = await supabase
+    .from('project')
+    .upsert(project);
   if (projectError) throw projectError;
 
-  const { error: linkError } = await supabase.from('profile_project_link').upsert({
-    profile_id: userId,
-    project_id: projectId,
-    membership: 'owner',
-    active: true
-  }, {
-    onConflict: 'profile_id,project_id'
-  });
+  const { error: linkError } = await supabase
+    .from('profile_project_link')
+    .upsert(
+      {
+        profile_id: userId,
+        project_id: projectId,
+        membership: 'owner',
+        active: true
+      },
+      {
+        onConflict: 'profile_id,project_id'
+      }
+    );
   if (linkError) throw linkError;
 
-  const { error: langLinkError } = await supabase.from('project_language_link').upsert({
-    project_id: projectId,
-    language_id: ENGLISH_LANGUAGE_ID,
-    language_type: 'source',
-    active: true
-  });
+  const { error: langLinkError } = await supabase
+    .from('project_language_link')
+    .upsert({
+      project_id: projectId,
+      language_id: ENGLISH_LANGUAGE_ID,
+      language_type: 'source',
+      active: true
+    });
   if (langLinkError) throw langLinkError;
 
   console.log('✅ Project created:', projectId);
@@ -264,14 +280,16 @@ async function createAssetsWithContent(
         last_updated: now
       });
 
-      questAssetLinks.push({
-        quest_id: quest.id,
-        asset_id: assetId,
-        active: true,
-        visible: true,
-        created_at: now,
-        last_updated: now
-      });
+      if (quest) {
+        questAssetLinks.push({
+          quest_id: quest.id,
+          asset_id: assetId,
+          active: true,
+          visible: true,
+          created_at: now,
+          last_updated: now
+        });
+      }
     }
   }
 
@@ -281,7 +299,9 @@ async function createAssetsWithContent(
   }
 
   for (const contentLink of assetContentLinks) {
-    const { error } = await supabase.from('asset_content_link').upsert(contentLink);
+    const { error } = await supabase
+      .from('asset_content_link')
+      .upsert(contentLink);
     if (error) throw error;
   }
 
@@ -321,4 +341,3 @@ async function main() {
 }
 
 main();
-

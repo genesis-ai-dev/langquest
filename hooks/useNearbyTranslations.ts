@@ -1,4 +1,10 @@
-import { asset, asset_content_link, quest_asset_link, quest, vote } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  quest_asset_link,
+  quest,
+  vote
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { eq, and, isNotNull, isNull, inArray, sql, ne } from 'drizzle-orm';
 import { useQuery } from '@tanstack/react-query';
@@ -11,11 +17,11 @@ export interface TranslationExample {
 /**
  * Fetches nearby translations from the same quest/chapter, and expands to other quests in the same project if needed
  * Returns source→target pairs for use as examples in AI translation prediction
- * 
+ *
  * Priority:
  * 1. First, get examples from the current quest
  * 2. If more examples are needed, get examples from other quests in the same project
- * 
+ *
  * For each source asset, only the highest-rated translation (by upvotes) is selected.
  * If multiple translations have the same vote count, the most recent one is selected.
  * Maximum of 30 examples are returned (hardcoded limit).
@@ -42,7 +48,7 @@ export function useNearbyTranslations(
           .from(quest)
           .where(eq(quest.id, questId))
           .limit(1)
-          .then(results => results[0]);
+          .then((results) => results[0]);
 
         if (!currentQuest) {
           if (__DEV__) {
@@ -77,12 +83,12 @@ export function useNearbyTranslations(
         // Step 2: Get examples from current quest first
         const examples: TranslationExample[] = [];
         const sourceTextMap = new Map<string, string>();
-        
+
         // Add current quest assets to the source text map
         currentQuestAssets.forEach((a) => {
           if (a.sourceText) {
             sourceTextMap.set(a.assetId, a.sourceText);
-        }
+          }
         });
 
         const currentQuestAssetIds = currentQuestAssets.map((a) => a.assetId);
@@ -97,8 +103,14 @@ export function useNearbyTranslations(
         }
 
         if (__DEV__) {
-          console.log('[useNearbyTranslations] Current quest assets:', currentQuestAssets.length);
-          console.log('[useNearbyTranslations] Examples from current quest:', examples.length);
+          console.log(
+            '[useNearbyTranslations] Current quest assets:',
+            currentQuestAssets.length
+          );
+          console.log(
+            '[useNearbyTranslations] Examples from current quest:',
+            examples.length
+          );
         }
 
         // Step 3: If we need more examples, get them from other quests in the same project
@@ -119,43 +131,46 @@ export function useNearbyTranslations(
             .limit(50); // Limit to avoid querying too many quests
 
           if (__DEV__) {
-            console.log('[useNearbyTranslations] Other quests in project:', otherQuests.length);
-        }
+            console.log(
+              '[useNearbyTranslations] Other quests in project:',
+              otherQuests.length
+            );
+          }
 
           // Get assets from other quests
           const otherQuestIds = otherQuests.map((q) => q.id);
           if (otherQuestIds.length > 0) {
             const otherQuestAssets = await system.db
-          .select({
+              .select({
                 assetId: asset.id,
                 assetContentId: asset_content_link.id,
                 sourceText: asset_content_link.text
-          })
+              })
               .from(quest_asset_link)
               .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
               .leftJoin(
-            asset_content_link,
-            eq(asset_content_link.asset_id, asset.id)
-          )
-          .where(
-            and(
+                asset_content_link,
+                eq(asset_content_link.asset_id, asset.id)
+              )
+              .where(
+                and(
                   inArray(quest_asset_link.quest_id, otherQuestIds),
                   isNull(asset.source_asset_id), // Only original assets, not translations
-              eq(asset.active, true),
+                  eq(asset.active, true),
                   isNotNull(asset_content_link.text) // Only assets with text content
-            )
-          )
+                )
+              )
               .limit(200); // Get more assets from other quests
 
             // Add other quest assets to the source text map
             otherQuestAssets.forEach((a) => {
               if (a.sourceText && !sourceTextMap.has(a.assetId)) {
                 sourceTextMap.set(a.assetId, a.sourceText);
-          }
+              }
             });
 
             const otherQuestAssetIds = otherQuestAssets.map((a) => a.assetId);
-            
+
             if (otherQuestAssetIds.length > 0) {
               const otherQuestExamples = await getExamplesFromAssets(
                 otherQuestAssetIds,
@@ -166,36 +181,58 @@ export function useNearbyTranslations(
               // Add examples up to MAX_EXAMPLES
               for (const example of otherQuestExamples) {
                 if (examples.length >= MAX_EXAMPLES) {
-              break;
-            }
+                  break;
+                }
                 examples.push(example);
               }
             }
 
             if (__DEV__) {
-              console.log('[useNearbyTranslations] Other quest assets:', otherQuestAssets.length);
-              console.log('[useNearbyTranslations] Total examples after other quests:', examples.length);
+              console.log(
+                '[useNearbyTranslations] Other quest assets:',
+                otherQuestAssets.length
+              );
+              console.log(
+                '[useNearbyTranslations] Total examples after other quests:',
+                examples.length
+              );
             }
           }
         }
 
         if (__DEV__) {
-          console.log('[useNearbyTranslations] Final examples count:', examples.length);
+          console.log(
+            '[useNearbyTranslations] Final examples count:',
+            examples.length
+          );
           if (examples.length === 0) {
-            console.warn('[useNearbyTranslations] No examples found. This might mean:');
-            console.warn('  - No translations exist in the target language for assets in this quest or project');
-            console.warn('  - The quest/project has no assets with text content');
+            console.warn(
+              '[useNearbyTranslations] No examples found. This might mean:'
+            );
+            console.warn(
+              '  - No translations exist in the target language for assets in this quest or project'
+            );
+            console.warn(
+              '  - The quest/project has no assets with text content'
+            );
             console.warn('  - All translations are inactive or have no text');
           }
         }
 
         return examples;
       } catch (error) {
-        console.error('[useNearbyTranslations] Error fetching nearby translations:', error);
+        console.error(
+          '[useNearbyTranslations] Error fetching nearby translations:',
+          error
+        );
         return [];
       }
     },
-    enabled: !!questId && !!targetLanguageId && questId !== '' && targetLanguageId !== '',
+    enabled:
+      !!questId &&
+      !!targetLanguageId &&
+      questId !== '' &&
+      targetLanguageId !== '',
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
   });
@@ -232,14 +269,8 @@ async function getExamplesFromAssets(
       createdAt: asset.created_at
     })
     .from(asset)
-    .innerJoin(
-      asset_content_link,
-      eq(asset_content_link.asset_id, asset.id)
-    )
-    .leftJoin(
-      vote,
-      eq(vote.asset_id, asset.id)
-    )
+    .innerJoin(asset_content_link, eq(asset_content_link.asset_id, asset.id))
+    .leftJoin(vote, eq(vote.asset_id, asset.id))
     .where(
       and(
         isNotNull(asset.source_asset_id),
@@ -260,15 +291,18 @@ async function getExamplesFromAssets(
 
   // For each source asset, select only the highest-rated translation
   // If tied, select the most recent one
-  const bestTranslationBySource = new Map<string, typeof translationsWithVotes[0]>();
-  
+  const bestTranslationBySource = new Map<
+    string,
+    (typeof translationsWithVotes)[0]
+  >();
+
   for (const translation of translationsWithVotes) {
     if (!translation.sourceAssetId || !translation.translationText) {
       continue;
     }
 
     const existing = bestTranslationBySource.get(translation.sourceAssetId);
-    
+
     if (!existing) {
       // No translation selected yet for this source asset
       bestTranslationBySource.set(translation.sourceAssetId, translation);
@@ -276,15 +310,19 @@ async function getExamplesFromAssets(
       // Compare: higher upvote count wins, or if tied, most recent wins
       const existingUpvotes = Number(existing.upvoteCount) || 0;
       const currentUpvotes = Number(translation.upvoteCount) || 0;
-      
+
       if (currentUpvotes > existingUpvotes) {
         // Current translation has more upvotes
         bestTranslationBySource.set(translation.sourceAssetId, translation);
       } else if (currentUpvotes === existingUpvotes) {
         // Tie: use most recent
-        const existingDate = existing.createdAt ? new Date(existing.createdAt) : new Date(0);
-        const currentDate = translation.createdAt ? new Date(translation.createdAt) : new Date(0);
-        
+        const existingDate = existing.createdAt
+          ? new Date(existing.createdAt)
+          : new Date(0);
+        const currentDate = translation.createdAt
+          ? new Date(translation.createdAt)
+          : new Date(0);
+
         if (currentDate > existingDate) {
           bestTranslationBySource.set(translation.sourceAssetId, translation);
         }
@@ -295,7 +333,10 @@ async function getExamplesFromAssets(
   // Build examples from the best translations
   const examples: TranslationExample[] = [];
 
-  for (const [sourceAssetId, translation] of bestTranslationBySource.entries()) {
+  for (const [
+    sourceAssetId,
+    translation
+  ] of bestTranslationBySource.entries()) {
     const sourceText = sourceTextMap.get(sourceAssetId);
     if (sourceText && sourceText.trim() && translation.translationText) {
       examples.push({
@@ -307,4 +348,3 @@ async function getExamplesFromAssets(
 
   return examples;
 }
-

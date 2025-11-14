@@ -36,10 +36,26 @@ import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import { MicIcon, Lightbulb, TextIcon, EyeIcon, XIcon, RefreshCwIcon } from 'lucide-react-native';
+import {
+  MicIcon,
+  Lightbulb,
+  TextIcon,
+  EyeIcon,
+  XIcon,
+  RefreshCwIcon
+} from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { Alert, ActivityIndicator, View, Pressable, Modal, ScrollView, TouchableWithoutFeedback, TextInput } from 'react-native';
+import {
+  Alert,
+  ActivityIndicator,
+  View,
+  Pressable,
+  Modal,
+  ScrollView,
+  TouchableWithoutFeedback,
+  type TextInput
+} from 'react-native';
 import { z } from 'zod';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
@@ -97,7 +113,7 @@ export default function NextGenNewTranslationModal({
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private
+    projectData?.private as boolean | undefined
   );
 
   React.useEffect(() => {
@@ -133,13 +149,15 @@ export default function NextGenNewTranslationModal({
       (translationType === 'audio' && !!subscription.audioUri));
 
   // State for AI prediction
-  const [predictedTranslation, setPredictedTranslation] = useState<string | null>(null);
+  const [predictedTranslation, setPredictedTranslation] = useState<
+    string | null
+  >(null);
   const [predictionDetails, setPredictionDetails] = useState<{
     rawResponse: string;
-    examples: Array<{ source: string; target: string }>;
+    examples: { source: string; target: string }[];
   } | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  
+
   // Track cursor position for word insertion
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const textareaRef = useRef<TextInput>(null);
@@ -148,25 +166,27 @@ export default function NextGenNewTranslationModal({
   const handleWordTap = (word: string) => {
     const currentText = form.getValues('text') || '';
     const insertPosition = cursorPosition ?? currentText.length;
-    
+
     // Insert word with a space before it if not at start and previous char is not space
-    const spaceBefore = insertPosition > 0 && currentText[insertPosition - 1] !== ' ' ? ' ' : '';
+    const spaceBefore =
+      insertPosition > 0 && currentText[insertPosition - 1] !== ' ' ? ' ' : '';
     // Don't add space after punctuation
     const spaceAfter = word && !/[.,!?;:]$/.test(word) ? ' ' : '';
-    
-    const newText = 
-      currentText.slice(0, insertPosition) + 
-      spaceBefore + 
-      word + 
-      spaceAfter + 
+
+    const newText =
+      currentText.slice(0, insertPosition) +
+      spaceBefore +
+      word +
+      spaceAfter +
       currentText.slice(insertPosition);
-    
+
     form.setValue('text', newText);
-    
+
     // Update cursor position to after the inserted word
-    const newCursorPosition = insertPosition + spaceBefore.length + word.length + spaceAfter.length;
+    const newCursorPosition =
+      insertPosition + spaceBefore.length + word.length + spaceAfter.length;
     setCursorPosition(newCursorPosition);
-    
+
     // Set selection on the textarea without changing focus
     setTimeout(() => {
       try {
@@ -183,33 +203,34 @@ export default function NextGenNewTranslationModal({
   // Split translation into words for tapping
   const splitIntoWords = (text: string): string[] => {
     // Split on whitespace but keep punctuation attached to words
-    return text.split(/\s+/).filter(word => word.length > 0);
+    return text.split(/\s+/).filter((word) => word.length > 0);
   };
 
   // Get source language ID from asset content or prop
-  const sourceLanguageId = 
-    assetContent?.[0]?.source_language_id || 
-    sourceLanguage?.id || 
-    null;
-  
+  const sourceLanguageId =
+    assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
+
   // Query language names (source language is optional, target is required)
   // Only query when modal is visible to avoid unnecessary queries
-  const { language: sourceLanguageData } = useLanguageById(visible ? (sourceLanguageId || undefined) : undefined);
-  const { language: targetLanguageData } = useLanguageById(visible ? translationLanguageId : '');
+  const { language: sourceLanguageData } = useLanguageById(
+    visible ? sourceLanguageId || undefined : undefined
+  );
+  const { language: targetLanguageData } = useLanguageById(
+    visible ? translationLanguageId : ''
+  );
 
   // Get nearby translations for examples (only when modal is visible to avoid unnecessary queries)
   // Note: useNearbyTranslations now automatically selects only the highest-rated translation per asset
   // and limits to 30 examples maximum (hardcoded)
-  const { data: nearbyExamples = [], isLoading: isLoadingExamples } = useNearbyTranslations(
-    visible ? (currentQuestId || undefined) : undefined,
-    visible ? translationLanguageId : ''
-  );
+  const { data: nearbyExamples = [], isLoading: isLoadingExamples } =
+    useNearbyTranslations(
+      visible ? currentQuestId || undefined : undefined,
+      visible ? translationLanguageId : ''
+    );
 
   // Translation prediction hook
-  const {
-    mutateAsync: predictTranslation,
-    isPending: isPredicting
-  } = useTranslationPrediction();
+  const { mutateAsync: predictTranslation, isPending: isPredicting } =
+    useTranslationPrediction();
 
   // Get first content text as preview
   const contentPreview = assetContent?.[0]?.text || '';
@@ -300,7 +321,9 @@ export default function NextGenNewTranslationModal({
           contentValues.audio = [audioAttachment];
         }
 
-        await tx.insert(resolveTable('asset_content_link')).values(contentValues);
+        await tx
+          .insert(resolveTable('asset_content_link'))
+          .values(contentValues);
 
         await tx.insert(resolveTable('quest_asset_link')).values({
           quest_id: currentQuestId,
@@ -378,9 +401,15 @@ export default function NextGenNewTranslationModal({
         'Unknown';
 
       if (__DEV__) {
-        console.log('[AI PREDICTION] Nearby examples count:', nearbyExamples.length);
+        console.log(
+          '[AI PREDICTION] Nearby examples count:',
+          nearbyExamples.length
+        );
         console.log('[AI PREDICTION] Quest ID:', currentQuestId);
-        console.log('[AI PREDICTION] Target language ID:', translationLanguageId);
+        console.log(
+          '[AI PREDICTION] Target language ID:',
+          translationLanguageId
+        );
         if (nearbyExamples.length > 0) {
           console.log('[AI PREDICTION] First example:', nearbyExamples[0]);
         }
@@ -394,7 +423,10 @@ export default function NextGenNewTranslationModal({
       });
 
       if (__DEV__) {
-        console.log('[AI PREDICTION] Raw response received:', result.rawResponse?.substring(0, 100));
+        console.log(
+          '[AI PREDICTION] Raw response received:',
+          result.rawResponse?.substring(0, 100)
+        );
       }
 
       setPredictedTranslation(result.translation);
@@ -521,57 +553,62 @@ export default function NextGenNewTranslationModal({
                             </Pressable>
                           </View>
                         </View>
-                        <View 
+                        <View
                           className="flex-row flex-wrap gap-1"
                           onStartShouldSetResponder={() => true}
                           onResponderTerminationRequest={() => false}
                         >
-                          {predictedTranslation && splitIntoWords(predictedTranslation).map((word, idx) => (
-                            <Pressable
-                              key={`${word}-${idx}`}
-                              onPress={() => handleWordTap(word)}
-                              className="rounded-md bg-primary/10 px-2 py-1 active:bg-primary/20"
-                            >
-                              <Text className="text-base leading-6 text-foreground">
-                                {word}
-                  </Text>
-                            </Pressable>
-                          ))}
+                          {predictedTranslation &&
+                            splitIntoWords(predictedTranslation).map(
+                              (word, idx) => (
+                                <Pressable
+                                  key={`${word}-${idx}`}
+                                  onPress={() => handleWordTap(word)}
+                                  className="rounded-md bg-primary/10 px-2 py-1 active:bg-primary/20"
+                                >
+                                  <Text className="text-base leading-6 text-foreground">
+                                    {word}
+                                  </Text>
+                                </Pressable>
+                              )
+                            )}
                         </View>
                       </View>
                     ) : (
                       translationType === 'text' && (
                         <View className="flex-row justify-end">
-                    <Pressable
-                      onPress={() => {
-                        void handlePredictTranslation();
-                      }}
-                      disabled={isButtonDisabled}
-                      className={cn(
-                        'flex-row items-center gap-2 rounded-lg border-2 px-4 py-2',
-                        isButtonDisabled
-                          ? 'bg-muted border-muted-foreground opacity-50'
-                          : 'bg-primary border-primary shadow-md'
-                      )}
-                    >
-                      {isPredicting || isLoadingExamples ? (
-                        <>
-                          <ActivityIndicator size="small" color="#fff" />
-                          <Text className="text-sm font-semibold text-primary-foreground">
-                            {isPredicting ? 'Predicting...' : 'Loading...'}
-                          </Text>
-                        </>
-                      ) : (
-                          <Icon
+                          <Pressable
+                            onPress={() => {
+                              void handlePredictTranslation();
+                            }}
+                            disabled={isButtonDisabled}
+                            className={cn(
+                              'flex-row items-center gap-2 rounded-lg border-2 px-4 py-2',
+                              isButtonDisabled
+                                ? 'border-muted-foreground bg-muted opacity-50'
+                                : 'border-primary bg-primary shadow-md'
+                            )}
+                          >
+                            {isPredicting || isLoadingExamples ? (
+                              <>
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text className="text-sm font-semibold text-primary-foreground">
+                                  {isPredicting
+                                    ? 'Predicting...'
+                                    : 'Loading...'}
+                                </Text>
+                              </>
+                            ) : (
+                              <Icon
                                 as={Lightbulb}
-                            size={18}
-                            className="text-primary-foreground"
-                          />
-                      )}
-                    </Pressable>
+                                size={18}
+                                className="text-primary-foreground"
+                              />
+                            )}
+                          </Pressable>
                         </View>
                       )
-                  )}
+                    )}
                     <FormField
                       control={form.control}
                       name="text"
@@ -584,12 +621,13 @@ export default function NextGenNewTranslationModal({
                               placeholder={t('enterTranslation')}
                               drawerInput
                               onSelectionChange={(e) => {
-                                setCursorPosition(e.nativeEvent.selection.start);
+                                setCursorPosition(
+                                  e.nativeEvent.selection.start
+                                );
                               }}
-                              onFocus={(e) => {
+                              onFocus={() => {
                                 const text = form.getValues('text') || '';
                                 setCursorPosition(text.length);
-                                field.onFocus?.(e);
                               }}
                             />
                           </FormControl>
@@ -644,7 +682,9 @@ export default function NextGenNewTranslationModal({
                 (data) => createTranslation(data),
                 () => {
                   if (__DEV__) {
-                    console.error('[CREATE TRANSLATION] Form validation failed');
+                    console.error(
+                      '[CREATE TRANSLATION] Form validation failed'
+                    );
                   }
                   Alert.alert(t('error'), t('fillFields'));
                 }
@@ -672,11 +712,7 @@ export default function NextGenNewTranslationModal({
               <View className="w-[90%] max-w-lg rounded-lg bg-background p-6">
                 <View className="mb-4 flex-row items-center justify-between">
                   <View className="flex-row items-center gap-2">
-                    <Icon
-                      as={Lightbulb}
-                      size={20}
-                      className="text-primary"
-                    />
+                    <Icon as={Lightbulb} size={20} className="text-primary" />
                     <Text className="text-lg font-bold text-foreground">
                       Translation Details
                     </Text>
@@ -725,13 +761,19 @@ export default function NextGenNewTranslationModal({
                       ) : (
                         <View className="rounded-lg border border-border bg-muted/30 p-4">
                           <Text className="text-sm text-muted-foreground">
-                            No examples were available. Examples are retrieved from other assets in the same quest/chapter that have translations in the target language.
+                            No examples were available. Examples are retrieved
+                            from other assets in the same quest/chapter that
+                            have translations in the target language.
                           </Text>
                           <Text className="mt-2 text-xs text-muted-foreground">
                             This means either:
                           </Text>
                           <Text className="mt-1 text-xs text-muted-foreground">
-                            • No translations exist yet in {targetLanguageData?.native_name || targetLanguageData?.english_name || 'the target language'} for assets in this quest
+                            • No translations exist yet in{' '}
+                            {targetLanguageData?.native_name ||
+                              targetLanguageData?.english_name ||
+                              'the target language'}{' '}
+                            for assets in this quest
                           </Text>
                           <Text className="mt-1 text-xs text-muted-foreground">
                             • The quest has no other assets with text content

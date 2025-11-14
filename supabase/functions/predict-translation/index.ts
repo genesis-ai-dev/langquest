@@ -23,17 +23,17 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   try {
     // Get API key from environment variable (set via Supabase Dashboard secrets in production)
     // For local development, set in langquest/supabase/.env file
     const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-    
+
     if (!apiKey) {
       console.error('OPENROUTER_API_KEY not set');
       return new Response(
@@ -45,7 +45,11 @@ Deno.serve(async (req) => {
     const body: PredictionRequest = await req.json();
 
     // Validate request
-    if (!body.sourceText || !body.sourceLanguageName || !body.targetLanguageName) {
+    if (
+      !body.sourceText ||
+      !body.sourceLanguageName ||
+      !body.targetLanguageName
+    ) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -72,33 +76,42 @@ Deno.serve(async (req) => {
     prompt += `Please respond with ONLY the translation wrapped in XML tags like this:\n<final_translation>your translation here</final_translation>`;
 
     // Call OpenRouter API
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': Deno.env.get('SUPABASE_URL') || '',
-        'X-Title': 'LangQuest Translation Prediction'
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000
-      })
-    });
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': Deno.env.get('SUPABASE_URL') || '',
+          'X-Title': 'LangQuest Translation Prediction'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        })
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenRouter API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Translation prediction failed', details: errorText }),
-        { status: response.status, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: 'Translation prediction failed',
+          details: errorText
+        }),
+        {
+          status: response.status,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
@@ -114,18 +127,22 @@ Deno.serve(async (req) => {
 
     // Parse XML to extract final_translation tag
     let predictedText = rawResponse;
-    const xmlMatch = rawResponse.match(/<final_translation>(.*?)<\/final_translation>/s);
+    const xmlMatch = rawResponse.match(
+      /<final_translation>(.*?)<\/final_translation>/s
+    );
     if (xmlMatch && xmlMatch[1]) {
       predictedText = xmlMatch[1].trim();
     } else {
       // Fallback: if no XML tag found, use the raw response (for backwards compatibility)
-      console.warn('No <final_translation> XML tag found in response, using raw text');
+      console.warn(
+        'No <final_translation> XML tag found in response, using raw text'
+      );
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         translation: predictedText,
-        rawResponse: rawResponse 
+        rawResponse: rawResponse
       }),
       {
         headers: {
@@ -137,9 +154,11 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in predict-translation function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', message: error.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        message: error.message
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 });
-
