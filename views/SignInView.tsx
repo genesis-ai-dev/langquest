@@ -86,7 +86,7 @@ export default function SignInView({
   return (
     <Form {...form}>
       <View className="m-safe flex flex-col gap-4 p-6">
-        <View className="flex flex-col items-center justify-center gap-4 text-center">
+        <View className="mb-8 flex flex-col items-center justify-center gap-4 text-center">
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('welcome')}</Text>
         </View>
