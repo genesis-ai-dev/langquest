@@ -387,8 +387,11 @@ export default function NextGenAssetDetailView() {
   // Active tab is now derived from asset content via useMemo above
 
   // Reset content index when asset changes
+  // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
-    setCurrentContentIndex(0);
+    queueMicrotask(() => {
+      setCurrentContentIndex(0);
+    });
   }, [currentAssetId]);
 
   // Get audio URIs for a specific content item (not all content flattened)
@@ -456,24 +459,6 @@ export default function NextGenAssetDetailView() {
       .filter((uri: string | null): uri is string => uri !== null);
   }
 
-  // Debug logging
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[NEXT GEN ASSET DETAIL]', {
-        assetId: currentAssetId,
-        activeAsset: activeAsset
-          ? {
-              id: activeAsset.id,
-              name: activeAsset.name,
-              contentCount: activeAsset.content?.length ?? 0,
-              hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
-            }
-          : null,
-        attachmentStatesCount: attachmentStates.size
-      });
-    }
-  }, [currentAssetId, activeAsset, attachmentStates]);
-
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
     'assets'
@@ -497,7 +482,11 @@ export default function NextGenAssetDetailView() {
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
   if (isAssetLoading || (!activeAsset && currentAssetId)) {
-    return <AssetSkeleton />;
+    return (
+      <View className="flex-1">
+        <AssetSkeleton />
+      </View>
+    );
   }
 
   // Only show error if loading is complete but we still have no asset
