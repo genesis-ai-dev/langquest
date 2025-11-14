@@ -13,8 +13,15 @@ import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  NotoSans_400Regular,
+  NotoSans_500Medium,
+  NotoSans_600SemiBold,
+  NotoSans_700Bold
+} from '@expo-google-fonts/noto-sans';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
+import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -60,6 +67,14 @@ export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
 
+  // Load Noto Sans fonts
+  const [fontsLoaded] = useFonts({
+    'NotoSans-Regular': NotoSans_400Regular,
+    'NotoSans-Medium': NotoSans_500Medium,
+    'NotoSans-SemiBold': NotoSans_600SemiBold,
+    'NotoSans-Bold': NotoSans_700Bold
+  });
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
     console.log('[_layout] Setting up deep link handler');
@@ -104,7 +119,7 @@ export default function RootLayout() {
     hasMounted.current = true;
   }, []);
 
-  if (!isColorSchemeLoaded) {
+  if (!isColorSchemeLoaded || !fontsLoaded) {
     return null;
   }
 
