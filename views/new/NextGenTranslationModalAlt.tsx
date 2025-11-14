@@ -187,7 +187,7 @@ export default function NextGenTranslationModal({
 
   React.useEffect(() => {
     if (assetText !== undefined) {
-      setEditedText(assetText);
+      setEditedText(assetText ?? '');
     }
   }, [assetText]);
 
