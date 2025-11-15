@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   ChevronRight,
   CloudOff,
+  HelpCircle,
   Menu,
   RefreshCw
 } from 'lucide-react-native';
@@ -29,11 +30,13 @@ import { Button } from './ui/button';
 export default function AppHeader({
   drawerToggleCallback,
   isCloudLoading = false,
-  isNavigating = false
+  isNavigating = false,
+  onOnboardingPress
 }: {
   drawerToggleCallback: () => void;
   isCloudLoading?: boolean;
   isNavigating?: boolean;
+  onOnboardingPress?: () => void;
 }) {
   const {
     breadcrumbs,
@@ -230,6 +233,19 @@ export default function AppHeader({
               })
             : null}
         </View>
+
+        {/* Help/Onboarding Button */}
+        {onOnboardingPress && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={onOnboardingPress}
+            className="relative size-8 mr-2"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon as={HelpCircle} size={24} className="text-muted-foreground" />
+          </Button>
+        )}
 
         {/* Menu Button with Indicators */}
         <View className="relative">

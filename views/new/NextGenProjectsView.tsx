@@ -8,7 +8,9 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { invite, profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   useHybridData,
@@ -35,6 +37,7 @@ import {
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
+import { SimpleOnboardingFlow } from './SimpleOnboardingFlow';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
@@ -63,7 +66,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -297,7 +299,7 @@ export default function NextGenProjectsView() {
 
     // Watch 1: Watch all invites (not just pending) to detect status changes
     // This will fire when an invite changes from pending to accepted/declined
-    const watch1 = system.powersync.watch(
+    const _watch1 = system.powersync.watch(
       `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?)`,
       [userEmail || '', userId || ''],
       {
@@ -314,7 +316,7 @@ export default function NextGenProjectsView() {
     );
 
     // Watch 2: Watch memberships to detect when invites are accepted (creates membership)
-    const watch2 = userId
+    const _watch2 = userId
       ? system.powersync.watch(
           `SELECT id, profile_id, project_id, active, membership, last_updated FROM profile_project_link WHERE profile_id = ?`,
           [userId],
@@ -549,6 +551,42 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const triggerOnboarding = useLocalStore((state) => state.triggerOnboarding);
+  const setTriggerOnboarding = useLocalStore(
+    (state) => state.setTriggerOnboarding
+  );
+  const [showSimpleOnboarding, setShowSimpleOnboarding] = React.useState(false);
+  const { goToProject } = useAppNavigation();
+
+  // Show onboarding AFTER terms are accepted (one-time walkthrough)
+  // This ensures users see the walkthrough after accepting terms
+  const onboardingCompleted = useLocalStore(
+    (state) => state.onboardingCompleted
+  );
+  React.useEffect(() => {
+    // Show onboarding if terms are accepted but onboarding hasn't been completed
+    if (dateTermsAccepted && !onboardingCompleted && !showSimpleOnboarding) {
+      setShowSimpleOnboarding(true);
+    }
+  }, [dateTermsAccepted, onboardingCompleted, showSimpleOnboarding]);
+
+  // Watch for trigger from AppHeader
+  React.useEffect(() => {
+    if (triggerOnboarding) {
+      setShowSimpleOnboarding(true);
+      setTriggerOnboarding(false);
+    }
+  }, [triggerOnboarding, setTriggerOnboarding]);
+
+  // Get the first project for onboarding navigation
+  const firstProject = React.useMemo(() => {
+    if (Array.isArray(projectData) && projectData.length > 0) {
+      return projectData[0];
+    }
+    return null;
+  }, [projectData]);
+
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
     // For anonymous users or "all" tab, use allProjects fetching state
@@ -655,306 +693,364 @@ export default function NextGenProjectsView() {
 
   const dimensions = useWindowDimensions();
 
-  return (
-    <Drawer
-      open={isCreateOpen}
-      onOpenChange={(open) => {
-        setIsCreateOpen(open);
-        resetForm();
-      }}
-      dismissible={!isCreatingProject}
-    >
-      <View className="flex flex-1 flex-col gap-6 p-6">
-        <View className="flex flex-col gap-4">
-          {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as TabType)}
-          >
-            <TabsList className="w-full">
-              {isAuthenticated ? (
-                <>
-                  <TabsTrigger value="my">
-                    <Text>{t('myProjects')}</Text>
-                  </TabsTrigger>
-                  <TabsTrigger value="all">
-                    <Text>{t('allProjects')}</Text>
-                  </TabsTrigger>
-                </>
-              ) : (
-                <>
-                  <TabsTrigger value="my">
-                    <Text>{t('signIn') || 'Sign In'}</Text>
-                  </TabsTrigger>
-                  <TabsTrigger value="all">
-                    <Text>{t('allProjects')}</Text>
-                  </TabsTrigger>
-                </>
-              )}
-            </TabsList>
-          </Tabs>
+  // Handlers for onboarding flow
+  const handleOnboardingCreateProject = () => {
+    if (currentUser) {
+      setIsCreateOpen(true);
+    } else {
+      // For anonymous users, just advance to next step
+      // They can see the flow but can't actually create projects
+    }
+  };
 
-          {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
-          {!isAuthenticated && activeTab === 'my' ? (
-            <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
-              <View className="flex flex-col items-center gap-4">
-                <Icon as={UserIcon} size={48} className="text-primary" />
-                <View className="flex flex-col items-center gap-2">
-                  <Text variant="h4" className="text-center">
-                    {t('signInToSaveOrContribute') ||
-                      'Sign in to save or contribute to projects'}
-                  </Text>
-                </View>
-                <Button
-                  variant="default"
-                  size="lg"
-                  onPress={() => setAuthView('sign-in')}
-                  className="w-full"
-                >
-                  <Text className="font-semibold">
-                    {t('signIn') || 'Sign In'}
-                  </Text>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onPress={() => setAuthView('register')}
-                  className="w-full"
-                >
-                  <Text>{t('createAccount') || 'Create Account'}</Text>
-                </Button>
-              </View>
-              {/* Arrow and option to view all projects */}
-              <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
-                <Text className="text-sm text-muted-foreground">
-                  {t('orBrowseAllProjects') || 'Or browse all public projects'}
-                </Text>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => setActiveTab('all')}
-                  className="flex-row items-center gap-2"
-                >
-                  <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
-                  <Icon as={ArrowRightIcon} size={16} />
-                </Button>
-              </View>
-            </View>
-          ) : (
-            <>
-              {/* Search and filter */}
-              <View className="flex flex-row items-center gap-2">
-                <Input
-                  className="flex-1"
-                  placeholder={t('searchProjects')}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  prefix={SearchIcon}
-                  prefixStyling={false}
-                  size="sm"
-                  suffix={
-                    isFetchingProjects && searchQuery ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={getThemeColor('primary')}
-                      />
-                    ) : undefined
-                  }
-                  suffixStyling={false}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                />
-                {currentUser && (
-                  <DrawerTrigger
-                    className={buttonVariants({ size: 'icon-lg' })}
-                  >
-                    <Icon as={PlusIcon} className="text-primary-foreground" />
-                  </DrawerTrigger>
+  const handleOnboardingCreateQuest = () => {
+    if (firstProject) {
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // The onboarding will close and user can create quest in ProjectDirectoryView
+    }
+  };
+
+  const handleOnboardingStartRecording = () => {
+    if (firstProject) {
+      // Navigate to project - user can then navigate to a quest and start recording
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // The recording view will be shown when user navigates to a quest
+    }
+  };
+
+  const handleOnboardingInviteCollaborators = () => {
+    if (firstProject) {
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // User can access project membership modal from project settings
+    }
+  };
+
+  return (
+    <>
+      <SimpleOnboardingFlow
+        visible={showSimpleOnboarding}
+        onClose={() => setShowSimpleOnboarding(false)}
+        onCreateProject={handleOnboardingCreateProject}
+        onCreateQuest={handleOnboardingCreateQuest}
+        onStartRecording={handleOnboardingStartRecording}
+        onInviteCollaborators={handleOnboardingInviteCollaborators}
+      />
+      <Drawer
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          resetForm();
+        }}
+        dismissible={!isCreatingProject}
+      >
+        <View className="flex flex-1 flex-col gap-6 p-6">
+          <View className="flex flex-col gap-4">
+            {/* Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as TabType)}
+            >
+              <TabsList className="w-full">
+                {isAuthenticated ? (
+                  <>
+                    <TabsTrigger value="my">
+                      <Text>{t('myProjects')}</Text>
+                    </TabsTrigger>
+                    <TabsTrigger value="all">
+                      <Text>{t('allProjects')}</Text>
+                    </TabsTrigger>
+                  </>
+                ) : (
+                  <>
+                    <TabsTrigger value="my">
+                      <Text>{t('signIn') || 'Sign In'}</Text>
+                    </TabsTrigger>
+                    <TabsTrigger value="all">
+                      <Text>{t('allProjects')}</Text>
+                    </TabsTrigger>
+                  </>
                 )}
+              </TabsList>
+            </Tabs>
+
+            {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
+            {!isAuthenticated && activeTab === 'my' ? (
+              <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
+                <View className="flex flex-col items-center gap-4">
+                  <Icon as={UserIcon} size={48} className="text-primary" />
+                  <View className="flex flex-col items-center gap-2">
+                    <Text variant="h4" className="text-center">
+                      {t('signInToSaveOrContribute') ||
+                        'Sign in to save or contribute to projects'}
+                    </Text>
+                  </View>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    onPress={() => setAuthView('sign-in')}
+                    className="w-full"
+                  >
+                    <Text className="font-semibold">
+                      {t('signIn') || 'Sign In'}
+                    </Text>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onPress={() => setAuthView('register')}
+                    className="w-full"
+                  >
+                    <Text>{t('createAccount') || 'Create Account'}</Text>
+                  </Button>
+                </View>
+                {/* Arrow and option to view all projects */}
+                <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
+                  <Text className="text-sm text-muted-foreground">
+                    {t('orBrowseAllProjects') ||
+                      'Or browse all public projects'}
+                  </Text>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => setActiveTab('all')}
+                    className="flex-row items-center gap-2"
+                  >
+                    <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
+                    <Icon as={ArrowRightIcon} size={16} />
+                  </Button>
+                </View>
               </View>
-            </>
+            ) : (
+              <>
+                {/* Search and filter */}
+                <View className="flex flex-row items-center gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder={t('searchProjects')}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    prefix={SearchIcon}
+                    prefixStyling={false}
+                    size="sm"
+                    suffix={
+                      isFetchingProjects && searchQuery ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={getThemeColor('primary')}
+                        />
+                      ) : undefined
+                    }
+                    suffixStyling={false}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  />
+                  {currentUser && (
+                    <DrawerTrigger
+                      className={buttonVariants({ size: 'icon-lg' })}
+                    >
+                      <Icon as={PlusIcon} className="text-primary-foreground" />
+                    </DrawerTrigger>
+                  )}
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Show project list only if not showing login invitation */}
+          {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
+            (isFetchingProjects && searchQuery && data.length === 0) ? (
+            <ProjectListSkeleton />
+          ) : (
+            <LegendList
+              key={`${activeTab}-${dimensions.width}-${data.length}`}
+              data={data}
+              columnWrapperStyle={{ gap: 12 }}
+              numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
+              keyExtractor={(item) => item.id}
+              recycleItems
+              estimatedItemSize={175}
+              maintainVisibleContentPosition
+              renderItem={({ item }) => (
+                <ProjectListItem
+                  project={item}
+                  isInvited={item.isInvited}
+                  className={cn(dimensions.width > 768 && 'h-[212px]')}
+                />
+              )}
+              onEndReached={() => {
+                if (
+                  allProjects.hasNextPage &&
+                  !allProjects.isFetchingNextPage
+                ) {
+                  allProjects.fetchNextPage();
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={() =>
+                allProjects.isFetchingNextPage && (
+                  <View className="p-4">
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
+                    />
+                  </View>
+                )
+              }
+              ListEmptyComponent={() => (
+                <View className="flex-1 items-center justify-center py-16">
+                  <View className="flex-col items-center gap-2">
+                    <Text className="text-muted-foreground">
+                      {searchQuery
+                        ? 'No projects found'
+                        : activeTab === 'my'
+                          ? 'No projects yet'
+                          : 'No projects available'}
+                    </Text>
+                    {activeTab === 'my' && !searchQuery && (
+                      <Button
+                        variant="default"
+                        onPress={() => setIsCreateOpen(true)}
+                        className="mt-2"
+                      >
+                        <Icon as={PlusIcon} size={16} />
+                        <Text>{t('newProject')}</Text>
+                      </Button>
+                    )}
+                  </View>
+                </View>
+              )}
+            />
           )}
         </View>
 
-        {/* Show project list only if not showing login invitation */}
-        {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
-          (isFetchingProjects && searchQuery && data.length === 0) ? (
-          <ProjectListSkeleton />
-        ) : (
-          <LegendList
-            key={`${activeTab}-${dimensions.width}-${data.length}`}
-            data={data}
-            columnWrapperStyle={{ gap: 12 }}
-            numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
-            keyExtractor={(item) => item.id}
-            recycleItems
-            estimatedItemSize={175}
-            maintainVisibleContentPosition
-            renderItem={({ item }) => (
-              <ProjectListItem
-                project={item}
-                isInvited={item.isInvited}
-                className={cn(dimensions.width > 768 && 'h-[212px]')}
-              />
-            )}
-            onEndReached={() => {
-              if (allProjects.hasNextPage && !allProjects.isFetchingNextPage) {
-                allProjects.fetchNextPage();
-              }
-            }}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={() =>
-              allProjects.isFetchingNextPage && (
-                <View className="p-4">
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
-                </View>
-              )
-            }
-            ListEmptyComponent={() => (
-              <View className="flex-1 items-center justify-center py-16">
-                <View className="flex-col items-center gap-2">
-                  <Text className="text-muted-foreground">
-                    {searchQuery
-                      ? 'No projects found'
-                      : activeTab === 'my'
-                        ? 'No projects yet'
-                        : 'No projects available'}
-                  </Text>
-                  {activeTab === 'my' && !searchQuery && (
-                    <Button
-                      variant="default"
-                      onPress={() => setIsCreateOpen(true)}
-                      className="mt-2"
-                    >
-                      <Icon as={PlusIcon} size={16} />
-                      <Text>{t('newProject')}</Text>
-                    </Button>
-                  )}
-                </View>
-              </View>
-            )}
-          />
-        )}
-      </View>
-
-      <DrawerContent className="pb-safe">
-        <Form {...form}>
-          <DrawerHeader>
-            <DrawerTitle>{t('newProject')}</DrawerTitle>
-          </DrawerHeader>
-          <View className="flex flex-col gap-4 px-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      {...transformInputProps(field)}
-                      placeholder={t('projectName')}
-                      size="sm"
-                      prefix={FolderPenIcon}
-                      drawerInput
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="target_language_id"
-              render={({ field }) => {
-                return (
-                  <FormItem>
-                    <FormControl>
-                      <LanguageCombobox
-                        value={field.value}
-                        onChange={(lang) => field.onChange(lang.id)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      {...transformInputProps(field)}
-                      placeholder={t('description')}
-                      size="sm"
-                      drawerInput
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('template')}</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      {templateOptions.map((option) => (
-                        <RadioGroupItem
-                          key={option}
-                          value={option}
-                          label={t(option)}
-                        >
-                          <Text className="capitalize">{t(option)}</Text>
-                        </RadioGroupItem>
-                      ))}
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <View className="flex-row items-center justify-between">
-              <Text>{t('private')}</Text>
+        <DrawerContent className="pb-safe">
+          <Form {...form}>
+            <DrawerHeader>
+              <DrawerTitle>{t('newProject')}</DrawerTitle>
+            </DrawerHeader>
+            <View className="flex flex-col gap-4 px-4">
               <FormField
                 control={form.control}
-                name="private"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Switch {...transformSwitchProps(field)} />
+                      <Input
+                        {...transformInputProps(field)}
+                        placeholder={t('projectName')}
+                        size="sm"
+                        prefix={FolderPenIcon}
+                        drawerInput
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="target_language_id"
+                render={({ field }) => {
+                  return (
+                    <FormItem>
+                      <FormControl>
+                        <LanguageCombobox
+                          value={field.value}
+                          onChange={(lang) => field.onChange(lang.id)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...transformInputProps(field)}
+                        placeholder={t('description')}
+                        size="sm"
+                        drawerInput
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="template"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('template')}</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        {templateOptions.map((option) => (
+                          <RadioGroupItem
+                            key={option}
+                            value={option}
+                            label={t(option)}
+                          >
+                            <Text className="capitalize">{t(option)}</Text>
+                          </RadioGroupItem>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <View className="flex-row items-center justify-between">
+                <Text>{t('private')}</Text>
+                <FormField
+                  control={form.control}
+                  name="private"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Switch {...transformSwitchProps(field)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </View>
             </View>
-          </View>
-          <DrawerFooter>
-            <FormSubmit
-              onPress={form.handleSubmit((data) => createProject(data))}
-              className="flex-row items-center gap-2"
-            >
-              <Text>{t('createObject')}</Text>
-            </FormSubmit>
-            <DrawerClose disabled={isCreatingProject}>
-              <Text>{t('cancel')}</Text>
-            </DrawerClose>
-          </DrawerFooter>
-        </Form>
-      </DrawerContent>
-    </Drawer>
+            <DrawerFooter>
+              <FormSubmit
+                onPress={form.handleSubmit((data) => createProject(data))}
+                className="flex-row items-center gap-2"
+              >
+                <Text>{t('createObject')}</Text>
+              </FormSubmit>
+              <DrawerClose disabled={isCreatingProject}>
+                <Text>{t('cancel')}</Text>
+              </DrawerClose>
+            </DrawerFooter>
+          </Form>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 }

@@ -151,10 +151,11 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         if (!option) return;
         const lang = languages.find((l) => l.id === option.value);
         if (lang) {
-          // If onChange is provided, use it (controlled mode)
+          // Always save the language and set UI language
           setSavedLanguage(lang);
+          setUILanguage(lang);
+          // If onChange is provided, call it as well (for controlled mode)
           if (onChange) onChange(lang);
-          else setUILanguage(lang);
         }
       }}
     >
