@@ -5577,6 +5577,48 @@ export const localizations = {
     brazilian_portuguese: 'Capítulo 2',
     tok_pisin: 'Kapitol 2',
     indonesian: 'Bab 2'
+  },
+  onboardingVisionTitle: {
+    english: 'Every language. Every culture. One vision.',
+    spanish: 'Cada idioma. Cada cultura. Una visión.',
+    brazilian_portuguese: 'Cada idioma. Cada cultura. Uma visão.',
+    tok_pisin: 'Olgeta tokples. Olgeta kalsa. Wanpela visen.',
+    indonesian: 'Setiap bahasa. Setiap budaya. Satu visi.'
+  },
+  onboardingVisionSubtitle: {
+    english: 'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.',
+    spanish: 'Recopila datos de texto y audio de idiomas rápidamente. Primero local, sincroniza cuando estés conectado. Colabora, traduce, valida.',
+    brazilian_portuguese: 'Colete dados de texto e áudio de idiomas rapidamente. Primeiro local, sincronize quando conectado. Colabore, traduza, valide.',
+    tok_pisin: 'Kisim ol text na audio bilong tokples kwiktaim. Stat long lokal, sync taim yu gat internet. Wok wantaim, tanim tokples, stretim.',
+    indonesian: 'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.'
+  },
+  onboardingVisionStatement1: {
+    english: 'Every language having access to the world\'s knowledge.',
+    spanish: 'Cada idioma con acceso al conocimiento del mundo.',
+    brazilian_portuguese: 'Cada idioma tendo acesso ao conhecimento do mundo.',
+    tok_pisin: 'Olgeta tokples i gat akses long save bilong wol.',
+    indonesian: 'Setiap bahasa memiliki akses ke pengetahuan dunia.'
+  },
+  onboardingVisionStatement2: {
+    english: 'Every culture sharing its meaning with the world.',
+    spanish: 'Cada cultura compartiendo su significado con el mundo.',
+    brazilian_portuguese: 'Cada cultura compartilhando seu significado com o mundo.',
+    tok_pisin: 'Olgeta kalsa i salim save bilong en i go long wol.',
+    indonesian: 'Setiap budaya berbagi maknanya dengan dunia.'
+  },
+  onboardingVisionCC0: {
+    english: 'CC0/public domain data ensures no party can stop this vision.',
+    spanish: 'Los datos CC0/dominio público garantizan que ninguna parte pueda detener esta visión.',
+    brazilian_portuguese: 'Dados CC0/domínio público garantem que nenhuma parte possa impedir esta visão.',
+    tok_pisin: 'CC0/pablik domain data i mekim olsem wanpela man o grup i no inap stopim dispela visen.',
+    indonesian: 'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.'
+  },
+  onboardingOurVision: {
+    english: 'Our Vision',
+    spanish: 'Nuestra Visión',
+    brazilian_portuguese: 'Nossa Visão',
+    tok_pisin: 'Visen Bilong Mipela',
+    indonesian: 'Visi Kami'
   }
 } as const;
 

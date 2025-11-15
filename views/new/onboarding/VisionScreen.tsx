@@ -1,3 +1,4 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useColorScheme } from 'nativewind';
@@ -14,6 +15,7 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { AnimatedStepContent } from './AnimatedStepContent';
+import { VisionFlowAnimation } from './VisionFlowAnimation';
 
 export function VisionScreen() {
   const { t } = useLocalization();
@@ -72,14 +74,14 @@ export function VisionScreen() {
   }));
 
   return (
-    <View className="flex-1 items-center justify-center gap-8 px-6">
+    <View className="flex-1 items-center justify-center gap-4 px-6">
       {/* Animated Logo */}
       <AnimatedStepContent delay={0}>
         <Animated.View style={logoStyle}>
-          <View className="h-32 w-32 items-center justify-center">
+          <View className="h-24 w-24 items-center justify-center">
             <Image
               source={iconSource}
-              style={{ width: 128, height: 128 }}
+              style={{ width: 96, height: 96 }}
               resizeMode="contain"
             />
           </View>
@@ -87,59 +89,66 @@ export function VisionScreen() {
       </AnimatedStepContent>
 
       {/* Vision Statement */}
-      <AnimatedStepContent delay={400}>
-        <View className="items-center gap-6">
+      <AnimatedStepContent delay={300}>
+        <View className="items-center gap-2">
           <Text
-            variant="h1"
-            className="text-center text-3xl font-bold leading-tight"
+            variant="h2"
+            className="text-center text-2xl font-bold leading-tight"
           >
-            {t('onboardingVisionTitle') || 'Every language. Every culture. One vision.'}
+            {t('onboardingVisionTitle')}
           </Text>
         </View>
       </AnimatedStepContent>
 
       {/* Value Proposition */}
-      <AnimatedStepContent delay={600}>
-        <View className="w-full gap-4">
+      <AnimatedStepContent delay={500}>
+        <View className="w-full">
           <Text
             variant="default"
-            className="text-center text-lg leading-relaxed text-muted-foreground"
+            className="text-center text-base leading-relaxed text-muted-foreground"
           >
-            {t('onboardingVisionSubtitle') ||
-              'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.'}
+            {t('onboardingVisionSubtitle')}
           </Text>
         </View>
       </AnimatedStepContent>
 
-      {/* Vision Details */}
-      <AnimatedStepContent delay={800}>
-        <View className="w-full gap-3">
-          <Text
-            variant="default"
-            className="text-center text-base leading-relaxed"
-          >
-            {t('onboardingVisionStatement1') ||
-              'Every language having access to the world\'s knowledge.'}
-          </Text>
-          <Text
-            variant="default"
-            className="text-center text-base leading-relaxed"
-          >
-            {t('onboardingVisionStatement2') ||
-              'Every culture sharing its meaning with the world.'}
-          </Text>
-        </View>
+      {/* Vision Details - Highlighted Box */}
+      <AnimatedStepContent delay={700}>
+        <Card className="w-full border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-center text-base font-semibold text-primary">
+              {t('onboardingOurVision')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="gap-3 pt-0">
+            {/* Flow Animation */}
+            <View className="w-full items-center justify-center py-2">
+              <VisionFlowAnimation />
+            </View>
+            <Text
+              variant="default"
+              className="text-center text-base font-medium leading-relaxed"
+            >
+              {t('onboardingVisionStatement1')}
+            </Text>
+            <Text
+              variant="default"
+              className="text-center text-base font-medium leading-relaxed"
+            >
+              {t('onboardingVisionStatement2')}
+            </Text>
+          </CardContent>
+        </Card>
       </AnimatedStepContent>
 
       {/* CC0 Note */}
-      <AnimatedStepContent delay={1000}>
+      <AnimatedStepContent delay={900}>
         <View className="w-full">
           <Text
             variant="small"
-            className="text-center text-sm leading-relaxed text-muted-foreground/80"
+            className="text-center text-xs leading-relaxed text-muted-foreground/80"
           >
-            {t('onboardingVisionCC0') ||
-              'CC0/public domain data ensures no party can stop this vision.'}
+            {t('onboardingVisionCC0')}
           </Text>
         </View>
       </AnimatedStepContent>
