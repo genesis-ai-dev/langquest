@@ -25,7 +25,13 @@ import {
   or,
   sql
 } from 'drizzle-orm';
-import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
+import {
+  ArrowRightIcon,
+  FolderPenIcon,
+  PlusIcon,
+  SearchIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
@@ -69,11 +75,12 @@ type TabType = 'my' | 'all';
 
 type Project = typeof project.$inferSelect;
 
-const { db } = system;
-
 export default function NextGenProjectsView() {
+  // Access db inside component to avoid module-level access before PowerSync is ready
+  const { db } = system;
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
@@ -100,6 +107,11 @@ export default function NextGenProjectsView() {
   const { mutateAsync: createProject, isPending: isCreatingProject } =
     useMutation({
       mutationFn: async (values: FormData) => {
+        // Guard against anonymous users
+        if (!currentUser?.id) {
+          throw new Error('Must be logged in to create projects');
+        }
+
         // insert into local storage
         await db.transaction(async (tx) => {
           const [newProject] = await tx
@@ -107,8 +119,8 @@ export default function NextGenProjectsView() {
             .values({
               ...values,
               template: values.template,
-              creator_id: currentUser!.id,
-              download_profiles: [currentUser!.id]
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
             })
             .returning();
           if (!newProject) throw new Error('Failed to create project');
@@ -117,9 +129,9 @@ export default function NextGenProjectsView() {
               resolveTable('profile_project_link', { localOverride: true })
             )
             .values({
-              id: `${currentUser!.id}_${newProject.id}`,
+              id: `${currentUser.id}_${newProject.id}`,
               project_id: newProject.id,
-              profile_id: currentUser!.id,
+              profile_id: currentUser.id,
               membership: 'owner'
             });
         });
@@ -182,9 +194,11 @@ export default function NextGenProjectsView() {
   const userEmail = currentUser?.email;
 
   // Query for projects where user is owner or member
+  // Disable for anonymous users (no "My Projects" when not logged in)
   const myProjectsQuery = useHybridData({
     dataType: 'my-projects',
     queryKeyParams: [userId || '', searchQuery],
+    enabled: !!userId, // Only enable if user is logged in
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -198,11 +212,11 @@ export default function NextGenProjectsView() {
         .where(
           and(
             ...[
-              eq(profile_project_link.profile_id, userId!),
+              userId ? eq(profile_project_link.profile_id, userId) : undefined,
               eq(profile_project_link.active, true),
               or(
                 !showInvisibleContent ? eq(project.visible, true) : undefined,
-                eq(project.creator_id, currentUser!.id)
+                userId ? eq(project.creator_id, userId) : undefined
               ),
               searchQuery &&
                 or(
@@ -358,7 +372,7 @@ export default function NextGenProjectsView() {
                 )`,
               or(
                 !showInvisibleContent ? eq(project.visible, true) : undefined,
-                eq(project.creator_id, currentUser!.id)
+                userId ? eq(project.creator_id, userId) : undefined
               ),
               searchQuery &&
                 or(
@@ -436,23 +450,26 @@ export default function NextGenProjectsView() {
   });
 
   // Query for All Projects (excluding user's projects)
+  // For anonymous users, this shows all public projects
   const allProjects = useSimpleHybridInfiniteData<Project>(
     'all-projects',
-    [userId || '', searchQuery], // Include userId and searchQuery in query key
+    [userId || 'anonymous', searchQuery], // Include userId and searchQuery in query key
     // Offline query function
     async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;
 
-      // Get projects where user is a member
-      const userProjectLinks = await system.db
-        .select()
-        .from(profile_project_link)
-        .where(
-          and(
-            eq(profile_project_link.profile_id, userId!),
-            eq(profile_project_link.active, true)
-          )
-        );
+      // Get projects where user is a member (only if logged in)
+      const userProjectLinks = userId
+        ? await system.db
+            .select()
+            .from(profile_project_link)
+            .where(
+              and(
+                eq(profile_project_link.profile_id, userId),
+                eq(profile_project_link.active, true)
+              )
+            )
+        : [];
 
       const userProjectIds = userProjectLinks.map((link) => link.project_id);
 
@@ -504,6 +521,9 @@ export default function NextGenProjectsView() {
           );
         if (blockContentIds.length > 0)
           query = query.not('id', 'in', `(${blockContentIds.join(',')})`);
+      } else {
+        // Anonymous users: only show visible projects
+        if (!showInvisibleContent) query = query.eq('visible', true);
       }
 
       if (searchQuery.trim())
@@ -523,26 +543,29 @@ export default function NextGenProjectsView() {
     20 // pageSize
   );
 
-  // Use the appropriate query based on active tab
-  const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
+  // For anonymous users, always use allProjects query (no "my projects")
+  // For authenticated users, use the appropriate query based on active tab
+  const currentQuery =
+    !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
-    if (activeTab === 'my') {
-      // For myProjectsQuery, check if any loading state is active
+    // For anonymous users or "all" tab, use allProjects fetching state
+    if (!isAuthenticated || activeTab === 'all') {
+      return allProjects.isFetching;
+    } else {
+      // For authenticated users on "my" tab, check myProjectsQuery
       return (
         myProjectsQuery.isOfflineLoading ||
         myProjectsQuery.isCloudLoading ||
         invitedProjectsQuery.isOfflineLoading ||
         invitedProjectsQuery.isCloudLoading
       );
-    } else {
-      // For allProjects (infinite query), use isFetching
-      return allProjects.isFetching;
     }
   }, [
     activeTab,
+    isAuthenticated,
     myProjectsQuery.isOfflineLoading,
     myProjectsQuery.isCloudLoading,
     invitedProjectsQuery.isOfflineLoading,
@@ -550,8 +573,9 @@ export default function NextGenProjectsView() {
     allProjects.isFetching
   ]);
 
+  // Only fetch invited projects if authenticated and on "my" tab
   const { data: invitedProjectsData = [] } =
-    activeTab === 'my' ? invitedProjectsQuery : { data: [] };
+    isAuthenticated && activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -592,8 +616,12 @@ export default function NextGenProjectsView() {
       projects = projectData;
     }
 
-    // Merge invited projects for "my projects" tab
-    if (activeTab === 'my' && Array.isArray(invitedProjectsData)) {
+    // Merge invited projects for "my projects" tab (only for authenticated users)
+    if (
+      isAuthenticated &&
+      activeTab === 'my' &&
+      Array.isArray(invitedProjectsData)
+    ) {
       const seenIds = new Set(projects.map((p) => p.id));
       for (const invitedProject of invitedProjectsData) {
         if (!seenIds.has(invitedProject.id)) {
@@ -617,7 +645,13 @@ export default function NextGenProjectsView() {
     });
 
     return projects;
-  }, [projectData, invitedProjectsData, activeTab, invitedProjectIds]);
+  }, [
+    projectData,
+    invitedProjectsData,
+    activeTab,
+    invitedProjectIds,
+    isAuthenticated
+  ]);
 
   const dimensions = useWindowDimensions();
 
@@ -638,44 +672,112 @@ export default function NextGenProjectsView() {
             onValueChange={(v) => setActiveTab(v as TabType)}
           >
             <TabsList className="w-full">
-              <TabsTrigger value="my">
-                <Text>{t('myProjects')}</Text>
-              </TabsTrigger>
-              <TabsTrigger value="all">
-                <Text>{t('allProjects')}</Text>
-              </TabsTrigger>
+              {isAuthenticated ? (
+                <>
+                  <TabsTrigger value="my">
+                    <Text>{t('myProjects')}</Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="all">
+                    <Text>{t('allProjects')}</Text>
+                  </TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="my">
+                    <Text>{t('signIn') || 'Sign In'}</Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="all">
+                    <Text>{t('allProjects')}</Text>
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
           </Tabs>
 
-          {/* Search and filter */}
-          <View className="flex flex-row items-center gap-2">
-            <Input
-              className="flex-1"
-              placeholder={t('searchProjects')}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              prefix={SearchIcon}
-              prefixStyling={false}
-              size="sm"
-              suffix={
-                isFetchingProjects && searchQuery ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
-                ) : undefined
-              }
-              suffixStyling={false}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            />
-            <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
-              <Icon as={PlusIcon} className="text-primary-foreground" />
-            </DrawerTrigger>
-          </View>
+          {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
+          {!isAuthenticated && activeTab === 'my' ? (
+            <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
+              <View className="flex flex-col items-center gap-4">
+                <Icon as={UserIcon} size={48} className="text-primary" />
+                <View className="flex flex-col items-center gap-2">
+                  <Text variant="h4" className="text-center">
+                    {t('signInToSaveOrContribute') ||
+                      'Sign in to save or contribute to projects'}
+                  </Text>
+                </View>
+                <Button
+                  variant="default"
+                  size="lg"
+                  onPress={() => setAuthView('sign-in')}
+                  className="w-full"
+                >
+                  <Text className="font-semibold">
+                    {t('signIn') || 'Sign In'}
+                  </Text>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onPress={() => setAuthView('register')}
+                  className="w-full"
+                >
+                  <Text>{t('createAccount') || 'Create Account'}</Text>
+                </Button>
+              </View>
+              {/* Arrow and option to view all projects */}
+              <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
+                <Text className="text-sm text-muted-foreground">
+                  {t('orBrowseAllProjects') || 'Or browse all public projects'}
+                </Text>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => setActiveTab('all')}
+                  className="flex-row items-center gap-2"
+                >
+                  <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
+                  <Icon as={ArrowRightIcon} size={16} />
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* Search and filter */}
+              <View className="flex flex-row items-center gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder={t('searchProjects')}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  prefix={SearchIcon}
+                  prefixStyling={false}
+                  size="sm"
+                  suffix={
+                    isFetchingProjects && searchQuery ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={getThemeColor('primary')}
+                      />
+                    ) : undefined
+                  }
+                  suffixStyling={false}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                />
+                {currentUser && (
+                  <DrawerTrigger
+                    className={buttonVariants({ size: 'icon-lg' })}
+                  >
+                    <Icon as={PlusIcon} className="text-primary-foreground" />
+                  </DrawerTrigger>
+                )}
+              </View>
+            </>
+          )}
         </View>
 
-        {isLoading ||
-        (isFetchingProjects && searchQuery && data.length === 0) ? (
+        {/* Show project list only if not showing login invitation */}
+        {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
+          (isFetchingProjects && searchQuery && data.length === 0) ? (
           <ProjectListSkeleton />
         ) : (
           <LegendList

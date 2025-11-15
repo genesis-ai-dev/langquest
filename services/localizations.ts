@@ -822,6 +822,13 @@ export const localizations = {
     tok_pisin: 'Register',
     indonesian: 'Daftar'
   },
+  createAccount: {
+    english: 'Create Account',
+    spanish: 'Crear Cuenta',
+    brazilian_portuguese: 'Criar Conta',
+    tok_pisin: 'Mekim Account',
+    indonesian: 'Buat Akun'
+  },
   registrationFail: {
     english: 'Registration failed',
     spanish: 'Error en el registro',
@@ -940,6 +947,27 @@ export const localizations = {
     brazilian_portuguese: 'Entrar',
     tok_pisin: 'Sign In',
     indonesian: 'Masuk'
+  },
+  signInToSaveOrContribute: {
+    english: 'Sign in to save or contribute to projects',
+    spanish: 'Inicia sesión para guardar o contribuir a proyectos',
+    brazilian_portuguese: 'Entre para salvar ou contribuir com projetos',
+    tok_pisin: 'Sign in long seivim o helpim ol project',
+    indonesian: 'Masuk untuk menyimpan atau berkontribusi pada proyek'
+  },
+  orBrowseAllProjects: {
+    english: 'Or browse all public projects',
+    spanish: 'O navega todos los proyectos públicos',
+    brazilian_portuguese: 'Ou navegue por todos os projetos públicos',
+    tok_pisin: 'O lukluk long olgeta public project',
+    indonesian: 'Atau jelajahi semua proyek publik'
+  },
+  viewAllProjects: {
+    english: 'View All Projects',
+    spanish: 'Ver Todos los Proyectos',
+    brazilian_portuguese: 'Ver Todos os Projetos',
+    tok_pisin: 'Lukim Olgeta Project',
+    indonesian: 'Lihat Semua Proyek'
   },
   signInError: {
     english: 'Something went wrong… Please, check your email and password.',
@@ -2730,6 +2758,13 @@ export const localizations = {
     tok_pisin: 'i download nau',
     indonesian: 'mengunduh'
   },
+  uploading: {
+    english: 'uploading',
+    spanish: 'subiendo',
+    brazilian_portuguese: 'enviando',
+    tok_pisin: 'i upload nau',
+    indonesian: 'mengunggah'
+  },
   files: {
     english: 'files',
     spanish: 'archivos',
@@ -2750,6 +2785,13 @@ export const localizations = {
     brazilian_portuguese: 'última sincronização',
     tok_pisin: 'las sync',
     indonesian: 'sinkron terakhir'
+  },
+  never: {
+    english: 'Never',
+    spanish: 'Nunca',
+    brazilian_portuguese: 'Nunca',
+    tok_pisin: 'Nogat',
+    indonesian: 'Tidak pernah'
   },
   unknown: {
     english: 'unknown',
@@ -3713,6 +3755,13 @@ export const localizations = {
     tok_pisin: 'Sampela settings i nidim internet connection',
     indonesian: 'Beberapa pengaturan memerlukan koneksi internet'
   },
+  internetConnectionRequired: {
+    english: 'Internet connection required',
+    spanish: 'Se requiere conexión a internet',
+    brazilian_portuguese: 'Conexão com a internet necessária',
+    tok_pisin: 'Internet connection i mas',
+    indonesian: 'Koneksi internet diperlukan'
+  },
   clear: {
     english: 'Clear',
     spanish: 'Limpiar',
@@ -4477,6 +4526,31 @@ export const localizations = {
     indonesian:
       'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
   },
+  vadAutoCalibrate: {
+    english: 'Auto-Calibrate',
+    spanish: 'Auto-Calibrar',
+    brazilian_portuguese: 'Auto-Calibrar',
+    tok_pisin: 'Olsem wanem yet',
+    indonesian: 'Auto-Kalibrasi'
+  },
+  vadCalibrating: {
+    english: 'Calibrating...',
+    spanish: 'Calibrando...',
+    brazilian_portuguese: 'Calibrando...',
+    tok_pisin: 'Wokim nau...',
+    indonesian: 'Mengkalibrasi...'
+  },
+  vadCalibrationFailed: {
+    english: 'Calibration failed. Please try again in a quieter environment.',
+    spanish:
+      'La calibración falló. Por favor, inténtalo de nuevo en un entorno más silencioso.',
+    brazilian_portuguese:
+      'Calibração falhou. Por favor, tente novamente em um ambiente mais silencioso.',
+    tok_pisin:
+      'Em i no wok. Traim gen long ples i no gat tumas nois.',
+    indonesian:
+      'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
+  },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
     spanish: 'Actualización de App Requerida',
@@ -5000,6 +5074,112 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao restaurar conta: {error}',
     tok_pisin: 'I no inap restore account: {error}',
     indonesian: 'Gagal memulihkan akun: {error}'
+  },
+  signInRequired: {
+    english: 'Sign In Required',
+    spanish: 'Inicio de Sesión Requerido',
+    brazilian_portuguese: 'Login Necessário',
+    tok_pisin: 'Mas I Mas Sign In',
+    indonesian: 'Masuk Diperlukan'
+  },
+  blockContentLoginMessage: {
+    english:
+      'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+    spanish:
+      'Almacenamos información sobre qué bloquear en tu cuenta. Por favor regístrate para asegurar que el contenido bloqueado pueda ocultarse correctamente.',
+    brazilian_portuguese:
+      'Armazenamos informações sobre o que bloquear em sua conta. Por favor, registre-se para garantir que o conteúdo bloqueado possa ser ocultado adequadamente.',
+    tok_pisin:
+      'Mipela save long ol samting yu laik block long account bilong yu. Plis register long ol samting i ken hide stret.',
+    indonesian:
+      'Kami menyimpan informasi tentang apa yang akan diblokir di akun Anda. Silakan daftar untuk memastikan konten yang diblokir dapat disembunyikan dengan benar.'
+  },
+  connected: {
+    english: 'Connected',
+    spanish: 'Conectado',
+    brazilian_portuguese: 'Conectado',
+    tok_pisin: 'i connect pinis',
+    indonesian: 'Terhubung'
+  },
+  downloadStatus: {
+    english: 'Download Status',
+    spanish: 'Estado de Descarga',
+    brazilian_portuguese: 'Status de Download',
+    tok_pisin: 'Download Status',
+    indonesian: 'Status Unduhan'
+  },
+  powersyncStatus: {
+    english: 'PowerSync Status',
+    spanish: 'Estado de PowerSync',
+    brazilian_portuguese: 'Status do PowerSync',
+    tok_pisin: 'PowerSync Status',
+    indonesian: 'Status PowerSync'
+  },
+  networkStatus: {
+    english: 'Network Status',
+    spanish: 'Estado de Red',
+    brazilian_portuguese: 'Status da Rede',
+    tok_pisin: 'Network Status',
+    indonesian: 'Status Jaringan'
+  },
+  attachmentDownloadProgress: {
+    english: 'Attachment Download Progress',
+    spanish: 'Progreso de Descarga de Archivos',
+    brazilian_portuguese: 'Progresso de Download de Anexos',
+    tok_pisin: 'Attachment Download Progress',
+    indonesian: 'Kemajuan Unduhan Lampiran'
+  },
+  overallProgress: {
+    english: 'Overall Progress',
+    spanish: 'Progreso General',
+    brazilian_portuguese: 'Progresso Geral',
+    tok_pisin: 'Overall Progress',
+    indonesian: 'Kemajuan Keseluruhan'
+  },
+  currentDownload: {
+    english: 'Current Download',
+    spanish: 'Descarga Actual',
+    brazilian_portuguese: 'Download Atual',
+    tok_pisin: 'Current Download',
+    indonesian: 'Unduhan Saat Ini'
+  },
+  currentUpload: {
+    english: 'Current Upload',
+    spanish: 'Carga Actual',
+    brazilian_portuguese: 'Upload Atual',
+    tok_pisin: 'Current Upload',
+    indonesian: 'Unggahan Saat Ini'
+  },
+  queueStatus: {
+    english: 'Queue Status',
+    spanish: 'Estado de Cola',
+    brazilian_portuguese: 'Status da Fila',
+    tok_pisin: 'Queue Status',
+    indonesian: 'Status Antrian'
+  },
+  allSynced: {
+    english: 'All files synced',
+    spanish: 'Todos los archivos sincronizados',
+    brazilian_portuguese: 'Todos os arquivos sincronizados',
+    tok_pisin: 'Olgeta file i sync pinis',
+    indonesian: 'Semua file disinkronkan'
+  },
+  signInToViewDownloadStatus: {
+    english: 'Please sign in to view download status and sync information.',
+    spanish:
+      'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
+    brazilian_portuguese:
+      'Por favor, faça login para ver o status de download e informações de sincronização.',
+    tok_pisin: 'Plis sign in long lukim download status na sync info.',
+    indonesian:
+      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.'
+  },
+  unsynced: {
+    english: 'Unsynced',
+    spanish: 'No sincronizado',
+    brazilian_portuguese: 'Não sincronizado',
+    tok_pisin: 'i no sync yet',
+    indonesian: 'Tidak disinkronkan'
   }
 } as const;
 

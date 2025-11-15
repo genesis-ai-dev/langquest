@@ -271,6 +271,10 @@ export function useAppNavigation() {
     navigate({ view: 'account-deletion' });
   }, [navigate]);
 
+  const goToDownloadStatus = useCallback(() => {
+    navigate({ view: 'download-status' });
+  }, [navigate]);
+
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
     const crumbs: { label: string; onPress?: () => void }[] = [];
@@ -368,6 +372,7 @@ export function useAppNavigation() {
     goToSettings,
     goToCorruptedAttachments,
     goToAccountDeletion,
+    goToDownloadStatus,
 
     // Utilities
     breadcrumbs,
