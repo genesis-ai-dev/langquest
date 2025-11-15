@@ -27,6 +27,7 @@ interface OnboardingProgressIndicatorProps {
 }
 
 // Simple onboarding steps (for minimal onboarding flow - Other path)
+// Language selection happens on terms page, so we start with vision
 const SIMPLE_STEP_ORDER: OnboardingStep[] = [
   'vision',
   'create-project-simple',
@@ -36,6 +37,7 @@ const SIMPLE_STEP_ORDER: OnboardingStep[] = [
 ];
 
 // Bible onboarding steps (bible-create-chapter is now part of bible-select-book)
+// Language selection happens on terms page, so we start with vision
 const BIBLE_STEP_ORDER: OnboardingStep[] = [
   'vision',
   'create-project-simple',

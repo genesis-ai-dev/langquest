@@ -551,9 +551,6 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
-  const onboardingDismissed = useLocalStore(
-    (state) => state.onboardingDismissed
-  );
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const triggerOnboarding = useLocalStore((state) => state.triggerOnboarding);
   const setTriggerOnboarding = useLocalStore(
@@ -562,12 +559,17 @@ export default function NextGenProjectsView() {
   const [showSimpleOnboarding, setShowSimpleOnboarding] = React.useState(false);
   const { goToProject } = useAppNavigation();
 
-  // Auto-show onboarding only if terms have NOT been accepted and not dismissed
+  // Show onboarding AFTER terms are accepted (one-time walkthrough)
+  // This ensures users see the walkthrough after accepting terms
+  const onboardingCompleted = useLocalStore(
+    (state) => state.onboardingCompleted
+  );
   React.useEffect(() => {
-    if (!dateTermsAccepted && !onboardingDismissed && !showSimpleOnboarding) {
+    // Show onboarding if terms are accepted but onboarding hasn't been completed
+    if (dateTermsAccepted && !onboardingCompleted && !showSimpleOnboarding) {
       setShowSimpleOnboarding(true);
     }
-  }, [dateTermsAccepted, onboardingDismissed, showSimpleOnboarding]);
+  }, [dateTermsAccepted, onboardingCompleted, showSimpleOnboarding]);
 
   // Watch for trigger from AppHeader
   React.useEffect(() => {

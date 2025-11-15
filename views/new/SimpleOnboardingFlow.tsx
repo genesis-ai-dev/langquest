@@ -14,6 +14,7 @@ import {
   UserPlusIcon,
   XIcon
 } from 'lucide-react-native';
+import { PortalHost } from '@rn-primitives/portal';
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -53,14 +54,19 @@ export function SimpleOnboardingFlow({
 }: SimpleOnboardingFlowProps) {
   const { t } = useLocalization();
   const insets = useSafeAreaInsets();
-  const setOnboardingDismissed = useLocalStore(
-    (state) => state.setOnboardingDismissed
-  );
+  // Always start with vision step - language selection happens on terms page
   const [step, setStep] = useState<OnboardingStep>('vision');
   const [projectType, setProjectType] = useState<'bible' | 'other' | null>(
     null
   );
   const [showBibleChapters, setShowBibleChapters] = useState(false);
+
+  // Reset step when modal opens - always start with vision
+  React.useEffect(() => {
+    if (visible) {
+      setStep('vision');
+    }
+  }, [visible]);
 
   const handleNext = () => {
     if (step === 'vision') {
@@ -113,11 +119,15 @@ export function SimpleOnboardingFlow({
     }
   };
 
+  const setOnboardingCompleted = useLocalStore((state) => state.setOnboardingCompleted);
+  
   const handleClose = () => {
+    // Reset to initial step (vision)
     setStep('vision');
     setProjectType(null);
     setShowBibleChapters(false);
-    setOnboardingDismissed(true);
+    // Mark onboarding as completed so it doesn't show again
+    setOnboardingCompleted(true);
     onClose();
   };
 
@@ -150,6 +160,9 @@ export function SimpleOnboardingFlow({
         className="flex-1 bg-background"
         style={{ paddingTop: insets.top }}
       >
+        {/* PortalHost for Select dropdowns inside Modal */}
+        <PortalHost />
+        
         {/* Progress Indicator */}
         <OnboardingProgressIndicator currentStep={step} />
 

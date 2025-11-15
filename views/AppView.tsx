@@ -40,6 +40,9 @@ const NextGenProjectsView = React.lazy(
 const ProjectDirectoryView = React.lazy(
   () => import('@/views/new/ProjectDirectoryView')
 );
+const SimpleOnboardingFlow = React.lazy(
+  () => import('@/views/new/SimpleOnboardingFlow').then(module => ({ default: module.SimpleOnboardingFlow }))
+);
 
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
@@ -63,8 +66,11 @@ function AppViewContent() {
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const setTriggerOnboarding = useLocalStore((state) => state.setTriggerOnboarding);
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const triggerOnboarding = useLocalStore((state) => state.triggerOnboarding);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
+  const [showSimpleOnboarding, setShowSimpleOnboarding] = React.useState(false);
   const { isCloudLoading } = useCloudLoading();
   
   // Handler for onboarding button in header (only show on projects view)
@@ -73,6 +79,24 @@ function AppViewContent() {
       setTriggerOnboarding(true);
     }
   }, [currentView, setTriggerOnboarding]);
+
+  // Show onboarding AFTER terms are accepted (one-time walkthrough)
+  // This ensures users see the walkthrough after accepting terms
+  const onboardingCompleted = useLocalStore((state) => state.onboardingCompleted);
+  React.useEffect(() => {
+    // Show onboarding if terms are accepted but onboarding hasn't been completed
+    if (dateTermsAccepted && !onboardingCompleted && !showSimpleOnboarding) {
+      setShowSimpleOnboarding(true);
+    }
+  }, [dateTermsAccepted, onboardingCompleted, showSimpleOnboarding]);
+
+  // Watch for trigger from AppHeader
+  React.useEffect(() => {
+    if (triggerOnboarding) {
+      setShowSimpleOnboarding(true);
+      setTriggerOnboarding(false);
+    }
+  }, [triggerOnboarding, setTriggerOnboarding]);
 
   // Memoize drawer toggle callback to prevent AppHeader re-renders
   const drawerToggleCallback = React.useCallback(
@@ -218,6 +242,12 @@ function AppViewContent() {
               onClose={() => setAuthView(null)}
             />
           )}
+
+          {/* Onboarding Flow - shows globally until terms are accepted */}
+          <SimpleOnboardingFlow
+            visible={showSimpleOnboarding}
+            onClose={() => setShowSimpleOnboarding(false)}
+          />
         </Suspense>
       </View>
     </View>

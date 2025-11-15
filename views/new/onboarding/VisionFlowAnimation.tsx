@@ -316,10 +316,14 @@ export function VisionFlowAnimation() {
 
   return (
     <View className="relative h-24 w-full flex-row items-center justify-center px-8">
-      {/* Globe Icon (left) */}
+      {/* Globe Icon (left) with background circle */}
       <Animated.View style={globeStyle}>
-        <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Icon as={GlobeIcon} size={28} className="text-primary" />
+        <View className="relative h-20 w-20 items-center justify-center">
+          {/* Semi-transparent background circle */}
+          <View className="absolute h-20 w-20 rounded-full bg-background/60 border border-border/50" />
+          <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Icon as={GlobeIcon} size={28} className="text-primary" />
+          </View>
         </View>
       </Animated.View>
 
@@ -348,10 +352,14 @@ export function VisionFlowAnimation() {
         </Animated.View>
       </View>
 
-      {/* Users Icon (right) */}
+      {/* Users Icon (right) with background circle */}
       <Animated.View style={usersStyle}>
-        <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Icon as={UsersIcon} size={28} className="text-primary" />
+        <View className="relative h-20 w-20 items-center justify-center">
+          {/* Semi-transparent background circle */}
+          <View className="absolute h-20 w-20 rounded-full bg-background/60 border border-border/50" />
+          <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Icon as={UsersIcon} size={28} className="text-primary" />
+          </View>
         </View>
       </Animated.View>
     </View>

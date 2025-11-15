@@ -4726,8 +4726,7 @@ export const localizations = {
       'La calibración falló. Por favor, inténtalo de nuevo en un entorno más silencioso.',
     brazilian_portuguese:
       'Calibração falhou. Por favor, tente novamente em um ambiente mais silencioso.',
-    tok_pisin:
-      'Em i no wok. Traim gen long ples i no gat tumas nois.',
+    tok_pisin: 'Em i no wok. Traim gen long ples i no gat tumas nois.',
     indonesian:
       'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
   },
@@ -5406,9 +5405,11 @@ export const localizations = {
   onboardingCreateQuestSubtitle: {
     english: 'Add quests to break down your project into manageable pieces',
     spanish: 'Agrega misiones para dividir tu proyecto en partes manejables',
-    brazilian_portuguese: 'Adicione missões para dividir seu projeto em partes gerenciáveis',
+    brazilian_portuguese:
+      'Adicione missões para dividir seu projeto em partes gerenciáveis',
     tok_pisin: 'Putim kwest long brukim projek i go long liklik hap',
-    indonesian: 'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola'
+    indonesian:
+      'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola'
   },
   onboardingQuestExample1: {
     english: 'Story 1',
@@ -5440,10 +5441,14 @@ export const localizations = {
   },
   onboardingRecordAudioSubtitle: {
     english: 'Hold the button to record, or slide to record anytime you talk',
-    spanish: 'Mantén presionado el botón para grabar, o desliza para grabar cuando hables',
-    brazilian_portuguese: 'Mantenha pressionado o botão para gravar ou deslize para gravar quando falar',
-    tok_pisin: 'Holim button long rekodim, o slipim long rekodim taim yu toktok',
-    indonesian: 'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara'
+    spanish:
+      'Mantén presionado el botón para grabar, o desliza para grabar cuando hables',
+    brazilian_portuguese:
+      'Mantenha pressionado o botão para gravar ou deslize para gravar quando falar',
+    tok_pisin:
+      'Holim button long rekodim, o slipim long rekodim taim yu toktok',
+    indonesian:
+      'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara'
   },
   onboardingRecordMethod1: {
     english: 'Hold button to record',
@@ -5474,11 +5479,16 @@ export const localizations = {
     indonesian: 'Bekerja bersama'
   },
   onboardingInviteSubtitle: {
-    english: 'Invite others to collaborate. They\'ll receive a notification and see your project in their list',
-    spanish: 'Invita a otros a colaborar. Recibirán una notificación y verán tu proyecto en su lista',
-    brazilian_portuguese: 'Convide outros para colaborar. Eles receberão uma notificação e verão seu projeto em sua lista',
-    tok_pisin: 'Singim ol narapela long wok wantaim. Bai ol kisim notis na lukim projek bilong yu long list bilong ol',
-    indonesian: 'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka'
+    english:
+      "Invite others to collaborate. They'll receive a notification and see your project in their list",
+    spanish:
+      'Invita a otros a colaborar. Recibirán una notificación y verán tu proyecto en su lista',
+    brazilian_portuguese:
+      'Convide outros para colaborar. Eles receberão uma notificação e verão seu projeto em sua lista',
+    tok_pisin:
+      'Singim ol narapela long wok wantaim. Bai ol kisim notis na lukim projek bilong yu long list bilong ol',
+    indonesian:
+      'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka'
   },
   onboardingInviteBenefit1: {
     english: 'They receive a notification',
@@ -5559,8 +5569,10 @@ export const localizations = {
   },
   onboardingBibleCreateChapterSubtitle: {
     english: 'Each chapter becomes a quest you can work on',
-    spanish: 'Cada capítulo se convierte en una quest en la que puedes trabajar',
-    brazilian_portuguese: 'Cada capítulo se torna uma quest em que você pode trabalhar',
+    spanish:
+      'Cada capítulo se convierte en una quest en la que puedes trabajar',
+    brazilian_portuguese:
+      'Cada capítulo se torna uma quest em que você pode trabalhar',
     tok_pisin: 'Olgeta kapitol i kamap wanpela kwest yu ken wok long en',
     indonesian: 'Setiap bab menjadi quest yang dapat Anda kerjakan'
   },
@@ -5579,21 +5591,26 @@ export const localizations = {
     indonesian: 'Bab 2'
   },
   onboardingVisionTitle: {
-    english: 'Every language. Every culture. One vision.',
-    spanish: 'Cada idioma. Cada cultura. Una visión.',
-    brazilian_portuguese: 'Cada idioma. Cada cultura. Uma visão.',
-    tok_pisin: 'Olgeta tokples. Olgeta kalsa. Wanpela visen.',
-    indonesian: 'Setiap bahasa. Setiap budaya. Satu visi.'
+    english: 'Every language. Every culture.',
+    spanish: 'Cada idioma. Cada cultura.',
+    brazilian_portuguese: 'Cada idioma. Cada cultura.',
+    tok_pisin: 'Olgeta tokples. Olgeta kalsa.',
+    indonesian: 'Setiap bahasa. Setiap budaya.'
   },
   onboardingVisionSubtitle: {
-    english: 'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.',
-    spanish: 'Recopila datos de texto y audio de idiomas rápidamente. Primero local, sincroniza cuando estés conectado. Colabora, traduce, valida.',
-    brazilian_portuguese: 'Colete dados de texto e áudio de idiomas rapidamente. Primeiro local, sincronize quando conectado. Colabore, traduza, valide.',
-    tok_pisin: 'Kisim ol text na audio bilong tokples kwiktaim. Stat long lokal, sync taim yu gat internet. Wok wantaim, tanim tokples, stretim.',
-    indonesian: 'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.'
+    english:
+      'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.',
+    spanish:
+      'Recopila datos de texto y audio de idiomas rápidamente. Primero local, sincroniza cuando estés conectado. Colabora, traduce, valida.',
+    brazilian_portuguese:
+      'Colete dados de texto e áudio de idiomas rapidamente. Primeiro local, sincronize quando conectado. Colabore, traduza, valide.',
+    tok_pisin:
+      'Kisim ol text na audio bilong tokples kwiktaim. Stat long lokal, sync taim yu gat internet. Wok wantaim, tanim tokples, stretim.',
+    indonesian:
+      'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.'
   },
   onboardingVisionStatement1: {
-    english: 'Every language having access to the world\'s knowledge.',
+    english: "Every language having access to the world's knowledge.",
     spanish: 'Cada idioma con acceso al conocimiento del mundo.',
     brazilian_portuguese: 'Cada idioma tendo acesso ao conhecimento do mundo.',
     tok_pisin: 'Olgeta tokples i gat akses long save bilong wol.',
@@ -5602,16 +5619,21 @@ export const localizations = {
   onboardingVisionStatement2: {
     english: 'Every culture sharing its meaning with the world.',
     spanish: 'Cada cultura compartiendo su significado con el mundo.',
-    brazilian_portuguese: 'Cada cultura compartilhando seu significado com o mundo.',
+    brazilian_portuguese:
+      'Cada cultura compartilhando seu significado com o mundo.',
     tok_pisin: 'Olgeta kalsa i salim save bilong en i go long wol.',
     indonesian: 'Setiap budaya berbagi maknanya dengan dunia.'
   },
   onboardingVisionCC0: {
     english: 'CC0/public domain data ensures no party can stop this vision.',
-    spanish: 'Los datos CC0/dominio público garantizan que ninguna parte pueda detener esta visión.',
-    brazilian_portuguese: 'Dados CC0/domínio público garantem que nenhuma parte possa impedir esta visão.',
-    tok_pisin: 'CC0/pablik domain data i mekim olsem wanpela man o grup i no inap stopim dispela visen.',
-    indonesian: 'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.'
+    spanish:
+      'Los datos CC0/dominio público garantizan que ninguna parte pueda detener esta visión.',
+    brazilian_portuguese:
+      'Dados CC0/domínio público garantem que nenhuma parte possa impedir esta visão.',
+    tok_pisin:
+      'CC0/pablik domain data i mekim olsem wanpela man o grup i no inap stopim dispela visen.',
+    indonesian:
+      'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.'
   },
   onboardingOurVision: {
     english: 'Our Vision',
@@ -5619,6 +5641,22 @@ export const localizations = {
     brazilian_portuguese: 'Nossa Visão',
     tok_pisin: 'Visen Bilong Mipela',
     indonesian: 'Visi Kami'
+  },
+  onboardingSelectLanguageTitle: {
+    english: 'Choose Your Language',
+    spanish: 'Elige Tu Idioma',
+    brazilian_portuguese: 'Escolha Seu Idioma',
+    tok_pisin: 'Pilim Tokples Bilong Yu',
+    indonesian: 'Pilih Bahasa Anda'
+  },
+  onboardingSelectLanguageSubtitle: {
+    english: "Select the language you'd like to use for the app interface",
+    spanish:
+      'Selecciona el idioma que deseas usar para la interfaz de la aplicación',
+    brazilian_portuguese:
+      'Selecione o idioma que deseja usar para a interface do aplicativo',
+    tok_pisin: 'Pilim tokples yu laikim long yusim long app',
+    indonesian: 'Pilih bahasa yang ingin Anda gunakan untuk antarmuka aplikasi'
   }
 } as const;
 
