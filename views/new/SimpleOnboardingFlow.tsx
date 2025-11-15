@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import { PortalHost } from '@rn-primitives/portal';
 import {
   BookOpenIcon,
   FolderIcon,
@@ -14,7 +15,6 @@ import {
   UserPlusIcon,
   XIcon
 } from 'lucide-react-native';
-import { PortalHost } from '@rn-primitives/portal';
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -119,8 +119,10 @@ export function SimpleOnboardingFlow({
     }
   };
 
-  const setOnboardingCompleted = useLocalStore((state) => state.setOnboardingCompleted);
-  
+  const setOnboardingCompleted = useLocalStore(
+    (state) => state.setOnboardingCompleted
+  );
+
   const handleClose = () => {
     // Reset to initial step (vision)
     setStep('vision');
@@ -162,7 +164,7 @@ export function SimpleOnboardingFlow({
       >
         {/* PortalHost for Select dropdowns inside Modal */}
         <PortalHost />
-        
+
         {/* Progress Indicator */}
         <OnboardingProgressIndicator currentStep={step} />
 
@@ -214,76 +216,34 @@ export function SimpleOnboardingFlow({
               </AnimatedStepContent>
 
               <AnimatedStepContent delay={200}>
-                <View className="w-full gap-4">
-                  {/* Bible Project Card */}
-                  <Card className="w-full">
-                    <Pressable
-                      onPress={() => handleProjectTypeSelect('bible')}
-                      accessibilityRole="button"
-                    >
-                      <View className="flex-row items-center p-6">
-                        <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
-                          <Icon
-                            as={BookOpenIcon}
-                            size={32}
-                            className="text-primary"
-                          />
-                        </View>
-                        <View className="flex-1 flex-col items-start">
-                          <Text
-                            variant="h4"
-                            className="mb-1"
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {t('onboardingBible')}
-                          </Text>
-                          <Text
-                            className="text-sm text-muted-foreground"
-                            numberOfLines={2}
-                            ellipsizeMode="tail"
-                          >
-                            {t('onboardingCreateProjectDescription')}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  </Card>
+                <View className="w-full flex-row gap-4">
+                  {/* Bible Project Button */}
+                  <Button
+                    variant="outline"
+                    className="min-h-48 flex-1 flex-col gap-3 p-6"
+                    onPress={() => handleProjectTypeSelect('bible')}
+                  >
+                    <Icon
+                      as={BookOpenIcon}
+                      size={48}
+                      className="text-primary"
+                    />
+                    <Text variant="h4" className="text-center">
+                      {t('onboardingBible')}
+                    </Text>
+                  </Button>
 
-                  {/* Other Project Card */}
-                  <Card className="w-full">
-                    <Pressable
-                      onPress={() => handleProjectTypeSelect('other')}
-                      accessibilityRole="button"
-                    >
-                      <View className="flex-row items-center p-6">
-                        <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
-                          <Icon
-                            as={FolderIcon}
-                            size={32}
-                            className="text-primary"
-                          />
-                        </View>
-                        <View className="flex-1 flex-col items-start">
-                          <Text
-                            variant="h4"
-                            className="mb-1"
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {t('onboardingOther')}
-                          </Text>
-                          <Text
-                            className="text-sm text-muted-foreground"
-                            numberOfLines={2}
-                            ellipsizeMode="tail"
-                          >
-                            {t('onboardingCreateProjectDescription')}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  </Card>
+                  {/* Other Project Button */}
+                  <Button
+                    variant="outline"
+                    className="min-h-48 flex-1 flex-col gap-3 p-6"
+                    onPress={() => handleProjectTypeSelect('other')}
+                  >
+                    <Icon as={FolderIcon} size={48} className="text-primary" />
+                    <Text variant="h4" className="text-center">
+                      {t('onboardingOther')}
+                    </Text>
+                  </Button>
                 </View>
               </AnimatedStepContent>
             </View>
