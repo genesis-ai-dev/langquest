@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 
 // Lazy-load view components for instant navigation transitions
@@ -23,6 +24,9 @@ const CorruptedAttachmentsView = React.lazy(
 );
 const AccountDeletionView = React.lazy(
   () => import('@/views/AccountDeletionView')
+);
+const DownloadStatusView = React.lazy(
+  () => import('@/views/DownloadStatusView')
 );
 const NextGenAssetDetailView = React.lazy(
   () => import('@/views/new/NextGenAssetDetailView')
@@ -40,22 +44,71 @@ const ProjectDirectoryView = React.lazy(
 // Common UI Components
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
+import { AuthModal } from '@/components/AuthModal';
 import LoadingView from '@/components/LoadingView';
 import {
   CloudLoadingProvider,
   useCloudLoading
 } from '@/contexts/CloudLoadingContext';
 import { StatusProvider } from '@/contexts/StatusContext';
+import { useLocalStore } from '@/store/localStore';
 
 // DEV ONLY: Debug controls for testing OTA updates
 // To test OTA updates in development, uncomment the next line:
 // import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
 
 function AppViewContent() {
-  const { currentView, canGoBack, goBack } = useAppNavigation();
+  const { currentView, canGoBack, goBack, goToProjects } = useAppNavigation();
+  const { isAuthenticated } = useAuth();
+  const authView = useLocalStore((state) => state.authView);
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
+
+  // Memoize drawer toggle callback to prevent AppHeader re-renders
+  const drawerToggleCallback = React.useCallback(
+    () => setDrawerIsVisible((prev) => !prev),
+    []
+  );
+
+  // Close auth modal when user becomes authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && authView) {
+      setAuthView(null);
+    }
+  }, [isAuthenticated, authView, setAuthView]);
+
+  // Reset drawer state when auth state changes
+  // This ensures drawer closes when switching between anonymous and authenticated states
+  React.useEffect(() => {
+    setDrawerIsVisible(false);
+  }, [isAuthenticated, setDrawerIsVisible]);
+
+  // Close drawer when auth modal opens or closes
+  // Prevents drawer and auth modal from being visible simultaneously
+  React.useEffect(() => {
+    // Always close drawer when auth modal state changes (opens or closes)
+    setDrawerIsVisible(false);
+  }, [authView, setDrawerIsVisible]);
+
+  // Block profile/settings/notifications views for anonymous users
+  // Redirect to projects view if anonymous user tries to access these
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const blockedViews: (typeof currentView)[] = [
+        'profile',
+        'settings',
+        'notifications',
+        'corrupted-attachments',
+        'account-deletion'
+      ];
+      if (blockedViews.includes(currentView)) {
+        // Redirect anonymous users to projects view
+        goToProjects();
+      }
+    }
+  }, [currentView, isAuthenticated, goToProjects]);
 
   // Track if navigation is in progress
   const isNavigating = currentView !== deferredView;
@@ -117,6 +170,8 @@ function AppViewContent() {
         return <CorruptedAttachmentsView />;
       case 'account-deletion':
         return <AccountDeletionView />;
+      case 'download-status':
+        return <DownloadStatusView />;
       default:
         return <NextGenProjectsView />;
     }
@@ -128,7 +183,7 @@ function AppViewContent() {
       <View style={styles.contentContainer}>
         {/* App Header */}
         <AppHeader
-          drawerToggleCallback={() => setDrawerIsVisible(!drawerIsVisible)}
+          drawerToggleCallback={drawerToggleCallback}
           isCloudLoading={isCloudLoading}
           isNavigating={isNavigating}
         />
@@ -146,6 +201,14 @@ function AppViewContent() {
             drawerIsVisible={drawerIsVisible}
             setDrawerIsVisible={setDrawerIsVisible}
           />
+
+          {/* Auth Modal for anonymous users */}
+          {!isAuthenticated && (
+            <AuthModal
+              visible={authView === 'sign-in'}
+              onClose={() => setAuthView(null)}
+            />
+          )}
         </Suspense>
       </View>
     </View>

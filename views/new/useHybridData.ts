@@ -1,6 +1,8 @@
+import { AuthContext } from '@/contexts/AuthContext';
 import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useContext } from 'react';
 
 import type { WithSource } from '@/utils/dbUtils';
 // import { normalizeUuid } from '@/utils/uuidUtils';
@@ -132,27 +134,73 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
+  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
+  const authContext = useContext(AuthContext);
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
 
-  // Fetch offline data using PowerSync's useQuery
-  const {
-    data: rawOfflineData,
-    isLoading: isOfflineLoading,
-    error: offlineError,
-    refetch: offlineRefetch
-  } = usePowerSyncQuery<TOfflineData>({
+  // Disable offline queries for anonymous users (cloud-only browsing)
+  // Anonymous users should only use cloud queries with TanStack Query caching
+  const shouldEnableOfflineQuery =
+    enableOfflineQuery && enabled && isAuthenticated;
+
+  // DECISIVE FIX: Always call usePowerSyncQuery (React hooks rules), but prevent system.db access
+  // PowerSync's usePowerSyncQuery accesses system.db during hook initialization
+  // even when enabled=false. We've suppressed the warning in system.ts, but we still need to
+  // ensure the hook doesn't cause issues. For anonymous users, use a safe query and disabled state.
+  // NOTE: The warning is already suppressed in db/powersync/system.ts for anonymous users
+  const isPowerSyncReady = React.useMemo(
+    () => system.isPowerSyncInitialized(),
+    []
+  );
+
+  // For anonymous users, use a safe SQL string that won't access system.db
+  // The warning is suppressed, but we still want to avoid any potential issues
+  const safePlaceholderQuery =
+    'SELECT 1 WHERE 1=0' as unknown as typeof offlineQuery;
+  const queryToUse =
+    isAuthenticated && isPowerSyncReady ? offlineQuery : safePlaceholderQuery;
+  const queryEnabled =
+    isAuthenticated && isPowerSyncReady && shouldEnableOfflineQuery;
+
+  // Always call usePowerSyncQuery (React hooks rules require consistent hook calls)
+  // For anonymous users, it will use safe query and be disabled, and warning is suppressed
+  const powerSyncQueryResult = usePowerSyncQuery<TOfflineData>({
     queryKey: [dataType, 'offline', ...queryKeyParams],
-    query: offlineQuery,
-    enabled: enableOfflineQuery && enabled,
+    query: queryToUse,
+    enabled: queryEnabled,
     ...offlineQueryOptions
   });
+
+  // Extract results - return empty data for anonymous users
+  const rawOfflineData = React.useMemo(() => {
+    if (!isAuthenticated) {
+      return [] as TOfflineData[];
+    }
+    return powerSyncQueryResult.data ?? ([] as TOfflineData[]);
+  }, [isAuthenticated, powerSyncQueryResult.data]);
+  const isOfflineLoading = isAuthenticated
+    ? (powerSyncQueryResult.isLoading ?? false)
+    : false;
+  const offlineError = isAuthenticated
+    ? (powerSyncQueryResult.error ?? null)
+    : null;
+  const offlineRefetch = React.useCallback(() => {
+    if (!isAuthenticated) {
+      return Promise.resolve([]);
+    }
+    return powerSyncQueryResult.refetch();
+  }, [isAuthenticated, powerSyncQueryResult]);
 
   // Determine when to fetch cloud data
   // If lazy loading, wait for offline query to finish first
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
+  // IMPORTANT: For anonymous users, don't wait for offline loading since offline is disabled
+  // Always enable cloud query immediately for anonymous users
   const shouldFetchCloud = enableCloudQuery !== false && isOnline && enabled;
-  const cloudEnabled = lazyLoadCloud
-    ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
-    : shouldFetchCloud && !!cloudQueryFn;
+  const cloudEnabled =
+    lazyLoadCloud && isAuthenticated && isPowerSyncReady
+      ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
+      : shouldFetchCloud && !!cloudQueryFn;
 
   // Fetch cloud data using standard TanStack Query
   const {
@@ -232,7 +280,11 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    isLoading: isOfflineLoading && isCloudLoading,
+    // For anonymous users, only cloud loading matters (offline is disabled)
+    // For authenticated users, show loading if either is loading
+    isLoading: shouldEnableOfflineQuery
+      ? isOfflineLoading || isCloudLoading
+      : isCloudLoading,
     isError: !!offlineError || !!cloudError,
     offlineError,
     cloudError,
@@ -377,8 +429,14 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
+  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
+  const authContext = useContext(AuthContext);
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
   const shouldFetchCloud = enableCloudQuery !== false && isOnline;
+
+  // Disable offline queries for anonymous users (cloud-only browsing)
+  const shouldEnableOfflineQuery = isAuthenticated;
 
   // Create query keys
   const baseKey = [dataType, 'infinite', ...queryKeyParams];
@@ -391,6 +449,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     initialPageParam: 0,
     getNextPageParam: (lastPage: HybridPageData<TOfflineData>) =>
       lastPage.nextCursor,
+    enabled: shouldEnableOfflineQuery,
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const context: InfiniteQueryContext = {
         pageParam: pageParam,
@@ -528,7 +587,11 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    isLoading: offlineQuery.isLoading, // Only block on offline loading
+    // For anonymous users, only cloud loading matters (offline is disabled)
+    // For authenticated users, show loading if either is loading
+    isLoading: shouldEnableOfflineQuery
+      ? offlineQuery.isLoading || cloudQuery.isLoading
+      : cloudQuery.isLoading,
     isOfflineLoading: offlineQuery.isLoading,
     isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
     isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
@@ -539,9 +602,13 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     status:
       offlineQuery.isError || cloudQuery.isError
         ? 'error'
-        : offlineQuery.isLoading
-          ? 'pending'
-          : 'success'
+        : shouldEnableOfflineQuery
+          ? offlineQuery.isLoading || cloudQuery.isLoading
+            ? 'pending'
+            : 'success'
+          : cloudQuery.isLoading
+            ? 'pending'
+            : 'success'
   };
 }
 

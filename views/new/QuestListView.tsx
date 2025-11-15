@@ -68,7 +68,7 @@ export function QuestListView({
         eq(quest.project_id, projectId),
         or(
           !showHiddenContent ? eq(quest.visible, true) : undefined,
-          eq(quest.creator_id, currentUser!.id)
+          currentUser ? eq(quest.creator_id, currentUser.id) : undefined
         ),
         trimmedSearch &&
           or(
@@ -106,7 +106,11 @@ export function QuestListView({
       // Note: Supabase doesn't easily support complex OR conditions, so we filter by visible
       // which matches most other hooks. User's own hidden quests will still appear when showHiddenContent=true
       if (!showHiddenContent) {
-        query = query.or(`visible.eq.true,creator_id.eq.${currentUser!.id}`);
+        query = query.or(
+          currentUser?.id
+            ? `visible.eq.true,creator_id.eq.${currentUser.id}`
+            : 'visible.eq.true'
+        );
       }
 
       if (trimmedSearch) {
