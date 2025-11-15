@@ -149,6 +149,12 @@ export interface LocalState {
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
 
+  // Onboarding dismissal tracking
+  onboardingDismissed: boolean;
+  setOnboardingDismissed: (dismissed: boolean) => void;
+  triggerOnboarding: boolean;
+  setTriggerOnboarding: (trigger: boolean) => void;
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
@@ -260,6 +266,12 @@ export const useLocalStore = create<LocalState>()(
           dismissedUpdateTimestamp: null,
           dismissedUpdateVersion: null
         }),
+
+      // Onboarding dismissal tracking
+      onboardingDismissed: false,
+      setOnboardingDismissed: (dismissed) => set({ onboardingDismissed: dismissed }),
+      triggerOnboarding: false,
+      setTriggerOnboarding: (trigger) => set({ triggerOnboarding: trigger }),
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {

@@ -5360,6 +5360,223 @@ export const localizations = {
     brazilian_portuguese: 'Não sincronizado',
     tok_pisin: 'i no sync yet',
     indonesian: 'Tidak disinkronkan'
+  },
+  onboardingCreateProjectTitle: {
+    english: 'Record a Bible, or any other content',
+    spanish: 'Graba una Biblia o cualquier otro contenido',
+    brazilian_portuguese: 'Grave uma Bíblia ou qualquer outro conteúdo',
+    tok_pisin: 'Rekodim Baibel o ol narapela samting',
+    indonesian: 'Rekam Alkitab atau konten lainnya'
+  },
+  onboardingCreateProjectSubtitle: {
+    english: 'Start by creating your first project',
+    spanish: 'Comienza creando tu primer proyecto',
+    brazilian_portuguese: 'Comece criando seu primeiro projeto',
+    tok_pisin: 'Stat long mekim nupela projek',
+    indonesian: 'Mulai dengan membuat proyek pertama Anda'
+  },
+  onboardingCreateProjectExample: {
+    english: 'Stories',
+    spanish: 'Historias',
+    brazilian_portuguese: 'Histórias',
+    tok_pisin: 'Stori',
+    indonesian: 'Cerita'
+  },
+  onboardingCreateProjectDescription: {
+    english: 'Example project name',
+    spanish: 'Nombre de proyecto de ejemplo',
+    brazilian_portuguese: 'Nome do projeto de exemplo',
+    tok_pisin: 'Nem bilong projek olsem',
+    indonesian: 'Nama proyek contoh'
+  },
+  onboardingCreateProject: {
+    english: 'Create Project',
+    spanish: 'Crear Proyecto',
+    brazilian_portuguese: 'Criar Projeto',
+    tok_pisin: 'Mekim Projek',
+    indonesian: 'Buat Proyek'
+  },
+  onboardingCreateQuestTitle: {
+    english: 'Organize your content',
+    spanish: 'Organiza tu contenido',
+    brazilian_portuguese: 'Organize seu conteúdo',
+    tok_pisin: 'Oganaisim samting bilong yu',
+    indonesian: 'Organisir konten Anda'
+  },
+  onboardingCreateQuestSubtitle: {
+    english: 'Add quests to break down your project into manageable pieces',
+    spanish: 'Agrega misiones para dividir tu proyecto en partes manejables',
+    brazilian_portuguese: 'Adicione missões para dividir seu projeto em partes gerenciáveis',
+    tok_pisin: 'Putim kwest long brukim projek i go long liklik hap',
+    indonesian: 'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola'
+  },
+  onboardingQuestExample1: {
+    english: 'Story 1',
+    spanish: 'Historia 1',
+    brazilian_portuguese: 'História 1',
+    tok_pisin: 'Stori 1',
+    indonesian: 'Cerita 1'
+  },
+  onboardingQuestExample2: {
+    english: 'Story 2',
+    spanish: 'Historia 2',
+    brazilian_portuguese: 'História 2',
+    tok_pisin: 'Stori 2',
+    indonesian: 'Cerita 2'
+  },
+  onboardingCreateQuest: {
+    english: 'Create Quest',
+    spanish: 'Crear Misión',
+    brazilian_portuguese: 'Criar Missão',
+    tok_pisin: 'Mekim Kwest',
+    indonesian: 'Buat Quest'
+  },
+  onboardingRecordAudioTitle: {
+    english: 'Start recording',
+    spanish: 'Comienza a grabar',
+    brazilian_portuguese: 'Comece a gravar',
+    tok_pisin: 'Stat long rekodim',
+    indonesian: 'Mulai merekam'
+  },
+  onboardingRecordAudioSubtitle: {
+    english: 'Hold the button to record, or slide to record anytime you talk',
+    spanish: 'Mantén presionado el botón para grabar, o desliza para grabar cuando hables',
+    brazilian_portuguese: 'Mantenha pressionado o botão para gravar ou deslize para gravar quando falar',
+    tok_pisin: 'Holim button long rekodim, o slipim long rekodim taim yu toktok',
+    indonesian: 'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara'
+  },
+  onboardingRecordMethod1: {
+    english: 'Hold button to record',
+    spanish: 'Mantén presionado para grabar',
+    brazilian_portuguese: 'Mantenha pressionado para gravar',
+    tok_pisin: 'Holim button long rekodim',
+    indonesian: 'Tahan tombol untuk merekam'
+  },
+  onboardingRecordMethod2: {
+    english: 'Slide to record anytime you talk',
+    spanish: 'Desliza para grabar cuando hables',
+    brazilian_portuguese: 'Deslize para gravar quando falar',
+    tok_pisin: 'Slipim long rekodim taim yu toktok',
+    indonesian: 'Geser untuk merekam kapan saja Anda berbicara'
+  },
+  onboardingStartRecording: {
+    english: 'Start Recording',
+    spanish: 'Comenzar Grabación',
+    brazilian_portuguese: 'Iniciar Gravação',
+    tok_pisin: 'Stat Rekodim',
+    indonesian: 'Mulai Merekam'
+  },
+  onboardingInviteTitle: {
+    english: 'Work together',
+    spanish: 'Trabaja en equipo',
+    brazilian_portuguese: 'Trabalhe juntos',
+    tok_pisin: 'Wok wantaim',
+    indonesian: 'Bekerja bersama'
+  },
+  onboardingInviteSubtitle: {
+    english: 'Invite others to collaborate. They\'ll receive a notification and see your project in their list',
+    spanish: 'Invita a otros a colaborar. Recibirán una notificación y verán tu proyecto en su lista',
+    brazilian_portuguese: 'Convide outros para colaborar. Eles receberão uma notificação e verão seu projeto em sua lista',
+    tok_pisin: 'Singim ol narapela long wok wantaim. Bai ol kisim notis na lukim projek bilong yu long list bilong ol',
+    indonesian: 'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka'
+  },
+  onboardingInviteBenefit1: {
+    english: 'They receive a notification',
+    spanish: 'Reciben una notificación',
+    brazilian_portuguese: 'Eles recebem uma notificação',
+    tok_pisin: 'Ol kisim notis',
+    indonesian: 'Mereka menerima notifikasi'
+  },
+  onboardingInviteBenefit2: {
+    english: 'Project appears in their list',
+    spanish: 'El proyecto aparece en su lista',
+    brazilian_portuguese: 'O projeto aparece em sua lista',
+    tok_pisin: 'Projek i kamap long list bilong ol',
+    indonesian: 'Proyek muncul di daftar mereka'
+  },
+  onboardingInviteCollaborators: {
+    english: 'Invite Collaborators',
+    spanish: 'Invitar Colaboradores',
+    brazilian_portuguese: 'Convidar Colaboradores',
+    tok_pisin: 'Singim Ol Wokman',
+    indonesian: 'Undang Kolaborator'
+  },
+  onboardingContinue: {
+    english: 'Continue',
+    spanish: 'Continuar',
+    brazilian_portuguese: 'Continuar',
+    tok_pisin: 'Gohet',
+    indonesian: 'Lanjutkan'
+  },
+  onboardingBible: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Baibel',
+    indonesian: 'Alkitab'
+  },
+  onboardingOther: {
+    english: 'Other',
+    spanish: 'Otro',
+    brazilian_portuguese: 'Outro',
+    tok_pisin: 'Narapela',
+    indonesian: 'Lainnya'
+  },
+  onboardingBibleSelectBookTitle: {
+    english: 'Select a Book',
+    spanish: 'Selecciona un Libro',
+    brazilian_portuguese: 'Selecione um Livro',
+    tok_pisin: 'Pilim Buk',
+    indonesian: 'Pilih Buku'
+  },
+  onboardingBibleSelectBookSubtitle: {
+    english: 'Choose which book of the Bible to translate',
+    spanish: 'Elige qué libro de la Biblia traducir',
+    brazilian_portuguese: 'Escolha qual livro da Bíblia traduzir',
+    tok_pisin: 'Pilim wanpela buk bilong Baibel long tanim',
+    indonesian: 'Pilih buku Alkitab mana yang akan diterjemahkan'
+  },
+  onboardingBibleBookExample1: {
+    english: 'Genesis',
+    spanish: 'Génesis',
+    brazilian_portuguese: 'Gênesis',
+    tok_pisin: 'Jenesis',
+    indonesian: 'Kejadian'
+  },
+  onboardingBibleBookExample2: {
+    english: 'Matthew',
+    spanish: 'Mateo',
+    brazilian_portuguese: 'Mateus',
+    tok_pisin: 'Matyu',
+    indonesian: 'Matius'
+  },
+  onboardingBibleCreateChapterTitle: {
+    english: 'Create Chapter Quests',
+    spanish: 'Crear Quests de Capítulos',
+    brazilian_portuguese: 'Criar Quests de Capítulos',
+    tok_pisin: 'Mekim Ol Kwest bilong Kapitol',
+    indonesian: 'Buat Quest Bab'
+  },
+  onboardingBibleCreateChapterSubtitle: {
+    english: 'Each chapter becomes a quest you can work on',
+    spanish: 'Cada capítulo se convierte en una quest en la que puedes trabajar',
+    brazilian_portuguese: 'Cada capítulo se torna uma quest em que você pode trabalhar',
+    tok_pisin: 'Olgeta kapitol i kamap wanpela kwest yu ken wok long en',
+    indonesian: 'Setiap bab menjadi quest yang dapat Anda kerjakan'
+  },
+  onboardingBibleChapterExample1: {
+    english: 'Chapter 1',
+    spanish: 'Capítulo 1',
+    brazilian_portuguese: 'Capítulo 1',
+    tok_pisin: 'Kapitol 1',
+    indonesian: 'Bab 1'
+  },
+  onboardingBibleChapterExample2: {
+    english: 'Chapter 2',
+    spanish: 'Capítulo 2',
+    brazilian_portuguese: 'Capítulo 2',
+    tok_pisin: 'Kapitol 2',
+    indonesian: 'Bab 2'
   }
 } as const;
 

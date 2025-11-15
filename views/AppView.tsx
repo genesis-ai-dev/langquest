@@ -62,9 +62,17 @@ function AppViewContent() {
   const { isAuthenticated } = useAuth();
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
+  const setTriggerOnboarding = useLocalStore((state) => state.setTriggerOnboarding);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
+  
+  // Handler for onboarding button in header (only show on projects view)
+  const handleOnboardingPress = React.useCallback(() => {
+    if (currentView === 'projects') {
+      setTriggerOnboarding(true);
+    }
+  }, [currentView, setTriggerOnboarding]);
 
   // Memoize drawer toggle callback to prevent AppHeader re-renders
   const drawerToggleCallback = React.useCallback(
@@ -186,6 +194,7 @@ function AppViewContent() {
           drawerToggleCallback={drawerToggleCallback}
           isCloudLoading={isCloudLoading}
           isNavigating={isNavigating}
+          onOnboardingPress={currentView === 'projects' ? handleOnboardingPress : undefined}
         />
 
         {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
