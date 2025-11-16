@@ -906,6 +906,160 @@ export const localizations = {
     tok_pisin: 'Plis makim wanpela tokples',
     indonesian: 'Silakan pilih bahasa'
   },
+  selectRegion: {
+    english: 'Select Region',
+    spanish: 'Seleccionar Región',
+    brazilian_portuguese: 'Selecionar Região',
+    tok_pisin: 'Makim Region',
+    indonesian: 'Pilih Wilayah'
+  },
+  selectRegionToFilterLanguages: {
+    english: 'Select a region to see languages from that area',
+    spanish: 'Seleccione una región para ver idiomas de esa área',
+    brazilian_portuguese: 'Selecionar uma região para ver idiomas dessa área',
+    tok_pisin: 'Makim wanpela region long lukim ol tokples bilong ples ya',
+    indonesian: 'Pilih wilayah untuk melihat bahasa dari area tersebut'
+  },
+  selectYourLanguage: {
+    english: 'Select Your Language',
+    spanish: 'Seleccione Su Idioma',
+    brazilian_portuguese: 'Selecionar Seu Idioma',
+    tok_pisin: 'Makim Tokples Bilong Yu',
+    indonesian: 'Pilih Bahasa Anda'
+  },
+  createLanguage: {
+    english: 'Create Language',
+    spanish: 'Crear Idioma',
+    brazilian_portuguese: 'Criar Idioma',
+    tok_pisin: 'Mekim Tokples',
+    indonesian: 'Buat Bahasa'
+  },
+  createNewLanguage: {
+    english: 'Create New Language',
+    spanish: 'Crear Nuevo Idioma',
+    brazilian_portuguese: 'Criar Novo Idioma',
+    tok_pisin: 'Mekim Nupela Tokples',
+    indonesian: 'Buat Bahasa Baru'
+  },
+  languageNotInList: {
+    english: 'My language is not in the list',
+    spanish: 'Mi idioma no está en la lista',
+    brazilian_portuguese: 'Meu idioma não está na lista',
+    tok_pisin: 'Tokples bilong mi i no stap long list',
+    indonesian: 'Bahasa saya tidak ada dalam daftar'
+  },
+  willCreateLanguage: {
+    english: 'Will create language',
+    spanish: 'Creará idioma',
+    brazilian_portuguese: 'Criará idioma',
+    tok_pisin: 'Bai mekim tokples',
+    indonesian: 'Akan membuat bahasa'
+  },
+  nativeName: {
+    english: 'Native Name',
+    spanish: 'Nombre Nativo',
+    brazilian_portuguese: 'Nome Nativo',
+    tok_pisin: 'Nem Bilong Tokples',
+    indonesian: 'Nama Asli'
+  },
+  englishName: {
+    english: 'English Name',
+    spanish: 'Nombre en Inglés',
+    brazilian_portuguese: 'Nome em Inglês',
+    tok_pisin: 'Nem Long English',
+    indonesian: 'Nama dalam Bahasa Inggris'
+  },
+  iso6393Code: {
+    english: 'ISO 639-3 Code',
+    spanish: 'Código ISO 639-3',
+    brazilian_portuguese: 'Código ISO 639-3',
+    tok_pisin: 'ISO 639-3 Code',
+    indonesian: 'Kode ISO 639-3'
+  },
+  locale: {
+    english: 'Locale',
+    spanish: 'Idioma',
+    brazilian_portuguese: 'Idioma',
+    tok_pisin: 'Locale',
+    indonesian: 'Lokalisasi'
+  },
+  createAndContinue: {
+    english: 'Create and Continue',
+    spanish: 'Crear y Continuar',
+    brazilian_portuguese: 'Criar e Continuar',
+    tok_pisin: 'Mekim na Go Long',
+    indonesian: 'Buat dan Lanjutkan'
+  },
+  whatWouldYouLikeToCreate: {
+    english: 'What would you like to create?',
+    spanish: '¿Qué te gustaría crear?',
+    brazilian_portuguese: 'O que você gostaria de criar?',
+    tok_pisin: 'Wanem samting yu laik mekim?',
+    indonesian: 'Apa yang ingin Anda buat?'
+  },
+  createBibleProject: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Baibel',
+    indonesian: 'Alkitab'
+  },
+  translateBibleIntoYourLanguage: {
+    english: 'Translate the Bible into your language',
+    spanish: 'Traduce la Biblia a tu idioma',
+    brazilian_portuguese: 'Traduza a Bíblia para o seu idioma',
+    tok_pisin: 'Translate Baibel long tokples bilong yu',
+    indonesian: 'Terjemahkan Alkitab ke bahasa Anda'
+  },
+  createOtherProject: {
+    english: 'Other Translation',
+    spanish: 'Otra Traducción',
+    brazilian_portuguese: 'Outra Tradução',
+    tok_pisin: 'Narapela Translation',
+    indonesian: 'Terjemahan Lain'
+  },
+  createGeneralTranslationProject: {
+    english: 'Create a general translation project',
+    spanish: 'Crear un proyecto de traducción general',
+    brazilian_portuguese: 'Criar um projeto de tradução geral',
+    tok_pisin: 'Mekim wanpela project long translate ol samting',
+    indonesian: 'Buat proyek terjemahan umum'
+  },
+  selectProject: {
+    english: 'Select Project',
+    spanish: 'Seleccionar Proyecto',
+    brazilian_portuguese: 'Selecionar Projeto',
+    tok_pisin: 'Makim Project',
+    indonesian: 'Pilih Proyek'
+  },
+  createFirstProject: {
+    english: 'Create First Project',
+    spanish: 'Crear Primer Proyecto',
+    brazilian_portuguese: 'Criar Primeiro Projeto',
+    tok_pisin: 'Mekim Nambawan Project',
+    indonesian: 'Buat Proyek Pertama'
+  },
+  createNewProject: {
+    english: 'Create New Project',
+    spanish: 'Crear Nuevo Proyecto',
+    brazilian_portuguese: 'Criar Novo Projeto',
+    tok_pisin: 'Mekim Nupela Project',
+    indonesian: 'Buat Proyek Baru'
+  },
+  existingProjectsInLanguage: {
+    english: 'Existing projects in {language}',
+    spanish: 'Proyectos existentes en {language}',
+    brazilian_portuguese: 'Projetos existentes em {language}',
+    tok_pisin: 'Ol project i stap pinis long {language}',
+    indonesian: 'Proyek yang ada dalam {language}'
+  },
+  noProjectsInLanguage: {
+    english: 'No projects yet in {language}',
+    spanish: 'Aún no hay proyectos en {language}',
+    brazilian_portuguese: 'Ainda não há projetos em {language}',
+    tok_pisin: 'I no gat project yet long {language}',
+    indonesian: 'Belum ada proyek dalam {language}'
+  },
   searchLanguages: {
     english: 'Search languages...',
     spanish: 'Buscar idiomas...',
@@ -919,6 +1073,18 @@ export const localizations = {
     brazilian_portuguese: 'Nenhum idioma encontrado',
     tok_pisin: 'I no gat tokples',
     indonesian: 'Tidak ada bahasa ditemukan'
+  },
+  noLanguagesInRegion: {
+    english:
+      'No languages found in this region. You can create a new language below.',
+    spanish:
+      'No se encontraron idiomas en esta región. Puedes crear un nuevo idioma a continuación.',
+    brazilian_portuguese:
+      'Nenhum idioma encontrado nesta região. Você pode criar um novo idioma abaixo.',
+    tok_pisin:
+      'I no gat tokples long dispela region. Yu ken mekim nupela tokples long bihain.',
+    indonesian:
+      'Tidak ada bahasa ditemukan di wilayah ini. Anda dapat membuat bahasa baru di bawah ini.'
   },
   typeToSearch: {
     english: 'Type at least {min} characters to search',
@@ -1059,6 +1225,13 @@ export const localizations = {
     brazilian_portuguese: 'Bem-vindo de volta, herói!',
     tok_pisin: 'Welkam bek, hero!',
     indonesian: 'Selamat datang kembali, pahlawan!'
+  },
+  welcomeToApp: {
+    english: 'Welcome',
+    spanish: 'Bienvenido',
+    brazilian_portuguese: 'Bem-vindo',
+    tok_pisin: 'Welkam',
+    indonesian: 'Selamat datang'
   },
   recentlyVisited: {
     english: 'Recently Visited',
@@ -2183,7 +2356,14 @@ export const localizations = {
     english: 'Go Back',
     spanish: 'Volver',
     brazilian_portuguese: 'Voltar',
-    tok_pisin: 'Go bek',
+    tok_pisin: 'Go Bek',
+    indonesian: 'Kembali'
+  },
+  back: {
+    english: 'Back',
+    spanish: 'Atrás',
+    brazilian_portuguese: 'Voltar',
+    tok_pisin: 'Go Bek',
     indonesian: 'Kembali'
   },
   confirmRemove: {
@@ -4546,8 +4726,7 @@ export const localizations = {
       'La calibración falló. Por favor, inténtalo de nuevo en un entorno más silencioso.',
     brazilian_portuguese:
       'Calibração falhou. Por favor, tente novamente em um ambiente mais silencioso.',
-    tok_pisin:
-      'Em i no wok. Traim gen long ples i no gat tumas nois.',
+    tok_pisin: 'Em i no wok. Traim gen long ples i no gat tumas nois.',
     indonesian:
       'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
   },
@@ -5180,6 +5359,304 @@ export const localizations = {
     brazilian_portuguese: 'Não sincronizado',
     tok_pisin: 'i no sync yet',
     indonesian: 'Tidak disinkronkan'
+  },
+  onboardingCreateProjectTitle: {
+    english: 'Record a Bible, or any other content',
+    spanish: 'Graba una Biblia o cualquier otro contenido',
+    brazilian_portuguese: 'Grave uma Bíblia ou qualquer outro conteúdo',
+    tok_pisin: 'Rekodim Baibel o ol narapela samting',
+    indonesian: 'Rekam Alkitab atau konten lainnya'
+  },
+  onboardingCreateProjectSubtitle: {
+    english: 'Start by creating your first project',
+    spanish: 'Comienza creando tu primer proyecto',
+    brazilian_portuguese: 'Comece criando seu primeiro projeto',
+    tok_pisin: 'Stat long mekim nupela projek',
+    indonesian: 'Mulai dengan membuat proyek pertama Anda'
+  },
+  onboardingCreateProjectExample: {
+    english: 'Stories',
+    spanish: 'Historias',
+    brazilian_portuguese: 'Histórias',
+    tok_pisin: 'Stori',
+    indonesian: 'Cerita'
+  },
+  onboardingCreateProjectDescription: {
+    english: 'Example project name',
+    spanish: 'Nombre de proyecto de ejemplo',
+    brazilian_portuguese: 'Nome do projeto de exemplo',
+    tok_pisin: 'Nem bilong projek olsem',
+    indonesian: 'Nama proyek contoh'
+  },
+  onboardingCreateProject: {
+    english: 'Create Project',
+    spanish: 'Crear Proyecto',
+    brazilian_portuguese: 'Criar Projeto',
+    tok_pisin: 'Mekim Projek',
+    indonesian: 'Buat Proyek'
+  },
+  onboardingCreateQuestTitle: {
+    english: 'Organize your content',
+    spanish: 'Organiza tu contenido',
+    brazilian_portuguese: 'Organize seu conteúdo',
+    tok_pisin: 'Oganaisim samting bilong yu',
+    indonesian: 'Organisir konten Anda'
+  },
+  onboardingCreateQuestSubtitle: {
+    english: 'Add quests to break down your project into manageable pieces',
+    spanish: 'Agrega misiones para dividir tu proyecto en partes manejables',
+    brazilian_portuguese:
+      'Adicione missões para dividir seu projeto em partes gerenciáveis',
+    tok_pisin: 'Putim kwest long brukim projek i go long liklik hap',
+    indonesian:
+      'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola'
+  },
+  onboardingQuestExample1: {
+    english: 'Story 1',
+    spanish: 'Historia 1',
+    brazilian_portuguese: 'História 1',
+    tok_pisin: 'Stori 1',
+    indonesian: 'Cerita 1'
+  },
+  onboardingQuestExample2: {
+    english: 'Story 2',
+    spanish: 'Historia 2',
+    brazilian_portuguese: 'História 2',
+    tok_pisin: 'Stori 2',
+    indonesian: 'Cerita 2'
+  },
+  onboardingCreateQuest: {
+    english: 'Create Quest',
+    spanish: 'Crear Misión',
+    brazilian_portuguese: 'Criar Missão',
+    tok_pisin: 'Mekim Kwest',
+    indonesian: 'Buat Quest'
+  },
+  onboardingRecordAudioTitle: {
+    english: 'Start recording',
+    spanish: 'Comienza a grabar',
+    brazilian_portuguese: 'Comece a gravar',
+    tok_pisin: 'Stat long rekodim',
+    indonesian: 'Mulai merekam'
+  },
+  onboardingRecordAudioSubtitle: {
+    english: 'Hold the button to record, or slide to record anytime you talk',
+    spanish:
+      'Mantén presionado el botón para grabar, o desliza para grabar cuando hables',
+    brazilian_portuguese:
+      'Mantenha pressionado o botão para gravar ou deslize para gravar quando falar',
+    tok_pisin:
+      'Holim button long rekodim, o slipim long rekodim taim yu toktok',
+    indonesian:
+      'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara'
+  },
+  onboardingRecordMethod1: {
+    english: 'Hold button to record',
+    spanish: 'Mantén presionado para grabar',
+    brazilian_portuguese: 'Mantenha pressionado para gravar',
+    tok_pisin: 'Holim button long rekodim',
+    indonesian: 'Tahan tombol untuk merekam'
+  },
+  onboardingRecordMethod2: {
+    english: 'Slide to record anytime you talk',
+    spanish: 'Desliza para grabar cuando hables',
+    brazilian_portuguese: 'Deslize para gravar quando falar',
+    tok_pisin: 'Slipim long rekodim taim yu toktok',
+    indonesian: 'Geser untuk merekam kapan saja Anda berbicara'
+  },
+  onboardingStartRecording: {
+    english: 'Start Recording',
+    spanish: 'Comenzar Grabación',
+    brazilian_portuguese: 'Iniciar Gravação',
+    tok_pisin: 'Stat Rekodim',
+    indonesian: 'Mulai Merekam'
+  },
+  onboardingInviteTitle: {
+    english: 'Work together',
+    spanish: 'Trabaja en equipo',
+    brazilian_portuguese: 'Trabalhe juntos',
+    tok_pisin: 'Wok wantaim',
+    indonesian: 'Bekerja bersama'
+  },
+  onboardingInviteSubtitle: {
+    english:
+      "Invite others to collaborate. They'll receive a notification and see your project in their list",
+    spanish:
+      'Invita a otros a colaborar. Recibirán una notificación y verán tu proyecto en su lista',
+    brazilian_portuguese:
+      'Convide outros para colaborar. Eles receberão uma notificação e verão seu projeto em sua lista',
+    tok_pisin:
+      'Singim ol narapela long wok wantaim. Bai ol kisim notis na lukim projek bilong yu long list bilong ol',
+    indonesian:
+      'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka'
+  },
+  onboardingInviteBenefit1: {
+    english: 'They receive a notification',
+    spanish: 'Reciben una notificación',
+    brazilian_portuguese: 'Eles recebem uma notificação',
+    tok_pisin: 'Ol kisim notis',
+    indonesian: 'Mereka menerima notifikasi'
+  },
+  onboardingInviteBenefit2: {
+    english: 'Project appears in their list',
+    spanish: 'El proyecto aparece en su lista',
+    brazilian_portuguese: 'O projeto aparece em sua lista',
+    tok_pisin: 'Projek i kamap long list bilong ol',
+    indonesian: 'Proyek muncul di daftar mereka'
+  },
+  onboardingInviteCollaborators: {
+    english: 'Invite Collaborators',
+    spanish: 'Invitar Colaboradores',
+    brazilian_portuguese: 'Convidar Colaboradores',
+    tok_pisin: 'Singim Ol Wokman',
+    indonesian: 'Undang Kolaborator'
+  },
+  onboardingContinue: {
+    english: 'Continue',
+    spanish: 'Continuar',
+    brazilian_portuguese: 'Continuar',
+    tok_pisin: 'Gohet',
+    indonesian: 'Lanjutkan'
+  },
+  onboardingBible: {
+    english: 'Bible',
+    spanish: 'Biblia',
+    brazilian_portuguese: 'Bíblia',
+    tok_pisin: 'Baibel',
+    indonesian: 'Alkitab'
+  },
+  onboardingOther: {
+    english: 'Other',
+    spanish: 'Otro',
+    brazilian_portuguese: 'Outro',
+    tok_pisin: 'Narapela',
+    indonesian: 'Lainnya'
+  },
+  onboardingBibleSelectBookTitle: {
+    english: 'Select a Book',
+    spanish: 'Selecciona un Libro',
+    brazilian_portuguese: 'Selecione um Livro',
+    tok_pisin: 'Pilim Buk',
+    indonesian: 'Pilih Buku'
+  },
+  onboardingBibleSelectBookSubtitle: {
+    english: 'Choose which book of the Bible to translate',
+    spanish: 'Elige qué libro de la Biblia traducir',
+    brazilian_portuguese: 'Escolha qual livro da Bíblia traduzir',
+    tok_pisin: 'Pilim wanpela buk bilong Baibel long tanim',
+    indonesian: 'Pilih buku Alkitab mana yang akan diterjemahkan'
+  },
+  onboardingBibleBookExample1: {
+    english: 'Genesis',
+    spanish: 'Génesis',
+    brazilian_portuguese: 'Gênesis',
+    tok_pisin: 'Jenesis',
+    indonesian: 'Kejadian'
+  },
+  onboardingBibleBookExample2: {
+    english: 'Matthew',
+    spanish: 'Mateo',
+    brazilian_portuguese: 'Mateus',
+    tok_pisin: 'Matyu',
+    indonesian: 'Matius'
+  },
+  onboardingBibleCreateChapterTitle: {
+    english: 'Create Chapter Quests',
+    spanish: 'Crear Quests de Capítulos',
+    brazilian_portuguese: 'Criar Quests de Capítulos',
+    tok_pisin: 'Mekim Ol Kwest bilong Kapitol',
+    indonesian: 'Buat Quest Bab'
+  },
+  onboardingBibleCreateChapterSubtitle: {
+    english: 'Each chapter becomes a quest you can work on',
+    spanish:
+      'Cada capítulo se convierte en una quest en la que puedes trabajar',
+    brazilian_portuguese:
+      'Cada capítulo se torna uma quest em que você pode trabalhar',
+    tok_pisin: 'Olgeta kapitol i kamap wanpela kwest yu ken wok long en',
+    indonesian: 'Setiap bab menjadi quest yang dapat Anda kerjakan'
+  },
+  onboardingBibleChapterExample1: {
+    english: 'Chapter 1',
+    spanish: 'Capítulo 1',
+    brazilian_portuguese: 'Capítulo 1',
+    tok_pisin: 'Kapitol 1',
+    indonesian: 'Bab 1'
+  },
+  onboardingBibleChapterExample2: {
+    english: 'Chapter 2',
+    spanish: 'Capítulo 2',
+    brazilian_portuguese: 'Capítulo 2',
+    tok_pisin: 'Kapitol 2',
+    indonesian: 'Bab 2'
+  },
+  onboardingVisionTitle: {
+    english: 'Every language. Every culture.',
+    spanish: 'Cada idioma. Cada cultura.',
+    brazilian_portuguese: 'Cada idioma. Cada cultura.',
+    tok_pisin: 'Olgeta tokples. Olgeta kalsa.',
+    indonesian: 'Setiap bahasa. Setiap budaya.'
+  },
+  onboardingVisionSubtitle: {
+    english:
+      'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.',
+    spanish:
+      'Recopila datos de texto y audio de idiomas rápidamente. Primero local, sincroniza cuando estés conectado. Colabora, traduce, valida.',
+    brazilian_portuguese:
+      'Colete dados de texto e áudio de idiomas rapidamente. Primeiro local, sincronize quando conectado. Colabore, traduza, valide.',
+    tok_pisin:
+      'Kisim ol text na audio bilong tokples kwiktaim. Stat long lokal, sync taim yu gat internet. Wok wantaim, tanim tokples, stretim.',
+    indonesian:
+      'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.'
+  },
+  onboardingVisionStatement1: {
+    english: "Every language having access to the world's knowledge.",
+    spanish: 'Cada idioma con acceso al conocimiento del mundo.',
+    brazilian_portuguese: 'Cada idioma tendo acesso ao conhecimento do mundo.',
+    tok_pisin: 'Olgeta tokples i gat akses long save bilong wol.',
+    indonesian: 'Setiap bahasa memiliki akses ke pengetahuan dunia.'
+  },
+  onboardingVisionStatement2: {
+    english: 'Every culture sharing its meaning with the world.',
+    spanish: 'Cada cultura compartiendo su significado con el mundo.',
+    brazilian_portuguese:
+      'Cada cultura compartilhando seu significado com o mundo.',
+    tok_pisin: 'Olgeta kalsa i salim save bilong en i go long wol.',
+    indonesian: 'Setiap budaya berbagi maknanya dengan dunia.'
+  },
+  onboardingVisionCC0: {
+    english: 'CC0/public domain data ensures no party can stop this vision.',
+    spanish:
+      'Los datos CC0/dominio público garantizan que ninguna parte pueda detener esta visión.',
+    brazilian_portuguese:
+      'Dados CC0/domínio público garantem que nenhuma parte possa impedir esta visão.',
+    tok_pisin:
+      'CC0/pablik domain data i mekim olsem wanpela man o grup i no inap stopim dispela visen.',
+    indonesian:
+      'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.'
+  },
+  onboardingOurVision: {
+    english: 'Our Vision',
+    spanish: 'Nuestra Visión',
+    brazilian_portuguese: 'Nossa Visão',
+    tok_pisin: 'Visen Bilong Mipela',
+    indonesian: 'Visi Kami'
+  },
+  onboardingSelectLanguageTitle: {
+    english: 'Choose Your Language',
+    spanish: 'Elige Tu Idioma',
+    brazilian_portuguese: 'Escolha Seu Idioma',
+    tok_pisin: 'Pilim Tokples Bilong Yu',
+    indonesian: 'Pilih Bahasa Anda'
+  },
+  onboardingSelectLanguageSubtitle: {
+    english: "Select the language you'd like to use for the app interface",
+    spanish:
+      'Selecciona el idioma que deseas usar para la interfaz de la aplicación',
+    brazilian_portuguese:
+      'Selecione o idioma que deseja usar para a interface do aplicativo',
+    tok_pisin: 'Pilim tokples yu laikim long yusim long app',
+    indonesian: 'Pilih bahasa yang ingin Anda gunakan untuk antarmuka aplikasi'
   }
 } as const;
 

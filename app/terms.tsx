@@ -24,6 +24,8 @@ function Terms() {
   const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
     acceptTerms();
+    // After accepting terms, show the onboarding walkthrough
+    // The onboarding will show automatically when navigating to projects view
     router.navigate('/');
   }, [acceptTerms, router]);
 
