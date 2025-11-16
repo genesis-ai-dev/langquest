@@ -37,7 +37,6 @@ import {
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
-import { SimpleOnboardingFlow } from './SimpleOnboardingFlow';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
@@ -551,33 +550,7 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
-  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const triggerOnboarding = useLocalStore((state) => state.triggerOnboarding);
-  const setTriggerOnboarding = useLocalStore(
-    (state) => state.setTriggerOnboarding
-  );
-  const [showSimpleOnboarding, setShowSimpleOnboarding] = React.useState(false);
   const { goToProject } = useAppNavigation();
-
-  // Show onboarding AFTER terms are accepted (one-time walkthrough)
-  // This ensures users see the walkthrough after accepting terms
-  const onboardingCompleted = useLocalStore(
-    (state) => state.onboardingCompleted
-  );
-  React.useEffect(() => {
-    // Show onboarding if terms are accepted but onboarding hasn't been completed
-    if (dateTermsAccepted && !onboardingCompleted && !showSimpleOnboarding) {
-      setShowSimpleOnboarding(true);
-    }
-  }, [dateTermsAccepted, onboardingCompleted, showSimpleOnboarding]);
-
-  // Watch for trigger from AppHeader
-  React.useEffect(() => {
-    if (triggerOnboarding) {
-      setShowSimpleOnboarding(true);
-      setTriggerOnboarding(false);
-    }
-  }, [triggerOnboarding, setTriggerOnboarding]);
 
   // Get the first project for onboarding navigation
   const firstProject = React.useMemo(() => {
@@ -693,8 +666,8 @@ export default function NextGenProjectsView() {
 
   const dimensions = useWindowDimensions();
 
-  // Handlers for onboarding flow
-  const handleOnboardingCreateProject = () => {
+  // Handlers for onboarding flow (kept for potential future use)
+  const _handleOnboardingCreateProject = () => {
     if (currentUser) {
       setIsCreateOpen(true);
     } else {
@@ -703,7 +676,7 @@ export default function NextGenProjectsView() {
     }
   };
 
-  const handleOnboardingCreateQuest = () => {
+  const _handleOnboardingCreateQuest = () => {
     if (firstProject) {
       goToProject({
         id: firstProject.id,
@@ -714,7 +687,7 @@ export default function NextGenProjectsView() {
     }
   };
 
-  const handleOnboardingStartRecording = () => {
+  const _handleOnboardingStartRecording = () => {
     if (firstProject) {
       // Navigate to project - user can then navigate to a quest and start recording
       goToProject({
@@ -726,7 +699,7 @@ export default function NextGenProjectsView() {
     }
   };
 
-  const handleOnboardingInviteCollaborators = () => {
+  const _handleOnboardingInviteCollaborators = () => {
     if (firstProject) {
       goToProject({
         id: firstProject.id,
@@ -739,14 +712,6 @@ export default function NextGenProjectsView() {
 
   return (
     <>
-      <SimpleOnboardingFlow
-        visible={showSimpleOnboarding}
-        onClose={() => setShowSimpleOnboarding(false)}
-        onCreateProject={handleOnboardingCreateProject}
-        onCreateQuest={handleOnboardingCreateQuest}
-        onStartRecording={handleOnboardingStartRecording}
-        onInviteCollaborators={handleOnboardingInviteCollaborators}
-      />
       <Drawer
         open={isCreateOpen}
         onOpenChange={(open) => {

@@ -1,15 +1,13 @@
 import { Icon } from '@/components/ui/icon';
-import { FolderPenIcon, PlusIcon } from 'lucide-react-native';
+import { FolderPenIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming
 } from 'react-native-reanimated';
 
@@ -51,4 +49,3 @@ export function ProjectCreationAnimation() {
     </Animated.View>
   );
 }
-

@@ -156,6 +156,8 @@ export interface LocalState {
   setOnboardingCompleted: (completed: boolean) => void;
   triggerOnboarding: boolean;
   setTriggerOnboarding: (trigger: boolean) => void;
+  onboardingIsOpen: boolean;
+  setOnboardingIsOpen: (isOpen: boolean) => void;
 
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
@@ -271,11 +273,15 @@ export const useLocalStore = create<LocalState>()(
 
       // Onboarding dismissal tracking
       onboardingDismissed: false,
-      setOnboardingDismissed: (dismissed) => set({ onboardingDismissed: dismissed }),
+      setOnboardingDismissed: (dismissed) =>
+        set({ onboardingDismissed: dismissed }),
       onboardingCompleted: false,
-      setOnboardingCompleted: (completed) => set({ onboardingCompleted: completed }),
+      setOnboardingCompleted: (completed) =>
+        set({ onboardingCompleted: completed }),
       triggerOnboarding: false,
       setTriggerOnboarding: (trigger) => set({ triggerOnboarding: trigger }),
+      onboardingIsOpen: false,
+      setOnboardingIsOpen: (isOpen) => set({ onboardingIsOpen: isOpen }),
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {

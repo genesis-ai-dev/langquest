@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -46,4 +45,3 @@ export function AnimatedStepContent({
 
   return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 }
-

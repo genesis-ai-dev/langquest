@@ -122,6 +122,20 @@ export function SimpleOnboardingFlow({
   const setOnboardingCompleted = useLocalStore(
     (state) => state.setOnboardingCompleted
   );
+  const setOnboardingIsOpen = useLocalStore(
+    (state) => state.setOnboardingIsOpen
+  );
+
+  // Mark as open when this instance becomes visible
+  // The parent component already prevents multiple instances by checking onboardingIsOpen
+  // before setting showSimpleOnboarding to true
+  React.useEffect(() => {
+    if (visible) {
+      setOnboardingIsOpen(true);
+    } else {
+      setOnboardingIsOpen(false);
+    }
+  }, [visible, setOnboardingIsOpen]);
 
   const handleClose = () => {
     // Reset to initial step (vision)
@@ -130,8 +144,15 @@ export function SimpleOnboardingFlow({
     setShowBibleChapters(false);
     // Mark onboarding as completed so it doesn't show again
     setOnboardingCompleted(true);
+    // Mark as closed in store
+    setOnboardingIsOpen(false);
     onClose();
   };
+
+  // Guard: Don't render if not visible
+  if (!visible) {
+    return null;
+  }
 
   const handleAction = () => {
     // Just continue to next step - buttons are informational, not action buttons
@@ -147,8 +168,6 @@ export function SimpleOnboardingFlow({
       setStep('create-quest');
     }
   };
-
-  if (!visible) return null;
 
   return (
     <Modal
