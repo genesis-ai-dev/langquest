@@ -234,4 +234,3 @@ export function RecordingAnimation({ size = 96 }: RecordingAnimationProps) {
     </View>
   );
 }
-

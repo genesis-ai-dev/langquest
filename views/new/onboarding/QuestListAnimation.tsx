@@ -3,12 +3,9 @@ import { BookOpenIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
-  withSequence,
   withSpring,
   withTiming
 } from 'react-native-reanimated';
@@ -22,10 +19,16 @@ export function QuestListAnimation() {
   useEffect(() => {
     // Simple slide-in animation - just two quests sliding in from left
     book1Opacity.value = withDelay(200, withTiming(1, { duration: 400 }));
-    book1X.value = withDelay(200, withSpring(0, { damping: 12, stiffness: 100 }));
+    book1X.value = withDelay(
+      200,
+      withSpring(0, { damping: 12, stiffness: 100 })
+    );
 
     book2Opacity.value = withDelay(400, withTiming(1, { duration: 400 }));
-    book2X.value = withDelay(400, withSpring(0, { damping: 12, stiffness: 100 }));
+    book2X.value = withDelay(
+      400,
+      withSpring(0, { damping: 12, stiffness: 100 })
+    );
   }, [book1X, book2X, book1Opacity, book2Opacity]);
 
   const book1Style = useAnimatedStyle(() => {
@@ -53,4 +56,3 @@ export function QuestListAnimation() {
     </View>
   );
 }
-

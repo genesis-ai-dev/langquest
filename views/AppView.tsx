@@ -40,8 +40,10 @@ const NextGenProjectsView = React.lazy(
 const ProjectDirectoryView = React.lazy(
   () => import('@/views/new/ProjectDirectoryView')
 );
-const SimpleOnboardingFlow = React.lazy(
-  () => import('@/views/new/SimpleOnboardingFlow').then(module => ({ default: module.SimpleOnboardingFlow }))
+const SimpleOnboardingFlow = React.lazy(() =>
+  import('@/views/new/SimpleOnboardingFlow').then((module) => ({
+    default: module.SimpleOnboardingFlow
+  }))
 );
 
 // Common UI Components
@@ -65,14 +67,19 @@ function AppViewContent() {
   const { isAuthenticated } = useAuth();
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
-  const setTriggerOnboarding = useLocalStore((state) => state.setTriggerOnboarding);
+  const setTriggerOnboarding = useLocalStore(
+    (state) => state.setTriggerOnboarding
+  );
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const triggerOnboarding = useLocalStore((state) => state.triggerOnboarding);
+  const onboardingIsOpen = useLocalStore((state) => state.onboardingIsOpen);
+  const setOnboardingIsOpen = useLocalStore(
+    (state) => state.setOnboardingIsOpen
+  );
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
-  const [showSimpleOnboarding, setShowSimpleOnboarding] = React.useState(false);
   const { isCloudLoading } = useCloudLoading();
-  
+
   // Handler for onboarding button in header (only show on projects view)
   const handleOnboardingPress = React.useCallback(() => {
     if (currentView === 'projects') {
@@ -82,21 +89,34 @@ function AppViewContent() {
 
   // Show onboarding AFTER terms are accepted (one-time walkthrough)
   // This ensures users see the walkthrough after accepting terms
-  const onboardingCompleted = useLocalStore((state) => state.onboardingCompleted);
+  const onboardingCompleted = useLocalStore(
+    (state) => state.onboardingCompleted
+  );
   React.useEffect(() => {
     // Show onboarding if terms are accepted but onboarding hasn't been completed
-    if (dateTermsAccepted && !onboardingCompleted && !showSimpleOnboarding) {
-      setShowSimpleOnboarding(true);
+    // Only set flag if not already open to prevent duplicate modals
+    if (dateTermsAccepted && !onboardingCompleted && !onboardingIsOpen) {
+      setOnboardingIsOpen(true);
     }
-  }, [dateTermsAccepted, onboardingCompleted, showSimpleOnboarding]);
+  }, [
+    dateTermsAccepted,
+    onboardingCompleted,
+    onboardingIsOpen,
+    setOnboardingIsOpen
+  ]);
 
   // Watch for trigger from AppHeader
   React.useEffect(() => {
-    if (triggerOnboarding) {
-      setShowSimpleOnboarding(true);
+    if (triggerOnboarding && !onboardingIsOpen) {
+      setOnboardingIsOpen(true);
       setTriggerOnboarding(false);
     }
-  }, [triggerOnboarding, setTriggerOnboarding]);
+  }, [
+    triggerOnboarding,
+    setTriggerOnboarding,
+    onboardingIsOpen,
+    setOnboardingIsOpen
+  ]);
 
   // Memoize drawer toggle callback to prevent AppHeader re-renders
   const drawerToggleCallback = React.useCallback(
@@ -218,7 +238,9 @@ function AppViewContent() {
           drawerToggleCallback={drawerToggleCallback}
           isCloudLoading={isCloudLoading}
           isNavigating={isNavigating}
-          onOnboardingPress={currentView === 'projects' ? handleOnboardingPress : undefined}
+          onOnboardingPress={
+            currentView === 'projects' ? handleOnboardingPress : undefined
+          }
         />
 
         {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
@@ -245,8 +267,8 @@ function AppViewContent() {
 
           {/* Onboarding Flow - shows globally until terms are accepted */}
           <SimpleOnboardingFlow
-            visible={showSimpleOnboarding}
-            onClose={() => setShowSimpleOnboarding(false)}
+            visible={onboardingIsOpen}
+            onClose={() => setOnboardingIsOpen(false)}
           />
         </Suspense>
       </View>

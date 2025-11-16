@@ -3,12 +3,9 @@ import { UserIcon, UserPlusIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
-  withSequence,
   withSpring,
   withTiming
 } from 'react-native-reanimated';
@@ -23,12 +20,18 @@ export function InviteAnimation() {
   useEffect(() => {
     // Simple: two users slide in with plus icon between
     user1Opacity.value = withDelay(200, withTiming(1, { duration: 400 }));
-    user1X.value = withDelay(200, withSpring(0, { damping: 12, stiffness: 100 }));
+    user1X.value = withDelay(
+      200,
+      withSpring(0, { damping: 12, stiffness: 100 })
+    );
 
     plusOpacity.value = withDelay(400, withTiming(1, { duration: 300 }));
 
     user2Opacity.value = withDelay(500, withTiming(1, { duration: 400 }));
-    user2X.value = withDelay(500, withSpring(0, { damping: 12, stiffness: 100 }));
+    user2X.value = withDelay(
+      500,
+      withSpring(0, { damping: 12, stiffness: 100 })
+    );
   }, [user1X, user2X, plusOpacity, user1Opacity, user2Opacity]);
 
   const user1Style = useAnimatedStyle(() => {
@@ -69,4 +72,3 @@ export function InviteAnimation() {
     </View>
   );
 }
-
