@@ -86,16 +86,23 @@ export function useVADRecording({
       // Native module returns raw RMS (0-20 range), so threshold must match that format
       const MAX_ENERGY = 20.0;
       const rawThreshold = threshold * MAX_ENERGY;
-      
+
       // CRITICAL: The native module multiplies threshold by onsetMultiplier (0.25) for onset detection
       // So if user wants final threshold of X, we need to send X / 0.25 = 4X
       // This ensures: (4X) * 0.25 = X (the desired threshold)
       // The threshold value represents the FINAL effective threshold, not the base
       const ONSET_MULTIPLIER = 0.25;
       const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
-      
-      console.log('🔧 Configuring VAD | normalized:', threshold, '→ raw:', rawThreshold.toFixed(4), '→ base (accounting for onsetMultiplier):', baseThreshold.toFixed(4));
-      
+
+      console.log(
+        '🔧 Configuring VAD | normalized:',
+        threshold,
+        '→ raw:',
+        rawThreshold.toFixed(4),
+        '→ base (accounting for onsetMultiplier):',
+        baseThreshold.toFixed(4)
+      );
+
       await MicrophoneEnergyModule.configureVAD({
         threshold: baseThreshold,
         silenceDuration,
@@ -134,10 +141,10 @@ export function useVADRecording({
             // This ensures the correct threshold is set before VAD begins monitoring
             await configureVAD();
             console.log('✅ VAD configured, starting energy detection...');
-            
+
             await startEnergyDetection();
             console.log('✅ Energy detection started, enabling VAD...');
-            
+
             await MicrophoneEnergyModule.enableVAD();
             // Log threshold values for debugging
             const MAX_ENERGY = 20.0;
@@ -145,16 +152,22 @@ export function useVADRecording({
             const rawThreshold = threshold * MAX_ENERGY;
             const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
             const effectiveOnsetThreshold = baseThreshold * ONSET_MULTIPLIER;
-            console.log('✅ VAD enabled | normalized:', threshold, '| raw (effective):', rawThreshold.toFixed(4), '| base (sent to native):', baseThreshold.toFixed(4), '| effective onset:', effectiveOnsetThreshold.toFixed(4));
-            
+            console.log(
+              '✅ VAD enabled | normalized:',
+              threshold,
+              '| raw (effective):',
+              rawThreshold.toFixed(4),
+              '| base (sent to native):',
+              baseThreshold.toFixed(4),
+              '| effective onset:',
+              effectiveOnsetThreshold.toFixed(4)
+            );
+
             // Update refs after successful activation
             prevThresholdRef.current = threshold;
             prevSilenceDurationRef.current = silenceDuration;
           } catch (error) {
-            console.error(
-              '❌ Failed to activate VAD mode:',
-              error
-            );
+            console.error('❌ Failed to activate VAD mode:', error);
             // Error details should already be logged via onError event listener
             // But log here for visibility in this specific context
           }
