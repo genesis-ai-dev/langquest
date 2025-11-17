@@ -15,7 +15,8 @@ export type AppView =
   | 'notifications'
   | 'settings'
   | 'corrupted-attachments'
-  | 'account-deletion';
+  | 'account-deletion'
+  | 'download-status';
 
 export interface NavigationStackItem {
   view: AppView;
@@ -152,6 +153,16 @@ export interface LocalState {
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
 
+  // Onboarding dismissal tracking
+  onboardingDismissed: boolean;
+  setOnboardingDismissed: (dismissed: boolean) => void;
+  onboardingCompleted: boolean;
+  setOnboardingCompleted: (completed: boolean) => void;
+  triggerOnboarding: boolean;
+  setTriggerOnboarding: (trigger: boolean) => void;
+  onboardingIsOpen: boolean;
+  setOnboardingIsOpen: (isOpen: boolean) => void;
+
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
@@ -267,6 +278,18 @@ export const useLocalStore = create<LocalState>()(
           dismissedUpdateVersion: null
         }),
 
+      // Onboarding dismissal tracking
+      onboardingDismissed: false,
+      setOnboardingDismissed: (dismissed) =>
+        set({ onboardingDismissed: dismissed }),
+      onboardingCompleted: false,
+      setOnboardingCompleted: (completed) =>
+        set({ onboardingCompleted: completed }),
+      triggerOnboarding: false,
+      setTriggerOnboarding: (trigger) => set({ triggerOnboarding: trigger }),
+      onboardingIsOpen: false,
+      setOnboardingIsOpen: (isOpen) => set({ onboardingIsOpen: isOpen }),
+
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
         set({ theme });
@@ -332,14 +355,55 @@ export const useLocalStore = create<LocalState>()(
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
         }),
 
-      // Attachment sync methods
-      setAttachmentSyncProgress: (progress) =>
-        set((state) => ({
-          attachmentSyncProgress: {
-            ...state.attachmentSyncProgress,
-            ...progress
+      // Attachment sync methods with batching to prevent rapid updates
+      setAttachmentSyncProgress: (() => {
+        let pendingUpdate: Partial<
+          LocalState['attachmentSyncProgress']
+        > | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const BATCH_DELAY_MS = 50; // Batch updates within 50ms
+
+        return (progress: Partial<LocalState['attachmentSyncProgress']>) => {
+          // Merge with pending update
+          pendingUpdate = pendingUpdate
+            ? { ...pendingUpdate, ...progress }
+            : progress;
+
+          // Clear existing timeout
+          if (timeoutId) {
+            clearTimeout(timeoutId);
           }
-        })),
+
+          // Schedule batched update
+          timeoutId = setTimeout(() => {
+            if (pendingUpdate) {
+              set((state) => {
+                const current = state.attachmentSyncProgress;
+                const updated = { ...current, ...pendingUpdate };
+
+                // Only update if values actually changed
+                const hasChanges = Object.keys(pendingUpdate!).some(
+                  (key) =>
+                    current[
+                      key as keyof LocalState['attachmentSyncProgress']
+                    ] !==
+                    updated[key as keyof LocalState['attachmentSyncProgress']]
+                );
+
+                if (!hasChanges) {
+                  return state; // No changes, return same state
+                }
+
+                return {
+                  attachmentSyncProgress: updated
+                };
+              });
+              pendingUpdate = null;
+            }
+            timeoutId = null;
+          }, BATCH_DELAY_MS);
+        };
+      })(),
       resetAttachmentSyncProgress: () =>
         set({
           attachmentSyncProgress: {

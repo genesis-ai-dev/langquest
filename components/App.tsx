@@ -11,7 +11,6 @@ import LoadingView from '@/components/LoadingView';
 import { MigrationScreen } from '@/components/MigrationScreen';
 import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
-import { AuthNavigator } from '@/navigators/AuthNavigator';
 import AppView from '@/views/AppView';
 import ResetPasswordView from '@/views/ResetPasswordView';
 import { useRouter } from 'expo-router';
@@ -40,6 +39,7 @@ export default function App() {
     upgradeError
   } = useAuth();
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const authView = useLocalStore((state) => state.authView);
   const router = useRouter();
 
   useDrizzleStudio();
@@ -65,7 +65,9 @@ export default function App() {
   }, [isLoading, dateTermsAccepted, router]);
 
   // Show loading while checking auth state
-  if (isLoading) {
+  // BUT: If authView is set (user is interacting with auth modal), keep showing AppView
+  // to prevent visual restart when isLoading changes
+  if (isLoading && !authView) {
     return (
       <AppWrapper>
         <LoadingView />
@@ -73,39 +75,61 @@ export default function App() {
     );
   }
 
-  // Not authenticated - show auth screens
-  if (!isAuthenticated) {
-    return (
-      <AppWrapper>
-        <AuthNavigator />
-      </AppWrapper>
-    );
+  // Anonymous users can browse without authentication
+  // Allow anonymous browsing - only block if authenticated AND upgrade/migration needed
+  if (isAuthenticated) {
+    // CRITICAL: App upgrade required - block everything until user upgrades
+    // This takes precedence over migration since the app version is incompatible
+    if (appUpgradeNeeded && upgradeError) {
+      return (
+        <AppWrapper>
+          <AppUpgradeScreen
+            localVersion={upgradeError.localVersion}
+            serverVersion={upgradeError.serverVersion}
+            reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+          />
+        </AppWrapper>
+      );
+    }
+
+    // CRITICAL: Migration required - block everything until migration completes
+    if (migrationNeeded) {
+      return (
+        <AppWrapper>
+          <MigrationScreen />
+        </AppWrapper>
+      );
+    }
+
+    // Authenticated but system still initializing
+    // BUT: If authView is set (auth modal was visible), keep showing AppView
+    // to prevent app from disappearing during system initialization after login
+    if (!isSystemReady && !authView) {
+      return (
+        <AppWrapper>
+          <LoadingView />
+        </AppWrapper>
+      );
+    }
+
+    // Password reset flow - user is authenticated but needs to set new password
+    if (sessionType === 'password-reset') {
+      return (
+        <AppWrapper>
+          <ResetPasswordView />
+        </AppWrapper>
+      );
+    }
+
+    // Check if account is deleted (soft delete: active = false)
+    // This check happens after system is ready and user is authenticated
+    return <AccountStatusCheck />;
   }
 
-  // CRITICAL: App upgrade required - block everything until user upgrades
-  // This takes precedence over migration since the app version is incompatible
-  if (appUpgradeNeeded && upgradeError) {
-    return (
-      <AppWrapper>
-        <AppUpgradeScreen
-          localVersion={upgradeError.localVersion}
-          serverVersion={upgradeError.serverVersion}
-          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
-        />
-      </AppWrapper>
-    );
-  }
-
-  // CRITICAL: Migration required - block everything until migration completes
-  if (migrationNeeded) {
-    return (
-      <AppWrapper>
-        <MigrationScreen />
-      </AppWrapper>
-    );
-  }
-
-  // Authenticated but system still initializing
+  // Anonymous user - allow browsing (system ready is set immediately for anonymous)
+  // BUT: Show loading briefly during sign-out transition to prevent components from
+  // accessing system.db before PowerSync cleanup completes
+  // System ready check is not needed for anonymous users as they use cloud-only queries
   if (!isSystemReady) {
     return (
       <AppWrapper>
@@ -114,18 +138,11 @@ export default function App() {
     );
   }
 
-  // Password reset flow - user is authenticated but needs to set new password
-  if (sessionType === 'password-reset') {
-    return (
-      <AppWrapper>
-        <ResetPasswordView />
-      </AppWrapper>
-    );
-  }
-
-  // Check if account is deleted (soft delete: active = false)
-  // This check happens after system is ready and user is authenticated
-  return <AccountStatusCheck />;
+  return (
+    <AppWrapper>
+      <AppView />
+    </AppWrapper>
+  );
 }
 
 function AccountStatusCheck() {

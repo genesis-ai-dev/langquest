@@ -22,6 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStore } from '@/store/localStore';
+import { useHybridData } from './useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -29,13 +32,12 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
   MicIcon,
@@ -89,7 +91,8 @@ export default function NextGenNewTranslationModal({
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
@@ -97,27 +100,51 @@ export default function NextGenNewTranslationModal({
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
 
-  const { data: queriedProjectData } = useQuery({
-    queryKey: ['project', 'offline', currentProjectId],
-    queryFn: async () => {
-      if (!currentProjectId) return null;
-      const result = await system.db
-        .select()
-        .from(project)
-        .where(eq(project.id, currentProjectId))
-        .limit(1);
-      return result[0] || null;
+  // Query project data using hybrid data (supports anonymous users)
+  const isPowerSyncReady = React.useMemo(
+    () => system.isPowerSyncInitialized(),
+    []
+  );
+
+  const projectOfflineQuery = React.useMemo(() => {
+    if (!isPowerSyncReady || !isAuthenticated) {
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+    return toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+      })
+    );
+  }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
+
+  const { data: queriedProjectDataArray } = useHybridData({
+    dataType: 'project-new-translation',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: projectOfflineQuery,
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .limit(1)
+        .overrideTypes<(typeof project.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
     },
-    enabled: !!currentProjectId && !currentProjectData,
-    staleTime: 30000
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
 
+  const queriedProjectData = queriedProjectDataArray?.[0];
+
+  // Prefer passed project data for instant rendering
   const projectData = currentProjectData || queriedProjectData;
 
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private as boolean | undefined
+    (projectData as Record<string, unknown>)?.private as boolean | undefined
   );
 
   React.useEffect(() => {
@@ -252,17 +279,21 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, form]);
 
+  // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
-    if (visible && !canTranslate) {
-      if (__DEV__) {
-        console.warn(
-          '[NEW TRANSLATION MODAL] Modal opened without translate permission'
-        );
+    if (visible && (!isAuthenticated || !canTranslate)) {
+      console.warn(
+        '[NEW TRANSLATION MODAL] Modal opened without permission or anonymous user'
+      );
+      if (!isAuthenticated) {
+        Alert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
+        setAuthView('sign-in');
+      } else {
+        Alert.alert(t('error'), t('membersOnly'));
       }
-      Alert.alert(t('error'), t('membersOnly'));
       onClose();
     }
-  }, [visible, canTranslate, onClose, t]);
+  }, [visible, canTranslate, isAuthenticated, onClose, t, setAuthView]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
@@ -291,6 +322,17 @@ export default function NextGenNewTranslationModal({
         audioAttachment = attachment.filename;
       }
 
+      // Guard against anonymous users
+      if (!currentUser?.id || !isAuthenticated) {
+        throw new Error('Must be logged in to create translations');
+      }
+
+      // Guard against PowerSync not being initialized
+      if (!system.isPowerSyncInitialized()) {
+        throw new Error('System not initialized - cannot create translations');
+      }
+
+      console.log('[CREATE TRANSLATION] Starting transaction...');
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
           .insert(resolveTable('asset'))

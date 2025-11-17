@@ -11,10 +11,11 @@ import {
   AlertTriangle,
   ChevronRight,
   CloudOff,
+  HelpCircle,
   Menu,
   RefreshCw
 } from 'lucide-react-native';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -29,11 +30,13 @@ import { Button } from './ui/button';
 export default function AppHeader({
   drawerToggleCallback,
   isCloudLoading = false,
-  isNavigating = false
+  isNavigating = false,
+  onOnboardingPress
 }: {
   drawerToggleCallback: () => void;
   isCloudLoading?: boolean;
   isNavigating?: boolean;
+  onOnboardingPress?: () => void;
 }) {
   const {
     breadcrumbs,
@@ -72,13 +75,29 @@ export default function AppHeader({
 
   const hasSyncError = !!(downloadError || uploadError);
   // Don't show syncing state if there's an error - prevents eternal syncing loop
-  const isSyncing =
+  const rawIsSyncing =
     !hasSyncError &&
     (isDownloadOperationInProgress ||
       isUpdateInProgress ||
       isConnecting ||
       hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
+
+  // Debounce sync status to prevent flickering and allow animations to complete
+  const [isSyncing, setIsSyncing] = useState(rawIsSyncing);
+
+  useEffect(() => {
+    if (rawIsSyncing) {
+      // Immediately show syncing when it starts
+      setIsSyncing(true);
+    } else {
+      // Delay hiding sync indicator to allow animation to complete smoothly
+      const timeout = setTimeout(() => {
+        setIsSyncing(false);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [rawIsSyncing]);
 
   // Handler for sync error tap
   const handleSyncErrorTap = () => {
@@ -214,6 +233,19 @@ export default function AppHeader({
               })
             : null}
         </View>
+
+        {/* Help/Onboarding Button */}
+        {onOnboardingPress && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={onOnboardingPress}
+            className="relative mr-2 size-8"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon as={HelpCircle} size={24} className="text-muted-foreground" />
+          </Button>
+        )}
 
         {/* Menu Button with Indicators */}
         <View className="relative">

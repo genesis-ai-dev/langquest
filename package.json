@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "scripts": {
     "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev",
@@ -126,6 +126,7 @@
     "react-native": "0.79.5",
     "react-native-element-dropdown": "2.12.2",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-onboarding": "^1.0.6",
     "react-native-pager-view": "^7.0.0",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "5.4.0",

@@ -1100,11 +1100,79 @@ export function useAssetsByQuest(
         return [];
       }
     },
-    // Cloud query function - Since assets must be downloaded, we return empty
-    // eslint-disable-next-line @typescript-eslint/require-await
-    async () => {
-      // Assets must be downloaded to be used, so cloud query returns empty
-      return [] as WithSource<AssetQuestLink>[];
+    // Cloud query function - For anonymous users, fetch assets directly from cloud
+    // For authenticated users, assets must be downloaded to use offline, but cloud query
+    // can still be used for browsing (anonymous-style access)
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      const offset = pageParam * pageSize;
+      const from = offset;
+      const to = offset + pageSize - 1;
+
+      // Build query from quest_asset_link to get both asset data and link metadata
+      let query = system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select(
+          `
+          visible,
+          active,
+          asset:asset_id (
+            *
+          )
+        `
+        )
+        .eq('quest_id', quest_id)
+        .is('asset.source_asset_id', null); // Only get original assets, not variants
+
+      // Filter by visibility - anonymous users can only see visible assets
+      // Authenticated users can see their own hidden assets if showHiddenContent is true
+      if (!showHiddenContent) {
+        // Show only visible assets
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+      } else if (currentUser?.id) {
+        // Show all assets, but still filter by link visibility for non-creators
+        // For creators, show all their assets even if hidden
+        query = query.or(
+          `visible.eq.true,asset.creator_id.eq.${currentUser.id}`
+        );
+      } else {
+        // Anonymous users with showHiddenContent=true still only see visible (for safety)
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+      }
+
+      // Add search filtering
+      if (searchQuery.trim()) {
+        query = query.filter('asset.name', 'ilike', `%${searchQuery.trim()}%`);
+      }
+
+      // Order by order_index, then created_at, then name
+      query = query.order('created_at', { ascending: true });
+
+      // Add pagination
+      const { data, error } = await query.range(from, to).overrideTypes<
+        {
+          visible: boolean;
+          active: boolean;
+          asset: Asset;
+        }[]
+      >();
+
+      if (error) throw error;
+
+      // Map to AssetQuestLink format with quest_visible and quest_active
+      const assets: AssetQuestLink[] = data
+        .map((item) => {
+          if (!item.asset) return null;
+          return {
+            ...item.asset,
+            quest_visible: item.visible,
+            quest_active: item.active
+          } as AssetQuestLink;
+        })
+        .filter((item): item is AssetQuestLink => item !== null);
+
+      return assets;
     },
     20 // pageSize
   );

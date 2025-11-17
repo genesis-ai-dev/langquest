@@ -17,8 +17,14 @@ export const CloudLoadingProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isCloudLoading, setCloudLoading] = useState(false);
 
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = React.useMemo(
+    () => ({ isCloudLoading, setCloudLoading }),
+    [isCloudLoading, setCloudLoading]
+  );
+
   return (
-    <CloudLoadingContext.Provider value={{ isCloudLoading, setCloudLoading }}>
+    <CloudLoadingContext.Provider value={contextValue}>
       {children}
     </CloudLoadingContext.Provider>
   );

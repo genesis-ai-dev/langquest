@@ -101,9 +101,20 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
       'worklet';
       if (!isVisible) return;
 
+      // Normalize energy: Swift/Android send raw RMS energy (0-1 range typically)
+      // But values can be higher, so normalize similar to VADSettingsDrawer
+      // Using MAX_ENERGY = 20.0 to match VADSettingsDrawer normalization
+      const MAX_ENERGY = 20.0;
+      const normalizedRaw = Math.min(
+        1.0,
+        Math.max(0, currentEnergy / MAX_ENERGY)
+      );
+
+      // Scale relative to threshold for visualization
+      // Threshold is already normalized (0-1), so we compare normalized values
       const normalizedEnergy = Math.max(
         0.01,
-        Math.min(1, currentEnergy / (vadThreshold * 3))
+        Math.min(1, normalizedRaw / Math.max(vadThreshold * 3, 0.01))
       );
 
       // Shift all values left (runs on UI thread - no JS bridge!)

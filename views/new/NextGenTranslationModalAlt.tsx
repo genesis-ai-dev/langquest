@@ -9,10 +9,11 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStore } from '@/store/localStore';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { asset } from '@/db/drizzleSchema';
+import { asset, asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -64,10 +65,18 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  return useHybridData({
-    dataType: 'translation',
-    queryKeyParams: [assetId],
-    offlineQuery: toCompilableQuery(
+  const { isAuthenticated } = useAuth();
+  const isPowerSyncReady = React.useMemo(
+    () => system.isPowerSyncInitialized(),
+    []
+  );
+
+  // Only create offline query if PowerSync is initialized and user is authenticated
+  const offlineQuery = React.useMemo(() => {
+    if (!isPowerSyncReady || !isAuthenticated) {
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+    return toCompilableQuery(
       system.db.query.asset.findFirst({
         where: eq(asset.id, assetId),
         with: {
@@ -75,9 +84,79 @@ function useNextGenTranslation(assetId: string) {
           votes: true
         }
       })
-    ),
+    );
+  }, [assetId, isPowerSyncReady, isAuthenticated]);
+
+  return useHybridData<
+    Omit<typeof asset.$inferSelect, 'images'> & {
+      images: string[];
+      content: (typeof asset_content_link.$inferSelect)[];
+      votes: Array<{
+        id: string;
+        asset_id: string;
+        creator_id: string;
+        polarity: 'up' | 'down';
+        active: boolean;
+        created_at: string;
+      }>;
+    }
+  >({
+    dataType: 'translation',
+    queryKeyParams: [assetId],
+    offlineQuery,
+    cloudQueryFn: async () => {
+      if (!assetId) return [];
+
+      // Fetch asset with content and votes from Supabase
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select(
+          `
+          *,
+          content:asset_content_link (
+            *
+          ),
+          votes:vote (
+            *
+          )
+        `
+        )
+        .eq('id', assetId)
+        .limit(1)
+        .overrideTypes<
+          (Omit<typeof asset.$inferSelect, 'images'> & {
+            images: string;
+            content?: (typeof asset_content_link.$inferSelect)[];
+            votes?: Array<{
+              id: string;
+              asset_id: string;
+              creator_id: string;
+              polarity: 'up' | 'down';
+              active: boolean;
+              created_at: string;
+            }>;
+          })[]
+        >();
+
+      if (error) throw error;
+
+      // Parse images JSON
+      return data.map((item) => {
+        const parsedImages = item.images
+          ? (JSON.parse(item.images) as string[])
+          : [];
+
+        return {
+          ...item,
+          images: parsedImages,
+          content: item.content || [],
+          votes: item.votes || []
+        };
+      });
+    },
     enabled: !!assetId,
-    enableCloudQuery: false
+    enableCloudQuery: !!assetId,
+    enableOfflineQuery: !!assetId
   });
 }
 
@@ -93,7 +172,8 @@ export default function NextGenTranslationModal({
   const { project } = useProjectById(projectId);
   const { currentQuestId } = useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -476,9 +556,25 @@ export default function NextGenTranslationModal({
 
                       {/* Voting Section with PrivateAccessGate */}
                       {!isOwnTranslation &&
-                        currentUser &&
                         !isEditing &&
-                        !hasReported && (
+                        !hasReported &&
+                        // Show login prompt for anonymous users
+                        (!isAuthenticated ? (
+                          <Alert icon={UserCircleIcon}>
+                            <AlertTitle>
+                              {t('pleaseLogInToVoteOnTranslations')}
+                            </AlertTitle>
+                            <Button
+                              onPress={() => {
+                                onOpenChange(false);
+                                setAuthView('sign-in');
+                              }}
+                              className="mt-4"
+                            >
+                              <Text>{t('signIn') || 'Sign In'}</Text>
+                            </Button>
+                          </Alert>
+                        ) : (
                           <PrivateAccessGate
                             projectId={projectId || ''}
                             projectName={projectName || ''}
@@ -561,16 +657,7 @@ export default function NextGenTranslationModal({
                               </View>
                             </View>
                           </PrivateAccessGate>
-                        )}
-
-                      {/* Show login prompt if not logged in */}
-                      {!currentUser && !isEditing && (
-                        <Alert icon={UserCircleIcon}>
-                          <AlertTitle>
-                            {t('pleaseLogInToVoteOnTranslations')}
-                          </AlertTitle>
-                        </Alert>
-                      )}
+                        ))}
                       {isOwnTranslation ? (
                         <TranslationSettingsModal
                           isVisible={showSettingsModal}
