@@ -1,7 +1,5 @@
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { sql } from 'drizzle-orm';
 
 export interface Region {
   id: string;
@@ -24,9 +22,7 @@ export function useRegions(levels: ('continent' | 'nation')[] = ['continent', 'n
     
     // Note: region table doesn't exist in local SQLite, so we'll only query cloud
     // Use a dummy offline query that returns empty array
-    offlineQuery: toCompilableQuery(
-      sql`SELECT '' as id, '' as name, '' as level, '' as parent_id, 0 as active, '' as created_at, '' as last_updated WHERE 1 = 0`
-    ),
+    offlineQuery: `SELECT '' as id, '' as name, '' as level, '' as parent_id, 0 as active, '' as created_at, '' as last_updated WHERE 1 = 0`,
     
     // Cloud query - fetch regions from Supabase
     cloudQueryFn: async () => {

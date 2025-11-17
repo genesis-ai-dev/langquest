@@ -1,13 +1,12 @@
-import { cn } from '@/utils/styleUtils';
-import { getThemeColor } from '@/utils/styleUtils';
+import { Text } from '@/components/ui/text';
+import { cn, getThemeColor } from '@/utils/styleUtils';
+import { useEffect } from 'react';
+import { View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
-import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
 
 export type OnboardingStep =
   | 'vision'
@@ -77,7 +76,6 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
   'create-project': 'Create',
   'create-project-simple': 'Project',
   'bible-select-book': 'Book',
-  'bible-create-chapter': 'Chapter',
   'create-quest': 'Quest',
   'record-audio': 'Record',
   'invite-collaborators': 'Invite'
@@ -112,7 +110,10 @@ export function OnboardingProgressIndicator({
       {/* Steps container */}
       <View className="relative flex-row items-center justify-between">
         {/* Progress bar background */}
-        <View className="absolute left-0 right-0 top-0 h-0.5 bg-muted" style={{ top: 12 }}>
+        <View
+          className="absolute left-0 right-0 top-0 h-0.5 bg-muted"
+          style={{ top: 12 }}
+        >
           {/* Animated progress fill */}
           <Animated.View
             style={[
@@ -146,7 +147,9 @@ export function OnboardingProgressIndicator({
                 )}
               >
                 {isCompleted ? (
-                  <Text className="text-xs font-semibold text-primary-foreground">✓</Text>
+                  <Text className="text-xs font-semibold text-primary-foreground">
+                    ✓
+                  </Text>
                 ) : (
                   <Text
                     className={cn(

@@ -1,7 +1,5 @@
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { sql } from 'drizzle-orm';
 
 export interface Languoid {
   id: string;
@@ -29,9 +27,7 @@ export function useLanguagesByRegion(regionId: string | null) {
     
     // Note: languoid and languoid_region tables don't exist in local SQLite
     // Use a dummy offline query that returns empty array
-    offlineQuery: toCompilableQuery(
-      sql`SELECT '' as id, '' as name, '' as level, '' as parent_id, '' as region_id, '' as region_name, 0 as active, '' as created_at, '' as last_updated WHERE 1 = 0`
-    ),
+    offlineQuery: `SELECT '' as id, '' as name, '' as level, '' as parent_id, '' as region_id, '' as region_name, 0 as active, '' as created_at, '' as last_updated WHERE 1 = 0`,
     
     // Cloud query - fetch languoids filtered by region
     cloudQueryFn: async () => {
