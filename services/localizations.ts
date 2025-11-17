@@ -3905,6 +3905,32 @@ export const localizations = {
     tok_pisin: 'Terms na Conditions feature i kam bihain',
     indonesian: 'Fitur Syarat & Ketentuan segera hadir'
   },
+  experimentalFeatures: {
+    english: 'Experimental Features',
+    spanish: 'Características Experimentales',
+    brazilian_portuguese: 'Recursos Experimentais',
+    tok_pisin: 'Experimental Features',
+    indonesian: 'Fitur Eksperimental'
+  },
+  aiSuggestions: {
+    english: 'AI Suggestions',
+    spanish: 'Sugerencias de IA',
+    brazilian_portuguese: 'Sugestões de IA',
+    tok_pisin: 'AI Suggestions',
+    indonesian: 'Saran AI'
+  },
+  aiSuggestionsDescription: {
+    english:
+      'Enable AI-powered translation suggestions based on nearby translations',
+    spanish:
+      'Habilitar sugerencias de traducción impulsadas por IA basadas en traducciones cercanas',
+    brazilian_portuguese:
+      'Habilitar sugestões de tradução com IA baseadas em traduções próximas',
+    tok_pisin:
+      'Onim AI translation suggestions i save helpim long ol translation klostu',
+    indonesian:
+      'Aktifkan saran terjemahan berbasis AI berdasarkan terjemahan terdekat'
+  },
   advanced: {
     english: 'Advanced',
     spanish: 'Avanzado',

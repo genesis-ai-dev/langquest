@@ -87,6 +87,10 @@ export interface LocalState {
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
 
+  // Experimental features
+  enableAiSuggestions: boolean;
+  setEnableAiSuggestions: (enabled: boolean) => void;
+
   // VAD (Voice Activity Detection) settings
   // vadThreshold: 0.005-0.1 (lower = more sensitive, picks up quiet speech)
   // vadSilenceDuration: 500-3000ms (how long to wait before stopping recording)
@@ -210,6 +214,9 @@ export const useLocalStore = create<LocalState>()(
       debugMode: false,
       showHiddenContent: false,
 
+      // Experimental features (defaults)
+      enableAiSuggestions: false,
+
       // VAD settings (defaults)
       vadThreshold: 0.085, // 8.5% sensitivity
       vadSilenceDuration: 1000, // 1 second pause
@@ -304,6 +311,10 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
+
+      // Experimental features setters
+      setEnableAiSuggestions: (enabled) =>
+        set({ enableAiSuggestions: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) => set({ vadThreshold: threshold }),

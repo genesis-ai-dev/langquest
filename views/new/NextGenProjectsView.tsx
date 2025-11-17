@@ -138,9 +138,12 @@ export default function NextGenProjectsView() {
         });
       },
       onSuccess: () => {
-        // reset form onOpenChange
         setIsCreateOpen(false);
-        void currentQuery.refetch();
+        if (activeTab === 'my') {
+          void myProjectsQuery.refetch();
+        } else {
+          void allProjects.refetch();
+        }
       },
       onError: (error) => {
         console.error('Failed to create project', error);
@@ -177,11 +180,12 @@ export default function NextGenProjectsView() {
     (state) => state.showHiddenContent
   );
 
-  const {
-    data: restrictions
-    // isRestrictionsLoading,
-    // refetch: refetchRestrictions
-  } = useUserRestrictions('project', true, true, false);
+  const { data: restrictions } = useUserRestrictions(
+    'project',
+    true,
+    true,
+    false
+  );
 
   const blockContentIds = (restrictions.blockedContentIds ?? []).map(
     (c) => c.content_id
