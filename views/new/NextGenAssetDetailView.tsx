@@ -93,7 +93,6 @@ function useNextGenOfflineAsset(assetId: string) {
     [getOfflineQuery]
   );
 
-   
   return useHybridData({
     dataType: 'asset',
     queryKeyParams: [assetId],
@@ -224,7 +223,6 @@ export default function NextGenAssetDetailView() {
     [getProjectOfflineQuery]
   );
 
-   
   const { data: queriedProjectDataArray } = useHybridData<
     typeof project.$inferSelect
   >({
@@ -364,7 +362,6 @@ export default function NextGenAssetDetailView() {
     [getLanguagesOfflineQuery]
   );
 
-   
   const { data: contentLanguages = [] } = useHybridData<
     typeof languageTable.$inferSelect
   >({

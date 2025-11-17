@@ -57,9 +57,8 @@ import {
   Modal,
   ScrollView,
   TouchableWithoutFeedback
-  
 } from 'react-native';
-import type {TextInput} from 'react-native';
+import type { TextInput } from 'react-native';
 import { z } from 'zod';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
@@ -120,7 +119,6 @@ export default function NextGenNewTranslationModal({
     );
   }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
 
-   
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
     queryKeyParams: [currentProjectId || ''],
