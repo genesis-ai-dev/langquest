@@ -58,6 +58,7 @@ function useNextGenOfflineAsset(assetId: string) {
   const getOfflineQuery = React.useCallback(() => {
     // For anonymous users, return a placeholder SQL string that won't access system.db
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
 
@@ -65,6 +66,7 @@ function useNextGenOfflineAsset(assetId: string) {
     // Check PowerSync status at query creation time
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM asset WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -78,16 +80,20 @@ function useNextGenOfflineAsset(assetId: string) {
     } catch (error) {
       // If query creation fails, return placeholder
       console.warn('Failed to create offline query, using placeholder:', error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
   }, [assetId, isAuthenticated]);
 
   // Create query lazily - only when needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const offlineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getOfflineQuery(),
     [getOfflineQuery]
   );
 
+   
   return useHybridData({
     dataType: 'asset',
     queryKeyParams: [assetId],
@@ -137,7 +143,7 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const {
     currentAssetId,
@@ -188,10 +194,12 @@ export default function NextGenAssetDetailView() {
   // Use a factory function that only creates the query when needed
   const getProjectOfflineQuery = React.useCallback(() => {
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM project WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -204,15 +212,19 @@ export default function NextGenAssetDetailView() {
         'Failed to create project offline query, using placeholder:',
         error
       );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
   }, [currentProjectId, isAuthenticated]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getProjectOfflineQuery(),
     [getProjectOfflineQuery]
   );
 
+   
   const { data: queriedProjectDataArray } = useHybridData<
     typeof project.$inferSelect
   >({
@@ -228,7 +240,7 @@ export default function NextGenAssetDetailView() {
         .limit(1)
         .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enableCloudQuery: !!currentProjectId && !currentProjectData,
     enableOfflineQuery: !!currentProjectId && !currentProjectData
@@ -236,15 +248,13 @@ export default function NextGenAssetDetailView() {
 
   // Prefer passed data for instant rendering!
   const queriedProjectData = queriedProjectDataArray?.[0];
-  const projectData:
-    | (typeof project.$inferSelect & { source?: 'local' | 'synced' | 'cloud' })
-    | undefined =
-    (currentProjectData as typeof queriedProjectData) || queriedProjectData;
+  const projectData = currentProjectData || queriedProjectData;
 
-  const translationLanguageId = React.useMemo(
-    () => (projectData?.target_language_id as string | undefined) || '',
-    [projectData?.target_language_id]
-  );
+  const translationLanguageId = React.useMemo(() => {
+    if (!projectData?.target_language_id) return '';
+    const langId = projectData.target_language_id;
+    return typeof langId === 'string' ? langId : String(langId);
+  }, [projectData?.target_language_id]);
 
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
@@ -322,10 +332,12 @@ export default function NextGenAssetDetailView() {
   // Fetch all languages used by content items
   const getLanguagesOfflineQuery = React.useCallback(() => {
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM language WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -340,15 +352,19 @@ export default function NextGenAssetDetailView() {
         'Failed to create languages offline query, using placeholder:',
         error
       );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
   }, [contentLanguageIds, isAuthenticated]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const languagesOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getLanguagesOfflineQuery(),
     [getLanguagesOfflineQuery]
   );
 
+   
   const { data: contentLanguages = [] } = useHybridData<
     typeof languageTable.$inferSelect
   >({

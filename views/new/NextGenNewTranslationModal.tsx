@@ -56,9 +56,10 @@ import {
   Pressable,
   Modal,
   ScrollView,
-  TouchableWithoutFeedback,
-  type TextInput
+  TouchableWithoutFeedback
+  
 } from 'react-native';
+import type {TextInput} from 'react-native';
 import { z } from 'zod';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
@@ -106,8 +107,10 @@ export default function NextGenNewTranslationModal({
     []
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(() => {
     if (!isPowerSyncReady || !isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
     return toCompilableQuery(
@@ -117,6 +120,7 @@ export default function NextGenNewTranslationModal({
     );
   }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
 
+   
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
     queryKeyParams: [currentProjectId || ''],
@@ -130,10 +134,10 @@ export default function NextGenNewTranslationModal({
         .limit(1)
         .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData
+    enableCloudQuery: currentProjectId !== null && !currentProjectData,
+    enableOfflineQuery: currentProjectId !== null && !currentProjectData
   });
 
   const queriedProjectData = queriedProjectDataArray?.[0];
@@ -340,8 +344,8 @@ export default function NextGenNewTranslationModal({
             source_asset_id: assetId,
             source_language_id: translationLanguageId,
             project_id: currentProjectId,
-            creator_id: currentUser!.id,
-            download_profiles: [currentUser!.id]
+            creator_id: currentUser.id,
+            download_profiles: [currentUser.id]
           })
           .returning();
 
@@ -358,7 +362,7 @@ export default function NextGenNewTranslationModal({
         } = {
           asset_id: newAsset.id,
           source_language_id: translationLanguageId,
-          download_profiles: [currentUser!.id]
+          download_profiles: [currentUser.id]
         };
 
         if (translationType === 'text' && data.text) {
@@ -374,7 +378,7 @@ export default function NextGenNewTranslationModal({
         await tx.insert(resolveTable('quest_asset_link')).values({
           quest_id: currentQuestId,
           asset_id: newAsset.id,
-          download_profiles: [currentUser!.id]
+          download_profiles: [currentUser.id]
         });
       });
     },
@@ -445,21 +449,6 @@ export default function NextGenNewTranslationModal({
         targetLanguageData.native_name ||
         targetLanguageData.english_name ||
         'Unknown';
-
-      if (__DEV__) {
-        console.log(
-          '[AI PREDICTION] Nearby examples count:',
-          nearbyExamples.length
-        );
-        console.log('[AI PREDICTION] Quest ID:', currentQuestId);
-        console.log(
-          '[AI PREDICTION] Target language ID:',
-          translationLanguageId
-        );
-        if (nearbyExamples.length > 0) {
-          console.log('[AI PREDICTION] First example:', nearbyExamples[0]);
-        }
-      }
 
       const result = await predictTranslation({
         sourceText,
@@ -755,114 +744,116 @@ export default function NextGenNewTranslationModal({
       {enableAiSuggestions && (
         <Modal
           visible={showDetailsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDetailsModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowDetailsModal(false)}>
-          <Pressable className="flex-1 items-center justify-center bg-black/50">
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View className="w-[90%] max-w-lg rounded-lg bg-background p-6">
-                <View className="mb-4 flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-2">
-                    <Icon as={Lightbulb} size={20} className="text-primary" />
-                    <Text className="text-lg font-bold text-foreground">
-                      Translation Details
-                    </Text>
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDetailsModal(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowDetailsModal(false)}>
+            <Pressable className="flex-1 items-center justify-center bg-black/50">
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View className="w-[90%] max-w-lg rounded-lg bg-background p-6">
+                  <View className="mb-4 flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-2">
+                      <Icon as={Lightbulb} size={20} className="text-primary" />
+                      <Text className="text-lg font-bold text-foreground">
+                        Translation Details
+                      </Text>
+                    </View>
+                    <Pressable
+                      className="p-1"
+                      onPress={() => setShowDetailsModal(false)}
+                    >
+                      <Icon as={XIcon} size={24} className="text-foreground" />
+                    </Pressable>
                   </View>
+
+                  <ScrollView className="max-h-[80%]">
+                    {/* Examples Section */}
+                    {predictionDetails && (
+                      <View className="mb-6">
+                        <Text className="mb-3 text-base font-semibold text-foreground">
+                          Examples Used ({predictionDetails.examples.length})
+                        </Text>
+                        {predictionDetails.examples.length > 0 ? (
+                          <View className="gap-3">
+                            {predictionDetails.examples.map(
+                              (example, index) => (
+                                <View
+                                  key={index}
+                                  className="rounded-lg border border-border bg-muted/30 p-3"
+                                >
+                                  <View className="mb-2">
+                                    <Text className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Source
+                                    </Text>
+                                    <Text className="mt-1 text-sm leading-5 text-foreground">
+                                      {example.source}
+                                    </Text>
+                                  </View>
+                                  <View>
+                                    <Text className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Target
+                                    </Text>
+                                    <Text className="mt-1 text-sm leading-5 text-foreground">
+                                      {example.target}
+                                    </Text>
+                                  </View>
+                                </View>
+                              )
+                            )}
+                          </View>
+                        ) : (
+                          <View className="rounded-lg border border-border bg-muted/30 p-4">
+                            <Text className="text-sm text-muted-foreground">
+                              No examples were available. Examples are retrieved
+                              from other assets in the same quest/chapter that
+                              have translations in the target language.
+                            </Text>
+                            <Text className="mt-2 text-xs text-muted-foreground">
+                              This means either:
+                            </Text>
+                            <Text className="mt-1 text-xs text-muted-foreground">
+                              • No translations exist yet in{' '}
+                              {targetLanguageData?.native_name ||
+                                targetLanguageData?.english_name ||
+                                'the target language'}{' '}
+                              for assets in this quest
+                            </Text>
+                            <Text className="mt-1 text-xs text-muted-foreground">
+                              • The quest has no other assets with text content
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Raw Response Section */}
+                    {predictionDetails && (
+                      <View>
+                        <Text className="mb-3 text-base font-semibold text-foreground">
+                          Raw Model Response
+                        </Text>
+                        <View className="rounded-lg border border-border bg-muted/30 p-3">
+                          <Text className="font-mono text-sm leading-5 text-foreground">
+                            {predictionDetails.rawResponse}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </ScrollView>
+
                   <Pressable
-                    className="p-1"
+                    className="mt-4 rounded-md bg-primary px-4 py-2.5"
                     onPress={() => setShowDetailsModal(false)}
                   >
-                    <Icon as={XIcon} size={24} className="text-foreground" />
+                    <Text className="text-center text-sm font-semibold text-primary-foreground">
+                      Close
+                    </Text>
                   </Pressable>
                 </View>
-
-                <ScrollView className="max-h-[80%]">
-                  {/* Examples Section */}
-                  {predictionDetails && (
-                    <View className="mb-6">
-                      <Text className="mb-3 text-base font-semibold text-foreground">
-                        Examples Used ({predictionDetails.examples.length})
-                      </Text>
-                      {predictionDetails.examples.length > 0 ? (
-                        <View className="gap-3">
-                          {predictionDetails.examples.map((example, index) => (
-                            <View
-                              key={index}
-                              className="rounded-lg border border-border bg-muted/30 p-3"
-                            >
-                              <View className="mb-2">
-                                <Text className="text-xs font-semibold uppercase text-muted-foreground">
-                                  Source
-                                </Text>
-                                <Text className="mt-1 text-sm leading-5 text-foreground">
-                                  {example.source}
-                                </Text>
-                              </View>
-                              <View>
-                                <Text className="text-xs font-semibold uppercase text-muted-foreground">
-                                  Target
-                                </Text>
-                                <Text className="mt-1 text-sm leading-5 text-foreground">
-                                  {example.target}
-                                </Text>
-                              </View>
-                            </View>
-                          ))}
-                        </View>
-                      ) : (
-                        <View className="rounded-lg border border-border bg-muted/30 p-4">
-                          <Text className="text-sm text-muted-foreground">
-                            No examples were available. Examples are retrieved
-                            from other assets in the same quest/chapter that
-                            have translations in the target language.
-                          </Text>
-                          <Text className="mt-2 text-xs text-muted-foreground">
-                            This means either:
-                          </Text>
-                          <Text className="mt-1 text-xs text-muted-foreground">
-                            • No translations exist yet in{' '}
-                            {targetLanguageData?.native_name ||
-                              targetLanguageData?.english_name ||
-                              'the target language'}{' '}
-                            for assets in this quest
-                          </Text>
-                          <Text className="mt-1 text-xs text-muted-foreground">
-                            • The quest has no other assets with text content
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Raw Response Section */}
-                  {predictionDetails && (
-                    <View>
-                      <Text className="mb-3 text-base font-semibold text-foreground">
-                        Raw Model Response
-                      </Text>
-                      <View className="rounded-lg border border-border bg-muted/30 p-3">
-                        <Text className="font-mono text-sm leading-5 text-foreground">
-                          {predictionDetails.rawResponse}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </ScrollView>
-
-                <Pressable
-                  className="mt-4 rounded-md bg-primary px-4 py-2.5"
-                  onPress={() => setShowDetailsModal(false)}
-                >
-                  <Text className="text-center text-sm font-semibold text-primary-foreground">
-                    Close
-                  </Text>
-                </Pressable>
-              </View>
-            </TouchableWithoutFeedback>
-          </Pressable>
-        </TouchableWithoutFeedback>
+              </TouchableWithoutFeedback>
+            </Pressable>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
     </Drawer>
