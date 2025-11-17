@@ -118,9 +118,12 @@ export function AnimatedOnboardingIcon({
   return (
     <Animated.View style={animatedStyle}>
       <View className="h-24 w-24 items-center justify-center rounded-full bg-primary/10">
-        <Icon as={IconComponent} size={size} className={className || 'text-primary'} />
+        <Icon
+          as={IconComponent}
+          size={size}
+          className={className || 'text-primary'}
+        />
       </View>
     </Animated.View>
   );
 }
-

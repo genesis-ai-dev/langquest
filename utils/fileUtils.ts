@@ -22,11 +22,15 @@ export function getDirectory(uri: string) {
   if (uri.startsWith('file://')) {
     const pathWithoutProtocol = uri.replace(/^file:\/\//, ''); // Remove file:// or file:///
     // Remove any trailing slashes or path components like '/..'
-    const cleanPath = pathWithoutProtocol.replace(/\/\.\.?\/?$/, '').replace(/\/+$/, '');
+    const cleanPath = pathWithoutProtocol
+      .replace(/\/\.\.?\/?$/, '')
+      .replace(/\/+$/, '');
     if (!cleanPath || cleanPath === '') {
       return 'file:///';
     }
-    const parts = cleanPath.split('/').filter(p => p !== '' && p !== '.' && p !== '..');
+    const parts = cleanPath
+      .split('/')
+      .filter((p) => p !== '' && p !== '.' && p !== '..');
     if (parts.length === 0) {
       return 'file:///';
     }
@@ -35,7 +39,9 @@ export function getDirectory(uri: string) {
   }
   // Remove any trailing slashes or path components like '/..'
   const cleanPath = uri.replace(/\/\.\.?\/?$/, '').replace(/\/+$/, '');
-  const parts = cleanPath.split('/').filter(p => p !== '' && p !== '.' && p !== '..');
+  const parts = cleanPath
+    .split('/')
+    .filter((p) => p !== '' && p !== '.' && p !== '..');
   if (parts.length === 0) {
     return '/';
   }
@@ -86,7 +92,7 @@ export async function writeFile(
  */
 export function normalizeFileUri(uri: string): string {
   let normalized = uri.trim();
-  
+
   // Handle file:// URIs
   if (normalized.startsWith('file://')) {
     // Normalize to file:/// (three slashes) if needed
@@ -95,13 +101,13 @@ export function normalizeFileUri(uri: string): string {
     } else if (!normalized.startsWith('file:///')) {
       normalized = normalized.replace(/^file:\/\//, 'file:///');
     }
-    
+
     // Remove path traversal components (/.. and /.)
     normalized = normalized.replace(/\/\.\.?(\/|$)/g, '/');
-    
+
     // Remove trailing slashes (but keep file:///)
     normalized = normalized.replace(/\/+$/, '');
-    
+
     // Remove double slashes in the path part (after file:///)
     normalized = normalized.replace(/file:\/\/(.+)/, (match, path) => {
       const cleanPath = path.replace(/\/+/g, '/');
@@ -114,7 +120,7 @@ export function normalizeFileUri(uri: string): string {
     normalized = normalized.replace(/\/+$/, '');
     normalized = normalized.replace(/\/\/+/g, '/');
   }
-  
+
   return normalized;
 }
 
@@ -122,11 +128,11 @@ export async function moveFile(sourceUri: string, targetUri: string) {
   // On iOS Simulator, FileSystem.moveAsync has a bug where it appends /.. to paths
   // Workaround: Use copy + delete instead of move
   // This is more reliable across platforms and avoids the simulator bug
-  
+
   // Normalize both URIs to ensure they're properly formatted
   let fromUri = normalizeFileUri(sourceUri);
   let toUri = normalizeFileUri(targetUri);
-  
+
   try {
     // Try moveAsync first (faster on real devices)
     await FileSystem.moveAsync({ from: fromUri, to: toUri });
@@ -144,7 +150,8 @@ export async function moveFile(sourceUri: string, targetUri: string) {
       } catch (deleteError) {
         // If deletion fails (common on iOS Simulator with temp files), log but don't fail
         // Temp files will be cleaned up automatically by the OS
-        const isTempFile = deleteUri.includes('/tmp/') || deleteUri.includes('/tmp');
+        const isTempFile =
+          deleteUri.includes('/tmp/') || deleteUri.includes('/tmp');
         if (isTempFile) {
           console.log(
             `⚠️ Failed to delete temp file (will be cleaned up automatically): ${deleteUri}`
@@ -229,25 +236,25 @@ export async function saveAudioLocally(uri: string) {
   // Normalize the source URI - remove any path traversal components and trailing slashes
   // Handle both file:// URIs and regular paths
   const cleanSourceUri = normalizeFileUri(uri);
-  
+
   // Extract extension before further processing
   const extension = cleanSourceUri.split('.').pop() || 'wav';
-  
+
   const newUri = `local/${uuid.v4()}.${extension}`;
   console.log('🔍 Saving audio file locally:', cleanSourceUri, newUri);
-  
+
   // Retry logic for file existence - iOS Simulator can have timing issues
   // where the file isn't immediately available after Swift writes it
   const maxRetries = 5;
   const retryDelayMs = 100;
   let fileExistsNow = false;
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     fileExistsNow = await fileExists(cleanSourceUri);
     if (fileExistsNow) {
       break;
     }
-    
+
     if (attempt < maxRetries - 1) {
       console.log(
         `⏳ File not found yet (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelayMs}ms...`
@@ -255,7 +262,7 @@ export async function saveAudioLocally(uri: string) {
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
-  
+
   if (!fileExistsNow) {
     // Get file info for better error message
     const fileInfo = await getFileInfo(cleanSourceUri);
@@ -263,10 +270,10 @@ export async function saveAudioLocally(uri: string) {
     console.error('❌', errorMsg);
     throw new Error(errorMsg);
   }
-  
+
   const newPath = getLocalUri(getLocalFilePathSuffix(newUri));
   await ensureDir(getDirectory(newPath));
-  
+
   // Debug: Log the URIs before moving
   console.log('📦 Moving file:', {
     from: cleanSourceUri,
@@ -274,7 +281,7 @@ export async function saveAudioLocally(uri: string) {
     fromLength: cleanSourceUri.length,
     toLength: newPath.length
   });
-  
+
   try {
     await moveFile(cleanSourceUri, newPath);
   } catch (error) {
@@ -288,7 +295,7 @@ export async function saveAudioLocally(uri: string) {
     });
     throw error;
   }
-  
+
   console.log(
     '✅ Audio file saved locally:',
     `${getLocalUri(getLocalFilePathSuffix('local'))}/${newUri}`

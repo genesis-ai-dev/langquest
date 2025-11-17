@@ -24,19 +24,20 @@ export function useLanguagesByRegion(regionId: string | null) {
   return useHybridData<LanguageByRegion>({
     dataType: 'languages-by-region',
     queryKeyParams: [regionId || ''],
-    
+
     // Note: languoid and languoid_region tables don't exist in local SQLite
     // Use a dummy offline query that returns empty array
     offlineQuery: `SELECT '' as id, '' as name, '' as level, '' as parent_id, '' as region_id, '' as region_name, 0 as active, '' as created_at, '' as last_updated WHERE 1 = 0`,
-    
+
     // Cloud query - fetch languoids filtered by region
     cloudQueryFn: async () => {
       if (!regionId) return [];
-      
+
       // Query languoids via languoid_region join
       const { data, error } = await system.supabaseConnector.client
         .from('languoid_region')
-        .select(`
+        .select(
+          `
           languoid_id,
           region_id,
           languoid:languoid_id (
@@ -51,17 +52,18 @@ export function useLanguagesByRegion(regionId: string | null) {
           region:region_id (
             name
           )
-        `)
+        `
+        )
         .eq('region_id', regionId)
         .eq('active', true);
-      
+
       if (error) throw error;
-      
+
       // Transform the nested data structure
       const languages: LanguageByRegion[] = (data || []).map((item: any) => {
         const languoid = item.languoid;
         const region = item.region;
-        
+
         return {
           id: languoid.id,
           name: languoid.name,
@@ -74,15 +76,14 @@ export function useLanguagesByRegion(regionId: string | null) {
           region_name: region?.name || ''
         };
       });
-      
+
       // Sort by name
       languages.sort((a, b) => a.name.localeCompare(b.name));
-      
+
       return languages;
     },
-    
+
     enableCloudQuery: !!regionId,
     enableOfflineQuery: false // Languoid tables don't exist locally
   });
 }
-

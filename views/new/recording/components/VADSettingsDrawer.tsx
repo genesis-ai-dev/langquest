@@ -70,27 +70,27 @@ interface InputPill {
 const generateInputPills = (): InputPill[] => {
   const NUM_PILLS = 10;
   const pills: InputPill[] = [];
-  
+
   // Use exponential distribution: each pill covers an exponentially larger dB range
   // Total range: DB_MIN (-60) to DB_MAX (0) = 60 dB
   // We'll use a logarithmic distribution
-  
+
   for (let i = 0; i < NUM_PILLS; i++) {
     // Normalize position (0 to 1)
     const normalizedPos = i / NUM_PILLS;
     const normalizedNextPos = (i + 1) / NUM_PILLS;
-    
+
     // Apply exponential curve: earlier positions map to smaller dB ranges
     // Use power curve: position^1.4 for less aggressive distribution
     // Goal: ambient noise (-3 to -2 dB) should fill pills 7-8, not pill 9
     // Pill 9 should only fill for very loud sounds close to 0 dB
     const logStart = Math.pow(normalizedPos, 1.4);
     const logEnd = Math.pow(normalizedNextPos, 1.4);
-    
+
     // Map back to dB range
     const minDb = DB_MIN + logStart * (DB_MAX - DB_MIN);
     const maxDb = DB_MIN + logEnd * (DB_MAX - DB_MIN);
-    
+
     // Color gradient: Blue -> Green -> Yellow -> Red
     const colorProgress = i / (NUM_PILLS - 1);
     let color: string;
@@ -107,14 +107,14 @@ const generateInputPills = (): InputPill[] => {
       const t = (colorProgress - 0.66) / 0.34;
       color = `rgba(${234 + (239 - 234) * t}, ${179 + (68 - 179) * t}, ${8 + (68 - 8) * t}, ${0.9 + 0.1 * t})`;
     }
-    
+
     pills.push({
       minDb,
       maxDb,
       color
     });
   }
-  
+
   return pills;
 };
 
@@ -210,10 +210,12 @@ export function VADSettingsDrawer({
   > | null>(null);
   // Ref to track latest energy value for calibration sampling
   const latestEnergyRef = React.useRef<number>(0);
-  
+
   // Refs for logging statistics
   const energySamplesRef = React.useRef<number[]>([]);
-  const loggingIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const loggingIntervalRef = React.useRef<ReturnType<
+    typeof setInterval
+  > | null>(null);
 
   const currentEnergy = energyResult?.energy ?? 0;
 
@@ -251,24 +253,25 @@ export function VADSettingsDrawer({
   // Since pills are equal width, each pill is 10% of the visual space
   const dbToVisualPosition = (db: number): number => {
     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
-    
+
     // Find which pill contains this dB value
     for (let i = 0; i < INPUT_PILLS.length; i++) {
       const pill = INPUT_PILLS[i]!;
-      
+
       if (clampedDb >= pill.minDb && clampedDb <= pill.maxDb) {
         // This is the pill - calculate position within it
-        const positionInPill = (clampedDb - pill.minDb) / (pill.maxDb - pill.minDb);
+        const positionInPill =
+          (clampedDb - pill.minDb) / (pill.maxDb - pill.minDb);
         const pillStartPercent = i * 10; // Each pill is 10% wide
         return pillStartPercent + positionInPill * 10;
       }
     }
-    
+
     // If above max, return 100%
     if (clampedDb >= INPUT_PILLS[INPUT_PILLS.length - 1]!.maxDb) {
       return 100;
     }
-    
+
     // Fallback (shouldn't happen)
     return 0;
   };
@@ -278,7 +281,7 @@ export function VADSettingsDrawer({
   // Cumulative fill: all pills below current dB are fully filled, current pill is partially filled
   const getActivePills = (db: number) => {
     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
-    
+
     return INPUT_PILLS.map((pill, index) => {
       if (clampedDb < pill.minDb) {
         // Below this pill's range - empty
@@ -288,8 +291,13 @@ export function VADSettingsDrawer({
         return { ...pill, isActive: true, fillPercent: 100 };
       } else {
         // Within this pill's range - calculate fill percentage
-        const fillPercent = ((clampedDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
-        return { ...pill, isActive: true, fillPercent: Math.min(100, Math.max(0, fillPercent)) };
+        const fillPercent =
+          ((clampedDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
+        return {
+          ...pill,
+          isActive: true,
+          fillPercent: Math.min(100, Math.max(0, fillPercent))
+        };
       }
     });
   };
@@ -298,20 +306,23 @@ export function VADSettingsDrawer({
   // Since pills are equal width, each pill is 10% of the visual space
   const visualPositionToDb = (percent: number): number => {
     const clampedPercent = Math.max(0, Math.min(100, percent));
-    
+
     // Each pill is 10% wide
     const pillIndex = Math.floor(clampedPercent / 10);
     const positionInPill = (clampedPercent % 10) / 10;
-    
+
     // Clamp to valid pill range
-    const safePillIndex = Math.max(0, Math.min(INPUT_PILLS.length - 1, pillIndex));
+    const safePillIndex = Math.max(
+      0,
+      Math.min(INPUT_PILLS.length - 1, pillIndex)
+    );
     const pill = INPUT_PILLS[safePillIndex]!;
-    
+
     // If at the end of the last pill, use maxDb
     if (pillIndex >= INPUT_PILLS.length - 1 && positionInPill >= 0.99) {
       return pill.maxDb;
     }
-    
+
     // Calculate dB within this pill's range
     const dbInPill = pill.minDb + positionInPill * (pill.maxDb - pill.minDb);
     return dbInPill;
@@ -352,21 +363,22 @@ export function VADSettingsDrawer({
     if (isOpen && isActive) {
       // Collect energy samples
       energySamplesRef.current = [];
-      
+
       // Log statistics every 3 seconds
       loggingIntervalRef.current = setInterval(() => {
         const samples = energySamplesRef.current;
         if (samples.length > 0) {
           const min = Math.min(...samples);
           const max = Math.max(...samples);
-          const avg = samples.reduce((sum, val) => sum + val, 0) / samples.length;
+          const avg =
+            samples.reduce((sum, val) => sum + val, 0) / samples.length;
           const currentDb = energyToDb(avg);
           const thresholdDb = energyToDb(threshold);
-          
+
           const normalizedMin = normalizeEnergy(min);
           const normalizedMax = normalizeEnergy(max);
           const normalizedAvg = normalizeEnergy(avg);
-          
+
           // Find which pill the current dB falls into
           let activePillIndex = -1;
           let activePillFill = 0;
@@ -374,32 +386,36 @@ export function VADSettingsDrawer({
             const pill = INPUT_PILLS[i]!;
             if (currentDb >= pill.minDb && currentDb < pill.maxDb) {
               activePillIndex = i;
-              activePillFill = ((currentDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
+              activePillFill =
+                ((currentDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
               break;
             }
           }
-          
+
           // Log pill ranges for debugging
-          const pillRanges = INPUT_PILLS.map((p, i) => 
-            `P${i}: ${p.minDb.toFixed(1)} to ${p.maxDb.toFixed(1)} dB`
+          const pillRanges = INPUT_PILLS.map(
+            (p, i) => `P${i}: ${p.minDb.toFixed(1)} to ${p.maxDb.toFixed(1)} dB`
           ).join(', ');
-          
+
           console.log('📊 VAD Energy Stats:', {
             samples: samples.length,
             rawAvg: avg.toFixed(4),
             normalizedAvg: normalizedAvg.toFixed(4),
             avgDb: currentDb.toFixed(1),
-            activePill: activePillIndex >= 0 ? `Pill ${activePillIndex} (${activePillFill.toFixed(1)}% filled)` : 'None',
+            activePill:
+              activePillIndex >= 0
+                ? `Pill ${activePillIndex} (${activePillFill.toFixed(1)}% filled)`
+                : 'None',
             threshold: threshold.toFixed(4),
             thresholdDb: thresholdDb.toFixed(1),
             pillRanges
           });
-          
+
           // Reset samples for next interval
           energySamplesRef.current = [];
         }
       }, 3000); // Every 3 seconds
-      
+
       return () => {
         if (loggingIntervalRef.current) {
           clearInterval(loggingIntervalRef.current);
@@ -469,7 +485,11 @@ export function VADSettingsDrawer({
     const sampleInterval = setInterval(() => {
       // Use ref to get latest energy value (updated from useEffect)
       const currentEnergy = latestEnergyRef.current;
-      if (currentEnergy !== undefined && !isNaN(currentEnergy) && currentEnergy > 0) {
+      if (
+        currentEnergy !== undefined &&
+        !isNaN(currentEnergy) &&
+        currentEnergy > 0
+      ) {
         calibrationSamplesRef.current.push(currentEnergy);
       }
     }, CALIBRATION_SAMPLE_INTERVAL_MS);
@@ -499,7 +519,10 @@ export function VADSettingsDrawer({
       // Normalize the average energy to 0-1 range (matching visualization)
       // Swift/Android send raw RMS energy values that need normalization
       const MAX_ENERGY = 20.0;
-      const normalizedAverage = Math.min(1.0, Math.max(0, average / MAX_ENERGY));
+      const normalizedAverage = Math.min(
+        1.0,
+        Math.max(0, average / MAX_ENERGY)
+      );
 
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
@@ -528,13 +551,7 @@ export function VADSettingsDrawer({
     }, totalDuration);
 
     calibrationTimeoutRef.current = timeout;
-  }, [
-    isCalibrating,
-    isActive,
-    startEnergyDetection,
-    onThresholdChange,
-    t
-  ]);
+  }, [isCalibrating, isActive, startEnergyDetection, onThresholdChange, t]);
 
   // Cleanup calibration on unmount
   React.useEffect(() => {
@@ -691,9 +708,9 @@ export function VADSettingsDrawer({
           <View className="gap-3">
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
-            <Text className="text-sm font-medium text-foreground">
+              <Text className="text-sm font-medium text-foreground">
                 {t('vadCurrentLevel')}
-            </Text>
+              </Text>
             </View>
 
             {/* Input Level Pills - Horizontal Row (10 equal-width pills) */}
@@ -704,9 +721,9 @@ export function VADSettingsDrawer({
                     {/* Pill background */}
                     <View className="h-full w-full overflow-hidden rounded-full bg-muted/50">
                       {/* Pill fill */}
-              <Animated.View
-                style={[
-                  {
+                      <Animated.View
+                        style={[
+                          {
                             width: `${Math.min(100, pill.fillPercent)}%`,
                             height: '100%'
                           },
@@ -723,7 +740,7 @@ export function VADSettingsDrawer({
                   </View>
                 );
               })}
-              
+
               {/* Threshold marker spanning all pills vertically */}
               <View
                 style={{
@@ -751,8 +768,8 @@ export function VADSettingsDrawer({
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
                 <Icon as={Volume1} size={18} className="text-foreground" />
-            <Text className="text-sm font-medium text-foreground">
-              {t('vadThreshold')}
+                <Text className="text-sm font-medium text-foreground">
+                  {t('vadThreshold')}
                 </Text>
               </View>
               <Button
@@ -814,8 +831,14 @@ export function VADSettingsDrawer({
                     const newDb = visualPositionToDb(newPos);
                     // Convert dB back to energy (0-1), clamp dB to valid range first
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy = clampedDb <= DB_MIN ? THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(THRESHOLD_MIN, Math.min(THRESHOLD_MAX, newEnergy));
+                    const newEnergy =
+                      clampedDb <= DB_MIN
+                        ? THRESHOLD_MIN
+                        : Math.pow(10, clampedDb / 20);
+                    const newThreshold = Math.max(
+                      THRESHOLD_MIN,
+                      Math.min(THRESHOLD_MAX, newEnergy)
+                    );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
                   disabled={threshold <= THRESHOLD_MIN}
@@ -834,8 +857,14 @@ export function VADSettingsDrawer({
                     const newDb = visualPositionToDb(newPos);
                     // Convert dB back to energy (0-1), clamp dB to valid range first
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy = clampedDb <= DB_MIN ? THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(THRESHOLD_MIN, Math.min(THRESHOLD_MAX, newEnergy));
+                    const newEnergy =
+                      clampedDb <= DB_MIN
+                        ? THRESHOLD_MIN
+                        : Math.pow(10, clampedDb / 20);
+                    const newThreshold = Math.max(
+                      THRESHOLD_MIN,
+                      Math.min(THRESHOLD_MAX, newEnergy)
+                    );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
                   disabled={threshold >= THRESHOLD_MAX}

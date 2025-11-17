@@ -240,7 +240,7 @@ export default function AppHeader({
             variant="ghost"
             size="icon"
             onPress={onOnboardingPress}
-            className="relative size-8 mr-2"
+            className="relative mr-2 size-8"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Icon as={HelpCircle} size={24} className="text-muted-foreground" />

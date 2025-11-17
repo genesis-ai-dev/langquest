@@ -26,11 +26,11 @@ export function VisionFlowAnimation() {
   const particle1X = useSharedValue(0);
   const particle1Y = useSharedValue(0);
   const particle1Opacity = useSharedValue(0);
-  
+
   const particle2X = useSharedValue(0);
   const particle2Y = useSharedValue(0);
   const particle2Opacity = useSharedValue(0);
-  
+
   const particle3X = useSharedValue(0);
   const particle3Y = useSharedValue(0);
   const particle3Opacity = useSharedValue(0);
@@ -39,11 +39,11 @@ export function VisionFlowAnimation() {
   const returnParticle1X = useSharedValue(0);
   const returnParticle1Y = useSharedValue(0);
   const returnParticle1Opacity = useSharedValue(0);
-  
+
   const returnParticle2X = useSharedValue(0);
   const returnParticle2Y = useSharedValue(0);
   const returnParticle2Opacity = useSharedValue(0);
-  
+
   const returnParticle3X = useSharedValue(0);
   const returnParticle3Y = useSharedValue(0);
   const returnParticle3Opacity = useSharedValue(0);
@@ -51,11 +51,17 @@ export function VisionFlowAnimation() {
   useEffect(() => {
     // Animate globe in
     globeOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
-    globeScale.value = withDelay(200, withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) }));
+    globeScale.value = withDelay(
+      200,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) })
+    );
 
     // Animate users in
     usersOpacity.value = withDelay(400, withTiming(1, { duration: 500 }));
-    usersScale.value = withDelay(400, withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) }));
+    usersScale.value = withDelay(
+      400,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) })
+    );
 
     // Flow from globe to users with arcing paths
     const flowToUsers = () => {
@@ -213,7 +219,7 @@ export function VisionFlowAnimation() {
 
     // Start flow to users
     flowToUsers();
-    
+
     // After particles reach users, start return flow
     const returnDelay = setTimeout(() => {
       flowToGlobe();
@@ -320,7 +326,7 @@ export function VisionFlowAnimation() {
       <Animated.View style={globeStyle}>
         <View className="relative h-20 w-20 items-center justify-center">
           {/* Semi-transparent background circle */}
-          <View className="absolute h-20 w-20 rounded-full bg-background/60 border border-border/50" />
+          <View className="absolute h-20 w-20 rounded-full border border-border/50 bg-background/60" />
           <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Icon as={GlobeIcon} size={28} className="text-primary" />
           </View>
@@ -339,7 +345,7 @@ export function VisionFlowAnimation() {
         <Animated.View style={particle3Style} className="absolute">
           <View className="h-2 w-2 rounded-full bg-primary" />
         </Animated.View>
-        
+
         {/* Particles flowing from users back to globe */}
         <Animated.View style={returnParticle1Style} className="absolute">
           <View className="h-2 w-2 rounded-full bg-primary" />
@@ -356,7 +362,7 @@ export function VisionFlowAnimation() {
       <Animated.View style={usersStyle}>
         <View className="relative h-20 w-20 items-center justify-center">
           {/* Semi-transparent background circle */}
-          <View className="absolute h-20 w-20 rounded-full bg-background/60 border border-border/50" />
+          <View className="absolute h-20 w-20 rounded-full border border-border/50 bg-background/60" />
           <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Icon as={UsersIcon} size={28} className="text-primary" />
           </View>
@@ -365,4 +371,3 @@ export function VisionFlowAnimation() {
     </View>
   );
 }
-

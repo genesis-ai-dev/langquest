@@ -17,14 +17,17 @@ type Project = typeof project.$inferSelect;
 export function useProjectsByLanguage(languageId: string | null) {
   const { currentUser } = useAuth();
   const userId = currentUser?.id;
-  
+
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
 
-  const {
-    data: restrictions
-  } = useUserRestrictions('project', true, true, false);
+  const { data: restrictions } = useUserRestrictions(
+    'project',
+    true,
+    true,
+    false
+  );
 
   const blockContentIds = (restrictions.blockedContentIds ?? []).map(
     (c) => c.content_id
@@ -35,8 +38,12 @@ export function useProjectsByLanguage(languageId: string | null) {
 
   return useHybridData<Project>({
     dataType: 'projects-by-language',
-    queryKeyParams: [languageId || '', userId || '', showInvisibleContent ? 'show-hidden' : ''],
-    
+    queryKeyParams: [
+      languageId || '',
+      userId || '',
+      showInvisibleContent ? 'show-hidden' : ''
+    ],
+
     // Offline query - get projects by target language
     offlineQuery: toCompilableQuery(
       system.db
@@ -47,7 +54,9 @@ export function useProjectsByLanguage(languageId: string | null) {
         .where(
           and(
             ...[
-              languageId ? eq(project.target_language_id, languageId) : undefined,
+              languageId
+                ? eq(project.target_language_id, languageId)
+                : undefined,
               eq(project.active, true),
               // Exclude projects user is already a member of
               userId &&
@@ -63,18 +72,20 @@ export function useProjectsByLanguage(languageId: string | null) {
                 userId ? eq(project.creator_id, userId) : undefined
               ),
               // Blocked users filter
-              blockUserIds.length > 0 && notInArray(project.creator_id, blockUserIds),
+              blockUserIds.length > 0 &&
+                notInArray(project.creator_id, blockUserIds),
               // Blocked content filter
-              blockContentIds.length > 0 && notInArray(project.id, blockContentIds)
+              blockContentIds.length > 0 &&
+                notInArray(project.id, blockContentIds)
             ].filter(Boolean)
           )
         )
     ),
-    
+
     // Cloud query - get projects by target language
     cloudQueryFn: async () => {
       if (!languageId) return [];
-      
+
       // Get projects user is already a member of (to exclude)
       const userProjectIds = userId
         ? await system.supabaseConnector.client
@@ -118,9 +129,8 @@ export function useProjectsByLanguage(languageId: string | null) {
       if (error) throw error;
       return data || [];
     },
-    
+
     enableCloudQuery: !!languageId,
     enableOfflineQuery: !!languageId
   });
 }
-

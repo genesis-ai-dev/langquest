@@ -105,8 +105,11 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
       // But values can be higher, so normalize similar to VADSettingsDrawer
       // Using MAX_ENERGY = 20.0 to match VADSettingsDrawer normalization
       const MAX_ENERGY = 20.0;
-      const normalizedRaw = Math.min(1.0, Math.max(0, currentEnergy / MAX_ENERGY));
-      
+      const normalizedRaw = Math.min(
+        1.0,
+        Math.max(0, currentEnergy / MAX_ENERGY)
+      );
+
       // Scale relative to threshold for visualization
       // Threshold is already normalized (0-1), so we compare normalized values
       const normalizedEnergy = Math.max(
