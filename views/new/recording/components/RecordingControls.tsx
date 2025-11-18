@@ -278,7 +278,8 @@ export const RecordingControls = React.memo(
     // During check (hasPermission === null), show controls optimistically
     const showPermissionOverlay = hasPermission === false;
     // Show auto-calibrate prompt after first-time permission grant
-    const showAutoCalibrateOverlay = showAutoCalibratePrompt && hasPermission === true;
+    const showAutoCalibrateOverlay =
+      showAutoCalibratePrompt && hasPermission === true;
 
     return (
       <>
@@ -320,7 +321,7 @@ export const RecordingControls = React.memo(
               <Text className="text-center text-base font-semibold text-foreground">
                 {t('calibrateMicrophone') || 'Calibrate your microphone'}
               </Text>
-              <Text className="text-center text-sm text-muted-foreground px-8">
+              <Text className="px-8 text-center text-sm text-muted-foreground">
                 {t('calibrateMicrophoneDescription') ||
                   'Let us automatically adjust the sensitivity for your environment'}
               </Text>
