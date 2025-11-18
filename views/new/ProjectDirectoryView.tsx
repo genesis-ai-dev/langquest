@@ -39,7 +39,6 @@ import { useCloudLoading } from '@/contexts/CloudLoadingContext';
 import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
   useAppNavigation,
@@ -708,169 +707,17 @@ export default function ProjectDirectoryView() {
 
       return newQuest;
     },
-    onMutate: async (values) => {
-      // Optimistically update the UI immediately
-      if (!currentProjectId || !currentUser?.id) return;
-
-      const baseKey = [
-        'quests',
-        'infinite',
-        'for-project',
-        currentProjectId,
-        searchQuery
-      ];
-      const offlineKey = [...baseKey, 'offline'];
-      const cloudKey = [...baseKey, 'cloud'];
-
-      // Cancel outgoing queries to avoid overwriting optimistic update
-      await queryClient.cancelQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
-      });
-
-      // Snapshot previous values for rollback
-      const previousOffline = queryClient.getQueryData(offlineKey);
-      const previousCloud = queryClient.getQueryData(cloudKey);
-
-      // Create optimistic quest data
-      const optimisticQuest = {
-        id: `temp-${Date.now()}`, // Temporary ID until real one is returned
-        name: values.name,
-        description: values.description || null,
-        project_id: currentProjectId,
-        parent_id: parentForNewQuest,
-        creator_id: currentUser.id,
-        download_profiles: [currentUser.id],
-        visible: true,
-        source: 'local' as const
-      };
-
-      // Optimistically update offline infinite query cache
-      queryClient.setQueryData(
-        offlineKey,
-        (old?: { pages: { data: Quest[] }[] }) => {
-          if (!old) return undefined;
-
-          // Add optimistic quest to first page
-          return {
-            ...old,
-            pages: old.pages.map((page: { data: Quest[] }, index: number) => {
-              if (index === 0) {
-                return {
-                  ...page,
-                  data: [...page.data, optimisticQuest]
-                };
-              }
-              return page;
-            })
-          };
-        }
-      );
-
-      return { previousOffline, previousCloud };
-    },
-    onSuccess: async (newQuest) => {
+    onSuccess: () => {
       form.reset();
       setIsCreateOpen(false);
       setParentForNewQuest(null);
 
-      console.log(
-        '✅ [Create Quest] Quest created, updating cache with real data...'
-      );
-
-      // Update cache with real quest data (replace optimistic one)
-      const baseKey = [
-        'quests',
-        'infinite',
-        'for-project',
-        currentProjectId,
-        searchQuery
-      ];
-      const offlineKey = [...baseKey, 'offline'];
-
-      queryClient.setQueryData(
-        offlineKey,
-        (old?: { pages: { data: Quest[] }[] }) => {
-          return {
-            ...old,
-            pages: old?.pages.map((page: { data: Quest[] }, index: number) => {
-              if (index === 0) {
-                // Replace optimistic quest(s) with real one
-                const data = page.data.map((quest: Quest) =>
-                  quest.id.startsWith('temp-')
-                    ? { ...newQuest, source: 'local' as const }
-                    : quest
-                );
-
-                // If no optimistic quest was found, add real one
-                const hasOptimistic = page.data.some((q: Quest) =>
-                  q.id.startsWith('temp-')
-                );
-                if (!hasOptimistic) {
-                  data.push({ ...newQuest, source: 'local' as const });
-                }
-
-                return { ...page, data };
-              }
-              return page;
-            })
-          };
-        }
-      );
-
-      console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync, then invalidate to ensure consistency
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('📥 [Create Quest] Invalidating all quest queries...');
-      // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', currentProjectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
-      });
-
-      console.log('📥 [Create Quest] Invalidating assets queries');
-      // Invalidate assets queries to refresh assets list if user is viewing a quest
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      console.log('✅ [Create Quest] All queries invalidated');
+      // No need to invalidate queries:
+      // - Offline queries are reactive and will automatically update when PowerSync DB changes
+      // - Cloud queries will refetch on mount via refetchOnMount
     },
-    onError: (error, values, context) => {
+    onError: (error) => {
       console.error('Failed to create quest', error);
-
-      // Rollback optimistic update on error
-      if (context?.previousOffline) {
-        const baseKey = [
-          'quests',
-          'infinite',
-          'for-project',
-          currentProjectId,
-          searchQuery
-        ];
-        queryClient.setQueryData(
-          [...baseKey, 'offline'],
-          context.previousOffline
-        );
-      }
-      if (context?.previousCloud) {
-        const baseKey = [
-          'quests',
-          'infinite',
-          'for-project',
-          currentProjectId,
-          searchQuery
-        ];
-        queryClient.setQueryData([...baseKey, 'cloud'], context.previousCloud);
-      }
     }
   });
 
@@ -1114,6 +961,7 @@ export default function ProjectDirectoryView() {
               <DrawerFooter>
                 <FormSubmit
                   onPress={form.handleSubmit((data) => createQuest(data))}
+                  disabled={!currentUser?.id}
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>

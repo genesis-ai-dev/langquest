@@ -657,13 +657,13 @@ export class System {
           const syncedSelect = unified
             .map((col) => {
               // For invite/request tables, replace status column with CASE statement
-              // if (isExpirableTable && col === 'status') {
-              //   return `CASE
-              //     WHEN "${synced}"."status" = 'pending' AND datetime("${synced}"."last_updated") < datetime('now', '-7 days')
-              //     THEN 'expired'
-              //     ELSE "${synced}"."status"
-              //   END AS "status"`;
-              // }
+              if (isExpirableTable && col === 'status') {
+                return `CASE
+                  WHEN "${synced}"."status" = 'pending' AND datetime("${synced}"."last_updated") < datetime('now', '-7 days')
+                  THEN 'expired'
+                  ELSE "${synced}"."status"
+                END AS "status"`;
+              }
               return remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
             })
             .filter((col) => col !== 'source')
@@ -671,13 +671,13 @@ export class System {
           const localSelect = unified
             .map((col) => {
               // For invite/request tables, replace status column with CASE statement
-              // if (isExpirableTable && col === 'status') {
-              //   return `CASE
-              //     WHEN "${local}"."status" = 'pending' AND datetime("${local}"."last_updated") < datetime('now', '-7 days')
-              //     THEN 'expired'
-              //     ELSE "${local}"."status"
-              //   END AS "status"`;
-              // }
+              if (isExpirableTable && col === 'status') {
+                return `CASE
+                  WHEN "${local}"."status" = 'pending' AND datetime("${local}"."last_updated") < datetime('now', '-7 days')
+                  THEN 'expired'
+                  ELSE "${local}"."status"
+                END AS "status"`;
+              }
               return localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
             })
             .filter((col) => col !== 'source')

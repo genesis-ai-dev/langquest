@@ -6,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -49,10 +50,7 @@ export default function SignInView({
 
   const { mutateAsync: login, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      await supabaseConnector.login(
-        data.email.toLowerCase().trim(),
-        data.password.trim()
-      );
+      await supabaseConnector.login(data.email.toLowerCase(), data.password);
       router.replace('/');
     },
     onError: (error) => {
@@ -76,12 +74,13 @@ export default function SignInView({
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    disabled: isPending,
-    defaultValues: {
-      email: sharedAuthInfo?.email
-    }
+    resolver: zodResolver(formSchema)
+    // defaultValues: {
+    // email: sharedAuthInfo?.email
+    // }
   });
+
+  console.log(form.formState);
 
   return (
     <Form {...form}>
@@ -147,12 +146,9 @@ export default function SignInView({
           </Text>
         </Pressable>
         <View className="flex flex-col gap-2">
-          <Button
-            onPress={form.handleSubmit((data) => login(data))}
-            loading={isPending}
-          >
+          <FormSubmit onPress={form.handleSubmit((data) => login(data))}>
             <Text>{t('signIn')}</Text>
-          </Button>
+          </FormSubmit>
           <Button
             onPress={() =>
               safeNavigate(() =>

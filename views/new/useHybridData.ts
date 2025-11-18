@@ -161,10 +161,12 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // If cloudQueryFn is not provided, automatically disable cloud query
   // If lazy loading, wait for offline query to finish first
   // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  const shouldFetchCloud = enableCloudQuery && isOnline && enabled;
+  const shouldFetchCloud =
+    enableCloudQuery && isOnline && enabled && !!cloudQueryFn;
+  console.log('shouldFetchCloud', shouldFetchCloud);
   const cloudEnabled = lazyLoadCloud
-    ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
-    : shouldFetchCloud && !!cloudQueryFn;
+    ? shouldFetchCloud && !isOfflineLoading
+    : shouldFetchCloud;
 
   // Fetch cloud data using standard TanStack Query
   const {
@@ -335,9 +337,9 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     isOfflineLoading,
     isCloudLoading,
     isLoading: isOfflineLoading && isCloudLoading,
-    isError: !!offlineError || !!cloudError,
+    isError: !!offlineError || (!!cloudError && isOnline),
     offlineError,
-    cloudError,
+    cloudError: isOnline ? cloudError : null,
     isOnline,
     refetch: () => {
       void offlineRefetch();
@@ -633,11 +635,12 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
     isPlaceholderData,
     isOfflineLoading,
     isCloudLoading,
-    isLoading: isOfflineLoading || isCloudLoading,
+    isLoading: isOfflineLoading && isCloudLoading,
+    // Use OR because if one query is disabled, we still want to know if the other is fetching
     isFetching: isOfflineFetching || isCloudFetching,
-    isError: !!offlineError || !!cloudError,
+    isError: !!offlineError || (!!cloudError && isOnline),
     offlineError,
-    cloudError,
+    cloudError: isOnline ? cloudError : null,
     isOnline,
     page,
     pageSize,
@@ -817,32 +820,46 @@ export function useHybridPaginatedInfiniteData<
     enabled
   });
 
-  // Accumulate pages automatically
+  // Accumulate pages automatically following TanStack Query pagination pattern
+  // With keepPreviousData, we only accumulate when we have new (non-placeholder) data
   React.useEffect(() => {
-    if (page === 0) {
-      // First page - replace accumulated data
-      setAccumulatedPages(paginatedQuery.data);
-    } else {
-      // Subsequent pages - append to accumulated data
-      setAccumulatedPages((prev) => {
-        const getItemId =
-          getItemIdProp || ((item) => (item as unknown as { id: string }).id);
-        const existingIds = new Set(prev.map((item) => getItemId(item)));
-        const newItems = paginatedQuery.data.filter(
-          (item) => !existingIds.has(getItemId(item))
-        );
-        return [...prev, ...newItems];
-      });
+    // Only accumulate when we have actual data (not placeholder data)
+    // This prevents accumulating stale/placeholder data when switching pages
+    if (!paginatedQuery.isPlaceholderData && paginatedQuery.data.length > 0) {
+      if (page === 0) {
+        // First page - replace accumulated data
+        setAccumulatedPages(paginatedQuery.data);
+      } else {
+        // Subsequent pages - append to accumulated data
+        // Only append items that don't already exist to prevent duplicates
+        setAccumulatedPages((prev) => {
+          const getItemId =
+            getItemIdProp || ((item) => (item as unknown as { id: string }).id);
+          const existingIds = new Set(prev.map((item) => getItemId(item)));
+          const newItems = paginatedQuery.data.filter(
+            (item) => !existingIds.has(getItemId(item))
+          );
+          // Append new items to maintain correct order (new pages go after previous pages)
+          return [...prev, ...newItems];
+        });
+      }
     }
-  }, [paginatedQuery.data, page, getItemIdProp]);
+  }, [
+    paginatedQuery.data,
+    paginatedQuery.isPlaceholderData,
+    page,
+    getItemIdProp
+  ]);
 
   // Convert accumulated data to infinite query format
+  // Only depend on accumulatedPages to ensure correct ordering
   const infiniteData = React.useMemo(() => {
     const pageSize = options.pageSize || 20;
     const pages: HybridPageData<WithSource<TOfflineData>>[] = [];
     const pageParams: number[] = [];
 
     // Split accumulated data into pages
+    // Only use accumulatedPages as the source of truth to ensure correct ordering
     for (let i = 0; i < accumulatedPages.length; i += pageSize) {
       const pageData = accumulatedPages.slice(i, i + pageSize);
       const pageNum = i / pageSize;
@@ -856,28 +873,14 @@ export function useHybridPaginatedInfiniteData<
       pageParams.push(pageNum);
     }
 
-    // If no accumulated pages yet but we have current page data, add it
-    if (pages.length === 0 && paginatedQuery.data.length > 0) {
-      pages.push({
-        data: paginatedQuery.data,
-        nextCursor: paginatedQuery.hasMore ? 1 : undefined,
-        hasMore: paginatedQuery.hasMore
-      });
-      pageParams.push(0);
-    }
-
     return {
       pages,
       pageParams
     };
-  }, [
-    accumulatedPages,
-    paginatedQuery.data,
-    paginatedQuery.hasMore,
-    options.pageSize
-  ]);
+  }, [accumulatedPages, paginatedQuery.hasMore, options.pageSize]);
 
   // Determine if we're fetching next/previous page
+  // We're fetching next page if we're currently fetching AND we're not on page 0
   const isFetchingNextPage = React.useMemo(() => {
     return paginatedQuery.isFetching && page > 0;
   }, [paginatedQuery.isFetching, page]);
@@ -904,33 +907,19 @@ export function useHybridPaginatedInfiniteData<
   }, [page]);
 
   // Callbacks for infinite query interface
+  // We allow fetching even when showing placeholder data (keepPreviousData behavior)
+  // The accumulation logic checks isPlaceholderData to only accumulate real data
   const fetchNextPage = React.useCallback(() => {
-    if (
-      hasNextPage &&
-      !paginatedQuery.isPlaceholderData &&
-      !paginatedQuery.isFetching
-    ) {
+    if (hasNextPage && !paginatedQuery.isFetching) {
       setPage((prev) => prev + 1);
     }
-  }, [
-    hasNextPage,
-    paginatedQuery.isPlaceholderData,
-    paginatedQuery.isFetching
-  ]);
+  }, [hasNextPage, paginatedQuery.isFetching]);
 
   const fetchPreviousPage = React.useCallback(() => {
-    if (
-      hasPreviousPage &&
-      !paginatedQuery.isPlaceholderData &&
-      !paginatedQuery.isFetching
-    ) {
+    if (hasPreviousPage && !paginatedQuery.isFetching) {
       setPage((prev) => Math.max(0, prev - 1));
     }
-  }, [
-    hasPreviousPage,
-    paginatedQuery.isPlaceholderData,
-    paginatedQuery.isFetching
-  ]);
+  }, [hasPreviousPage, paginatedQuery.isFetching]);
 
   // Set up realtime subscription for cloud data updates (infinite query format)
   React.useEffect(() => {

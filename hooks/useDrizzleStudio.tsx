@@ -35,13 +35,12 @@ export function useDrizzleStudio() {
   // This prevents the hook from throwing in preview/production builds
   if (isDevelopmentBuild) {
     try {
+      // eslint-disable-next-line react-compiler/react-compiler
       // eslint-disable-next-line react-hooks/rules-of-hooks
       client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
     } catch (error) {
       // If the hook throws (shouldn't happen, but handle it just in case)
-      if (__DEV__) {
-        console.warn('Failed to initialize Drizzle Studio dev tools:', error);
-      }
+      console.warn('Failed to initialize Drizzle Studio dev tools:', error);
       client = null;
     }
   }

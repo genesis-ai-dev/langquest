@@ -6,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -69,7 +70,6 @@ export default function ForgotPasswordView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
     defaultValues: {
       email: sharedAuthInfo?.email || ''
     }
@@ -108,12 +108,11 @@ export default function ForgotPasswordView({
           />
 
           <View className="flex w-full flex-col">
-            <Button
+            <FormSubmit
               onPress={form.handleSubmit((data) => resetPassword(data))}
-              disabled={isPending}
             >
               <Text>{t('sendResetEmail')}</Text>
-            </Button>
+            </FormSubmit>
 
             <Button
               onPress={() =>

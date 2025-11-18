@@ -6,9 +6,10 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
+import { useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, like, or } from 'drizzle-orm';
+import { and, asc, eq, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { QuestTreeRow } from './QuestTreeRow';
@@ -55,7 +56,7 @@ export function QuestListView({
   const { t } = useLocalization();
   const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
 
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 30;
   const trimmedSearch = searchQuery.trim();
 
   const questsInfiniteQuery = useHybridPaginatedInfiniteData({
@@ -90,6 +91,7 @@ export function QuestListView({
             download_profiles: true
           },
           where: and(...conditions),
+          orderBy: [asc(quest.name)],
           limit: pageSize,
           offset: offset
         })
@@ -120,6 +122,9 @@ export function QuestListView({
         );
       }
 
+      // Add ordering to ensure consistent pagination
+      query = query.order('name', { ascending: true });
+
       const { data, error } = await query
         .range(offset, offset + pageSize - 1)
         .overrideTypes<
@@ -130,9 +135,8 @@ export function QuestListView({
       return data;
     },
     enableCloudQuery: projectSource !== 'local',
-    offlineQueryOptions: {
-      enabled: !!projectId
-    }
+    enableOfflineQuery: projectSource === 'local',
+    enabled: !!projectId
   });
 
   // Notify parent of cloud loading state
@@ -161,11 +165,9 @@ export function QuestListView({
       children.get(key)!.push(q);
     }
 
-    const sortByName = (a: WithSource<Quest>, b: WithSource<Quest>) =>
-      (a.name || '').localeCompare(b.name || '', undefined, {
-        sensitivity: 'base'
-      });
-    for (const arr of children.values()) arr.sort(sortByName);
+    // No client-side sorting - rely on SQL ordering from database queries
+    // Data is already sorted by name (ascending) from the database
+    // prevents sorting issues with pagination
 
     return { childrenOf: children, roots: children.get(null) || [] };
   }, [rawQuests]);
@@ -225,6 +227,8 @@ export function QuestListView({
     ]
   );
 
+  const primaryColor = useThemeColor('primary');
+
   // Show skeleton rows during initial offline loading only
   if (questsInfiniteQuery.isOfflineLoading) {
     return (
@@ -251,7 +255,9 @@ export function QuestListView({
     <LegendList
       data={roots}
       keyExtractor={(item) => item.id}
-      estimatedItemSize={60}
+      estimatedItemSize={40}
+      maintainVisibleContentPosition
+      recycleItems
       renderItem={({ item: q }) => {
         const id = q.id;
         const hasChildren = (childrenOf.get(id) || []).length > 0;
@@ -276,19 +282,11 @@ export function QuestListView({
           </View>
         );
       }}
-      onEndReached={() => {
-        if (
-          questsInfiniteQuery.hasNextPage &&
-          !questsInfiniteQuery.isFetchingNextPage
-        ) {
-          questsInfiniteQuery.fetchNextPage();
-        }
-      }}
-      onEndReachedThreshold={0.5}
+      onEndReached={questsInfiniteQuery.fetchNextPage}
       ListFooterComponent={
         questsInfiniteQuery.isFetchingNextPage ? (
           <View className="p-4">
-            <ActivityIndicator size="small" />
+            <ActivityIndicator size="small" color={primaryColor} />
           </View>
         ) : null
       }

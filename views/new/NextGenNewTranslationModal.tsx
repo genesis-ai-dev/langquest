@@ -146,8 +146,7 @@ export default function NextGenNewTranslationModal({
       text: '',
       audioUri: ''
     },
-    resolver: zodResolver(translationSchema),
-    disabled: !currentUser?.id || !canTranslate
+    resolver: zodResolver(translationSchema)
   });
 
   const subscription = useWatch({ control: form.control });
@@ -176,6 +175,10 @@ export default function NextGenNewTranslationModal({
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
+      if (!currentUser?.id || !canTranslate) {
+        throw new Error('User not authorized to create translation');
+      }
+
       console.log('[CREATE TRANSLATION] Starting with data:', {
         translationType,
         hasText: !!data.text,
@@ -241,8 +244,8 @@ export default function NextGenNewTranslationModal({
             source_asset_id: assetId, // Points to the original asset being translated
             source_language_id: translationLanguageId, // The language this translation is IN
             project_id: currentProjectId,
-            creator_id: currentUser!.id,
-            download_profiles: [currentUser!.id]
+            creator_id: currentUser.id,
+            download_profiles: [currentUser.id]
           })
           .returning();
 
@@ -264,7 +267,7 @@ export default function NextGenNewTranslationModal({
         } = {
           asset_id: newAsset.id,
           source_language_id: translationLanguageId,
-          download_profiles: [currentUser!.id]
+          download_profiles: [currentUser.id]
         };
 
         // Add text or audio depending on translation type
@@ -290,7 +293,7 @@ export default function NextGenNewTranslationModal({
         await tx.insert(resolveTable('quest_asset_link')).values({
           quest_id: currentQuestId,
           asset_id: newAsset.id,
-          download_profiles: [currentUser!.id]
+          download_profiles: [currentUser.id]
         });
 
         console.log('[CREATE TRANSLATION] Quest asset link created');
@@ -452,7 +455,7 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!isValid || !canTranslate}
+              disabled={!canTranslate}
               onPress={form.handleSubmit(
                 (data) => {
                   console.log(

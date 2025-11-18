@@ -124,7 +124,7 @@
     "react": "19.0.0",
     "react-compiler-runtime": "^19.0.0-beta-af1b7da-20250417",
     "react-dom": "19.0.0",
-    "react-hook-form": "^7.54.2",
+    "react-hook-form": "8.0.0-alpha.5",
     "react-native": "0.79.5",
     "react-native-element-dropdown": "2.12.2",
     "react-native-gesture-handler": "~2.24.0",

@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -70,8 +70,7 @@ export default function ResetPasswordView() {
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    disabled: isPending
+    resolver: zodResolver(formSchema)
   });
 
   return (
@@ -131,13 +130,12 @@ export default function ResetPasswordView() {
             )}
           />
 
-          <Button
+          <FormSubmit
             onPress={form.handleSubmit((data) => updatePassword(data))}
-            disabled={isPending}
             className="mt-4"
           >
             <Text>{t('updatePassword')}</Text>
-          </Button>
+          </FormSubmit>
         </View>
       </View>
     </Form>

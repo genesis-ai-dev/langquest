@@ -104,6 +104,7 @@ export default function NextGenProjectsView() {
   const { mutateAsync: createProject, isPending: isCreatingProject } =
     useMutation({
       mutationFn: async (values: FormData) => {
+        if (!currentUser?.id) return; // Don't run mutation if user is not logged in
         // insert into local storage
         await db.transaction(async (tx) => {
           const [newProject] = await tx
@@ -111,8 +112,8 @@ export default function NextGenProjectsView() {
             .values({
               ...values,
               template: values.template,
-              creator_id: currentUser!.id,
-              download_profiles: [currentUser!.id]
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
             })
             .returning();
           if (!newProject) throw new Error('Failed to create project');
@@ -121,9 +122,9 @@ export default function NextGenProjectsView() {
               resolveTable('profile_project_link', { localOverride: true })
             )
             .values({
-              id: `${currentUser!.id}_${newProject.id}`,
+              id: `${currentUser.id}_${newProject.id}`,
               project_id: newProject.id,
-              profile_id: currentUser!.id,
+              profile_id: currentUser.id,
               membership: 'owner'
             });
         });
@@ -155,8 +156,7 @@ export default function NextGenProjectsView() {
 
   const form = useForm<FormData>({
     defaultValues,
-    resolver: zodResolver(formSchema),
-    disabled: !currentUser?.id
+    resolver: zodResolver(formSchema)
   });
 
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function NextGenProjectsView() {
   const allProjects = useHybridPaginatedInfiniteData({
     dataType: 'all-projects',
     queryKeyParams: [userId || '', searchQuery], // Include userId and searchQuery in query key
-    pageSize: 5,
+    pageSize: 10,
     // Offline query - returns CompilableQuery
     offlineQuery: ({ page, pageSize }) => {
       const offset = page * pageSize;
@@ -570,14 +570,14 @@ export default function NextGenProjectsView() {
           <ProjectListSkeleton />
         ) : (
           <LegendList
-            key={`${activeTab}-${dimensions.width}`}
+            key={`${dimensions.width}`}
             data={allItems}
             columnWrapperStyle={{ gap: 12 }}
             numColumns={dimensions.width > 768 && allItems.length > 1 ? 2 : 1}
             keyExtractor={(item) =>
               item.type === 'invite'
-                ? `invite-${item.projectId}`
-                : `project-${item.project.id}`
+                ? `invite-${item.projectId}-${activeTab}`
+                : `project-${item.project.id}-${activeTab}`
             }
             recycleItems
             estimatedItemSize={175}
@@ -608,7 +608,6 @@ export default function NextGenProjectsView() {
                 allProjects.fetchNextPage();
               }
             }}
-            // onEndReachedThreshold={0.5}
             ListFooterComponent={() =>
               activeTab === 'all' &&
               allProjects.isFetchingNextPage && (

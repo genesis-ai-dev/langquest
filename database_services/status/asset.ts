@@ -55,18 +55,9 @@ export function useAssetStatuses(
 
       if (error) throw error;
       return data as (typeof asset.$inferSelect)[];
-    }
+    },
+    enabled: !!assetId
   });
-
-  if (isAssetError) {
-    console.error('Error fetching asset status:', isAssetError);
-    return {
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      refetch: () => null
-    };
-  }
 
   full = assetData[0] ?? { active: true, visible: true, source: 'local' };
 
@@ -101,6 +92,7 @@ export function useAssetStatuses(
       if (error) throw error;
       return data as (typeof quest_asset_link.$inferSelect)[];
     },
+    enabled: !!assetId && !!questId && !isAssetError,
     enableCloudQuery: assetData[0] && assetData[0].source !== 'local' // Only fetch cloud data if the asset is not local
   });
 

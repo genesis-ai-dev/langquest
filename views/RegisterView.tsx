@@ -7,6 +7,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -105,7 +106,6 @@ export default function RegisterView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
     defaultValues: {
       email: sharedAuthInfo?.email || '',
       password: '',
@@ -247,12 +247,9 @@ export default function RegisterView({
           }}
         />
         <View className="flex flex-col gap-2">
-          <Button
-            onPress={form.handleSubmit((data) => register(data))}
-            loading={isPending}
-          >
+          <FormSubmit onPress={form.handleSubmit((data) => register(data))}>
             <Text>{t('register') || 'Register'}</Text>
-          </Button>
+          </FormSubmit>
           <Button
             onPress={() =>
               safeNavigate(() =>
