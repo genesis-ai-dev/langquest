@@ -19,19 +19,17 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import {
-  ChevronDown,
   ChevronUp,
   HelpCircle,
   Maximize2,
+  Megaphone,
   Mic,
   Minus,
   Plus,
   RectangleHorizontal,
   RotateCcw,
   Sparkles,
-  Volume1,
-  Volume2,
-  VolumeX
+  Volume1
 } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
@@ -172,6 +170,7 @@ interface VADSettingsDrawerProps {
   isVADLocked?: boolean; // Don't stop detection if VAD is locked
   displayMode: 'fullscreen' | 'footer';
   onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
+  autoCalibrateOnOpen?: boolean; // Automatically start calibration when drawer opens
 }
 
 export function VADSettingsDrawer({
@@ -183,7 +182,8 @@ export function VADSettingsDrawer({
   onSilenceDurationChange,
   isVADLocked = false,
   displayMode,
-  onDisplayModeChange
+  onDisplayModeChange,
+  autoCalibrateOnOpen = false
 }: VADSettingsDrawerProps) {
   const {
     isActive,
@@ -553,6 +553,31 @@ export function VADSettingsDrawer({
     calibrationTimeoutRef.current = timeout;
   }, [isCalibrating, isActive, startEnergyDetection, onThresholdChange, t]);
 
+  // Auto-calibrate when drawer opens with autoCalibrateOnOpen flag
+  const hasAutoCalibratedRef = React.useRef(false);
+  React.useEffect(() => {
+    // Reset flag when drawer closes
+    if (!isOpen) {
+      hasAutoCalibratedRef.current = false;
+      return;
+    }
+
+    // Trigger auto-calibration once when drawer opens with flag
+    if (
+      isOpen &&
+      autoCalibrateOnOpen &&
+      !isCalibrating &&
+      !hasAutoCalibratedRef.current
+    ) {
+      hasAutoCalibratedRef.current = true;
+      // Small delay to ensure drawer is fully open and energy detection can start
+      const timer = setTimeout(() => {
+        void handleAutoCalibrate();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoCalibrateOnOpen, isCalibrating, handleAutoCalibrate]);
+
   // Cleanup calibration on unmount
   React.useEffect(() => {
     return () => {
@@ -844,7 +869,7 @@ export function VADSettingsDrawer({
                   disabled={threshold <= THRESHOLD_MIN}
                   className="size-12 rounded-full"
                 >
-                  <Icon as={ChevronDown} size={20} />
+                  <Icon as={Volume1} size={20} />
                 </Button>
 
                 <Button
@@ -870,7 +895,7 @@ export function VADSettingsDrawer({
                   disabled={threshold >= THRESHOLD_MAX}
                   className="size-12 rounded-full"
                 >
-                  <Icon as={ChevronUp} size={20} />
+                  <Icon as={Megaphone} size={20} />
                 </Button>
               </View>
             </View>
