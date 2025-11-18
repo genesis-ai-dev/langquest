@@ -3,7 +3,13 @@ import { AuthNavigator } from '@/navigators/AuthNavigator';
 import { useThemeColor } from '@/utils/styleUtils';
 import { XIcon } from 'lucide-react-native';
 import React from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  View
+} from 'react-native';
 import { Icon } from './ui/icon';
 
 interface AuthModalProps {
@@ -26,19 +32,24 @@ export function AuthModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor }} className="flex-1">
-        {/* Close button */}
-        <View className="absolute right-4 top-4 z-10">
-          <Pressable
-            onPress={onClose}
-            className="rounded-full bg-background/80 p-2"
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <Icon as={XIcon} size={24} className="text-foreground" />
-          </Pressable>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        <View style={{ flex: 1, backgroundColor }} className="flex-1">
+          {/* Close button */}
+          <View className="absolute right-4 top-4 z-10">
+            <Pressable
+              onPress={onClose}
+              className="rounded-full bg-background/80 p-2"
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Icon as={XIcon} size={24} className="text-foreground" />
+            </Pressable>
+          </View>
+          <AuthNavigator key={initialView} initialView={initialView} />
         </View>
-        <AuthNavigator key={initialView} initialView={initialView} />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
