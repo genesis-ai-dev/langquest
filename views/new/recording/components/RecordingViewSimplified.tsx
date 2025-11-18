@@ -97,6 +97,7 @@ const RecordingViewSimplified = ({
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
+  const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
   // Track current recording order index
   const currentRecordingOrderRef = React.useRef<number>(0);
@@ -1521,6 +1522,10 @@ const RecordingViewSimplified = ({
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}
             onSettingsPress={() => setShowVADSettings(true)}
+            onAutoCalibratePress={() => {
+              setAutoCalibrateOnOpen(true);
+              setShowVADSettings(true);
+            }}
             currentEnergy={currentEnergy}
             vadThreshold={vadThreshold}
             energyShared={energyShared}
@@ -1541,7 +1546,13 @@ const RecordingViewSimplified = ({
       {/* VAD Settings Drawer */}
       <VADSettingsDrawer
         isOpen={showVADSettings}
-        onOpenChange={setShowVADSettings}
+        onOpenChange={(open) => {
+          setShowVADSettings(open);
+          // Reset auto-calibrate flag when drawer closes
+          if (!open) {
+            setAutoCalibrateOnOpen(false);
+          }
+        }}
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
@@ -1549,6 +1560,7 @@ const RecordingViewSimplified = ({
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
+        autoCalibrateOnOpen={autoCalibrateOnOpen}
       />
     </View>
   );

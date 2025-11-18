@@ -2728,6 +2728,38 @@ export const localizations = {
     tok_pisin: 'Grant Microphone Permission',
     indonesian: 'Mengakses Mikrofon'
   },
+  autoCalibrate: {
+    english: 'Auto-Calibrate',
+    spanish: 'Auto-Calibrar',
+    brazilian_portuguese: 'Auto-Calibrar',
+    tok_pisin: 'Olsem wanem yet',
+    indonesian: 'Auto-Kalibrasi'
+  },
+  calibrateMicrophone: {
+    english: 'Calibrate your microphone',
+    spanish: 'Calibra tu micrófono',
+    brazilian_portuguese: 'Calibre seu microfone',
+    tok_pisin: 'Stretim mikrofon bilong yu',
+    indonesian: 'Kalibrasi mikrofon Anda'
+  },
+  calibrateMicrophoneDescription: {
+    english: 'Let us automatically adjust the sensitivity for your environment',
+    spanish:
+      'Permítenos ajustar automáticamente la sensibilidad para tu entorno',
+    brazilian_portuguese:
+      'Deixe-nos ajustar automaticamente a sensibilidade para o seu ambiente',
+    tok_pisin:
+      'Larim mipela stretim sensetiviti bilong mikrofon long ples bilong yu',
+    indonesian:
+      'Biarkan kami secara otomatis menyesuaikan sensitivitas untuk lingkungan Anda'
+  },
+  skip: {
+    english: 'Skip',
+    spanish: 'Omitir',
+    brazilian_portuguese: 'Pular',
+    tok_pisin: 'Lusim',
+    indonesian: 'Lewati'
+  },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
     spanish: 'Confirmar Restauración de Audio',
