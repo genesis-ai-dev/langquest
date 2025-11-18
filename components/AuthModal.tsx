@@ -1,9 +1,10 @@
-import { AuthNavigator, type AuthView } from '@/navigators/AuthNavigator';
+import type { AuthView } from '@/navigators/AuthNavigator';
+import { AuthNavigator } from '@/navigators/AuthNavigator';
+import { useThemeColor } from '@/utils/styleUtils';
+import { XIcon } from 'lucide-react-native';
 import React from 'react';
 import { Modal, Pressable, View } from 'react-native';
-import { useThemeColor } from '@/utils/styleUtils';
 import { Icon } from './ui/icon';
-import { XIcon } from 'lucide-react-native';
 
 interface AuthModalProps {
   visible: boolean;
