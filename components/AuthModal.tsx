@@ -1,16 +1,28 @@
+import type { AuthView } from '@/navigators/AuthNavigator';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
-import React from 'react';
-import { Modal, Pressable, View } from 'react-native';
 import { useThemeColor } from '@/utils/styleUtils';
-import { Icon } from './ui/icon';
 import { XIcon } from 'lucide-react-native';
+import React from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  View
+} from 'react-native';
+import { Icon } from './ui/icon';
 
 interface AuthModalProps {
   visible: boolean;
+  initialView?: AuthView;
   onClose: () => void;
 }
 
-export function AuthModal({ visible, onClose }: AuthModalProps) {
+export function AuthModal({
+  visible,
+  initialView = 'sign-in',
+  onClose
+}: AuthModalProps) {
   const backgroundColor = useThemeColor('background');
 
   return (
@@ -20,19 +32,24 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor }} className="flex-1">
-        {/* Close button */}
-        <View className="absolute right-4 top-4 z-10">
-          <Pressable
-            onPress={onClose}
-            className="rounded-full bg-background/80 p-2"
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <Icon as={XIcon} size={24} className="text-foreground" />
-          </Pressable>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        <View style={{ flex: 1, backgroundColor }} className="flex-1">
+          {/* Close button */}
+          <View className="absolute right-4 top-4 z-10">
+            <Pressable
+              onPress={onClose}
+              className="rounded-full bg-background/80 p-2"
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Icon as={XIcon} size={24} className="text-foreground" />
+            </Pressable>
+          </View>
+          <AuthNavigator key={initialView} initialView={initialView} />
         </View>
-        <AuthNavigator />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
