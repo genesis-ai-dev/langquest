@@ -10,12 +10,17 @@ export interface SharedAuthInfo {
   email?: string;
 }
 
-export function AuthNavigator() {
-  const [currentView, setCurrentView] = useState<AuthView>('sign-in');
+export function AuthNavigator({
+  initialView = 'sign-in'
+}: {
+  initialView?: AuthView;
+}) {
+  const [currentView, setCurrentView] = useState<AuthView>(initialView);
   const [sharedAuthInfo, setSharedAuthInfo] = useState<SharedAuthInfo>({});
   const [navigationStack, setNavigationStack] = useState<AuthView[]>([
-    'sign-in'
+    initialView
   ]);
+
 
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
     setCurrentView(view);

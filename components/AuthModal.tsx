@@ -1,4 +1,4 @@
-import { AuthNavigator } from '@/navigators/AuthNavigator';
+import { AuthNavigator, type AuthView } from '@/navigators/AuthNavigator';
 import React from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import { useThemeColor } from '@/utils/styleUtils';
@@ -7,10 +7,15 @@ import { XIcon } from 'lucide-react-native';
 
 interface AuthModalProps {
   visible: boolean;
+  initialView?: AuthView;
   onClose: () => void;
 }
 
-export function AuthModal({ visible, onClose }: AuthModalProps) {
+export function AuthModal({
+  visible,
+  initialView = 'sign-in',
+  onClose
+}: AuthModalProps) {
   const backgroundColor = useThemeColor('background');
 
   return (
@@ -31,7 +36,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
             <Icon as={XIcon} size={24} className="text-foreground" />
           </Pressable>
         </View>
-        <AuthNavigator />
+        <AuthNavigator key={initialView} initialView={initialView} />
       </View>
     </Modal>
   );
