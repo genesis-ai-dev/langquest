@@ -165,7 +165,6 @@ export default function NextGenTranslationModal({
   onOpenChange,
   assetId,
   onVoteSuccess,
-  canVote: _canVote = true,
   isPrivateProject = false,
   projectId,
   projectName
@@ -187,10 +186,12 @@ export default function NextGenTranslationModal({
 
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
-  // Get audio attachment states
-  const audioIds = translationData.flatMap((t) =>
-    t.content.flatMap((c) => c.audio ?? [])
-  );
+  const audioIds = React.useMemo(() => {
+    return translationData.flatMap((t) =>
+      t.content.flatMap((c) => c.audio ?? [])
+    );
+  }, [translationData]);
+
   const { attachmentStates } = useAttachmentStates(audioIds);
 
   const asset = translationData[0];
@@ -243,8 +244,8 @@ export default function NextGenTranslationModal({
     }
   });
 
-  const getAudioSegments = () => {
-    if (!asset?.content.flatMap((c) => c.audio).length) return [];
+  const audioSegments = React.useMemo(() => {
+    if (!asset?.content) return [];
     return asset.content
       .flatMap((c) => c.audio ?? [])
       .filter(Boolean)
@@ -254,9 +255,7 @@ export default function NextGenTranslationModal({
         )
       )
       .filter(Boolean);
-  };
-
-  const audioSegments = getAudioSegments();
+  }, [asset?.content, attachmentStates]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;
 
@@ -266,9 +265,10 @@ export default function NextGenTranslationModal({
     refetch
   } = useHasUserReported(asset?.id || '', 'assets');
 
-  // Initialize edited text when translation data loads
   React.useEffect(() => {
-    setEditedText(assetText ?? '');
+    if (assetText !== undefined) {
+      setEditedText(assetText ?? '');
+    }
   }, [assetText]);
 
   const { mutate: createTranscription, isPending: isTranscribing } =

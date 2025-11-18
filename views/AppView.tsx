@@ -260,7 +260,8 @@ function AppViewContent() {
           {/* Auth Modal for anonymous users */}
           {!isAuthenticated && (
             <AuthModal
-              visible={authView === 'sign-in'}
+              visible={!!authView}
+              initialView={authView || 'sign-in'}
               onClose={() => setAuthView(null)}
             />
           )}

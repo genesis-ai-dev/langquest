@@ -58,6 +58,7 @@ function useNextGenOfflineAsset(assetId: string) {
   const getOfflineQuery = React.useCallback(() => {
     // For anonymous users, return a placeholder SQL string that won't access system.db
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
 
@@ -65,6 +66,7 @@ function useNextGenOfflineAsset(assetId: string) {
     // Check PowerSync status at query creation time
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM asset WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -78,12 +80,15 @@ function useNextGenOfflineAsset(assetId: string) {
     } catch (error) {
       // If query creation fails, return placeholder
       console.warn('Failed to create offline query, using placeholder:', error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
   }, [assetId, isAuthenticated]);
 
   // Create query lazily - only when needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const offlineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getOfflineQuery(),
     [getOfflineQuery]
   );
@@ -137,7 +142,7 @@ function useNextGenOfflineAsset(assetId: string) {
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const {
     currentAssetId,
@@ -173,9 +178,6 @@ export default function NextGenAssetDetailView() {
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
 
-  // IMPORTANT: Asset detail needs full data with content/audio relationships
-  // Passed asset data from list is just metadata - always use queried data which includes content
-  // We could use passed data as placeholder, but it's better to wait for full data
   const offlineAsset = queriedAsset;
 
   // Load asset attachments when asset ID changes
@@ -191,10 +193,12 @@ export default function NextGenAssetDetailView() {
   // Use a factory function that only creates the query when needed
   const getProjectOfflineQuery = React.useCallback(() => {
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM project WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -207,11 +211,14 @@ export default function NextGenAssetDetailView() {
         'Failed to create project offline query, using placeholder:',
         error
       );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
   }, [currentProjectId, isAuthenticated]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getProjectOfflineQuery(),
     [getProjectOfflineQuery]
   );
@@ -231,7 +238,7 @@ export default function NextGenAssetDetailView() {
         .limit(1)
         .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enableCloudQuery: !!currentProjectId && !currentProjectData,
     enableOfflineQuery: !!currentProjectId && !currentProjectData
@@ -239,23 +246,19 @@ export default function NextGenAssetDetailView() {
 
   // Prefer passed data for instant rendering!
   const queriedProjectData = queriedProjectDataArray?.[0];
-  const projectData:
-    | (typeof project.$inferSelect & { source?: 'local' | 'synced' | 'cloud' })
-    | undefined =
-    (currentProjectData as typeof queriedProjectData) || queriedProjectData;
+  const projectData = currentProjectData || queriedProjectData;
 
-  // Derive translation language ID from project data instead of storing in state
-  const translationLanguageId = React.useMemo(
-    () => projectData?.target_language_id || '',
-    [projectData?.target_language_id]
-  );
+  const translationLanguageId = React.useMemo(() => {
+    if (!projectData?.target_language_id) return '';
+    const langId = projectData.target_language_id;
+    return typeof langId === 'string' ? langId : String(langId);
+  }, [projectData?.target_language_id]);
 
-  // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
       currentProjectId || '',
       'translate',
-      projectData?.private
+      Boolean(projectData?.private)
     );
 
   // Determine which asset to display
@@ -269,11 +272,9 @@ export default function NextGenAssetDetailView() {
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);
 
-  // Update active tab when asset changes - use queueMicrotask to defer state update
   React.useEffect(() => {
     if (!activeAsset) return;
 
-    // Only update if asset ID actually changed
     if (prevAssetIdRef.current !== activeAsset.id) {
       prevAssetIdRef.current = activeAsset.id;
 
@@ -282,22 +283,13 @@ export default function NextGenAssetDetailView() {
       const hasImages = activeAsset.images && activeAsset.images.length > 0;
       const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
 
-      // Defer state update to next microtask to avoid synchronous setState in effect
-      queueMicrotask(() => {
-        setActiveTab(newTab);
-      });
+      setActiveTab(newTab);
+      setCurrentContentIndex(0);
     }
   }, [activeAsset]);
 
   useEffect(() => {
-    console.log('[ASSET DETAIL] Project data loaded:', {
-      hasProjectData: !!projectData,
-      target_language_id: projectData?.target_language_id,
-      project_id: projectData?.id,
-      fullProjectData: projectData // Show the full object
-    });
-
-    if (projectData && !projectData.target_language_id) {
+    if (__DEV__ && projectData && !projectData.target_language_id) {
       console.warn(
         '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
         projectData
@@ -307,12 +299,8 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const {
-    allowEditing,
-    allowSettings,
-    invisible: _invisible
-  } = !activeAsset
-    ? { allowEditing: false, allowSettings: false, invisible: false }
+  const { allowEditing, allowSettings } = !activeAsset
+    ? { allowEditing: false, allowSettings: false }
     : currentStatus.getStatusParams(
         LayerType.ASSET,
         activeAsset.id || '',
@@ -320,36 +308,34 @@ export default function NextGenAssetDetailView() {
         currentQuestId
       );
 
-  // Collect attachment IDs for audio support
-  const allAttachmentIds = !activeAsset?.content
-    ? []
-    : [
-        ...activeAsset.content
-          .filter((content) => content.audio)
-          .flatMap((content) => content.audio!)
-          .filter(Boolean),
-        ...(activeAsset.images ?? [])
-      ];
+  const allAttachmentIds = React.useMemo(() => {
+    if (!activeAsset) return [];
+    const audioIds = (activeAsset.content ?? [])
+      .flatMap((content) => content.audio ?? [])
+      .filter(Boolean);
+    return [...audioIds, ...(activeAsset.images ?? [])];
+  }, [activeAsset]);
 
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  // Collect content-level language IDs for this asset
-  const contentLanguageIds = (() => {
+  const contentLanguageIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
       if (c.source_language_id) ids.add(c.source_language_id);
     });
     return Array.from(ids);
-  })();
+  }, [activeAsset?.content]);
 
   // Fetch all languages used by content items
   const getLanguagesOfflineQuery = React.useCallback(() => {
     if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
     try {
       if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
         return 'SELECT * FROM language WHERE 1=0' as any;
       }
       return toCompilableQuery(
@@ -364,11 +350,14 @@ export default function NextGenAssetDetailView() {
         'Failed to create languages offline query, using placeholder:',
         error
       );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM language WHERE 1=0' as any;
     }
   }, [contentLanguageIds, isAuthenticated]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const languagesOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => getLanguagesOfflineQuery(),
     [getLanguagesOfflineQuery]
   );
@@ -393,7 +382,6 @@ export default function NextGenAssetDetailView() {
       setCurrentContentIndex(0);
     });
   }, [currentAssetId]);
-
   // Get audio URIs for a specific content item (not all content flattened)
   function getContentAudioUris(
     content: typeof asset_content_link.$inferSelect
@@ -536,7 +524,7 @@ export default function NextGenAssetDetailView() {
           <Text className="flex-1 text-xl font-bold text-foreground">
             {activeAsset.name}
           </Text>
-          {projectData?.private && (
+          {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
               <Icon as={LockIcon} className="text-muted-foreground" />
               {translateMembership === 'owner' && (
@@ -633,32 +621,31 @@ export default function NextGenAssetDetailView() {
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
                       {__DEV__ &&
-                      activeAsset.content[currentContentIndex]?.audio ? (
-                        <View className="flex-row items-center gap-1">
-                          <Icon
-                            as={
-                              attachmentStates.get(
+                        activeAsset.content[currentContentIndex]
+                          ?.audio?.[0] && (
+                          <View className="flex-row items-center gap-1">
+                            <Icon
+                              as={
+                                attachmentStates.get(
+                                  activeAsset.content[currentContentIndex]
+                                    .audio[0]
+                                )?.local_uri
+                                  ? Volume2Icon
+                                  : VolumeXIcon
+                              }
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                            <Text className="text-sm text-muted-foreground">
+                              {attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
-                                  ?.audio?.[0]!
+                                  .audio[0]
                               )?.local_uri
-                                ? Volume2Icon
-                                : VolumeXIcon
-                            }
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                          <Text className="text-sm text-muted-foreground">
-                            {attachmentStates.get(
-                              activeAsset.content[currentContentIndex]
-                                ?.audio?.[0]!
-                            )?.local_uri
-                              ? t('audioReady')
-                              : t('audioNotAvailable')}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View />
-                      )}
+                                ? t('audioReady')
+                                : t('audioNotAvailable')}
+                            </Text>
+                          </View>
+                        )}
 
                       {/* Combined navigation controls and audio status */}
 
@@ -708,7 +695,7 @@ export default function NextGenAssetDetailView() {
                                 onPress={() =>
                                   setCurrentContentIndex((prev) =>
                                     Math.min(
-                                      activeAsset.content!.length - 1,
+                                      (activeAsset.content?.length ?? 1) - 1,
                                       prev + 1
                                     )
                                   )
@@ -770,7 +757,15 @@ export default function NextGenAssetDetailView() {
           assetId={currentAssetId}
           assetName={activeAsset.name}
           refreshKey={translationsRefreshKey}
-          projectData={projectData}
+          projectData={
+            projectData
+              ? {
+                  private: Boolean(projectData.private),
+                  name: projectData.name as string | undefined,
+                  id: projectData.id as string | undefined
+                }
+              : undefined
+          }
           canVote={canTranslate}
           membership={translateMembership}
         />
@@ -780,7 +775,7 @@ export default function NextGenAssetDetailView() {
       {projectData?.private && !canTranslate ? (
         <PrivateAccessGate
           projectId={currentProjectId || ''}
-          projectName={projectData.name || ''}
+          projectName={(projectData?.name as string | undefined) ?? ''}
           isPrivate={true}
           action="translate"
           renderTrigger={({ onPress }) => (

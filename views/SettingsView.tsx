@@ -53,6 +53,9 @@ export default function SettingsView() {
   const autoBackup = useLocalStore((state) => state.autoBackup);
   const debugMode = useLocalStore((state) => state.debugMode);
   const showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+  const enableAiSuggestions = useLocalStore(
+    (state) => state.enableAiSuggestions
+  );
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -65,6 +68,9 @@ export default function SettingsView() {
   );
   const setAutoBackup = useLocalStore((state) => state.setAutoBackup);
   const setDebugMode = useLocalStore((state) => state.setDebugMode);
+  const setEnableAiSuggestions = useLocalStore(
+    (state) => state.setEnableAiSuggestions
+  );
 
   // Settings are loaded from the centralized store
 
@@ -94,6 +100,10 @@ export default function SettingsView() {
 
   const handleShowHiddenContentToggle = (value: boolean) => {
     setShowHiddenContent(value);
+  };
+
+  const handleAiSuggestionsToggle = (value: boolean) => {
+    setEnableAiSuggestions(value);
   };
 
   const handleClearCache = () => {
@@ -211,6 +221,19 @@ export default function SettingsView() {
             // TODO: Navigate to terms page
             Alert.alert(t('info'), t('termsAndConditionsComingSoon'));
           }
+        }
+      ]
+    },
+    {
+      title: t('experimentalFeatures'),
+      items: [
+        {
+          id: 'aiSuggestions',
+          title: t('aiSuggestions'),
+          description: t('aiSuggestionsDescription'),
+          type: 'toggle',
+          value: enableAiSuggestions,
+          onPress: () => handleAiSuggestionsToggle(!enableAiSuggestions)
         }
       ]
     },

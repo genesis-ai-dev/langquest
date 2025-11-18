@@ -1,20 +1,29 @@
 import ForgotPasswordView from '@/views/ForgotPasswordView';
 import RegisterView from '@/views/RegisterView';
+import ResetPasswordView from '@/views/ResetPasswordView';
 import SignInView2 from '@/views/SignInView';
 import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler } from 'react-native';
 
-export type AuthView = 'sign-in' | 'register' | 'forgot-password';
+export type AuthView =
+  | 'sign-in'
+  | 'register'
+  | 'forgot-password'
+  | 'reset-password';
 
 export interface SharedAuthInfo {
   email?: string;
 }
 
-export function AuthNavigator() {
-  const [currentView, setCurrentView] = useState<AuthView>('sign-in');
+export function AuthNavigator({
+  initialView = 'sign-in'
+}: {
+  initialView?: AuthView;
+}) {
+  const [currentView, setCurrentView] = useState<AuthView>(initialView);
   const [sharedAuthInfo, setSharedAuthInfo] = useState<SharedAuthInfo>({});
   const [navigationStack, setNavigationStack] = useState<AuthView[]>([
-    'sign-in'
+    initialView
   ]);
 
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
@@ -93,6 +102,8 @@ export function AuthNavigator() {
           sharedAuthInfo={sharedAuthInfo}
         />
       );
+    case 'reset-password':
+      return <ResetPasswordView key="reset-password" />;
     default:
       return (
         <SignInView2
