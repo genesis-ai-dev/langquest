@@ -21,7 +21,6 @@ export function AuthNavigator({
     initialView
   ]);
 
-
   function handleNavigation(view: AuthView, sharedAuthInfo?: SharedAuthInfo) {
     setCurrentView(view);
 
