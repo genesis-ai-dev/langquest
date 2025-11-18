@@ -19,9 +19,9 @@ import { safeNavigate } from '@/utils/sharedUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
-import React from 'react';
+import React, { useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
@@ -35,6 +35,7 @@ export default function ForgotPasswordView({
 }) {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const formSchema = z.object({
     email: z
@@ -80,68 +81,89 @@ export default function ForgotPasswordView({
     }
   });
 
+  // Auto-scroll to input when focused
+  const handleInputFocus = (offset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: offset,
+        animated: true
+      });
+    }, 100);
+  };
+
   return (
     <Form {...form}>
-      <View className="m-safe flex flex-col gap-4 p-6">
-        <View className="flex flex-col items-center justify-center gap-4 text-center">
-          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
-          <Text>{t('resetPassword')}</Text>
-        </View>
-        <LanguageSelect uiReadyOnly />
-        <View className="flex flex-col items-center gap-4">
-          <Icon as={LockIcon} size={32} />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem className="w-full">
-                <FormControl>
-                  <Input
-                    {...transformInputProps(field)}
-                    mask
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    prefix={MailIcon}
-                    prefixStyling={false}
-                    placeholder={t('enterEmailForPasswordReset')}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {!isOnline && (
-            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <WifiOffIcon size={20} className="text-destructive" />
-              <Text className="flex-1 text-sm text-destructive">
-                {t('internetConnectionRequired')}
-              </Text>
-            </View>
-          )}
-
-          <View className="flex w-full flex-col">
-            <Button
-              onPress={form.handleSubmit((data) => resetPassword(data))}
-              disabled={!isOnline || isPending}
-            >
-              <Text>{t('sendResetEmail')}</Text>
-            </Button>
-
-            <Button
-              onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('sign-in', { email: form.watch('email') })
-                )
-              }
-              disabled={isPending || !isOnline}
-              variant="link"
-            >
-              <Text>{t('backToLogin')}</Text>
-            </Button>
+      <View className="relative flex-1">
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex flex-col items-center justify-center gap-4 text-center">
+            <Text className="text-6xl font-semibold text-primary">
+              LangQuest
+            </Text>
+            <Text>{t('resetPassword')}</Text>
           </View>
-        </View>
+          <LanguageSelect uiReadyOnly />
+          <View className="flex flex-col items-center gap-4">
+            <Icon as={LockIcon} size={32} />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormControl>
+                    <Input
+                      {...transformInputProps(field)}
+                      mask
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      prefix={MailIcon}
+                      prefixStyling={false}
+                      placeholder={t('enterEmailForPasswordReset')}
+                      onFocus={() => handleInputFocus(120)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {!isOnline && (
+              <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+                <WifiOffIcon size={20} className="text-destructive" />
+                <Text className="flex-1 text-sm text-destructive">
+                  {t('internetConnectionRequired')}
+                </Text>
+              </View>
+            )}
+
+            <View className="flex w-full flex-col">
+              <Button
+                onPress={form.handleSubmit((data) => resetPassword(data))}
+                disabled={!isOnline || isPending}
+              >
+                <Text>{t('sendResetEmail')}</Text>
+              </Button>
+
+              <Button
+                onPress={() =>
+                  safeNavigate(() =>
+                    onNavigate('sign-in', { email: form.watch('email') })
+                  )
+                }
+                disabled={isPending || !isOnline}
+                variant="link"
+              >
+                <Text>{t('backToLogin')}</Text>
+              </Button>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     </Form>
   );
