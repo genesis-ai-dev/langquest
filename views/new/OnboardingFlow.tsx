@@ -30,7 +30,13 @@ import {
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  View
+} from 'react-native';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

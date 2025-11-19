@@ -187,83 +187,82 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 contentContainerStyle={{ paddingRight: 8 }}
                 bottomOffset={96}
                 extraKeyboardSpace={20}
-                showsVerticalScrollIndicator
               >
-                  <View className="gap-4">
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('selectReasonLabel')}
-                      </Text>
-                      <RadioGroup
-                        value={reason ?? undefined}
-                        onValueChange={(value) =>
-                          handleReasonSelect(
-                            value as (typeof reasonOptions)[number]
-                          )
-                        }
-                      >
-                        {reportReasons.map((option) => (
-                          <RadioGroupItem
-                            key={option.value}
-                            value={option.value}
-                            label={option.label}
+                <View className="gap-4">
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('selectReasonLabel')}
+                    </Text>
+                    <RadioGroup
+                      value={reason ?? undefined}
+                      onValueChange={(value) =>
+                        handleReasonSelect(
+                          value as (typeof reasonOptions)[number]
+                        )
+                      }
+                    >
+                      {reportReasons.map((option) => (
+                        <RadioGroupItem
+                          key={option.value}
+                          value={option.value}
+                          label={option.label}
+                        />
+                      ))}
+                    </RadioGroup>
+                  </View>
+
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('additionalDetails')}
+                    </Text>
+                    <Textarea
+                      placeholder={t('additionalDetailsPlaceholder')}
+                      value={details}
+                      onChangeText={setDetails}
+                      drawerInput={false}
+                    />
+                  </View>
+
+                  {/* Blocking options */}
+                  <View className="gap-3 border-t border-input pt-4">
+                    <Text variant="large" className="mb-2">
+                      {t('options')}
+                    </Text>
+                    {/* Block content option - only for authenticated users */}
+                    {isAuthenticated ? (
+                      <>
+                        <View className="flex-row items-center justify-between">
+                          <Label className="flex-1">
+                            {t('blockThisContent')}
+                          </Label>
+                          <Switch
+                            checked={blockContentOption}
+                            onCheckedChange={setBlockContentOption}
                           />
-                        ))}
-                      </RadioGroup>
-                    </View>
+                        </View>
 
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('additionalDetails')}
-                      </Text>
-                      <Textarea
-                        placeholder={t('additionalDetailsPlaceholder')}
-                        value={details}
-                        onChangeText={setDetails}
-                        drawerInput={false}
-                      />
-                    </View>
-
-                    {/* Blocking options */}
-                    <View className="gap-3 border-t border-input pt-4">
-                      <Text variant="large" className="mb-2">
-                        {t('options')}
-                      </Text>
-                      {/* Block content option - only for authenticated users */}
-                      {isAuthenticated ? (
-                        <>
+                        {creatorId && creatorId !== currentUser?.id && (
                           <View className="flex-row items-center justify-between">
                             <Label className="flex-1">
-                              {t('blockThisContent')}
+                              {t('blockThisUser')}
                             </Label>
                             <Switch
-                              checked={blockContentOption}
-                              onCheckedChange={setBlockContentOption}
+                              checked={blockUserOption}
+                              onCheckedChange={setBlockUserOption}
                             />
                           </View>
-
-                          {creatorId && creatorId !== currentUser?.id && (
-                            <View className="flex-row items-center justify-between">
-                              <Label className="flex-1">
-                                {t('blockThisUser')}
-                              </Label>
-                              <Switch
-                                checked={blockUserOption}
-                                onCheckedChange={setBlockUserOption}
-                              />
-                            </View>
-                          )}
-                        </>
-                      ) : (
-                        <View className="rounded-md bg-primary/10 p-4">
-                          <Text variant="small" className="leading-5">
-                            {t('blockContentLoginMessage') ||
-                              'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                        )}
+                      </>
+                    ) : (
+                      <View className="rounded-md bg-primary/10 p-4">
+                        <Text variant="small" className="leading-5">
+                          {t('blockContentLoginMessage') ||
+                            'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
+                </View>
               </KeyboardAwareScrollView>
 
               <Button
@@ -284,7 +283,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
-      <KeyboardToolbar />
+      <KeyboardToolbar>
+        <KeyboardToolbar.Done />
+      </KeyboardToolbar>
     </Modal>
   );
 };

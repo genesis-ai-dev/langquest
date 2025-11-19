@@ -43,7 +43,8 @@
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
     "shadcn": "shadcn",
-    "knip": "knip"
+    "knip": "knip",
+    "postinstall": "patch-package"
   },
   "jest": {
     "preset": "jest-expo"
@@ -173,6 +174,7 @@
     "jiti": "^2.6.1",
     "knip": "^5.64.2",
     "metro-react-native-babel-transformer": "^0.77.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "react-native-svg-transformer": "^1.5.1",

@@ -142,7 +142,6 @@ export default function SignInView({
                     returnKeyType="done"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textContentType="password"
                     autoComplete="password"
                     prefix={LockIcon}
                     prefixStyling={false}
