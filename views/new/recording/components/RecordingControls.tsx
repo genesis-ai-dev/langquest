@@ -13,7 +13,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
-import { MicOffIcon, Settings } from 'lucide-react-native';
+import { MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -41,6 +41,7 @@ interface RecordingControlsProps {
   isVADLocked?: boolean;
   onVADLockChange?: (locked: boolean) => void;
   onSettingsPress?: () => void;
+  onAutoCalibratePress?: () => void; // Callback to open settings drawer with auto-calibrate
   // VAD visual feedback (native module handles recording)
   currentEnergy?: number; // Keep for backward compat
   vadThreshold?: number;
@@ -60,6 +61,7 @@ export const RecordingControls = React.memo(
     isVADLocked,
     onVADLockChange,
     onSettingsPress,
+    onAutoCalibratePress,
     currentEnergy,
     vadThreshold,
     energyShared,
@@ -75,6 +77,10 @@ export const RecordingControls = React.memo(
     const [hasPermission, setHasPermission] = React.useState<boolean | null>(
       null
     );
+    // Track if this is the first time permission was granted (to show auto-calibrate prompt)
+    const [showAutoCalibratePrompt, setShowAutoCalibratePrompt] =
+      React.useState(false);
+    const previousPermissionRef = React.useRef<boolean | null>(null);
 
     // Check permissions asynchronously after mount (non-blocking)
     useEffect(() => {
@@ -84,12 +90,15 @@ export const RecordingControls = React.memo(
         try {
           const permission = await Audio.getPermissionsAsync();
           if (!cancelled) {
-            setHasPermission(permission.granted);
+            const wasGranted = permission.granted;
+            setHasPermission(wasGranted);
+            previousPermissionRef.current = wasGranted;
           }
         } catch (error) {
           console.error('Failed to check microphone permission:', error);
           if (!cancelled) {
             setHasPermission(false);
+            previousPermissionRef.current = false;
           }
         }
       };
@@ -105,11 +114,28 @@ export const RecordingControls = React.memo(
     const handleRequestPermission = async () => {
       try {
         const permission = await Audio.requestPermissionsAsync();
-        setHasPermission(permission.granted);
+        const wasGranted = permission.granted;
+        const wasPreviouslyDenied = previousPermissionRef.current === false;
+
+        setHasPermission(wasGranted);
+
+        // If permission was just granted for the first time (was denied before), show auto-calibrate prompt
+        if (wasGranted && wasPreviouslyDenied) {
+          setShowAutoCalibratePrompt(true);
+        }
+
+        previousPermissionRef.current = wasGranted;
       } catch (error) {
         console.error('Failed to request microphone permission:', error);
         setHasPermission(false);
+        previousPermissionRef.current = false;
       }
+    };
+
+    // Handle auto-calibrate button press
+    const handleAutoCalibratePress = () => {
+      setShowAutoCalibratePrompt(false);
+      onAutoCalibratePress?.();
     };
 
     // Shared value for activation progress bar - tracks button hold activation (0-1)
@@ -251,6 +277,9 @@ export const RecordingControls = React.memo(
     // Show permission UI only if we explicitly know permission is denied (not while checking)
     // During check (hasPermission === null), show controls optimistically
     const showPermissionOverlay = hasPermission === false;
+    // Show auto-calibrate prompt after first-time permission grant
+    const showAutoCalibrateOverlay =
+      showAutoCalibratePrompt && hasPermission === true;
 
     return (
       <>
@@ -272,6 +301,46 @@ export const RecordingControls = React.memo(
               >
                 <Text className="text-base font-bold">
                   {t('grantMicrophonePermission')}
+                </Text>
+              </Button>
+            </View>
+          </View>
+        )}
+
+        {/* Auto-calibrate prompt - shown after first-time permission grant */}
+        {showAutoCalibrateOverlay && (
+          <View
+            className="absolute bottom-0 left-0 right-0 z-50 border-t border-border bg-background"
+            style={{ paddingBottom: insets.bottom }}
+            onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
+          >
+            <View className="flex w-full items-center justify-center gap-3 py-6">
+              <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                <Icon as={Sparkles} size={32} className="text-primary" />
+              </View>
+              <Text className="text-center text-base font-semibold text-foreground">
+                {t('calibrateMicrophone') || 'Calibrate your microphone'}
+              </Text>
+              <Text className="px-8 text-center text-sm text-muted-foreground">
+                {t('calibrateMicrophoneDescription') ||
+                  'Let us automatically adjust the sensitivity for your environment'}
+              </Text>
+              <Button
+                variant="default"
+                onPress={handleAutoCalibratePress}
+                className="w-48"
+              >
+                <Text className="text-base font-bold text-primary-foreground">
+                  {t('autoCalibrate') || 'Auto-Calibrate'}
+                </Text>
+              </Button>
+              <Button
+                variant="ghost"
+                onPress={() => setShowAutoCalibratePrompt(false)}
+                className="w-48"
+              >
+                <Text className="text-sm text-muted-foreground">
+                  {t('skip') || 'Skip'}
                 </Text>
               </Button>
             </View>
