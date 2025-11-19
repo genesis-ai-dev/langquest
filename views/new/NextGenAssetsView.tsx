@@ -44,7 +44,7 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -611,6 +611,12 @@ export default function NextGenAssetsView() {
 
                   if (!currentQuestId) {
                     console.error('No current quest id');
+                    return;
+                  }
+
+                  // On web, skip confirmation dialog and publish directly
+                  if (Platform.OS === 'web') {
+                    publishQuest();
                     return;
                   }
 

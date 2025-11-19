@@ -41,6 +41,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -378,36 +379,64 @@ export default function NextGenAssetDetailView() {
   // Reset content index when asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
-    queueMicrotask(() => {
+    scheduleOnRN(() => {
       setCurrentContentIndex(0);
     });
   }, [currentAssetId]);
   // Get audio URIs for a specific content item (not all content flattened)
-  function getContentAudioUris(
-    content: typeof asset_content_link.$inferSelect
-  ): string[] {
-    if (!content.audio) return [];
+  // Both web and native now use async OPFS resolution
+  const [resolvedAudioUris, setResolvedAudioUris] = useState<string[]>([]);
 
-    return content.audio
-      .filter(
+  useEffect(() => {
+    const content = activeAsset?.content?.[currentContentIndex];
+    if (!content?.audio) {
+      // Use queueMicrotask to avoid synchronous setState warning
+      scheduleOnRN(() => {
+        setResolvedAudioUris([]);
+      });
+      return;
+    }
+
+    // Resolve OPFS URIs asynchronously (works for both web and native)
+    const resolveUris = async () => {
+      const audioValues = content.audio!.filter(
         (audioValue: unknown): audioValue is string =>
           typeof audioValue === 'string'
-      )
-      .map((audioValue: string) => {
-        // Handle direct local URIs (from recording view before publish)
-        if (audioValue.startsWith('local/')) {
-          return getLocalAttachmentUriWithOPFS(audioValue);
-        }
+      );
 
-        // Handle full file URIs
-        if (audioValue.startsWith('file://')) {
-          return audioValue;
-        }
+      const resolved = await Promise.all(
+        audioValues.map(async (audioValue: string): Promise<string | null> => {
+          // Handle full file URIs
+          if (audioValue.startsWith('file://')) {
+            return audioValue;
+          }
 
-        // For anonymous users, get cloud URLs from Supabase storage
-        const isPowerSyncReady = system.isPowerSyncInitialized();
-        if (!isAuthenticated || !isPowerSyncReady) {
-          // Get public URL from Supabase storage
+          // For anonymous users, get cloud URLs from Supabase storage
+          const isPowerSyncReady = system.isPowerSyncInitialized();
+          if (!isAuthenticated || !isPowerSyncReady) {
+            // Get public URL from Supabase storage
+            try {
+              if (!AppConfig.supabaseBucket) {
+                console.warn('Supabase bucket not configured');
+                return null;
+              }
+              const { data } = system.supabaseConnector.client.storage
+                .from(AppConfig.supabaseBucket)
+                .getPublicUrl(audioValue);
+              return data.publicUrl;
+            } catch (error) {
+              console.error('Failed to get cloud audio URL:', error);
+              return null;
+            }
+          }
+
+          // Handle attachment IDs (look up in attachment queue) for authenticated users
+          const attachmentState = attachmentStates.get(audioValue);
+          if (attachmentState?.local_uri) {
+            return getLocalAttachmentUriWithOPFS(attachmentState.filename);
+          }
+
+          // Fallback: try to get cloud URL if local not available
           try {
             if (!AppConfig.supabaseBucket) {
               console.warn('Supabase bucket not configured');
@@ -418,34 +447,24 @@ export default function NextGenAssetDetailView() {
               .getPublicUrl(audioValue);
             return data.publicUrl;
           } catch (error) {
-            console.error('Failed to get cloud audio URL:', error);
+            console.error('Failed to get fallback cloud audio URL:', error);
             return null;
           }
-        }
+        })
+      );
 
-        // Handle attachment IDs (look up in attachment queue) for authenticated users
-        const attachmentState = attachmentStates.get(audioValue);
-        if (attachmentState?.local_uri) {
-          return getLocalUri(attachmentState.local_uri);
-        }
+      setResolvedAudioUris(resolved.filter((uri) => uri !== null));
+    };
 
-        // Fallback: try to get cloud URL if local not available
-        try {
-          if (!AppConfig.supabaseBucket) {
-            console.warn('Supabase bucket not configured');
-            return null;
-          }
-          const { data } = system.supabaseConnector.client.storage
-            .from(AppConfig.supabaseBucket)
-            .getPublicUrl(audioValue);
-          return data.publicUrl;
-        } catch (error) {
-          console.error('Failed to get fallback cloud audio URL:', error);
-          return null;
-        }
-      })
-      .filter((uri: string | null): uri is string => uri !== null);
-  }
+    void resolveUris();
+  }, [
+    activeAsset?.content,
+    currentContentIndex,
+    attachmentStates,
+    isAuthenticated
+  ]);
+
+  console.log('resolvedAudioUris', resolvedAudioUris);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
@@ -613,9 +632,7 @@ export default function NextGenAssetDetailView() {
                             ) ?? null)
                           : null
                       }
-                      audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]
-                      )}
+                      audioSegments={resolvedAudioUris}
                       isLoading={isLoadingAttachments}
                     />
                     <View className="flex w-full flex-row justify-between">

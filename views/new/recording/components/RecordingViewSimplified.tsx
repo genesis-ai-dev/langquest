@@ -356,7 +356,7 @@ const RecordingViewSimplified = ({
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
             // Use getLocalAttachmentUriWithOPFS to construct the full path
-            const localUri = getLocalAttachmentUriWithOPFS(audioValue);
+            const localUri = await getLocalAttachmentUriWithOPFS(audioValue);
             uris.push(localUri);
             debugLog('✅ Using direct local URI:', localUri.slice(0, 80));
           } else if (audioValue.startsWith('file://')) {
@@ -881,7 +881,7 @@ const RecordingViewSimplified = ({
                   // Get the full URI for this audio
                   let audioUri: string | null = null;
                   if (audioValue.startsWith('local/')) {
-                    audioUri = getLocalAttachmentUriWithOPFS(audioValue);
+                    audioUri = await getLocalAttachmentUriWithOPFS(audioValue);
                   } else if (audioValue.startsWith('file://')) {
                     audioUri = audioValue;
                   } else if (system.permAttachmentQueue) {

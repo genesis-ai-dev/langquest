@@ -16,6 +16,7 @@ ios/
 .env.*
 !.env.*.example
 *.swp
+.vercel
 
 /modules/**/android/build
 /public/@powersync

@@ -9,11 +9,11 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import { voteService } from '@/database_services/voteService';
-import { asset, asset_content_link } from '@/db/drizzleSchema';
+import type { asset_content_link } from '@/db/drizzleSchema';
+import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -21,6 +21,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
@@ -39,7 +40,7 @@ import {
   UserCircleIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -91,14 +92,14 @@ function useNextGenTranslation(assetId: string) {
     Omit<typeof asset.$inferSelect, 'images'> & {
       images: string[];
       content: (typeof asset_content_link.$inferSelect)[];
-      votes: Array<{
+      votes: {
         id: string;
         asset_id: string;
         creator_id: string;
         polarity: 'up' | 'down';
         active: boolean;
         created_at: string;
-      }>;
+      }[];
     }
   >({
     dataType: 'translation',
@@ -127,14 +128,14 @@ function useNextGenTranslation(assetId: string) {
           (Omit<typeof asset.$inferSelect, 'images'> & {
             images: string;
             content?: (typeof asset_content_link.$inferSelect)[];
-            votes?: Array<{
+            votes?: {
               id: string;
               asset_id: string;
               creator_id: string;
               polarity: 'up' | 'down';
               active: boolean;
               created_at: string;
-            }>;
+            }[];
           })[]
         >();
 
@@ -244,17 +245,27 @@ export default function NextGenTranslationModal({
     }
   });
 
-  const audioSegments = React.useMemo(() => {
-    if (!asset?.content) return [];
-    return asset.content
-      .flatMap((c) => c.audio ?? [])
-      .filter(Boolean)
-      .map((audio) =>
-        getLocalAttachmentUriWithOPFS(
-          attachmentStates.get(audio)?.local_uri ?? ''
+  const [audioSegments, setAudioSegments] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadAudioSegments = async () => {
+      if (!asset?.content) {
+        setAudioSegments([]);
+        return;
+      }
+      const audioIds = asset.content
+        .flatMap((c) => c.audio ?? [])
+        .filter(Boolean);
+      const segments = await Promise.all(
+        audioIds.map((audio) =>
+          getLocalAttachmentUriWithOPFS(
+            attachmentStates.get(audio)?.local_uri ?? ''
+          )
         )
-      )
-      .filter(Boolean);
+      );
+      setAudioSegments(segments.filter(Boolean));
+    };
+    void loadAudioSegments();
   }, [asset?.content, attachmentStates]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;
@@ -682,7 +693,7 @@ export default function NextGenTranslationModal({
                         />
                       )}
                       {/* Debug Info */}
-                      {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                      {}
                       {SHOW_DEV_ELEMENTS && (
                         <View className="items-center">
                           <Text className="text-sm text-muted-foreground">

@@ -9,9 +9,12 @@ import { Drawer as DrawerPrimitive } from 'vaul';
 import { cn } from '@/utils/styleUtils';
 
 function Drawer({
+  snapPoints: _snapPoints,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
+  // const convertedSnapPoints = convertSnapPoints(snapPoints ?? []);
+  // console.log('convertedSnapPoints', convertedSnapPoints);
+  return <DrawerPrimitive.Root data-slot="drawer" snapPoints={[]} {...props} />;
 }
 
 function DrawerTrigger({
