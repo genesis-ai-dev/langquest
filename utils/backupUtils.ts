@@ -1,5 +1,13 @@
+import {
+  asset,
+  asset_content_link,
+  project,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { System } from '@/db/powersync/system'; // Import System type
+import { eq, inArray, isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
@@ -7,14 +15,6 @@ import {
   getDocumentDirectory,
   getLocalAttachmentUriWithOPFS
 } from './fileUtils';
-import { eq, isNotNull, inArray } from 'drizzle-orm';
-import {
-  asset_content_link,
-  asset,
-  quest,
-  quest_asset_link,
-  project
-} from '@/db/drizzleSchema';
 
 // --- Permission Helper ---
 export async function requestBackupDirectory() {
@@ -354,7 +354,7 @@ export async function backupUnsyncedAudio(
         let sourceUri: string;
         if (isLocalFile) {
           // Local file: use getLocalAttachmentUriWithOPFS helper
-          sourceUri = getLocalAttachmentUriWithOPFS(audioId);
+          sourceUri = await getLocalAttachmentUriWithOPFS(audioId);
         } else {
           // Synced file: directly in shared_attachments
           sourceUri = `${getDocumentDirectory()}${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${cleanAudioId}`;
@@ -440,7 +440,7 @@ export async function backupUnsyncedAudio(
     // Write CSV file - check for existing CSV and append only new rows
     try {
       // Check if CSV already exists by looking for any CSV file in backup directories
-      let existingCsvRows: Set<string> = new Set();
+      const existingCsvRows = new Set<string>();
       try {
         const entries =
           await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);

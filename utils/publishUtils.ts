@@ -30,7 +30,7 @@ import {
 } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { aliasedColumn, toColumns } from './dbUtils';
-import { getLocalAttachmentUriWithOPFS } from './fileUtils';
+import { getLocalAttachmentUri } from './fileUtils';
 
 async function getParentQuests(questId: string) {
   const parentQuests = system.db
@@ -272,21 +272,23 @@ export async function publishQuest(questId: string, projectId: string) {
         asset_content_link_synced
       );
 
-      const localAudioFilesForAssets = (
-        await tx.query.asset_content_link.findMany({
-          columns: {
-            audio: true
-          },
-          where: and(
-            inArray(asset_content_link.asset_id, nestedAssetIds),
-            isNotNull(asset_content_link.audio),
-            eq(asset_content_link.source, 'local')
-          )
-        })
-      )
-        .flatMap((link) => link.audio)
-        .filter(Boolean)
-        .map(getLocalAttachmentUriWithOPFS);
+      const localAudioFilesForAssets = await Promise.all(
+        (
+          await tx.query.asset_content_link.findMany({
+            columns: {
+              audio: true
+            },
+            where: and(
+              inArray(asset_content_link.asset_id, nestedAssetIds),
+              isNotNull(asset_content_link.audio),
+              eq(asset_content_link.source, 'local')
+            )
+          })
+        )
+          .flatMap((link) => link.audio)
+          .filter(Boolean)
+          .map(getLocalAttachmentUri) // without OPFS
+      );
 
       const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) SELECT ${assetContentLinkColumns.replace(
         `audio,`,
