@@ -14,13 +14,15 @@ import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
-  ScrollView,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  KeyboardToolbar
+} from 'react-native-keyboard-controller';
 
 interface ReportModalProps {
   isVisible: boolean;
@@ -171,21 +173,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <Pressable className="flex-1 items-center justify-center bg-black/50">
-          <KeyboardAvoidingView behavior="padding">
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
-                <View className="mb-4 flex-row items-center justify-between">
-                  <Text variant="h3">{modalTitle}</Text>
-                  <Pressable className="p-1" onPress={onClose}>
-                    <Icon as={XIcon} size={24} className="text-foreground" />
-                  </Pressable>
-                </View>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text variant="h3">{modalTitle}</Text>
+                <Pressable className="p-1" onPress={onClose}>
+                  <Icon as={XIcon} size={24} className="text-foreground" />
+                </Pressable>
+              </View>
 
-                <ScrollView
-                  className="max-h-[80%]"
-                  showsVerticalScrollIndicator
-                  contentContainerStyle={{ paddingRight: 8 }}
-                >
+              <KeyboardAwareScrollView
+                style={{ maxHeight: '80%' }}
+                contentContainerStyle={{ paddingRight: 8 }}
+                bottomOffset={96}
+                extraKeyboardSpace={20}
+                showsVerticalScrollIndicator
+              >
                   <View className="gap-4">
                     <View>
                       <Text variant="large" className="mb-2">
@@ -261,27 +264,27 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       )}
                     </View>
                   </View>
-                </ScrollView>
+              </KeyboardAwareScrollView>
 
-                <Button
-                  className="mt-4"
-                  onPress={handleSubmit}
-                  disabled={
-                    !reason || report.isCreatingReport || hasAlreadyReported
-                  }
-                  loading={report.isCreatingReport}
-                >
-                  <Text>
-                    {report.isCreatingReport
-                      ? t('submitting')
-                      : t('submitReport')}
-                  </Text>
-                </Button>
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
+              <Button
+                className="mt-4"
+                onPress={handleSubmit}
+                disabled={
+                  !reason || report.isCreatingReport || hasAlreadyReported
+                }
+                loading={report.isCreatingReport}
+              >
+                <Text>
+                  {report.isCreatingReport
+                    ? t('submitting')
+                    : t('submitReport')}
+                </Text>
+              </Button>
+            </View>
+          </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
+      <KeyboardToolbar />
     </Modal>
   );
 };

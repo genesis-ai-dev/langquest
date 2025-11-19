@@ -813,6 +813,7 @@ export default function NextGenProjectsView() {
                     prefix={SearchIcon}
                     prefixStyling={false}
                     size="sm"
+                    returnKeyType="search"
                     suffix={
                       isFetchingProjects && searchQuery ? (
                         <ActivityIndicator

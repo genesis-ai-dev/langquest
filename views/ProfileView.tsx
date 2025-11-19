@@ -8,6 +8,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -45,7 +46,8 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Platform, Alert as RNAlert, ScrollView, View } from 'react-native';
+import { Platform, Alert as RNAlert, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 // Validation schema
@@ -129,7 +131,7 @@ export default function ProfileView() {
     }
   }, [currentUser, form]);
 
-  const { mutateAsync: updateProfile, isPending } = useMutation({
+  const { mutateAsync: updateProfile } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!currentUser) return;
 
@@ -188,307 +190,308 @@ export default function ProfileView() {
     }
   });
 
+  const handleFormSubmit = form.handleSubmit((data) => updateProfile(data));
+
   return (
     <Form {...form}>
-      <ScrollView
-        className="mb-safe flex-1 bg-background"
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAwareScrollView
+        className="flex-1 bg-background"
+        contentContainerClassName="mb-safe flex flex-col gap-4 p-6"
+        bottomOffset={96}
+        extraKeyboardSpace={20}
       >
-        <View className="flex flex-col gap-4 p-6">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-bold text-foreground">
-              {t('profile')}
-            </Text>
-            <Button variant="default" size="icon-lg" onPress={goToProjects}>
-              <Icon as={HomeIcon} className="text-primary-foreground" />
-            </Button>
-          </View>
-          {__DEV__ && (
-            <View className="flex flex-col gap-2">
-              <View className="flex flex-row gap-2">
-                <Button
-                  variant="destructive"
-                  loading={seedDatabasePending}
-                  className="flex-1"
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      void seedDatabase();
-                    } else {
-                      RNAlert.alert(
-                        'Seed data',
-                        'This will reset local development data and seed the database. Continue?',
-                        [
-                          { text: t('cancel'), style: 'cancel' },
-                          {
-                            text: t('confirm'),
-                            style: 'destructive',
-                            onPress: () => {
-                              void seedDatabase();
-                            }
+        <View className="flex-row items-center justify-between">
+          <Text className="text-2xl font-bold text-foreground">
+            {t('profile')}
+          </Text>
+          <Button variant="default" size="icon-lg" onPress={goToProjects}>
+            <Icon as={HomeIcon} className="text-primary-foreground" />
+          </Button>
+        </View>
+        {__DEV__ && (
+          <View className="flex flex-col gap-2">
+            <View className="flex flex-row gap-2">
+              <Button
+                variant="destructive"
+                loading={seedDatabasePending}
+                className="flex-1"
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    void seedDatabase();
+                  } else {
+                    RNAlert.alert(
+                      'Seed data',
+                      'This will reset local development data and seed the database. Continue?',
+                      [
+                        { text: t('cancel'), style: 'cancel' },
+                        {
+                          text: t('confirm'),
+                          style: 'destructive',
+                          onPress: () => {
+                            void seedDatabase();
                           }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <Text>Seed data</Text>
-                </Button>
-                <Button
-                  variant="secondary"
-                  loading={deleteDatabasePending}
-                  className="flex-1"
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      void deleteDatabase();
-                    } else {
-                      RNAlert.alert(
-                        'Delete data',
-                        'This will reset local development data. Continue?',
-                        [
-                          { text: t('cancel'), style: 'cancel' },
-                          {
-                            text: t('confirm'),
-                            style: 'destructive',
-                            onPress: () => {
-                              void deleteDatabase();
-                            }
+                        }
+                      ]
+                    );
+                  }
+                }}
+              >
+                <Text>Seed data</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                loading={deleteDatabasePending}
+                className="flex-1"
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    void deleteDatabase();
+                  } else {
+                    RNAlert.alert(
+                      'Delete data',
+                      'This will reset local development data. Continue?',
+                      [
+                        { text: t('cancel'), style: 'cancel' },
+                        {
+                          text: t('confirm'),
+                          style: 'destructive',
+                          onPress: () => {
+                            void deleteDatabase();
                           }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <Text>Wipe local db</Text>
-                </Button>
-              </View>
-              <View>
-                <Button
-                  variant="secondary"
-                  loading={deleteAttachmentsPending}
-                  className="flex-1"
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      void deleteAttachments();
-                    } else {
-                      RNAlert.alert(
-                        'Delete local attachments',
-                        'This will reset local attachments. Continue?',
-                        [
-                          { text: t('cancel'), style: 'cancel' },
-                          {
-                            text: t('confirm'),
-                            style: 'destructive',
-                            onPress: () => {
-                              void deleteAttachments();
-                            }
-                          }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <Text>Wipe local attachments</Text>
-                </Button>
-              </View>
+                        }
+                      ]
+                    );
+                  }
+                }}
+              >
+                <Text>Wipe local db</Text>
+              </Button>
             </View>
-          )}
-          {!posthog.isDisabled && (
             <Button
-              onPress={async () => {
-                posthog.capture('feedback button pressed');
-                await posthog.flush();
+              variant="secondary"
+              loading={deleteAttachmentsPending}
+              className="w-full"
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  void deleteAttachments();
+                } else {
+                  RNAlert.alert(
+                    'Delete local attachments',
+                    'This will reset local attachments. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void deleteAttachments();
+                        }
+                      }
+                    ]
+                  );
+                }
               }}
             >
-              <Text>{t('submitFeedback')}</Text>
+              <Text>Wipe local attachments</Text>
             </Button>
-          )}
-          {/* User Profile Information */}
-          {currentUser && (
-            <View className="flex flex-col rounded-lg bg-card p-4">
-              <View className="flex flex-row items-center gap-2">
-                <Icon as={MailIcon} className="text-muted-foreground" />
+          </View>
+        )}
+        {!posthog.isDisabled && (
+          <Button
+            onPress={async () => {
+              posthog.capture('feedback button pressed');
+              await posthog.flush();
+            }}
+          >
+            <Text>{t('submitFeedback')}</Text>
+          </Button>
+        )}
+        {/* User Profile Information */}
+        {currentUser && (
+          <View className="flex flex-col rounded-lg bg-card p-4">
+            <View className="flex flex-row items-center gap-2">
+              <Icon as={MailIcon} className="text-muted-foreground" />
+              <Text className="flex-1 text-foreground" ph-no-capture>
+                {currentUser.email || 'No email provided'}
+              </Text>
+            </View>
+            {currentUser.user_metadata.username && (
+              <View className="flex-row items-center gap-2">
+                <Icon as={UserIcon} className="text-muted-foreground" />
                 <Text className="flex-1 text-foreground" ph-no-capture>
-                  {currentUser.email || 'No email provided'}
+                  {currentUser.user_metadata.username}
                 </Text>
               </View>
-              {currentUser.user_metadata.username && (
-                <View className="flex-row items-center gap-2">
-                  <Icon as={UserIcon} className="text-muted-foreground" />
-                  <Text className="flex-1 text-foreground" ph-no-capture>
-                    {currentUser.user_metadata.username}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Analytics Toggle - Now shows "Enable Analytics" */}
-          <View className="flex flex-col gap-1 rounded-lg bg-card p-4">
-            <View className="flex flex-row items-center">
-              <Text className="flex-1 text-base font-medium text-foreground">
-                {t('enableAnalytics')}
-              </Text>
-              <Switch
-                checked={analyticsEnabled}
-                onCheckedChange={handleAnalyticsToggle}
-              />
-            </View>
-            <Text className="text-sm leading-5 text-muted-foreground">
-              {t('analyticsDescription')}
-            </Text>
-          </View>
-
-          <ThemeToggle />
-
-          {/* Password Change - Only when online */}
-          {isOnline ? (
-            <View className="flex flex-col gap-4">
-              <Text className="text-lg font-semibold">
-                {t('changePassword')}
-              </Text>
-              <View className="flex flex-col gap-2">
-                <FormField
-                  control={form.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...transformInputProps(field)}
-                          placeholder={t('currentPassword')}
-                          placeholderTextColor={colors.textSecondary}
-                          secureTextEntry
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </View>
-
-              <FormField
-                control={form.control}
-                name="newPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...transformInputProps(field)}
-                        placeholder={t('newPassword')}
-                        placeholderTextColor={colors.textSecondary}
-                        secureTextEntry
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...transformInputProps(field)}
-                        placeholder={t('confirmPassword')}
-                        placeholderTextColor={colors.textSecondary}
-                        secureTextEntry
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </View>
-          ) : (
-            <Alert icon={InfoIcon}>
-              <AlertTitle>{t('onlineOnlyFeatures')}</AlertTitle>
-            </Alert>
-          )}
-          {/* Language Selection - Always available */}
-          <FormField
-            control={form.control}
-            name="selectedLanguageId"
-            render={({ field }) => (
-              <FormItem>
-                <LanguageSelect
-                  {...field}
-                  uiReadyOnly
-                  onChange={(lang) => field.onChange(lang.id)}
-                />
-                <FormMessage />
-              </FormItem>
             )}
-          />
+          </View>
+        )}
 
-          {/* Save Button */}
-          <Button
-            onPress={form.handleSubmit((data) => updateProfile(data))}
-            disabled={isPending}
-          >
-            <Text>{t('submit')}</Text>
-          </Button>
+        {/* Analytics Toggle - Now shows "Enable Analytics" */}
+        <View className="flex flex-col gap-1 rounded-lg bg-card p-4">
+          <View className="flex flex-row items-center">
+            <Text className="flex-1 text-base font-medium text-foreground">
+              {t('enableAnalytics')}
+            </Text>
+            <Switch
+              checked={analyticsEnabled}
+              onCheckedChange={handleAnalyticsToggle}
+            />
+          </View>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            {t('analyticsDescription')}
+          </Text>
+        </View>
 
-          {/* Advanced Options Section - Always visible when authenticated */}
-          {currentUser && systemReady && (
-            <View className="flex flex-col gap-4">
-              <View className="h-px bg-border" />
-              <Button
-                variant="ghost"
-                onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                className="h-auto justify-between p-4"
-              >
-                <View className="flex flex-row items-center gap-2">
-                  <Icon
-                    as={MoreVertical}
-                    size={20}
-                    className="text-muted-foreground"
-                  />
-                  <Text className="text-base font-medium text-foreground">
-                    {t('advanced')}
-                  </Text>
-                </View>
+        <ThemeToggle />
+
+        {/* Password Change - Only when online */}
+        {isOnline ? (
+          <View className="flex flex-col gap-4">
+            <Text className="text-lg font-semibold">{t('changePassword')}</Text>
+            <View className="flex flex-col gap-2">
+              <FormField
+                control={form.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        {...transformInputProps(field)}
+                        type="next"
+                        placeholder={t('currentPassword')}
+                        placeholderTextColor={colors.textSecondary}
+                        secureTextEntry
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </View>
+
+            <FormField
+              control={form.control}
+              name="newPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      {...transformInputProps(field)}
+                      type="next"
+                      placeholder={t('newPassword')}
+                      placeholderTextColor={colors.textSecondary}
+                      secureTextEntry
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      {...transformInputProps(field)}
+                      onSubmitEditing={() => {
+                        void handleFormSubmit();
+                      }}
+                      returnKeyType="done"
+                      placeholder={t('confirmPassword')}
+                      placeholderTextColor={colors.textSecondary}
+                      secureTextEntry
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </View>
+        ) : (
+          <Alert icon={InfoIcon}>
+            <AlertTitle>{t('onlineOnlyFeatures')}</AlertTitle>
+          </Alert>
+        )}
+        {/* Language Selection - Always available */}
+        <FormField
+          control={form.control}
+          name="selectedLanguageId"
+          render={({ field }) => (
+            <FormItem>
+              <LanguageSelect
+                {...field}
+                uiReadyOnly
+                onChange={(lang) => field.onChange(lang.id)}
+              />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Save Button */}
+        <FormSubmit onPress={handleFormSubmit}>
+          <Text>{t('submit')}</Text>
+        </FormSubmit>
+
+        {/* Advanced Options Section - Always visible when authenticated */}
+        {currentUser && systemReady && (
+          <View className="flex flex-col gap-4">
+            <View className="h-px bg-border" />
+            <Button
+              variant="ghost"
+              onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              className="h-auto justify-between p-4"
+            >
+              <View className="flex flex-row items-center gap-2">
                 <Icon
-                  as={showAdvancedOptions ? ChevronDown : ChevronRight}
+                  as={MoreVertical}
                   size={20}
                   className="text-muted-foreground"
                 />
-              </Button>
+                <Text className="text-base font-medium text-foreground">
+                  {t('advanced')}
+                </Text>
+              </View>
+              <Icon
+                as={showAdvancedOptions ? ChevronDown : ChevronRight}
+                size={20}
+                className="text-muted-foreground"
+              />
+            </Button>
 
-              {showAdvancedOptions && (
-                <>
-                  {!isOnline ? (
-                    <Alert icon={InfoIcon}>
-                      <AlertTitle>
-                        {t('accountDeletionRequiresOnline')}
-                      </AlertTitle>
-                    </Alert>
-                  ) : (
-                    <View className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-                      <Text className="text-base font-semibold text-destructive">
-                        {t('accountDeletionTitle')}
-                      </Text>
-                      <Text className="text-sm text-muted-foreground">
-                        {t('accountDeletionWarning')}
-                      </Text>
-                      <Button
-                        variant="destructive"
-                        onPress={() => {
-                          navigate({ view: 'account-deletion' });
-                        }}
-                        className="mt-2"
-                      >
-                        <Text>{t('deleteAccount')}</Text>
-                      </Button>
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-        </View>
+            {showAdvancedOptions && (
+              <>
+                {!isOnline ? (
+                  <Alert icon={InfoIcon}>
+                    <AlertTitle>
+                      {t('accountDeletionRequiresOnline')}
+                    </AlertTitle>
+                  </Alert>
+                ) : (
+                  <View className="flex flex-col gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                    <Text className="text-base font-semibold text-destructive">
+                      {t('accountDeletionTitle')}
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {t('accountDeletionWarning')}
+                    </Text>
+                    <Button
+                      variant="destructive"
+                      onPress={() => {
+                        navigate({ view: 'account-deletion' });
+                      }}
+                      className="mt-2"
+                    >
+                      <Text>{t('deleteAccount')}</Text>
+                    </Button>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
         <Link
           href="/terms"
           style={[
@@ -499,7 +502,7 @@ export default function ProfileView() {
         >
           {t('viewTerms')}
         </Link>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Form>
   );
 }

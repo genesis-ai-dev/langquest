@@ -1015,6 +1015,7 @@ export default function ProjectDirectoryView() {
             prefix={SearchIcon}
             prefixStyling={false}
             size="sm"
+            returnKeyType="search"
             suffix={
               questListFetching && searchQuery ? (
                 <ActivityIndicator

@@ -30,15 +30,11 @@ import {
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native';
+  KeyboardAwareScrollView,
+  KeyboardToolbar
+} from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
 import { z } from 'zod';
@@ -290,6 +286,8 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     }
   };
 
+  const handleFormSubmit = languageForm.handleSubmit(handleCreateLanguage);
+
   const handleProjectSelect = (project: (typeof projectsByLanguage)[0]) => {
     // Navigate to existing project
     goToProject({
@@ -365,11 +363,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-background"
-        style={{ paddingTop: insets.top }}
-      >
+      <View className="pt-safe flex-1 bg-background">
         {/* Progress Indicator */}
         {step !== 'create-language' && (
           <OnboardingProgressIndicator currentStep={progressStep} />
@@ -390,7 +384,12 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
         </View>
 
         {/* Content */}
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
+        <KeyboardAwareScrollView
+          className="flex-1"
+          contentContainerClassName="p-6"
+          bottomOffset={96}
+          extraKeyboardSpace={20}
+        >
           {/* Step 1: Region Selection */}
           {step === 'region' && (
             <View className="flex-1 gap-6">
@@ -702,6 +701,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   onChangeText={(text) =>
                     languageForm.setValue('native_name', text)
                   }
+                  type="next"
                   editable={!isLoading}
                 />
 
@@ -711,6 +711,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   onChangeText={(text) =>
                     languageForm.setValue('english_name', text)
                   }
+                  type="next"
                   editable={!isLoading}
                 />
 
@@ -720,6 +721,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   onChangeText={(text) =>
                     languageForm.setValue('iso639_3', text)
                   }
+                  type="next"
                   editable={!isLoading}
                 />
 
@@ -727,11 +729,17 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   placeholder={t('locale') + ' (Optional)'}
                   value={languageForm.watch('locale')}
                   onChangeText={(text) => languageForm.setValue('locale', text)}
+                  onSubmitEditing={() => {
+                    if (!isLoading && languageForm.formState.isValid) {
+                      void handleFormSubmit();
+                    }
+                  }}
+                  returnKeyType="done"
                   editable={!isLoading}
                 />
 
                 <Button
-                  onPress={languageForm.handleSubmit(handleCreateLanguage)}
+                  onPress={handleFormSubmit}
                   disabled={isLoading || !languageForm.formState.isValid}
                   className="mt-4"
                 >
@@ -747,7 +755,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
               </View>
             </View>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         {/* Footer with Back button */}
         {step !== 'region' && (
@@ -757,7 +765,8 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
             </Button>
           </View>
         )}
-      </KeyboardAvoidingView>
+      </View>
+      <KeyboardToolbar />
     </Modal>
   );
 }
