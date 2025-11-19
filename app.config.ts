@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: getAppName(appVariant),
       slug: 'langquest',
-      version: '2.0.1',
+      version: '2.0.2',
       orientation: 'portrait',
       icon: iconLight,
       scheme: getScheme(appVariant),
@@ -137,7 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         url: `https://u.expo.dev/${projectId}`
       },
       runtimeVersion: {
-        policy: 'appVersion'
+        policy: 'fingerprint'
       }
     },
     undefined
