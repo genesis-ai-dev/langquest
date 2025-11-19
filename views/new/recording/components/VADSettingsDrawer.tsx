@@ -19,10 +19,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import {
+  ArrowBigLeft,
+  ArrowBigRight,
   ChevronUp,
   HelpCircle,
   Maximize2,
-  Megaphone,
   Mic,
   Minus,
   Plus,
@@ -847,8 +848,7 @@ export function VADSettingsDrawer({
               {/* Control buttons */}
               <View className="absolute inset-0 flex-row items-center justify-between px-2">
                 <Button
-                  variant="outline"
-                  size="lg"
+                  variant="secondary"
                   onPress={() => {
                     const currentPos = thresholdPosition;
                     const stepPercent = 2; // 2% visual step
@@ -867,14 +867,13 @@ export function VADSettingsDrawer({
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
                   disabled={threshold <= THRESHOLD_MIN}
-                  className="size-12 rounded-full"
+                  className="size-12"
                 >
-                  <Icon as={Volume1} size={20} />
+                  <Icon as={ArrowBigLeft} size={20} />
                 </Button>
 
                 <Button
-                  variant="outline"
-                  size="lg"
+                  variant="secondary"
                   onPress={() => {
                     const currentPos = thresholdPosition;
                     const stepPercent = 2; // 2% visual step
@@ -893,9 +892,9 @@ export function VADSettingsDrawer({
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
                   disabled={threshold >= THRESHOLD_MAX}
-                  className="size-12 rounded-full"
+                  className="size-12"
                 >
-                  <Icon as={Megaphone} size={20} />
+                  <Icon as={ArrowBigRight} size={20} />
                 </Button>
               </View>
             </View>
