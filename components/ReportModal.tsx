@@ -1,6 +1,3 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { blockService } from '@/database_services/blockService';
-import { reportService } from '@/database_services/reportService';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
@@ -8,6 +5,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
+import { blockService } from '@/database_services/blockService';
+import { reportService } from '@/database_services/reportService';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,13 +15,15 @@ import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
-  ScrollView,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  KeyboardToolbar
+} from 'react-native-keyboard-controller';
 // Uncomment these imports when implementing duplicate report checking
 // import { useHybridData } from '@/views/new/useHybridData';
 // import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -208,100 +210,99 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <Pressable className="flex-1 items-center justify-center bg-black/50">
-          <KeyboardAvoidingView behavior="padding">
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
-                <View className="mb-4 flex-row items-center justify-between">
-                  <Text variant="h3">{t('reportTranslation')}</Text>
-                  <Pressable className="p-1" onPress={onClose}>
-                    <Icon as={XIcon} size={24} className="text-foreground" />
-                  </Pressable>
-                </View>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text variant="h3">{t('reportTranslation')}</Text>
+                <Pressable className="p-1" onPress={onClose}>
+                  <Icon as={XIcon} size={24} className="text-foreground" />
+                </Pressable>
+              </View>
 
-                <ScrollView
-                  className="max-h-[80%]"
-                  showsVerticalScrollIndicator
-                >
-                  <View className="gap-4">
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('selectReasonLabel')}
-                      </Text>
-                      <RadioGroup
-                        value={reason ?? undefined}
-                        onValueChange={(value) =>
-                          handleReasonSelect(
-                            value as (typeof reasonOptions)[number]
-                          )
-                        }
-                      >
-                        {reasonOptions.map((option) => (
-                          <RadioGroupItem
-                            key={option}
-                            value={option}
-                            label={t(`reportReason.${option}`)}
-                          />
-                        ))}
-                      </RadioGroup>
-                    </View>
+              <KeyboardAwareScrollView
+                className="max-h-[80%]"
+                bottomOffset={96}
+                extraKeyboardSpace={20}
+                showsVerticalScrollIndicator
+              >
+                <View className="gap-4">
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('selectReasonLabel')}
+                    </Text>
+                    <RadioGroup
+                      value={reason ?? undefined}
+                      onValueChange={(value) =>
+                        handleReasonSelect(
+                          value as (typeof reasonOptions)[number]
+                        )
+                      }
+                    >
+                      {reasonOptions.map((option) => (
+                        <RadioGroupItem
+                          key={option}
+                          value={option}
+                          label={t(`reportReason.${option}`)}
+                        />
+                      ))}
+                    </RadioGroup>
+                  </View>
 
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('additionalDetails')}
-                      </Text>
-                      <Textarea
-                        placeholder={t('additionalDetailsPlaceholder')}
-                        value={details}
-                        onChangeText={setDetails}
-                        drawerInput={false}
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('additionalDetails')}
+                    </Text>
+                    <Textarea
+                      placeholder={t('additionalDetailsPlaceholder')}
+                      value={details}
+                      onChangeText={setDetails}
+                      drawerInput={false}
+                    />
+                  </View>
+
+                  {/* Blocking options */}
+                  <View className="gap-3 border-t border-input pt-4">
+                    <Text variant="large" className="mb-2">
+                      {t('options')}
+                    </Text>
+                    <View className="flex-row items-center justify-between">
+                      <Label className="flex-1">{t('blockThisContent')}</Label>
+                      <Switch
+                        checked={blockContentOption}
+                        onCheckedChange={setBlockContentOption}
                       />
                     </View>
 
-                    {/* Blocking options */}
-                    <View className="gap-3 border-t border-input pt-4">
-                      <Text variant="large" className="mb-2">
-                        {t('options')}
-                      </Text>
+                    {creatorId && creatorId !== currentUser?.id && (
                       <View className="flex-row items-center justify-between">
-                        <Label className="flex-1">
-                          {t('blockThisContent')}
-                        </Label>
+                        <Label className="flex-1">{t('blockThisUser')}</Label>
                         <Switch
-                          checked={blockContentOption}
-                          onCheckedChange={setBlockContentOption}
+                          checked={blockUserOption}
+                          onCheckedChange={setBlockUserOption}
                         />
                       </View>
-
-                      {creatorId && creatorId !== currentUser?.id && (
-                        <View className="flex-row items-center justify-between">
-                          <Label className="flex-1">{t('blockThisUser')}</Label>
-                          <Switch
-                            checked={blockUserOption}
-                            onCheckedChange={setBlockUserOption}
-                          />
-                        </View>
-                      )}
-                    </View>
+                    )}
                   </View>
-                </ScrollView>
+                </View>
+              </KeyboardAwareScrollView>
 
-                <Button
-                  className="mt-4"
-                  onPress={handleSubmit}
-                  disabled={!reason || createReportMutation.isPending}
-                  loading={createReportMutation.isPending}
-                >
-                  <Text>
-                    {createReportMutation.isPending
-                      ? t('submitting')
-                      : t('submitReport')}
-                  </Text>
-                </Button>
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
+              <Button
+                className="mt-4"
+                onPress={handleSubmit}
+                disabled={!reason || createReportMutation.isPending}
+                loading={createReportMutation.isPending}
+              >
+                <Text>
+                  {createReportMutation.isPending
+                    ? t('submitting')
+                    : t('submitReport')}
+                </Text>
+              </Button>
+            </View>
+          </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
+      <KeyboardToolbar />
     </Modal>
   );
 };

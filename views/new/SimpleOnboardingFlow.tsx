@@ -16,14 +16,11 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { Modal, Pressable, View } from 'react-native';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native';
+  KeyboardAwareScrollView,
+  KeyboardToolbar
+} from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
 import { AnimatedStepContent } from './onboarding/AnimatedStepContent';
@@ -176,11 +173,7 @@ export function SimpleOnboardingFlow({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-background"
-        style={{ paddingTop: insets.top }}
-      >
+      <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
         {/* PortalHost for Select dropdowns inside Modal */}
         <PortalHost />
 
@@ -196,7 +189,12 @@ export function SimpleOnboardingFlow({
         </View>
 
         {/* Content */}
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
+        <KeyboardAwareScrollView
+          className="flex-1"
+          contentContainerClassName="p-6"
+          bottomOffset={96}
+          extraKeyboardSpace={20}
+        >
           {/* Step 0: Vision Screen */}
           {step === 'vision' && (
             <View className="flex-1">
@@ -530,7 +528,7 @@ export function SimpleOnboardingFlow({
               </AnimatedStepContent>
             </View>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         {/* Footer with Back button */}
         {step !== 'vision' && step !== 'create-project-simple' && (
@@ -540,7 +538,8 @@ export function SimpleOnboardingFlow({
             </Button>
           </View>
         )}
-      </KeyboardAvoidingView>
+      </View>
+      <KeyboardToolbar />
     </Modal>
   );
 }
