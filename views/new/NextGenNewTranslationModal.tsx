@@ -143,12 +143,19 @@ export default function NextGenNewTranslationModal({
     queriedProjectDataArray.length > 0 ? queriedProjectDataArray[0] : undefined;
 
   // Prefer passed project data for instant rendering
-  const projectData = currentProjectData || queriedProjectData;
+  // Extract project data from WithSource wrapper if needed
+  const projectData =
+    currentProjectData ||
+    (queriedProjectData && 'source' in queriedProjectData
+      ? (queriedProjectData as typeof project.$inferSelect & {
+          source?: string;
+        })
+      : queriedProjectData);
 
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    projectData?.private as boolean | undefined
+    (projectData as typeof project.$inferSelect | undefined)?.private
   );
 
   React.useEffect(() => {
