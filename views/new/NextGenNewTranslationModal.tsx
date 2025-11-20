@@ -1,4 +1,3 @@
-
 import AudioRecorder from '@/components/AudioRecorder';
 import {
   Drawer,
@@ -123,23 +122,25 @@ export default function NextGenNewTranslationModal({
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
     queryKeyParams: [currentProjectId || ''],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
-    cloudQueryFn: async () => {
+    cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
       if (!currentProjectId) return [];
-      const { data, error } = await system.supabaseConnector.client
+      const result = await system.supabaseConnector.client
         .from('project')
         .select('*')
         .eq('id', currentProjectId)
-        .limit(1)
-        .overrideTypes<(typeof project.$inferSelect)[]>();
-      if (error) throw error;
-      return data ?? [];
+        .limit(1);
+      if (result.error) throw result.error;
+      const typedData = result.data as (typeof project.$inferSelect)[] | null;
+      return typedData || [];
     },
-    enableCloudQuery: currentProjectId !== null && !currentProjectData,
-    enableOfflineQuery: currentProjectId !== null && !currentProjectData
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
 
-  const queriedProjectData = queriedProjectDataArray?.[0];
+  const queriedProjectData =
+    queriedProjectDataArray.length > 0 ? queriedProjectDataArray[0] : undefined;
 
   // Prefer passed project data for instant rendering
   const projectData = currentProjectData || queriedProjectData;
@@ -147,7 +148,7 @@ export default function NextGenNewTranslationModal({
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    (projectData as Record<string, unknown>)?.private as boolean | undefined
+    projectData?.private as boolean | undefined
   );
 
   React.useEffect(() => {
@@ -441,7 +442,7 @@ export default function NextGenNewTranslationModal({
     const sourceText = contentPreview.trim();
 
     // Show examples even if API call fails
-    const examplesToShow = nearbyExamples || [];
+    const examplesToShow = nearbyExamples;
 
     try {
       // Source language is optional - use "Unknown" if not available
@@ -478,11 +479,14 @@ export default function NextGenNewTranslationModal({
       });
     } catch (error) {
       console.error('[AI PREDICTION] Error:', error);
-      
+
       // Check if error is due to missing API key
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const isApiKeyError = errorMessage.includes('API key') || errorMessage.includes('not configured');
-      
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const isApiKeyError =
+        errorMessage.includes('API key') ||
+        errorMessage.includes('not configured');
+
       // Still show examples even if API key is missing
       setPredictionDetails({
         rawResponse: '',
@@ -490,7 +494,7 @@ export default function NextGenNewTranslationModal({
         hasApiKey: false,
         error: isApiKeyError ? 'API key not configured' : errorMessage
       });
-      
+
       // Only show alert if it's not an API key error (we'll show it in the UI instead)
       if (!isApiKeyError) {
         Alert.alert(
@@ -636,7 +640,7 @@ export default function NextGenNewTranslationModal({
                       predictionDetails &&
                       predictionDetails.hasApiKey === false ? (
                       // Show examples button when API key is missing
-                      <View className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
+                      <View className="border-warning/30 bg-warning/5 rounded-lg border-2 p-4">
                         <View className="mb-2 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
                             <Icon
@@ -644,7 +648,7 @@ export default function NextGenNewTranslationModal({
                               size={18}
                               className="text-warning"
                             />
-                            <Text className="text-sm font-semibold text-warning-foreground">
+                            <Text className="text-warning-foreground text-sm font-semibold">
                               API Key Not Configured
                             </Text>
                           </View>
@@ -652,7 +656,7 @@ export default function NextGenNewTranslationModal({
                             {predictionDetails.examples.length > 0 && (
                               <Pressable
                                 onPress={() => setShowDetailsModal(true)}
-                                className="rounded-md border border-warning/30 bg-background p-2"
+                                className="border-warning/30 rounded-md border bg-background p-2"
                               >
                                 <Icon
                                   as={EyeIcon}
@@ -667,7 +671,7 @@ export default function NextGenNewTranslationModal({
                               }}
                               disabled={isButtonDisabled}
                               className={cn(
-                                'rounded-md border border-warning/30 bg-background p-2',
+                                'border-warning/30 rounded-md border bg-background p-2',
                                 isButtonDisabled && 'opacity-50'
                               )}
                             >
@@ -683,7 +687,7 @@ export default function NextGenNewTranslationModal({
                             </Pressable>
                           </View>
                         </View>
-                        <Text className="text-sm text-warning-foreground">
+                        <Text className="text-warning-foreground text-sm">
                           {predictionDetails.examples.length > 0
                             ? `${predictionDetails.examples.length} contextually relevant examples found. View details to see them.`
                             : 'No examples available. Configure API key to enable translation prediction.'}
@@ -849,18 +853,21 @@ export default function NextGenNewTranslationModal({
 
                   <ScrollView className="max-h-[80%]">
                     {/* API Key Warning */}
-                    {predictionDetails && predictionDetails.hasApiKey === false && (
-                      <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
-                        <Text className="mb-2 text-base font-semibold text-warning-foreground">
-                          API Key Not Configured
-                        </Text>
-                        <Text className="text-sm text-warning-foreground">
-                          Translation prediction requires an OpenRouter API key to be configured. 
-                          The examples below show contextually relevant translation examples that would 
-                          be used for prediction, but no AI translation can be generated without an API key.
-                        </Text>
-                      </View>
-                    )}
+                    {predictionDetails &&
+                      predictionDetails.hasApiKey === false && (
+                        <View className="border-warning bg-warning/10 mb-6 rounded-lg border-2 p-4">
+                          <Text className="text-warning-foreground mb-2 text-base font-semibold">
+                            API Key Not Configured
+                          </Text>
+                          <Text className="text-warning-foreground text-sm">
+                            Translation prediction requires an OpenRouter API
+                            key to be configured. The examples below show
+                            contextually relevant translation examples that
+                            would be used for prediction, but no AI translation
+                            can be generated without an API key.
+                          </Text>
+                        </View>
+                      )}
 
                     {/* Examples Section */}
                     {predictionDetails && (
@@ -922,20 +929,20 @@ export default function NextGenNewTranslationModal({
                     )}
 
                     {/* Raw Response Section - Only show if we have an API key and a response */}
-                    {predictionDetails && 
-                     predictionDetails.hasApiKey !== false && 
-                     predictionDetails.rawResponse && (
-                      <View>
-                        <Text className="mb-3 text-base font-semibold text-foreground">
-                          Raw Model Response
-                        </Text>
-                        <View className="rounded-lg border border-border bg-muted/30 p-3">
-                          <Text className="font-mono text-sm leading-5 text-foreground">
-                            {predictionDetails.rawResponse}
+                    {predictionDetails &&
+                      predictionDetails.hasApiKey !== false &&
+                      predictionDetails.rawResponse && (
+                        <View>
+                          <Text className="mb-3 text-base font-semibold text-foreground">
+                            Raw Model Response
                           </Text>
+                          <View className="rounded-lg border border-border bg-muted/30 p-3">
+                            <Text className="font-mono text-sm leading-5 text-foreground">
+                              {predictionDetails.rawResponse}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                    )}
+                      )}
                   </ScrollView>
 
                   <Pressable

@@ -66,40 +66,48 @@ export function useNearbyTranslations(
 
         // If sourceText is provided and we're online, call the RPC to get ranked examples
         if (sourceText && isOnline && sourceText.trim().length > 0) {
-          const { data: rpcExamples, error } =
-            await system.supabaseConnector.client.rpc(
-              'get_similar_translations',
-              {
-                p_project_id: currentQuest.projectId,
-                p_target_language_id: targetLanguageId,
-                p_source_text: sourceText.trim(),
-                p_limit: MAX_EXAMPLES
-              }
-            );
+          interface RpcExample {
+            source_text: string;
+            target_text: string;
+            similarity_score: number;
+          }
 
-          if (error) {
+          const rpcResult = await system.supabaseConnector.client.rpc(
+            'get_similar_translations',
+            {
+              p_project_id: currentQuest.projectId,
+              p_target_language_id: targetLanguageId,
+              p_source_text: sourceText.trim(),
+              p_limit: MAX_EXAMPLES
+            }
+          );
+
+          if (rpcResult.error) {
             console.error(
               '[useNearbyTranslations] RPC error:',
-              error
+              rpcResult.error
             );
             // Fall through to local logic if RPC fails
-          } else if (rpcExamples && rpcExamples.length > 0) {
-            // Map RPC results to TranslationExample format
-            const mappedExamples: TranslationExample[] = rpcExamples.map(
-              (e: any) => ({
-                source: e.source_text,
-                target: e.target_text,
-                similarityScore: e.similarity_score
-              })
-            );
-
-            if (__DEV__) {
-              console.log(
-                '[useNearbyTranslations] RPC returned examples:',
-                mappedExamples.length
+          } else {
+            const rpcExamples = rpcResult.data as RpcExample[] | null;
+            if (rpcExamples && rpcExamples.length > 0) {
+              // Map RPC results to TranslationExample format
+              const mappedExamples: TranslationExample[] = rpcExamples.map(
+                (e) => ({
+                  source: e.source_text,
+                  target: e.target_text,
+                  similarityScore: e.similarity_score
+                })
               );
+
+              if (__DEV__) {
+                console.log(
+                  '[useNearbyTranslations] RPC returned examples:',
+                  mappedExamples.length
+                );
+              }
+              return mappedExamples;
             }
-            return mappedExamples;
           }
         }
 
@@ -296,8 +304,8 @@ async function getExamplesFromAssets(
   assetIds: string[],
   targetLanguageId: string,
   sourceTextMap: Map<string, string>,
-  sourceText?: string,
-  isOnline?: boolean
+  _sourceText?: string,
+  _isOnline?: boolean
 ): Promise<TranslationExample[]> {
   if (assetIds.length === 0) {
     return [];
@@ -390,7 +398,7 @@ async function getExamplesFromAssets(
     translation
   ] of bestTranslationBySource.entries()) {
     const sourceText = sourceTextMap.get(sourceAssetId);
-    if (sourceText && sourceText.trim() && translation.translationText) {
+    if (sourceText?.trim() && translation.translationText) {
       examples.push({
         source: sourceText.trim(),
         target: translation.translationText.trim()
