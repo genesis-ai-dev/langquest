@@ -239,7 +239,7 @@ export function QuestListView({
   }
 
   // Show empty state only when NOT loading and no results
-  if (roots.length === 0 && !questsInfiniteQuery.isOfflineLoading) {
+  if (roots.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-4">
         <Text className="text-center text-muted-foreground">

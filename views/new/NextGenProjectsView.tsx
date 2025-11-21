@@ -23,9 +23,9 @@ import {
   eq,
   getTableColumns,
   like,
+  notExists,
   notInArray,
-  or,
-  sql
+  or
 } from 'drizzle-orm';
 import {
   ArrowRightIcon,
@@ -36,6 +36,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
@@ -345,114 +346,57 @@ export default function NextGenProjectsView() {
     };
   }, [userId, userEmail, queryClient]);
 
-  // Query for projects where user has pending invites but is not yet a member
-  const invitedProjectsQuery = useHybridData({
-    dataType: 'invited-projects',
+  // Query for invites where user has pending invites but is not yet a member
+  // Offline-only: PowerSync syncs invite table (via user_profile and project_memberships buckets)
+  // When an invite is withdrawn/expired, PowerSync removes it from local DB, and the query
+  // automatically updates due to PowerSync watches being reactive
+
+  const invitedInvitesQuery = useHybridData({
+    dataType: 'invited-invites',
     queryKeyParams: [userId || '', userEmail || '', searchQuery],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({
-          ...getTableColumns(project)
-        })
-        .from(project)
-        .innerJoin(invite, eq(project.id, invite.project_id))
+        .select({ project_id: invite.project_id, status: invite.status })
+        .from(invite)
         .where(
           and(
             ...[
               // Build invite matching condition - at least one must be true
               (userId || userEmail) &&
                 or(
-                  userId ? eq(invite.receiver_profile_id, userId) : undefined,
-                  userEmail ? eq(invite.email, userEmail) : undefined
+                  ...[
+                    userId && eq(invite.receiver_profile_id, userId),
+                    userEmail && eq(invite.email, userEmail)
+                  ].filter(Boolean)
                 ),
               eq(invite.status, 'pending'),
               eq(invite.active, true),
-              // Exclude projects where user is already a member (only if userId exists)
+              // Exclude projects where user is already a member
               userId &&
-                sql`NOT EXISTS (
-                  SELECT 1 FROM ${profile_project_link}
-                  WHERE ${profile_project_link.project_id} = ${project.id}
-                  AND ${profile_project_link.profile_id} = ${userId}
-                  AND ${profile_project_link.active} = 1
-                )`,
-              or(
-                !showInvisibleContent ? eq(project.visible, true) : undefined,
-                userId ? eq(project.creator_id, userId) : undefined
-              ),
-              searchQuery &&
-                or(
-                  like(project.name, `%${searchQuery.trim()}%`),
-                  like(project.description, `%${searchQuery.trim()}%`)
+                notExists(
+                  system.db
+                    .select()
+                    .from(profile_project_link)
+                    .where(
+                      and(
+                        eq(profile_project_link.project_id, invite.project_id),
+                        eq(profile_project_link.profile_id, userId),
+                        eq(profile_project_link.active, true)
+                      )
+                    )
+                    .limit(1)
                 )
             ].filter(Boolean)
           )
         )
     ),
-    cloudQueryFn: async () => {
-      if (!userId && !userEmail) return [];
-
-      // Get projects where user is already a member (to exclude)
-      const { data: userMemberships } = userId
-        ? await system.supabaseConnector.client
-            .from('profile_project_link')
-            .select('project_id')
-            .eq('profile_id', userId)
-            .eq('active', true)
-            .overrideTypes<{ project_id: string }[]>()
-        : { data: [] };
-
-      const memberProjectIds = userMemberships?.map((m) => m.project_id) || [];
-
-      // Query for projects with pending invites
-      // Build OR condition for receiver_profile_id or email
-      const inviteConditions: string[] = [];
-      if (userId) {
-        inviteConditions.push(`receiver_profile_id.eq.${userId}`);
-      }
-      if (userEmail) {
-        inviteConditions.push(`email.eq.${userEmail}`);
-      }
-
-      if (inviteConditions.length === 0) return [];
-
-      const inviteQuery = system.supabaseConnector.client
-        .from('invite')
-        .select('project_id')
-        .eq('status', 'pending')
-        .eq('active', true)
-        .or(inviteConditions.join(','));
-
-      const { data: invites, error: inviteError } =
-        await inviteQuery.overrideTypes<{ project_id: string }[]>();
-
-      if (inviteError) throw inviteError;
-
-      const invitedProjectIds = invites
-        .map((inv) => inv.project_id)
-        .filter((id) => !memberProjectIds.includes(id));
-
-      if (invitedProjectIds.length === 0) return [];
-
-      // Query the actual projects
-      let query = system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .in('id', invitedProjectIds);
-
-      if (!showInvisibleContent) query = query.eq('visible', true);
-      if (searchQuery.trim())
-        query = query.or(
-          `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
-        );
-
-      const { data, error } = await query.overrideTypes<Project[]>();
-
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: !!(userId || userEmail),
-    enableOfflineQuery: !!(userId || userEmail)
+    enableCloudQuery: false, // Disabled: rely on offline query + PowerSync sync
+    enableOfflineQuery: !!(userId || userEmail),
+    enabled: isAuthenticated && !!(userId || userEmail) // Ensure query runs when user is authenticated
+    // No realtime subscription needed: PowerSync watches are reactive to local DB changes
   });
+
+  const { data: invitedInvitesData = [] } = invitedInvitesQuery;
 
   // Query for All Projects (excluding user's projects)
   // For anonymous users, this shows all public projects
@@ -574,8 +518,8 @@ export default function NextGenProjectsView() {
       return (
         myProjectsQuery.isOfflineLoading ||
         myProjectsQuery.isCloudLoading ||
-        invitedProjectsQuery.isOfflineLoading ||
-        invitedProjectsQuery.isCloudLoading
+        invitedInvitesQuery.isOfflineLoading ||
+        invitedInvitesQuery.isCloudLoading
       );
     }
   }, [
@@ -583,14 +527,10 @@ export default function NextGenProjectsView() {
     isAuthenticated,
     myProjectsQuery.isOfflineLoading,
     myProjectsQuery.isCloudLoading,
-    invitedProjectsQuery.isOfflineLoading,
-    invitedProjectsQuery.isCloudLoading,
+    invitedInvitesQuery.isOfflineLoading,
+    invitedInvitesQuery.isCloudLoading,
     allProjects.isFetching
   ]);
-
-  // Only fetch invited projects if authenticated and on "my" tab
-  const { data: invitedProjectsData = [] } =
-    isAuthenticated && activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -604,16 +544,17 @@ export default function NextGenProjectsView() {
     ''
   );
 
-  // Track invited project IDs for special styling
+  // Get project IDs from invites for filtering
   const invitedProjectIds = React.useMemo(() => {
-    if (activeTab !== 'my' || !Array.isArray(invitedProjectsData)) {
+    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
       return new Set<string>();
     }
-    return new Set(invitedProjectsData.map((p) => p.id));
-  }, [invitedProjectsData, activeTab]);
+    return new Set(invitedInvitesData.map((inv) => inv.project_id));
+  }, [invitedInvitesData, activeTab]);
 
+  // Process regular projects data
   const data = React.useMemo(() => {
-    let projects: (Project & { isInvited?: boolean })[] = [];
+    let projects: Project[] = [];
 
     // Handle paginated data (with pages property)
     if ('pages' in projectData && Array.isArray(projectData.pages)) {
@@ -631,42 +572,43 @@ export default function NextGenProjectsView() {
       projects = projectData;
     }
 
-    // Merge invited projects for "my projects" tab (only for authenticated users)
-    if (
-      isAuthenticated &&
-      activeTab === 'my' &&
-      Array.isArray(invitedProjectsData)
-    ) {
-      const seenIds = new Set(projects.map((p) => p.id));
-      for (const invitedProject of invitedProjectsData) {
-        if (!seenIds.has(invitedProject.id)) {
-          projects.push({ ...invitedProject, isInvited: true });
-          seenIds.add(invitedProject.id);
-        }
+    // Filter out projects that have invites (invites will be rendered separately)
+    return projects.filter((p) => !invitedProjectIds.has(p.id));
+  }, [projectData, invitedProjectIds]);
+
+  // Filter invites based on search query - we'll filter by project_id only
+  // The actual project name/description filtering happens in InvitedProjectListItem
+  const filteredInvites = React.useMemo(() => {
+    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
+      return [];
+    }
+    // Return all invites - filtering by project name/description will happen
+    // after project data is fetched in InvitedProjectListItem
+    // Note: SQL query already excludes projects where user is already a member
+    return invitedInvitesData;
+  }, [invitedInvitesData, activeTab]);
+
+  // Combine invites and regular projects for rendering
+  const allItems = React.useMemo(() => {
+    const items: (
+      | { type: 'invite'; projectId: string }
+      | { type: 'project'; project: Project }
+    )[] = [];
+
+    // Add invites first
+    if (activeTab === 'my') {
+      for (const inv of filteredInvites) {
+        items.push({ type: 'invite', projectId: inv.project_id });
       }
     }
 
-    // Mark existing projects as invited if they're in the invited set
-    projects = projects.map((project) => ({
-      ...project,
-      isInvited: invitedProjectIds.has(project.id) || project.isInvited
-    }));
+    // Add regular projects
+    for (const proj of data) {
+      items.push({ type: 'project', project: proj });
+    }
 
-    // Sort: invited projects first, then regular projects
-    projects.sort((a, b) => {
-      if (a.isInvited && !b.isInvited) return -1;
-      if (!a.isInvited && b.isInvited) return 1;
-      return 0;
-    });
-
-    return projects;
-  }, [
-    projectData,
-    invitedProjectsData,
-    activeTab,
-    invitedProjectIds,
-    isAuthenticated
-  ]);
+    return items;
+  }, [filteredInvites, data, activeTab]);
 
   const dimensions = useWindowDimensions();
 
@@ -813,6 +755,7 @@ export default function NextGenProjectsView() {
                     prefix={SearchIcon}
                     prefixStyling={false}
                     size="sm"
+                    returnKeyType="search"
                     suffix={
                       isFetchingProjects && searchQuery ? (
                         <ActivityIndicator
@@ -838,25 +781,39 @@ export default function NextGenProjectsView() {
 
           {/* Show project list only if not showing login invitation */}
           {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
-            (isFetchingProjects && searchQuery && data.length === 0) ? (
+            (isFetchingProjects && searchQuery && allItems.length === 0) ? (
             <ProjectListSkeleton />
           ) : (
             <LegendList
-              key={`${activeTab}-${dimensions.width}-${data.length}`}
-              data={data}
+              key={`${activeTab}-${dimensions.width}-${allItems.length}`}
+              data={allItems}
               columnWrapperStyle={{ gap: 12 }}
-              numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
-              keyExtractor={(item) => item.id}
+              numColumns={dimensions.width > 768 && allItems.length > 1 ? 2 : 1}
+              keyExtractor={(item) =>
+                item.type === 'invite'
+                  ? `invite-${item.projectId}-${activeTab}`
+                  : `project-${item.project.id}-${activeTab}`
+              }
               recycleItems
               estimatedItemSize={175}
               maintainVisibleContentPosition
-              renderItem={({ item }) => (
-                <ProjectListItem
-                  project={item}
-                  isInvited={item.isInvited}
-                  className={cn(dimensions.width > 768 && 'h-[212px]')}
-                />
-              )}
+              renderItem={({ item }) => {
+                if (item.type === 'invite') {
+                  return (
+                    <InvitedProjectListItem
+                      projectId={item.projectId}
+                      searchQuery={searchQuery}
+                      className={cn(dimensions.width > 768 && 'h-[212px]')}
+                    />
+                  );
+                }
+                return (
+                  <ProjectListItem
+                    project={item.project}
+                    className={cn(dimensions.width > 768 && 'h-[212px]')}
+                  />
+                );
+              }}
               onEndReached={() => {
                 if (
                   allProjects.hasNextPage &&

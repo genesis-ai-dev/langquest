@@ -668,6 +668,7 @@ export default function NextGenAssetsView() {
         prefix={SearchIcon}
         prefixStyling={false}
         size="sm"
+        returnKeyType="search"
         suffix={
           isFetching && searchQuery ? (
             <ActivityIndicator size="small" color={getThemeColor('primary')} />

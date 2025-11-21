@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.0.1",
+  "version": "2.0.3",
   "scripts": {
     "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev",
@@ -43,7 +43,8 @@
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
     "shadcn": "shadcn",
-    "knip": "knip"
+    "knip": "knip",
+    "postinstall": "patch-package"
   },
   "jest": {
     "preset": "jest-expo"
@@ -126,6 +127,7 @@
     "react-native": "0.79.5",
     "react-native-element-dropdown": "2.12.2",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-keyboard-controller": "^1.19.5",
     "react-native-onboarding": "^1.0.6",
     "react-native-pager-view": "^7.0.0",
     "react-native-reanimated": "~4.1.0",
@@ -152,12 +154,14 @@
     "@react-native-community/cli": "latest",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/bidirectional-map": "^1.0.4",
+    "@types/default-gateway": "^7.2.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.18.9",
     "@types/react": "~19.0.10",
     "@types/react-test-renderer": "^19.0.0",
     "babel-plugin-inline-import": "^3.0.0",
     "babel-preset-expo": "^54.0.6",
+    "default-gateway": "^7.2.2",
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.4",
@@ -172,6 +176,7 @@
     "jiti": "^2.6.1",
     "knip": "^5.64.2",
     "metro-react-native-babel-transformer": "^0.77.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "react-native-svg-transformer": "^1.5.1",
