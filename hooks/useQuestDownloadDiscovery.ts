@@ -19,6 +19,15 @@ interface DiscoveredIds {
   assetTagLinkIds: string[];
   tagIds: string[];
   languageIds: string[];
+  languoidIds: string[];
+  languoidAliasIds: string[];
+  languoidSourceIds: string[];
+  languoidPropertyIds: string[];
+  languoidRegionIds: string[];
+  regionIds: string[];
+  regionAliasIds: string[];
+  regionSourceIds: string[];
+  regionPropertyIds: string[];
 }
 
 export interface DiscoveryState {
@@ -65,7 +74,16 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     questTagLinkIds: [],
     assetTagLinkIds: [],
     tagIds: [],
-    languageIds: []
+    languageIds: [],
+    languoidIds: [],
+    languoidAliasIds: [],
+    languoidSourceIds: [],
+    languoidPropertyIds: [],
+    languoidRegionIds: [],
+    regionIds: [],
+    regionAliasIds: [],
+    regionSourceIds: [],
+    regionPropertyIds: []
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -148,7 +166,16 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinkIds: [],
       assetTagLinkIds: [],
       tagIds: [],
-      languageIds: []
+      languageIds: [],
+      languoidIds: [],
+      languoidAliasIds: [],
+      languoidSourceIds: [],
+      languoidPropertyIds: [],
+      languoidRegionIds: [],
+      regionIds: [],
+      regionAliasIds: [],
+      regionSourceIds: [],
+      regionPropertyIds: []
     };
 
     try {
@@ -479,6 +506,143 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
           isLoading: false,
           hasError: false
         };
+
+        // Discover languoid IDs from project_language_link and asset_content_link
+        const languoidIds = new Set<string>();
+        try {
+          if (signal.aborted) return;
+
+          // Get languoid IDs from project_language_link
+          if (ids.projectIds.length > 0) {
+            const { data: projectLanguageLinks, error: pllError } =
+              await system.supabaseConnector.client
+                .from('project_language_link')
+                .select('languoid_id')
+                .in('project_id', ids.projectIds)
+                .not('languoid_id', 'is', null)
+                .eq('active', true);
+
+            if (!pllError && projectLanguageLinks) {
+              projectLanguageLinks.forEach((link) => {
+                if (link.languoid_id) languoidIds.add(link.languoid_id);
+              });
+            }
+          }
+
+          // Get languoid IDs from asset_content_link
+          if (ids.assetContentLinkIds.length > 0) {
+            const { data: assetContentLinks, error: aclError } =
+              await system.supabaseConnector.client
+                .from('asset_content_link')
+                .select('languoid_id')
+                .in('id', ids.assetContentLinkIds)
+                .not('languoid_id', 'is', null)
+                .eq('active', true);
+
+            if (!aclError && assetContentLinks) {
+              assetContentLinks.forEach((link) => {
+                if (link.languoid_id) languoidIds.add(link.languoid_id);
+              });
+            }
+          }
+
+          ids.languoidIds = Array.from(languoidIds);
+
+          // If we found languoids, discover related records
+          if (ids.languoidIds.length > 0) {
+            // Get languoid aliases, sources, properties, and region links
+            const [
+              { data: languoidAliases },
+              { data: languoidSources },
+              { data: languoidProperties },
+              { data: languoidRegions }
+            ] = await Promise.all([
+              system.supabaseConnector.client
+                .from('languoid_alias')
+                .select('id')
+                .in('subject_languoid_id', ids.languoidIds)
+                .eq('active', true),
+              system.supabaseConnector.client
+                .from('languoid_source')
+                .select('id')
+                .in('languoid_id', ids.languoidIds)
+                .eq('active', true),
+              system.supabaseConnector.client
+                .from('languoid_property')
+                .select('id')
+                .in('languoid_id', ids.languoidIds)
+                .eq('active', true),
+              system.supabaseConnector.client
+                .from('languoid_region')
+                .select('id, region_id')
+                .in('languoid_id', ids.languoidIds)
+                .eq('active', true)
+            ]);
+
+            if (languoidAliases) {
+              ids.languoidAliasIds = languoidAliases.map((a) => a.id);
+            }
+            if (languoidSources) {
+              ids.languoidSourceIds = languoidSources.map((s) => s.id);
+            }
+            if (languoidProperties) {
+              ids.languoidPropertyIds = languoidProperties.map((p) => p.id);
+            }
+
+            // Get region IDs from languoid_region links
+            const regionIds = new Set<string>();
+            if (languoidRegions) {
+              ids.languoidRegionIds = languoidRegions.map((lr) => lr.id);
+              languoidRegions.forEach((lr) => {
+                if (lr.region_id) regionIds.add(lr.region_id);
+              });
+            }
+
+            ids.regionIds = Array.from(regionIds);
+
+            // If we found regions, discover related records
+            if (ids.regionIds.length > 0) {
+              const [
+                { data: regionAliases },
+                { data: regionSources },
+                { data: regionProperties }
+              ] = await Promise.all([
+                system.supabaseConnector.client
+                  .from('region_alias')
+                  .select('id')
+                  .in('subject_region_id', ids.regionIds)
+                  .eq('active', true),
+                system.supabaseConnector.client
+                  .from('region_source')
+                  .select('id')
+                  .in('region_id', ids.regionIds)
+                  .eq('active', true),
+                system.supabaseConnector.client
+                  .from('region_property')
+                  .select('id')
+                  .in('region_id', ids.regionIds)
+                  .eq('active', true)
+              ]);
+
+              if (regionAliases) {
+                ids.regionAliasIds = regionAliases.map((a) => a.id);
+              }
+              if (regionSources) {
+                ids.regionSourceIds = regionSources.map((s) => s.id);
+              }
+              if (regionProperties) {
+                ids.regionPropertyIds = regionProperties.map((p) => p.id);
+              }
+            }
+          }
+
+          console.log(
+            `🔍 [Discovery] Languoids found: ${ids.languoidIds.length}, Regions: ${ids.regionIds.length}`
+          );
+        } catch (error) {
+          console.error('🔍 [Discovery] Error discovering languoids:', error);
+          // Don't fail the whole discovery if languoid discovery fails
+        }
 
         // Wave 3: Vote and tag queries
         const [votesResult, tagsResult] = await Promise.all([

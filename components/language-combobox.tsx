@@ -1,15 +1,12 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { language as languageTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import { languoid } from '@/db/drizzleSchema';
+import { useLanguoids, useUIReadyLanguoids } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, asc, desc, eq, like, or } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo } from 'react';
@@ -23,12 +20,12 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 
-type Language = typeof languageTable.$inferSelect;
+type Languoid = typeof languoid.$inferSelect;
 
 interface LanguageComboboxProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string | null;
-  onChange?: (language: Language) => void;
+  onChange?: (languoid: Languoid) => void;
   className?: string;
   uiReadyOnly?: boolean;
 }
@@ -94,148 +91,43 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   const [debouncedSearchQuery, immediateSearchQuery, setSearchQuery] =
     useDebouncedState('', 300);
 
-  const conditions = [
-    eq(languageTable.active, true),
-    uiReadyOnly && eq(languageTable.ui_ready, true)
-  ];
+  // Use useUIReadyLanguoids if uiReadyOnly, otherwise use useLanguoids
+  const { languoids: uiReadyLanguoids, isLanguoidsLoading: isLoadingUIReady } =
+    useUIReadyLanguoids();
+  const { languoids: allLanguoids, isLanguoidsLoading: isLoadingAll } =
+    useLanguoids();
+  const languoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
+  const isLoading = uiReadyOnly ? isLoadingUIReady : isLoadingAll;
 
-  // Build search conditions if search query exists
-  const searchConditions = useMemo(() => {
+  // Filter languoids by search query
+  const filteredLanguoids = useMemo(() => {
     if (!debouncedSearchQuery.trim()) {
-      return undefined;
+      return languoids;
     }
-    const searchTerm = `%${debouncedSearchQuery.trim()}%`;
-    return or(
-      like(languageTable.native_name, searchTerm),
-      like(languageTable.english_name, searchTerm),
-      like(languageTable.locale, searchTerm)
-    );
-  }, [debouncedSearchQuery]);
-
-  // Load languages immediately but limited for fast initial render when no search
-  // When searching, remove limit to get all matching results
-  const INITIAL_LANGUAGE_LIMIT = debouncedSearchQuery.trim() ? undefined : 100;
-
-  // Factory function to create offline query conditionally
-  // This prevents PowerSync access warnings for anonymous users
-  const getOfflineQuery = useCallback(() => {
-    // For anonymous users, return a placeholder SQL string that won't access system.db
-    if (!isAuthenticated) {
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-
-    // Only create CompilableQuery when user is authenticated
-    // Check PowerSync status at query creation time
-    try {
-      if (!system.isPowerSyncInitialized()) {
-        return 'SELECT * FROM language WHERE 1=0' as any;
-      }
-      return toCompilableQuery(
-        system.db.query.language.findMany({
-          where: and(
-            ...conditions.filter(Boolean),
-            ...(searchConditions ? [searchConditions] : []) // Add search filter if search exists
-          ),
-          orderBy: [
-            desc(languageTable.ui_ready), // UI-ready languages first
-            asc(languageTable.native_name) // Then alphabetically
-          ],
-          ...(INITIAL_LANGUAGE_LIMIT && { limit: INITIAL_LANGUAGE_LIMIT }) // Only limit when not searching
-        })
-      );
-    } catch (error) {
-      // If query creation fails, return placeholder
-      console.warn(
-        'Failed to create languages offline query, using placeholder:',
-        error
-      );
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-  }, [isAuthenticated, uiReadyOnly, searchConditions, INITIAL_LANGUAGE_LIMIT]);
-
-  // Create query lazily - only when needed
-  const offlineQuery = useMemo(() => getOfflineQuery(), [getOfflineQuery]);
-
-  // Use useHybridData to fetch languages - debounced search triggers new queries
-  const { data: languages, isLoading } = useHybridData<Language>({
-    dataType: 'all-languages',
-    queryKeyParams: [uiReadyOnly, debouncedSearchQuery.trim()], // Include search in query key
-    enabled: true, // Always enabled - limited query is fast
-
-    // Enable cloud queries for anonymous users (they need languages from cloud)
-    // For authenticated users, prefer offline for performance but allow cloud fallback
-    enableCloudQuery: true, // Changed from false to allow cloud queries for anonymous users
-    enableOfflineQuery: true,
-    offlineQuery,
-
-    // Cloud query - get all active languages with search support
-    cloudQueryFn: async () => {
-      let query = system.supabaseConnector.client
-        .from('language')
-        .select('*')
-        .eq('active', true);
-
-      if (uiReadyOnly) query = query.eq('ui_ready', true);
-
-      // Add search filtering if search query exists
-      if (debouncedSearchQuery.trim()) {
-        const searchTerm = `%${debouncedSearchQuery.trim()}%`;
-        query = query.or(
-          `native_name.ilike.${searchTerm},english_name.ilike.${searchTerm},locale.ilike.${searchTerm}`
-        );
-      }
-
-      const { data, error } = await query.overrideTypes<Language[]>();
-      if (error) throw error;
-
-      // Sort client-side to match offline query ordering
-      return data.sort((a, b) => {
-        // UI-ready languages first
-        if (a.ui_ready !== b.ui_ready) {
-          return a.ui_ready ? -1 : 1;
-        }
-        // Then alphabetically by native name
-        return (a.native_name || '').localeCompare(b.native_name || '');
-      });
-    }
-  });
+    const searchLower = debouncedSearchQuery.trim().toLowerCase();
+    return languoids.filter((l) => l.name?.toLowerCase().includes(searchLower));
+  }, [languoids, debouncedSearchQuery]);
 
   useEffect(() => {
-    if (languages.length > 0) {
+    if (languoids.length > 0) {
       setLanguagesLoaded?.(true);
     }
-  }, [languages, setLanguagesLoaded]);
+  }, [languoids, setLanguagesLoaded]);
 
   const dropdownData = useMemo(() => {
-    return languages
-      .filter((l) => l.native_name)
+    return filteredLanguoids
+      .filter((l) => l.name)
       .map((lang) => {
-        // Include English name in label for better searchability
-        // Format: "Native Name (English Name)" if different
-        const nativeName = lang.native_name ?? '';
-        const englishName = lang.english_name ?? '';
-        let label = nativeName;
-
-        // Add English name in parentheses if it's different and would help search
-        if (
-          englishName &&
-          englishName.toLowerCase() !== nativeName.toLowerCase()
-        ) {
-          label = `${nativeName} (${englishName})`;
-        }
-
+        const name = lang.name ?? '';
         return {
           value: lang.id,
-          label,
-          // Also store clean label for display if needed
-          displayLabel: nativeName,
-          // Store search terms for potential future custom filtering
-          searchTerms: `${nativeName} ${englishName} ${lang.locale ?? ''}`,
-          // Store full language object for onChange
-          language: lang
+          label: name,
+          displayLabel: name,
+          // Store full languoid object for onChange
+          languoid: lang
         };
       });
-  }, [languages]);
+  }, [filteredLanguoids]);
 
   const sortedData = useMemo(() => {
     return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));
@@ -243,14 +135,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
   const handleValueChange = React.useCallback(
     (item: (typeof dropdownData)[0]) => {
-      setSavedLanguage(item.language);
-      onChange?.(item.language);
+      // setSavedLanguage expects Language type, but we're using Languoid now
+      // For now, just call onChange - the store may need updating separately
+      onChange?.(item.languoid);
     },
-    [onChange, setSavedLanguage]
+    [onChange]
   );
 
   // Show loading state while fetching
-  if (isLoading || languages.length === 0) {
+  if (isLoading || languoids.length === 0) {
     return (
       <View
         className={cn(

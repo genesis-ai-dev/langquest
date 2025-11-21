@@ -1,12 +1,9 @@
-import { language as languageTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import { languoid } from '@/db/drizzleSchema';
+import { useUIReadyLanguoids } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
-import { useHybridData } from '@/views/new/useHybridData';
 import { Ionicons } from '@expo/vector-icons';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq } from 'drizzle-orm';
 import {
   memo,
   default as React,
@@ -16,12 +13,12 @@ import {
 } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
-type Language = typeof languageTable.$inferSelect;
+type Languoid = typeof languoid.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
-  onChange?: (language: Language) => void;
+  onChange?: (languoid: Languoid) => void;
   label?: boolean;
   containerStyle?: object;
 }
@@ -33,53 +30,28 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
     const savedLanguage = useLocalStore((state) => state.uiLanguage);
     const { t } = useLocalization();
 
-    // Use useHybridData directly
-    const { data: languages } = useHybridData<Language>({
-      dataType: 'languages',
-      queryKeyParams: ['ui-ready'],
-
-      // PowerSync query using Drizzle
-      offlineQuery: toCompilableQuery(
-        system.db.query.language.findMany({
-          where: and(
-            eq(languageTable.active, true),
-            eq(languageTable.ui_ready, true)
-          )
-        })
-      ),
-
-      // Cloud query
-      cloudQueryFn: async () => {
-        const { data, error } = await system.supabaseConnector.client
-          .from('language')
-          .select('*')
-          .eq('active', true)
-          .eq('ui_ready', true)
-          .overrideTypes<Language[]>();
-        if (error) throw error;
-        return data;
-      }
-    });
+    // Use useUIReadyLanguoids hook
+    const { languoids } = useUIReadyLanguoids();
 
     useEffect(() => {
-      if (languages.length > 0) {
+      if (languoids.length > 0) {
         setLanguagesLoaded?.(true);
       }
-    }, [languages, setLanguagesLoaded]);
+    }, [languoids, setLanguagesLoaded]);
 
-    const defaultLanguage = languages.find((l) => l.iso639_3 === 'eng');
+    const defaultLanguage = languoids.find((l) => l.name === 'English');
     const selectedLanguage =
-      languages.find((l) => l.id === value) ?? savedLanguage;
+      languoids.find((l) => l.id === value) ?? savedLanguage;
 
     const handleSelect = useCallback(
       (langName: string) => {
-        const lang = languages.find((l) => l.native_name === langName);
+        const lang = languoids.find((l) => l.name === langName);
         if (lang) {
           setLanguage(lang);
           onChange?.(lang);
         }
       },
-      [languages, setLanguage, onChange]
+      [languoids, setLanguage, onChange]
     );
 
     const handleToggle = useCallback(() => {
@@ -101,12 +73,8 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
     return (
       <CustomDropdown
         renderLeftIcon={renderLeftIcon}
-        value={
-          selectedLanguage?.native_name ?? defaultLanguage?.native_name ?? ''
-        }
-        options={languages
-          .filter((l) => l.native_name)
-          .map((l) => l.native_name!)}
+        value={selectedLanguage?.name ?? defaultLanguage?.name ?? ''}
+        options={languoids.filter((l) => l.name).map((l) => l.name!)}
         onSelect={handleSelect}
         isOpen={showLanguages}
         onToggle={handleToggle}

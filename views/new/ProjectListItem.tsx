@@ -14,11 +14,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { Project } from '@/database_services/projectService';
 import type { LayerStatus } from '@/database_services/types';
+import type { languoid } from '@/db/drizzleSchema';
+import { project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLanguoidNames } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import type { Language } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
@@ -26,7 +28,7 @@ import {
   useItemDownloadStatus
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import {
   BookIcon,
   CrownIcon,
@@ -38,6 +40,8 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
+
+type Languoid = typeof languoid.$inferSelect;
 
 export function ProjectListItem({
   project,
@@ -69,54 +73,97 @@ export function ProjectListItem({
       project as LayerStatus
     );
 
-  const { data: sourceLanguages = [] } = useHybridData<Language, Language>({
-    dataType: 'project-source-languages',
+  // Get source languoids from project_language_link
+  const { data: sourceLanguoidLinksRaw = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-source-languoid-ids',
     queryKeyParams: [project.id],
     offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: (language) => eq(language.id, language.id),
-        // Placeholder; PowerSync offline query requires a compilable query; we will not use offline here
-        limit: 0
-      })
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'source'),
+            isNotNull(project_language_link.languoid_id)
+          )
+        )
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('project_language_link')
-        .select('language:language_id(id, native_name, english_name)')
+        .select('languoid_id')
         .eq('project_id', project.id)
         .eq('language_type', 'source')
-        .overrideTypes<{ language: Language }[]>();
-      if (error) throw error;
-      return data.map((row) => row.language);
-    }
-  });
-
-  const { data: targetLangArr = [] } = useHybridData<Language>({
-    dataType: 'project-target-language',
-    queryKeyParams: [project.target_language_id],
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: (language, { eq }) => eq(language.id, project.target_language_id)
-      })
-    ),
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('language')
-        .select('*')
-        .eq('id', project.target_language_id)
-        .overrideTypes<Language[]>();
+        .not('languoid_id', 'is', null)
+        .overrideTypes<{ languoid_id: string | null }[]>();
       if (error) throw error;
       return data;
     }
   });
 
-  const targetLanguage = targetLangArr[0];
+  // Filter out nulls and assert type
+  const sourceLanguoidLinks = sourceLanguoidLinksRaw
+    .filter((link) => link.languoid_id !== null)
+    .map((link) => ({ ...link, languoid_id: link.languoid_id! }));
 
-  const getLanguageDisplayName = (
-    language: Pick<Language, 'native_name' | 'english_name'> | undefined
+  // Get target languoid from project_language_link
+  const { data: targetLanguoidLinkRaw = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [project.id],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'target'),
+            isNotNull(project_language_link.languoid_id)
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', project.id)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Filter out nulls and assert type
+  const targetLanguoidLink = targetLanguoidLinkRaw
+    .filter((link) => link.languoid_id !== null)
+    .map((link) => ({ ...link, languoid_id: link.languoid_id! }));
+
+  const sourceLanguoidIds = sourceLanguoidLinks
+    .map((link) => link.languoid_id)
+    .filter(Boolean);
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
+
+  // Fetch languoid names
+  const { languoids: sourceLanguoids } = useLanguoidNames(sourceLanguoidIds);
+  const { languoids: targetLanguoids } = useLanguoidNames(
+    targetLanguoidId ? [targetLanguoidId] : []
+  );
+  const targetLanguoid = targetLanguoids[0];
+
+  const getLanguoidDisplayName = (
+    languoid: Pick<Languoid, 'name'> | undefined
   ) => {
-    if (!language) return 'Unknown';
-    return language.native_name || language.english_name || 'Unknown';
+    if (!languoid) return 'Unknown';
+    return languoid.name || 'Unknown';
   };
 
   const handleMembershipGranted = () => {
@@ -167,13 +214,13 @@ export function ProjectListItem({
               <CardTitle numberOfLines={2}>{project.name}</CardTitle>
               <CardDescription>
                 <Text>
-                  {sourceLanguages.length > 0
-                    ? `${sourceLanguages
-                        .map((l) => getLanguageDisplayName(l))
+                  {sourceLanguoids.length > 0
+                    ? `${sourceLanguoids
+                        .map((l) => getLanguoidDisplayName(l))
                         .join(
                           ', '
-                        )} → ${getLanguageDisplayName(targetLanguage)}`
-                    : getLanguageDisplayName(targetLanguage)}
+                        )} → ${getLanguoidDisplayName(targetLanguoid)}`
+                    : getLanguoidDisplayName(targetLanguoid)}
                 </Text>
               </CardDescription>
             </View>
