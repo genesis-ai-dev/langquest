@@ -5,7 +5,7 @@ on:
     # REQUIRED: push dev branch is necessary for this action to update its fingerprint database
     branches: [dev]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize]
 
 jobs:
   fingerprint:
@@ -43,7 +43,7 @@ jobs:
           packager: npm
           saving-db-branch: dev
 
-      - name: Add Fingerprint:compatible label if no change
+      - name: "Add fingerprint compatible label if no change"
         if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
         uses: actions/github-script@v7
         with:
@@ -53,7 +53,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'Fingerprint:changed'
+                name: 'bot: fingerprint changed'
               })
             } catch (e) {
               if (e.status != 404) {
@@ -64,10 +64,10 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['Fingerprint:compatible']
+              labels: ['bot: fingerprint compatible']
             })
 
-      - name: Add Fingerprint:changed label if changed
+      - name: "Add fingerprint changed label if changed"
         if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
         uses: actions/github-script@v7
         with:
@@ -77,7 +77,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'Fingerprint:compatible'
+                name: 'bot: fingerprint compatible'
               })
             } catch (e) {
               if (e.status != 404) {
@@ -88,20 +88,68 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['Fingerprint:changed']
+              labels: ['bot: fingerprint changed']
             })
 
       - name: Request changes review if fingerprint changed
         if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
-        uses: ntsd/auto-request-changes-action@v3
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          review-message: |
-            ⚠️ **Native Build Required - Manual Approval Needed**
+          script: |
+            const message = `⚠️ Native Build Required - Manual Approval Needed
 
             This PR requires a native build because the fingerprint has changed compared to the base branch.
 
-            **Action Required:**
+            Fingerprint Diff:
+
+            <details>
+            <summary>▼ Fingerprint diff</summary>
+
+            \`\`\`json
+            ${{ steps.fingerprint.outputs.fingerprint-diff }}
+            \`\`\`
+
+            </details>
+
+            Action Required:
             Please verify native builds work correctly before approving this PR.
 
-            > This review blocks merging until dismissed. PRs with fingerprint changes require explicit approval.
+            > This review blocks merging until dismissed. PRs with fingerprint changes require explicit approval.`;
+
+            // Get existing reviews from this bot
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            // Find existing CHANGES_REQUESTED review from github-actions bot
+            const existingReview = reviews.find(
+              review => review.user.type === 'Bot' && review.user.login === 'github-actions[bot]' && review.state === 'CHANGES_REQUESTED'
+            );
+
+            if (existingReview) {
+              // Dismiss existing review first
+              try {
+                await github.rest.pulls.dismissReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  review_id: existingReview.id,
+                  message: 'Updating review with latest fingerprint diff'
+                });
+              } catch (e) {
+                // If dismiss fails, continue anyway
+                console.log('Could not dismiss existing review:', e.message);
+              }
+            }
+
+            // Create new review
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body: message
+            });
