@@ -8,25 +8,22 @@ import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import {
-  asset,
-  language as languageTable,
-  project,
-  project as projectCloud
-} from '@/db/drizzleSchema';
+import { asset, language as languageTable, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@tanstack/react-query';
 import { eq, inArray } from 'drizzle-orm';
 import {
   ChevronLeftIcon,
@@ -53,24 +50,100 @@ const ASSET_VIEWER_PROPORTION = 0.35;
 type TabType = 'text' | 'image';
 
 function useNextGenOfflineAsset(assetId: string) {
+  const { isAuthenticated } = useAuth();
+
+  // Only create offline query if PowerSync is initialized and user is authenticated
+  // This prevents PowerSync access warnings for anonymous users
+  // Use a factory function that only creates the query when needed
+  const getOfflineQuery = React.useCallback(() => {
+    // For anonymous users, return a placeholder SQL string that won't access system.db
+    if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+
+    // Only create CompilableQuery when user is authenticated
+    // Check PowerSync status at query creation time
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+        return 'SELECT * FROM asset WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.asset.findFirst({
+          where: eq(asset.id, assetId),
+          with: {
+            content: true
+          }
+        })
+      );
+    } catch (error) {
+      // If query creation fails, return placeholder
+      console.warn('Failed to create offline query, using placeholder:', error);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM asset WHERE 1=0' as any;
+    }
+  }, [assetId, isAuthenticated]);
+
+  // Create query lazily - only when needed
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const offlineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => getOfflineQuery(),
+    [getOfflineQuery]
+  );
+
   return useHybridData({
     dataType: 'asset',
     queryKeyParams: [assetId],
-    offlineQuery: toCompilableQuery(
-      system.db.query.asset.findFirst({
-        where: eq(asset.id, assetId),
-        with: {
-          content: true
-        }
-      })
-    ),
-    enableCloudQuery: false,
+    offlineQuery,
+    cloudQueryFn: async () => {
+      if (!assetId) return [];
+
+      // Fetch asset with content relationships
+      const { data, error } = await system.supabaseConnector.client
+        .from('asset')
+        .select(
+          `
+          *,
+          content:asset_content_link (
+            *
+          )
+        `
+        )
+        .eq('id', assetId)
+        .limit(1)
+        .overrideTypes<
+          (Omit<typeof asset.$inferSelect, 'images'> & {
+            images: string;
+            content?: (typeof asset_content_link.$inferSelect)[];
+          })[]
+        >();
+
+      if (error) throw error;
+
+      // Parse images JSON and map to asset format
+      return data.map((item) => {
+        const parsedImages = item.images
+          ? (JSON.parse(item.images) as string[])
+          : [];
+
+        return {
+          ...item,
+          images: parsedImages,
+          content: item.content || []
+        };
+      });
+    },
+    enableCloudQuery: !!assetId,
     enableOfflineQuery: !!assetId
   });
 }
 
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
+  const { isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const {
     currentAssetId,
     currentProjectId,
@@ -101,13 +174,10 @@ export default function NextGenAssetDetailView() {
 
   const {
     data: queriedAsset,
-    isLoading: isOfflineLoading,
+    isLoading: isAssetLoading,
     refetch: refetchOfflineAsset
   } = useNextGenOfflineAsset(currentAssetId || '');
 
-  // IMPORTANT: Asset detail needs full data with content/audio relationships
-  // Passed asset data from list is just metadata - always use queried data which includes content
-  // We could use passed data as placeholder, but it's better to wait for full data
   const offlineAsset = queriedAsset;
 
   // Load asset attachments when asset ID changes
@@ -118,55 +188,77 @@ export default function NextGenAssetDetailView() {
   //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
   // }, [currentAssetId]);
 
-  // Use passed project data if available (instant!), otherwise query
-  const { data: rawProjectData } = useQuery({
-    queryKey: ['project', 'offline', currentProjectId],
-    queryFn: async () => {
-      if (!currentProjectId) return null;
-      console.log(
-        '[ASSET DETAIL] Fetching project data for:',
-        currentProjectId
-      );
-      // Try local first then cloud
-      let result = await system.db
-        .select()
-        .from(project)
-        .where(eq(project.id, currentProjectId))
-        .limit(1);
-      console.log('[ASSET DETAIL] Local project query result:', result[0]);
-      if (!result[0]) {
-        result = await system.db
-          .select()
-          .from(projectCloud)
-          .where(eq(projectCloud.id, currentProjectId))
-          .limit(1);
-        console.log('[ASSET DETAIL] Cloud project query result:', result[0]);
+  // Use passed project data if available (instant!), otherwise query using hybrid data
+  // This supports both authenticated (offline) and anonymous (cloud-only) users
+  // Use a factory function that only creates the query when needed
+  const getProjectOfflineQuery = React.useCallback(() => {
+    if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+        return 'SELECT * FROM project WHERE 1=0' as any;
       }
-      return result[0] || null;
+      return toCompilableQuery(
+        system.db.query.project.findFirst({
+          where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+        })
+      );
+    } catch (error) {
+      console.warn(
+        'Failed to create project offline query, using placeholder:',
+        error
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM project WHERE 1=0' as any;
+    }
+  }, [currentProjectId, isAuthenticated]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const projectOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => getProjectOfflineQuery(),
+    [getProjectOfflineQuery]
+  );
+
+  const { data: queriedProjectDataArray } = useHybridData<
+    typeof project.$inferSelect
+  >({
+    dataType: 'project-detail',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: projectOfflineQuery,
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project')
+        .select('*')
+        .eq('id', currentProjectId)
+        .limit(1)
+        .overrideTypes<(typeof project.$inferSelect)[]>();
+      if (error) throw error;
+      return data || [];
     },
-    enabled: !!currentProjectId && !currentProjectData, // Skip query if we have passed data!
-    staleTime: 30000 // Cache for 30 seconds
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
 
   // Prefer passed data for instant rendering!
-  const queriedProjectData = (
-    Array.isArray(rawProjectData) ? rawProjectData[0] : rawProjectData
-  ) as typeof rawProjectData;
-  const projectData =
-    (currentProjectData as typeof queriedProjectData) || queriedProjectData;
+  const queriedProjectData = queriedProjectDataArray?.[0];
+  const projectData = currentProjectData || queriedProjectData;
 
-  // Derive translation language ID from project data instead of storing in state
-  const translationLanguageId = React.useMemo(
-    () => projectData?.target_language_id || '',
-    [projectData?.target_language_id]
-  );
+  const translationLanguageId = React.useMemo(() => {
+    if (!projectData?.target_language_id) return '';
+    const langId = projectData.target_language_id;
+    return typeof langId === 'string' ? langId : String(langId);
+  }, [projectData?.target_language_id]);
 
-  // Check permissions for contributing (translating/voting)
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
       currentProjectId || '',
       'translate',
-      projectData?.private
+      Boolean(projectData?.private)
     );
 
   // Determine which asset to display
@@ -180,11 +272,9 @@ export default function NextGenAssetDetailView() {
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);
 
-  // Update active tab when asset changes - use queueMicrotask to defer state update
   React.useEffect(() => {
     if (!activeAsset) return;
 
-    // Only update if asset ID actually changed
     if (prevAssetIdRef.current !== activeAsset.id) {
       prevAssetIdRef.current = activeAsset.id;
 
@@ -193,22 +283,13 @@ export default function NextGenAssetDetailView() {
       const hasImages = activeAsset.images && activeAsset.images.length > 0;
       const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
 
-      // Defer state update to next microtask to avoid synchronous setState in effect
-      queueMicrotask(() => {
-        setActiveTab(newTab);
-      });
+      setActiveTab(newTab);
+      setCurrentContentIndex(0);
     }
   }, [activeAsset]);
 
   useEffect(() => {
-    console.log('[ASSET DETAIL] Project data loaded:', {
-      hasProjectData: !!projectData,
-      target_language_id: projectData?.target_language_id,
-      project_id: projectData?.id,
-      fullProjectData: projectData // Show the full object
-    });
-
-    if (projectData && !projectData.target_language_id) {
+    if (__DEV__ && projectData && !projectData.target_language_id) {
       console.warn(
         '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
         projectData
@@ -218,12 +299,8 @@ export default function NextGenAssetDetailView() {
 
   const currentStatus = useStatusContext();
 
-  const {
-    allowEditing,
-    allowSettings,
-    invisible: _invisible
-  } = !activeAsset
-    ? { allowEditing: false, allowSettings: false, invisible: false }
+  const { allowEditing, allowSettings } = !activeAsset
+    ? { allowEditing: false, allowSettings: false }
     : currentStatus.getStatusParams(
         LayerType.ASSET,
         activeAsset.id || '',
@@ -231,40 +308,66 @@ export default function NextGenAssetDetailView() {
         currentQuestId
       );
 
-  // Collect attachment IDs for audio support
-  const allAttachmentIds = !activeAsset?.content
-    ? []
-    : [
-        ...activeAsset.content
-          .filter((content) => content.audio)
-          .flatMap((content) => content.audio!)
-          .filter(Boolean),
-        ...(activeAsset.images ?? [])
-      ];
+  const allAttachmentIds = React.useMemo(() => {
+    if (!activeAsset) return [];
+    const audioIds = (activeAsset.content ?? [])
+      .flatMap((content) => content.audio ?? [])
+      .filter(Boolean);
+    return [...audioIds, ...(activeAsset.images ?? [])];
+  }, [activeAsset]);
 
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  // Collect content-level language IDs for this asset
-  const contentLanguageIds = (() => {
+  const contentLanguageIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
       if (c.source_language_id) ids.add(c.source_language_id);
     });
     return Array.from(ids);
-  })();
+  }, [activeAsset?.content]);
 
   // Fetch all languages used by content items
-  const { data: contentLanguages = [] } = useHybridData({
+  const getLanguagesOfflineQuery = React.useCallback(() => {
+    if (!isAuthenticated) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+        return 'SELECT * FROM language WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.language.findMany({
+          where: contentLanguageIds.length
+            ? inArray(languageTable.id, contentLanguageIds)
+            : undefined
+        })
+      );
+    } catch (error) {
+      console.warn(
+        'Failed to create languages offline query, using placeholder:',
+        error
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+  }, [contentLanguageIds, isAuthenticated]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const languagesOfflineQuery = React.useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => getLanguagesOfflineQuery(),
+    [getLanguagesOfflineQuery]
+  );
+
+  const { data: contentLanguages = [] } = useHybridData<
+    typeof languageTable.$inferSelect
+  >({
     dataType: 'languages-by-id',
     queryKeyParams: contentLanguageIds,
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: contentLanguageIds.length
-          ? inArray(languageTable.id, contentLanguageIds)
-          : undefined
-      })
-    ),
+    offlineQuery: languagesOfflineQuery,
     enableCloudQuery: false
   });
 
@@ -273,10 +376,12 @@ export default function NextGenAssetDetailView() {
   // Active tab is now derived from asset content via useMemo above
 
   // Reset content index when asset changes
+  // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
-    setCurrentContentIndex(0);
+    queueMicrotask(() => {
+      setCurrentContentIndex(0);
+    });
   }, [currentAssetId]);
-
   // Get audio URIs for a specific content item (not all content flattened)
   function getContentAudioUris(
     content: typeof asset_content_link.$inferSelect
@@ -299,34 +404,48 @@ export default function NextGenAssetDetailView() {
           return audioValue;
         }
 
-        // Handle attachment IDs (look up in attachment queue)
+        // For anonymous users, get cloud URLs from Supabase storage
+        const isPowerSyncReady = system.isPowerSyncInitialized();
+        if (!isAuthenticated || !isPowerSyncReady) {
+          // Get public URL from Supabase storage
+          try {
+            if (!AppConfig.supabaseBucket) {
+              console.warn('Supabase bucket not configured');
+              return null;
+            }
+            const { data } = system.supabaseConnector.client.storage
+              .from(AppConfig.supabaseBucket)
+              .getPublicUrl(audioValue);
+            return data.publicUrl;
+          } catch (error) {
+            console.error('Failed to get cloud audio URL:', error);
+            return null;
+          }
+        }
+
+        // Handle attachment IDs (look up in attachment queue) for authenticated users
         const attachmentState = attachmentStates.get(audioValue);
         if (attachmentState?.local_uri) {
           return getLocalUri(attachmentState.local_uri);
         }
 
-        return null;
+        // Fallback: try to get cloud URL if local not available
+        try {
+          if (!AppConfig.supabaseBucket) {
+            console.warn('Supabase bucket not configured');
+            return null;
+          }
+          const { data } = system.supabaseConnector.client.storage
+            .from(AppConfig.supabaseBucket)
+            .getPublicUrl(audioValue);
+          return data.publicUrl;
+        } catch (error) {
+          console.error('Failed to get fallback cloud audio URL:', error);
+          return null;
+        }
       })
       .filter((uri: string | null): uri is string => uri !== null);
   }
-
-  // Debug logging
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[NEXT GEN ASSET DETAIL]', {
-        assetId: currentAssetId,
-        activeAsset: activeAsset
-          ? {
-              id: activeAsset.id,
-              name: activeAsset.name,
-              contentCount: activeAsset.content?.length ?? 0,
-              hasAudio: activeAsset.content?.some((c) => c.audio) ?? false
-            }
-          : null,
-        attachmentStatesCount: attachmentStates.size
-      });
-    }
-  }, [currentAssetId, activeAsset, attachmentStates]);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
@@ -350,8 +469,12 @@ export default function NextGenAssetDetailView() {
 
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
-  if (isOfflineLoading || (!activeAsset && currentAssetId)) {
-    return <AssetSkeleton />;
+  if (isAssetLoading || (!activeAsset && currentAssetId)) {
+    return (
+      <View className="flex-1">
+        <AssetSkeleton />
+      </View>
+    );
   }
 
   // Only show error if loading is complete but we still have no asset
@@ -401,7 +524,7 @@ export default function NextGenAssetDetailView() {
           <Text className="flex-1 text-xl font-bold text-foreground">
             {activeAsset.name}
           </Text>
-          {projectData?.private && (
+          {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
               <Icon as={LockIcon} className="text-muted-foreground" />
               {translateMembership === 'owner' && (
@@ -421,6 +544,7 @@ export default function NextGenAssetDetailView() {
         )}
 
         {allowSettings &&
+          isAuthenticated &&
           (translateMembership === 'owner' ? (
             <Button
               onPress={() => setShowAssetSettingsModal(true)}
@@ -479,7 +603,7 @@ export default function NextGenAssetDetailView() {
                 {activeAsset.content[currentContentIndex] && (
                   <View>
                     <SourceContent
-                      content={activeAsset.content[currentContentIndex]!}
+                      content={activeAsset.content[currentContentIndex]}
                       sourceLanguage={
                         activeAsset.content[currentContentIndex]
                           ?.source_language_id
@@ -490,39 +614,38 @@ export default function NextGenAssetDetailView() {
                           : null
                       }
                       audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]!
+                        activeAsset.content[currentContentIndex]
                       )}
                       isLoading={isLoadingAttachments}
                     />
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
                       {__DEV__ &&
-                      activeAsset.content[currentContentIndex]?.audio ? (
-                        <View className="flex-row items-center gap-1">
-                          <Icon
-                            as={
-                              attachmentStates.get(
+                        activeAsset.content[currentContentIndex]
+                          ?.audio?.[0] && (
+                          <View className="flex-row items-center gap-1">
+                            <Icon
+                              as={
+                                attachmentStates.get(
+                                  activeAsset.content[currentContentIndex]
+                                    .audio[0]
+                                )?.local_uri
+                                  ? Volume2Icon
+                                  : VolumeXIcon
+                              }
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                            <Text className="text-sm text-muted-foreground">
+                              {attachmentStates.get(
                                 activeAsset.content[currentContentIndex]
-                                  ?.audio?.[0]!
+                                  .audio[0]
                               )?.local_uri
-                                ? Volume2Icon
-                                : VolumeXIcon
-                            }
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                          <Text className="text-sm text-muted-foreground">
-                            {attachmentStates.get(
-                              activeAsset.content[currentContentIndex]
-                                ?.audio?.[0]!
-                            )?.local_uri
-                              ? t('audioReady')
-                              : t('audioNotAvailable')}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View />
-                      )}
+                                ? t('audioReady')
+                                : t('audioNotAvailable')}
+                            </Text>
+                          </View>
+                        )}
 
                       {/* Combined navigation controls and audio status */}
 
@@ -572,7 +695,7 @@ export default function NextGenAssetDetailView() {
                                 onPress={() =>
                                   setCurrentContentIndex((prev) =>
                                     Math.min(
-                                      activeAsset.content!.length - 1,
+                                      (activeAsset.content?.length ?? 1) - 1,
                                       prev + 1
                                     )
                                   )
@@ -634,7 +757,15 @@ export default function NextGenAssetDetailView() {
           assetId={currentAssetId}
           assetName={activeAsset.name}
           refreshKey={translationsRefreshKey}
-          projectData={projectData}
+          projectData={
+            projectData
+              ? {
+                  private: Boolean(projectData.private),
+                  name: projectData.name as string | undefined,
+                  id: projectData.id as string | undefined
+                }
+              : undefined
+          }
           canVote={canTranslate}
           membership={translateMembership}
         />
@@ -644,7 +775,7 @@ export default function NextGenAssetDetailView() {
       {projectData?.private && !canTranslate ? (
         <PrivateAccessGate
           projectId={currentProjectId || ''}
-          projectName={projectData.name || ''}
+          projectName={(projectData?.name as string | undefined) ?? ''}
           isPrivate={true}
           action="translate"
           renderTrigger={({ onPress }) => (
@@ -669,6 +800,17 @@ export default function NextGenAssetDetailView() {
           )}
           onAccessGranted={() => setShowNewTranslationModal(true)}
         />
+      ) : // Show login prompt for anonymous users
+      !isAuthenticated ? (
+        <Button
+          className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
+          onPress={() => setAuthView('sign-in')}
+        >
+          <Icon as={LockIcon} size={24} />
+          <Text className="font-bold text-secondary">
+            {t('signInToSaveOrContribute')}
+          </Text>
+        </Button>
       ) : (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
@@ -704,21 +846,23 @@ export default function NextGenAssetDetailView() {
         onClose={() => setShowAssetSettingsModal(false)}
         assetId={activeAsset.id}
       />
-      <ReportModal
-        isVisible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        recordId={activeAsset.id}
-        creatorId={activeAsset?.creator_id ?? undefined}
-        recordTable="asset"
-        hasAlreadyReported={hasReported}
-        onReportSubmitted={(contentBlocked) => {
-          refetchOfflineAsset();
-          // Navigate back to assets list if content was blocked
-          if (contentBlocked) {
-            goBack();
-          }
-        }}
-      />
+      {isAuthenticated && (
+        <ReportModal
+          isVisible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          recordId={activeAsset.id}
+          creatorId={activeAsset?.creator_id ?? undefined}
+          recordTable="asset"
+          hasAlreadyReported={hasReported}
+          onReportSubmitted={(contentBlocked) => {
+            refetchOfflineAsset();
+            // Navigate back to assets list if content was blocked
+            if (contentBlocked) {
+              goBack();
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

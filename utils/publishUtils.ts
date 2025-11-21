@@ -199,16 +199,18 @@ export async function publishQuest(questId: string, projectId: string) {
   );
 
   try {
-    // Gather profile_project_link IDs before transaction
-    const profileProjectLinksIds = (
+    // Gather profile_project_link records for this specific project
+    // CRITICAL: We collect link IDs (not profile_ids) to ensure we only publish
+    // links for THIS project, not all projects the user is a member of
+    const profileProjectLinks =
       await system.db.query.profile_project_link.findMany({
         where: and(
           eq(profile_project_link.project_id, projectId),
           eq(profile_project_link.active, true),
           eq(profile_project_link.source, 'local')
         )
-      })
-    ).map((link) => link.profile_id);
+      });
+    const profileProjectLinkIds = profileProjectLinks.map((link) => link.id);
 
     // IMPORTANT: Insert ALL data in a SINGLE transaction to maintain ordering
     // PowerSync preserves the order of operations within a transaction
@@ -222,11 +224,12 @@ export async function publishQuest(questId: string, projectId: string) {
       await tx.run(sql.raw(projectQuery));
 
       // Step 2: Insert profile_project_link (depends on project)
-      if (profileProjectLinksIds.length > 0) {
+      // FIXED: Filter by specific link IDs to avoid uploading links for other projects
+      if (profileProjectLinkIds.length > 0) {
         const profileProjectLinkColumns = getTableColumns(
           profile_project_link_synced
         );
-        const profileProjectLinkQuery = `INSERT OR IGNORE INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE profile_id IN (${toColumns(profileProjectLinksIds)}) AND source = 'local'`;
+        const profileProjectLinkQuery = `INSERT OR IGNORE INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE id IN (${toColumns(profileProjectLinkIds)}) AND source = 'local'`;
         console.log('profileProjectLinkQuery', profileProjectLinkQuery);
         await tx.run(sql.raw(profileProjectLinkQuery));
       } else {

@@ -70,43 +70,137 @@ export function useVADRecording({
 
   const currentEnergy = energyResult?.energy ?? 0;
 
-  // Configure native VAD when settings change
-  React.useEffect(() => {
-    void MicrophoneEnergyModule.configureVAD({
-      threshold,
-      silenceDuration,
-      onsetMultiplier: 0.25,
-      confirmMultiplier: 0.5,
-      minSegmentDuration: 500
-    });
-  }, [threshold, silenceDuration]);
+  // Track previous settings to detect actual changes (not just effect re-runs)
+  const prevThresholdRef = React.useRef(threshold);
+  const prevSilenceDurationRef = React.useRef(silenceDuration);
 
-  // Start energy detection and enable native VAD when active
-  // Energy monitoring runs for both VAD and manual recording (for waveform)
-  // VAD auto-recording only runs in VAD mode (not during manual)
+  // Configure native VAD and manage activation/deactivation
+  // CRITICAL: configureVAD() must complete BEFORE enableVAD() to ensure correct threshold
+  // This fixes the race condition where VAD starts with default (more sensitive) threshold
   React.useEffect(() => {
+    // Configure VAD whenever settings change (even if already active)
+    // This ensures settings are always up-to-date before VAD is enabled
+    const configureVAD = async () => {
+      // CRITICAL: Convert threshold from normalized (0-1) to raw RMS (0-20) format
+      // The native module expects raw RMS energy values, but threshold is stored normalized
+      // Native module returns raw RMS (0-20 range), so threshold must match that format
+      const MAX_ENERGY = 20.0;
+      const rawThreshold = threshold * MAX_ENERGY;
+
+      // CRITICAL: The native module multiplies threshold by onsetMultiplier (0.25) for onset detection
+      // So if user wants final threshold of X, we need to send X / 0.25 = 4X
+      // This ensures: (4X) * 0.25 = X (the desired threshold)
+      // The threshold value represents the FINAL effective threshold, not the base
+      const ONSET_MULTIPLIER = 0.25;
+      const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
+
+      console.log(
+        '🔧 Configuring VAD | normalized:',
+        threshold,
+        '→ raw:',
+        rawThreshold.toFixed(4),
+        '→ base (accounting for onsetMultiplier):',
+        baseThreshold.toFixed(4)
+      );
+
+      await MicrophoneEnergyModule.configureVAD({
+        threshold: baseThreshold,
+        silenceDuration,
+        onsetMultiplier: 0.25,
+        confirmMultiplier: 0.5,
+        minSegmentDuration: 500
+      });
+    };
+
+    // Detect if settings actually changed (not just effect re-run due to isActive change)
+    const settingsChanged =
+      prevThresholdRef.current !== threshold ||
+      prevSilenceDurationRef.current !== silenceDuration;
+
+    // Handle VAD activation/deactivation
     if (isVADActive && !isActive) {
       if (isManualRecording) {
+        // Manual recording mode: only start energy detection for waveform visualization
         console.log(
           '🎯 Energy monitoring activated for manual recording (waveform only)'
         );
-        void startEnergyDetection();
+        void startEnergyDetection().catch((error) => {
+          console.error(
+            '❌ Failed to start energy detection for manual recording:',
+            error
+          );
+        });
         // Don't enable VAD auto-recording during manual mode
       } else {
-        console.log('🎯 VAD mode activated - native VAD takes over');
-        void startEnergyDetection().then(() => {
-          void MicrophoneEnergyModule.enableVAD();
-        });
+        // VAD mode: configure first, then start detection, then enable VAD
+        // This ensures configuration completes before VAD is enabled
+        console.log('🎯 VAD mode activated - configuring and enabling...');
+        void (async () => {
+          try {
+            // CRITICAL: Configure VAD BEFORE starting detection and enabling
+            // This ensures the correct threshold is set before VAD begins monitoring
+            await configureVAD();
+            console.log('✅ VAD configured, starting energy detection...');
+
+            await startEnergyDetection();
+            console.log('✅ Energy detection started, enabling VAD...');
+
+            await MicrophoneEnergyModule.enableVAD();
+            // Log threshold values for debugging
+            const MAX_ENERGY = 20.0;
+            const ONSET_MULTIPLIER = 0.25;
+            const rawThreshold = threshold * MAX_ENERGY;
+            const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
+            const effectiveOnsetThreshold = baseThreshold * ONSET_MULTIPLIER;
+            console.log(
+              '✅ VAD enabled | normalized:',
+              threshold,
+              '| raw (effective):',
+              rawThreshold.toFixed(4),
+              '| base (sent to native):',
+              baseThreshold.toFixed(4),
+              '| effective onset:',
+              effectiveOnsetThreshold.toFixed(4)
+            );
+
+            // Update refs after successful activation
+            prevThresholdRef.current = threshold;
+            prevSilenceDurationRef.current = silenceDuration;
+          } catch (error) {
+            console.error('❌ Failed to activate VAD mode:', error);
+            // Error details should already be logged via onError event listener
+            // But log here for visibility in this specific context
+          }
+        })();
       }
     } else if (!isVADActive && isActive) {
+      // Deactivate VAD mode
       console.log('🎯 Energy monitoring deactivated');
       void MicrophoneEnergyModule.disableVAD();
-      void stopEnergyDetection();
+      void stopEnergyDetection().catch((error) => {
+        console.error('❌ Failed to stop energy detection:', error);
+      });
+    } else if (isVADActive && isActive && settingsChanged) {
+      // VAD is already active and settings ACTUALLY changed - reconfigure on the fly
+      // This allows users to adjust threshold/silence duration without restarting VAD
+      console.log('🎯 VAD settings changed, reconfiguring...');
+      void configureVAD()
+        .then(() => {
+          console.log('✅ VAD reconfigured with new settings');
+          // Update refs after successful reconfiguration
+          prevThresholdRef.current = threshold;
+          prevSilenceDurationRef.current = silenceDuration;
+        })
+        .catch((error) => {
+          console.error('❌ Failed to reconfigure VAD:', error);
+        });
     }
   }, [
     isVADActive,
     isActive,
     isManualRecording,
+    threshold,
+    silenceDuration,
     startEnergyDetection,
     stopEnergyDetection
   ]);
@@ -127,14 +221,16 @@ export function useVADRecording({
         segmentStartTimeRef.current = Date.now();
 
         // Set a timeout to clean up if segment never completes (e.g., discarded for being too short)
-        // Timeout is generously long (10 seconds) to avoid false positives
+        // Timeout is very long (60 seconds) to handle long recordings and avoid false positives
+        // Real segments should complete within silence duration (typically 300-3000ms)
         if (segmentTimeoutRef.current) {
           clearTimeout(segmentTimeoutRef.current);
         }
         segmentTimeoutRef.current = setTimeout(() => {
           if (segmentStartTimeRef.current) {
+            const elapsed = Date.now() - segmentStartTimeRef.current;
             console.log(
-              '⚠️ Native VAD: Segment timeout - likely discarded, cleaning up'
+              `⚠️ Native VAD: Segment timeout after ${elapsed}ms - likely stuck, cleaning up`
             );
             isRecordingShared.value = false;
             setIsRecording(false);
@@ -142,7 +238,7 @@ export function useVADRecording({
             // Notify parent with empty URI to trigger cleanup
             onSegmentCompleteRef.current('');
           }
-        }, 10000);
+        }, 60000); // 60 seconds - very generous for long recordings
 
         onSegmentStartRef.current();
       }

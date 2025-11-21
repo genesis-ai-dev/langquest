@@ -9,17 +9,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
+import { useLocalStore } from '@/store/localStore';
 import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
-  ScrollView,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  KeyboardToolbar
+} from 'react-native-keyboard-controller';
 
 interface ReportModalProps {
   isVisible: boolean;
@@ -41,7 +44,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   onReportSubmitted
 }) => {
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   // const queryClient = useQueryClient();
   // const { db } = system; // Uncomment when implementing duplicate report checking
 
@@ -84,8 +88,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) {
-      Alert.alert('Error', t('logInToReport'));
+    if (!currentUser || !isAuthenticated) {
+      Alert.alert(
+        t('signInRequired'),
+        t('blockContentLoginMessage') ||
+          'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('signIn') || 'Sign In',
+            onPress: () => {
+              onClose();
+              setAuthView('sign-in');
+            }
+          }
+        ]
+      );
       return;
     }
 
@@ -155,103 +173,119 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <Pressable className="flex-1 items-center justify-center bg-black/50">
-          <KeyboardAvoidingView behavior="padding">
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
-                <View className="mb-4 flex-row items-center justify-between">
-                  <Text variant="h3">{modalTitle}</Text>
-                  <Pressable className="p-1" onPress={onClose}>
-                    <Icon as={XIcon} size={24} className="text-foreground" />
-                  </Pressable>
-                </View>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text variant="h3">{modalTitle}</Text>
+                <Pressable className="p-1" onPress={onClose}>
+                  <Icon as={XIcon} size={24} className="text-foreground" />
+                </Pressable>
+              </View>
 
-                <ScrollView
-                  className="max-h-[80%]"
-                  showsVerticalScrollIndicator
-                  contentContainerStyle={{ paddingRight: 8 }}
-                >
-                  <View className="gap-4">
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('selectReasonLabel')}
-                      </Text>
-                      <RadioGroup
-                        value={reason ?? undefined}
-                        onValueChange={(value) =>
-                          handleReasonSelect(
-                            value as (typeof reasonOptions)[number]
-                          )
-                        }
-                      >
-                        {reportReasons.map((option) => (
-                          <RadioGroupItem
-                            key={option.value}
-                            value={option.value}
-                            label={option.label}
-                          />
-                        ))}
-                      </RadioGroup>
-                    </View>
-
-                    <View>
-                      <Text variant="large" className="mb-2">
-                        {t('additionalDetails')}
-                      </Text>
-                      <Textarea
-                        placeholder={t('additionalDetailsPlaceholder')}
-                        value={details}
-                        onChangeText={setDetails}
-                        drawerInput={false}
-                      />
-                    </View>
-
-                    {/* Blocking options */}
-                    <View className="gap-3 border-t border-input pt-4">
-                      <Text variant="large" className="mb-2">
-                        {t('options')}
-                      </Text>
-                      <View className="flex-row items-center justify-between">
-                        <Label className="flex-1">
-                          {t('blockThisContent')}
-                        </Label>
-                        <Switch
-                          checked={blockContentOption}
-                          onCheckedChange={setBlockContentOption}
+              <KeyboardAwareScrollView
+                style={{ maxHeight: '80%' }}
+                contentContainerStyle={{ paddingRight: 8 }}
+                bottomOffset={96}
+                extraKeyboardSpace={20}
+              >
+                <View className="gap-4">
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('selectReasonLabel')}
+                    </Text>
+                    <RadioGroup
+                      value={reason ?? undefined}
+                      onValueChange={(value) =>
+                        handleReasonSelect(
+                          value as (typeof reasonOptions)[number]
+                        )
+                      }
+                    >
+                      {reportReasons.map((option) => (
+                        <RadioGroupItem
+                          key={option.value}
+                          value={option.value}
+                          label={option.label}
                         />
-                      </View>
+                      ))}
+                    </RadioGroup>
+                  </View>
 
-                      {creatorId && creatorId !== currentUser?.id && (
+                  <View>
+                    <Text variant="large" className="mb-2">
+                      {t('additionalDetails')}
+                    </Text>
+                    <Textarea
+                      placeholder={t('additionalDetailsPlaceholder')}
+                      value={details}
+                      onChangeText={setDetails}
+                      drawerInput={false}
+                    />
+                  </View>
+
+                  {/* Blocking options */}
+                  <View className="gap-3 border-t border-input pt-4">
+                    <Text variant="large" className="mb-2">
+                      {t('options')}
+                    </Text>
+                    {/* Block content option - only for authenticated users */}
+                    {isAuthenticated ? (
+                      <>
                         <View className="flex-row items-center justify-between">
-                          <Label className="flex-1">{t('blockThisUser')}</Label>
+                          <Label className="flex-1">
+                            {t('blockThisContent')}
+                          </Label>
                           <Switch
-                            checked={blockUserOption}
-                            onCheckedChange={setBlockUserOption}
+                            checked={blockContentOption}
+                            onCheckedChange={setBlockContentOption}
                           />
                         </View>
-                      )}
-                    </View>
-                  </View>
-                </ScrollView>
 
-                <Button
-                  className="mt-4"
-                  onPress={handleSubmit}
-                  disabled={
-                    !reason || report.isCreatingReport || hasAlreadyReported
-                  }
-                  loading={report.isCreatingReport}
-                >
-                  <Text>
-                    {report.isCreatingReport
-                      ? t('submitting')
-                      : t('submitReport')}
-                  </Text>
-                </Button>
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
+                        {creatorId && creatorId !== currentUser?.id && (
+                          <View className="flex-row items-center justify-between">
+                            <Label className="flex-1">
+                              {t('blockThisUser')}
+                            </Label>
+                            <Switch
+                              checked={blockUserOption}
+                              onCheckedChange={setBlockUserOption}
+                            />
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <View className="rounded-md bg-primary/10 p-4">
+                        <Text variant="small" className="leading-5">
+                          {t('blockContentLoginMessage') ||
+                            'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </KeyboardAwareScrollView>
+
+              <Button
+                className="mt-4"
+                onPress={handleSubmit}
+                disabled={
+                  !reason || report.isCreatingReport || hasAlreadyReported
+                }
+                loading={report.isCreatingReport}
+              >
+                <Text>
+                  {report.isCreatingReport
+                    ? t('submitting')
+                    : t('submitReport')}
+                </Text>
+              </Button>
+            </View>
+          </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
+      <KeyboardToolbar>
+        <KeyboardToolbar.Done />
+      </KeyboardToolbar>
     </Modal>
   );
 };
