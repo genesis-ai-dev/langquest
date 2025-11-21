@@ -13,16 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
+import React, { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
@@ -35,8 +36,10 @@ export default function RegisterView({
   sharedAuthInfo?: SharedAuthInfo;
 }) {
   const { t } = useLocalization();
+  const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const formSchema = z
     .object({
@@ -65,6 +68,9 @@ export default function RegisterView({
 
   const { mutateAsync: register, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!isOnline) {
+        throw new Error(t('internetConnectionRequired'));
+      }
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
         password: data.password.trim(),
@@ -123,151 +129,185 @@ export default function RegisterView({
     }
   }, [form, sharedAuthInfo?.email]);
 
+  // Auto-scroll to input when focused
+  const handleInputFocus = (offset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: offset,
+        animated: true
+      });
+    }, 100);
+  };
+
   return (
     <Form {...form}>
-      <View className="m-safe flex flex-col gap-4 p-6">
-        <View className="flex flex-col items-center justify-center gap-4 text-center">
-          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
-          <Text>{t('newUserRegistration') || 'New User Registration'}</Text>
-        </View>
-        <LanguageSelect />
-        <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  mask
-                  prefix={UserIcon}
-                  prefixStyling={false}
-                  placeholder={t('username') || 'Username'}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  mask
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  prefix={MailIcon}
-                  prefixStyling={false}
-                  placeholder={t('enterYourEmail') || 'Enter your email'}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="password"
-                  autoComplete="password"
-                  prefix={LockIcon}
-                  prefixStyling={false}
-                  placeholder={t('password') || 'Password'}
-                  secureTextEntry
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="confirmPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="password"
-                  autoComplete="password"
-                  prefix={LockIcon}
-                  prefixStyling={false}
-                  placeholder={t('confirmPassword') || 'Confirm Password'}
-                  secureTextEntry
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="termsAccepted"
-          render={({ field }) => {
-            const error = form.formState.errors.termsAccepted;
-            return (
+      <View className="relative flex-1">
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex flex-col items-center justify-center gap-4 text-center">
+            <Text className="text-6xl font-semibold text-primary">
+              LangQuest
+            </Text>
+            <Text>{t('newUserRegistration') || 'New User Registration'}</Text>
+          </View>
+          <LanguageSelect />
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Pressable
-                    onPress={() => field.onChange(!field.value)}
-                    className={cn(
-                      'flex flex-row items-center gap-2 rounded-lg border p-3',
-                      error
-                        ? 'border-destructive bg-destructive/10'
-                        : 'border-transparent'
-                    )}
-                  >
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                    <Text
-                      className={cn('text-sm', error && 'text-destructive')}
-                    >
-                      {t('agreeToTerms') || 'I accept the terms and conditions'}
-                    </Text>
-                  </Pressable>
+                  <Input
+                    {...transformInputProps(field)}
+                    mask
+                    prefix={UserIcon}
+                    prefixStyling={false}
+                    placeholder={t('username') || 'Username'}
+                    onFocus={() => handleInputFocus(120)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            );
-          }}
-        />
-        <View className="flex flex-col gap-2">
-          <Button
-            onPress={form.handleSubmit((data) => register(data))}
-            loading={isPending}
-          >
-            <Text>{t('register') || 'Register'}</Text>
-          </Button>
-          <Button
-            onPress={() =>
-              safeNavigate(() =>
-                onNavigate('sign-in', { email: form.watch('email') })
-              )
-            }
-            variant="outline"
-            className="border-border bg-input"
-            disabled={isPending}
-          >
-            <Text>
-              {t('returningHero') || 'Already have an account? Sign In'}
-            </Text>
-          </Button>
-        </View>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    mask
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    prefix={MailIcon}
+                    prefixStyling={false}
+                    placeholder={t('enterYourEmail') || 'Enter your email'}
+                    onFocus={() => handleInputFocus(200)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('password') || 'Password'}
+                    secureTextEntry
+                    onFocus={() => handleInputFocus(280)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('confirmPassword') || 'Confirm Password'}
+                    secureTextEntry
+                    onFocus={() => handleInputFocus(360)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="termsAccepted"
+            render={({ field }) => {
+              const error = form.formState.errors.termsAccepted;
+              return (
+                <FormItem>
+                  <FormControl>
+                    <Pressable
+                      onPress={() => field.onChange(!field.value)}
+                      className={cn(
+                        'flex flex-row items-center gap-2 rounded-lg border p-3',
+                        error
+                          ? 'border-destructive bg-destructive/10'
+                          : 'border-transparent'
+                      )}
+                    >
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <Text
+                        className={cn('text-sm', error && 'text-destructive')}
+                      >
+                        {t('agreeToTerms') ||
+                          'I accept the terms and conditions'}
+                      </Text>
+                    </Pressable>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+          {!isOnline && (
+            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+              <WifiOffIcon size={20} className="text-destructive" />
+              <Text className="flex-1 text-sm text-destructive">
+                {t('internetConnectionRequired')}
+              </Text>
+            </View>
+          )}
+          <View className="flex flex-col gap-2">
+            <Button
+              onPress={form.handleSubmit((data) => register(data))}
+              loading={isPending}
+              disabled={!isOnline || isPending}
+            >
+              <Text>{t('register') || 'Register'}</Text>
+            </Button>
+            <Button
+              onPress={() =>
+                safeNavigate(() =>
+                  onNavigate('sign-in', { email: form.watch('email') })
+                )
+              }
+              variant="outline"
+              className="border-border bg-input"
+              disabled={isPending || !isOnline}
+            >
+              <Text>
+                {t('returningHero') || 'Already have an account? Sign In'}
+              </Text>
+            </Button>
+          </View>
+        </ScrollView>
       </View>
     </Form>
   );

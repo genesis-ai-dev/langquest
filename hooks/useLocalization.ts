@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
+import { AuthContext } from '@/contexts/AuthContext';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type {
@@ -10,6 +10,7 @@ import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
+import { useContext } from 'react';
 
 type Language = typeof languageTable.$inferSelect;
 
@@ -18,7 +19,10 @@ type Language = typeof languageTable.$inferSelect;
 export type InterpolationValues = Record<string, string | number>;
 
 export function useLocalization(languageOverride?: string | null) {
-  const { currentUser } = useAuth();
+  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
+  // This allows useLocalization to work even before login as documented
+  const authContext = useContext(AuthContext);
+  const currentUser = authContext?.currentUser ?? null;
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
 
   const uiLanguageId = currentUser?.user_metadata.ui_language_id;

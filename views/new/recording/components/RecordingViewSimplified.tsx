@@ -97,6 +97,7 @@ const RecordingViewSimplified = ({
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
+  const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
   // Track current recording order index
   const currentRecordingOrderRef = React.useRef<number>(0);
@@ -580,10 +581,18 @@ const RecordingViewSimplified = ({
         );
 
         // Native module flushes the file before sending onSegmentComplete event.
-        // File should be ready, but Android file system may need a moment.
+        // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
-        // Save audio file locally
-        const localUri = await saveAudioLocally(uri);
+        // Save audio file locally (with retry logic for timing issues)
+        let localUri: string;
+        try {
+          localUri = await saveAudioLocally(uri);
+        } catch (error) {
+          // Release the reserved name on error
+          pendingAssetNamesRef.current.delete(assetName);
+          console.error('❌ Failed to save audio file locally:', error);
+          throw error; // Re-throw to be caught by outer catch block
+        }
 
         // Queue DB write (serialized to prevent race conditions)
         dbWriteQueueRef.current = dbWriteQueueRef.current
@@ -1513,6 +1522,10 @@ const RecordingViewSimplified = ({
             isVADLocked={isVADLocked}
             onVADLockChange={setIsVADLocked}
             onSettingsPress={() => setShowVADSettings(true)}
+            onAutoCalibratePress={() => {
+              setAutoCalibrateOnOpen(true);
+              setShowVADSettings(true);
+            }}
             currentEnergy={currentEnergy}
             vadThreshold={vadThreshold}
             energyShared={energyShared}
@@ -1533,7 +1546,13 @@ const RecordingViewSimplified = ({
       {/* VAD Settings Drawer */}
       <VADSettingsDrawer
         isOpen={showVADSettings}
-        onOpenChange={setShowVADSettings}
+        onOpenChange={(open) => {
+          setShowVADSettings(open);
+          // Reset auto-calibrate flag when drawer closes
+          if (!open) {
+            setAutoCalibrateOnOpen(false);
+          }
+        }}
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
@@ -1541,6 +1560,7 @@ const RecordingViewSimplified = ({
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
+        autoCalibrateOnOpen={autoCalibrateOnOpen}
       />
     </View>
   );

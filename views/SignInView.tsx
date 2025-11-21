@@ -12,15 +12,17 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { LockIcon, MailIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
+import React, { useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
@@ -37,6 +39,8 @@ export default function SignInView({
 }) {
   const { t } = useLocalization();
   const router = useRouter();
+  const isOnline = useNetworkStatus();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const formSchema = z.object({
     email: z
@@ -49,6 +53,9 @@ export default function SignInView({
 
   const { mutateAsync: login, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      if (!isOnline) {
+        throw new Error(t('internetConnectionRequired'));
+      }
       await supabaseConnector.login(
         data.email.toLowerCase().trim(),
         data.password.trim()
@@ -83,91 +90,125 @@ export default function SignInView({
     }
   });
 
+  // Auto-scroll to input when focused
+  const handleInputFocus = (offset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: offset,
+        animated: true
+      });
+    }, 100);
+  };
+
   return (
     <Form {...form}>
-      <View className="m-safe flex flex-col gap-4 p-6">
-        <View className="mb-8 flex flex-col items-center justify-center gap-4 text-center">
-          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
-          <Text>{t('welcome')}</Text>
-        </View>
-        <LanguageSelect uiReadyOnly />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  mask
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  prefix={MailIcon}
-                  prefixStyling={false}
-                  placeholder={t('enterYourEmail')}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="password"
-                  autoComplete="password"
-                  prefix={LockIcon}
-                  prefixStyling={false}
-                  placeholder={t('enterYourPassword')}
-                  secureTextEntry
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Pressable
-          onPress={() =>
-            safeNavigate(() =>
-              onNavigate('forgot-password', { email: form.watch('email') })
-            )
-          }
+      <View className="relative flex-1">
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text
-            className={cn(buttonTextVariants({ variant: 'link' }), 'text-left')}
-          >
-            {t('forgotPassword')}
-          </Text>
-        </Pressable>
-        <View className="flex flex-col gap-2">
-          <Button
-            onPress={form.handleSubmit((data) => login(data))}
-            loading={isPending}
-          >
-            <Text>{t('signIn')}</Text>
-          </Button>
-          <Button
+          <View className="flex flex-col items-center justify-center gap-4 text-center">
+            <Text className="text-6xl font-semibold text-primary">
+              LangQuest
+            </Text>
+            <Text>{t('welcome')}</Text>
+          </View>
+          <LanguageSelect uiReadyOnly />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    mask
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    prefix={MailIcon}
+                    prefixStyling={false}
+                    placeholder={t('enterYourEmail')}
+                    onFocus={() => handleInputFocus(100)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    {...transformInputProps(field)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
+                    prefix={LockIcon}
+                    prefixStyling={false}
+                    placeholder={t('enterYourPassword')}
+                    secureTextEntry
+                    onFocus={() => handleInputFocus(180)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Pressable
             onPress={() =>
               safeNavigate(() =>
-                onNavigate('register', { email: form.watch('email') })
+                onNavigate('forgot-password', { email: form.watch('email') })
               )
             }
-            variant="outline"
-            className="border-border bg-input"
-            disabled={isPending}
           >
-            <Text>
-              {t('newUser')} {t('register')}
+            <Text
+              className={cn(
+                buttonTextVariants({ variant: 'link' }),
+                'text-left'
+              )}
+            >
+              {t('forgotPassword')}
             </Text>
-          </Button>
-        </View>
+          </Pressable>
+          {!isOnline && (
+            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+              <WifiOffIcon size={20} className="text-destructive" />
+              <Text className="flex-1 text-sm text-destructive">
+                {t('internetConnectionRequired')}
+              </Text>
+            </View>
+          )}
+          <View className="flex flex-col gap-2">
+            <Button
+              onPress={form.handleSubmit((data) => login(data))}
+              loading={isPending}
+              disabled={!isOnline || isPending}
+            >
+              <Text>{t('signIn')}</Text>
+            </Button>
+            <Button
+              onPress={() =>
+                safeNavigate(() =>
+                  onNavigate('register', { email: form.watch('email') })
+                )
+              }
+              variant="outline"
+              className="border-border bg-input"
+              disabled={isPending || !isOnline}
+            >
+              <Text>
+                {t('newUser')} {t('register')}
+              </Text>
+            </Button>
+          </View>
+        </ScrollView>
       </View>
     </Form>
   );

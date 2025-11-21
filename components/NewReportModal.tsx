@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
+import { useLocalStore } from '@/store/localStore';
 import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
@@ -41,7 +42,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   onReportSubmitted
 }) => {
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   // const queryClient = useQueryClient();
   // const { db } = system; // Uncomment when implementing duplicate report checking
 
@@ -84,8 +86,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) {
-      Alert.alert('Error', t('logInToReport'));
+    if (!currentUser || !isAuthenticated) {
+      Alert.alert(
+        t('signInRequired'),
+        t('blockContentLoginMessage') ||
+          'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('signIn') || 'Sign In',
+            onPress: () => {
+              onClose();
+              setAuthView('sign-in');
+            }
+          }
+        ]
+      );
       return;
     }
 
@@ -210,23 +226,37 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       <Text variant="large" className="mb-2">
                         {t('options')}
                       </Text>
-                      <View className="flex-row items-center justify-between">
-                        <Label className="flex-1">
-                          {t('blockThisContent')}
-                        </Label>
-                        <Switch
-                          checked={blockContentOption}
-                          onCheckedChange={setBlockContentOption}
-                        />
-                      </View>
+                      {/* Block content option - only for authenticated users */}
+                      {isAuthenticated ? (
+                        <>
+                          <View className="flex-row items-center justify-between">
+                            <Label className="flex-1">
+                              {t('blockThisContent')}
+                            </Label>
+                            <Switch
+                              checked={blockContentOption}
+                              onCheckedChange={setBlockContentOption}
+                            />
+                          </View>
 
-                      {creatorId && creatorId !== currentUser?.id && (
-                        <View className="flex-row items-center justify-between">
-                          <Label className="flex-1">{t('blockThisUser')}</Label>
-                          <Switch
-                            checked={blockUserOption}
-                            onCheckedChange={setBlockUserOption}
-                          />
+                          {creatorId && creatorId !== currentUser?.id && (
+                            <View className="flex-row items-center justify-between">
+                              <Label className="flex-1">
+                                {t('blockThisUser')}
+                              </Label>
+                              <Switch
+                                checked={blockUserOption}
+                                onCheckedChange={setBlockUserOption}
+                              />
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <View className="rounded-md bg-primary/10 p-4">
+                          <Text variant="small" className="leading-5">
+                            {t('blockContentLoginMessage') ||
+                              'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
+                          </Text>
                         </View>
                       )}
                     </View>
