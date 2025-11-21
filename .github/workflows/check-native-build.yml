@@ -11,7 +11,9 @@ jobs:
   fingerprint:
     runs-on: ubuntu-latest
     # REQUIRED: limit concurrency when pushing dev branch to prevent conflict for this action to update its fingerprint database
-    concurrency: fingerprint-${{ github.event_name != 'pull_request' && 'dev' || format('pr-{0}', github.event.pull_request.number) }}
+    concurrency:
+      group: fingerprint-${{ github.event_name != 'pull_request' && 'dev' || format('pr-{0}', github.event.pull_request.number) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     permissions:
       # REQUIRED: Allow comments of PRs
       pull-requests: write # Allow comments on PRs
