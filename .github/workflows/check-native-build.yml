@@ -2,7 +2,6 @@ name: Check Native Build Requirement
 
 on:
   push:
-    # Push to ci branch to update fingerprint database
     branches: [ci]
   pull_request:
     types: [opened, synchronize, reopened]
@@ -10,15 +9,12 @@ on:
 jobs:
   check-native-build:
     runs-on: ubuntu-latest
-    # Limit concurrency when pushing ci branch to prevent conflict for this action to update its fingerprint database
     concurrency:
       group: fingerprint-${{ github.event_name != 'pull_request' && 'ci' || github.run_id }}
       cancel-in-progress: true
 
     permissions:
-      # REQUIRED: Allow comments of PRs
-      pull-requests: write # Allow comments on PRs
-      # REQUIRED: Allow updating fingerprint in action caches
+      pull-requests: write
       actions: write
     steps:
       - uses: actions/checkout@v4
@@ -35,221 +31,83 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install EAS CLI and jq
-        run: |
-          npm install -g eas-cli
-          sudo apt-get update && sudo apt-get install -y jq
+      - name: Check fingerprint
+        if: github.event_name == 'pull_request'
+        id: fingerprint-check
+        uses: expo/expo-github-action/fingerprint@main
+        with:
+          packager: npm
+          saving-db-branch: ci
 
-      - name: Generate current fingerprint for Android
-        id: generate-fingerprint-android
-        run: |
-          # Generate fingerprint for Android platform
-          FINGERPRINT_JSON=$(eas fingerprint:generate --platform android --non-interactive --json 2>&1)
-          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
+      - name: Update fingerprint database on ci branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/ci'
+        uses: expo/expo-github-action/fingerprint@main
+        with:
+          packager: npm
+          saving-db-branch: ci
 
-          if [ -z "$FINGERPRINT_HASH" ] || [ "$FINGERPRINT_HASH" = "null" ]; then
-            # Fallback: try to extract from non-JSON output
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-          fi
+      - name: Add Fingerprint:compatible label if no change
+        if: github.event_name == 'pull_request' && steps.fingerprint-check.outputs.fingerprint-diff == '[]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'Fingerprint:changed'
+              })
+            } catch (e) {
+              if (e.status != 404) {
+                throw e;
+              }
+            }
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['Fingerprint:compatible']
+            })
 
-          if [ -z "$FINGERPRINT_HASH" ]; then
-            # Last resort: hash the entire JSON
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | sha256sum | cut -d' ' -f1)
-          fi
+      - name: Add Fingerprint:changed label if changed
+        if: github.event_name == 'pull_request' && steps.fingerprint-check.outputs.fingerprint-diff != '[]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'Fingerprint:compatible'
+              })
+            } catch (e) {
+              if (e.status != 404) {
+                throw e;
+              }
+            }
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['Fingerprint:changed']
+            })
 
-          echo "android_fingerprint=$FINGERPRINT_HASH" >> $GITHUB_OUTPUT
-          echo "Android fingerprint: ${FINGERPRINT_HASH:0:16}..."
-
-      - name: Generate current fingerprint for iOS
-        id: generate-fingerprint-ios
-        run: |
-          # Generate fingerprint for iOS platform
-          FINGERPRINT_JSON=$(eas fingerprint:generate --platform ios --non-interactive --json 2>&1)
-          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
-
-          if [ -z "$FINGERPRINT_HASH" ] || [ "$FINGERPRINT_HASH" = "null" ]; then
-            # Fallback: try to extract from non-JSON output
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-          fi
-
-          if [ -z "$FINGERPRINT_HASH" ]; then
-            # Last resort: hash the entire JSON
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | sha256sum | cut -d' ' -f1)
-          fi
-
-          echo "ios_fingerprint=$FINGERPRINT_HASH" >> $GITHUB_OUTPUT
-          echo "iOS fingerprint: ${FINGERPRINT_HASH:0:16}..."
-
-      - name: Get latest Android build fingerprint
-        id: latest-build-android
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          # Get the latest Android build fingerprint from EAS
-          LATEST_BUILD=$(eas build:list --platform android --limit 1 --json --non-interactive 2>/dev/null || echo "[]")
-
-          if [ "$LATEST_BUILD" != "[]" ] && [ -n "$LATEST_BUILD" ]; then
-            LATEST_FINGERPRINT=$(echo "$LATEST_BUILD" | jq -r '.[0].fingerprint // empty' 2>/dev/null || echo "")
-
-            if [ -n "$LATEST_FINGERPRINT" ] && [ "$LATEST_FINGERPRINT" != "null" ]; then
-              echo "android_latest_fingerprint=$LATEST_FINGERPRINT" >> $GITHUB_OUTPUT
-              echo "Latest Android build fingerprint: ${LATEST_FINGERPRINT:0:16}..."
-            else
-              echo "⚠️ Could not extract fingerprint from latest Android build"
-              echo "android_latest_fingerprint=" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "⚠️ No previous Android builds found"
-            echo "android_latest_fingerprint=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get latest iOS build fingerprint
-        id: latest-build-ios
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          # Get the latest iOS build fingerprint from EAS
-          LATEST_BUILD=$(eas build:list --platform ios --limit 1 --json --non-interactive 2>/dev/null || echo "[]")
-
-          if [ "$LATEST_BUILD" != "[]" ] && [ -n "$LATEST_BUILD" ]; then
-            LATEST_FINGERPRINT=$(echo "$LATEST_BUILD" | jq -r '.[0].fingerprint // empty' 2>/dev/null || echo "")
-
-            if [ -n "$LATEST_FINGERPRINT" ] && [ "$LATEST_FINGERPRINT" != "null" ]; then
-              echo "ios_latest_fingerprint=$LATEST_FINGERPRINT" >> $GITHUB_OUTPUT
-              echo "Latest iOS build fingerprint: ${LATEST_FINGERPRINT:0:16}..."
-            else
-              echo "⚠️ Could not extract fingerprint from latest iOS build"
-              echo "ios_latest_fingerprint=" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "⚠️ No previous iOS builds found"
-            echo "ios_latest_fingerprint=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Compare fingerprints
+      - name: Determine if native build required
+        if: github.event_name == 'pull_request'
         id: compare
         run: |
-          ANDROID_CURRENT="${{ steps.generate-fingerprint-android.outputs.android_fingerprint }}"
-          ANDROID_LATEST="${{ steps.latest-build-android.outputs.android_latest_fingerprint }}"
-          IOS_CURRENT="${{ steps.generate-fingerprint-ios.outputs.ios_fingerprint }}"
-          IOS_LATEST="${{ steps.latest-build-ios.outputs.ios_latest_fingerprint }}"
+          FINGERPRINT_DIFF="${{ steps.fingerprint-check.outputs.fingerprint-diff }}"
 
-          echo "Android current: ${ANDROID_CURRENT:0:16}..."
-          echo "Android latest: ${ANDROID_LATEST:0:16}..."
-          echo "iOS current: ${IOS_CURRENT:0:16}..."
-          echo "iOS latest: ${IOS_LATEST:0:16}..."
-
-          ANDROID_MATCH=false
-          IOS_MATCH=false
-          REASONS=""
-
-          # Check Android fingerprint
-          if [ -z "$ANDROID_LATEST" ]; then
-            echo "⚠️ No previous Android build found"
-            ANDROID_MATCH=false
-            REASONS="${REASONS}No Android build found. "
-          elif [ "$ANDROID_CURRENT" = "$ANDROID_LATEST" ]; then
-            echo "✅ Android fingerprints match"
-            ANDROID_MATCH=true
-          else
-            echo "⚠️ Android fingerprints differ"
-            ANDROID_MATCH=false
-            REASONS="${REASONS}Android fingerprint changed. "
-          fi
-
-          # Check iOS fingerprint
-          if [ -z "$IOS_LATEST" ]; then
-            echo "⚠️ No previous iOS build found"
-            IOS_MATCH=false
-            REASONS="${REASONS}No iOS build found. "
-          elif [ "$IOS_CURRENT" = "$IOS_LATEST" ]; then
-            echo "✅ iOS fingerprints match"
-            IOS_MATCH=true
-          else
-            echo "⚠️ iOS fingerprints differ"
-            IOS_MATCH=false
-            REASONS="${REASONS}iOS fingerprint changed. "
-          fi
-
-          # Native build required if either platform doesn't match
-          if [ "$ANDROID_MATCH" = "true" ] && [ "$IOS_MATCH" = "true" ]; then
-            echo "✅ All fingerprints match - no native build required"
-            echo "native_build_required=false" >> $GITHUB_OUTPUT
-            echo "fingerprint_match=true" >> $GITHUB_OUTPUT
-            echo "reason=All fingerprints match" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Fingerprints differ - native build required"
+          # Check if fingerprint diff is not empty (fingerprint changed)
+          if [ "$FINGERPRINT_DIFF" != "[]" ] && [ -n "$FINGERPRINT_DIFF" ]; then
             echo "native_build_required=true" >> $GITHUB_OUTPUT
-            echo "fingerprint_match=false" >> $GITHUB_OUTPUT
-            echo "reason=${REASONS}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check if version already bumped
-        if: steps.compare.outputs.native_build_required == 'true' && github.event_name == 'pull_request'
-        id: check-version-bump
-        run: |
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-
-          # Get version from base branch
-          git fetch origin $BASE_BRANCH
-          BASE_VERSION=$(git show origin/$BASE_BRANCH:app.config.ts 2>/dev/null | grep -oP "version:\s*'[\d.]+'" | grep -oP "[\d.]+" | head -1 || echo "")
-
-          # Get version from PR branch
-          PR_VERSION=$(grep -oP "version:\s*'[\d.]+'" app.config.ts | grep -oP "[\d.]+" | head -1)
-
-          echo "Base branch version: ${BASE_VERSION}"
-          echo "PR branch version: ${PR_VERSION}"
-
-          if [ -n "$BASE_VERSION" ] && [ "$PR_VERSION" != "$BASE_VERSION" ]; then
-            echo "✅ Version already bumped in PR (${BASE_VERSION} -> ${PR_VERSION})"
-            echo "version_already_bumped=true" >> $GITHUB_OUTPUT
-            echo "current_version=$PR_VERSION" >> $GITHUB_OUTPUT
+            echo "⚠️ Fingerprint changed - native build required"
           else
-            echo "Version not yet bumped, will increment"
-            echo "version_already_bumped=false" >> $GITHUB_OUTPUT
-            echo "current_version=$PR_VERSION" >> $GITHUB_OUTPUT
+            echo "native_build_required=false" >> $GITHUB_OUTPUT
+            echo "✅ Fingerprint unchanged - no native build required"
           fi
-
-      - name: Increment version if fingerprint differs
-        if: steps.compare.outputs.native_build_required == 'true' && steps.check-version-bump.outputs.version_already_bumped == 'false'
-        id: bump-version
-        run: |
-          # Read current version from app.config.ts
-          CURRENT_VERSION="${{ steps.check-version-bump.outputs.current_version }}"
-          echo "Current version: $CURRENT_VERSION"
-
-          # Increment patch version (e.g., 2.0.3 -> 2.0.4)
-          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-          MAJOR=${VERSION_PARTS[0]}
-          MINOR=${VERSION_PARTS[1]}
-          PATCH=${VERSION_PARTS[2]}
-
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-
-          echo "New version: $NEW_VERSION"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-          # Update app.config.ts with new version
-          sed -i.bak "s/version: '${CURRENT_VERSION}'/version: '${NEW_VERSION}'/" app.config.ts
-
-          # Update package.json with new version
-          sed -i.bak "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" package.json
-
-          # Verify the changes
-          echo "Updated app.config.ts:"
-          grep "version:" app.config.ts
-          echo ""
-          echo "Updated package.json:"
-          grep "\"version\":" package.json
-
-      - name: Use existing version if already bumped
-        if: steps.compare.outputs.native_build_required == 'true' && steps.check-version-bump.outputs.version_already_bumped == 'true'
-        id: use-existing-version
-        run: |
-          EXISTING_VERSION="${{ steps.check-version-bump.outputs.current_version }}"
-          echo "Version already bumped to: $EXISTING_VERSION"
-          echo "new_version=$EXISTING_VERSION" >> $GITHUB_OUTPUT
 
       - name: Request changes review if native build required
         if: github.event_name == 'pull_request' && steps.compare.outputs.native_build_required == 'true'
@@ -257,63 +115,20 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-message: |
-            ⚠️ **Native Build Required - Manual Review Needed**
+            ⚠️ **Native Build Required - Manual Approval Needed**
 
-            This PR requires a native build because the fingerprint has changed.
-
-            ${{ (steps.bump-version.outputs.new_version != '' || steps.use-existing-version.outputs.new_version != '') && '**Version:** `' || '' }}${{ steps.bump-version.outputs.new_version || steps.use-existing-version.outputs.new_version }}${{ (steps.bump-version.outputs.new_version != '' || steps.use-existing-version.outputs.new_version != '') && '`' || '' }}${{ steps.check-version-bump.outputs.version_already_bumped == 'true' && ' (already bumped in PR)' || ' (will be bumped)' }}
-
-            **Fingerprint Comparison:**
-
-            **Android:**
-            - Current: `${{ steps.generate-fingerprint-android.outputs.android_fingerprint }}`
-            ${{ steps.latest-build-android.outputs.android_latest_fingerprint != '' && '- Latest build: `' || '- Latest build: No previous build found' }}${{ steps.latest-build-android.outputs.android_latest_fingerprint }}${{ steps.latest-build-android.outputs.android_latest_fingerprint != '' && '`' || '' }}
-
-            **iOS:**
-            - Current: `${{ steps.generate-fingerprint-ios.outputs.ios_fingerprint }}`
-            ${{ steps.latest-build-ios.outputs.ios_latest_fingerprint != '' && '- Latest build: `' || '- Latest build: No previous build found' }}${{ steps.latest-build-ios.outputs.ios_latest_fingerprint }}${{ steps.latest-build-ios.outputs.ios_latest_fingerprint != '' && '`' || '' }}
-
-            **Reason:** ${{ steps.compare.outputs.reason }}
+            This PR requires a native build because the fingerprint has changed compared to the base branch.
 
             **Action Required:**
-            1. Review the version bump (if applied)
-            2. Ensure native builds are tested before merging
-            3. Commit the version change if you proceed with the PR
-            4. Manually approve this PR after verifying native builds work correctly
+            Please verify native builds work correctly before approving this PR.
 
-            > Note: This review blocks merging until dismissed. Please verify native builds and approve after testing.
-
-      - name: Auto-approve PR if fingerprints match
-        if: github.event_name == 'pull_request' && steps.compare.outputs.native_build_required == 'false'
-        uses: hmarr/auto-approve-action@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          review-message: |
-            ✅ **No Native Build Required**
-
-            This PR does not require a native build. The native runtime fingerprints match the latest builds for both Android and iOS.
-
-            **Android fingerprint:** `${{ steps.generate-fingerprint-android.outputs.android_fingerprint }}`
-            **iOS fingerprint:** `${{ steps.generate-fingerprint-ios.outputs.ios_fingerprint }}`
-
-            > This check uses [Expo's fingerprinting](https://expo.dev/blog/fingerprint-your-native-runtime) to detect native code changes.
-
-      - name: Pass check but indicate review required
-        if: steps.compare.outputs.native_build_required == 'true'
-        run: |
-          echo "⚠️ Native build required - PR review has been requested"
-          echo "The PR merge is blocked until the review is approved after verifying native builds"
-          echo "::notice::Native build required - Manual review needed before merging"
+            > This review blocks merging until dismissed. PRs with fingerprint changes require explicit approval.
 
       - name: Summary
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         run: |
           if [ "${{ steps.compare.outputs.native_build_required }}" = "true" ]; then
             echo "⚠️ Native build is required for this PR"
-            if [ -n "${{ steps.bump-version.outputs.new_version }}" ]; then
-              echo "Version bumped to: ${{ steps.bump-version.outputs.new_version }}"
-            fi
           else
             echo "✅ No native build required for this PR"
-            echo "Fingerprints match - test passed"
           fi
