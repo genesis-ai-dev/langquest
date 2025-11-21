@@ -91,16 +91,68 @@ jobs:
               labels: ['bot: fingerprint changed']
             })
 
-      - name: Request changes review if fingerprint changed
-        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
+      - name: Check if fingerprint compatibility changed
+        if: github.event_name == 'pull_request'
+        id: check-compatibility-change
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const hasChanges = fingerprintDiff !== '[]';
+            const isCompatible = fingerprintDiff === '[]';
+
+            // Get existing reviews to check if we need to dismiss
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const existingReview = reviews.find(
+              review => review.user.type === 'Bot' && review.user.login === 'github-actions[bot]' && review.state === 'CHANGES_REQUESTED'
+            );
+
+            // If fingerprint is now compatible (was changed, now compatible), dismiss the review
+            if (isCompatible && existingReview) {
+              try {
+                await github.rest.pulls.dismissReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  review_id: existingReview.id,
+                  message: ''
+                });
+              } catch (e) {
+                // Silently continue if dismiss fails
+              }
+            }
+
+            // Check if compatibility changed (had review before, now compatible)
+            const hadReview = existingReview !== undefined;
+            const compatibilityChanged = hadReview && isCompatible;
+
+            core.setOutput('compatibility_changed', compatibilityChanged);
+            core.setOutput('has_changes', hasChanges);
+
+      - name: Format fingerprint diff for comment
+        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        id: format-diff
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
             const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
+            core.setOutput('prettified_diff', prettifiedDiff);
 
-            const message = `⚠️ Native Build Required - Manual Approval Needed
+      - name: Comment on PR if fingerprint changed
+        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: fingerprint-check
+          message: |
+            ⚠️ Native Build Required - Manual Approval Needed
 
             This PR requires a native build because the fingerprint has changed compared to the base branch.
 
@@ -109,46 +161,25 @@ jobs:
             <details>
             <summary>▼ Fingerprint diff</summary>
 
-            \`\`\`json
-            ${prettifiedDiff}
-            \`\`\`
+            ```json
+            ${{ steps.format-diff.outputs.prettified_diff }}
+            ```
 
             </details>
 
             Action Required:
             Please verify native builds work correctly before approving this PR.
 
-            > This review blocks merging until dismissed. PRs with fingerprint changes require explicit approval.`;
+      - name: Request changes review if fingerprint compatibility changed
+        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const message = `⚠️ Native Build Required - Manual Approval Needed
 
-            // Get existing reviews from this bot
-            const { data: reviews } = await github.rest.pulls.listReviews({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
+            This PR requires a native build because the fingerprint has changed compared to the base branch. Please verify native builds work correctly before approving this PR.`;
 
-            // Find existing CHANGES_REQUESTED review from github-actions bot
-            const existingReview = reviews.find(
-              review => review.user.type === 'Bot' && review.user.login === 'github-actions[bot]' && review.state === 'CHANGES_REQUESTED'
-            );
-
-            if (existingReview) {
-              // Dismiss existing review first
-              try {
-                await github.rest.pulls.dismissReview({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  review_id: existingReview.id,
-                  message: 'Updating review with latest fingerprint diff'
-                });
-              } catch (e) {
-                // If dismiss fails, continue anyway
-                console.log('Could not dismiss existing review:', e.message);
-              }
-            }
-
-            // Create new review
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -156,3 +187,10 @@ jobs:
               event: 'REQUEST_CHANGES',
               body: message
             });
+
+      - name: Remove comment if fingerprint compatible
+        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'false'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: fingerprint-check
+          mode: delete
