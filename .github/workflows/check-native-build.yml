@@ -97,6 +97,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
+            
             const message = `⚠️ Native Build Required - Manual Approval Needed
 
             This PR requires a native build because the fingerprint has changed compared to the base branch.
@@ -107,7 +110,7 @@ jobs:
             <summary>▼ Fingerprint diff</summary>
 
             \`\`\`json
-            ${{ steps.fingerprint.outputs.fingerprint-diff }}
+            ${prettifiedDiff}
             \`\`\`
 
             </details>
