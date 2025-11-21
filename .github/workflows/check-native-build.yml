@@ -157,7 +157,7 @@ jobs:
             This PR requires a native build because the fingerprint has changed compared to the base branch.
 
             <details>
-            <summary>▼ Fingerprint diff</summary>
+            <summary>Fingerprint diff</summary>
 
             ```json
             ${{ steps.format-diff.outputs.prettified_diff }}
@@ -165,8 +165,7 @@ jobs:
 
             </details>
 
-            Action Required:
-            Please confirm with team before merging.
+            Action Required: Please confirm with team before merging.
 
       - name: Request changes review if fingerprint compatibility changed
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
