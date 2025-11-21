@@ -57,14 +57,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       icon: iconLight,
       scheme: getScheme(appVariant),
       userInterfaceStyle: 'automatic',
-      splash: {
-        image: iconLight,
-        backgroundColor: '#f5f5ff',
-        dark: {
-          image: iconDark,
-          backgroundColor: '#131320'
-        }
-      },
       ios: {
         icon: {
           light: iconLight,
