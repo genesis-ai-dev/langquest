@@ -118,6 +118,18 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         'expo-router',
         // TODO: migrate existing localization to expo-localization
         'expo-localization',
+        [
+          'expo-splash-screen',
+          {
+            image: iconLight,
+            backgroundColor: '#f5f5ff',
+            dark: {
+              image: iconDark,
+              backgroundColor: '#131320'
+            },
+            imageWidth: 150
+          }
+        ],
         'expo-dev-client',
         ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
       ],
