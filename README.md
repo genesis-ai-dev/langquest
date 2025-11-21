@@ -34,7 +34,7 @@ Obtain the .env file by logging into EAS and running the `eas env:pull <producti
    - Return to Settings > System > Developer options
    - Enable "USB debugging"
 
-6. Run the app by following the [Expo environment setup guide](https://docs.expo.dev/get-started/set-up-your-environment/) for your platform, **with the supplemental pointers below**:
+6. Run the app by following the [Expo environment setup guide](https://docs.expo.dev/get-started/set-up-your-environment/?mode=development-build&buildEnv=local) for your platform, **with the supplemental pointers below**:
 
 - Recommended to run on physical android device (emulator may have minimal limitations but should allow for most functionality)
 
@@ -47,6 +47,8 @@ Obtain the .env file by logging into EAS and running the `eas env:pull <producti
 ### There are two ways to run the app:
 
 #### 1. EAS Development Build (`eas build --platform android --profile development`)
+
+[Expo environment setup guide for EAS builds](https://docs.expo.dev/get-started/set-up-your-environment/?mode=development-build)
 
 ![EAS Build](readme_images/yes_eas.jpg)
 
@@ -66,6 +68,8 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 #### 2. Local Development (`npm run android`)
 
 ![Local Build](readme_images/no_eas.jpg)
+
+[Expo environment setup guide for EAS builds](https://docs.expo.dev/get-started/set-up-your-environment/?mode=development-build&buildEnv=local)
 
 - Runs the app directly on your connected Android device/emulator
 - Enables real-time code updates (hot reload)
