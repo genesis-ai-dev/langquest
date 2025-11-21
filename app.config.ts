@@ -11,7 +11,7 @@ const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
 const appVariant =
-  process.env.EXPO_PUBLIC_APP_VARIANT || 
+  process.env.EXPO_PUBLIC_APP_VARIANT ||
   (process.env.NODE_ENV === 'development' ? 'development' : 'production');
 
 function getAppName(variant: string) {
@@ -123,7 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           imageWidth: 150
         }
       ],
-      'expo-dev-client',
+      ...(appVariant === 'development' ? ['expo-dev-client'] : []),
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
     ],
     experiments: {
@@ -142,7 +142,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       url: `https://u.expo.dev/${projectId}`
     },
     runtimeVersion: {
-      policy: 'fingerprint'
+      policy: 'fingerprint',
+      fingerprintIgnorePaths: ['node_modules/expo-dev-menu/**']
     }
   });
 
