@@ -1,53 +1,50 @@
-name: Check Native Build Requirement
+name: PR Labeler
 
 on:
   push:
-    branches: [ci]
+    # REQUIRED: push dev branch is necessary for this action to update its fingerprint database
+    branches: [dev]
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  check-native-build:
+  fingerprint:
     runs-on: ubuntu-latest
-    concurrency:
-      group: fingerprint-${{ github.event_name != 'pull_request' && 'ci' || github.run_id }}
-      cancel-in-progress: true
-
+    # REQUIRED: limit concurrency when pushing dev branch to prevent conflict for this action to update its fingerprint database
+    concurrency: fingerprint-${{ github.event_name != 'pull_request' && 'dev' || github.run_id }}
     permissions:
-      pull-requests: write
+      # REQUIRED: Allow comments of PRs
+      pull-requests: write # Allow comments on PRs
+      # REQUIRED: Allow updating fingerprint in action caches
       actions: write
+      # OPTIONAL: Allow reading of repo contents for private projects
+      # contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
+      - name: 🏗 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
           cache-dependency-path: "**/package-lock.json"
           cache: "npm"
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm install
 
       - name: Check fingerprint
-        if: github.event_name == 'pull_request'
-        id: fingerprint-check
+        id: fingerprint
         uses: expo/expo-github-action/fingerprint@main
         with:
           packager: npm
-          saving-db-branch: ci
-
-      - name: Update fingerprint database on ci branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/ci'
-        uses: expo/expo-github-action/fingerprint@main
-        with:
-          packager: npm
-          saving-db-branch: ci
+          saving-db-branch: dev
 
       - name: Add Fingerprint:compatible label if no change
-        if: github.event_name == 'pull_request' && steps.fingerprint-check.outputs.fingerprint-diff == '[]'
+        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -71,7 +68,7 @@ jobs:
             })
 
       - name: Add Fingerprint:changed label if changed
-        if: github.event_name == 'pull_request' && steps.fingerprint-check.outputs.fingerprint-diff != '[]'
+        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -94,23 +91,8 @@ jobs:
               labels: ['Fingerprint:changed']
             })
 
-      - name: Determine if native build required
-        if: github.event_name == 'pull_request'
-        id: compare
-        run: |
-          FINGERPRINT_DIFF="${{ steps.fingerprint-check.outputs.fingerprint-diff }}"
-
-          # Check if fingerprint diff is not empty (fingerprint changed)
-          if [ "$FINGERPRINT_DIFF" != "[]" ] && [ -n "$FINGERPRINT_DIFF" ]; then
-            echo "native_build_required=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Fingerprint changed - native build required"
-          else
-            echo "native_build_required=false" >> $GITHUB_OUTPUT
-            echo "✅ Fingerprint unchanged - no native build required"
-          fi
-
-      - name: Request changes review if native build required
-        if: github.event_name == 'pull_request' && steps.compare.outputs.native_build_required == 'true'
+      - name: Request changes review if fingerprint changed
+        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
         uses: ntsd/auto-request-changes-action@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -123,12 +105,3 @@ jobs:
             Please verify native builds work correctly before approving this PR.
 
             > This review blocks merging until dismissed. PRs with fingerprint changes require explicit approval.
-
-      - name: Summary
-        if: always() && github.event_name == 'pull_request'
-        run: |
-          if [ "${{ steps.compare.outputs.native_build_required }}" = "true" ]; then
-            echo "⚠️ Native build is required for this PR"
-          else
-            echo "✅ No native build required for this PR"
-          fi
