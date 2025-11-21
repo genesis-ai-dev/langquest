@@ -36,7 +36,7 @@ const CardTitle = React.forwardRef<TextRef, TextProps>(
       aria-level={3}
       ref={ref}
       className={cn(
-        'text-lg font-semibold leading-none tracking-tight text-card-foreground',
+        'text-lg font-semibold tracking-tight text-card-foreground',
         className
       )}
       style={useNotoSans(className, style)}
