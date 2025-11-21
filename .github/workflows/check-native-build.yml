@@ -125,7 +125,7 @@ jobs:
                   repo: context.repo.repo,
                   pull_number: context.issue.number,
                   review_id: existingReview.id,
-                  message: ''
+                  message: 'Fingerprint is now compatible - no native build required'
                 });
                 console.log('✅ Dismissed review - fingerprint is now compatible');
               } catch (e) {
