@@ -21,6 +21,8 @@ Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/co
 
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
 
+- Don't use Tailwind leading-none or actually anything that would have a line-height of less than 1.3, because it causes text clipping.
+
 - **React 19**: Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.
 
 - **Colors accessed in JavaScript**: When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
