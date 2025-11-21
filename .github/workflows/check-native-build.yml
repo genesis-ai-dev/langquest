@@ -43,7 +43,19 @@ jobs:
           packager: npm
           saving-db-branch: dev
 
-      - name: "Add fingerprint compatible label if no change"
+      - name: "Add fingerprint changed label if not compatible"
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['bot: fingerprint changed']
+            })
+
+      - name: "Remove fingerprint changed label if compatible"
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
         uses: actions/github-script@v7
         with:
@@ -60,36 +72,6 @@ jobs:
                 throw e;
               }
             }
-            await github.rest.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['bot: fingerprint compatible']
-            })
-
-      - name: "Add fingerprint changed label if changed"
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            try {
-              await github.rest.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'bot: fingerprint compatible'
-              })
-            } catch (e) {
-              if (e.status != 404) {
-                throw e;
-              }
-            }
-            await github.rest.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['bot: fingerprint changed']
-            })
 
       - name: Check if fingerprint compatibility changed
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
