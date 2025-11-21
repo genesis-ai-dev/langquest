@@ -1,3 +1,4 @@
+import { LanguageCombobox } from '@/components/language-combobox';
 import { LanguageSelect } from '@/components/language-select';
 import { Button, buttonTextVariants } from '@/components/ui/button';
 import {
@@ -106,7 +107,7 @@ export default function SignInView({
             </Text>
             <Text>{t('welcome')}</Text>
           </View>
-          <LanguageSelect uiReadyOnly />
+          <LanguageCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="email"
