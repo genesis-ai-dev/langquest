@@ -156,8 +156,6 @@ jobs:
 
             This PR requires a native build because the fingerprint has changed compared to the base branch.
 
-            Fingerprint Diff:
-
             <details>
             <summary>▼ Fingerprint diff</summary>
 
@@ -168,7 +166,7 @@ jobs:
             </details>
 
             Action Required:
-            Please verify native builds work correctly before approving this PR.
+            Please confirm with team before merging.
 
       - name: Request changes review if fingerprint compatibility changed
         if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
@@ -178,7 +176,7 @@ jobs:
           script: |
             const message = `⚠️ Native Build Required - Manual Approval Needed
 
-            This PR requires a native build because the fingerprint has changed compared to the base branch. Please verify native builds work correctly before approving this PR.`;
+            This PR requires a native build because the fingerprint has changed compared to the base branch. Please confirm with team before merging.`;
 
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
