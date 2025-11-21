@@ -143,6 +143,22 @@ jobs:
             core.setOutput('should_create_review', shouldCreateReview);
             core.setOutput('has_review', hadReview);
 
+      - name: Request changes review if fingerprint changed
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const message = `⚠️ Native Build Required - See the comment below for details.`;
+
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body: message
+            });
+
       - name: Format fingerprint diff for comment
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
         id: format-diff
@@ -173,31 +189,9 @@ jobs:
 
             </details>
 
-            Action Required: After confirming with the team, you can proceed with merging.
+            Action Required: After confirming with the team, another team member must approve this PR to proceed with merging.
 
-            👉 [**Approve this PR**](${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/files) - Click "Review changes" → "Approve" to dismiss this review and allow merging.
-
-      - name: Request changes review if fingerprint changed
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const message = `⚠️ Native Build Required - Manual Approval Needed
-
-            This PR requires a native build because the fingerprint has changed compared to the base branch.
-
-            After confirming with the team, you can either:
-            - **Approve the PR** (recommended) - This will dismiss this review and allow merging
-            - **Dismiss this review** - This will also allow merging`;
-
-            await github.rest.pulls.createReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              event: 'REQUEST_CHANGES',
-              body: message
-            });
+            👉 [**Approve this PR**](${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/files) - Click "Review changes/Submit review" → "Approve" to dismiss this review and allow merging.
 
       - name: Remove comment if fingerprint compatible
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'false'
