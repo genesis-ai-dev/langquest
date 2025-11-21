@@ -99,8 +99,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
-            const hasChanges = fingerprintDiff !== '[]';
-            const isCompatible = fingerprintDiff === '[]';
+            // Handle fingerprint diff - it's a JSON string, check if it's an empty array
+            const trimmedDiff = String(fingerprintDiff).trim();
+            // Empty array means no changes (compatible), non-empty means changes
+            const hasChanges = trimmedDiff !== '[]' && trimmedDiff !== '';
+            const isCompatible = trimmedDiff === '[]' || trimmedDiff === '';
 
             // Get existing reviews to check if we need to dismiss
             const { data: reviews } = await github.rest.pulls.listReviews({
