@@ -20,9 +20,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
-import React, { useRef } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
@@ -40,8 +41,6 @@ export default function SignInView({
   const { t } = useLocalization();
   const router = useRouter();
   const isOnline = useNetworkStatus();
-  const scrollViewRef = useRef<ScrollView>(null);
-
   const formSchema = z.object({
     email: z
       .email(t('enterValidEmail'))
@@ -84,31 +83,22 @@ export default function SignInView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
     defaultValues: {
       email: sharedAuthInfo?.email
     }
   });
 
-  // Auto-scroll to input when focused
-  const handleInputFocus = (offset: number) => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: offset,
-        animated: true
-      });
-    }, 100);
-  };
+  const handleFormSubmit = form.handleSubmit((data) => login(data));
 
   return (
     <Form {...form}>
       <View className="relative flex-1">
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1"
+        <KeyboardAwareScrollView
+          className="mb-[62px] flex-1"
           contentContainerClassName="m-safe flex flex-col gap-4 p-6"
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={96}
+          extraKeyboardSpace={20}
         >
           <View className="mb-8 flex flex-col items-center justify-center text-center">
             <Text className="text-6xl font-semibold text-primary">
@@ -126,12 +116,12 @@ export default function SignInView({
                   <Input
                     {...transformInputProps(field)}
                     mask
+                    type="next"
                     autoCapitalize="none"
                     keyboardType="email-address"
                     prefix={MailIcon}
                     prefixStyling={false}
                     placeholder={t('enterYourEmail')}
-                    onFocus={() => handleInputFocus(100)}
                   />
                 </FormControl>
                 <FormMessage />
@@ -146,15 +136,17 @@ export default function SignInView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    onSubmitEditing={() => {
+                      void handleFormSubmit();
+                    }}
+                    returnKeyType="done"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textContentType="password"
                     autoComplete="password"
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('enterYourPassword')}
                     secureTextEntry
-                    onFocus={() => handleInputFocus(180)}
                   />
                 </FormControl>
                 <FormMessage />
@@ -187,7 +179,7 @@ export default function SignInView({
           )}
           <View className="flex flex-col gap-2">
             <Button
-              onPress={form.handleSubmit((data) => login(data))}
+              onPress={handleFormSubmit}
               loading={isPending}
               disabled={!isOnline || isPending}
             >
@@ -208,7 +200,7 @@ export default function SignInView({
               </Text>
             </Button>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </View>
     </Form>
   );

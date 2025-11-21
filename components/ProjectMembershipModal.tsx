@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile, request } from '@/db/drizzleSchema';
@@ -34,15 +34,8 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 const MAX_INVITE_ATTEMPTS = 3;
 
@@ -1009,132 +1002,110 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const isInviteButtonEnabled = inviteEmail.trim() && isValidEmail(inviteEmail);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <Modal
+      visible={isVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
     >
-      <Modal
-        visible={isVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={onClose}
+      <KeyboardAwareScrollView
+        className="flex-1"
+        contentContainerClassName="flex-1 items-center justify-center bg-black/50"
+        bottomOffset={96}
+        extraKeyboardSpace={20}
       >
-        <View className="flex-1 items-center justify-center bg-black/50">
-          <View className="h-[70%] max-h-[600px] w-[95%] rounded-lg bg-background px-4 py-6">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text variant="h3">{t('projectMembers')}</Text>
-              <Pressable className="p-1" onPress={onClose}>
-                <Icon as={XIcon} size={24} className="text-foreground" />
-              </Pressable>
-            </View>
+        <View className="h-[70%] max-h-[600px] w-[95%] rounded-lg bg-background px-4 py-6">
+          <View className="mb-4 flex-row items-center justify-between">
+            <Text variant="h3">{t('projectMembers')}</Text>
+            <Pressable className="p-1" onPress={onClose}>
+              <Icon as={XIcon} size={24} className="text-foreground" />
+            </Pressable>
+          </View>
 
-            <View className="flex-1 overflow-hidden">
-              {projectLoading ? (
-                <View className="flex-1 items-center justify-center">
-                  <Text>{t('loadingProjectDetails')}</Text>
-                </View>
-              ) : (
-                <PrivateAccessGate
-                  projectId={projectId}
-                  projectName={project?.name || ''}
-                  isPrivate={project?.private || false}
-                  action="view_membership"
-                  inline={true}
+          <View className="flex-1 overflow-hidden">
+            {projectLoading ? (
+              <View className="flex-1 items-center justify-center">
+                <Text>{t('loadingProjectDetails')}</Text>
+              </View>
+            ) : (
+              <PrivateAccessGate
+                projectId={projectId}
+                projectName={project?.name || ''}
+                isPrivate={project?.private || false}
+                action="view_membership"
+                inline={true}
+              >
+                {/* Tabs */}
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(value) =>
+                    setActiveTab(value as 'members' | 'invited' | 'requests')
+                  }
+                  className="flex-1"
                 >
-                  {/* Tabs Header */}
-                  <Tabs
-                    value={activeTab}
-                    onValueChange={(value) =>
-                      setActiveTab(value as 'members' | 'invited' | 'requests')
-                    }
+                  <TabsList className="mb-2 w-full">
+                    <TabsTrigger value="members" className="min-w-0 flex-1">
+                      <Text
+                        variant="small"
+                        numberOfLines={1}
+                        className="truncate"
+                      >
+                        {t('members')} ({sortedMembers.length})
+                      </Text>
+                    </TabsTrigger>
+                    <TabsTrigger value="invited" className="min-w-0 flex-1">
+                      <Text
+                        variant="small"
+                        numberOfLines={1}
+                        className="truncate"
+                      >
+                        {t('invited')} ({visibleInvitations.length})
+                      </Text>
+                    </TabsTrigger>
+                    {sendInvitePermissions.hasAccess && (
+                      <TabsTrigger value="requests" className="min-w-0 flex-1">
+                        <Text
+                          variant="small"
+                          numberOfLines={1}
+                          className="truncate"
+                        >
+                          {t('requests')} ({requestsData.length})
+                        </Text>
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+
+                  <ScrollView
+                    className="flex-1"
+                    contentContainerStyle={{
+                      paddingBottom: 16,
+                      paddingHorizontal: 8
+                    }}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <TabsList className="mb-2 w-full">
-                      <TabsTrigger value="members" className="min-w-0 flex-1">
-                        <Text
-                          variant="small"
-                          numberOfLines={1}
-                          className="truncate"
-                        >
-                          {t('members')} ({sortedMembers.length})
+                    <TabsContent value="members" className="min-h-0">
+                      {sortedMembers.length > 0 ? (
+                        sortedMembers.map(renderMember)
+                      ) : (
+                        <Text className="py-6 text-center text-muted-foreground">
+                          {t('noMembers')}
                         </Text>
-                      </TabsTrigger>
-                      <TabsTrigger value="invited" className="min-w-0 flex-1">
-                        <Text
-                          variant="small"
-                          numberOfLines={1}
-                          className="truncate"
-                        >
-                          {t('invited')} ({visibleInvitations.length})
-                        </Text>
-                      </TabsTrigger>
-                      {sendInvitePermissions.hasAccess && (
-                        <TabsTrigger
-                          value="requests"
-                          className="min-w-0 flex-1"
-                        >
-                          <Text
-                            variant="small"
-                            numberOfLines={1}
-                            className="truncate"
-                          >
-                            {t('requests')} ({requestsData.length})
-                          </Text>
-                        </TabsTrigger>
                       )}
-                    </TabsList>
-                  </Tabs>
+                    </TabsContent>
 
-                  {/* Tab Content - Manual switching for better control */}
-                  <View className="min-h-0 flex-1">
-                    {activeTab === 'members' && (
-                      <ScrollView
-                        className="flex-1"
-                        contentContainerStyle={{
-                          paddingBottom: 16,
-                          paddingHorizontal: 8
-                        }}
-                        showsVerticalScrollIndicator={true}
-                        keyboardShouldPersistTaps="handled"
-                      >
-                        {sortedMembers.length > 0 ? (
-                          sortedMembers.map(renderMember)
-                        ) : (
-                          <Text className="py-6 text-center text-muted-foreground">
-                            {t('noMembers')}
-                          </Text>
-                        )}
-                      </ScrollView>
-                    )}
+                    <TabsContent value="invited" className="min-h-0">
+                      {visibleInvitations.length > 0 ? (
+                        visibleInvitations.map(renderInvitation)
+                      ) : (
+                        <Text className="py-6 text-center text-muted-foreground">
+                          {t('noInvitations')}
+                        </Text>
+                      )}
+                    </TabsContent>
 
-                    {activeTab === 'invited' && (
-                      <ScrollView
-                        className="flex-1"
-                        contentContainerStyle={{
-                          paddingBottom: 16,
-                          paddingHorizontal: 8
-                        }}
-                        showsVerticalScrollIndicator={true}
-                        keyboardShouldPersistTaps="handled"
-                      >
-                        {visibleInvitations.length > 0 ? (
-                          visibleInvitations.map(renderInvitation)
-                        ) : (
-                          <Text className="py-6 text-center text-muted-foreground">
-                            {t('noInvitations')}
-                          </Text>
-                        )}
-                      </ScrollView>
-                    )}
-
-                    {activeTab === 'requests' && (
-                      <ScrollView
-                        className="flex-1"
-                        contentContainerStyle={{
-                          paddingBottom: 16,
-                          paddingHorizontal: 8
-                        }}
-                        showsVerticalScrollIndicator={true}
-                        keyboardShouldPersistTaps="handled"
-                      >
+                    {sendInvitePermissions.hasAccess && (
+                      <TabsContent value="requests" className="min-h-0">
                         {requestsData.length > 0 ? (
                           requestsData.map(renderRequest)
                         ) : (
@@ -1142,81 +1113,87 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                             {t('noPendingRequests')}
                           </Text>
                         )}
-                      </ScrollView>
+                      </TabsContent>
                     )}
-                  </View>
+                  </ScrollView>
+                </Tabs>
 
-                  {/* Invite Section */}
-                  <View className="border-t border-border px-4 py-4">
-                    {sendInvitePermissions.hasAccess ? (
-                      <>
-                        <Text variant="large" className="mb-2">
-                          {t('inviteMembers')}
-                        </Text>
-                        <Input
-                          placeholder={t('email')}
-                          value={inviteEmail}
-                          onChangeText={setInviteEmail}
-                          keyboardType="email-address"
-                          autoCapitalize="none"
-                          className="mb-2"
-                        />
-                        <View className="mb-2 flex-row items-center justify-between">
-                          <Pressable
-                            className="flex-row items-center"
-                            onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                          >
-                            <Checkbox
-                              checked={inviteAsOwner}
-                              onCheckedChange={setInviteAsOwner}
-                            />
-                            <Label className="ml-2">{t('inviteAsOwner')}</Label>
-                          </Pressable>
-                          <Pressable
-                            className="p-1"
-                            onPress={() => setShowTooltip(!showTooltip)}
-                          >
-                            <Icon
-                              as={InfoIcon}
-                              size={20}
-                              className="text-primary"
-                            />
-                          </Pressable>
-                        </View>
-                        {showTooltip && (
-                          <View className="mb-2 rounded-md bg-muted p-2">
-                            <Text variant="small">{t('ownerTooltip')}</Text>
-                          </View>
-                        )}
-                        <Button
-                          onPress={handleSendInvitation}
-                          disabled={!isInviteButtonEnabled || isSubmitting}
-                          loading={isSubmitting}
+                {/* Invite Section */}
+                <View className="border-t border-border px-4 py-4">
+                  {sendInvitePermissions.hasAccess ? (
+                    <>
+                      <Text variant="large" className="mb-2">
+                        {t('inviteMembers')}
+                      </Text>
+                      <Input
+                        placeholder={t('email')}
+                        value={inviteEmail}
+                        onChangeText={setInviteEmail}
+                        onSubmitEditing={() => {
+                          if (isInviteButtonEnabled && !isSubmitting) {
+                            void handleSendInvitation();
+                          }
+                        }}
+                        returnKeyType="done"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        className="mb-2"
+                      />
+                      <View className="mb-2 flex-row items-center justify-between">
+                        <Pressable
+                          className="flex-row items-center"
+                          onPress={() => setInviteAsOwner(!inviteAsOwner)}
                         >
-                          <Text>
-                            {isSubmitting ? t('sending') : t('sendInvitation')}
-                          </Text>
-                        </Button>
-                      </>
-                    ) : (
-                      <View className="items-center justify-center gap-2 py-6">
-                        <Icon
-                          as={CrownIcon}
-                          size={24}
-                          className="text-muted-foreground"
-                        />
-                        <Text className="text-center leading-5 text-muted-foreground">
-                          {t('onlyOwnersCanInvite')}
-                        </Text>
+                          <Checkbox
+                            checked={inviteAsOwner}
+                            onCheckedChange={setInviteAsOwner}
+                          />
+                          <Label className="ml-2">{t('inviteAsOwner')}</Label>
+                        </Pressable>
+                        <Pressable
+                          className="p-1"
+                          onPress={() => setShowTooltip(!showTooltip)}
+                        >
+                          <Icon
+                            as={InfoIcon}
+                            size={20}
+                            className="text-primary"
+                          />
+                        </Pressable>
                       </View>
-                    )}
-                  </View>
-                </PrivateAccessGate>
-              )}
-            </View>
+                      {showTooltip && (
+                        <View className="mb-2 rounded-md bg-muted p-2">
+                          <Text variant="small">{t('ownerTooltip')}</Text>
+                        </View>
+                      )}
+                      <Button
+                        onPress={handleSendInvitation}
+                        disabled={!isInviteButtonEnabled || isSubmitting}
+                        loading={isSubmitting}
+                      >
+                        <Text>
+                          {isSubmitting ? t('sending') : t('sendInvitation')}
+                        </Text>
+                      </Button>
+                    </>
+                  ) : (
+                    <View className="items-center justify-center gap-2 py-6">
+                      <Icon
+                        as={CrownIcon}
+                        size={24}
+                        className="text-muted-foreground"
+                      />
+                      <Text className="text-center leading-5 text-muted-foreground">
+                        {t('onlyOwnersCanInvite')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </PrivateAccessGate>
+            )}
           </View>
         </View>
-      </Modal>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </Modal>
   );
 };
