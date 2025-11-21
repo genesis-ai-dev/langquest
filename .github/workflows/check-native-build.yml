@@ -128,12 +128,14 @@ jobs:
               }
             }
 
-            // Check if compatibility changed (had review before, now compatible)
+            // Check if compatibility changed (had review before, now compatible OR no review before, now has changes)
             const hadReview = existingReview !== undefined;
-            const compatibilityChanged = hadReview && isCompatible;
+            const compatibilityChanged = (hadReview && isCompatible) || (!hadReview && hasChanges);
+            const shouldCreateReview = hasChanges && !hadReview;
 
             core.setOutput('compatibility_changed', compatibilityChanged);
             core.setOutput('has_changes', hasChanges);
+            core.setOutput('should_create_review', shouldCreateReview);
 
       - name: Format fingerprint diff for comment
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
@@ -167,8 +169,8 @@ jobs:
 
             Action Required: Please confirm with team before merging.
 
-      - name: Request changes review if fingerprint compatibility changed
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
+      - name: Request changes review if fingerprint changed
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
