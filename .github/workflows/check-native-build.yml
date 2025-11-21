@@ -44,7 +44,7 @@ jobs:
           saving-db-branch: dev
 
       - name: "Add fingerprint compatible label if no change"
-        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -68,7 +68,7 @@ jobs:
             })
 
       - name: "Add fingerprint changed label if changed"
-        if: ${{ github.event_name == 'pull_request' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -92,7 +92,7 @@ jobs:
             })
 
       - name: Check if fingerprint compatibility changed
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
         id: check-compatibility-change
         uses: actions/github-script@v7
         with:
@@ -136,7 +136,7 @@ jobs:
             core.setOutput('has_changes', hasChanges);
 
       - name: Format fingerprint diff for comment
-        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
         id: format-diff
         uses: actions/github-script@v7
         with:
@@ -147,7 +147,7 @@ jobs:
             core.setOutput('prettified_diff', prettifiedDiff);
 
       - name: Comment on PR if fingerprint changed
-        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: fingerprint-check
@@ -169,7 +169,7 @@ jobs:
             Please confirm with team before merging.
 
       - name: Request changes review if fingerprint compatibility changed
-        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true' && steps.check-compatibility-change.outputs.compatibility_changed == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -187,7 +187,7 @@ jobs:
             });
 
       - name: Remove comment if fingerprint compatible
-        if: github.event_name == 'pull_request' && steps.check-compatibility-change.outputs.has_changes == 'false'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'false'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: fingerprint-check
