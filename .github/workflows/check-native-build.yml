@@ -28,12 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          cache-dependency-path: "**/package-lock.json"
           node-version-file: ".nvmrc"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Install EAS CLI and jq
         run: |
@@ -44,14 +39,16 @@ jobs:
         id: generate-fingerprint-android
         run: |
           # Generate fingerprint for Android platform
-          FINGERPRINT_JSON=$(eas fingerprint:generate --platform android --non-interactive 2>&1)
-          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+          FINGERPRINT_JSON=$(eas fingerprint:generate --platform android --non-interactive --json 2>&1)
+          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
 
-          if [ -z "$FINGERPRINT_HASH" ]; then
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
+          if [ -z "$FINGERPRINT_HASH" ] || [ "$FINGERPRINT_HASH" = "null" ]; then
+            # Fallback: try to extract from non-JSON output
+            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
           fi
 
           if [ -z "$FINGERPRINT_HASH" ]; then
+            # Last resort: hash the entire JSON
             FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | sha256sum | cut -d' ' -f1)
           fi
 
@@ -62,14 +59,16 @@ jobs:
         id: generate-fingerprint-ios
         run: |
           # Generate fingerprint for iOS platform
-          FINGERPRINT_JSON=$(eas fingerprint:generate --platform ios --non-interactive 2>&1)
-          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+          FINGERPRINT_JSON=$(eas fingerprint:generate --platform ios --non-interactive --json 2>&1)
+          FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
 
-          if [ -z "$FINGERPRINT_HASH" ]; then
-            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | jq -r '.hash' 2>/dev/null || echo "")
+          if [ -z "$FINGERPRINT_HASH" ] || [ "$FINGERPRINT_HASH" = "null" ]; then
+            # Fallback: try to extract from non-JSON output
+            FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | grep -o '"hash":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
           fi
 
           if [ -z "$FINGERPRINT_HASH" ]; then
+            # Last resort: hash the entire JSON
             FINGERPRINT_HASH=$(echo "$FINGERPRINT_JSON" | sha256sum | cut -d' ' -f1)
           fi
 
