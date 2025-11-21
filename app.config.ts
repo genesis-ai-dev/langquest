@@ -142,8 +142,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       url: `https://u.expo.dev/${projectId}`
     },
     runtimeVersion: {
-      policy: 'fingerprint',
-      fingerprintIgnorePaths: ['node_modules/expo-dev-menu/**']
+      policy: 'fingerprint'
     }
   });
 
