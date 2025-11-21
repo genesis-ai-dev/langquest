@@ -10,7 +10,9 @@ export const useNotifications = () => {
   const { currentUser, isAuthenticated } = useAuth();
 
   // Get all pending invites for the user's email or profile_id
-  const { data: inviteRequests = [] } = useHybridData<typeof invite.$inferSelect>({
+  const { data: inviteRequests = [] } = useHybridData<
+    typeof invite.$inferSelect
+  >({
     dataType: 'invite-notifications-count',
     queryKeyParams: [currentUser?.id || '', currentUser?.email || 'anonymous'],
     enabled: !!(currentUser?.id || currentUser?.email) && isAuthenticated, // Only query if user has id or email and is authenticated
