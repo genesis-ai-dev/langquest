@@ -52,19 +52,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       owner: 'eten-genesis',
       name: getAppName(appVariant),
       slug: 'langquest',
-      version: '2.0.1',
+      version: '2.0.3',
       orientation: 'portrait',
       icon: iconLight,
       scheme: getScheme(appVariant),
       userInterfaceStyle: 'automatic',
-      splash: {
-        image: iconLight,
-        backgroundColor: '#f5f5ff',
-        dark: {
-          image: iconDark,
-          backgroundColor: '#131320'
-        }
-      },
       ios: {
         icon: {
           light: iconLight,
@@ -118,6 +110,18 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         'expo-router',
         // TODO: migrate existing localization to expo-localization
         'expo-localization',
+        [
+          'expo-splash-screen',
+          {
+            image: iconLight,
+            backgroundColor: '#f5f5ff',
+            dark: {
+              image: iconDark,
+              backgroundColor: '#131320'
+            },
+            imageWidth: 150
+          }
+        ],
         'expo-dev-client',
         ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
       ],

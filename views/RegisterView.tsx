@@ -1,4 +1,5 @@
 import { LanguageSelect } from '@/components/language-select';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -21,9 +22,10 @@ import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, Alert as RNAlert, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
@@ -39,8 +41,6 @@ export default function RegisterView({
   const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const scrollViewRef = useRef<ScrollView>(null);
-
   const formSchema = z
     .object({
       email: z
@@ -100,7 +100,7 @@ export default function RegisterView({
       );
     },
     onError: (error) => {
-      Alert.alert(
+      RNAlert.alert(
         t('error') || 'Error',
         error instanceof Error
           ? error.message
@@ -129,31 +129,23 @@ export default function RegisterView({
     }
   }, [form, sharedAuthInfo?.email]);
 
-  // Auto-scroll to input when focused
-  const handleInputFocus = (offset: number) => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: offset,
-        animated: true
-      });
-    }, 100);
-  };
+  const handleFormSubmit = form.handleSubmit((data) => register(data));
 
   return (
-    <Form {...form}>
-      <View className="relative flex-1">
-        <ScrollView
-          ref={scrollViewRef}
-          className="flex-1"
-          contentContainerClassName="m-safe flex flex-col gap-4 p-6"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+    <>
+      <KeyboardAwareScrollView
+        className="flex-1"
+        contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+        bottomOffset={96}
+        extraKeyboardSpace={20}
+        showsVerticalScrollIndicator={false}
+      >
+        <Form {...form}>
           <View className="flex flex-col items-center justify-center gap-4 text-center">
             <Text className="text-6xl font-semibold text-primary">
               LangQuest
             </Text>
-            <Text>{t('newUserRegistration') || 'New User Registration'}</Text>
+            <Text>{t('newUserRegistration')}</Text>
           </View>
           <LanguageSelect />
           <FormField
@@ -164,11 +156,15 @@ export default function RegisterView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    type="next"
                     mask
+                    autoComplete="username-new"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    autoCapitalize="none"
                     prefix={UserIcon}
                     prefixStyling={false}
-                    placeholder={t('username') || 'Username'}
-                    onFocus={() => handleInputFocus(120)}
+                    placeholder={t('username')}
                   />
                 </FormControl>
                 <FormMessage />
@@ -184,12 +180,13 @@ export default function RegisterView({
                   <Input
                     {...transformInputProps(field)}
                     mask
+                    type="next"
+                    submitBehavior="submit"
                     autoCapitalize="none"
                     keyboardType="email-address"
                     prefix={MailIcon}
                     prefixStyling={false}
-                    placeholder={t('enterYourEmail') || 'Enter your email'}
-                    onFocus={() => handleInputFocus(200)}
+                    placeholder={t('enterYourEmail')}
                   />
                 </FormControl>
                 <FormMessage />
@@ -204,15 +201,15 @@ export default function RegisterView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    type="next"
+                    submitBehavior="submit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textContentType="password"
                     autoComplete="password"
                     prefix={LockIcon}
                     prefixStyling={false}
-                    placeholder={t('password') || 'Password'}
+                    placeholder={t('password')}
                     secureTextEntry
-                    onFocus={() => handleInputFocus(280)}
                   />
                 </FormControl>
                 <FormMessage />
@@ -227,15 +224,15 @@ export default function RegisterView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    type="next"
+                    submitBehavior="blurAndSubmit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textContentType="password"
                     autoComplete="password"
                     prefix={LockIcon}
                     prefixStyling={false}
-                    placeholder={t('confirmPassword') || 'Confirm Password'}
+                    placeholder={t('confirmPassword')}
                     secureTextEntry
-                    onFocus={() => handleInputFocus(360)}
                   />
                 </FormControl>
                 <FormMessage />
@@ -277,20 +274,17 @@ export default function RegisterView({
             }}
           />
           {!isOnline && (
-            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <WifiOffIcon size={20} className="text-destructive" />
-              <Text className="flex-1 text-sm text-destructive">
-                {t('internetConnectionRequired')}
-              </Text>
-            </View>
+            <Alert icon={WifiOffIcon} variant="destructive">
+              <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
+            </Alert>
           )}
           <View className="flex flex-col gap-2">
             <Button
-              onPress={form.handleSubmit((data) => register(data))}
+              onPress={handleFormSubmit}
               loading={isPending}
               disabled={!isOnline || isPending}
             >
-              <Text>{t('register') || 'Register'}</Text>
+              <Text>{t('register')}</Text>
             </Button>
             <Button
               onPress={() =>
@@ -302,13 +296,11 @@ export default function RegisterView({
               className="border-border bg-input"
               disabled={isPending || !isOnline}
             >
-              <Text>
-                {t('returningHero') || 'Already have an account? Sign In'}
-              </Text>
+              <Text>{t('returningHero')}</Text>
             </Button>
           </View>
-        </ScrollView>
-      </View>
-    </Form>
+        </Form>
+      </KeyboardAwareScrollView>
+    </>
   );
 }
