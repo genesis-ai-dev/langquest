@@ -91,6 +91,7 @@
     "bidirectional-map": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "default-gateway": "^7.2.2",
     "eslint-config-expo": "~9.2.0",
     "eslint-plugin-drizzle": "^0.2.3",
     "expo": "^53.0.20",
