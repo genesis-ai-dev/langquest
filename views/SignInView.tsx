@@ -100,7 +100,7 @@ export default function SignInView({
           bottomOffset={96}
           extraKeyboardSpace={20}
         >
-          <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <View className="mb-8 flex flex-col items-center justify-center text-center">
             <Text className="text-6xl font-semibold text-primary">
               LangQuest
             </Text>

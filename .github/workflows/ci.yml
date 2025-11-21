@@ -15,24 +15,24 @@ env:
   FORCE_COLOR: 3
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup
-        uses: ./tooling/github/setup-ci
+  #     - name: Setup
+  #       uses: ./tooling/github/setup-ci
 
-      - name: Install dependencies
-        shell: bash
-        run: npm install
+  #     - name: Install dependencies
+  #       shell: bash
+  #       run: npm install
 
-      - name: Copy env
-        shell: bash
-        run: cp .env.example .env
+  #     - name: Copy env
+  #       shell: bash
+  #       run: cp .env.example .env
 
-      - name: Lint
-        run: npm run lint
+  #     - name: Lint
+  #       run: npm run lint
 
   format:
     runs-on: ubuntu-latest

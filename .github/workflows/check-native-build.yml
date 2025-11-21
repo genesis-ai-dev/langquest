@@ -1,0 +1,201 @@
+name: Check Native Build Requirement
+
+on:
+  push:
+    # REQUIRED: push dev branch is necessary for this action to update its fingerprint database
+    branches: [dev]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    # REQUIRED: limit concurrency when pushing dev branch to prevent conflict for this action to update its fingerprint database
+    concurrency: fingerprint-${{ github.event_name != 'pull_request' && 'dev' || format('pr-{0}', github.event.pull_request.number) }}
+    permissions:
+      # REQUIRED: Allow comments of PRs
+      pull-requests: write # Allow comments on PRs
+      # REQUIRED: Allow updating fingerprint in action caches
+      actions: write
+      # OPTIONAL: Allow reading of repo contents for private projects
+      # contents: read
+
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache-dependency-path: "**/package-lock.json"
+          cache: "npm"
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: Check fingerprint
+        id: fingerprint
+        uses: expo/expo-github-action/fingerprint@main
+        with:
+          packager: npm
+          saving-db-branch: dev
+
+      - name: "Add fingerprint compatible label if no change"
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'bot: fingerprint changed'
+              })
+            } catch (e) {
+              if (e.status != 404) {
+                throw e;
+              }
+            }
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['bot: fingerprint compatible']
+            })
+
+      - name: "Add fingerprint changed label if changed"
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'bot: fingerprint compatible'
+              })
+            } catch (e) {
+              if (e.status != 404) {
+                throw e;
+              }
+            }
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['bot: fingerprint changed']
+            })
+
+      - name: Check if fingerprint compatibility changed
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
+        id: check-compatibility-change
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const hasChanges = fingerprintDiff !== '[]';
+            const isCompatible = fingerprintDiff === '[]';
+
+            // Get existing reviews to check if we need to dismiss
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const existingReview = reviews.find(
+              review => review.user.type === 'Bot' && review.user.login === 'github-actions[bot]' && review.state === 'CHANGES_REQUESTED'
+            );
+
+            // If fingerprint is now compatible (was changed, now compatible), dismiss the review
+            // This happens automatically when fingerprint diff becomes [] (no changes)
+            if (isCompatible && existingReview) {
+              try {
+                await github.rest.pulls.dismissReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  review_id: existingReview.id,
+                  message: ''
+                });
+                console.log('✅ Dismissed review - fingerprint is now compatible');
+              } catch (e) {
+                // Silently continue if dismiss fails
+                console.log('Could not dismiss review:', e.message);
+              }
+            }
+
+            // Check if compatibility changed (had review before, now compatible OR no review before, now has changes)
+            const hadReview = existingReview !== undefined;
+            const compatibilityChanged = (hadReview && isCompatible) || (!hadReview && hasChanges);
+            // Only create review if fingerprint changed AND no review exists yet
+            // This allows manual approval/dismissal of the review when ready to merge
+            const shouldCreateReview = hasChanges && !hadReview;
+
+            core.setOutput('compatibility_changed', compatibilityChanged);
+            core.setOutput('has_changes', hasChanges);
+            core.setOutput('should_create_review', shouldCreateReview);
+            core.setOutput('has_review', hadReview);
+
+      - name: Request changes review if fingerprint changed
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const message = `⚠️ Native Build Required - See the comment below for details.`;
+
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body: message
+            });
+
+      - name: Format fingerprint diff for comment
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        id: format-diff
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
+            core.setOutput('prettified_diff', prettifiedDiff);
+
+      - name: Comment on PR if fingerprint changed
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: fingerprint-check
+          message: |
+            ⚠️ Native Build Required - Manual Approval Needed
+
+            This PR requires a native build because the fingerprint has changed compared to the base branch.
+
+            <details>
+            <summary>Fingerprint diff</summary>
+
+            ```json
+            ${{ steps.format-diff.outputs.prettified_diff }}
+            ```
+
+            </details>
+
+            Action Required: After confirming with the team, another team member must approve this PR to proceed with merging.
+
+            👉 [**Approve this PR**](${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/files) - Click "Review changes/Submit review" → "Approve" to dismiss this review and allow merging.
+
+      - name: Remove comment if fingerprint compatible
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'false'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: fingerprint-check
+          mode: delete
