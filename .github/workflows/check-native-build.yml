@@ -173,7 +173,7 @@ jobs:
 
             </details>
 
-            Action Required: Please confirm with team before merging.
+            Action Required: After confirming with the team, you can proceed with merging.
 
       - name: Request changes review if fingerprint changed
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
@@ -183,9 +183,9 @@ jobs:
           script: |
             const message = `⚠️ Native Build Required - Manual Approval Needed
 
-            This PR requires a native build because the fingerprint has changed compared to the base branch. Please confirm with team before merging.
+            This PR requires a native build because the fingerprint has changed compared to the base branch.
 
-            > **Note:** You can manually approve this review when ready to merge after verifying native builds work correctly.`;
+            After confirming with the team, you can manually approve this review to proceed with merging.`;
 
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
