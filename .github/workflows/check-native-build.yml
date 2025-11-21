@@ -99,7 +99,7 @@ jobs:
           script: |
             const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
             const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
-            
+
             const message = `⚠️ Native Build Required - Manual Approval Needed
 
             This PR requires a native build because the fingerprint has changed compared to the base branch.
