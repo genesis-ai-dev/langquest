@@ -175,7 +175,7 @@ jobs:
 
             Action Required: After confirming with the team, you can proceed with merging.
 
-            👉 [**Approve this PR**](${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/reviews) to dismiss this review and allow merging.
+            👉 [**Approve this PR**](${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/files) - Click "Review changes" → "Approve" to dismiss this review and allow merging.
 
       - name: Request changes review if fingerprint changed
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
