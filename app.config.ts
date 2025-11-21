@@ -11,9 +11,8 @@ const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
 const appVariant =
-  process.env.NODE_ENV === 'development'
-    ? 'development'
-    : process.env.EXPO_PUBLIC_APP_VARIANT || 'production';
+  process.env.EXPO_PUBLIC_APP_VARIANT || 
+  (process.env.NODE_ENV === 'development' ? 'development' : 'production');
 
 function getAppName(variant: string) {
   switch (variant) {
