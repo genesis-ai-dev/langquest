@@ -3,40 +3,41 @@ import { invite, profile_project_link, request } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import React from 'react';
 
 export const useNotifications = () => {
   const { currentUser, isAuthenticated } = useAuth();
 
-  // Get all pending invites for the user's email
-  const { data: inviteRequests } = useHybridData<typeof invite.$inferSelect>({
+  // Get all pending invites for the user's email or profile_id
+  const { data: inviteRequests = [] } = useHybridData<
+    typeof invite.$inferSelect
+  >({
     dataType: 'invite-notifications-count',
-    queryKeyParams: [currentUser?.email || 'anonymous'],
-    enabled: !!currentUser?.email && isAuthenticated, // Only query if user has email and is authenticated
+    queryKeyParams: [currentUser?.id || '', currentUser?.email || 'anonymous'],
+    enabled: !!(currentUser?.id || currentUser?.email) && isAuthenticated, // Only query if user has id or email and is authenticated
 
-    // PowerSync query using Drizzle
+    // PowerSync query using Drizzle - filter expired invites (7 days expiry)
     offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
-          eq(invite.email, currentUser?.email || ''),
-          eq(invite.status, 'pending'),
-          eq(invite.active, true)
+          ...[
+            // Build invite matching condition - at least one must be true
+            (currentUser?.id || currentUser?.email) &&
+              or(
+                ...[
+                  currentUser.id &&
+                    eq(invite.receiver_profile_id, currentUser.id),
+                  currentUser.email && eq(invite.email, currentUser.email)
+                ].filter(Boolean)
+              ),
+            eq(invite.status, 'pending'),
+            eq(invite.active, true)
+          ].filter(Boolean)
         )
       })
-    )
-
-    // Cloud query
-    // cloudQueryFn: async () => {
-    //   const { data, error } = await system.supabaseConnector.client
-    //     .from('invite')
-    //     .select('*')
-    //     .eq('email', currentUser?.email || '')
-    //     .eq('status', 'pending')
-    //     .eq('active', true);
-    //   if (error) throw error;
-    //   return data as (typeof invite.$inferSelect)[];
-    // }
+    ),
+    enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
   });
 
   // Get all projects where the user is an owner

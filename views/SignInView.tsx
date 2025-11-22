@@ -1,3 +1,4 @@
+import { LanguageCombobox } from '@/components/language-combobox';
 import { LanguageSelect } from '@/components/language-select';
 import { Button, buttonTextVariants } from '@/components/ui/button';
 import {
@@ -100,13 +101,13 @@ export default function SignInView({
           bottomOffset={96}
           extraKeyboardSpace={20}
         >
-          <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <View className="mb-8 flex flex-col items-center justify-center text-center">
             <Text className="text-6xl font-semibold text-primary">
               LangQuest
             </Text>
             <Text>{t('welcome')}</Text>
           </View>
-          <LanguageSelect uiReadyOnly />
+          <LanguageCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="email"
