@@ -43,7 +43,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   canCreateNew,
-  isDownloading = false,
+  isDownloading: _isDownloading = false,
   onToggleExpand,
   onAddChild,
   onDownloadClick,

@@ -24,7 +24,7 @@ interface UseOptimisticAssetsReturn {
 }
 
 export function useOptimisticAssets(
-  realAssets: any[] | undefined
+  realAssets: Array<Record<string, unknown>> | undefined
 ): UseOptimisticAssetsReturn {
   const [optimisticAssets, setOptimisticAssets] = React.useState<
     OptimisticAsset[]

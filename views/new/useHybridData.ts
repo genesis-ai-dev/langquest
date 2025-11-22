@@ -177,7 +177,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     return powerSyncQueryResult.data ?? ([] as TOfflineData[]);
   }, [isAuthenticated, powerSyncQueryResult.data]);
   const isOfflineLoading = isAuthenticated
-    ? (powerSyncQueryResult.isLoading ?? false)
+    ? powerSyncQueryResult.isLoading || false
     : false;
   const offlineError = isAuthenticated
     ? (powerSyncQueryResult.error ?? null)

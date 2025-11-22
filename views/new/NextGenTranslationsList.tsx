@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { useStatusContext } from '@/contexts/StatusContext';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
@@ -125,7 +124,6 @@ export default function NextGenTranslationsList({
           </View>
 
           {/* Data Source Toggle */}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOW_DEV_ELEMENTS && (
             <View className="flex-row items-center gap-2">
               <Text
