@@ -505,7 +505,9 @@ export function BibleChapterList({
         const isCloudQuest =
           quest?.source === 'cloud' || existingChapter.source === 'cloud';
 
-        if (isCloudQuest && !isDownloaded) {
+        // Anonymous users can navigate directly to cloud records (cloud-only browsing)
+        // Authenticated users need to download cloud quests before viewing
+        if (currentUser && isCloudQuest && !isDownloaded) {
           // Directly trigger download flow for cloud-only quests
           console.log(
             `📥 Cloud quest not downloaded, triggering download: ${existingChapter.id}`
@@ -514,7 +516,7 @@ export function BibleChapterList({
           return;
         }
 
-        // Chapter exists and is downloaded (or local), navigate to it
+        // Chapter exists and is downloaded (or local), or user is anonymous (cloud-only), navigate to it
         console.log(`📖 Opening existing chapter: ${existingChapter.id}`);
         goToQuest({
           id: existingChapter.id,

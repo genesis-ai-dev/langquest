@@ -8,7 +8,9 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { invite, profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   useHybridData,
@@ -21,13 +23,20 @@ import {
   eq,
   getTableColumns,
   like,
+  notExists,
   notInArray,
-  or,
-  sql
+  or
 } from 'drizzle-orm';
-import { FolderPenIcon, PlusIcon, SearchIcon } from 'lucide-react-native';
+import {
+  ArrowRightIcon,
+  FolderPenIcon,
+  PlusIcon,
+  SearchIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
@@ -57,7 +66,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -69,11 +77,12 @@ type TabType = 'my' | 'all';
 
 type Project = typeof project.$inferSelect;
 
-const { db } = system;
-
 export default function NextGenProjectsView() {
+  // Access db inside component to avoid module-level access before PowerSync is ready
+  const { db } = system;
   const { t } = useLocalization();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
+  const setAuthView = useLocalStore((state) => state.setAuthView);
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
@@ -100,6 +109,11 @@ export default function NextGenProjectsView() {
   const { mutateAsync: createProject, isPending: isCreatingProject } =
     useMutation({
       mutationFn: async (values: FormData) => {
+        // Guard against anonymous users
+        if (!currentUser?.id) {
+          throw new Error('Must be logged in to create projects');
+        }
+
         // insert into local storage
         await db.transaction(async (tx) => {
           const [newProject] = await tx
@@ -107,8 +121,8 @@ export default function NextGenProjectsView() {
             .values({
               ...values,
               template: values.template,
-              creator_id: currentUser!.id,
-              download_profiles: [currentUser!.id]
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
             })
             .returning();
           if (!newProject) throw new Error('Failed to create project');
@@ -117,17 +131,20 @@ export default function NextGenProjectsView() {
               resolveTable('profile_project_link', { localOverride: true })
             )
             .values({
-              id: `${currentUser!.id}_${newProject.id}`,
+              id: `${currentUser.id}_${newProject.id}`,
               project_id: newProject.id,
-              profile_id: currentUser!.id,
+              profile_id: currentUser.id,
               membership: 'owner'
             });
         });
       },
       onSuccess: () => {
-        // reset form onOpenChange
         setIsCreateOpen(false);
-        void currentQuery.refetch();
+        if (activeTab === 'my') {
+          void myProjectsQuery.refetch();
+        } else {
+          void allProjects.refetch();
+        }
       },
       onError: (error) => {
         console.error('Failed to create project', error);
@@ -164,11 +181,12 @@ export default function NextGenProjectsView() {
     (state) => state.showHiddenContent
   );
 
-  const {
-    data: restrictions
-    // isRestrictionsLoading,
-    // refetch: refetchRestrictions
-  } = useUserRestrictions('project', true, true, false);
+  const { data: restrictions } = useUserRestrictions(
+    'project',
+    true,
+    true,
+    false
+  );
 
   const blockContentIds = (restrictions.blockedContentIds ?? []).map(
     (c) => c.content_id
@@ -182,9 +200,11 @@ export default function NextGenProjectsView() {
   const userEmail = currentUser?.email;
 
   // Query for projects where user is owner or member
+  // Disable for anonymous users (no "My Projects" when not logged in)
   const myProjectsQuery = useHybridData({
     dataType: 'my-projects',
     queryKeyParams: [userId || '', searchQuery],
+    enabled: !!userId, // Only enable if user is logged in
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -198,11 +218,11 @@ export default function NextGenProjectsView() {
         .where(
           and(
             ...[
-              eq(profile_project_link.profile_id, userId!),
+              userId ? eq(profile_project_link.profile_id, userId) : undefined,
               eq(profile_project_link.active, true),
               or(
                 !showInvisibleContent ? eq(project.visible, true) : undefined,
-                eq(project.creator_id, currentUser!.id)
+                userId ? eq(project.creator_id, userId) : undefined
               ),
               searchQuery &&
                 or(
@@ -283,7 +303,7 @@ export default function NextGenProjectsView() {
 
     // Watch 1: Watch all invites (not just pending) to detect status changes
     // This will fire when an invite changes from pending to accepted/declined
-    const watch1 = system.powersync.watch(
+    const _watch1 = system.powersync.watch(
       `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?)`,
       [userEmail || '', userId || ''],
       {
@@ -300,7 +320,7 @@ export default function NextGenProjectsView() {
     );
 
     // Watch 2: Watch memberships to detect when invites are accepted (creates membership)
-    const watch2 = userId
+    const _watch2 = userId
       ? system.powersync.watch(
           `SELECT id, profile_id, project_id, active, membership, last_updated FROM profile_project_link WHERE profile_id = ?`,
           [userId],
@@ -326,133 +346,79 @@ export default function NextGenProjectsView() {
     };
   }, [userId, userEmail, queryClient]);
 
-  // Query for projects where user has pending invites but is not yet a member
-  const invitedProjectsQuery = useHybridData({
-    dataType: 'invited-projects',
+  // Query for invites where user has pending invites but is not yet a member
+  // Offline-only: PowerSync syncs invite table (via user_profile and project_memberships buckets)
+  // When an invite is withdrawn/expired, PowerSync removes it from local DB, and the query
+  // automatically updates due to PowerSync watches being reactive
+
+  const invitedInvitesQuery = useHybridData({
+    dataType: 'invited-invites',
     queryKeyParams: [userId || '', userEmail || '', searchQuery],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({
-          ...getTableColumns(project)
-        })
-        .from(project)
-        .innerJoin(invite, eq(project.id, invite.project_id))
+        .select({ project_id: invite.project_id, status: invite.status })
+        .from(invite)
         .where(
           and(
             ...[
               // Build invite matching condition - at least one must be true
               (userId || userEmail) &&
                 or(
-                  userId ? eq(invite.receiver_profile_id, userId) : undefined,
-                  userEmail ? eq(invite.email, userEmail) : undefined
+                  ...[
+                    userId && eq(invite.receiver_profile_id, userId),
+                    userEmail && eq(invite.email, userEmail)
+                  ].filter(Boolean)
                 ),
               eq(invite.status, 'pending'),
               eq(invite.active, true),
-              // Exclude projects where user is already a member (only if userId exists)
+              // Exclude projects where user is already a member
               userId &&
-                sql`NOT EXISTS (
-                  SELECT 1 FROM ${profile_project_link}
-                  WHERE ${profile_project_link.project_id} = ${project.id}
-                  AND ${profile_project_link.profile_id} = ${userId}
-                  AND ${profile_project_link.active} = 1
-                )`,
-              or(
-                !showInvisibleContent ? eq(project.visible, true) : undefined,
-                eq(project.creator_id, currentUser!.id)
-              ),
-              searchQuery &&
-                or(
-                  like(project.name, `%${searchQuery.trim()}%`),
-                  like(project.description, `%${searchQuery.trim()}%`)
+                notExists(
+                  system.db
+                    .select()
+                    .from(profile_project_link)
+                    .where(
+                      and(
+                        eq(profile_project_link.project_id, invite.project_id),
+                        eq(profile_project_link.profile_id, userId),
+                        eq(profile_project_link.active, true)
+                      )
+                    )
+                    .limit(1)
                 )
             ].filter(Boolean)
           )
         )
     ),
-    cloudQueryFn: async () => {
-      if (!userId && !userEmail) return [];
-
-      // Get projects where user is already a member (to exclude)
-      const { data: userMemberships } = userId
-        ? await system.supabaseConnector.client
-            .from('profile_project_link')
-            .select('project_id')
-            .eq('profile_id', userId)
-            .eq('active', true)
-            .overrideTypes<{ project_id: string }[]>()
-        : { data: [] };
-
-      const memberProjectIds = userMemberships?.map((m) => m.project_id) || [];
-
-      // Query for projects with pending invites
-      // Build OR condition for receiver_profile_id or email
-      const inviteConditions: string[] = [];
-      if (userId) {
-        inviteConditions.push(`receiver_profile_id.eq.${userId}`);
-      }
-      if (userEmail) {
-        inviteConditions.push(`email.eq.${userEmail}`);
-      }
-
-      if (inviteConditions.length === 0) return [];
-
-      const inviteQuery = system.supabaseConnector.client
-        .from('invite')
-        .select('project_id')
-        .eq('status', 'pending')
-        .eq('active', true)
-        .or(inviteConditions.join(','));
-
-      const { data: invites, error: inviteError } =
-        await inviteQuery.overrideTypes<{ project_id: string }[]>();
-
-      if (inviteError) throw inviteError;
-
-      const invitedProjectIds = invites
-        .map((inv) => inv.project_id)
-        .filter((id) => !memberProjectIds.includes(id));
-
-      if (invitedProjectIds.length === 0) return [];
-
-      // Query the actual projects
-      let query = system.supabaseConnector.client
-        .from('project')
-        .select('*')
-        .in('id', invitedProjectIds);
-
-      if (!showInvisibleContent) query = query.eq('visible', true);
-      if (searchQuery.trim())
-        query = query.or(
-          `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
-        );
-
-      const { data, error } = await query.overrideTypes<Project[]>();
-
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: !!(userId || userEmail),
-    enableOfflineQuery: !!(userId || userEmail)
+    enableCloudQuery: false, // Disabled: rely on offline query + PowerSync sync
+    enableOfflineQuery: !!(userId || userEmail),
+    enabled: isAuthenticated && !!(userId || userEmail) // Ensure query runs when user is authenticated
+    // No realtime subscription needed: PowerSync watches are reactive to local DB changes
   });
 
+  const { data: invitedInvitesData = [] } = invitedInvitesQuery;
+
   // Query for All Projects (excluding user's projects)
+  // For anonymous users, this shows all public projects
   const allProjects = useSimpleHybridInfiniteData<Project>(
     'all-projects',
-    [userId || '', searchQuery], // Include userId and searchQuery in query key
+    [userId || 'anonymous', searchQuery], // Include userId and searchQuery in query key
     // Offline query function
     async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;
 
-      // Get projects where user is a member
-      const userProjectLinks = await system.db
-        .select()
-        .from(profile_project_link)
-        .where(
-          and(
-            eq(profile_project_link.profile_id, userId!),
-            eq(profile_project_link.active, true)
-          )
-        );
+      // Get projects where user is a member (only if logged in)
+      const userProjectLinks = userId
+        ? await system.db
+            .select()
+            .from(profile_project_link)
+            .where(
+              and(
+                eq(profile_project_link.profile_id, userId),
+                eq(profile_project_link.active, true)
+              )
+            )
+        : [];
 
       const userProjectIds = userProjectLinks.map((link) => link.project_id);
 
@@ -504,6 +470,9 @@ export default function NextGenProjectsView() {
           );
         if (blockContentIds.length > 0)
           query = query.not('id', 'in', `(${blockContentIds.join(',')})`);
+      } else {
+        // Anonymous users: only show visible projects
+        if (!showInvisibleContent) query = query.eq('visible', true);
       }
 
       if (searchQuery.trim())
@@ -523,35 +492,45 @@ export default function NextGenProjectsView() {
     20 // pageSize
   );
 
-  // Use the appropriate query based on active tab
-  const currentQuery = activeTab === 'my' ? myProjectsQuery : allProjects;
+  // For anonymous users, always use allProjects query (no "my projects")
+  // For authenticated users, use the appropriate query based on active tab
+  const currentQuery =
+    !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
+
+  const { goToProject } = useAppNavigation();
+
+  // Get the first project for onboarding navigation
+  const firstProject = React.useMemo(() => {
+    if (Array.isArray(projectData) && projectData.length > 0) {
+      return projectData[0];
+    }
+    return null;
+  }, [projectData]);
 
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
-    if (activeTab === 'my') {
-      // For myProjectsQuery, check if any loading state is active
+    // For anonymous users or "all" tab, use allProjects fetching state
+    if (!isAuthenticated || activeTab === 'all') {
+      return allProjects.isFetching;
+    } else {
+      // For authenticated users on "my" tab, check myProjectsQuery
       return (
         myProjectsQuery.isOfflineLoading ||
         myProjectsQuery.isCloudLoading ||
-        invitedProjectsQuery.isOfflineLoading ||
-        invitedProjectsQuery.isCloudLoading
+        invitedInvitesQuery.isOfflineLoading ||
+        invitedInvitesQuery.isCloudLoading
       );
-    } else {
-      // For allProjects (infinite query), use isFetching
-      return allProjects.isFetching;
     }
   }, [
     activeTab,
+    isAuthenticated,
     myProjectsQuery.isOfflineLoading,
     myProjectsQuery.isCloudLoading,
-    invitedProjectsQuery.isOfflineLoading,
-    invitedProjectsQuery.isCloudLoading,
+    invitedInvitesQuery.isOfflineLoading,
+    invitedInvitesQuery.isCloudLoading,
     allProjects.isFetching
   ]);
-
-  const { data: invitedProjectsData = [] } =
-    activeTab === 'my' ? invitedProjectsQuery : { data: [] };
 
   //   // Clean Status Navigation
   const currentContext = useStatusContext();
@@ -565,16 +544,17 @@ export default function NextGenProjectsView() {
     ''
   );
 
-  // Track invited project IDs for special styling
+  // Get project IDs from invites for filtering
   const invitedProjectIds = React.useMemo(() => {
-    if (activeTab !== 'my' || !Array.isArray(invitedProjectsData)) {
+    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
       return new Set<string>();
     }
-    return new Set(invitedProjectsData.map((p) => p.id));
-  }, [invitedProjectsData, activeTab]);
+    return new Set(invitedInvitesData.map((inv) => inv.project_id));
+  }, [invitedInvitesData, activeTab]);
 
+  // Process regular projects data
   const data = React.useMemo(() => {
-    let projects: (Project & { isInvited?: boolean })[] = [];
+    let projects: Project[] = [];
 
     // Handle paginated data (with pages property)
     if ('pages' in projectData && Array.isArray(projectData.pages)) {
@@ -592,267 +572,411 @@ export default function NextGenProjectsView() {
       projects = projectData;
     }
 
-    // Merge invited projects for "my projects" tab
-    if (activeTab === 'my' && Array.isArray(invitedProjectsData)) {
-      const seenIds = new Set(projects.map((p) => p.id));
-      for (const invitedProject of invitedProjectsData) {
-        if (!seenIds.has(invitedProject.id)) {
-          projects.push({ ...invitedProject, isInvited: true });
-          seenIds.add(invitedProject.id);
-        }
+    // Filter out projects that have invites (invites will be rendered separately)
+    return projects.filter((p) => !invitedProjectIds.has(p.id));
+  }, [projectData, invitedProjectIds]);
+
+  // Filter invites based on search query - we'll filter by project_id only
+  // The actual project name/description filtering happens in InvitedProjectListItem
+  const filteredInvites = React.useMemo(() => {
+    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
+      return [];
+    }
+    // Return all invites - filtering by project name/description will happen
+    // after project data is fetched in InvitedProjectListItem
+    // Note: SQL query already excludes projects where user is already a member
+    return invitedInvitesData;
+  }, [invitedInvitesData, activeTab]);
+
+  // Combine invites and regular projects for rendering
+  const allItems = React.useMemo(() => {
+    const items: (
+      | { type: 'invite'; projectId: string }
+      | { type: 'project'; project: Project }
+    )[] = [];
+
+    // Add invites first
+    if (activeTab === 'my') {
+      for (const inv of filteredInvites) {
+        items.push({ type: 'invite', projectId: inv.project_id });
       }
     }
 
-    // Mark existing projects as invited if they're in the invited set
-    projects = projects.map((project) => ({
-      ...project,
-      isInvited: invitedProjectIds.has(project.id) || project.isInvited
-    }));
+    // Add regular projects
+    for (const proj of data) {
+      items.push({ type: 'project', project: proj });
+    }
 
-    // Sort: invited projects first, then regular projects
-    projects.sort((a, b) => {
-      if (a.isInvited && !b.isInvited) return -1;
-      if (!a.isInvited && b.isInvited) return 1;
-      return 0;
-    });
-
-    return projects;
-  }, [projectData, invitedProjectsData, activeTab, invitedProjectIds]);
+    return items;
+  }, [filteredInvites, data, activeTab]);
 
   const dimensions = useWindowDimensions();
 
+  // Handlers for onboarding flow (kept for potential future use)
+  const _handleOnboardingCreateProject = () => {
+    if (currentUser) {
+      setIsCreateOpen(true);
+    } else {
+      // For anonymous users, just advance to next step
+      // They can see the flow but can't actually create projects
+    }
+  };
+
+  const _handleOnboardingCreateQuest = () => {
+    if (firstProject) {
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // The onboarding will close and user can create quest in ProjectDirectoryView
+    }
+  };
+
+  const _handleOnboardingStartRecording = () => {
+    if (firstProject) {
+      // Navigate to project - user can then navigate to a quest and start recording
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // The recording view will be shown when user navigates to a quest
+    }
+  };
+
+  const _handleOnboardingInviteCollaborators = () => {
+    if (firstProject) {
+      goToProject({
+        id: firstProject.id,
+        name: firstProject.name,
+        template: firstProject.template
+      });
+      // User can access project membership modal from project settings
+    }
+  };
+
   return (
-    <Drawer
-      open={isCreateOpen}
-      onOpenChange={(open) => {
-        setIsCreateOpen(open);
-        resetForm();
-      }}
-      dismissible={!isCreatingProject}
-    >
-      <View className="flex flex-1 flex-col gap-6 p-6">
-        <View className="flex flex-col gap-4">
-          {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as TabType)}
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="my">
-                <Text>{t('myProjects')}</Text>
-              </TabsTrigger>
-              <TabsTrigger value="all">
-                <Text>{t('allProjects')}</Text>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+    <>
+      <Drawer
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          resetForm();
+        }}
+        dismissible={!isCreatingProject}
+      >
+        <View className="flex flex-1 flex-col gap-6 p-6">
+          <View className="flex flex-col gap-4">
+            {/* Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as TabType)}
+            >
+              <TabsList className="w-full">
+                {isAuthenticated ? (
+                  <>
+                    <TabsTrigger value="my">
+                      <Text>{t('myProjects')}</Text>
+                    </TabsTrigger>
+                    <TabsTrigger value="all">
+                      <Text>{t('allProjects')}</Text>
+                    </TabsTrigger>
+                  </>
+                ) : (
+                  <>
+                    <TabsTrigger value="my">
+                      <Text>{t('signIn') || 'Sign In'}</Text>
+                    </TabsTrigger>
+                    <TabsTrigger value="all">
+                      <Text>{t('allProjects')}</Text>
+                    </TabsTrigger>
+                  </>
+                )}
+              </TabsList>
+            </Tabs>
 
-          {/* Search and filter */}
-          <View className="flex flex-row items-center gap-2">
-            <Input
-              className="flex-1"
-              placeholder={t('searchProjects')}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              prefix={SearchIcon}
-              prefixStyling={false}
-              size="sm"
-              suffix={
-                isFetchingProjects && searchQuery ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
-                ) : undefined
-              }
-              suffixStyling={false}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            />
-            <DrawerTrigger className={buttonVariants({ size: 'icon-lg' })}>
-              <Icon as={PlusIcon} className="text-primary-foreground" />
-            </DrawerTrigger>
-          </View>
-        </View>
-
-        {isLoading ||
-        (isFetchingProjects && searchQuery && data.length === 0) ? (
-          <ProjectListSkeleton />
-        ) : (
-          <LegendList
-            key={`${activeTab}-${dimensions.width}-${data.length}`}
-            data={data}
-            columnWrapperStyle={{ gap: 12 }}
-            numColumns={dimensions.width > 768 && data.length > 1 ? 2 : 1}
-            keyExtractor={(item) => item.id}
-            recycleItems
-            estimatedItemSize={175}
-            maintainVisibleContentPosition
-            renderItem={({ item }) => (
-              <ProjectListItem
-                project={item}
-                isInvited={item.isInvited}
-                className={cn(dimensions.width > 768 && 'h-[212px]')}
-              />
-            )}
-            onEndReached={() => {
-              if (allProjects.hasNextPage && !allProjects.isFetchingNextPage) {
-                allProjects.fetchNextPage();
-              }
-            }}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={() =>
-              allProjects.isFetchingNextPage && (
-                <View className="p-4">
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
+            {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
+            {!isAuthenticated && activeTab === 'my' ? (
+              <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
+                <View className="flex flex-col items-center gap-4">
+                  <Icon as={UserIcon} size={48} className="text-primary" />
+                  <View className="flex flex-col items-center gap-2">
+                    <Text variant="h4" className="text-center">
+                      {t('signInToSaveOrContribute') ||
+                        'Sign in to save or contribute to projects'}
+                    </Text>
+                  </View>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    onPress={() => setAuthView('sign-in')}
+                    className="w-full"
+                  >
+                    <Text className="font-semibold">
+                      {t('signIn') || 'Sign In'}
+                    </Text>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onPress={() => setAuthView('register')}
+                    className="w-full"
+                  >
+                    <Text>{t('createAccount') || 'Create Account'}</Text>
+                  </Button>
                 </View>
-              )
-            }
-            ListEmptyComponent={() => (
-              <View className="flex-1 items-center justify-center py-16">
-                <View className="flex-col items-center gap-2">
-                  <Text className="text-muted-foreground">
-                    {searchQuery
-                      ? 'No projects found'
-                      : activeTab === 'my'
-                        ? 'No projects yet'
-                        : 'No projects available'}
+                {/* Arrow and option to view all projects */}
+                <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
+                  <Text className="text-sm text-muted-foreground">
+                    {t('orBrowseAllProjects') ||
+                      'Or browse all public projects'}
                   </Text>
-                  {activeTab === 'my' && !searchQuery && (
-                    <Button
-                      variant="default"
-                      onPress={() => setIsCreateOpen(true)}
-                      className="mt-2"
-                    >
-                      <Icon as={PlusIcon} size={16} />
-                      <Text>{t('newProject')}</Text>
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => setActiveTab('all')}
+                    className="flex-row items-center gap-2"
+                  >
+                    <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
+                    <Icon as={ArrowRightIcon} size={16} />
+                  </Button>
                 </View>
               </View>
+            ) : (
+              <>
+                {/* Search and filter */}
+                <View className="flex flex-row items-center gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder={t('searchProjects')}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    prefix={SearchIcon}
+                    prefixStyling={false}
+                    size="sm"
+                    returnKeyType="search"
+                    suffix={
+                      isFetchingProjects && searchQuery ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={getThemeColor('primary')}
+                        />
+                      ) : undefined
+                    }
+                    suffixStyling={false}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  />
+                  {currentUser && (
+                    <DrawerTrigger
+                      className={buttonVariants({ size: 'icon-lg' })}
+                    >
+                      <Icon as={PlusIcon} className="text-primary-foreground" />
+                    </DrawerTrigger>
+                  )}
+                </View>
+              </>
             )}
-          />
-        )}
-      </View>
+          </View>
 
-      <DrawerContent className="pb-safe">
-        <Form {...form}>
-          <DrawerHeader>
-            <DrawerTitle>{t('newProject')}</DrawerTitle>
-          </DrawerHeader>
-          <View className="flex flex-col gap-4 px-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      {...transformInputProps(field)}
-                      placeholder={t('projectName')}
-                      size="sm"
-                      prefix={FolderPenIcon}
-                      drawerInput
+          {/* Show project list only if not showing login invitation */}
+          {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
+            (isFetchingProjects && searchQuery && allItems.length === 0) ? (
+            <ProjectListSkeleton />
+          ) : (
+            <LegendList
+              key={`${activeTab}-${dimensions.width}-${allItems.length}`}
+              data={allItems}
+              columnWrapperStyle={{ gap: 12 }}
+              numColumns={dimensions.width > 768 && allItems.length > 1 ? 2 : 1}
+              keyExtractor={(item) =>
+                item.type === 'invite'
+                  ? `invite-${item.projectId}-${activeTab}`
+                  : `project-${item.project.id}-${activeTab}`
+              }
+              recycleItems
+              estimatedItemSize={175}
+              maintainVisibleContentPosition
+              renderItem={({ item }) => {
+                if (item.type === 'invite') {
+                  return (
+                    <InvitedProjectListItem
+                      projectId={item.projectId}
+                      searchQuery={searchQuery}
+                      className={cn(dimensions.width > 768 && 'h-[212px]')}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="target_language_id"
-              render={({ field }) => {
+                  );
+                }
                 return (
-                  <FormItem>
-                    <FormControl>
-                      <LanguageCombobox
-                        value={field.value}
-                        onChange={(lang) => field.onChange(lang.id)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                  <ProjectListItem
+                    project={item.project}
+                    className={cn(dimensions.width > 768 && 'h-[212px]')}
+                  />
                 );
               }}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      {...transformInputProps(field)}
-                      placeholder={t('description')}
-                      size="sm"
-                      drawerInput
+              onEndReached={() => {
+                if (
+                  allProjects.hasNextPage &&
+                  !allProjects.isFetchingNextPage
+                ) {
+                  allProjects.fetchNextPage();
+                }
+              }}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={() =>
+                allProjects.isFetchingNextPage && (
+                  <View className="p-4">
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+                  </View>
+                )
+              }
+              ListEmptyComponent={() => (
+                <View className="flex-1 items-center justify-center py-16">
+                  <View className="flex-col items-center gap-2">
+                    <Text className="text-muted-foreground">
+                      {searchQuery
+                        ? 'No projects found'
+                        : activeTab === 'my'
+                          ? 'No projects yet'
+                          : 'No projects available'}
+                    </Text>
+                    {activeTab === 'my' && !searchQuery && (
+                      <Button
+                        variant="default"
+                        onPress={() => setIsCreateOpen(true)}
+                        className="mt-2"
+                      >
+                        <Icon as={PlusIcon} size={16} />
+                        <Text>{t('newProject')}</Text>
+                      </Button>
+                    )}
+                  </View>
+                </View>
               )}
             />
+          )}
+        </View>
 
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('template')}</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      {templateOptions.map((option) => (
-                        <RadioGroupItem
-                          key={option}
-                          value={option}
-                          label={t(option)}
-                        >
-                          <Text className="capitalize">{t(option)}</Text>
-                        </RadioGroupItem>
-                      ))}
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <View className="flex-row items-center justify-between">
-              <Text>{t('private')}</Text>
+        <DrawerContent className="pb-safe">
+          <Form {...form}>
+            <DrawerHeader>
+              <DrawerTitle>{t('newProject')}</DrawerTitle>
+            </DrawerHeader>
+            <View className="flex flex-col gap-4 px-4">
               <FormField
                 control={form.control}
-                name="private"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Switch {...transformSwitchProps(field)} />
+                      <Input
+                        {...transformInputProps(field)}
+                        placeholder={t('projectName')}
+                        size="sm"
+                        prefix={FolderPenIcon}
+                        drawerInput
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="target_language_id"
+                render={({ field }) => {
+                  return (
+                    <FormItem>
+                      <FormControl>
+                        <LanguageCombobox
+                          value={field.value}
+                          onChange={(lang) => field.onChange(lang.id)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...transformInputProps(field)}
+                        placeholder={t('description')}
+                        size="sm"
+                        drawerInput
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="template"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('template')}</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        {templateOptions.map((option) => (
+                          <RadioGroupItem
+                            key={option}
+                            value={option}
+                            label={t(option)}
+                          >
+                            <Text className="capitalize">{t(option)}</Text>
+                          </RadioGroupItem>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <View className="flex-row items-center justify-between">
+                <Text>{t('private')}</Text>
+                <FormField
+                  control={form.control}
+                  name="private"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Switch {...transformSwitchProps(field)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </View>
             </View>
-          </View>
-          <DrawerFooter>
-            <FormSubmit
-              onPress={form.handleSubmit((data) => createProject(data))}
-              className="flex-row items-center gap-2"
-            >
-              <Text>{t('createObject')}</Text>
-            </FormSubmit>
-            <DrawerClose disabled={isCreatingProject}>
-              <Text>{t('cancel')}</Text>
-            </DrawerClose>
-          </DrawerFooter>
-        </Form>
-      </DrawerContent>
-    </Drawer>
+            <DrawerFooter>
+              <FormSubmit
+                onPress={form.handleSubmit((data) => createProject(data))}
+                className="flex-row items-center gap-2"
+              >
+                <Text>{t('createObject')}</Text>
+              </FormSubmit>
+              <DrawerClose disabled={isCreatingProject}>
+                <Text>{t('cancel')}</Text>
+              </DrawerClose>
+            </DrawerFooter>
+          </Form>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 }

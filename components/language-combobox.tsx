@@ -1,5 +1,6 @@
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
@@ -11,7 +12,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, desc, eq, like, or } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { TextInput, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
@@ -30,6 +31,7 @@ interface LanguageComboboxProps {
   onChange?: (language: Language) => void;
   className?: string;
   uiReadyOnly?: boolean;
+  toggleUILocalization?: boolean;
 }
 
 function LoadingState() {
@@ -82,10 +84,14 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onChange,
   setLanguagesLoaded,
   className,
-  uiReadyOnly
+  uiReadyOnly,
+  toggleUILocalization
 }) => {
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+  const setUILanguage = useLocalStore((state) => state.setUILanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const { t } = useLocalization();
+  const { isAuthenticated } = useAuth();
 
   // Search state with debouncing (300ms delay)
   // useDebouncedState returns: [debouncedValue, immediateValue, setValue]
@@ -114,44 +120,87 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   // When searching, remove limit to get all matching results
   const INITIAL_LANGUAGE_LIMIT = debouncedSearchQuery.trim() ? undefined : 100;
 
+  // Factory function to create offline query conditionally
+  // This prevents PowerSync access warnings for anonymous users
+  const getOfflineQuery = useCallback(() => {
+    // For anonymous users, return a placeholder SQL string that won't access system.db
+    if (!isAuthenticated) {
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+
+    // Only create CompilableQuery when user is authenticated
+    // Check PowerSync status at query creation time
+    try {
+      if (!system.isPowerSyncInitialized()) {
+        return 'SELECT * FROM language WHERE 1=0' as any;
+      }
+      return toCompilableQuery(
+        system.db.query.language.findMany({
+          where: and(
+            ...conditions.filter(Boolean),
+            ...(searchConditions ? [searchConditions] : []) // Add search filter if search exists
+          ),
+          orderBy: [
+            desc(languageTable.ui_ready), // UI-ready languages first
+            asc(languageTable.native_name) // Then alphabetically
+          ],
+          ...(INITIAL_LANGUAGE_LIMIT && { limit: INITIAL_LANGUAGE_LIMIT }) // Only limit when not searching
+        })
+      );
+    } catch (error) {
+      // If query creation fails, return placeholder
+      console.warn(
+        'Failed to create languages offline query, using placeholder:',
+        error
+      );
+      return 'SELECT * FROM language WHERE 1=0' as any;
+    }
+  }, [isAuthenticated, uiReadyOnly, searchConditions, INITIAL_LANGUAGE_LIMIT]);
+
+  // Create query lazily - only when needed
+  const offlineQuery = useMemo(() => getOfflineQuery(), [getOfflineQuery]);
+
   // Use useHybridData to fetch languages - debounced search triggers new queries
-  const { data: languages, isLoading } = useHybridData({
+  const { data: languages, isLoading } = useHybridData<Language>({
     dataType: 'all-languages',
     queryKeyParams: [uiReadyOnly, debouncedSearchQuery.trim()], // Include search in query key
     enabled: true, // Always enabled - limited query is fast
 
-    // Disable cloud query - only use offline for immediate performance
-    enableCloudQuery: false,
+    // Enable cloud queries for anonymous users (they need languages from cloud)
+    // For authenticated users, prefer offline for performance but allow cloud fallback
+    enableCloudQuery: true, // Changed from false to allow cloud queries for anonymous users
     enableOfflineQuery: true,
+    offlineQuery,
 
-    // PowerSync query using Drizzle - search-aware query
-    // When searching: no limit, filter by search terms
-    // When not searching: limit to 100, order by ui_ready first
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: and(
-          ...conditions.filter(Boolean),
-          ...(searchConditions ? [searchConditions] : []) // Add search filter if search exists
-        ),
-        orderBy: [
-          desc(languageTable.ui_ready), // UI-ready languages first
-          asc(languageTable.native_name) // Then alphabetically
-        ],
-        ...(INITIAL_LANGUAGE_LIMIT && { limit: INITIAL_LANGUAGE_LIMIT }) // Only limit when not searching
-      })
-    ),
-
-    // Cloud query - get all active languages (disabled for performance)
+    // Cloud query - get all active languages with search support
     cloudQueryFn: async () => {
       let query = system.supabaseConnector.client
         .from('language')
         .select('*')
         .eq('active', true);
+
       if (uiReadyOnly) query = query.eq('ui_ready', true);
+
+      // Add search filtering if search query exists
+      if (debouncedSearchQuery.trim()) {
+        const searchTerm = `%${debouncedSearchQuery.trim()}%`;
+        query = query.or(
+          `native_name.ilike.${searchTerm},english_name.ilike.${searchTerm},locale.ilike.${searchTerm}`
+        );
+      }
 
       const { data, error } = await query.overrideTypes<Language[]>();
       if (error) throw error;
-      return data;
+
+      // Sort client-side to match offline query ordering
+      return data.sort((a, b) => {
+        // UI-ready languages first
+        if (a.ui_ready !== b.ui_ready) {
+          return a.ui_ready ? -1 : 1;
+        }
+        // Then alphabetically by native name
+        return (a.native_name || '').localeCompare(b.native_name || '');
+      });
     }
   });
 
@@ -196,12 +245,21 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));
   }, [dropdownData]);
 
+  // Use controlled value if provided, otherwise fall back to UI language from store
+  const effectiveValue = useMemo(() => {
+    if (value) return value;
+    return uiLanguage?.id ?? null;
+  }, [value, uiLanguage]);
+
   const handleValueChange = React.useCallback(
     (item: (typeof dropdownData)[0]) => {
       setSavedLanguage(item.language);
+      if (toggleUILocalization) {
+        setUILanguage(item.language);
+      }
       onChange?.(item.language);
     },
-    [onChange, setSavedLanguage]
+    [onChange, setSavedLanguage, toggleUILocalization, setUILanguage]
   );
 
   // Show loading state while fetching
@@ -260,7 +318,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         labelField="label"
         valueField="value"
         placeholder={t('selectLanguage')}
-        value={value ?? null}
+        value={effectiveValue}
         onChange={handleValueChange}
         renderInputSearch={() => (
           <View className="border-b border-input p-2">

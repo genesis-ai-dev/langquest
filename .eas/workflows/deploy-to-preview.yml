@@ -4,6 +4,7 @@ on:
   push:
     branches: ['dev']
     paths:
+      - '**'
       - '!**/*.md'
       - '!readme_images/**'
       - '!scripts/**'
@@ -18,6 +19,8 @@ on:
       - '!eslint.config.mts'
       - '!knip.json'
       - '!deno.json'
+      - '!.cursor/**'
+      - '!.vscode/**'
 
 jobs:
   fingerprint:

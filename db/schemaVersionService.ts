@@ -14,7 +14,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { APP_SCHEMA_VERSION } from './constants';
 import type { DrizzleDB } from './migrations/index';
 import { getMinimumSchemaVersion } from './migrations/index';
-import { AppConfig } from './supabase/AppConfig';
 
 // ============================================================================
 // ERROR TYPES
@@ -101,77 +100,15 @@ export async function fetchServerSchemaVersion(
   console.log('[SchemaVersionService] Fetching server schema version...');
 
   try {
-    // Try using fetch directly first (works better on deployed web)
-    // This matches the pattern used for regular queries that work
-    // Note: Other RPC calls (e.g., in bulkDownload.ts) work fine with the Supabase client,
-    // but this particular call during app initialization hangs on deployed web.
-    // Using direct fetch here matches the pattern used for regular queries that work reliably.
-    const useDirectFetch =
-      typeof window !== 'undefined' &&
-      AppConfig.supabaseUrl &&
-      AppConfig.supabaseAnonKey;
+    // Add timeout to prevent infinite hanging
+    const rpcPromise = supabaseClient.rpc('get_schema_info');
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Schema version check timed out after 5 seconds'));
+      }, 5000);
+    });
 
-    if (useDirectFetch) {
-      try {
-        const fetchPromise = fetch(
-          `${AppConfig.supabaseUrl}/rest/v1/rpc/get_schema_info`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${AppConfig.supabaseAnonKey}`,
-              'Content-Type': 'application/json',
-              apikey: AppConfig.supabaseAnonKey || ''
-            },
-            body: JSON.stringify({})
-          }
-        ).then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(
-              `RPC call failed: ${response.status} ${response.statusText} - ${errorText}`
-            );
-          }
-          const data = (await response.json()) as unknown;
-          return { data, error: null };
-        });
-
-        const result = await withTimeout(
-          fetchPromise,
-          10000,
-          'Server schema version fetch timed out after 10 seconds'
-        );
-
-        const { data } = result;
-
-        if (data) {
-          // Success with direct fetch
-          if (typeof data !== 'object' || !('schema_version' in data)) {
-            throw new Error('Invalid schema info response from server');
-          }
-
-          const schemaInfo = data as ServerSchemaInfo;
-          return schemaInfo.schema_version;
-        }
-      } catch {
-        // Fall through to Supabase client method
-      }
-    }
-
-    // Fallback to Supabase client RPC (works better locally)
-
-    // Add a 10 second timeout to prevent hanging indefinitely
-    // Convert PromiseLike to Promise explicitly
-    const rpcCall = supabaseClient.rpc('get_schema_info');
-    const rpcPromise = Promise.resolve(rpcCall);
-
-    const result = await withTimeout(
-      rpcPromise,
-      10000,
-      'Server schema version fetch timed out after 10 seconds'
-    );
-
-    // Type-safe destructuring
-    const { data, error } = result as { data: unknown; error: unknown };
+    const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
     if (error) {
       console.error(

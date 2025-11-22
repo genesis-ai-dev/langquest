@@ -6,15 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import React from 'react';
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  View
-} from 'react-native';
 import type { TextInput } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 
 interface RenameAssetModalProps {
   isVisible: boolean;
@@ -30,52 +29,66 @@ export function RenameAssetModal({
   onSave
 }: RenameAssetModalProps) {
   const [name, setName] = React.useState(currentName);
+  const [modalVisible, setModalVisible] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.9);
 
   // Update local state when currentName changes
   React.useEffect(() => {
     setName(currentName);
   }, [currentName]);
 
-  // Animate in/out and focus
+  // Handle modal visibility with exit animation
   React.useEffect(() => {
     if (isVisible) {
-      // Animate in
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 65,
-          useNativeDriver: true
-        })
-      ]).start(() => {
-        // Focus after animation completes
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 50);
+      // Show modal immediately
+      setModalVisible(true);
+      // Quick, snappy animation (Emil Kowalski style)
+      opacity.value = withTiming(1, {
+        duration: 150,
+        easing: Easing.out(Easing.ease)
+      });
+      scale.value = withTiming(1, {
+        duration: 150,
+        easing: Easing.out(Easing.ease)
       });
 
-      // Backup focus attempt in case animation callback doesn't fire
+      // Focus after animation completes
+      const focusTimer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 150);
+
+      // Backup focus attempt
       const backupTimer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 300);
+      }, 200);
 
       return () => {
+        clearTimeout(focusTimer);
         clearTimeout(backupTimer);
       };
     } else {
-      // Reset animations
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.9);
+      // Exit animation - quick fade out (ease-out for responsiveness)
+      opacity.value = withTiming(0, {
+        duration: 100,
+        easing: Easing.out(Easing.ease)
+      });
+      scale.value = withTiming(0.9, {
+        duration: 100,
+        easing: Easing.out(Easing.ease)
+      });
+
+      // Hide modal after exit animation completes
+      const hideTimer = setTimeout(() => {
+        setModalVisible(false);
+      }, 100);
+
+      return () => {
+        clearTimeout(hideTimer);
+      };
     }
-  }, [isVisible, fadeAnim, scaleAnim]);
+  }, [isVisible, opacity, scale]);
 
   const handleSave = () => {
     const trimmedName = name.trim();
@@ -90,63 +103,59 @@ export function RenameAssetModal({
     onClose();
   };
 
-  if (!isVisible) return null;
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }]
+  }));
+
+  if (!modalVisible) return null;
 
   return (
     <Modal
-      visible={isVisible}
+      visible={modalVisible}
       transparent
       animationType="none"
       onRequestClose={handleCancel}
       statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/50"
+        onPress={handleCancel}
       >
-        <Pressable
-          className="flex-1 items-center justify-center bg-black/50"
-          onPress={handleCancel}
-        >
-          <Animated.View
-            style={{
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }]
-            }}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <View className="mx-6 w-80 max-w-full rounded-lg bg-background p-6 shadow-lg">
-                <Text className="mb-4 text-xl font-bold text-foreground">
-                  Rename Asset
-                </Text>
+        <Animated.View style={animatedStyle}>
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View className="mx-6 w-80 max-w-full rounded-lg bg-background p-6 shadow-lg">
+              <Text className="mb-4 text-xl font-bold text-foreground">
+                Rename Asset
+              </Text>
 
-                <Input
-                  ref={inputRef}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter asset name"
-                  selectTextOnFocus
-                  onSubmitEditing={handleSave}
-                  className="mb-6"
-                />
+              <Input
+                ref={inputRef}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter asset name"
+                selectTextOnFocus
+                onSubmitEditing={handleSave}
+                returnKeyType="done"
+                className="mb-6"
+              />
 
-                <View className="flex-row gap-3">
-                  <Button
-                    variant="outline"
-                    onPress={handleCancel}
-                    className="flex-1"
-                  >
-                    <Text>Cancel</Text>
-                  </Button>
-                  <Button onPress={handleSave} className="flex-1">
-                    <Text>Save</Text>
-                  </Button>
-                </View>
+              <View className="flex-row gap-3">
+                <Button
+                  variant="outline"
+                  onPress={handleCancel}
+                  className="flex-1"
+                >
+                  <Text>Cancel</Text>
+                </Button>
+                <Button onPress={handleSave} className="flex-1">
+                  <Text>Save</Text>
+                </Button>
               </View>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </KeyboardAvoidingView>
+            </View>
+          </Pressable>
+        </Animated.View>
+      </Pressable>
     </Modal>
   );
 }

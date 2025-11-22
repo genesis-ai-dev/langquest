@@ -33,6 +33,23 @@ config.resolver = {
 config.resolver.unstable_enablePackageExports = true;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Replace useDrizzleStudio with no-op version in production builds
+  // This allows the hook to be called unconditionally in code while ensuring
+  // it does nothing in production (since hooks can't be conditionally called)
+  if (
+    !__DEV__ &&
+    (moduleName === '@/hooks/useDrizzleStudio' ||
+      moduleName.includes('/hooks/useDrizzleStudio') ||
+      (moduleName.includes('useDrizzleStudio') &&
+        !moduleName.includes('useDrizzleStudio.noop')))
+  ) {
+    return context.resolveRequest(
+      context,
+      '@/hooks/useDrizzleStudio.noop',
+      platform
+    );
+  }
+
   if (platform === 'web') {
     // Stub react-native-reanimated for web
     if (moduleName === 'react-native-reanimated') {

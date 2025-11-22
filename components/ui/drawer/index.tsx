@@ -21,6 +21,18 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buttonTextVariants, buttonVariants } from '../button';
 import { Text, TextClassContext } from '../text';
+
+import type { BottomSheetScrollViewMethods } from '@gorhom/bottom-sheet';
+import {
+  createBottomSheetScrollableComponent,
+  SCROLLABLE_TYPE
+} from '@gorhom/bottom-sheet';
+import type { BottomSheetScrollViewProps } from '@gorhom/bottom-sheet/src/components/bottomSheetScrollable/types';
+import { memo } from 'react';
+import type { KeyboardAwareScrollViewProps } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import Reanimated from 'react-native-reanimated';
+
 interface DrawerContextValue extends DrawerProps {
   ref: React.RefObject<BSModalType | null> | null;
   open: boolean;
@@ -75,28 +87,56 @@ function Drawer({
     }
   }, [isOpen]);
 
+  // Use ref to store onOpenChange to avoid recreating handleSetOpen when it changes
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
   const handleSetOpen = React.useCallback(
     (newOpen: boolean) => {
       setIsOpen(newOpen);
-      onOpenChange?.(newOpen);
+      onOpenChangeRef.current?.(newOpen);
       if (newOpen) {
         ref.current?.present();
       } else {
         ref.current?.dismiss();
       }
     },
-    [onOpenChange]
+    [] // Empty deps - use ref to access latest onOpenChange
   );
 
+  // Extract only stable props we need from drawerProps
+  // Don't spread drawerProps directly as it's a new object reference on every render
+  const stableSnapPoints = drawerProps.snapPoints;
+  const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
+
+  // Memoize snapPoints array to prevent unnecessary re-renders
+  const memoizedSnapPoints = React.useMemo(() => {
+    return stableSnapPoints;
+  }, [stableSnapPoints]);
+
+  // Memoize context value to prevent re-renders when only isOpen changes
+  // Only include stable props that are actually used by DrawerContent
+  // Don't spread drawerProps - only include what's needed
+  const contextValue = React.useMemo(() => {
+    return {
+      ref,
+      open: isOpen,
+      setOpen: handleSetOpen,
+      snapPoints: memoizedSnapPoints,
+      enableDynamicSizing: stableEnableDynamicSizing
+    };
+  }, [
+    ref,
+    isOpen,
+    handleSetOpen,
+    memoizedSnapPoints,
+    stableEnableDynamicSizing
+  ]);
+
   return (
-    <DrawerContext.Provider
-      value={{
-        ref,
-        open: isOpen,
-        setOpen: handleSetOpen,
-        ...drawerProps
-      }}
-    >
+    <DrawerContext.Provider value={contextValue}>
       {children}
     </DrawerContext.Provider>
   );
@@ -173,6 +213,7 @@ const DrawerContent = React.forwardRef<
   } & Partial<React.ComponentProps<typeof BottomSheetView>>
 >(({ className, children, ...props }, _forwardedRef) => {
   const context = React.useContext(DrawerContext);
+
   const {
     open: _open,
     setOpen: _setOpen,
@@ -180,13 +221,16 @@ const DrawerContent = React.forwardRef<
     snapPoints: _snapPoints,
     ...modalProps
   } = context ?? {};
+  // Extract setOpen to avoid depending on entire context object (which changes on every render)
+  const setOpen = context?.setOpen;
+
   const handleSheetChanges = React.useCallback(
     (index: number) => {
       if (index === -1) {
-        context?.setOpen(false);
+        setOpen?.(false);
       }
     },
-    [context]
+    [setOpen]
   );
 
   const backgroundColor = useThemeColor('background');
@@ -231,12 +275,14 @@ const DrawerContent = React.forwardRef<
     >
       {/* Re-provide DrawerContext inside the portal so children can access it */}
       <DrawerContext.Provider value={context}>
-        <DrawerScrollView
+        <DrawerKeyboardAwareScrollView
+          extraKeyboardSpace={20}
+          bottomOffset={96}
           className={cn('z-[9998] flex-1 bg-background px-4', className)}
           {...props}
         >
           {children}
-        </DrawerScrollView>
+        </DrawerKeyboardAwareScrollView>
       </DrawerContext.Provider>
     </BottomSheetModal>
   );
@@ -300,6 +346,18 @@ function DrawerDescription({
   );
 }
 
+const AnimatedScrollView =
+  Reanimated.createAnimatedComponent<KeyboardAwareScrollViewProps>(
+    KeyboardAwareScrollView
+  );
+const DrawerScrollViewComponent = createBottomSheetScrollableComponent<
+  BottomSheetScrollViewMethods,
+  BottomSheetScrollViewProps
+>(SCROLLABLE_TYPE.SCROLLVIEW, AnimatedScrollView);
+const DrawerKeyboardAwareScrollView = memo(DrawerScrollViewComponent);
+
+DrawerKeyboardAwareScrollView.displayName = 'DrawerKeyboardAwareScrollView';
+
 export {
   BottomSheetModal,
   BottomSheetModalProvider,
@@ -310,6 +368,7 @@ export {
   DrawerFooter,
   DrawerHeader,
   DrawerInput,
+  DrawerKeyboardAwareScrollView,
   DrawerScrollView,
   DrawerTitle,
   DrawerTrigger

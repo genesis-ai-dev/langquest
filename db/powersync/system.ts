@@ -651,14 +651,35 @@ export class System {
           for (const col of localColumnNames) {
             if (!remoteSet.has(col)) unified.push(col);
           }
+          // Special handling for invite and request tables: compute expired status dynamically
+          const isExpirableTable = name === 'invite' || name === 'request';
+
           const syncedSelect = unified
-            .map((col) =>
-              remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`
-            )
+            .map((col) => {
+              // For invite/request tables, replace status column with CASE statement
+              if (isExpirableTable && col === 'status') {
+                return `CASE
+                  WHEN "${synced}"."status" = 'pending' AND datetime("${synced}"."last_updated") < datetime('now', '-7 days')
+                  THEN 'expired'
+                  ELSE "${synced}"."status"
+                END AS "status"`;
+              }
+              return remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
+            })
             .filter((col) => col !== 'source')
             .join(', ');
           const localSelect = unified
-            .map((col) => (localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`))
+            .map((col) => {
+              // For invite/request tables, replace status column with CASE statement
+              if (isExpirableTable && col === 'status') {
+                return `CASE
+                  WHEN "${local}"."status" = 'pending' AND datetime("${local}"."last_updated") < datetime('now', '-7 days')
+                  THEN 'expired'
+                  ELSE "${local}"."status"
+                END AS "status"`;
+              }
+              return localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
+            })
             .filter((col) => col !== 'source')
             .join(', ');
 
@@ -1372,14 +1393,16 @@ export const system = new Proxy({} as System, {
     const instance = getSystem();
 
     // Check if we're trying to access a critical property before initialization
+    // Suppress warning when PowerSync isn't initialized - this is expected for anonymous users
+    // PowerSync is intentionally not initialized for anonymous users to avoid unnecessary overhead
+    // The warning was causing spam in anonymous mode, so we suppress it entirely
+    // Authenticated users will see other errors if PowerSync isn't properly initialized
     if (
       !instance.isPowerSyncInitialized() &&
       (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')
     ) {
-      console.warn(
-        `[System] Attempted to access '${String(prop)}' before PowerSync initialization. ` +
-          `This may cause undefined errors. Call await system.init() first.`
-      );
+      // Suppress warning - PowerSync not being initialized is expected for anonymous users
+      // and will cause actual errors for authenticated users that need to be fixed anyway
     }
 
     const value = instance[prop as keyof System];

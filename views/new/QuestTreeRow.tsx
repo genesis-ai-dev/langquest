@@ -65,7 +65,9 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   const isLoading = isOptimisticallyDownloading && !isDownloaded;
 
   const handleQuestPress = () => {
-    if (isCloudQuest && !isDownloaded) {
+    // Anonymous users can navigate directly to cloud records (cloud-only browsing)
+    // Authenticated users need to download cloud quests before viewing
+    if (currentUser && isCloudQuest && !isDownloaded) {
       Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -80,7 +82,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       return;
     }
 
-    // Quest is downloaded or local, navigate to it
+    // Quest is downloaded, local, or user is anonymous (cloud-only), navigate to it
     goToQuest({
       id: quest.id,
       project_id: currentProjectId!,
