@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguageCombobox } from '@/components/language-combobox';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -147,7 +147,7 @@ export default function RegisterView({
             </Text>
             <Text>{t('newUserRegistration')}</Text>
           </View>
-          <LanguageSelect />
+          <LanguageCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="username"

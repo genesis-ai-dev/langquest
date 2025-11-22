@@ -22,12 +22,11 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
-import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import {
   BellIcon,
   CheckIcon,
@@ -90,59 +89,45 @@ export default function NotificationsView() {
       .map((membership) => membership.project_id);
   }, [userMemberships]);
 
-  // Query for invite notifications (where user's email matches) - without project relation
-  const { data: inviteData } = useHybridData({
+  // Query for invite notifications (where user's email or profile_id matches) - without project relation
+  const { data: inviteData = [] } = useHybridData({
     dataType: 'invite-notifications',
-    queryKeyParams: [currentUser?.email || ''],
+    queryKeyParams: [currentUser?.id || '', currentUser?.email || ''],
 
-    // PowerSync query using Drizzle
+    // PowerSync query using Drizzle - filter expired invites (7 days expiry)
     offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
-          eq(invite.email, currentUser?.email || ''),
-          eq(invite.status, 'pending'),
-          eq(invite.active, true)
+          ...[
+            // Build invite matching condition - at least one must be true
+            (currentUser?.id || currentUser?.email) &&
+              or(
+                ...[
+                  currentUser.id &&
+                    eq(invite.receiver_profile_id, currentUser.id),
+                  currentUser.email && eq(invite.email, currentUser.email)
+                ].filter(Boolean)
+              ),
+            eq(invite.status, 'pending'),
+            eq(invite.active, true)
+          ].filter(Boolean)
         )
       })
-    )
-
-    // Cloud query
-    // cloudQueryFn: async () => {
-    //   const { data, error } = await system.supabaseConnector.client
-    //     .from('invite')
-    //     .select('*')
-    //     .eq('email', currentUser?.email || '')
-    //     .eq('status', 'pending')
-    //     .eq('active', true)
-    //     .overrideTypes<(typeof invite.$inferSelect)[]>();
-    //   if (error) throw error;
-    //   return data;
-    // }
+    ),
+    enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
   });
 
   // Get pending requests for owner projects - without project relation
-  const { data: requestData } = useHybridData({
+  const { data: requestData = [] } = useHybridData({
     dataType: 'request-notifications',
     queryKeyParams: [...ownerProjectIds],
 
-    // PowerSync query using Drizzle
+    // PowerSync query using Drizzle - filter expired requests (7 days expiry)
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
         where: and(eq(request.status, 'pending'), eq(request.active, true))
       })
     )
-
-    // Cloud query
-    // cloudQueryFn: async () => {
-    //   const { data, error } = await system.supabaseConnector.client
-    //     .from('request')
-    //     .select('*')
-    //     .eq('status', 'pending')
-    //     .eq('active', true)
-    //     .overrideTypes<(typeof request.$inferSelect)[]>();
-    //   if (error) throw error;
-    //   return data;
-    // }
   });
 
   // Filter to only include requests for projects where the user is an owner
@@ -278,18 +263,8 @@ export default function NotificationsView() {
     }
   );
 
-  // Filter out expired notifications
-  const validInviteNotifications = inviteNotifications.filter(
-    (item) => !isExpiredByLastUpdated(item.last_updated)
-  );
-  const validRequestNotifications = requestNotifications.filter(
-    (item) => !isExpiredByLastUpdated(item.last_updated)
-  );
-
-  const allNotifications = [
-    ...validInviteNotifications,
-    ...validRequestNotifications
-  ];
+  // Expiration is now handled at database level via RLS policies
+  const allNotifications = [...inviteNotifications, ...requestNotifications];
 
   const handleAccept = async (
     notificationId: string,
@@ -549,20 +524,14 @@ export default function NotificationsView() {
       // Invalidate project queries to refresh the projects list
       // Use exact: false to match all queries starting with these keys
       console.log('[handleAccept] Invalidating queries...');
+
       await queryClient.invalidateQueries({
         queryKey: ['my-projects'],
         exact: false
       });
-      await queryClient.invalidateQueries({
-        queryKey: ['invited-projects'],
-        exact: false
-      });
+
       await queryClient.invalidateQueries({
         queryKey: ['all-projects'],
-        exact: false
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['notification-projects'],
         exact: false
       });
       // Also invalidate user-memberships since that drives what projects show up
@@ -570,19 +539,9 @@ export default function NotificationsView() {
         queryKey: ['user-memberships'],
         exact: false
       });
-      // Invalidate notification queries to remove the accepted notification
-      await queryClient.invalidateQueries({
-        queryKey: ['invite-notifications'],
-        exact: false
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['request-notifications'],
-        exact: false
-      });
 
-      // Also explicitly refetch to ensure immediate update
-      await queryClient.refetchQueries({
-        queryKey: ['invited-projects'],
+      await queryClient.invalidateQueries({
+        queryKey: ['invited-invites'],
         exact: false
       });
 
@@ -666,6 +625,15 @@ export default function NotificationsView() {
           console.log('[handleDecline] Request declined via synced table');
         }
       }
+
+      // Wait for PowerSync to sync the changes
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Invalidate queries to refresh the UI
+      await queryClient.invalidateQueries({
+        queryKey: ['invited-invites'],
+        exact: false
+      });
 
       RNAlert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {

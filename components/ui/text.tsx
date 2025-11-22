@@ -85,6 +85,7 @@ function Text({
   const textClass = React.useContext(TextClassContext);
   const mergedClassName = cn(textVariants({ variant }), textClass, className);
   const { style, ...restProps } = props;
+  const notoSansStyle = useNotoSans(mergedClassName, style);
 
   // Render directly as RNText to avoid Slot navigation context issues during transitions
   // Only use Slot.Text when explicitly using asChild pattern
@@ -94,7 +95,7 @@ function Text({
         className={mergedClassName}
         role={variant ? ROLE[variant] : undefined}
         aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-        style={useNotoSans(mergedClassName, style)}
+        style={notoSansStyle}
         {...restProps}
       />
     );
@@ -105,7 +106,7 @@ function Text({
       className={mergedClassName}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-      style={useNotoSans(mergedClassName, style)}
+      style={notoSansStyle}
       {...restProps}
     />
   );

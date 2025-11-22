@@ -70,6 +70,12 @@ export default defineConfig(
           allowConstantLoopConditions: true
         }
       ],
+      'react-hooks/exhaustive-deps': [
+        'error',
+        {
+          additionalHooks: '(useAnimatedStyle|useDerivedValue|useAnimatedProps)'
+        }
+      ],
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],

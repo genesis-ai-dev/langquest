@@ -1,4 +1,3 @@
-import { LanguageSelect } from '@/components/language-select';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -92,7 +91,6 @@ export default function ForgotPasswordView({
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('resetPassword')}</Text>
         </View>
-        <LanguageSelect uiReadyOnly />
         <View className="flex flex-col items-center gap-4">
           <Icon as={LockIcon} size={32} />
 

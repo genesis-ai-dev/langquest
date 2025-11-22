@@ -124,9 +124,13 @@ export function useBibleChapterCreation() {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log('📥 [Create Chapter] Invalidating queries...');
-      // Invalidate the chapters query so UI updates (using bookId now)
+      // Invalidate the chapters queries so UI updates (both local and cloud)
       await queryClient.invalidateQueries({
-        queryKey: ['bible-chapters', result.projectId, result.bookId]
+        queryKey: ['bible-chapters', 'local', result.projectId, result.bookId]
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ['bible-chapters', 'cloud', result.projectId, result.bookId]
       });
 
       // Invalidate all assets queries to refresh assets list

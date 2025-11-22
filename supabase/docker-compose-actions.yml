@@ -24,6 +24,7 @@ services:
   powersync:
     restart: unless-stopped
     image: journeyapps/powersync-service:latest
+    pull_policy: always
     command: ['start', '-r', 'unified']
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync.yml
