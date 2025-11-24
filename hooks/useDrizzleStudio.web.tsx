@@ -30,13 +30,38 @@ interface WebDBConnection {
 }
 
 export function useDrizzleStudio() {
+  // Disable devtools when accessed via external URLs (e.g., zgrok) for security
+  if (typeof window !== 'undefined') {
+    const isExternalAccess = window.location.hostname !== 'localhost' && 
+                            window.location.hostname !== '127.0.0.1' &&
+                            !window.location.hostname.startsWith('192.168.') &&
+                            !window.location.hostname.startsWith('10.') &&
+                            !window.location.hostname.endsWith('.local');
+    
+    if (isExternalAccess) {
+      // Disable devtools for external access
+      return;
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { system } = require('@/db/powersync/system') as {
     system: { factory: WASQLiteOpenFactory };
   };
   const { factory } = system;
 
-  const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+  let client: ReturnType<typeof useDevToolsPluginClient> | null = null;
+  try {
+    client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+  } catch (error) {
+    // Silently fail if devtools can't be initialized (e.g., insecure context)
+    console.warn('DevTools plugin unavailable:', error);
+    return;
+  }
+  
+  if (!client) {
+    return;
+  }
 
   const connRef = useRef<WebDBConnection | null>(null);
   const initializedRef = useRef(false);
@@ -86,6 +111,17 @@ export function useDrizzleStudio() {
 
   useEffect(() => {
     if (!client) return;
+    
+    // Additional check: if client exists but is in an insecure context, skip setup
+    try {
+      // Test if we can safely use the client
+      if (!client.addMessageListener) {
+        return;
+      }
+    } catch {
+      // If accessing client properties throws (insecure context), skip setup
+      return;
+    }
 
     let isActive = true;
     const subscriptions: EventSubscription[] = [];

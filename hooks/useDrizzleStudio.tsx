@@ -20,7 +20,19 @@ function getErrorMessage(error: unknown): string {
 
 export function useDrizzleStudio() {
   const db = system.factory.openDB();
-  const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+  
+  let client: ReturnType<typeof useDevToolsPluginClient> | null = null;
+  try {
+    client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
+  } catch (error) {
+    // Silently fail if devtools can't be initialized (e.g., insecure context)
+    console.warn('DevTools plugin unavailable:', error);
+    return;
+  }
+  
+  if (!client) {
+    return;
+  }
 
   const queryFn =
     (db: DBAdapter, client: DevToolsPluginClient) =>
@@ -66,6 +78,17 @@ export function useDrizzleStudio() {
 
   useEffect(() => {
     if (!client) {
+      return;
+    }
+    
+    // Additional check: if client exists but is in an insecure context, skip setup
+    try {
+      // Test if we can safely use the client
+      if (!client.addMessageListener) {
+        return;
+      }
+    } catch {
+      // If accessing client properties throws (insecure context), skip setup
       return;
     }
 
