@@ -6,6 +6,7 @@ import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, Pressable, TextInput, View } from 'react-native';
+import { KeyboardController } from 'react-native-keyboard-controller';
 import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
@@ -119,6 +120,7 @@ interface InputProps
   drawerInput?: boolean;
   hideEye?: boolean;
   mask?: boolean;
+  type?: 'next';
 }
 
 const Input = React.forwardRef<
@@ -134,6 +136,8 @@ const Input = React.forwardRef<
       prefixStyling = false,
       suffixStyling = false,
       drawerInput = false,
+      type,
+      onSubmitEditing,
       hideEye,
       secureTextEntry,
       mask,
@@ -185,6 +189,14 @@ const Input = React.forwardRef<
           </View>
         )}
         <Component
+          returnKeyType={type}
+          onSubmitEditing={
+            onSubmitEditing ||
+            (type === 'next'
+              ? () => KeyboardController.setFocusTo('next')
+              : undefined)
+          }
+          submitBehavior={type === 'next' ? 'submit' : undefined}
           // @ts-expect-error - ref is not passed the same type as TextInput
           ref={ref}
           className={cn(
