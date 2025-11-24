@@ -1,6 +1,6 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
@@ -31,6 +31,7 @@ interface LanguageComboboxProps {
   onChange?: (language: Language) => void;
   className?: string;
   uiReadyOnly?: boolean;
+  toggleUILocalization?: boolean;
 }
 
 function LoadingState() {
@@ -83,9 +84,12 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onChange,
   setLanguagesLoaded,
   className,
-  uiReadyOnly
+  uiReadyOnly,
+  toggleUILocalization
 }) => {
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+  const setUILanguage = useLocalStore((state) => state.setUILanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
 
@@ -241,12 +245,21 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));
   }, [dropdownData]);
 
+  // Use controlled value if provided, otherwise fall back to UI language from store
+  const effectiveValue = useMemo(() => {
+    if (value) return value;
+    return uiLanguage?.id ?? null;
+  }, [value, uiLanguage]);
+
   const handleValueChange = React.useCallback(
     (item: (typeof dropdownData)[0]) => {
       setSavedLanguage(item.language);
+      if (toggleUILocalization) {
+        setUILanguage(item.language);
+      }
       onChange?.(item.language);
     },
-    [onChange, setSavedLanguage]
+    [onChange, setSavedLanguage, toggleUILocalization, setUILanguage]
   );
 
   // Show loading state while fetching
@@ -305,7 +318,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         labelField="label"
         valueField="value"
         placeholder={t('selectLanguage')}
-        value={value ?? null}
+        value={effectiveValue}
         onChange={handleValueChange}
         renderInputSearch={() => (
           <View className="border-b border-input p-2">
