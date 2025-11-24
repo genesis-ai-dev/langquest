@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Wrapper script for zgrok that ensures cleanup on exit
-# Shares multiple URLs: Supabase API (54321) and PowerSync (8000)
+# Shares multiple URLs: Supabase API (54321), PowerSync (8000), and Expo web (8081)
 
 # Array to store background process IDs
 PIDS=()
@@ -40,6 +40,11 @@ PIDS+=($!)
 # Share PowerSync (port 8000)
 echo "🌐 Starting tunnel for PowerSync (port 8000)..."
 zgrok http 8000 2>&1 | sed 's/^/[Port 8000] /' &
+PIDS+=($!)
+
+# Share Expo web (port 8081)
+echo "🌐 Starting tunnel for Expo web (port 8081)..."
+zgrok http 8081 2>&1 | sed 's/^/[Port 8081] /' &
 PIDS+=($!)
 
 echo ""
