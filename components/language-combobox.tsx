@@ -2,7 +2,11 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { languoid } from '@/db/drizzleSchema';
-import { useLanguoids, useUIReadyLanguoids } from '@/hooks/db/useLanguoids';
+import {
+  useLanguoidEndonyms,
+  useLanguoids,
+  useUIReadyLanguoids
+} from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
@@ -103,14 +107,22 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   const languoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
   const isLoading = uiReadyOnly ? isLoadingUIReady : isLoadingAll;
 
-  // Filter languoids by search query
+  // Fetch endonyms for all languoids
+  const languoidIds = useMemo(() => languoids.map((l) => l.id), [languoids]);
+  const { endonymMap } = useLanguoidEndonyms(languoidIds);
+
+  // Filter languoids by search query (search both name and endonym)
   const filteredLanguoids = useMemo(() => {
     if (!debouncedSearchQuery.trim()) {
       return languoids;
     }
     const searchLower = debouncedSearchQuery.trim().toLowerCase();
-    return languoids.filter((l) => l.name?.toLowerCase().includes(searchLower));
-  }, [languoids, debouncedSearchQuery]);
+    return languoids.filter((l) => {
+      const name = l.name?.toLowerCase() ?? '';
+      const endonym = endonymMap.get(l.id)?.toLowerCase() ?? '';
+      return name.includes(searchLower) || endonym.includes(searchLower);
+    });
+  }, [languoids, debouncedSearchQuery, endonymMap]);
 
   useEffect(() => {
     if (languoids.length > 0) {
@@ -122,16 +134,18 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     return filteredLanguoids
       .filter((l) => l.name)
       .map((lang) => {
-        const name = lang.name ?? '';
+        // Use endonym if available, otherwise fall back to name
+        const endonym = endonymMap.get(lang.id);
+        const displayName = endonym ?? lang.name ?? '';
         return {
           value: lang.id,
-          label: name,
-          displayLabel: name,
+          label: displayName, // Use endonym for display
+          displayLabel: displayName,
           // Store full languoid object for onChange
           languoid: lang
         };
       });
-  }, [filteredLanguoids]);
+  }, [filteredLanguoids, endonymMap]);
 
   const sortedData = useMemo(() => {
     return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));

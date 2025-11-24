@@ -10,6 +10,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
+import { useMemo } from 'react';
 
 export type Languoid = InferSelectModel<typeof languoid>;
 
@@ -163,6 +164,86 @@ export function useLanguoidById(languoid_id?: string) {
   const languoid_result = languoidArray[0] || null;
 
   return { languoid: languoid_result, isLanguoidLoading, ...rest };
+}
+
+/**
+ * Returns a map of languoid_id -> endonym name
+ * Fetches endonyms (native names) for a list of languoids
+ * Prefers endonyms where label_languoid_id = subject_languoid_id (self-referential)
+ */
+export function useLanguoidEndonyms(languoidIds: string[]) {
+  const { db, supabaseConnector } = system;
+
+  const {
+    data: aliases,
+    isLoading: isEndonymsLoading,
+    ...rest
+  } = useHybridData({
+    dataType: 'languoid-endonyms',
+    queryKeyParams: [languoidIds.sort().join(',')],
+    offlineQuery: toCompilableQuery(
+      db.query.languoid_alias.findMany({
+        columns: {
+          subject_languoid_id: true,
+          label_languoid_id: true,
+          name: true
+        },
+        where: (fields, { eq, and, inArray }) =>
+          and(
+            eq(fields.alias_type, 'endonym'),
+            eq(fields.active, true),
+            inArray(fields.subject_languoid_id, languoidIds)
+          )
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (languoidIds.length === 0) return [];
+      const { data, error } = await supabaseConnector.client
+        .from('languoid_alias')
+        .select('subject_languoid_id, label_languoid_id, name')
+        .eq('alias_type', 'endonym')
+        .eq('active', true)
+        .in('subject_languoid_id', languoidIds)
+        .overrideTypes<
+          {
+            subject_languoid_id: string;
+            label_languoid_id: string;
+            name: string;
+          }[]
+        >();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: languoidIds.length > 0,
+    enableOfflineQuery: languoidIds.length > 0
+  });
+
+  // Create a map: prefer self-referential endonyms (label_languoid_id = subject_languoid_id)
+  const endonymMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!aliases) return map;
+
+    // First pass: collect self-referential endonyms (preferred)
+    const selfReferential = aliases.filter(
+      (alias) => alias.subject_languoid_id === alias.label_languoid_id
+    );
+    selfReferential.forEach((alias) => {
+      if (!map.has(alias.subject_languoid_id)) {
+        map.set(alias.subject_languoid_id, alias.name);
+      }
+    });
+
+    // Second pass: fill in missing ones with any endonym
+    aliases.forEach((alias) => {
+      if (!map.has(alias.subject_languoid_id)) {
+        map.set(alias.subject_languoid_id, alias.name);
+      }
+    });
+
+    return map;
+  }, [aliases]);
+
+  return { endonymMap, isEndonymsLoading, ...rest };
 }
 
 // Standalone function for use outside React components (like Zustand stores)

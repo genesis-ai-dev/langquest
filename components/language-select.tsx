@@ -7,12 +7,16 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { languoid } from '@/db/drizzleSchema';
-import { useLanguoids, useUIReadyLanguoids } from '@/hooks/db/useLanguoids';
+import {
+  useLanguoidEndonyms,
+  useLanguoids,
+  useUIReadyLanguoids
+} from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import { LanguagesIcon } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
@@ -29,11 +33,16 @@ interface LanguageSelectProps {
   uiReadyOnly?: boolean;
 }
 
-export function getAllLanguageOption(languoid?: Languoid | null): Option {
+export function getAllLanguageOption(
+  languoid?: Languoid | null,
+  endonymMap?: Map<string, string>
+): Option {
   if (languoid) {
+    const endonym = endonymMap?.get(languoid.id);
+    const displayName = endonym ?? languoid.name ?? '';
     return {
       value: languoid.id,
-      label: languoid.name ?? ''
+      label: displayName
     };
   }
 }
@@ -68,6 +77,10 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   const { languoids: allLanguoids } = useLanguoids();
   const languoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
 
+  // Fetch endonyms for all languoids
+  const languoidIds = useMemo(() => languoids.map((l) => l.id), [languoids]);
+  const { endonymMap } = useLanguoidEndonyms(languoidIds);
+
   useEffect(() => {
     if (languoids.length > 0) {
       setLanguagesLoaded?.(true);
@@ -88,7 +101,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         })
       : languoids.find((lang) => lang.name === 'English');
 
-  const selectedOption = getAllLanguageOption(selectedLanguage);
+  const selectedOption = getAllLanguageOption(selectedLanguage, endonymMap);
 
   return (
     <Select
@@ -119,11 +132,14 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
       <SelectContent insets={contentInsets} className="w-full">
         {languoids
           .filter((l) => l.name)
-          .map((lang) => (
-            <SelectItem key={lang.id} {...getAllLanguageOption(lang)!}>
-              {lang.name}
-            </SelectItem>
-          ))}
+          .map((lang) => {
+            const option = getAllLanguageOption(lang, endonymMap);
+            return (
+              <SelectItem key={lang.id} {...option!}>
+                {option?.label}
+              </SelectItem>
+            );
+          })}
       </SelectContent>
     </Select>
   );

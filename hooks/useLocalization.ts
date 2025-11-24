@@ -15,8 +15,8 @@ import { useContext } from 'react';
 type Languoid = typeof languoidTable.$inferSelect;
 
 /**
- * Maps languoid.name to SupportedLanguage type
- * Handles the mapping from languoid names to localization keys
+ * Maps languoid.name or endonym to SupportedLanguage type
+ * Handles the mapping from languoid names and endonyms to localization keys
  */
 function mapLanguoidNameToSupportedLanguage(
   languoidName: string | null | undefined
@@ -25,14 +25,24 @@ function mapLanguoidNameToSupportedLanguage(
 
   const normalized = languoidName.toLowerCase().trim();
 
-  // Map languoid names to SupportedLanguage values
+  // Map languoid names and endonyms to SupportedLanguage values
   const mapping: Record<string, SupportedLanguage> = {
+    // English names
     english: 'english',
+    // Spanish names and endonyms
     spanish: 'spanish',
+    español: 'spanish',
+    espanol: 'spanish', // Without accent
+    // Brazilian Portuguese names and endonyms
     'brazilian portuguese': 'brazilian_portuguese',
+    'português brasileiro': 'brazilian_portuguese',
+    'portugues brasileiro': 'brazilian_portuguese', // Without accent
+    // Tok Pisin names
     'tok pisin': 'tok_pisin',
+    // Indonesian names and endonyms
     'standard indonesian': 'indonesian',
-    indonesian: 'indonesian' // Also handle just "Indonesian"
+    indonesian: 'indonesian',
+    'bahasa indonesia': 'indonesian'
   };
 
   return mapping[normalized] ?? 'english';
@@ -83,16 +93,36 @@ export function useLocalization(languageOverride?: string | null) {
   });
 
   const profileLanguoid = data[0];
+
   // Get language with priority:
   // 1. Manual override (provided as prop)
   // 2. Authenticated user's profile languoid name
-  // 3. Selected language from LanguageContext (for non-authenticated pages - fallback to old language table)
+  // 3. Selected language from LanguageContext (for non-authenticated pages)
+  //    - Check if currentLanguage is a Languoid (has 'name' property)
+  //    - Fallback to old Language type (has 'english_name' property)
   // 4. Default to English
-  const userLanguage = (languageOverride?.toLowerCase() ??
-    (profileLanguoid?.name
-      ? mapLanguoidNameToSupportedLanguage(profileLanguoid.name)
-      : (currentLanguage?.english_name?.toLowerCase() ??
-        'english'))) as SupportedLanguage;
+  let resolvedLanguageName: string | null | undefined = null;
+
+  if (languageOverride) {
+    resolvedLanguageName = languageOverride;
+  } else if (profileLanguoid?.name) {
+    resolvedLanguageName = profileLanguoid.name;
+  } else if (currentLanguage) {
+    // Check if it's a Languoid (has 'name' property) or old Language (has 'english_name')
+    const langAny = currentLanguage as any;
+    if (langAny.name && typeof langAny.name === 'string') {
+      resolvedLanguageName = langAny.name;
+    } else if (
+      langAny.english_name &&
+      typeof langAny.english_name === 'string'
+    ) {
+      resolvedLanguageName = langAny.english_name;
+    }
+  }
+
+  const userLanguage = mapLanguoidNameToSupportedLanguage(
+    resolvedLanguageName
+  ) as SupportedLanguage;
 
   // t function to accept optional interpolation values and use 'localizations'
   const t = (
