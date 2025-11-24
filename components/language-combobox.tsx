@@ -1,6 +1,6 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { languoid } from '@/db/drizzleSchema';
 import { useLanguoids, useUIReadyLanguoids } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
@@ -9,7 +9,7 @@ import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { LanguagesIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { TextInput, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
@@ -28,6 +28,7 @@ interface LanguageComboboxProps {
   onChange?: (languoid: Languoid) => void;
   className?: string;
   uiReadyOnly?: boolean;
+  toggleUILocalization?: boolean;
 }
 
 function LoadingState() {
@@ -80,9 +81,12 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onChange,
   setLanguagesLoaded,
   className,
-  uiReadyOnly
+  uiReadyOnly,
+  toggleUILocalization
 }) => {
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+  const setUILanguage = useLocalStore((state) => state.setUILanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
 
@@ -133,13 +137,23 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));
   }, [dropdownData]);
 
+  // Use controlled value if provided, otherwise fall back to UI language from store
+  const effectiveValue = useMemo(() => {
+    if (value) return value;
+    return uiLanguage?.id ?? null;
+  }, [value, uiLanguage]);
+
   const handleValueChange = React.useCallback(
     (item: (typeof dropdownData)[0]) => {
-      // setSavedLanguage expects Language type, but we're using Languoid now
-      // For now, just call onChange - the store may need updating separately
+      // TODO: Update store to support Languoid type
+      // For now, use type assertion to handle transition
+      setSavedLanguage(item.languoid as any);
+      if (toggleUILocalization) {
+        setUILanguage(item.languoid as any);
+      }
       onChange?.(item.languoid);
     },
-    [onChange]
+    [onChange, setSavedLanguage, toggleUILocalization, setUILanguage]
   );
 
   // Show loading state while fetching
@@ -198,7 +212,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         labelField="label"
         valueField="value"
         placeholder={t('selectLanguage')}
-        value={value ?? null}
+        value={effectiveValue}
         onChange={handleValueChange}
         renderInputSearch={() => (
           <View className="border-b border-input p-2">
