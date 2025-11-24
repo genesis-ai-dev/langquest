@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Wrapper script for zgrok that ensures cleanup on exit
-# Shares multiple URLs: Supabase API (54321) and local dev server (8080)
+# Shares multiple URLs: Supabase API (54321) and PowerSync (8000)
 
 # Array to store background process IDs
 PIDS=()
@@ -37,9 +37,9 @@ echo "🌐 Starting tunnel for Supabase API (port 54321)..."
 zgrok http 54321 2>&1 | sed 's/^/[Port 54321] /' &
 PIDS+=($!)
 
-# Share local dev server (port 8080)
-echo "🌐 Starting tunnel for local dev server (port 8080)..."
-zgrok http 8080 2>&1 | sed 's/^/[Port 8080] /' &
+# Share PowerSync (port 8000)
+echo "🌐 Starting tunnel for PowerSync (port 8000)..."
+zgrok http 8000 2>&1 | sed 's/^/[Port 8000] /' &
 PIDS+=($!)
 
 echo ""
