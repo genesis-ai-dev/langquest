@@ -34,22 +34,22 @@ trap cleanup EXIT INT TERM
 
 # Share Supabase API (port 54321)
 echo "🌐 Starting tunnel for Supabase API (port 54321)..."
-zrok share public http://localhost:54321 2>&1 | sed 's/^/[Port 54321] /' &
+zrok share public --unique-name "myshare-54321" http://localhost:54321 2>&1 | sed 's/^/[Port 54321] /' &
 PIDS+=($!)
 
 # Share Supabase Studio (port 54323)
 echo "🌐 Starting tunnel for Supabase Studio (port 54323)..."
-zrok share public http://localhost:54323 2>&1 | sed 's/^/[Port 54323] /' &
+zrok share public --unique-name "myshare-54323" http://localhost:54323 2>&1 | sed 's/^/[Port 54323] /' &
 PIDS+=($!)
 
 # Share PowerSync (port 8000)
 echo "🌐 Starting tunnel for PowerSync (port 8000)..."
-zrok share public http://localhost:8000 2>&1 | sed 's/^/[Port 8000] /' &
+zrok share public --unique-name "myshare-8000" http://localhost:8000 2>&1 | sed 's/^/[Port 8000] /' &
 PIDS+=($!)
 
 # Share Expo web (port 8081)
 echo "🌐 Starting tunnel for Expo web (port 8081)..."
-zrok share public http://localhost:8081 2>&1 | sed 's/^/[Port 8081] /' &
+zrok share public --unique-name "myshare-8081" http://localhost:8081 2>&1 | sed 's/^/[Port 8081] /' &
 PIDS+=($!)
 
 echo ""
