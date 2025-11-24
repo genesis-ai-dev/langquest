@@ -167,8 +167,7 @@ export default function NextGenProjectsView() {
 
   const form = useForm<FormData>({
     defaultValues,
-    resolver: zodResolver(formSchema),
-    disabled: !currentUser?.id
+    resolver: zodResolver(formSchema)
   });
 
   useEffect(() => {
@@ -965,6 +964,7 @@ export default function NextGenProjectsView() {
             </View>
             <DrawerFooter>
               <FormSubmit
+                disabled={!currentUser?.id || isCreatingProject}
                 onPress={form.handleSubmit((data) => createProject(data))}
                 className="flex-row items-center gap-2"
               >

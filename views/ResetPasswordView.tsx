@@ -70,8 +70,7 @@ export default function ResetPasswordView() {
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    disabled: isPending
+    resolver: zodResolver(formSchema)
   });
 
   return (
