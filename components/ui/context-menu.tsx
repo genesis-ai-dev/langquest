@@ -18,6 +18,8 @@
  * <ContextMenu
  *   side="bottom"        // Menu appears below trigger (or "top" for above)
  *   align="end"          // Aligns to right edge of trigger (or "start"/"left"/"right")
+ *   size={1.0}           // Scale factor for menu items (default: 1.0). Use 0.9, 1.2, etc.
+ *   triggerIconSize={20} // Size of trigger icon in pixels (default: 20)
  *   items={[
  *     {
  *       label: "Edit",
@@ -38,6 +40,13 @@
  *   trigger={<Button>Actions</Button>}
  *   items={[...]}
  * />
+ *
+ * // With scaled size:
+ * <ContextMenu
+ *   size={0.9}
+ *   triggerIconSize={16}
+ *   items={[...]}
+ * />
  * ```
  *
  * Positioning Logic:
@@ -52,9 +61,15 @@ import { Text } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
 import type { LucideIcon } from 'lucide-react-native';
 import { EllipsisVerticalIcon } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 
 /**
  * Menu item configuration
@@ -65,6 +80,20 @@ export interface ContextMenuItem {
   onPress: () => void;
   destructive?: boolean;
 }
+
+/**
+ * Base size values (at scale factor 1.0)
+ */
+const BASE_MENU_ITEM_PADDING_HORIZONTAL = 12; // px-3
+const BASE_MENU_ITEM_PADDING_VERTICAL = 8; // py-2
+const BASE_MENU_ITEM_GAP = 8; // gap-2
+const BASE_MENU_ITEM_ICON_SIZE = 16;
+const BASE_MENU_ITEM_TEXT_SIZE = 16; // text-base
+
+/**
+ * Default trigger icon size
+ */
+const DEFAULT_TRIGGER_ICON_SIZE = 20;
 
 /**
  * ContextMenu component props
@@ -78,17 +107,34 @@ interface ContextMenuProps {
   side?: 'top' | 'bottom';
   /** Horizontal alignment relative to trigger (default: "end" = right-aligned) */
   align?: 'left' | 'right' | 'start' | 'end';
+  /** Scale factor for menu items (default: 1.0). Use values like 0.9, 1.2, etc. */
+  size?: number;
+  /** Size of the trigger icon in pixels (default: 20) */
+  triggerIconSize?: number;
 }
 
 export function ContextMenu({
   trigger,
   items,
   side = 'top',
-  align = 'end'
+  align = 'end',
+  size = 1.0,
+  triggerIconSize = DEFAULT_TRIGGER_ICON_SIZE
 }: ContextMenuProps) {
+  // Calculate scaled values based on size factor
+  const menuItemPaddingHorizontal = Math.round(
+    BASE_MENU_ITEM_PADDING_HORIZONTAL * size
+  );
+  const menuItemPaddingVertical = Math.round(
+    BASE_MENU_ITEM_PADDING_VERTICAL * size
+  );
+  const menuItemGap = Math.round(BASE_MENU_ITEM_GAP * size);
+  const menuItemIconSize = Math.round(BASE_MENU_ITEM_ICON_SIZE * size);
+  const menuItemTextSize = Math.round(BASE_MENU_ITEM_TEXT_SIZE * size);
   const [isOpen, setIsOpen] = useState(false);
   const [isPositioned, setIsPositioned] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [actualSide, setActualSide] = useState<'top' | 'bottom'>('top');
   const triggerLayoutRef = useRef({
     x: 0,
     y: 0,
@@ -97,6 +143,10 @@ export function ContextMenu({
   });
   const triggerRef = useRef<View>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  // Animation values
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(0);
 
   /**
    * Opens the menu and measures the trigger's position on screen
@@ -186,6 +236,13 @@ export function ContextMenu({
       triggerLayoutRef.current
     );
 
+    // Determine actual side: if menu top is above trigger center, it's above
+    const triggerCenterY =
+      triggerLayoutRef.current.y + triggerLayoutRef.current.height / 2;
+    const menuCenterY = newPosition.top + menuHeight / 2;
+    const actualSideValue = menuCenterY < triggerCenterY ? 'top' : 'bottom';
+
+    setActualSide(actualSideValue);
     setPosition({
       top: Math.round(newPosition.top),
       left: Math.round(newPosition.left)
@@ -196,8 +253,46 @@ export function ContextMenu({
   const handleItemPress = (item: ContextMenuItem) => {
     setIsOpen(false);
     setIsPositioned(false);
+    // Reset animation values
+    opacity.value = 0;
+    translateY.value = 0;
     item.onPress();
   };
+
+  // Animate when menu becomes positioned
+  useEffect(() => {
+    if (isPositioned && isOpen) {
+      // Determine animation direction based on actual side
+      // If menu appears above (top), slide upward (starts below, moves up)
+      // If menu appears below (bottom), slide downward (starts above, moves down)
+      const slideDistance = 8; // pixels
+      const initialTranslateY =
+        actualSide === 'top' ? slideDistance : -slideDistance;
+
+      translateY.value = initialTranslateY;
+      opacity.value = 0;
+
+      // Animate to final position - simple timing with ease-in, same duration as fade
+      const duration = 200;
+      translateY.value = withTiming(0, {
+        duration,
+        easing: Easing.in(Easing.ease)
+      });
+      opacity.value = withTiming(1, { duration });
+    } else if (!isOpen) {
+      // Reset when closed
+      opacity.value = 0;
+      translateY.value = 0;
+    }
+  }, [isPositioned, isOpen, actualSide, opacity, translateY]);
+
+  // Animated style for the menu
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: opacity.value,
+      transform: [{ translateY: translateY.value }]
+    };
+  });
 
   return (
     <>
@@ -206,7 +301,7 @@ export function ContextMenu({
           {trigger || (
             <Icon
               as={EllipsisVerticalIcon}
-              size={20}
+              size={triggerIconSize}
               className="text-muted-foreground"
             />
           )}
@@ -220,29 +315,36 @@ export function ContextMenu({
         onRequestClose={() => setIsOpen(false)}
       >
         <Pressable style={{ flex: 1 }} onPress={() => setIsOpen(false)}>
-          <View
+          <Animated.View
             onLayout={handleMenuLayout}
-            style={{
-              position: 'absolute',
-              top: position.top,
-              left: position.left,
-              minWidth: 160
-            }}
+            style={[
+              {
+                position: 'absolute',
+                top: position.top,
+                left: position.left
+              },
+              animatedStyle
+            ]}
             className="rounded-md border border-input bg-popover p-1 shadow-lg shadow-foreground/10"
           >
             {items.map((item, index) => (
               <Pressable
                 key={index}
                 onPress={() => handleItemPress(item)}
+                style={{
+                  paddingHorizontal: menuItemPaddingHorizontal,
+                  paddingVertical: menuItemPaddingVertical,
+                  gap: menuItemGap
+                }}
                 className={cn(
-                  'flex flex-row items-center gap-2 rounded-sm px-3 py-2 active:bg-accent',
+                  'flex flex-row items-center rounded-sm active:bg-accent',
                   item.destructive && 'text-destructive'
                 )}
               >
                 {item.icon && (
                   <Icon
                     as={item.icon}
-                    size={16}
+                    size={menuItemIconSize}
                     className={cn(
                       'text-foreground',
                       item.destructive && 'text-destructive'
@@ -250,8 +352,8 @@ export function ContextMenu({
                   />
                 )}
                 <Text
+                  style={{ fontSize: menuItemTextSize }}
                   className={cn(
-                    'text-sm',
                     item.destructive ? 'text-destructive' : 'text-foreground'
                   )}
                 >
@@ -259,7 +361,7 @@ export function ContextMenu({
                 </Text>
               </Pressable>
             ))}
-          </View>
+          </Animated.View>
         </Pressable>
       </Modal>
     </>
