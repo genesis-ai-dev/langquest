@@ -5,7 +5,12 @@ import type {
   FieldPath,
   FieldValues
 } from 'react-hook-form';
-import { Controller, FormProvider, useFormContext } from 'react-hook-form';
+import {
+  Controller,
+  FormProvider,
+  useFormContext,
+  useFormState
+} from 'react-hook-form';
 
 import { Label } from '@/components/ui/label';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -26,8 +31,8 @@ interface FormFieldContextValue<
   name: TName;
 }
 
-const FormFieldContext = React.createContext<FormFieldContextValue>(
-  {} as FormFieldContextValue
+const FormFieldContext = React.createContext<FormFieldContextValue | undefined>(
+  undefined
 );
 
 const FormField = <
@@ -89,15 +94,14 @@ export const transformSwitchProps = <
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
-  const { getFieldState, formState } = useFormContext();
+  const { control, getFieldState } = useFormContext();
+  const formState = useFormState({ control });
 
-  const fieldState = getFieldState(fieldContext.name, formState);
-
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!fieldContext) {
     throw new Error('useFormField should be used within <FormField>');
   }
 
+  const fieldState = getFieldState(fieldContext.name, formState);
   const { id } = itemContext;
 
   return {
@@ -235,9 +239,9 @@ const FormSubmit = React.forwardRef<
     },
     ref
   ) => {
-    const { formState } = useFormContext();
-    const isDisabled =
-      !formState.isValid || formState.isSubmitting || props.disabled;
+    const { control } = useFormContext();
+    const { isValid, isSubmitting } = useFormState({ control });
+    const isDisabled = !isValid || isSubmitting || props.disabled;
 
     const Component = asChild ? Slot.Pressable : Pressable;
 
@@ -255,7 +259,7 @@ const FormSubmit = React.forwardRef<
           )}
         >
           <>
-            {formState.isSubmitting && (
+            {isSubmitting && (
               <ActivityIndicator
                 size="small"
                 color={activityIndicatorColor || getThemeColor('secondary')}
