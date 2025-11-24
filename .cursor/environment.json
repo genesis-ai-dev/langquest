@@ -1,6 +1,6 @@
 {
-  "install": "npm install",
-  "start": "sudo service docker start && curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo deb https://ngrok-agent.s3.amazonaws.com bookworm main | sudo tee /etc/apt/sources.list.d/ngrok.list && sudo apt update && sudo apt install -y ngrok && ngrok config add-authtoken $NGROK_TOKEN",
+  "install": ".cursor/install.sh",
+  "start": "sudo service docker start",
   "terminals": [
     {
       "name": "Run Supabase + PowerSync Local Environment",
