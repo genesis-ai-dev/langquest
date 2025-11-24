@@ -171,7 +171,6 @@ export default function NextGenNewTranslationModal({
       audioUri: ''
     },
     resolver: zodResolver(translationSchema),
-    disabled: !currentUser?.id || !canTranslate,
     mode: 'onChange'
   });
 
@@ -716,7 +715,7 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!isValid || !canTranslate}
+              disabled={!isValid || !canTranslate || !currentUser?.id}
               onPress={form.handleSubmit(
                 (data) => createTranslation(data),
                 () => {
