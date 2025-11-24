@@ -44,3 +44,5 @@ While React Compiler can automatically memoize components, it has limitations an
 - **Manual Memoization**: Don't assume React Compiler handles everything. For performance-critical components, you may still need `React.memo`, `useMemo`, or `useCallback`. The compiler shows components as "memoized" in DevTools, but this doesn't guarantee they won't re-render unnecessarily.
 
 - **Composition Over Memoization**: When dealing with re-render issues, prefer composition techniques (moving state down, splitting contexts, extracting components) over manual memoization when possible.
+
+- **ESLint Disable Comments**: Never use `// eslint-disable-next-line` or similar ESLint disable comments in your code. These comments prevent React Compiler from properly analyzing and optimizing your code. If ESLint flags an issue, fix the underlying problem rather than suppressing the warning. For legitimate cases where a dependency should be excluded (like stable functions or refs), refactor the code to make the stability explicit rather than disabling the exhaustive-deps rule.
