@@ -379,9 +379,7 @@ export default function NextGenAssetDetailView() {
     enableCloudQuery: false
   });
 
-  const languoidById = new Map(
-    contentLanguoids.map((l) => [l.id, l] as const)
-  );
+  const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
 
   // Active tab is now derived from asset content via useMemo above
 
@@ -614,20 +612,19 @@ export default function NextGenAssetDetailView() {
                   <View>
                     <SourceContent
                       content={activeAsset.content[currentContentIndex]}
-                      sourceLanguage={
-                        (() => {
-                          const content = activeAsset.content[currentContentIndex];
-                          if (!content) return null;
-                          const languoidId =
-                            content.languoid_id || content.source_language_id;
-                          const languoid = languoidId
-                            ? languoidById.get(languoidId) ?? null
-                            : null;
-                          // TODO: Update SourceContent to accept Languoid type
-                          // For now, use type assertion to handle transition
-                          return languoid as any;
-                        })()
-                      }
+                      sourceLanguage={(() => {
+                        const content =
+                          activeAsset.content[currentContentIndex];
+                        if (!content) return null;
+                        const languoidId =
+                          content.languoid_id || content.source_language_id;
+                        const languoid = languoidId
+                          ? (languoidById.get(languoidId) ?? null)
+                          : null;
+                        // TODO: Update SourceContent to accept Languoid type
+                        // For now, use type assertion to handle transition
+                        return languoid as any;
+                      })()}
                       audioSegments={getContentAudioUris(
                         activeAsset.content[currentContentIndex]
                       )}

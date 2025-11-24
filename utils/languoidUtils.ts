@@ -5,7 +5,7 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 export interface CreateLanguoidParams {
@@ -47,7 +47,7 @@ export async function createLanguoidOffline(
     .where(eq(languoidLocal.name, name))
     .limit(1);
 
-  if (existing.length > 0) {
+  if (existing.length > 0 && existing[0]) {
     // Languoid already exists locally
     return {
       languoid_id: existing[0].id,
@@ -175,12 +175,14 @@ export async function createProjectLanguageLinkWithLanguoid(
     .select()
     .from(projectLanguageLinkLocal)
     .where(
-      eq(projectLanguageLinkLocal.project_id, project_id),
-      eq(projectLanguageLinkLocal.language_type, language_type)
+      and(
+        eq(projectLanguageLinkLocal.project_id, project_id),
+        eq(projectLanguageLinkLocal.language_type, language_type)
+      )
     )
     .limit(1);
 
-  if (existing.length > 0) {
+  if (existing.length > 0 && existing[0]) {
     // Update existing link with languoid_id
     await system.db
       .update(projectLanguageLinkLocal)
