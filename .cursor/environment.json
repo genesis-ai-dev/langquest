@@ -7,8 +7,8 @@
       "command": "npm run env"
     },
     {
-      "name": "Run ngrok",
-      "command": "ngrok http 54321"
+      "name": "Run zrok",
+      "command": "zrok share public http://localhost:54321 --backend-mode proxy"
     }
   ]
 }

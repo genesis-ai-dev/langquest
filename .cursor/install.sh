@@ -15,8 +15,17 @@ sudo service docker start || true
 # Step 3: Install npm dependencies
 npm install
 
-# Step 4: Install ngrok
-curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo deb https://ngrok-agent.s3.amazonaws.com bookworm main | sudo tee /etc/apt/sources.list.d/ngrok.list && sudo apt update && sudo apt install -y ngrok && ngrok config add-authtoken $NGROK_TOKEN
+# Step 4: Install zrok (open-source alternative to ngrok)
+# Download latest zrok release for Linux AMD64
+ZROK_VERSION=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest | grep '"tag_name"' | cut -d '"' -f 4)
+ZROK_URL="https://github.com/openziti/zrok/releases/download/${ZROK_VERSION}/zrok_${ZROK_VERSION#v}_linux_amd64.tar.gz"
+curl -sL "$ZROK_URL" -o /tmp/zrok.tar.gz
+tar -xzf /tmp/zrok.tar.gz -C /tmp
+sudo mv /tmp/zrok /usr/local/bin/zrok
+sudo chmod +x /usr/local/bin/zrok
+rm /tmp/zrok.tar.gz
+# Initialize zrok (user will need to run 'zrok invite' to create account)
+echo "zrok installed successfully. Run 'zrok invite' to create an account, then 'zrok enable' to enable sharing."
 
 # Note: After adding user to docker group, you may need to:
 # - Start a new session (logout/login), OR
