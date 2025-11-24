@@ -22,47 +22,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
-  MicIcon,
-  Lightbulb,
-  TextIcon,
   EyeIcon,
-  XIcon,
-  RefreshCwIcon
+  Lightbulb,
+  MicIcon,
+  RefreshCwIcon,
+  TextIcon,
+  XIcon
 } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import {
-  Alert,
-  ActivityIndicator,
-  View,
-  Pressable,
-  Modal,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
 import type { TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 import { z } from 'zod';
-import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
-import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useHybridData } from './useHybridData';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
