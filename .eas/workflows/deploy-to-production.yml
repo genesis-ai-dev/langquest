@@ -19,6 +19,8 @@ on:
       - '!eslint.config.mts'
       - '!knip.json'
       - '!deno.json'
+      - '!.cursor/**'
+      - '!.vscode/**'
 
 jobs:
   fingerprint:
