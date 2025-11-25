@@ -61,9 +61,21 @@ jobs:
       - name: Get Branch Environment Variables
         run: |
           supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
-          # Mask JWT secret in logs immediately after retrieval
+          # Mask all sensitive values immediately after retrieval
           if [ -n "$SUPABASE_JWT_SECRET" ]; then
             echo "::add-mask::${SUPABASE_JWT_SECRET}"
+          fi
+          if [ -n "$POSTGRES_URL" ]; then
+            echo "::add-mask::${POSTGRES_URL}"
+          fi
+          if [ -n "$POSTGRES_URL_NON_POOLING" ]; then
+            echo "::add-mask::${POSTGRES_URL_NON_POOLING}"
+          fi
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::add-mask::${SUPABASE_SERVICE_ROLE_KEY}"
+          fi
+          if [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "::add-mask::${SUPABASE_ANON_KEY}"
           fi
 
       - name: Setup Database Connection
@@ -79,9 +91,12 @@ jobs:
           # Strip surrounding quotes if present (from env export)
           # Result: postgresql://postgres.project_ref:password@pooler-host:5432/postgres
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||' | sed 's|^"||' | sed 's|"$||')
+          
+          # Mask the full DB_URL in logs immediately
+          echo "::add-mask::${DB_URL}"
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
 
-          # Mask password in logs for security
+          # Show masked version for logs
           DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
           echo "Using database URL: ${DB_URL_MASKED}"
 
