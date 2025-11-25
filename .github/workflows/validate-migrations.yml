@@ -58,9 +58,24 @@ jobs:
         with:
           version: latest
 
-      - name: Get Branch Environment Variables
+      - name: Get Base Branch Name
+        id: base-branch
         run: |
-          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          # Get the base branch name (usually 'dev' or 'main')
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "base_branch=${BASE_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Comparing PR branch migrations against base branch: ${BASE_BRANCH}"
+
+      - name: Get Base Branch Database Environment Variables
+        run: |
+          # Get database connection info for the BASE branch (what's already merged)
+          # This represents the current state before this PR's migrations
+          BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
+          echo "Fetching database credentials for base branch: ${BASE_BRANCH}"
+          supabase --experimental branches get "$BASE_BRANCH" -o env >> $GITHUB_ENV || {
+            echo "⚠️  Could not get base branch database. Falling back to PR branch database."
+            supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          }
           # Mask all sensitive values immediately after retrieval
           if [ -n "$SUPABASE_JWT_SECRET" ]; then
             echo "::add-mask::${SUPABASE_JWT_SECRET}"
@@ -91,7 +106,7 @@ jobs:
           # Strip surrounding quotes if present (from env export)
           # Result: postgresql://postgres.project_ref:password@pooler-host:5432/postgres
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||' | sed 's|^"||' | sed 's|"$||')
-          
+
           # Mask the full DB_URL in logs immediately
           echo "::add-mask::${DB_URL}"
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
@@ -100,10 +115,13 @@ jobs:
           DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
           echo "Using database URL: ${DB_URL_MASKED}"
 
-      - name: Get Migration History from Database
+      - name: Get Migration History from Base Branch Database
         id: db-migrations
         run: |
-          # Get migration history from database
+          BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
+          echo "Getting migration history from base branch (${BASE_BRANCH}) database"
+          
+          # Get migration history from base branch database
           # The supabase_migrations.schema_migrations table stores applied migrations
           # Capture both stdout and stderr separately for better error reporting
           PSQL_ERROR=$(mktemp)
@@ -112,7 +130,7 @@ jobs:
           rm -f "$PSQL_ERROR"
 
           if [ -z "$DB_MIGRATIONS" ]; then
-            echo "⚠️  Could not query migration history from database"
+            echo "⚠️  Could not query migration history from base branch database"
             echo "This might mean migrations haven't been applied yet, or the database is not accessible"
             if [ -n "$PSQL_ERROR_CONTENT" ]; then
               echo "psql error: $PSQL_ERROR_CONTENT"
@@ -120,7 +138,7 @@ jobs:
             echo "db_migrations=" >> $GITHUB_OUTPUT
           else
             echo "$DB_MIGRATIONS" > db_migrations.txt
-            echo "✅ Retrieved migration history from database"
+            echo "✅ Retrieved migration history from base branch database"
             echo "db_migrations<<EOF" >> $GITHUB_OUTPUT
             echo "$DB_MIGRATIONS" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -152,19 +170,20 @@ jobs:
             DB_MIGRATIONS=$(cat db_migrations.txt)
             REPO_MIGRATIONS=$(cat repo_migrations.txt)
             
+            BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
             echo "=== Migration History Comparison ==="
             echo ""
-            echo "Comparing PR branch database migrations vs PR branch migration files"
+            echo "Comparing: Base branch (${BASE_BRANCH}) database migrations vs PR branch migration files"
             echo ""
-            echo "Migrations in PR branch database:"
-            echo "$DB_MIGRATIONS" | head -20
+            echo "Migrations in base branch database:"
+            echo "$DB_MIGRATIONS" | tail -20
             echo ""
             echo "Migration files in PR branch:"
-            echo "$REPO_MIGRATIONS" | head -20
+            echo "$REPO_MIGRATIONS" | tail -20
             echo ""
             echo "DEBUG: Checking for renamed migrations..."
-            echo "DB migrations count: $(echo "$DB_FULL" | wc -l)"
-            echo "Repo migrations count: $(echo "$REPO_FULL" | wc -l)"
+            echo "Base branch DB migrations count: $(echo "$DB_FULL" | wc -l)"
+            echo "PR branch repo migrations count: $(echo "$REPO_FULL" | wc -l)"
             echo ""
             
             # Normalize formats: DB format is "version_name", repo format is "timestamp_name"
