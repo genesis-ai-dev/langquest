@@ -8,39 +8,46 @@ import {
 import { system } from '@/db/powersync/system';
 import { eq, and, isNotNull, isNull, inArray, sql, ne } from 'drizzle-orm';
 import { useQuery } from '@tanstack/react-query';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 export interface TranslationExample {
   source: string;
   target: string;
+  similarityScore?: number;
 }
 
 /**
- * Fetches nearby translations from the same quest/chapter, and expands to other quests in the same project if needed
- * Returns source→target pairs for use as examples in AI translation prediction
+ * Fetches contextually relevant translations from the same project for use as examples in AI translation prediction
  *
- * Priority:
- * 1. First, get examples from the current quest
- * 2. If more examples are needed, get examples from other quests in the same project
+ * When sourceText is provided:
+ * - Queries entire project for contextually relevant examples using text similarity
+ * - Prioritizes examples that share words/phrases with sourceText
+ * - Still selects highest-rated translation per source asset
  *
- * For each source asset, only the highest-rated translation (by upvotes) is selected.
- * If multiple translations have the same vote count, the most recent one is selected.
+ * When sourceText is NOT provided (fallback):
+ * - First gets examples from current quest
+ * - Expands to other quests in same project if needed
+ *
  * Maximum of 30 examples are returned (hardcoded limit).
  */
 const MAX_EXAMPLES = 30;
 
 export function useNearbyTranslations(
   questId: string | null | undefined,
-  targetLanguageId: string
+  targetLanguageId: string,
+  sourceText?: string | null
 ) {
+  const isOnline = useNetworkStatus();
+
   return useQuery<TranslationExample[]>({
-    queryKey: ['nearby-translations', questId, targetLanguageId],
+    queryKey: ['nearby-translations', questId, targetLanguageId, sourceText],
     queryFn: async () => {
       if (!questId || !targetLanguageId) {
         return [];
       }
 
       try {
-        // Step 0: Get the current quest's project_id to find nearby quests
+        // Step 0: Get the current quest's project_id
         const currentQuest = await system.db
           .select({
             projectId: quest.project_id
@@ -55,6 +62,53 @@ export function useNearbyTranslations(
             console.warn('[useNearbyTranslations] Current quest not found');
           }
           return [];
+        }
+
+        // If sourceText is provided and we're online, call the RPC to get ranked examples
+        if (sourceText && isOnline && sourceText.trim().length > 0) {
+          interface RpcExample {
+            source_text: string;
+            target_text: string;
+            similarity_score: number;
+          }
+
+          const rpcResult = await system.supabaseConnector.client.rpc(
+            'get_similar_translations',
+            {
+              p_project_id: currentQuest.projectId,
+              p_target_language_id: targetLanguageId,
+              p_source_text: sourceText.trim(),
+              p_limit: MAX_EXAMPLES
+            }
+          );
+
+          if (rpcResult.error) {
+            console.error(
+              '[useNearbyTranslations] RPC error:',
+              rpcResult.error
+            );
+            // Fall through to local logic if RPC fails
+          } else {
+            const rpcExamples = rpcResult.data as RpcExample[] | null;
+            if (rpcExamples && rpcExamples.length > 0) {
+              // Map RPC results to TranslationExample format
+              const mappedExamples: TranslationExample[] = rpcExamples.map(
+                (e) => ({
+                  source: e.source_text,
+                  target: e.target_text,
+                  similarityScore: e.similarity_score
+                })
+              );
+
+              if (__DEV__) {
+                console.log(
+                  '[useNearbyTranslations] RPC returned examples:',
+                  mappedExamples.length
+                );
+              }
+              return mappedExamples;
+            }
+          }
         }
 
         // Step 1: Get all original assets in the current quest (exclude translations which have source_asset_id)
@@ -338,7 +392,7 @@ async function getExamplesFromAssets(
     translation
   ] of bestTranslationBySource.entries()) {
     const sourceText = sourceTextMap.get(sourceAssetId);
-    if (sourceText && sourceText.trim() && translation.translationText) {
+    if (sourceText?.trim() && translation.translationText) {
       examples.push({
         source: sourceText.trim(),
         target: translation.translationText.trim()
