@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -24,6 +23,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { SwitchBox } from './SwitchBox';
 
 interface TranslationSettingsModalProps {
@@ -49,7 +49,7 @@ export const TranslationSettingsModal: React.FC<
   } = useTranslationStatuses(translationId);
 
   if (isError) {
-    Alert.alert(t('error'), t('translationSettingsLoadError'));
+    RNAlert.alert(t('error'), t('translationSettingsLoadError'));
     onClose();
     return null;
   }
@@ -97,10 +97,10 @@ export const TranslationSettingsModal: React.FC<
       );
       refetch();
 
-      Alert.alert(t('success'), message);
+      RNAlert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating translation status:', error);
-      Alert.alert(t('error'), t('statusTranslationUpdateFailed'));
+      RNAlert.alert(t('error'), t('statusTranslationUpdateFailed'));
     } finally {
       setIsSubmitting(false);
     }

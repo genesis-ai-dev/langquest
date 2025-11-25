@@ -44,7 +44,8 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -401,16 +402,16 @@ export default function NextGenAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
+        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
-        Alert.alert(t('error'), result.message || t('error'), [
+        RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok') }
         ]);
       }
     },
     onError: (error) => {
       console.error('Publish error:', error);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
         [{ text: t('ok') }]
@@ -496,14 +497,14 @@ export default function NextGenAssetsView() {
 
       console.log('✅ [Offload] All queries invalidated');
 
-      Alert.alert(t('success'), t('offloadComplete'));
+      RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError'));
+      RNAlert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }
@@ -600,12 +601,12 @@ export default function NextGenAssetsView() {
                 disabled={isPublishing || !isOnline || !isMember}
                 onPress={() => {
                   if (!isOnline) {
-                    Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                    RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
                     return;
                   }
 
                   if (!isMember) {
-                    Alert.alert(t('error'), t('membersOnlyPublish'));
+                    RNAlert.alert(t('error'), t('membersOnlyPublish'));
                     return;
                   }
 
@@ -614,16 +615,10 @@ export default function NextGenAssetsView() {
                     return;
                   }
 
-                  // On web, skip confirmation dialog and publish directly
-                  if (Platform.OS === 'web') {
-                    publishQuest();
-                    return;
-                  }
-
                   // Use quest name if available, otherwise generic message
                   const questName = selectedQuest?.name || 'this chapter';
 
-                  Alert.alert(
+                  RNAlert.alert(
                     t('publishChapter'),
                     t('publishChapterMessage').replace(
                       '{questName}',

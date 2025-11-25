@@ -50,7 +50,6 @@ import {
 import React, { useState, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import {
-  Alert,
   ActivityIndicator,
   View,
   Pressable,
@@ -58,6 +57,7 @@ import {
   ScrollView,
   TouchableWithoutFeedback
 } from 'react-native';
+import RNAlert from 'react-native-alert';
 import type { TextInput } from 'react-native';
 import { z } from 'zod';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
@@ -301,10 +301,10 @@ export default function NextGenNewTranslationModal({
         '[NEW TRANSLATION MODAL] Modal opened without permission or anonymous user'
       );
       if (!isAuthenticated) {
-        Alert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
+        RNAlert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
         setAuthView('sign-in');
       } else {
-        Alert.alert(t('error'), t('membersOnly'));
+        RNAlert.alert(t('error'), t('membersOnly'));
       }
       onClose();
     }
@@ -395,14 +395,14 @@ export default function NextGenNewTranslationModal({
     },
     onSuccess: () => {
       form.reset();
-      Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
+      RNAlert.alert(t('success'), t('translationSubmittedSuccessfully'));
       onSuccess?.();
       onClose();
     },
     onError: (error) => {
       console.error('[CREATE TRANSLATION] Error creating translation:', error);
       console.error('[CREATE TRANSLATION] Error stack:', error.stack);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         t('failedCreateTranslation') + '\n\n' + error.message
       );
@@ -420,7 +420,7 @@ export default function NextGenNewTranslationModal({
 
   const handlePredictTranslation = async () => {
     if (!contentPreview.trim()) {
-      Alert.alert(
+      RNAlert.alert(
         'No Source Text',
         'There is no source text to translate. Please select an asset with content.',
         [{ text: 'OK' }]
@@ -429,7 +429,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!isOnline) {
-      Alert.alert(
+      RNAlert.alert(
         'Offline',
         'AI translation requires an internet connection. Please check your network and try again.',
         [{ text: 'OK' }]
@@ -438,7 +438,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!targetLanguageData) {
-      Alert.alert(
+      RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
         [{ text: 'OK' }]
@@ -504,7 +504,7 @@ export default function NextGenNewTranslationModal({
 
       // Only show alert if it's not an API key error (we'll show it in the UI instead)
       if (!isApiKeyError) {
-        Alert.alert(
+        RNAlert.alert(
           t('error'),
           `Failed to predict translation: ${errorMessage}`
         );
@@ -818,7 +818,7 @@ export default function NextGenNewTranslationModal({
                       '[CREATE TRANSLATION] Form validation failed'
                     );
                   }
-                  Alert.alert(t('error'), t('fillFields'));
+                  RNAlert.alert(t('error'), t('fillFields'));
                 }
               )}
             >

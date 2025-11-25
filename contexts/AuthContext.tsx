@@ -7,7 +7,7 @@ import type {
   User
 } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import RNAlert from 'react-native-alert';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
