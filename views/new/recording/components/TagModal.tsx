@@ -178,17 +178,28 @@ export function TagModal({
                     Selected Tags ({selectedTags.length}):
                   </Text>
                   <ScrollView horizontal className="flex-row">
-                    {selectedTags.map((tag) => (
-                      <Pressable
-                        key={tag.id}
-                        onPress={() => handleTagToggle(tag)}
-                        className="mr-2 rounded-full bg-primary px-3 py-1"
-                      >
-                        <Text className="text-sm text-primary-foreground">
-                          {formatTagText(tag)} ✕
-                        </Text>
-                      </Pressable>
-                    ))}
+                    {selectedTags.map((tag, index) => {
+                      const isFirstTag = index === 0;
+                      return (
+                        <Pressable
+                          key={tag.id}
+                          onPress={() => handleTagToggle(tag)}
+                          className={`mr-2 rounded-full px-3 py-1 ${
+                            isFirstTag ? 'bg-primary' : 'bg-primary/90'
+                          }`}
+                        >
+                          <Text
+                            className={`text-sm ${
+                              isFirstTag
+                                ? 'font-bold text-white'
+                                : 'text-primary-foreground'
+                            }`}
+                          >
+                            {formatTagText(tag)} ✕
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}
@@ -214,21 +225,28 @@ export function TagModal({
                         const isSelected = selectedTags.some(
                           (t) => t.id === tag.id
                         );
+                        const isFirstSelected =
+                          selectedTags.length > 0 &&
+                          selectedTags[0]?.id === tag.id;
                         return (
                           <Pressable
                             key={tag.id}
                             onPress={() => handleTagToggle(tag)}
                             className={`mb-2 mr-2 rounded-full px-3 py-1 ${
-                              isSelected
+                              isFirstSelected
                                 ? 'bg-primary'
-                                : 'border border-border bg-background'
+                                : isSelected
+                                  ? 'bg-primary/90'
+                                  : 'border border-border bg-background'
                             }`}
                           >
                             <Text
                               className={`text-sm ${
-                                isSelected
-                                  ? 'text-primary-foreground'
-                                  : 'text-foreground'
+                                isFirstSelected
+                                  ? 'font-bold text-white'
+                                  : isSelected
+                                    ? 'text-primary-foreground'
+                                    : 'text-foreground'
                               }`}
                             >
                               {formatTagText(tag)}
