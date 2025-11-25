@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import type { System } from '@/db/powersync/system'; // actual System instance type
 import type { ProgressCallback } from '@/utils/backupUtils';

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 type Quest = typeof questTable.$inferSelect;
 

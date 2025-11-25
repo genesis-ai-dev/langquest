@@ -45,7 +45,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,

@@ -31,13 +31,8 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
-import RNAlert from 'react-native-alert';
+import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 // Type definitions
 type Request = InferSelectModel<typeof request>;

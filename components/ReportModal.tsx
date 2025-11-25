@@ -13,13 +13,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
-import RNAlert from 'react-native-alert';
+import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

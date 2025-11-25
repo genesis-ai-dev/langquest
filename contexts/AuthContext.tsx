@@ -7,7 +7,7 @@ import type {
   User
 } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
       // Show error to user for other errors
-      Alert.alert(
+      RNAlert.alert(
         'Initialization Error',
         'Failed to initialize the app. Please try logging out and back in.',
         [{ text: 'OK' }]

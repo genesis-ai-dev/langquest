@@ -26,7 +26,7 @@ import { Image } from 'expo-image';
 import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface BibleChapterListProps {
   projectId: string;

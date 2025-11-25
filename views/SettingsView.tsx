@@ -16,13 +16,8 @@ import { cn } from '@/utils/styleUtils';
 import type { Href } from 'expo-router';
 import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
-import {
-  Pressable,
-  ScrollView,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import RNAlert from 'react-native-alert';
+import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface SettingsSection {
   title: string;

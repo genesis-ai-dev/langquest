@@ -19,7 +19,7 @@ import { useMutation } from '@tanstack/react-query';
 import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
 import { Keyboard, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { z } from 'zod';
 
 export default function ResetPasswordView() {

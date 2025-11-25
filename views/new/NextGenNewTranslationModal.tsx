@@ -57,7 +57,7 @@ import {
   ScrollView,
   TouchableWithoutFeedback
 } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type { TextInput } from 'react-native';
 import { z } from 'zod';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';

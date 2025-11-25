@@ -25,7 +25,7 @@ import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 

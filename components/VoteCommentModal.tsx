@@ -12,7 +12,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface VoteCommentModalProps {
   isVisible: boolean;

@@ -10,7 +10,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { CloudUpload, XIcon } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
 import { Button } from './ui/button';

@@ -24,7 +24,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, LogOutIcon, RotateCcw } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 export function AccountDeletedOverlay() {
   const { t } = useLocalization();

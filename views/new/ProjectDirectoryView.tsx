@@ -78,7 +78,7 @@ import {
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ActivityIndicator, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,

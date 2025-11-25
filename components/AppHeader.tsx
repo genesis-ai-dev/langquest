@@ -17,7 +17,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,

@@ -30,7 +30,7 @@ import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
-import RNAlert from 'react-native-alert';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
