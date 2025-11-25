@@ -17,7 +17,7 @@ interface BibleBookListAnimationProps {
 }
 
 export function BibleBookListAnimation({
-  showChapters = false,
+  showChapters: _showChapters = false,
   renderGenesis
 }: BibleBookListAnimationProps) {
   const primaryColor = useThemeColor('primary');
