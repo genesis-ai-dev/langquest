@@ -3,6 +3,12 @@ const { withNativeWind } = require('nativewind/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 
+// Define __DEV__ for build scripts (Expo Updates build script context)
+// In Node.js context, __DEV__ might not be defined, so we check NODE_ENV
+if (typeof __DEV__ === 'undefined') {
+  global.__DEV__ = process.env.NODE_ENV !== 'production';
+}
+
 const config = getDefaultConfig(__dirname);
 
 // DO NOT PUSH MJS TO ASSET EXTS SEPERATELY - DUPLICATE EXTENSIONS BREAK THE ENTIRE APP
