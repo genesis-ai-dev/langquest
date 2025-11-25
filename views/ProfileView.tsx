@@ -47,7 +47,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
-import { alert } from '@/utils/alertUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -76,7 +76,7 @@ export default function ProfileView() {
       console.log('optedOut', posthog.optedOut);
     } catch (error) {
       console.error('Error saving analytics preference:', error);
-      alert(t('error'), t('failedSaveAnalyticsPreference'));
+      RNAlert.alert(t('error'), t('failedSaveAnalyticsPreference'));
     }
   };
 
@@ -149,7 +149,7 @@ export default function ProfileView() {
       });
 
       if (updatedUser) {
-        alert(t('success'), t('profileUpdateSuccess'));
+        RNAlert.alert(t('success'), t('profileUpdateSuccess'));
         form.reset({
           ...form.getValues(),
           currentPassword: '',
@@ -160,7 +160,7 @@ export default function ProfileView() {
     },
     onError: (error) => {
       console.error('Error updating profile:', error);
-      alert(t('error'), t('failedUpdateProfile'));
+      RNAlert.alert(t('error'), t('failedUpdateProfile'));
     }
   });
 
@@ -217,7 +217,7 @@ export default function ProfileView() {
                 loading={seedDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  alert(
+                  RNAlert.alert(
                     'Seed data',
                     'This will reset local development data and seed the database. Continue?',
                     [
@@ -240,7 +240,7 @@ export default function ProfileView() {
                 loading={deleteDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  alert(
+                  RNAlert.alert(
                     'Delete data',
                     'This will reset local development data. Continue?',
                     [
@@ -264,7 +264,7 @@ export default function ProfileView() {
               loading={deleteAttachmentsPending}
               className="w-full"
               onPress={() => {
-                alert(
+                Alert.alert(
                   'Delete local attachments',
                   'This will reset local attachments. Continue?',
                   [

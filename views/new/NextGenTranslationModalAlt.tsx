@@ -48,7 +48,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import { alert } from '@/utils/alertUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar
@@ -209,7 +209,7 @@ export default function NextGenTranslationModal({
   const { mutateAsync: handleVote, isPending: isVotePending } = useMutation({
     mutationFn: async ({ voteType }: { voteType: 'up' | 'down' }) => {
       if (!currentUser || !asset) {
-        alert(t('error'), t('pleaseLogInToVote'));
+        RNAlert.alert(t('error'), t('pleaseLogInToVote'));
         return;
       }
       setPendingVoteType(voteType);
@@ -373,14 +373,14 @@ export default function NextGenTranslationModal({
         });
       },
       onSuccess: () => {
-        alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
+        RNAlert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
       },
       onError: (error) => {
         console.error('Error creating transcription:', error);
-        alert(t('error'), t('failedToCreateTranscription'));
+        RNAlert.alert(t('error'), t('failedToCreateTranscription'));
       }
     });
 

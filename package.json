@@ -125,6 +125,7 @@
     "react-dom": "19.0.0",
     "react-hook-form": "^7.54.2",
     "react-native": "0.79.5",
+    "react-native-alert": "github:blazejkustra/react-native-alert",
     "react-native-alerts": "^0.1.8",
     "react-native-element-dropdown": "2.12.2",
     "react-native-gesture-handler": "~2.24.0",
