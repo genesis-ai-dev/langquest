@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, like } from 'drizzle-orm';
 import { asset_tag_link, quest_tag_link, tag } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -47,6 +47,45 @@ export class TagService {
     );
 
     return Promise.all(tagPromises);
+  }
+
+  // async getTagsByTagKey(tagKey: string, limit = 200) {
+  //   // First get tag IDs from junction table
+  //   const tags = await db
+  //     .select()
+  //     .from(tag)
+  //     .where(eq(tag.key, tagKey))
+  //     .orderBy(asc(tag.value))
+  //     .limit(limit);
+
+  //   return tags;
+  // }
+
+  async searchTags(searchTerm?: string, limit = 200) {
+    const whereCondition = searchTerm
+      ? and(eq(tag.active, true), like(tag.key, `${searchTerm}%`))
+      : eq(tag.active, true);
+
+    console.log('Searching tags with condition:', searchTerm);
+    const tags = await db
+      .select()
+      .from(tag)
+      .where(whereCondition)
+      .orderBy(asc(tag.key), asc(tag.value))
+      .limit(limit);
+
+    return tags;
+  }
+
+  async getAllActiveTags(limit = 200) {
+    const tags = await db
+      .select()
+      .from(tag)
+      .where(eq(tag.active, true))
+      .orderBy(asc(tag.key))
+      .limit(limit);
+
+    return tags;
   }
 }
 
