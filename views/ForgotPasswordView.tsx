@@ -20,7 +20,8 @@ import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -53,7 +54,7 @@ export default function ForgotPasswordView({
       if (error) throw error;
     },
     onSuccess: () => {
-      Alert.alert(t('success'), t('checkEmailForResetLink'), [
+      RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
           onPress: () =>
@@ -64,7 +65,7 @@ export default function ForgotPasswordView({
       ]);
     },
     onError: (error) => {
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedSendResetEmail')
       );

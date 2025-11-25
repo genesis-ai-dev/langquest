@@ -32,12 +32,12 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Modal,
   Pressable,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import RNAlert from 'react-native-alert';
 
 // Type definitions
 type Request = InferSelectModel<typeof request>;
@@ -313,10 +313,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       // Trigger refresh by updating the refresh key (changes query key, triggers refetch)
       setRefreshKey((prev) => prev + 1);
 
-      Alert.alert(t('success'), t('membershipRequestSent'));
+      RNAlert.alert(t('success'), t('membershipRequestSent'));
     } catch (error) {
       console.error('Error requesting membership:', error);
-      Alert.alert(t('error'), t('failedToRequestMembership'));
+      RNAlert.alert(t('error'), t('failedToRequestMembership'));
     } finally {
       setIsSubmitting(false);
     }
@@ -325,7 +325,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const handleWithdrawRequest = () => {
     if (!existingRequest) return;
 
-    Alert.alert(t('confirmWithdraw'), t('confirmWithdrawRequestMessage'), [
+    RNAlert.alert(t('confirmWithdraw'), t('confirmWithdrawRequestMessage'), [
       { text: t('cancel'), style: 'cancel' },
       {
         text: t('confirm'),
@@ -345,10 +345,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);
-              Alert.alert(t('success'), t('requestWithdrawn'));
+              RNAlert.alert(t('success'), t('requestWithdrawn'));
             } catch (error) {
               console.error('Error withdrawing request:', error);
-              Alert.alert(t('error'), t('failedToWithdrawRequest'));
+              RNAlert.alert(t('error'), t('failedToWithdrawRequest'));
             } finally {
               setIsSubmitting(false);
             }

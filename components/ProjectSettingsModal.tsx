@@ -7,7 +7,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { SwitchBox } from './SwitchBox';
 import { Button } from './ui/button';
 import {
@@ -48,7 +49,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   React.useEffect(() => {
     if (isError) {
-      Alert.alert(t('error'), t('projectSettingsLoadError'));
+      RNAlert.alert(t('error'), t('projectSettingsLoadError'));
       onClose();
     }
   }, [isError, onClose, t]);
@@ -107,10 +108,10 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
       refetch();
 
-      Alert.alert(t('success'), message);
+      RNAlert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating project status:', error);
-      Alert.alert(t('error'), t('failedToUpdateProjectSettings'));
+      RNAlert.alert(t('error'), t('failedToUpdateProjectSettings'));
     } finally {
       setIsSubmitting(false);
     }

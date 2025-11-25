@@ -19,7 +19,8 @@ import {
   Trash2
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
@@ -38,7 +39,7 @@ export default function CorruptedAttachmentsView() {
       setCorrupted(found);
     } catch (error) {
       console.error('Failed to load corrupted attachments:', error);
-      Alert.alert(t('error'), t('failedToLoadCorruptedAttachments'));
+      RNAlert.alert(t('error'), t('failedToLoadCorruptedAttachments'));
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +72,7 @@ export default function CorruptedAttachmentsView() {
 
   const handleCleanOne = useCallback(
     async (attachmentId: string) => {
-      Alert.alert(
+      RNAlert.alert(
         t('cleanCorruptedAttachment'),
         t('cleanCorruptedAttachmentConfirm'),
         [
@@ -92,13 +93,13 @@ export default function CorruptedAttachmentsView() {
                   prev.filter((c) => c.attachmentRecord.id !== attachmentId)
                 );
 
-                Alert.alert(
+                RNAlert.alert(
                   t('success'),
                   t('corruptedAttachmentCleanedSuccess')
                 );
               } catch (error) {
                 console.error('Failed to clean attachment:', error);
-                Alert.alert(
+                RNAlert.alert(
                   t('error'),
                   t('failedToCleanAttachment', {
                     error:
@@ -128,7 +129,7 @@ export default function CorruptedAttachmentsView() {
         ? t('cleanAllConfirmPlural', { count: corrupted.length })
         : t('cleanAllConfirm', { count: corrupted.length });
 
-    Alert.alert(t('cleanAllCorruptedAttachments'), confirmMsg, [
+    RNAlert.alert(t('cleanAllCorruptedAttachments'), confirmMsg, [
       {
         text: t('cancel'),
         style: 'cancel'
@@ -157,7 +158,7 @@ export default function CorruptedAttachmentsView() {
                       errorCount: result.errors.length,
                       errors: result.errors.join('\n')
                     });
-              Alert.alert(t('partialSuccess'), errorMsg);
+              RNAlert.alert(t('partialSuccess'), errorMsg);
             } else {
               const successMsg =
                 result.cleaned > 1
@@ -167,11 +168,11 @@ export default function CorruptedAttachmentsView() {
                   : t('successfullyCleanedAttachments', {
                       cleaned: result.cleaned
                     });
-              Alert.alert(t('success'), successMsg);
+              RNAlert.alert(t('success'), successMsg);
             }
           } catch (error) {
             console.error('Failed to clean all:', error);
-            Alert.alert(
+            RNAlert.alert(
               t('error'),
               t('failedToCleanAttachments', {
                 error: error instanceof Error ? error.message : String(error)

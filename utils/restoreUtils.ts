@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import RNAlert from 'react-native-alert';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import type { System } from '@/db/powersync/system'; // actual System instance type
 import type { ProgressCallback } from '@/utils/backupUtils';
@@ -71,7 +72,7 @@ export async function selectAndInitiateRestore(
   onProgress?: ProgressCallback
 ) {
   if (Platform.OS !== 'android') {
-    Alert.alert(t('error'), t('restoreAndroidOnly'));
+    RNAlert.alert(t('error'), t('restoreAndroidOnly'));
     onFinish?.();
     return;
   }
@@ -81,13 +82,13 @@ export async function selectAndInitiateRestore(
     // Prompt user to select the backup directory
     const directoryUri = await requestBackupDirectory();
     if (!directoryUri) {
-      Alert.alert(t('permissionDenied'), t('storagePermissionDenied'));
+      RNAlert.alert(t('permissionDenied'), t('storagePermissionDenied'));
       onFinish?.();
       return;
     }
 
     // Confirm Audio-Only Restore
-    Alert.alert(
+    RNAlert.alert(
       t('confirmAudioRestore'), // Use existing audio confirm title
       t('confirmAudioRestoreMessage'), // Use existing audio confirm message
       [
@@ -110,7 +111,7 @@ export async function selectAndInitiateRestore(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[selectAndInitiateRestore] Error:', errorMessage);
-    Alert.alert(t('error'), t('failedRestore', { error: errorMessage }));
+    RNAlert.alert(t('error'), t('failedRestore', { error: errorMessage }));
     onFinish?.();
   }
 }
@@ -131,7 +132,7 @@ async function restoreFromBackup(
 ) {
   const whatRestoring = 'audio files'; // Simplified
 
-  Alert.alert('Restore Started', `Restoring ${whatRestoring}...`);
+  RNAlert.alert('Restore Started', `Restoring ${whatRestoring}...`);
 
   // Removed temp DB variables
   // const tempDbName = 'restore_temp.db';
@@ -363,11 +364,11 @@ async function restoreFromBackup(
       completeMessage += ` ${locallySkippedMessage}`;
     }
 
-    Alert.alert(t('restoreCompleteTitle'), completeMessage);
+    RNAlert.alert(t('restoreCompleteTitle'), completeMessage);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[restoreFromBackup] Error during restore:', errorMessage);
-    Alert.alert(t('restoreFailedTitle', { error: errorMessage }));
+    RNAlert.alert(t('restoreFailedTitle', { error: errorMessage }));
   } finally {
     // Cleanup temp DB file (removed)
     /*

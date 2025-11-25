@@ -18,7 +18,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
-import { Alert, Keyboard, View } from 'react-native';
+import { Keyboard, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { z } from 'zod';
 
 export default function ResetPasswordView() {
@@ -48,7 +49,7 @@ export default function ResetPasswordView() {
 
       Keyboard.dismiss();
 
-      Alert.alert(t('success'), t('passwordResetSuccess'), [
+      RNAlert.alert(t('success'), t('passwordResetSuccess'), [
         {
           text: t('ok'),
           // Sign out and let auth context handle navigation to sign in
@@ -62,7 +63,7 @@ export default function ResetPasswordView() {
       form.reset();
     },
     onError: (error) => {
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('passwordUpdateFailed')
       );

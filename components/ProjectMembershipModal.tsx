@@ -33,7 +33,8 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 const MAX_INVITE_ATTEMPTS = 3;
@@ -334,7 +335,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const activeOwnerCount = members.filter((m) => m.role === 'owner').length;
 
   const handleRemoveMember = (memberId: string, memberName: string) => {
-    Alert.alert(
+    RNAlert.alert(
       t('confirmRemove'),
       t('confirmRemoveMessage', { name: memberName }),
       [
@@ -361,7 +362,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 // void refetchMembers(); // Removed refetch
               } catch (error) {
                 console.error('Error removing member:', error);
-                Alert.alert(t('error'), t('failedToRemoveMember'));
+                RNAlert.alert(t('error'), t('failedToRemoveMember'));
               }
             })();
           }
@@ -371,7 +372,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handlePromoteToOwner = (memberId: string, memberName: string) => {
-    Alert.alert(
+    RNAlert.alert(
       t('confirmPromote'),
       t('confirmPromoteMessage', { name: memberName }),
       [
@@ -396,7 +397,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 // void refetchMembers(); // Removed refetch
               } catch (error) {
                 console.error('Error promoting member:', error);
-                Alert.alert(t('error'), t('failedToPromoteMember'));
+                RNAlert.alert(t('error'), t('failedToPromoteMember'));
               }
             })();
           }
@@ -407,7 +408,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const handleLeaveProject = () => {
     if (activeOwnerCount <= 1 && managePermissions.hasAccess) {
-      Alert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
+      RNAlert.alert(t('error'), t('cannotLeaveAsOnlyOwner'));
       return;
     }
 
@@ -415,7 +416,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       return null;
     }
 
-    Alert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
+    RNAlert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
       { text: t('cancel'), style: 'cancel' },
       {
         text: t('confirm'),
@@ -439,7 +440,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               onClose();
             } catch (error) {
               console.error('Error leaving project:', error);
-              Alert.alert(t('error'), t('failedToLeaveProject'));
+              RNAlert.alert(t('error'), t('failedToLeaveProject'));
             }
           })();
         }
@@ -480,7 +481,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error withdrawing invitation:', error);
-      Alert.alert(t('error'), t('failedToWithdrawInvitation'));
+      RNAlert.alert(t('error'), t('failedToWithdrawInvitation'));
     }
   };
 
@@ -509,13 +510,13 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           .where(eq(invite_synced.id, inviteId));
 
         // void refetchInvitations(); // Removed refetch
-        Alert.alert(t('success'), t('invitationResent'));
+        RNAlert.alert(t('success'), t('invitationResent'));
       } else {
-        Alert.alert(t('error'), t('maxInviteAttemptsReached'));
+        RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
       }
     } catch (error) {
       console.error('Error resending invitation:', error);
-      Alert.alert(t('error'), t('failedToResendInvitation'));
+      RNAlert.alert(t('error'), t('failedToResendInvitation'));
     }
   };
 
@@ -524,7 +525,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     senderId: string,
     senderName: string
   ) => {
-    Alert.alert(
+    RNAlert.alert(
       t('confirmApprove'),
       t('confirmApproveMessage', { name: senderName }),
       [
@@ -579,10 +580,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   });
                 }
 
-                Alert.alert(t('success'), t('requestApproved'));
+                RNAlert.alert(t('success'), t('requestApproved'));
               } catch (error) {
                 console.error('Error approving request:', error);
-                Alert.alert(t('error'), t('failedToApproveRequest'));
+                RNAlert.alert(t('error'), t('failedToApproveRequest'));
               } finally {
                 setIsSubmitting(false);
               }
@@ -594,7 +595,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   };
 
   const handleDenyRequest = (requestId: string, senderName: string) => {
-    Alert.alert(
+    RNAlert.alert(
       t('confirmDeny'),
       t('confirmDenyMessage', { name: senderName }),
       [
@@ -614,10 +615,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   })
                   .where(eq(request_synced.id, requestId));
 
-                Alert.alert(t('success'), t('requestDenied'));
+                RNAlert.alert(t('success'), t('requestDenied'));
               } catch (error) {
                 console.error('Error denying request:', error);
-                Alert.alert(t('error'), t('failedToDenyRequest'));
+                RNAlert.alert(t('error'), t('failedToDenyRequest'));
               } finally {
                 setIsSubmitting(false);
               }
@@ -635,7 +636,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
 
     if (!isValidEmail(inviteEmail)) {
-      Alert.alert(t('error'), t('enterValidEmail'));
+      RNAlert.alert(t('error'), t('enterValidEmail'));
       return;
     }
 
@@ -647,7 +648,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       );
 
       if (existingMember) {
-        Alert.alert(
+        RNAlert.alert(
           t('error'),
           t('emailAlreadyMemberMessage', { role: t(existingMember.role) })
         );
@@ -713,16 +714,16 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             setInviteEmail('');
             setInviteAsOwner(false);
             // void refetchInvitations(); // Removed refetch
-            Alert.alert(t('success'), t('invitationResent'));
+            RNAlert.alert(t('success'), t('invitationResent'));
             return;
           } else {
-            Alert.alert(t('error'), t('maxInviteAttemptsReached'));
+            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
             setIsSubmitting(false);
             return;
           }
         } else {
           // Invitation is still pending or in another active state
-          Alert.alert(t('error'), t('invitationAlreadySent'));
+          RNAlert.alert(t('error'), t('invitationAlreadySent'));
           setIsSubmitting(false);
           return;
         }
@@ -741,10 +742,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       setInviteEmail('');
       setInviteAsOwner(false);
       // void refetchInvitations(); // Removed refetch
-      Alert.alert(t('success'), t('invitationSent'));
+      RNAlert.alert(t('success'), t('invitationSent'));
     } catch (error) {
       console.error('Error sending invitation:', error);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedToSendInvitation')
       );

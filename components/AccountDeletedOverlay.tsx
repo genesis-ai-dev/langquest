@@ -23,7 +23,8 @@ import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, LogOutIcon, RotateCcw } from 'lucide-react-native';
 import React from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from 'react-native-alert';
 
 export function AccountDeletedOverlay() {
   const { t } = useLocalization();
@@ -68,7 +69,7 @@ export function AccountDeletedOverlay() {
         queryKey: ['profile', currentUser?.id]
       });
 
-      Alert.alert(t('success'), t('accountRestoreSuccess'), [
+      RNAlert.alert(t('success'), t('accountRestoreSuccess'), [
         {
           text: t('ok'),
           onPress: () => {
@@ -82,7 +83,7 @@ export function AccountDeletedOverlay() {
       console.error('Error restoring account:', error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         t('accountRestoreError', { error: errorMessage })
       );
@@ -90,7 +91,7 @@ export function AccountDeletedOverlay() {
   });
 
   const handleRestore = () => {
-    Alert.alert(
+    RNAlert.alert(
       t('restoreAccountConfirmTitle'),
       t('restoreAccountConfirmMessage'),
       [

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { useMicrophoneEnergy } from '../hooks/useMicrophoneEnergy';
 import { colors, fontSizes, spacing } from '../styles/theme';
 
@@ -185,7 +186,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
         await startEnergyDetection();
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to toggle energy detection');
+      RNAlert.alert('Error', 'Failed to toggle energy detection');
       console.error('Energy detection toggle error:', error);
       // Clean up state on error
       globalRecordingInstance = null;

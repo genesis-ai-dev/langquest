@@ -29,7 +29,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { Alert, InteractionManager, View } from 'react-native';
+import { InteractionManager, View } from 'react-native';
+import RNAlert from 'react-native-alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -1091,7 +1092,7 @@ const RecordingViewSimplified = ({
     );
     if (selectedOrdered.length < 2) return;
 
-    Alert.alert(
+    RNAlert.alert(
       'Merge Assets',
       `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
       [
@@ -1158,7 +1159,7 @@ const RecordingViewSimplified = ({
                 debugLog('✅ Batch merge completed');
               } catch (e) {
                 console.error('Failed to batch merge local assets', e);
-                Alert.alert(
+                RNAlert.alert(
                   'Error',
                   'Failed to merge assets. Please try again.'
                 );
@@ -1183,7 +1184,7 @@ const RecordingViewSimplified = ({
     );
     if (selectedOrdered.length < 1) return;
 
-    Alert.alert(
+    RNAlert.alert(
       'Delete Assets',
       `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
       [
@@ -1212,7 +1213,7 @@ const RecordingViewSimplified = ({
                 );
               } catch (e) {
                 console.error('Failed to batch delete local assets', e);
-                Alert.alert(
+                RNAlert.alert(
                   'Error',
                   'Failed to delete assets. Please try again.'
                 );
@@ -1257,7 +1258,7 @@ const RecordingViewSimplified = ({
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
           console.warn('⚠️ Rename blocked:', error.message);
-          Alert.alert('Error', error.message);
+          RNAlert.alert('Error', error.message);
         }
       }
     },
