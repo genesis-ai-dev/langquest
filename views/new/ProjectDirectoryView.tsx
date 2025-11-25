@@ -378,7 +378,7 @@ export default function ProjectDirectoryView() {
 
   // Check membership status separately from settings permission
   // Use 'open_project' action to get accurate membership status
-  const { membership: membershipStatus, hasAccess: canOpenProject } =
+  const { membership: membershipStatus, hasAccess: _canOpenProject } =
     useUserPermissions(
       currentProjectId || '',
       'open_project',
@@ -515,7 +515,7 @@ export default function ProjectDirectoryView() {
       .from('quest')
       .select('download_profiles')
       .eq('id', questId)
-      .single();
+      .single<{ download_profiles: string[] | null }>();
 
     if (error) {
       console.error('Error checking quest download status:', error);
@@ -523,7 +523,9 @@ export default function ProjectDirectoryView() {
     }
 
     const isDownloaded =
-      data.download_profiles?.includes(currentUser.id) ?? false;
+      (data?.download_profiles as string[] | null | undefined)?.includes(
+        currentUser.id
+      ) ?? false;
 
     setQuestIdToDownload(questId);
 
