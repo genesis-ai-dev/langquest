@@ -142,12 +142,14 @@ jobs:
             echo "Comparing PR branch database migrations vs PR branch migration files"
             echo ""
             echo "Migrations in PR branch database:"
-            echo "$DB_MIGRATIONS" | head -10
-            echo "..."
+            echo "$DB_MIGRATIONS" | head -20
             echo ""
             echo "Migration files in PR branch:"
-            echo "$REPO_MIGRATIONS" | head -10
-            echo "..."
+            echo "$REPO_MIGRATIONS" | head -20
+            echo ""
+            echo "DEBUG: Checking for renamed migrations..."
+            echo "DB migrations count: $(echo "$DB_FULL" | wc -l)"
+            echo "Repo migrations count: $(echo "$REPO_FULL" | wc -l)"
             echo ""
             
             # Normalize formats: DB format is "version_name", repo format is "timestamp_name"
@@ -181,6 +183,24 @@ jobs:
               fi
             done
             
+            # Also check reverse: repo migrations that might be renamed versions of DB migrations
+            for repo_migration in $REPO_FULL; do
+              repo_name=$(echo "$repo_migration" | sed 's/^[0-9_]*_//')
+              repo_version=$(echo "$repo_migration" | sed 's/_.*$//')
+              
+              # Check if this name exists in DB with different version
+              db_match=$(echo "$DB_FULL" | grep "_${repo_name}$" | head -1)
+              if [ -n "$db_match" ]; then
+                db_version=$(echo "$db_match" | sed 's/_.*$//')
+                if [ "$repo_version" != "$db_version" ]; then
+                  # Only add if not already found in the forward check
+                  if ! echo "$RENAMED_MIGRATIONS" | grep -q "${db_match} -> ${repo_migration}"; then
+                    RENAMED_MIGRATIONS="${RENAMED_MIGRATIONS}${db_match} -> ${repo_migration}\n"
+                  fi
+                fi
+              fi
+            done
+            
             # Check for chronological order violations
             # If repo has migrations with timestamps before the last DB migration, flag as out-of-order
             LAST_DB_VERSION=$(echo "$DB_FULL" | tail -1 | sed 's/_.*$//')
@@ -201,16 +221,36 @@ jobs:
             ERRORS=""
             WARNINGS=""
             
-            if [ -n "$MISSING_IN_REPO_FULL" ]; then
-              ERRORS="${ERRORS}❌ **CRITICAL**: Migrations in database history but NOT in repository files:\n\`\`\`\n${MISSING_IN_REPO_FULL}\n\`\`\`\n\n"
-              ERRORS="${ERRORS}This means migration files were deleted but the migration history remains. This will cause merge conflicts!\n\n"
-            fi
-            
+            # Check for renamed migrations first (more specific than missing)
             if [ -n "$RENAMED_MIGRATIONS" ]; then
-              ERRORS="${ERRORS}❌ **CRITICAL**: Migrations were renamed (same name, different timestamp):\n\`\`\`\n${RENAMED_MIGRATIONS}\`\`\`\n\n"
+              ERRORS="${ERRORS}❌ **CRITICAL**: Migrations were renamed (same name, different timestamp):\n\`\`\`\n$(echo -e "$RENAMED_MIGRATIONS")\`\`\`\n\n"
               ERRORS="${ERRORS}This will cause migration history mismatches. You need to repair the migration history:\n"
               ERRORS="${ERRORS}1. Mark old migration as reverted: \`npx supabase@beta migration repair --status reverted --version <old_version> --name <name>\`\n"
               ERRORS="${ERRORS}2. Mark new migration as applied: \`npx supabase@beta migration repair --status applied --version <new_version> --name <name>\`\n\n"
+            fi
+            
+            # Check for missing migrations (but exclude ones that were renamed)
+            if [ -n "$MISSING_IN_REPO_FULL" ]; then
+              # Filter out migrations that are part of a rename
+              ACTUALLY_MISSING=""
+              for missing in $MISSING_IN_REPO_FULL; do
+                missing_name=$(echo "$missing" | sed 's/^[0-9_]*_//')
+                # Check if this is a renamed migration
+                is_renamed=false
+                if [ -n "$RENAMED_MIGRATIONS" ]; then
+                  if echo -e "$RENAMED_MIGRATIONS" | grep -q "^${missing} ->"; then
+                    is_renamed=true
+                  fi
+                fi
+                if [ "$is_renamed" = "false" ]; then
+                  ACTUALLY_MISSING="${ACTUALLY_MISSING}${missing}\n"
+                fi
+              done
+              
+              if [ -n "$ACTUALLY_MISSING" ]; then
+                ERRORS="${ERRORS}❌ **CRITICAL**: Migrations in database history but NOT in repository files:\n\`\`\`\n$(echo -e "$ACTUALLY_MISSING")\`\`\`\n\n"
+                ERRORS="${ERRORS}This means migration files were deleted but the migration history remains. This will cause merge conflicts!\n\n"
+              fi
             fi
             
             if [ -n "$OUT_OF_ORDER" ]; then
