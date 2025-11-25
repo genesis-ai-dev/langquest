@@ -43,7 +43,7 @@ export async function requestBackupDirectory() {
   } catch (dirError) {
     console.error('Error during directory permission request:', dirError);
     // Optionally, inform the user with an Alert here
-    // Alert.alert('Error', 'Failed to get directory permissions.');
+    // RNAlert.alert('Error', 'Failed to get directory permissions.');
     throw dirError; // Re-throw to be handled by the caller (e.g., backup/restore function)
   }
 }
