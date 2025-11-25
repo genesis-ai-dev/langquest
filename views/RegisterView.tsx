@@ -71,6 +71,12 @@ export default function RegisterView({
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
       }
+      // Get languoid name - handle both Languoid (name) and old Language (english_name) types
+      const languoidName =
+        (currentLanguage as any)?.name ||
+        (currentLanguage as any)?.english_name ||
+        'english';
+
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
         password: data.password.trim(),
@@ -79,9 +85,9 @@ export default function RegisterView({
             username: data.username.trim(),
             terms_accepted: data.termsAccepted,
             terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
-            ui_language:
-              currentLanguage?.english_name?.toLowerCase() || 'english',
-            ui_language_id: currentLanguage?.id,
+            ui_language: languoidName.toLowerCase(),
+            ui_languoid_id: currentLanguage?.id, // New languoid reference
+            ui_language_id: currentLanguage?.id, // Keep for backward compatibility
             email_verified: false
           },
           emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
