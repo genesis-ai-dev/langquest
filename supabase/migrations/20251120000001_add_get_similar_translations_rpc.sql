@@ -29,15 +29,15 @@ begin
     select 
       a.id as asset_id,
       acl.text as source_text,
-      ts_rank(acl.text_search_vector, plainto_tsquery('simple', p_source_text)) as rank
+      ts_rank(acl.text_search_vector, websearch_to_tsquery('simple', p_source_text)) as rank
     from public.asset a
     join public.asset_content_link acl on acl.asset_id = a.id
     where a.project_id = p_project_id
       and a.source_asset_id is null -- Only original assets
       and a.active = true
       and acl.text is not null
-      -- Only consider assets with some relevance
-      and acl.text_search_vector @@ plainto_tsquery('simple', p_source_text)
+      -- Only consider assets with some relevance (websearch allows OR/phrase matching)
+      and acl.text_search_vector @@ websearch_to_tsquery('simple', p_source_text)
   ),
   ranked_candidates as (
     -- Filter by rank threshold

@@ -151,9 +151,7 @@ export function useNearbyTranslations(
           const currentQuestExamples = await getExamplesFromAssets(
             currentQuestAssetIds,
             targetLanguageId,
-            sourceTextMap,
-            sourceText || undefined,
-            isOnline
+            sourceTextMap
           );
           examples.push(...currentQuestExamples);
         }
@@ -231,9 +229,7 @@ export function useNearbyTranslations(
               const otherQuestExamples = await getExamplesFromAssets(
                 otherQuestAssetIds,
                 targetLanguageId,
-                sourceTextMap,
-                sourceText || undefined,
-                isOnline
+                sourceTextMap
               );
 
               // Add examples up to MAX_EXAMPLES
@@ -303,9 +299,7 @@ export function useNearbyTranslations(
 async function getExamplesFromAssets(
   assetIds: string[],
   targetLanguageId: string,
-  sourceTextMap: Map<string, string>,
-  _sourceText?: string,
-  _isOnline?: boolean
+  sourceTextMap: Map<string, string>
 ): Promise<TranslationExample[]> {
   if (assetIds.length === 0) {
     return [];
