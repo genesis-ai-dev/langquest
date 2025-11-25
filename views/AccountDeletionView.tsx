@@ -91,7 +91,10 @@ export default function AccountDeletionView() {
       console.error('Error deleting account:', error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      RNAlert.alert(t('error'), t('accountDeletionError', { error: errorMessage }));
+      RNAlert.alert(
+        t('error'),
+        t('accountDeletionError', { error: errorMessage })
+      );
     }
   });
 
