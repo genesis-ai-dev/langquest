@@ -56,7 +56,7 @@ export async function createLanguoidOffline(
   }
 
   // Generate a new ID for the languoid
-  const languoidId = `lang-${uuid.v4()}`;
+  const languoidId = uuid.v4() as string;
 
   // Create the languoid in local storage
   await system.db.transaction(async (tx) => {
@@ -77,7 +77,7 @@ export async function createLanguoidOffline(
         localOverride: true
       });
 
-      const sourceId = `lsrc-${uuid.v4()}`;
+      const sourceId = uuid.v4() as string;
       await tx.insert(languoidSourceLocal).values({
         id: sourceId,
         name: 'iso639-3',

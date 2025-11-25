@@ -193,16 +193,23 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     if (useServerResults) {
       // Use server search results
       searchResults.forEach((result) => {
-        const endonym = endonymMap.get(result.id);
-        const displayName =
-          result.matched_alias_name ?? endonym ?? result.name ?? '';
+        // Always use the canonical languoid name as primary display
+        const canonicalName = result.name ?? '';
+        // Only show matched alias if it's different from the canonical name
+        // (i.e., the search matched an alias, not the name itself)
+        const matchedAlias =
+          result.matched_alias_name &&
+          result.matched_alias_name.toLowerCase() !==
+            canonicalName.toLowerCase()
+            ? result.matched_alias_name
+            : null;
         items.push({
           value: result.id,
-          label: displayName,
-          displayLabel: displayName,
+          label: canonicalName,
+          displayLabel: canonicalName,
           languoid: result,
           isoCode: result.iso_code,
-          matchedAlias: result.matched_alias_name
+          matchedAlias: matchedAlias
         });
       });
     } else {
@@ -495,14 +502,11 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                 >
                   {item.displayLabel || item.label}
                 </Text>
-                {/* Show ISO code or matched alias if available */}
+                {/* Show matched alias and/or ISO code if available */}
                 {(item.isoCode || item.matchedAlias) && (
                   <Text className="text-xs text-muted-foreground">
-                    {item.isoCode && `[${item.isoCode}]`}
-                    {item.isoCode && item.matchedAlias && ' · '}
-                    {item.matchedAlias &&
-                      item.matchedAlias !== item.displayLabel &&
-                      `Also: ${item.matchedAlias}`}
+                    {item.matchedAlias && `[${item.matchedAlias}] `}
+                    {item.isoCode && `iso:${item.isoCode}`}
                   </Text>
                 )}
               </View>

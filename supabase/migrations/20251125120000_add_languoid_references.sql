@@ -282,9 +282,9 @@ BEGIN
       CONTINUE;
     END IF;
     
-    -- Generate a new languoid ID (using a deterministic approach based on language ID)
+    -- Generate a new languoid ID (using the language's UUID directly)
     -- This ensures idempotency if migration is run multiple times
-    new_languoid_id := 'lang-' || replace(lang_record.id::text, '-', '');
+    new_languoid_id := lang_record.id::text;
     
     -- Check if languoid already exists (idempotency check)
     IF NOT EXISTS (SELECT 1 FROM public.languoid WHERE id = new_languoid_id) THEN
@@ -321,7 +321,7 @@ BEGIN
           created_at,
           last_updated
         ) VALUES (
-          'lsrc-' || replace(lang_record.id::text, '-', ''),
+          gen_random_uuid()::text,
           'iso639-3',
           new_languoid_id,
           trim(lang_record.iso639_3),
