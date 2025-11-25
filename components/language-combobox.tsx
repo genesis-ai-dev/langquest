@@ -3,18 +3,22 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { languoid } from '@/db/drizzleSchema';
 import {
+  type LanguoidSearchResult,
   useLanguoidEndonyms,
+  useLanguoidSearch,
   useLanguoids,
   useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
+import { createLanguoidOffline } from '@/utils/languoidUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon } from 'lucide-react-native';
+import { LanguagesIcon, PlusCircleIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
-import React, { useEffect, useMemo } from 'react';
-import { TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
   useAnimatedStyle,
@@ -26,13 +30,30 @@ import Animated, {
 
 type Languoid = typeof languoid.$inferSelect;
 
+// Extended type for dropdown items that includes the "create new" option
+interface DropdownItem {
+  value: string;
+  label: string;
+  displayLabel: string;
+  languoid?: Languoid | LanguoidSearchResult;
+  isCreateOption?: boolean;
+  isoCode?: string | null;
+  matchedAlias?: string | null;
+}
+
 interface LanguageComboboxProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string | null;
-  onChange?: (languoid: Languoid) => void;
+  onChange?: (languoid: Languoid | LanguoidSearchResult) => void;
   className?: string;
+  /** Only show UI-ready languages (for UI language selection) */
   uiReadyOnly?: boolean;
+  /** Update the UI localization when selection changes */
   toggleUILocalization?: boolean;
+  /** Allow creating new languages when search has no results */
+  allowCreate?: boolean;
+  /** Callback when a new language is created (receives the new languoid ID) */
+  onCreateNew?: (languoidId: string, name: string) => void;
 }
 
 function LoadingState() {
@@ -85,71 +106,154 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onChange,
   setLanguagesLoaded,
   className,
-  uiReadyOnly,
-  toggleUILocalization
+  uiReadyOnly = false,
+  toggleUILocalization,
+  allowCreate = false,
+  onCreateNew
 }) => {
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
   const setUILanguage = useLocalStore((state) => state.setUILanguage);
   const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const { t } = useLocalization();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
+  const isOnline = useNetworkStatus();
+
+  // State for creation flow
+  const [isCreating, setIsCreating] = useState(false);
 
   // Search state with debouncing (300ms delay)
-  // useDebouncedState returns: [debouncedValue, immediateValue, setValue]
   const [debouncedSearchQuery, immediateSearchQuery, setSearchQuery] =
     useDebouncedState('', 300);
 
-  // Use useUIReadyLanguoids if uiReadyOnly, otherwise use useLanguoids
+  // Use server-side search when online and searching (for non-uiReadyOnly mode)
+  const shouldUseServerSearch =
+    isOnline && !uiReadyOnly && debouncedSearchQuery.length >= 2;
+
+  // Server-side search results
+  const {
+    results: searchResults,
+    isLoading: isSearchLoading,
+    isQueryValid
+  } = useLanguoidSearch(debouncedSearchQuery, {
+    limit: 50,
+    uiReadyOnly,
+    enabled: shouldUseServerSearch
+  });
+
+  // Local languoids for fallback/initial display
   const { languoids: uiReadyLanguoids, isLanguoidsLoading: isLoadingUIReady } =
     useUIReadyLanguoids();
   const { languoids: allLanguoids, isLanguoidsLoading: isLoadingAll } =
     useLanguoids();
-  const languoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
-  const isLoading = uiReadyOnly ? isLoadingUIReady : isLoadingAll;
 
-  // Fetch endonyms for all languoids
-  const languoidIds = useMemo(() => languoids.map((l) => l.id), [languoids]);
+  // Choose which languoids to use based on mode
+  const localLanguoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
+  const isLocalLoading = uiReadyOnly ? isLoadingUIReady : isLoadingAll;
+
+  // Determine which data source to use
+  const useServerResults = shouldUseServerSearch && isQueryValid;
+
+  // Get languoid IDs for endonym lookup
+  const languoidIds = useMemo(() => {
+    if (useServerResults) {
+      return searchResults.map((r) => r.id);
+    }
+    return localLanguoids.map((l) => l.id);
+  }, [useServerResults, searchResults, localLanguoids]);
+
+  // Fetch endonyms
   const { endonymMap } = useLanguoidEndonyms(languoidIds);
 
-  // Filter languoids by search query (search both name and endonym)
-  const filteredLanguoids = useMemo(() => {
+  // Filter local languoids by search query (client-side filtering)
+  const filteredLocalLanguoids = useMemo(() => {
+    if (useServerResults) return []; // Don't need this when using server search
+
     if (!debouncedSearchQuery.trim()) {
-      return languoids;
+      return localLanguoids;
     }
     const searchLower = debouncedSearchQuery.trim().toLowerCase();
-    return languoids.filter((l) => {
+    return localLanguoids.filter((l) => {
       const name = l.name?.toLowerCase() ?? '';
       const endonym = endonymMap.get(l.id)?.toLowerCase() ?? '';
       return name.includes(searchLower) || endonym.includes(searchLower);
     });
-  }, [languoids, debouncedSearchQuery, endonymMap]);
+  }, [localLanguoids, debouncedSearchQuery, endonymMap, useServerResults]);
 
+  // Notify parent when languages are loaded
   useEffect(() => {
-    if (languoids.length > 0) {
+    if (localLanguoids.length > 0) {
       setLanguagesLoaded?.(true);
     }
-  }, [languoids, setLanguagesLoaded]);
+  }, [localLanguoids, setLanguagesLoaded]);
 
+  // Build dropdown data from the appropriate source
   const dropdownData = useMemo(() => {
-    return filteredLanguoids
-      .filter((l) => l.name)
-      .map((lang) => {
-        // Use endonym if available, otherwise fall back to name
-        const endonym = endonymMap.get(lang.id);
-        const displayName = endonym ?? lang.name ?? '';
-        return {
-          value: lang.id,
-          label: displayName, // Use endonym for display
-          displayLabel: displayName,
-          // Store full languoid object for onChange
-          languoid: lang
-        };
-      });
-  }, [filteredLanguoids, endonymMap]);
+    const items: DropdownItem[] = [];
 
+    if (useServerResults) {
+      // Use server search results
+      searchResults.forEach((result) => {
+        const endonym = endonymMap.get(result.id);
+        const displayName =
+          result.matched_alias_name ?? endonym ?? result.name ?? '';
+        items.push({
+          value: result.id,
+          label: displayName,
+          displayLabel: displayName,
+          languoid: result,
+          isoCode: result.iso_code,
+          matchedAlias: result.matched_alias_name
+        });
+      });
+    } else {
+      // Use local languoids with client-side filtering
+      filteredLocalLanguoids
+        .filter((l) => l.name)
+        .forEach((lang) => {
+          const endonym = endonymMap.get(lang.id);
+          const displayName = endonym ?? lang.name ?? '';
+          items.push({
+            value: lang.id,
+            label: displayName,
+            displayLabel: displayName,
+            languoid: lang
+          });
+        });
+    }
+
+    return items;
+  }, [useServerResults, searchResults, filteredLocalLanguoids, endonymMap]);
+
+  // Sort and optionally add "Create new" option
   const sortedData = useMemo(() => {
-    return [...dropdownData].sort((a, b) => a.label.localeCompare(b.label));
-  }, [dropdownData]);
+    const sorted = [...dropdownData].sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+
+    // Add "Create new" option if:
+    // - allowCreate is true
+    // - User is authenticated
+    // - There's a search query with >= 2 chars
+    // - Either no results found, or explicitly showing create option
+    const trimmedQuery = debouncedSearchQuery.trim();
+    const hasSearchQuery = trimmedQuery.length >= 2;
+    const hasNoResults = sorted.length === 0;
+    const shouldShowCreate =
+      allowCreate && isAuthenticated && hasSearchQuery && hasNoResults;
+
+    if (shouldShowCreate) {
+      sorted.unshift({
+        value: '__create_new__',
+        label:
+          t('createLanguage', { name: trimmedQuery }) ||
+          `Create "${trimmedQuery}"`,
+        displayLabel: trimmedQuery,
+        isCreateOption: true
+      });
+    }
+
+    return sorted;
+  }, [dropdownData, debouncedSearchQuery, allowCreate, isAuthenticated, t]);
 
   // Use controlled value if provided, otherwise fall back to UI language from store
   const effectiveValue = useMemo(() => {
@@ -157,21 +261,86 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     return uiLanguage?.id ?? null;
   }, [value, uiLanguage]);
 
-  const handleValueChange = React.useCallback(
-    (item: (typeof dropdownData)[0]) => {
-      // TODO: Update store to support Languoid type
-      // For now, use type assertion to handle transition
-      setSavedLanguage(item.languoid as any);
-      if (toggleUILocalization) {
-        setUILanguage(item.languoid as any);
+  // Handle creating a new languoid
+  const handleCreateNew = useCallback(
+    async (name: string) => {
+      if (!currentUser?.id || !name.trim()) return;
+
+      setIsCreating(true);
+      try {
+        const result = await createLanguoidOffline({
+          name: name.trim(),
+          level: 'language',
+          creator_id: currentUser.id
+        });
+
+        // Notify parent about creation
+        onCreateNew?.(result.languoid_id, name.trim());
+
+        // Create a minimal languoid object for the onChange callback
+        const newLanguoid: LanguoidSearchResult = {
+          id: result.languoid_id,
+          name: name.trim(),
+          level: 'language',
+          ui_ready: false,
+          parent_id: null,
+          matched_alias_name: null,
+          matched_alias_type: null,
+          iso_code: null,
+          search_rank: 1
+        };
+
+        // Store and call onChange
+        setSavedLanguage(newLanguoid as any);
+        onChange?.(newLanguoid);
+
+        // Clear search
+        setSearchQuery('');
+      } catch (error) {
+        console.error('Failed to create languoid:', error);
+      } finally {
+        setIsCreating(false);
       }
-      onChange?.(item.languoid);
     },
-    [onChange, setSavedLanguage, toggleUILocalization, setUILanguage]
+    [currentUser?.id, onCreateNew, onChange, setSavedLanguage, setSearchQuery]
   );
 
-  // Show loading state while fetching
-  if (isLoading || languoids.length === 0) {
+  const handleValueChange = useCallback(
+    (item: DropdownItem) => {
+      // Handle "Create new" option
+      if (item.isCreateOption) {
+        void handleCreateNew(item.displayLabel);
+        return;
+      }
+
+      // Normal selection
+      if (item.languoid) {
+        setSavedLanguage(item.languoid as any);
+        if (toggleUILocalization) {
+          setUILanguage(item.languoid as any);
+        }
+        onChange?.(item.languoid);
+      }
+
+      // Clear search after selection
+      setSearchQuery('');
+    },
+    [
+      handleCreateNew,
+      onChange,
+      setSavedLanguage,
+      toggleUILocalization,
+      setUILanguage,
+      setSearchQuery
+    ]
+  );
+
+  // Determine loading state
+  const isLoading =
+    isLocalLoading || (shouldUseServerSearch && isSearchLoading) || isCreating;
+
+  // Show loading state while fetching initial data
+  if (isLocalLoading && localLanguoids.length === 0) {
     return (
       <View
         className={cn(
@@ -230,21 +399,48 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         onChange={handleValueChange}
         renderInputSearch={() => (
           <View className="border-b border-input p-2">
-            <TextInput
-              value={immediateSearchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('searchLanguages') || 'Search languages...'}
-              placeholderTextColor={getThemeColor('muted-foreground')}
-              className="h-10 rounded-md bg-card px-3 text-base text-foreground"
-              selectionColor={getThemeColor('primary')}
-            />
+            <View className="flex flex-row items-center gap-2">
+              <TextInput
+                value={immediateSearchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('searchLanguages') || 'Search languages...'}
+                placeholderTextColor={getThemeColor('muted-foreground')}
+                className="h-10 flex-1 rounded-md bg-card px-3 text-base text-foreground"
+                selectionColor={getThemeColor('primary')}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {(isSearchLoading || isCreating) && (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              )}
+            </View>
+            {/* Show hint when server search is active */}
+            {shouldUseServerSearch && isQueryValid && (
+              <Text className="mt-1 px-1 text-xs text-muted-foreground">
+                {isOnline
+                  ? t('searching') || 'Searching...'
+                  : t('searching') || 'Searching...'}
+              </Text>
+            )}
           </View>
         )}
         flatListProps={{
           style: {
             backgroundColor: getThemeColor('card')
           },
-          contentContainerStyle: {}
+          contentContainerStyle: {},
+          ListEmptyComponent: () => (
+            <View className="px-3 py-4">
+              <Text className="text-center text-sm text-muted-foreground">
+                {debouncedSearchQuery.length >= 2
+                  ? t('noLanguagesFound') || 'No languages found'
+                  : t('typeToSearch') || 'Type at least 2 characters to search'}
+              </Text>
+            </View>
+          )
         }}
         renderLeftIcon={() => (
           <Icon
@@ -253,28 +449,66 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             size={20}
           />
         )}
-        renderItem={(item, selected) => (
-          <View
-            className={cn(
-              'flex flex-row items-center px-3 py-3',
-              selected && 'bg-accent'
-            )}
-          >
-            <View className="flex-1">
-              <Text
-                className={cn(
-                  'flex-1 text-sm',
-                  selected
-                    ? 'font-medium text-accent-foreground'
-                    : 'text-foreground'
-                )}
-                numberOfLines={1}
+        renderItem={(item, selected) => {
+          // Special rendering for "Create new" option
+          if (item.isCreateOption) {
+            return (
+              <Pressable
+                className="flex flex-row items-center bg-primary/10 px-3 py-3"
+                onPress={() => handleValueChange(item)}
               >
-                {item.displayLabel || item.label}
-              </Text>
+                <Icon
+                  as={PlusCircleIcon}
+                  className="mr-2 text-primary"
+                  size={20}
+                />
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-primary">
+                    {t('createLanguage', { name: item.displayLabel }) ||
+                      `Create "${item.displayLabel}"`}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    Add this as a new language
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
+
+          // Normal item rendering
+          return (
+            <View
+              className={cn(
+                'flex flex-row items-center px-3 py-3',
+                selected && 'bg-accent'
+              )}
+            >
+              <View className="flex-1">
+                <Text
+                  className={cn(
+                    'flex-1 text-sm',
+                    selected
+                      ? 'font-medium text-accent-foreground'
+                      : 'text-foreground'
+                  )}
+                  numberOfLines={1}
+                >
+                  {item.displayLabel || item.label}
+                </Text>
+                {/* Show ISO code or matched alias if available */}
+                {(item.isoCode || item.matchedAlias) && (
+                  <Text className="text-xs text-muted-foreground">
+                    {item.isoCode && `[${item.isoCode}]`}
+                    {item.isoCode && item.matchedAlias && ' · '}
+                    {item.matchedAlias &&
+                      item.matchedAlias !== item.displayLabel &&
+                      `Also: ${item.matchedAlias}`}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
     </View>
   );

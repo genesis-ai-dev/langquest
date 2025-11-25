@@ -965,6 +965,10 @@ export default function NextGenProjectsView() {
                             // because the store still expects Language type (with native_name, etc.)
                             // The form will handle languoid selection directly
                           }}
+                          allowCreate
+                          onCreateNew={(languoidId) => {
+                            field.onChange(languoidId);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />

@@ -396,3 +396,210 @@ $$;
 -- Keep the function for potential future use, but comment out if you want to drop it:
 -- DROP FUNCTION IF EXISTS find_matching_languoid(uuid);
 
+
+-- ============================================================================
+-- Languoid Search RPC Function
+-- ============================================================================
+-- 
+-- PURPOSE:
+-- 1. Create pg_trgm extension for trigram-based text search
+-- 2. Add GIN trigram indexes on languoid.name and languoid_alias.name
+-- 3. Create search_languoids RPC function for intelligent language search
+--
+-- This function searches across languoid names and aliases, returning
+-- ranked results that prioritize:
+--   1. Exact matches
+--   2. Starts-with matches
+--   3. Contains matches
+--
+-- ============================================================================
+
+-- Enable pg_trgm extension for trigram search
+create extension if not exists pg_trgm;
+
+-- Create GIN trigram indexes for performance
+-- These indexes significantly speed up ILIKE queries on text columns
+
+-- Index on languoid.name for fast name searches
+create index if not exists idx_languoid_name_trgm 
+on public.languoid using gin (name gin_trgm_ops);
+
+-- Index on languoid_alias.name for fast alias searches
+create index if not exists idx_languoid_alias_name_trgm 
+on public.languoid_alias using gin (name gin_trgm_ops);
+
+-- Create the search_languoids RPC function
+-- This function searches languoids by name and aliases, returning ranked results
+--
+-- Parameters:
+--   search_query: The search term (minimum 2 characters)
+--   result_limit: Maximum number of results to return (default 50)
+--   ui_ready_only: If true, only return ui_ready languoids (default false)
+--
+-- Returns:
+--   Table with languoid details, best matching alias, and search rank
+
+create or replace function public.search_languoids(
+  search_query text,
+  result_limit integer default 50,
+  ui_ready_only boolean default false
+)
+returns table (
+  id text,
+  name text,
+  level text,
+  ui_ready boolean,
+  parent_id text,
+  matched_alias_name text,
+  matched_alias_type text,
+  iso_code text,
+  search_rank integer
+)
+language plpgsql
+security invoker
+set search_path = ''
+stable
+as $$
+declare
+  normalized_query text;
+begin
+  -- Validate input
+  if search_query is null or length(trim(search_query)) < 2 then
+    return;
+  end if;
+  
+  -- Normalize the search query
+  normalized_query := lower(trim(search_query));
+  
+  return query
+  with 
+  -- Search languoid names directly
+  languoid_name_matches as (
+    select 
+      l.id,
+      l.name,
+      l.level::text as level,
+      l.ui_ready,
+      l.parent_id,
+      null::text as matched_alias_name,
+      null::text as matched_alias_type,
+      case
+        when lower(l.name) = normalized_query then 1  -- Exact match
+        when lower(l.name) like normalized_query || '%' then 2  -- Starts with
+        else 3  -- Contains
+      end as search_rank
+    from public.languoid l
+    where l.active = true
+      and lower(l.name) ilike '%' || normalized_query || '%'
+      and (not ui_ready_only or l.ui_ready = true)
+  ),
+  
+  -- Search languoid aliases
+  alias_matches as (
+    select distinct on (l.id)
+      l.id,
+      l.name,
+      l.level::text as level,
+      l.ui_ready,
+      l.parent_id,
+      la.name as matched_alias_name,
+      la.alias_type::text as matched_alias_type,
+      case
+        when lower(la.name) = normalized_query then 1  -- Exact match
+        when lower(la.name) like normalized_query || '%' then 2  -- Starts with
+        else 3  -- Contains
+      end as search_rank
+    from public.languoid l
+    inner join public.languoid_alias la on la.subject_languoid_id = l.id and la.active = true
+    where l.active = true
+      and lower(la.name) ilike '%' || normalized_query || '%'
+      and (not ui_ready_only or l.ui_ready = true)
+    order by l.id, 
+      case
+        when lower(la.name) = normalized_query then 1
+        when lower(la.name) like normalized_query || '%' then 2
+        else 3
+      end,
+      la.alias_type  -- Prefer endonyms over exonyms
+  ),
+  
+  -- Combine results, preferring the best rank for each languoid
+  combined as (
+    select * from languoid_name_matches
+    union all
+    select * from alias_matches
+  ),
+  
+  -- Deduplicate by languoid id, keeping the best rank
+  ranked as (
+    select distinct on (c.id)
+      c.id,
+      c.name,
+      c.level,
+      c.ui_ready,
+      c.parent_id,
+      c.matched_alias_name,
+      c.matched_alias_type,
+      c.search_rank
+    from combined c
+    order by c.id, c.search_rank, c.matched_alias_name nulls last
+  ),
+  
+  -- Get ISO codes from languoid_source
+  with_iso as (
+    select 
+      r.*,
+      ls.unique_identifier as iso_code
+    from ranked r
+    left join public.languoid_source ls 
+      on ls.languoid_id = r.id 
+      and lower(ls.name) = 'iso639-3'
+      and ls.active = true
+  )
+  
+  select 
+    w.id,
+    w.name,
+    w.level,
+    w.ui_ready,
+    w.parent_id,
+    w.matched_alias_name,
+    w.matched_alias_type,
+    w.iso_code,
+    w.search_rank
+  from with_iso w
+  order by w.search_rank, w.name
+  limit result_limit;
+end;
+$$;
+
+-- Grant execute permission to authenticated users
+grant execute on function public.search_languoids(text, integer, boolean) to authenticated;
+grant execute on function public.search_languoids(text, integer, boolean) to anon;
+
+-- -- Add comment for documentation (must specify full function signature)
+-- comment on function public.search_languoids(text, integer, boolean) is 
+-- 'Searches languoids by name and aliases with ranked results. 
+-- Returns languoids matching the search query, prioritizing exact matches, 
+-- then starts-with matches, then contains matches.
+-- Parameters:
+--   - search_query: Search term (min 2 chars)
+--   - result_limit: Max results (default 50)
+--   - ui_ready_only: Only return UI-ready languoids (default false)';
+
+-- ============================================================================
+-- STEP 8: Add languoid and region tables to PowerSync publication
+-- ============================================================================
+-- PowerSync requires tables to be part of the publication for replication.
+-- Without this, the tables won't sync to client devices.
+
+ALTER PUBLICATION powersync ADD TABLE public.languoid;
+ALTER PUBLICATION powersync ADD TABLE public.languoid_alias;
+ALTER PUBLICATION powersync ADD TABLE public.languoid_source;
+ALTER PUBLICATION powersync ADD TABLE public.languoid_property;
+ALTER PUBLICATION powersync ADD TABLE public.region;
+ALTER PUBLICATION powersync ADD TABLE public.region_alias;
+ALTER PUBLICATION powersync ADD TABLE public.region_source;
+ALTER PUBLICATION powersync ADD TABLE public.region_property;
+ALTER PUBLICATION powersync ADD TABLE public.languoid_region;
+

@@ -9,7 +9,7 @@ import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { useMemo } from 'react';
 
 export type Languoid = InferSelectModel<typeof languoid>;
@@ -244,6 +244,118 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
   }, [aliases]);
 
   return { endonymMap, isEndonymsLoading, ...rest };
+}
+
+/**
+ * Search result type from the RPC function
+ */
+export interface LanguoidSearchResult {
+  id: string;
+  name: string | null;
+  level: string | null;
+  ui_ready: boolean | null;
+  parent_id: string | null;
+  matched_alias_name: string | null;
+  matched_alias_type: string | null;
+  iso_code: string | null;
+  search_rank: number;
+}
+
+/**
+ * Search languoids by name and aliases
+ * When online: calls RPC function for server-side search across 300k+ records
+ * When offline: falls back to local LIKE query on synced data
+ *
+ * @param searchQuery - The search term (minimum 2 characters)
+ * @param options - Search options
+ * @returns Search results with loading/error state
+ */
+export function useLanguoidSearch(
+  searchQuery: string,
+  options: {
+    limit?: number;
+    uiReadyOnly?: boolean;
+    enabled?: boolean;
+  } = {}
+) {
+  const { limit = 50, uiReadyOnly = false, enabled = true } = options;
+  const { db, supabaseConnector } = system;
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const isQueryValid = normalizedQuery.length >= 2;
+
+  const {
+    data: results,
+    isLoading,
+    ...rest
+  } = useHybridData<LanguoidSearchResult>({
+    dataType: 'languoid-search',
+    queryKeyParams: [normalizedQuery, String(limit), String(uiReadyOnly)],
+
+    // Offline query using local LIKE
+    offlineQuery: toCompilableQuery(
+      db
+        .select({
+          id: languoid.id,
+          name: languoid.name,
+          level: languoid.level,
+          ui_ready: languoid.ui_ready,
+          parent_id: languoid.parent_id,
+          matched_alias_name: sql<string | null>`null`,
+          matched_alias_type: sql<string | null>`null`,
+          iso_code: sql<string | null>`null`,
+          search_rank: sql<number>`
+            case
+              when lower(${languoid.name}) = ${normalizedQuery} then 1
+              when lower(${languoid.name}) like ${normalizedQuery + '%'} then 2
+              else 3
+            end
+          `
+        })
+        .from(languoid)
+        .where(
+          and(
+            eq(languoid.active, true),
+            uiReadyOnly ? eq(languoid.ui_ready, true) : undefined,
+            sql`lower(${languoid.name}) like ${'%' + normalizedQuery + '%'}`
+          )
+        )
+        .orderBy(
+          sql`case
+            when lower(${languoid.name}) = ${normalizedQuery} then 1
+            when lower(${languoid.name}) like ${normalizedQuery + '%'} then 2
+            else 3
+          end`,
+          languoid.name
+        )
+        .limit(limit)
+    ),
+
+    // Online query using RPC function
+    cloudQueryFn: async () => {
+      const { data, error } = await supabaseConnector.client.rpc(
+        'search_languoids',
+        {
+          search_query: normalizedQuery,
+          result_limit: limit,
+          ui_ready_only: uiReadyOnly
+        }
+      );
+
+      if (error) throw error;
+      return (data as LanguoidSearchResult[]) || [];
+    },
+
+    enableCloudQuery: isQueryValid && enabled,
+    enableOfflineQuery: isQueryValid && enabled
+  });
+
+  return {
+    results: isQueryValid ? results : [],
+    isLoading: isQueryValid ? isLoading : false,
+    isQueryValid,
+    ...rest
+  };
 }
 
 // Standalone function for use outside React components (like Zustand stores)
