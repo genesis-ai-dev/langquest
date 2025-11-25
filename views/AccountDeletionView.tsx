@@ -26,13 +26,8 @@ import {
   Trash2
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Alert as RNAlert,
-  Linking,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { alert } from '@/utils/alertUtils';
 
 export default function AccountDeletionView() {
   const { t } = useLocalization();
@@ -78,7 +73,7 @@ export default function AccountDeletionView() {
       await signOut();
     },
     onSuccess: () => {
-      RNAlert.alert(
+      alert(
         t('success'),
         t('accountDeletionSuccess'),
         [
@@ -96,10 +91,7 @@ export default function AccountDeletionView() {
       console.error('Error deleting account:', error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      RNAlert.alert(
-        t('error'),
-        t('accountDeletionError', { error: errorMessage })
-      );
+      alert(t('error'), t('accountDeletionError', { error: errorMessage }));
     }
   });
 
@@ -112,11 +104,11 @@ export default function AccountDeletionView() {
   const handleDelete = () => {
     // Check current network status (not closure value)
     if (!getNetworkStatus()) {
-      RNAlert.alert(t('error'), t('accountDeletionRequiresOnline'));
+      alert(t('error'), t('accountDeletionRequiresOnline'));
       return;
     }
 
-    RNAlert.alert(
+    alert(
       t('accountDeletionConfirm'),
       t('accountDeletionConfirmMessage'),
       [

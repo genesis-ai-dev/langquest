@@ -37,12 +37,8 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert as RNAlert,
-  ScrollView,
-  View
-} from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { alert } from '@/utils/alertUtils';
 
 interface NotificationItem {
   id: string;
@@ -546,7 +542,7 @@ export default function NotificationsView() {
       });
 
       console.log('[handleAccept] Queries invalidated and refetched');
-      RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
+      alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
       console.error('[handleAccept] Error accepting invitation:', error);
@@ -554,7 +550,7 @@ export default function NotificationsView() {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      RNAlert.alert(t('error'), t('failedToAcceptInvite'));
+      alert(t('error'), t('failedToAcceptInvite'));
     } finally {
       console.log('[handleAccept] Cleaning up processing state...');
       setProcessingIds((prev) => {
@@ -635,10 +631,10 @@ export default function NotificationsView() {
         exact: false
       });
 
-      RNAlert.alert(t('success'), t('invitationDeclinedSuccessfully'));
+      alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
       console.error('Error declining invitation:', error);
-      RNAlert.alert(t('error'), t('failedToDeclineInvite'));
+      alert(t('error'), t('failedToDeclineInvite'));
     } finally {
       setProcessingIds((prev) => {
         const newSet = new Set(prev);

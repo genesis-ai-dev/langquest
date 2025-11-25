@@ -46,7 +46,8 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Platform, Alert as RNAlert, View } from 'react-native';
+import { View } from 'react-native';
+import { alert } from '@/utils/alertUtils';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -75,7 +76,7 @@ export default function ProfileView() {
       console.log('optedOut', posthog.optedOut);
     } catch (error) {
       console.error('Error saving analytics preference:', error);
-      RNAlert.alert(t('error'), t('failedSaveAnalyticsPreference'));
+      alert(t('error'), t('failedSaveAnalyticsPreference'));
     }
   };
 
@@ -148,7 +149,7 @@ export default function ProfileView() {
       });
 
       if (updatedUser) {
-        RNAlert.alert(t('success'), t('profileUpdateSuccess'));
+        alert(t('success'), t('profileUpdateSuccess'));
         form.reset({
           ...form.getValues(),
           currentPassword: '',
@@ -159,7 +160,7 @@ export default function ProfileView() {
     },
     onError: (error) => {
       console.error('Error updating profile:', error);
-      RNAlert.alert(t('error'), t('failedUpdateProfile'));
+      alert(t('error'), t('failedUpdateProfile'));
     }
   });
 
@@ -216,24 +217,20 @@ export default function ProfileView() {
                 loading={seedDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  if (Platform.OS === 'web') {
-                    void seedDatabase();
-                  } else {
-                    RNAlert.alert(
-                      'Seed data',
-                      'This will reset local development data and seed the database. Continue?',
-                      [
-                        { text: t('cancel'), style: 'cancel' },
-                        {
-                          text: t('confirm'),
-                          style: 'destructive',
-                          onPress: () => {
-                            void seedDatabase();
-                          }
+                  alert(
+                    'Seed data',
+                    'This will reset local development data and seed the database. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void seedDatabase();
                         }
-                      ]
-                    );
-                  }
+                      }
+                    ]
+                  );
                 }}
               >
                 <Text>Seed data</Text>
@@ -243,24 +240,20 @@ export default function ProfileView() {
                 loading={deleteDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  if (Platform.OS === 'web') {
-                    void deleteDatabase();
-                  } else {
-                    RNAlert.alert(
-                      'Delete data',
-                      'This will reset local development data. Continue?',
-                      [
-                        { text: t('cancel'), style: 'cancel' },
-                        {
-                          text: t('confirm'),
-                          style: 'destructive',
-                          onPress: () => {
-                            void deleteDatabase();
-                          }
+                  alert(
+                    'Delete data',
+                    'This will reset local development data. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void deleteDatabase();
                         }
-                      ]
-                    );
-                  }
+                      }
+                    ]
+                  );
                 }}
               >
                 <Text>Wipe local db</Text>
@@ -271,24 +264,20 @@ export default function ProfileView() {
               loading={deleteAttachmentsPending}
               className="w-full"
               onPress={() => {
-                if (Platform.OS === 'web') {
-                  void deleteAttachments();
-                } else {
-                  RNAlert.alert(
-                    'Delete local attachments',
-                    'This will reset local attachments. Continue?',
-                    [
-                      { text: t('cancel'), style: 'cancel' },
-                      {
-                        text: t('confirm'),
-                        style: 'destructive',
-                        onPress: () => {
-                          void deleteAttachments();
-                        }
+                alert(
+                  'Delete local attachments',
+                  'This will reset local attachments. Continue?',
+                  [
+                    { text: t('cancel'), style: 'cancel' },
+                    {
+                      text: t('confirm'),
+                      style: 'destructive',
+                      onPress: () => {
+                        void deleteAttachments();
                       }
-                    ]
-                  );
-                }
+                    }
+                  ]
+                );
               }}
             >
               <Text>Wipe local attachments</Text>
