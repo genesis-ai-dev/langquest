@@ -48,7 +48,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
+import RNAlert from 'react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

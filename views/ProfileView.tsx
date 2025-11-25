@@ -47,7 +47,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
+import RNAlert from 'react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -264,7 +264,7 @@ export default function ProfileView() {
               loading={deleteAttachmentsPending}
               className="w-full"
               onPress={() => {
-                Alert.alert(
+                RNAlert.alert(
                   'Delete local attachments',
                   'This will reset local attachments. Continue?',
                   [
