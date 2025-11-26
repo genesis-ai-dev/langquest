@@ -1,5 +1,6 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { Button } from '@/components/ui/button';
+import { ContextMenu } from '@/components/ui/context-menu';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +17,8 @@ import {
   EyeOffIcon,
   FolderIcon,
   HardDriveIcon,
-  Plus
+  Plus,
+  TrashIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Pressable, View } from 'react-native';
@@ -33,6 +35,7 @@ export interface QuestTreeRowProps {
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
   onDownloadClick?: (questId: string) => void;
+  onOffloadClick?: (questId: string) => void;
   downloadingQuestId?: string | null;
   downloadingQuestIds?: Set<string>;
 }
@@ -43,10 +46,11 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   canCreateNew,
-  isDownloading = false,
+  isDownloading: _isDownloading = false,
   onToggleExpand,
   onAddChild,
   onDownloadClick,
+  onOffloadClick,
   downloadingQuestId,
   downloadingQuestIds = new Set()
 }) => {
@@ -94,7 +98,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   return (
     <View
       className={cn(
-        'flex flex-row items-center gap-2 px-2 py-2', // more vertical and horizontal padding, larger gap
+        'flex flex-row items-start py-3',
         !quest.visible && 'opacity-50'
       )}
       style={{ paddingLeft: depth * 16 }} // increase indent
@@ -114,7 +118,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           )}
         </Component>
       )}
-      <View className="flex min-w-[40px] flex-row items-center gap-2">
+      <View className="flex flex-row items-center gap-2">
         {!quest.visible && (
           <Icon as={EyeOffIcon} className="text-muted-foreground" size={19} />
         )}
@@ -132,22 +136,18 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         />
       </View>
       <Pressable
-        className="flex-1 justify-center rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"
+        className="flex-1 justify-start rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"
         onPress={handleQuestPress}
         hitSlop={10}
       >
-        <View className="flex flex-1 flex-row items-center gap-2">
-          <View style={{ minWidth: 40 }}>
-            <Text numberOfLines={1} className="text-base">
-              {quest.name}
-            </Text>
-          </View>
+        <View className="-mt-1 flex flex-1 flex-col">
+          <Text numberOfLines={1} className="text-base">
+            {quest.name}
+          </Text>
           {quest.description && (
-            <View className="flex-1 truncate">
-              <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-                {quest.description}
-              </Text>
-            </View>
+            <Text className="text-sm text-muted-foreground" numberOfLines={1}>
+              {quest.description}
+            </Text>
           )}
         </View>
         {/* {!!quest.parent_id && (
@@ -156,20 +156,59 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           </Text>
         )} */}
       </Pressable>
-      {/* Download status indicator */}
+      {/* Download status indicator and menu */}
       <View className="ml-2 flex flex-row items-center gap-1">
         {quest.source !== 'local' && (
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isLoading}
-            onPress={() => {
-              if (onDownloadClick) {
-                onDownloadClick(quest.id);
-              }
-            }}
-            className="text-muted-foreground"
-            size={24}
-          />
+          <>
+            <DownloadIndicator
+              isFlaggedForDownload={isDownloaded}
+              isLoading={isLoading}
+              onPress={() => {
+                if (isDownloaded) {
+                  // Show info alert for downloaded quest
+                  Alert.alert(
+                    t('questDownloadedAlertTitle'),
+                    t('questDownloadedMessage'),
+                    [
+                      ...(onOffloadClick
+                        ? [
+                            {
+                              text: t('removeQuestFromDevice'),
+                              style: 'default' as const,
+                              onPress: () => onOffloadClick(quest.id)
+                            }
+                          ]
+                        : []),
+                      {
+                        text: t('ok') || 'OK',
+                        style: 'cancel'
+                      }
+                    ]
+                  );
+                } else if (onDownloadClick) {
+                  onDownloadClick(quest.id);
+                }
+              }}
+              className="text-muted-foreground"
+              size={24}
+            />
+            <ContextMenu
+              side="top"
+              align="end"
+              triggerIconSize={24}
+              items={[
+                ...(isDownloaded && onOffloadClick
+                  ? [
+                      {
+                        label: t('offloadQuest') || 'Remove Download',
+                        icon: TrashIcon,
+                        onPress: () => onOffloadClick(quest.id)
+                      }
+                    ]
+                  : [])
+              ]}
+            />
+          </>
         )}
       </View>
       {FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST && canCreateNew && (

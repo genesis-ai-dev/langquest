@@ -40,6 +40,7 @@ import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
+import { useQuestById } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
   useAppNavigation,
@@ -185,6 +186,11 @@ export default function ProjectDirectoryView() {
   // Verification hook for offload
   const verificationState = useQuestOffloadVerification(
     questIdToDownload || ''
+  );
+
+  // Get quest data to display name in drawer
+  const { quest: questToOffload } = useQuestById(
+    questIdToDownload || undefined
   );
 
   // Track if we've started discovery for this quest ID to prevent loops
@@ -378,12 +384,11 @@ export default function ProjectDirectoryView() {
 
   // Check membership status separately from settings permission
   // Use 'open_project' action to get accurate membership status
-  const { membership: membershipStatus, hasAccess: canOpenProject } =
-    useUserPermissions(
-      currentProjectId || '',
-      'open_project',
-      isPrivateProject
-    );
+  const { membership: membershipStatus } = useUserPermissions(
+    currentProjectId || '',
+    'open_project',
+    isPrivateProject
+  );
 
   // Check if user can manage project settings (separate from membership)
   const { hasAccess: canManageProject } = useUserPermissions(
@@ -500,8 +505,8 @@ export default function ProjectDirectoryView() {
     }
   }, [isCreateOpen, form]);
 
-  // Handle download/offload click - check if quest is downloaded
-  const handleDownloadClick = async (questId: string) => {
+  // Handle download click - only for downloading (not offloading)
+  const handleDownloadClick = (questId: string) => {
     // Anonymous users cannot download - this should not be called, but guard anyway
     if (!currentUser) {
       console.log(
@@ -510,37 +515,19 @@ export default function ProjectDirectoryView() {
       return;
     }
 
-    // Check if quest is already downloaded
-    const { data, error } = await system.supabaseConnector.client
-      .from('quest')
-      .select('download_profiles')
-      .eq('id', questId)
-      .single();
-
-    if (error) {
-      console.error('Error checking quest download status:', error);
-      return;
-    }
-
-    const isDownloaded =
-      data.download_profiles?.includes(currentUser.id) ?? false;
-
     setQuestIdToDownload(questId);
+    // Quest not downloaded, start download discovery
+    console.log('📥 [Download] Opening discovery drawer for quest:', questId);
+    setShowDiscoveryDrawer(true);
+    // Discovery will auto-start via useEffect
+  };
 
-    if (isDownloaded) {
-      // Quest is downloaded, start offload verification
-      console.log(
-        '🗑️ [Offload] Opening verification drawer for quest:',
-        questId
-      );
-      setShowOffloadDrawer(true);
-      // Verification will auto-start via useEffect
-    } else {
-      // Quest not downloaded, start download discovery
-      console.log('📥 [Download] Opening discovery drawer for quest:', questId);
-      setShowDiscoveryDrawer(true);
-      // Discovery will auto-start via useEffect
-    }
+  // Handle offload click - opens the offload verification drawer
+  const handleOffloadClick = (questId: string) => {
+    setQuestIdToDownload(questId);
+    console.log('🗑️ [Offload] Opening verification drawer for quest:', questId);
+    setShowOffloadDrawer(true);
+    // Verification will auto-start via useEffect
   };
 
   // Handle discovery completion - show confirmation
@@ -1038,6 +1025,7 @@ export default function ProjectDirectoryView() {
             isMember={isMember}
             onAddChild={openCreateForParent}
             onDownloadClick={handleDownloadClick}
+            onOffloadClick={handleOffloadClick}
             onCloudLoadingChange={setQuestListCloudLoading}
             onFetchingChange={setQuestListFetching}
             downloadingQuestId={questIdToDownload}
@@ -1279,6 +1267,7 @@ export default function ProjectDirectoryView() {
         onContinue={handleOffloadContinue}
         verificationState={verificationState}
         isOffloading={isOffloading}
+        questName={questToOffload?.name}
       />
     </>
   );

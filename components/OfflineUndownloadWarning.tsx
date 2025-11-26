@@ -1,3 +1,4 @@
+import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, spacing } from '@/styles/theme';
 import { storage } from '@/utils/storage';
@@ -6,7 +7,6 @@ import {
   Modal,
   StyleSheet,
   Switch,
-  Text,
   TouchableOpacity,
   View
 } from 'react-native';
