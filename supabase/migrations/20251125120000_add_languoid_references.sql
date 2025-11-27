@@ -1090,6 +1090,10 @@ $function$;
 -- All IDs should be UUID for consistency. The existing data already has
 -- UUID-conforming values, so this is a safe type conversion.
 
+-- Drop the old search_languoids function (different signature) before type conversion
+-- The newer search_languoids(text, integer, boolean) supersedes it
+DROP FUNCTION IF EXISTS public.search_languoids(text, int);
+
 -- Drop foreign key constraints first (they reference text columns)
 ALTER TABLE public.languoid DROP CONSTRAINT IF EXISTS languoid_parent_id_fkey;
 ALTER TABLE public.languoid_alias DROP CONSTRAINT IF EXISTS languoid_alias_subject_languoid_id_fkey;
@@ -1335,4 +1339,149 @@ BEGIN
   RETURN v_rows_affected > 0;
 END;
 $$;
+
+
+-- ============================================================================
+-- STEP 15: Recreate search_languoids with UUID return types
+-- ============================================================================
+-- Now that languoid.id is UUID, we need to update the function return types
+
+DROP FUNCTION IF EXISTS public.search_languoids(text, integer, boolean);
+
+CREATE OR REPLACE FUNCTION public.search_languoids(
+  search_query text,
+  result_limit integer default 50,
+  ui_ready_only boolean default false
+)
+RETURNS TABLE (
+  id uuid,
+  name text,
+  level text,
+  ui_ready boolean,
+  parent_id uuid,
+  matched_alias_name text,
+  matched_alias_type text,
+  iso_code text,
+  search_rank integer
+)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+STABLE
+AS $$
+DECLARE
+  normalized_query text;
+BEGIN
+  -- Validate input
+  IF search_query IS NULL OR length(trim(search_query)) < 2 THEN
+    RETURN;
+  END IF;
+  
+  -- Normalize the search query
+  normalized_query := lower(trim(search_query));
+  
+  RETURN QUERY
+  WITH 
+  -- Search languoid names directly
+  languoid_name_matches AS (
+    SELECT 
+      l.id,
+      l.name,
+      l.level::text AS level,
+      l.ui_ready,
+      l.parent_id,
+      NULL::text AS matched_alias_name,
+      NULL::text AS matched_alias_type,
+      CASE
+        WHEN lower(l.name) = normalized_query THEN 1  -- Exact match
+        WHEN lower(l.name) LIKE normalized_query || '%' THEN 2  -- Starts with
+        ELSE 3  -- Contains
+      END AS search_rank
+    FROM public.languoid l
+    WHERE l.active = true
+      AND lower(l.name) ILIKE '%' || normalized_query || '%'
+      AND (NOT ui_ready_only OR l.ui_ready = true)
+  ),
+  
+  -- Search languoid aliases
+  alias_matches AS (
+    SELECT DISTINCT ON (l.id)
+      l.id,
+      l.name,
+      l.level::text AS level,
+      l.ui_ready,
+      l.parent_id,
+      la.name AS matched_alias_name,
+      la.alias_type::text AS matched_alias_type,
+      CASE
+        WHEN lower(la.name) = normalized_query THEN 1  -- Exact match
+        WHEN lower(la.name) LIKE normalized_query || '%' THEN 2  -- Starts with
+        ELSE 3  -- Contains
+      END AS search_rank
+    FROM public.languoid l
+    INNER JOIN public.languoid_alias la ON la.subject_languoid_id = l.id AND la.active = true
+    WHERE l.active = true
+      AND lower(la.name) ILIKE '%' || normalized_query || '%'
+      AND (NOT ui_ready_only OR l.ui_ready = true)
+    ORDER BY l.id, 
+      CASE
+        WHEN lower(la.name) = normalized_query THEN 1
+        WHEN lower(la.name) LIKE normalized_query || '%' THEN 2
+        ELSE 3
+      END,
+      la.alias_type  -- Prefer endonyms over exonyms
+  ),
+  
+  -- Combine results, preferring the best rank for each languoid
+  combined AS (
+    SELECT * FROM languoid_name_matches
+    UNION ALL
+    SELECT * FROM alias_matches
+  ),
+  
+  -- Deduplicate by languoid id, keeping the best rank
+  ranked AS (
+    SELECT DISTINCT ON (c.id)
+      c.id,
+      c.name,
+      c.level,
+      c.ui_ready,
+      c.parent_id,
+      c.matched_alias_name,
+      c.matched_alias_type,
+      c.search_rank
+    FROM combined c
+    ORDER BY c.id, c.search_rank, c.matched_alias_name NULLS LAST
+  ),
+  
+  -- Get ISO codes from languoid_source
+  with_iso AS (
+    SELECT 
+      r.*,
+      ls.unique_identifier AS iso_code
+    FROM ranked r
+    LEFT JOIN public.languoid_source ls 
+      ON ls.languoid_id = r.id 
+      AND lower(ls.name) = 'iso639-3'
+      AND ls.active = true
+  )
+  
+  SELECT 
+    w.id,
+    w.name,
+    w.level,
+    w.ui_ready,
+    w.parent_id,
+    w.matched_alias_name,
+    w.matched_alias_type,
+    w.iso_code,
+    w.search_rank
+  FROM with_iso w
+  ORDER BY w.search_rank, w.name
+  LIMIT result_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.search_languoids(text, integer, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.search_languoids(text, integer, boolean) TO anon;
 
