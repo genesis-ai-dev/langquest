@@ -52,7 +52,7 @@ interface ChapterData {
     id: string;
     name: string;
     description: string | null;
-    target_language_id: string;
+    target_language_id: string | null; // Now nullable - languoid_id is the canonical reference
     creator_id: string | null;
     private: boolean;
     visible: boolean;
@@ -139,8 +139,8 @@ interface ChapterData {
   projectLanguageLinks?: {
     id: string;
     project_id: string;
-    language_id: string;
-    languoid_id: string | null; // New languoid reference
+    language_id: string | null; // Now nullable - for backward compatibility
+    languoid_id: string; // Required - part of new PK
     language_type: 'source' | 'target';
     download_profiles: string[] | null;
     created_at: string;

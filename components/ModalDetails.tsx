@@ -112,38 +112,35 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       // })
     });
 
+  const targetLanguageId =
+    contentType === 'project' ? (content as Project).target_language_id : null;
+
   const { data: targetLangArr = [], isLoading: isTargetLangLoading } =
     useHybridData({
       dataType: 'project-target-language',
-      queryKeyParams: [
-        contentType === 'project' && content.id
-          ? (content as Project).target_language_id
-          : null
-      ],
-      offlineQuery: toCompilableQuery(
-        system.db.query.language.findMany({
-          columns: { id: true, native_name: true, english_name: true },
-          where: eq(languageTable.id, (content as Project).target_language_id)
-        })
-      ),
+      queryKeyParams: [targetLanguageId ?? ''],
+      offlineQuery: targetLanguageId
+        ? toCompilableQuery(
+            system.db.query.language.findMany({
+              columns: { id: true, native_name: true, english_name: true },
+              where: eq(languageTable.id, targetLanguageId)
+            })
+          )
+        : 'SELECT * FROM language WHERE 1 = 0',
       cloudQueryFn: async () => {
+        if (!targetLanguageId) return [];
         const { data, error } = await system.supabaseConnector.client
           .from('language')
           .select('id, native_name, english_name')
-          .eq('id', (content as Project).target_language_id)
+          .eq('id', targetLanguageId)
           .overrideTypes<
             Pick<Language, 'id' | 'native_name' | 'english_name'>[]
           >();
         if (error) throw error;
         return data;
       },
-      // transformCloudData: (lang) => ({
-      //   id: lang.id,
-      //   native_name: lang.native_name,
-      //   english_name: lang.english_name
-      // }),
-      enableCloudQuery: contentType === 'project' && !!content.id,
-      enableOfflineQuery: contentType === 'project' && !!content.id
+      enableCloudQuery: contentType === 'project' && !!targetLanguageId,
+      enableOfflineQuery: contentType === 'project' && !!targetLanguageId
     });
 
   const targetLanguage =
