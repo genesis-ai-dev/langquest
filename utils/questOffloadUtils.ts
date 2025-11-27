@@ -188,6 +188,16 @@ async function filterSharedAssetsFromVerifiedIds(
     assetTagLinkIds: filteredAssetTagLinkIds,
     tagIds: verifiedIds.tagIds, // Tags may be shared, but we handle this conservatively elsewhere
     languageIds: verifiedIds.languageIds, // Languages may be shared, but we handle this conservatively elsewhere
+    // Languoids are intentionally preserved - they're shared resources
+    languoidIds: [],
+    languoidAliasIds: [],
+    languoidSourceIds: [],
+    languoidPropertyIds: [],
+    languoidRegionIds: [],
+    regionIds: [],
+    regionAliasIds: [],
+    regionSourceIds: [],
+    regionPropertyIds: [],
     attachmentIds: filteredAttachmentIds
   };
 

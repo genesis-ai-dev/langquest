@@ -1,11 +1,19 @@
 ---
-description: Guidelines to follow when writing new UI components
+description: Guidelines to follow when writing new components & pages/views
 alwaysApply: false
 ---
 
 ## Methodology
 
 Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/composition).
+
+## Existing Components
+
+Before creating a new UI component, check these resources for existing components and primitives that can be used or adapted:
+
+- [React Native Reusables](https://reactnativereusables.com/docs) - Official documentation
+- [React Native Primitives](https://rn-primitives.vercel.app/) - Radix UI primitives for React Native
+- [React Native Reusables - Community Resources](https://github.com/founded-labs/react-native-reusables/blob/main/COMMUNITY_RESOURCES.md) - Community-contributed components and examples (ignore the drawer suggestion)
 
 ## Icons
 
