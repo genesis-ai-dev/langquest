@@ -25,7 +25,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface BibleChapterListProps {
   projectId: string;
@@ -531,12 +532,12 @@ export function BibleChapterList({
 
     // Chapter doesn't exist - check permissions
     if (!canCreateNew) {
-      Alert.alert(t('error'), t('membersOnlyCreate'));
+      RNAlert.alert(t('error'), t('membersOnlyCreate'));
       return;
     }
 
     // Chapter doesn't exist - show confirmation dialog
-    Alert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
+    RNAlert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
       {
         text: t('cancel'),
         style: 'cancel'

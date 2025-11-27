@@ -4,7 +4,6 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -33,7 +33,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
 
   const handleSubmit = async () => {
     if (!currentUser) {
-      Alert.alert('Error', t('logInToVote'));
+      RNAlert.alert('Error', t('logInToVote'));
       return;
     }
 
@@ -42,7 +42,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
       setComment('');
     } catch (error) {
       console.error('Error in handleSubmit:', error);
-      Alert.alert('Error', t('failedToVote'));
+      RNAlert.alert('Error', t('failedToVote'));
     }
   };
 
@@ -52,7 +52,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
       setComment('');
     } catch (error) {
       console.error('Error in handleNoComment:', error);
-      Alert.alert('Error', t('failedToVote'));
+      RNAlert.alert('Error', t('failedToVote'));
     }
   };
 

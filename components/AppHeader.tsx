@@ -16,7 +16,8 @@ import {
   RefreshCw
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -103,7 +104,7 @@ export default function AppHeader({
   const handleSyncErrorTap = () => {
     const errorMessage =
       downloadError?.message || uploadError?.message || t('syncError');
-    Alert.alert(t('syncError'), errorMessage);
+    RNAlert.alert(t('syncError'), errorMessage);
   };
 
   // Animation for sync indicator

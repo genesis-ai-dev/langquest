@@ -17,7 +17,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -26,6 +25,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { SwitchBox } from './SwitchBox';
 
 interface AssetSettingsModalProps {
@@ -63,7 +63,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   } = useAssetStatuses(assetId, questId);
 
   if (isError) {
-    Alert.alert(t('error'), t('assetSettingsLoadError'));
+    RNAlert.alert(t('error'), t('assetSettingsLoadError'));
     onClose();
     return null;
   }
@@ -125,10 +125,10 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
             ? t('assetMadeInactiveAllQuests')
             : t('assetMadeActiveAllQuests');
 
-      Alert.alert(t('success'), message);
+      RNAlert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating asset visibility / active:', error);
-      Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
+      RNAlert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -189,10 +189,10 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
             ? t('assetMadeInactiveQuest')
             : t('assetMadeActiveQuest');
 
-      Alert.alert(t('success'), message);
+      RNAlert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating asset visibility / active:', error);
-      Alert.alert(t('error'), t('failedToUpdateAssetSettings'));
+      RNAlert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
     }

@@ -130,8 +130,8 @@ export async function moveFile(sourceUri: string, targetUri: string) {
   // This is more reliable across platforms and avoids the simulator bug
 
   // Normalize both URIs to ensure they're properly formatted
-  let fromUri = normalizeFileUri(sourceUri);
-  let toUri = normalizeFileUri(targetUri);
+  const fromUri = normalizeFileUri(sourceUri);
+  const toUri = normalizeFileUri(targetUri);
 
   try {
     // Try moveAsync first (faster on real devices)
@@ -221,7 +221,13 @@ export function getLocalFilePathSuffix(filename: string): string {
   return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
 }
 
-export function getLocalAttachmentUriWithOPFS(filePath: string) {
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function getLocalAttachmentUriWithOPFS(filePath: string) {
+  // no OPFS on native
+  return getLocalAttachmentUri(filePath);
+}
+
+export function getLocalAttachmentUri(filePath: string) {
   return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
