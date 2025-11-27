@@ -14,12 +14,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { safeNavigate } from '@/utils/sharedUtils';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
-import { Keyboard, View } from 'react-native';
+import { Alert, Keyboard, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -54,7 +53,7 @@ export default function ResetPasswordView() {
 
       Keyboard.dismiss();
 
-      RNAlert.alert(t('success'), t('passwordResetSuccess'), [
+      Alert.alert(t('success'), t('passwordResetSuccess'), [
         {
           text: t('ok'),
           // Sign out and let auth context handle navigation to sign in
@@ -68,7 +67,7 @@ export default function ResetPasswordView() {
       form.reset();
     },
     onError: (error) => {
-      RNAlert.alert(
+      Alert.alert(
         t('error'),
         error instanceof Error ? error.message : t('passwordUpdateFailed')
       );
