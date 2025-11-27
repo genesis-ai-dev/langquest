@@ -10,6 +10,7 @@ import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
   asset,
   asset_content_link,
+  project_language_link,
   quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -26,7 +27,7 @@ import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { asc, eq, getTableColumns } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
 import { Alert, InteractionManager, View } from 'react-native';
@@ -80,6 +81,43 @@ const RecordingViewSimplified = ({
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
+
+  // Get target languoid_id from project_language_link
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', currentProjectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId
+  });
+
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -597,10 +635,13 @@ const RecordingViewSimplified = ({
         // Queue DB write (serialized to prevent race conditions)
         dbWriteQueueRef.current = dbWriteQueueRef.current
           .then(async () => {
+            if (!targetLanguoidId) {
+              throw new Error('Target languoid not found for project');
+            }
             await saveRecording({
               questId: currentQuestId,
               projectId: currentProjectId,
-              targetLanguageId: currentProject.target_language_id,
+              targetLanguoidId: targetLanguoidId,
               userId: currentUser.id,
               orderIndex: targetOrder,
               audioUri: localUri,
@@ -643,7 +684,8 @@ const RecordingViewSimplified = ({
       currentUser,
       queryClient,
       isVADLocked,
-      assets
+      assets,
+      targetLanguoidId
     ]
   );
 
@@ -1049,7 +1091,8 @@ const RecordingViewSimplified = ({
           if (!c.audio) continue;
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
-            source_language_id: c.source_language_id,
+            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
+            languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
             download_profiles: [currentUser.id]
@@ -1123,7 +1166,8 @@ const RecordingViewSimplified = ({
                     if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
-                      source_language_id: c.source_language_id,
+                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
+                      languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]
