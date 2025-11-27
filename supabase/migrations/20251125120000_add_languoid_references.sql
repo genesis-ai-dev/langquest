@@ -12,7 +12,7 @@
 --    - asset_content_link.languoid_id (parallel to source_language_id)
 --    - project_language_link.languoid_id (parallel to language_id)
 -- 3. Find matching languoid records (by name, alias, and/or iso639-3 code) and fill in new fields
--- 4. Increment schema version from 1.0 to 1.1
+-- 4. Increment schema version from 1.0 to 2.0
 --
 -- ============================================================================
 
@@ -376,7 +376,7 @@ WHERE l.active = true
 -- STEP 7: Update schema version
 -- ============================================================================
 
--- Update get_schema_info function to return version 1.1
+-- Update get_schema_info function to return version 2.0
 CREATE OR REPLACE FUNCTION public.get_schema_info()
 RETURNS jsonb
 LANGUAGE sql
@@ -384,8 +384,8 @@ SECURITY INVOKER
 SET search_path = public
 AS $$
   SELECT jsonb_build_object(
-    'schema_version', '1.1',
-    'notes', 'Added languoid references and creator_id fields to languoid/region tables'
+    'schema_version', '2.0',
+    'notes', 'Breaking change: Migrated from language to languoid system'
   );
 $$;
 
