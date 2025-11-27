@@ -1,0 +1,35 @@
+appId: com.etengenesis.langquest.preview
+onFlowStart:
+  - runScript: ./api.js
+jsEngine: graaljs
+---
+- evalScript: ${output.username = faker.internet().username()}
+- evalScript: ${output.email = faker.internet().emailAddress()}
+- launchApp:
+    clearState: true
+- assertVisible: Terms & Privacy
+- tapOn:
+    point: 8%,86%
+- tapOn: Accept
+- assertVisible: Every language. Every culture.
+- tapOn:
+    point: 88%,17%
+- tapOn: Create Account
+- tapOn: Username
+- inputText: ${output.username}-testing
+- tapOn: Enter your email
+- inputText: ${output.email}
+- tapOn: Password
+- inputText: password
+- tapOn: Confirm Password
+- inputText: password
+- hideKeyboard
+- tapOn:
+    point: 10%,69%
+- tapOn: Register
+- assertVisible: Projects
+- tapOn:
+    point: 89%,5%
+- tapOn: Profile
+- assertVisible: Profile
+- evalScript: ${output.api.deleteUser(output.email)}
