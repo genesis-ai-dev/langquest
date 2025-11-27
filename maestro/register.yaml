@@ -1,4 +1,4 @@
-appId: com.etengenesis.langquest.preview
+appId: ${APP_ID}
 onFlowStart:
   - runScript: ./api.js
 jsEngine: graaljs
