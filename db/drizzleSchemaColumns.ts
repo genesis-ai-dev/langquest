@@ -210,10 +210,8 @@ export function createProjectTable<
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       template: text({ enum: templateOptions }).default('unstructured'),
-      source_language_id: text().references(() => language.id),
-      target_language_id: text()
-        .notNull()
-        .references(() => language.id),
+      source_language_id: text(), // FK to language dropped - migrating to languoid
+      target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
       ...extraColumns
@@ -248,6 +246,7 @@ export function createProfileTable<
       password: text(),
       avatar: text(),
       ui_language_id: text(),
+      ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
       terms_accepted: int({ mode: 'boolean' }),
       terms_accepted_at: text(),
       ...extraColumns
@@ -344,9 +343,7 @@ export function createAssetTable<
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      source_language_id: text()
-        // .notNull() TODO: make decision about this
-        .references(() => language.id),
+      source_language_id: text(), // FK to language dropped - migrating to languoid
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
@@ -596,7 +593,8 @@ export function createAssetContentLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
-      source_language_id: text().references(() => language.id),
+      source_language_id: text(), // FK to language dropped - migrating to languoid
+      languoid_id: text(), // Reference to languoid table
       ...extraColumns
     },
     (table) => {
@@ -644,17 +642,17 @@ export function createProjectLanguageLinkTable<
       project_id: text()
         .notNull()
         .references(() => project.id),
-      language_id: text()
-        .notNull()
-        .references(() => language.id),
+      language_id: text(), // Nullable - kept for backward compatibility
+      languoid_id: text().notNull(), // Part of new PK - canonical language reference
       ...extraColumns
     },
     (table) => [
       primaryKey({
-        columns: [table.project_id, table.language_id, table.language_type]
+        columns: [table.project_id, table.languoid_id, table.language_type]
       }),
       index('pll_project_id_idx').on(table.project_id),
       index('pll_language_type_idx').on(table.language_type),
+      index('pll_language_id_idx').on(table.language_id), // For backward compatibility
       ...normalizeParams(extraConfig, table)
     ]
   );
@@ -1089,6 +1087,387 @@ export function createProjectClosureTable<
     },
     (table) => [
       index('project_closure_last_updated_idx').on(table.last_updated),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+// ============================================================================
+// LANGUOID TABLE DEFINITIONS
+// ============================================================================
+
+export function createLanguoidTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  { profile }: { profile: typeof profile_synced | typeof profile_local },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'languoid', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid',
+    {
+      ...getTableColumns(source),
+      name: text(),
+      parent_id: text().references((): AnySQLiteColumn => table.id),
+      level: text({ enum: ['family', 'language', 'dialect'] }).notNull(),
+      ui_ready: int({ mode: 'boolean' }).notNull().default(false),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_parent_id_idx').on(table.parent_id),
+      index('languoid_name_idx').on(table.name),
+      index('languoid_ui_ready_idx').on(table.ui_ready),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createLanguoidAliasTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    languoid,
+    profile
+  }: {
+    languoid: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'languoid_alias', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid_alias',
+    {
+      ...getTableColumns(source),
+      subject_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      label_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      name: text().notNull(),
+      alias_type: text({ enum: ['endonym', 'exonym'] }).notNull(),
+      source_names: text({ mode: 'json' }).$type<string[]>().default([]),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_alias_subject_idx').on(table.subject_languoid_id),
+      index('languoid_alias_label_idx').on(table.label_languoid_id),
+      index('languoid_alias_name_idx').on(table.name),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createLanguoidSourceTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    languoid,
+    profile
+  }: {
+    languoid: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'languoid_source', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid_source',
+    {
+      ...getTableColumns(source),
+      name: text().notNull(),
+      version: text(),
+      languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      unique_identifier: text(),
+      url: text(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_source_languoid_id_idx').on(table.languoid_id),
+      index('languoid_source_unique_identifier_idx').on(
+        table.unique_identifier
+      ),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createLanguoidPropertyTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    languoid,
+    profile
+  }: {
+    languoid: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'languoid_property', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid_property',
+    {
+      ...getTableColumns(source),
+      languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      key: text().notNull(),
+      value: text().notNull(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_property_languoid_id_idx').on(table.languoid_id),
+      index('languoid_property_key_idx').on(table.key),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createRegionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  { profile }: { profile: typeof profile_synced | typeof profile_local },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'region', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'region',
+    {
+      ...getTableColumns(source),
+      name: text(),
+      parent_id: text().references((): AnySQLiteColumn => table.id),
+      level: text({ enum: ['continent', 'nation', 'subnational'] }).notNull(),
+      geometry: int({ mode: 'boolean' }).notNull().default(false),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('region_parent_id_idx').on(table.parent_id),
+      index('region_name_idx').on(table.name),
+      index('region_level_idx').on(table.level),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createRegionAliasTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    region,
+    languoid,
+    profile
+  }: {
+    region: { id: AnySQLiteColumn };
+    languoid: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'region_alias', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'region_alias',
+    {
+      ...getTableColumns(source),
+      subject_region_id: text()
+        .notNull()
+        .references(() => region.id),
+      label_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('region_alias_subject_idx').on(table.subject_region_id),
+      index('region_alias_label_idx').on(table.label_languoid_id),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createRegionSourceTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    region,
+    profile
+  }: {
+    region: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'region_source', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'region_source',
+    {
+      ...getTableColumns(source),
+      name: text().notNull(),
+      version: text(),
+      region_id: text()
+        .notNull()
+        .references(() => region.id),
+      unique_identifier: text(),
+      url: text(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('region_source_region_id_idx').on(table.region_id),
+      index('region_source_unique_identifier_idx').on(table.unique_identifier),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createRegionPropertyTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    region,
+    profile
+  }: {
+    region: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'region_property', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'region_property',
+    {
+      ...getTableColumns(source),
+      region_id: text()
+        .notNull()
+        .references(() => region.id),
+      key: text().notNull(),
+      value: text().notNull(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('region_property_region_id_idx').on(table.region_id),
+      index('region_property_key_idx').on(table.key),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createLanguoidRegionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    languoid,
+    region,
+    profile
+  }: {
+    languoid: { id: AnySQLiteColumn };
+    region: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'languoid_region', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid_region',
+    {
+      ...getTableColumns(source),
+      languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      region_id: text()
+        .notNull()
+        .references(() => region.id),
+      majority: int({ mode: 'boolean' }),
+      official: int({ mode: 'boolean' }),
+      native: int({ mode: 'boolean' }),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      creator_id: text().references(() => profile.id),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_region_languoid_id_idx').on(table.languoid_id),
+      index('languoid_region_region_id_idx').on(table.region_id),
       ...normalizeParams(extraConfig, table)
     ]
   );

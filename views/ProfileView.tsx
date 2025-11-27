@@ -81,7 +81,7 @@ export default function ProfileView() {
 
   const formSchema = z
     .object({
-      selectedLanguageId: z.uuid(t('selectLanguage')),
+      selectedLanguoidId: z.uuid(t('selectLanguage')),
       currentPassword: z.string().trim().optional(),
       newPassword: z.string().trim().optional(),
       confirmPassword: z.string().trim().optional(),
@@ -119,7 +119,11 @@ export default function ProfileView() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      selectedLanguageId: currentUser?.user_metadata.ui_language_id ?? '',
+      // Prefer ui_languoid_id, fallback to ui_language_id for backward compatibility
+      selectedLanguoidId:
+        currentUser?.user_metadata.ui_languoid_id ??
+        currentUser?.user_metadata.ui_language_id ??
+        '',
       termsAccepted: !!currentUser?.user_metadata.terms_accepted
     }
   });
@@ -137,7 +141,7 @@ export default function ProfileView() {
 
       const updatedUser = await profileService.updateProfile({
         id: currentUser.id,
-        ui_language_id: data.selectedLanguageId,
+        ui_languoid_id: data.selectedLanguoidId,
         ...(isOnline && data.newPassword
           ? { password: data.newPassword.trim() }
           : {}),
@@ -417,13 +421,13 @@ export default function ProfileView() {
         {/* Language Selection - Always available */}
         <FormField
           control={form.control}
-          name="selectedLanguageId"
+          name="selectedLanguoidId"
           render={({ field }) => (
             <FormItem>
               <LanguageSelect
                 {...field}
                 uiReadyOnly
-                onChange={(lang) => field.onChange(lang.id)}
+                onChange={(languoid) => field.onChange(languoid.id)}
               />
               <FormMessage />
             </FormItem>
