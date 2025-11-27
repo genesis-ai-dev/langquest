@@ -210,10 +210,8 @@ export function createProjectTable<
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       template: text({ enum: templateOptions }).default('unstructured'),
-      source_language_id: text().references(() => language.id),
-      target_language_id: text()
-        .notNull()
-        .references(() => language.id),
+      source_language_id: text(), // FK to language dropped - migrating to languoid
+      target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
       ...extraColumns
@@ -345,9 +343,7 @@ export function createAssetTable<
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      source_language_id: text()
-        // .notNull() TODO: make decision about this
-        .references(() => language.id),
+      source_language_id: text(), // FK to language dropped - migrating to languoid
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
@@ -597,8 +593,8 @@ export function createAssetContentLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
-      source_language_id: text().references(() => language.id),
-      languoid_id: text(), // Reference to languoid table (server-only, not synced)
+      source_language_id: text(), // FK to language dropped - migrating to languoid
+      languoid_id: text(), // Reference to languoid table
       ...extraColumns
     },
     (table) => {
@@ -646,18 +642,17 @@ export function createProjectLanguageLinkTable<
       project_id: text()
         .notNull()
         .references(() => project.id),
-      language_id: text()
-        .notNull()
-        .references(() => language.id),
-      languoid_id: text(), // Reference to languoid table (server-only, not synced)
+      language_id: text(), // Nullable - kept for backward compatibility
+      languoid_id: text().notNull(), // Part of new PK - canonical language reference
       ...extraColumns
     },
     (table) => [
       primaryKey({
-        columns: [table.project_id, table.language_id, table.language_type]
+        columns: [table.project_id, table.languoid_id, table.language_type]
       }),
       index('pll_project_id_idx').on(table.project_id),
       index('pll_language_type_idx').on(table.language_type),
+      index('pll_language_id_idx').on(table.language_id), // For backward compatibility
       ...normalizeParams(extraConfig, table)
     ]
   );

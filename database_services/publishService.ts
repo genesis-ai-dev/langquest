@@ -943,6 +943,7 @@ async function executePublishTransaction(
       }
 
       // 1b. Publish project_language_link records if they exist
+      // PK is now (project_id, languoid_id, language_type) - languoid_id is required
       if (data.projectLanguageLinks && data.projectLanguageLinks.length > 0) {
         const projectLanguageLinkTable = resolveTable('project_language_link', {
           localOverride: false
@@ -953,13 +954,23 @@ async function executePublishTransaction(
         );
         let skipped = 0;
         for (const link of data.projectLanguageLinks) {
+          // Skip links without languoid_id - they can't be inserted (PK requirement)
+          if (!link.languoid_id) {
+            console.warn(
+              `⚠️ Skipping project_language_link without languoid_id for project ${link.project_id}`
+            );
+            skipped++;
+            continue;
+          }
+
+          // Check using new PK (project_id, languoid_id, language_type)
           const [existing] = await tx
             .select()
             .from(projectLanguageLinkTable)
             .where(
               and(
                 eq(projectLanguageLinkTable.project_id, link.project_id),
-                eq(projectLanguageLinkTable.language_id, link.language_id),
+                eq(projectLanguageLinkTable.languoid_id, link.languoid_id),
                 eq(projectLanguageLinkTable.language_type, link.language_type)
               )
             )
@@ -968,8 +979,8 @@ async function executePublishTransaction(
           if (!existing) {
             await tx.insert(projectLanguageLinkTable).values({
               project_id: link.project_id,
-              language_id: link.language_id,
-              languoid_id: link.languoid_id, // Include languoid_id
+              language_id: link.language_id || null, // Optional - for backward compatibility
+              languoid_id: link.languoid_id, // Required - part of PK
               language_type: link.language_type,
               download_profiles: link.download_profiles,
               created_at: link.created_at,
@@ -982,41 +993,8 @@ async function executePublishTransaction(
         }
         if (skipped > 0) {
           console.log(
-            `⏭️  Skipped ${skipped} project language links that already exist`
+            `⏭️  Skipped ${skipped} project language links (already exist or missing languoid_id)`
           );
-        }
-      } else if (data.project && data.project.target_language_id) {
-        // Fallback: Create project_language_link from old target_language_id field
-        // This handles backward compatibility for projects created before migration
-        const projectLanguageLinkTable = resolveTable('project_language_link', {
-          localOverride: false
-        });
-
-        const [existing] = await tx
-          .select()
-          .from(projectLanguageLinkTable)
-          .where(
-            and(
-              eq(projectLanguageLinkTable.project_id, data.project.id),
-              eq(projectLanguageLinkTable.language_type, 'target')
-            )
-          )
-          .limit(1);
-
-        if (!existing) {
-          console.log(
-            `🔗 Creating project_language_link from legacy target_language_id`
-          );
-          await tx.insert(projectLanguageLinkTable).values({
-            project_id: data.project.id,
-            language_id: data.project.target_language_id,
-            languoid_id: null, // Will be populated by migration
-            language_type: 'target',
-            download_profiles: data.project.download_profiles,
-            created_at: data.project.created_at,
-            last_updated: data.project.last_updated,
-            active: data.project.active
-          });
         }
       }
 

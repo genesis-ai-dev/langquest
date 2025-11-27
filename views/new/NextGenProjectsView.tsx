@@ -144,18 +144,17 @@ export default function NextGenProjectsView() {
             });
 
           // Create project_language_link with languoid_id
+          // PK is (project_id, languoid_id, language_type) - language_id is optional
           const projectLanguageLinkLocal = resolveTable(
             'project_language_link',
             {
               localOverride: true
             }
           );
-          const linkId = `${currentUser!.id}_${newProject.id}_target`;
           await tx.insert(projectLanguageLinkLocal).values({
-            id: linkId,
             project_id: newProject.id,
-            language_id: target_languoid_id, // Use languoid_id as fallback for language_id
-            languoid_id: target_languoid_id,
+            language_id: null, // Optional - for backward compatibility
+            languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,
             download_profiles: [currentUser!.id]

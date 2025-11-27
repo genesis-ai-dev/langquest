@@ -70,7 +70,8 @@ INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready",
 	('7c37870b-7d52-4589-934f-576f03781263', NULL, 'Spanish', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', NULL, 'Mixteco de Penasco', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', NULL, 'Zapoteco de Santiago', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('2f1e3d4c-5b6a-7890-1234-567890abcdef', NULL, 'Popoluca', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('2f1e3d4c-5b6a-7890-1234-567890abcdef', NULL, 'Popoluca', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', NULL, 'Universal', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -78,11 +79,11 @@ INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready",
 --
 
 INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_languoid_id", "name", "alias_type", "source_names", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('alias-eng-native', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'English', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('alias-spa-native', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'Español', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('alias-mil-native', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Tu''un Savi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('alias-zas-native', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Diidxazá', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('alias-poi-native', '2f1e3d4c-5b6a-7890-1234-567890abcdef', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'Nuntajɨ̃yi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('a1a1a1a1-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'English', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'Español', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Tu''un Savi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Diidxazá', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'Nuntajɨ̃yi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -90,11 +91,11 @@ INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_langu
 --
 
 INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", "unique_identifier", "url", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('lsrc-eng-iso', 'iso639-3', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'eng', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lsrc-spa-iso', 'iso639-3', NULL, '7c37870b-7d52-4589-934f-576f03781263', 'spa', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lsrc-mil-iso', 'iso639-3', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'mil', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lsrc-zas-iso', 'iso639-3', NULL, '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'zas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lsrc-poi-iso', 'iso639-3', NULL, '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'poi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('b2b2b2b2-0001-4000-8000-000000000001', 'iso639-3', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'eng', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0002-4000-8000-000000000002', 'iso639-3', NULL, '7c37870b-7d52-4589-934f-576f03781263', 'spa', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0003-4000-8000-000000000003', 'iso639-3', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'mil', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0004-4000-8000-000000000004', 'iso639-3', NULL, '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'zas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0005-4000-8000-000000000005', 'iso639-3', NULL, '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'poi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -102,11 +103,11 @@ INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", 
 --
 
 INSERT INTO "public"."languoid_property" ("id", "languoid_id", "key", "value", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('prop-eng-macroarea', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('prop-spa-macroarea', '7c37870b-7d52-4589-934f-576f03781263', 'macroareas', 'Eurasia', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('prop-mil-macroarea', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('prop-zas-macroarea', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('prop-poi-macroarea', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('c3c3c3c3-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'macroareas', 'Eurasia', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -114,10 +115,10 @@ INSERT INTO "public"."languoid_property" ("id", "languoid_id", "key", "value", "
 --
 
 INSERT INTO "public"."region" ("id", "parent_id", "name", "level", "geometry", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('region-mexico', NULL, 'Mexico', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('region-oaxaca', 'region-mexico', 'Oaxaca', 'subnational', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('region-usa', NULL, 'United States', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('region-spain', NULL, 'Spain', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('d4d4d4d4-0001-4000-8000-000000000001', NULL, 'Mexico', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0002-4000-8000-000000000002', 'd4d4d4d4-0001-4000-8000-000000000001', 'Oaxaca', 'subnational', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0003-4000-8000-000000000003', NULL, 'United States', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0004-4000-8000-000000000004', NULL, 'Spain', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -125,9 +126,9 @@ INSERT INTO "public"."region" ("id", "parent_id", "name", "level", "geometry", "
 --
 
 INSERT INTO "public"."region_source" ("id", "name", "version", "region_id", "unique_identifier", "url", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('rsrc-mexico-iso', 'iso3166-1', NULL, 'region-mexico', 'MX', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('rsrc-usa-iso', 'iso3166-1', NULL, 'region-usa', 'US', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('rsrc-spain-iso', 'iso3166-1', NULL, 'region-spain', 'ES', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('e5e5e5e5-0001-4000-8000-000000000001', 'iso3166-1', NULL, 'd4d4d4d4-0001-4000-8000-000000000001', 'MX', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5e5e5e5-0002-4000-8000-000000000002', 'iso3166-1', NULL, 'd4d4d4d4-0003-4000-8000-000000000003', 'US', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5e5e5e5-0003-4000-8000-000000000003', 'iso3166-1', NULL, 'd4d4d4d4-0004-4000-8000-000000000004', 'ES', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -135,12 +136,12 @@ INSERT INTO "public"."region_source" ("id", "name", "version", "region_id", "uni
 --
 
 INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "majority", "official", "native", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('lr-eng-usa', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'region-usa', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lr-spa-mexico', '7c37870b-7d52-4589-934f-576f03781263', 'region-mexico', true, true, false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lr-spa-spain', '7c37870b-7d52-4589-934f-576f03781263', 'region-spain', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lr-mil-oaxaca', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'region-oaxaca', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lr-zas-oaxaca', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'region-oaxaca', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('lr-poi-mexico', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'region-mexico', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('f6f6f6f6-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'd4d4d4d4-0003-4000-8000-000000000003', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0001-4000-8000-000000000001', true, true, false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0003-4000-8000-000000000003', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0004-4000-8000-000000000004', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0004-4000-8000-000000000004', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0005-4000-8000-000000000005', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0006-4000-8000-000000000006', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'd4d4d4d4-0001-4000-8000-000000000001', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -314,9 +315,8 @@ INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "descr
 	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true);
 
 -- Link Mixteco project to Universal language as a source via project_language_link
--- Note: Universal language doesn't have a corresponding languoid, so languoid_id is NULL
 INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
-  ('bace07b1-41de-4535-9c68-aa81683d9370', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', NULL, 'source', true, NOW(), NOW());
+  ('bace07b1-41de-4535-9c68-aa81683d9370', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'source', true, NOW(), NOW());
 
 
 --

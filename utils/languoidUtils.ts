@@ -153,11 +153,13 @@ export async function findOrCreateLanguoidByName(
  * Creates a project_language_link with languoid_id
  * Handles both offline and online scenarios
  *
+ * PK is now (project_id, languoid_id, language_type) - languoid_id is required
+ *
  * @param project_id - The project ID
- * @param languoid_id - The languoid ID
+ * @param languoid_id - The languoid ID (required - part of PK)
  * @param language_type - 'source' or 'target'
- * @param language_id - Optional language_id for backward compatibility
  * @param creator_id - The user creating the link
+ * @param language_id - Optional language_id for backward compatibility
  */
 export async function createProjectLanguageLinkWithLanguoid(
   project_id: string,
@@ -170,35 +172,28 @@ export async function createProjectLanguageLinkWithLanguoid(
     localOverride: true
   });
 
-  // Check if link already exists
+  // Check if link already exists using new PK (project_id, languoid_id, language_type)
   const existing = await system.db
     .select()
     .from(projectLanguageLinkLocal)
     .where(
       and(
         eq(projectLanguageLinkLocal.project_id, project_id),
+        eq(projectLanguageLinkLocal.languoid_id, languoid_id),
         eq(projectLanguageLinkLocal.language_type, language_type)
       )
     )
     .limit(1);
 
   if (existing.length > 0 && existing[0]) {
-    // Update existing link with languoid_id
-    await system.db
-      .update(projectLanguageLinkLocal)
-      .set({ languoid_id })
-      .where(eq(projectLanguageLinkLocal.id, existing[0].id));
+    // Link already exists with this PK, nothing to do
     return;
   }
 
-  // Create new link
-  // Generate a composite ID for the link
-  const linkId = `${project_id}_${language_id || languoid_id}_${language_type}`;
-
+  // Create new link - languoid_id is required (part of PK), language_id is optional
   await system.db.insert(projectLanguageLinkLocal).values({
-    id: linkId,
     project_id,
-    language_id: language_id || languoid_id, // Use languoid_id as fallback if language_id not provided
+    language_id: language_id || null, // Optional - for backward compatibility
     languoid_id,
     language_type,
     active: true,
