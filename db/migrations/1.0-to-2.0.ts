@@ -32,7 +32,9 @@ export const migration_1_0_to_2_0: Migration = {
 
     // Step 1: Add ui_languoid_id column to profile_local
     if (onProgress) onProgress(1, 5, 'Adding ui_languoid_id to profile_local');
-    console.log('[Migration 1.0→2.0] Adding ui_languoid_id to profile_local...');
+    console.log(
+      '[Migration 1.0→2.0] Adding ui_languoid_id to profile_local...'
+    );
 
     if (!(await columnExists(db, 'profile_local', 'ui_languoid_id'))) {
       await addColumn(db, 'profile_local', 'ui_languoid_id TEXT DEFAULT NULL');
@@ -180,4 +182,3 @@ export const migration_1_0_to_2_0: Migration = {
     // Note: updateMetadataVersion() is called automatically by the migration system
   }
 };
-

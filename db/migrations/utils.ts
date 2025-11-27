@@ -413,7 +413,9 @@ export async function columnExists(
     if (!rawPowerSync?.execute) {
       // Fallback: try to check via pragma through the view
       const result = (await db.get(
-        sql.raw(`SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`)
+        sql.raw(
+          `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`
+        )
       )) as { count: number } | undefined;
       return (result?.count || 0) > 0;
     }
