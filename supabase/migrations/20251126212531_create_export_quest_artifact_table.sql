@@ -13,7 +13,7 @@ CREATE TABLE export_quest_artifact (
   
   -- Export artifact data
   audio_url TEXT, -- URL to concatenated MP3 (null until processing completes)
-  metadata JSONB NOT NULL, -- Polymorphic metadata: manifest (technical data) + optional bible (Bible-specific metadata)
+  metadata JSONB NOT NULL, -- Polymorphic metadata: manifest (technical data) + optional bible (Bible-specific metadata) or other metadata (e.g. story_data, genre, speakers, etc.)
   
   -- Export type and status
   export_type TEXT NOT NULL CHECK (export_type IN ('feedback', 'distribution')),
