@@ -25,6 +25,8 @@ Before creating a new UI component, check these resources for existing component
 
 ## Implementation Notes
 
+- **Library Selection**: Before reaching for a third-party library, check the [Expo SDK documentation](https://docs.expo.dev/versions/latest/) for first-party solutions. Expo provides well-maintained, cross-platform APIs for many common needs (camera, file system, haptics, etc.) that integrate seamlessly with the Expo ecosystem.
+
 - Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
 
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.

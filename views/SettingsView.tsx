@@ -56,6 +56,7 @@ export default function SettingsView() {
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
   );
+  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -71,6 +72,7 @@ export default function SettingsView() {
   const setEnableAiSuggestions = useLocalStore(
     (state) => state.setEnableAiSuggestions
   );
+  const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
 
   // Settings are loaded from the centralized store
 
@@ -104,6 +106,10 @@ export default function SettingsView() {
 
   const handleAiSuggestionsToggle = (value: boolean) => {
     setEnableAiSuggestions(value);
+  };
+
+  const handlePlayAllToggle = (value: boolean) => {
+    setEnablePlayAll(value);
   };
 
   const handleClearCache = () => {
@@ -234,6 +240,14 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableAiSuggestions,
           onPress: () => handleAiSuggestionsToggle(!enableAiSuggestions)
+        },
+        {
+          id: 'playAll',
+          title: t('playAll'),
+          description: t('playAllDescription'),
+          type: 'toggle',
+          value: enablePlayAll,
+          onPress: () => handlePlayAllToggle(!enablePlayAll)
         }
       ]
     },

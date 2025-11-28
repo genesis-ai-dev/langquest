@@ -28,7 +28,7 @@ import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
 import { Alert, InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -434,6 +434,9 @@ const RecordingViewSimplified = ({
     []
   );
 
+  // Special audio ID for "play all" mode
+  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
+
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
@@ -467,6 +470,45 @@ const RecordingViewSimplified = ({
     },
     [audioContext, getAssetAudioUris]
   );
+
+  // Handle play all assets
+  const handlePlayAllAssets = React.useCallback(async () => {
+    try {
+      const isPlayingAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
+
+      if (isPlayingAll) {
+        debugLog('⏸️ Stopping play all');
+        await audioContext.stopCurrentSound();
+      } else {
+        debugLog('▶️ Playing all assets');
+        if (assets.length === 0) {
+          console.warn('⚠️ No assets to play');
+          return;
+        }
+
+        // Collect all URIs from all assets in order
+        const allUris: string[] = [];
+        for (const asset of assets) {
+          const uris = await getAssetAudioUris(asset.id);
+          allUris.push(...uris);
+        }
+
+        if (allUris.length === 0) {
+          console.error('❌ No audio URIs found for any assets');
+          return;
+        }
+
+        debugLog(
+          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
+        );
+        await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
+      }
+    } catch (error) {
+      console.error('❌ Failed to play all assets:', error);
+    }
+  }, [audioContext, getAssetAudioUris, assets]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1507,6 +1549,24 @@ const RecordingViewSimplified = ({
             {t('assets')} ({assets.length})
           </Text>
         </View>
+        {assets.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={handlePlayAllAssets}
+            className="h-10 w-10"
+          >
+            <Icon
+              as={
+                audioContext.isPlaying &&
+                audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+                  ? PauseIcon
+                  : PlayIcon
+              }
+              size={24}
+            />
+          </Button>
+        )}
       </View>
 
       {/* Scrollable list area - full height with padding for controls */}
