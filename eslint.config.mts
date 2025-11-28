@@ -27,7 +27,8 @@ export default defineConfig(
       'android/**',
       'ios/**',
       'node_modules/**',
-      'dist/**'
+      'dist/**',
+      'maestro/**'
     ]
   },
   eslint.configs.recommended,
