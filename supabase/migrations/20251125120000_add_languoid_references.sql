@@ -144,179 +144,107 @@ CREATE INDEX IF NOT EXISTS idx_project_language_link_languoid ON public.project_
 -- STEP 4: Find and populate matching languoid records
 -- ============================================================================
 
--- Helper function to find matching languoid by language record
--- Priority: ISO 639-3 code > english_name > native_name
-CREATE OR REPLACE FUNCTION find_matching_languoid(lang_id uuid)
-RETURNS text
-LANGUAGE plpgsql
-STABLE
-AS $$
-DECLARE
-  lang_record RECORD;
-  matched_languoid_id text;
-BEGIN
-  -- Get language record
-  SELECT iso639_3, english_name, native_name INTO lang_record
-  FROM public.language
-  WHERE id = lang_id AND active = true;
-  
-  IF lang_record IS NULL THEN
-    RETURN NULL;
-  END IF;
-  
-  -- Priority 1: Match by ISO 639-3 code
-  IF lang_record.iso639_3 IS NOT NULL AND trim(lang_record.iso639_3) != '' THEN
-    SELECT ls.languoid_id INTO matched_languoid_id
-    FROM public.languoid_source ls
-    WHERE lower(trim(ls.unique_identifier)) = lower(trim(lang_record.iso639_3))
-      AND lower(ls.name) = 'iso639-3'
-      AND ls.active = true
-    LIMIT 1;
-    
-    IF matched_languoid_id IS NOT NULL THEN
-      RETURN matched_languoid_id;
-    END IF;
-  END IF;
-  
-  -- Priority 2: Match by english_name (check languoid.name first, then alias)
-  IF lang_record.english_name IS NOT NULL AND trim(lang_record.english_name) != '' THEN
-    -- Check languoid.name
-    SELECT id INTO matched_languoid_id
-    FROM public.languoid
-    WHERE lower(trim(name)) = lower(trim(lang_record.english_name))
-      AND active = true
-    LIMIT 1;
-    
-    IF matched_languoid_id IS NOT NULL THEN
-      RETURN matched_languoid_id;
-    END IF;
-    
-    -- Check languoid_alias.name
-    SELECT la.subject_languoid_id INTO matched_languoid_id
-    FROM public.languoid_alias la
-    WHERE lower(trim(la.name)) = lower(trim(lang_record.english_name))
-      AND la.active = true
-    LIMIT 1;
-    
-    IF matched_languoid_id IS NOT NULL THEN
-      RETURN matched_languoid_id;
-    END IF;
-  END IF;
-  
-  -- Priority 3: Match by native_name (check languoid.name first, then alias)
-  IF lang_record.native_name IS NOT NULL AND trim(lang_record.native_name) != '' THEN
-    -- Check languoid.name
-    SELECT id INTO matched_languoid_id
-    FROM public.languoid
-    WHERE lower(trim(name)) = lower(trim(lang_record.native_name))
-      AND active = true
-    LIMIT 1;
-    
-    IF matched_languoid_id IS NOT NULL THEN
-      RETURN matched_languoid_id;
-    END IF;
-    
-    -- Check languoid_alias.name
-    SELECT la.subject_languoid_id INTO matched_languoid_id
-    FROM public.languoid_alias la
-    WHERE lower(trim(la.name)) = lower(trim(lang_record.native_name))
-      AND la.active = true
-    LIMIT 1;
-    
-    IF matched_languoid_id IS NOT NULL THEN
-      RETURN matched_languoid_id;
-    END IF;
-  END IF;
-  
-  RETURN NULL;
-END;
-$$;
+-- ============================================================================
+-- Create language->languoid mapping table using efficient JOINs (NO function calls)
+-- This maps all active languages to their matching languoid using the priority:
+-- 1. ISO 639-3 code match
+-- 2. english_name match in languoid.name
+-- 3. english_name match in languoid_alias.name  
+-- 4. native_name match in languoid.name
+-- 5. native_name match in languoid_alias.name
+-- ============================================================================
 
--- Populate profile.ui_languoid_id from profile.ui_language_id (batched)
-DO $$
-DECLARE
-  batch_size INT := 1000;
-  rows_updated INT;
-  total_updated INT := 0;
-BEGIN
-  LOOP
-    UPDATE public.profile p
-    SET ui_languoid_id = find_matching_languoid(p.ui_language_id)
-    WHERE p.id IN (
-      SELECT id FROM public.profile
-      WHERE ui_language_id IS NOT NULL
-        AND ui_languoid_id IS NULL
-      LIMIT batch_size
-    );
-    
-    GET DIAGNOSTICS rows_updated = ROW_COUNT;
-    total_updated := total_updated + rows_updated;
-    
-    EXIT WHEN rows_updated = 0;
-    
-    RAISE NOTICE 'profile.ui_languoid_id: updated % rows (total: %)', rows_updated, total_updated;
-  END LOOP;
-  
-  RAISE NOTICE 'profile.ui_languoid_id: completed, total updated: %', total_updated;
-END $$;
+CREATE TEMP TABLE _language_to_languoid_map AS
+SELECT 
+  l.id as language_id,
+  COALESCE(
+    -- Priority 1: Match by ISO 639-3 code in languoid_source
+    (SELECT ls.languoid_id 
+     FROM public.languoid_source ls 
+     WHERE l.iso639_3 IS NOT NULL 
+       AND trim(l.iso639_3) != ''
+       AND lower(trim(ls.unique_identifier)) = lower(trim(l.iso639_3))
+       AND lower(ls.name) = 'iso639-3'
+       AND ls.active = true
+     LIMIT 1),
+    -- Priority 2: Match english_name in languoid.name
+    (SELECT lo.id 
+     FROM public.languoid lo 
+     WHERE l.english_name IS NOT NULL 
+       AND trim(l.english_name) != ''
+       AND lower(trim(lo.name)) = lower(trim(l.english_name))
+       AND lo.active = true
+     LIMIT 1),
+    -- Priority 3: Match english_name in languoid_alias.name
+    (SELECT la.subject_languoid_id 
+     FROM public.languoid_alias la 
+     WHERE l.english_name IS NOT NULL 
+       AND trim(l.english_name) != ''
+       AND lower(trim(la.name)) = lower(trim(l.english_name))
+       AND la.active = true
+     LIMIT 1),
+    -- Priority 4: Match native_name in languoid.name
+    (SELECT lo.id 
+     FROM public.languoid lo 
+     WHERE l.native_name IS NOT NULL 
+       AND trim(l.native_name) != ''
+       AND lower(trim(lo.name)) = lower(trim(l.native_name))
+       AND lo.active = true
+     LIMIT 1),
+    -- Priority 5: Match native_name in languoid_alias.name
+    (SELECT la.subject_languoid_id 
+     FROM public.languoid_alias la 
+     WHERE l.native_name IS NOT NULL 
+       AND trim(l.native_name) != ''
+       AND lower(trim(la.name)) = lower(trim(l.native_name))
+       AND la.active = true
+     LIMIT 1)
+  ) as languoid_id
+FROM public.language l
+WHERE l.active = true;
 
--- Populate asset_content_link.languoid_id from asset_content_link.source_language_id
--- OPTIMIZATION: Pre-compute language->languoid mapping once, then use fast JOIN update
--- Only compute mappings for languages actually referenced in rows that need updating
+-- Index for fast lookups
+CREATE INDEX ON _language_to_languoid_map(language_id);
 
--- Step 1: Create temp mapping table (only for languages that need mapping, not all 8k)
-CREATE TEMP TABLE _lang_to_languoid_map AS
-SELECT DISTINCT source_language_id as language_id, 
-       find_matching_languoid(source_language_id) as languoid_id
-FROM public.asset_content_link
-WHERE source_language_id IS NOT NULL
-  AND languoid_id IS NULL
-  AND active = true;
+-- ============================================================================
+-- Now use the mapping table for all UPDATEs (fast JOINs, no function calls)
+-- ============================================================================
 
-CREATE INDEX ON _lang_to_languoid_map(language_id);
+-- Populate profile.ui_languoid_id
+UPDATE public.profile p
+SET ui_languoid_id = m.languoid_id
+FROM _language_to_languoid_map m
+WHERE p.ui_language_id = m.language_id
+  AND p.ui_languoid_id IS NULL
+  AND m.languoid_id IS NOT NULL;
 
--- Step 2: Fast JOIN-based UPDATE (no function calls, just a simple join)
+-- Populate asset_content_link.languoid_id (235k rows, but fast JOIN)
 UPDATE public.asset_content_link acl
 SET languoid_id = m.languoid_id
-FROM _lang_to_languoid_map m
+FROM _language_to_languoid_map m
 WHERE acl.source_language_id = m.language_id
   AND acl.languoid_id IS NULL
   AND acl.active = true
   AND m.languoid_id IS NOT NULL;
 
-DROP TABLE _lang_to_languoid_map;
-
--- Populate project_language_link.languoid_id from project_language_link.language_id
--- Uses same pre-computed mapping approach for efficiency
-
--- Step 1: Create temp mapping table (only for languages that need mapping)
-CREATE TEMP TABLE _pll_lang_to_languoid_map AS
-SELECT DISTINCT language_id, 
-       find_matching_languoid(language_id) as languoid_id
-FROM public.project_language_link
-WHERE language_id IS NOT NULL
-  AND languoid_id IS NULL
-  AND active = true;
-
-CREATE INDEX ON _pll_lang_to_languoid_map(language_id);
-
--- Step 2: Fast JOIN-based UPDATE
+-- Populate project_language_link.languoid_id
 UPDATE public.project_language_link pll
 SET languoid_id = m.languoid_id
-FROM _pll_lang_to_languoid_map m
+FROM _language_to_languoid_map m
 WHERE pll.language_id = m.language_id
   AND pll.languoid_id IS NULL
   AND pll.active = true
   AND m.languoid_id IS NOT NULL;
 
--- Cleanup temp table
-DROP TABLE _pll_lang_to_languoid_map;
+-- Keep mapping table for STEP 5 (creating new languoids for unmatched languages)
+-- Will be dropped after STEP 5
 
 -- ============================================================================
 -- STEP 5: Create languoid records for unmatched languages
 -- ============================================================================
 -- For languages that couldn't be matched to existing languoids, create new
 -- languoid records and link them via languoid_source if iso639-3 code exists
+-- Uses the mapping table to find unmatched languages (where languoid_id IS NULL)
 
 DO $$
 DECLARE
@@ -324,12 +252,13 @@ DECLARE
   new_languoid_id TEXT;
   languoid_name TEXT;
 BEGIN
-  -- Find all languages that don't have a matching languoid
+  -- Find all languages that don't have a matching languoid (using mapping table)
   FOR lang_record IN
     SELECT l.id, l.english_name, l.native_name, l.iso639_3, l.ui_ready, l.creator_id
     FROM public.language l
+    INNER JOIN _language_to_languoid_map m ON m.language_id = l.id
     WHERE l.active = true
-      AND find_matching_languoid(l.id) IS NULL
+      AND m.languoid_id IS NULL
   LOOP
     -- Determine languoid name (prefer english_name, fallback to native_name)
     languoid_name := COALESCE(
@@ -422,18 +351,35 @@ END $$;
 -- ============================================================================
 -- Update languoid.ui_ready based on corresponding language.ui_ready for all
 -- matched languoids (both newly created and existing)
--- Note: ui_ready languages are typically few (< 100), so this doesn't need aggressive batching
+-- Uses mapping table instead of function calls
 
 UPDATE public.languoid lo
 SET ui_ready = true,
     last_updated = NOW()
 WHERE lo.id IN (
-  SELECT find_matching_languoid(l.id)
+  SELECT m.languoid_id
+  FROM _language_to_languoid_map m
+  INNER JOIN public.language l ON l.id = m.language_id
+  WHERE l.active = true
+    AND l.ui_ready = true
+    AND m.languoid_id IS NOT NULL
+)
+AND lo.ui_ready = false;
+
+-- Also set ui_ready for newly created languoids (where languoid_id = language_id)
+UPDATE public.languoid lo
+SET ui_ready = true,
+    last_updated = NOW()
+WHERE lo.id::uuid IN (
+  SELECT l.id
   FROM public.language l
   WHERE l.active = true
     AND l.ui_ready = true
 )
 AND lo.ui_ready = false;
+
+-- Cleanup mapping table
+DROP TABLE _language_to_languoid_map;
 
 -- ============================================================================
 -- STEP 7: Update schema version
@@ -453,11 +399,8 @@ AS $$
 $$;
 
 -- ============================================================================
--- Cleanup: Drop helper function (optional - can keep for future use)
+-- Note: No helper function cleanup needed - migration uses efficient JOINs
 -- ============================================================================
-
--- Keep the function for potential future use, but comment out if you want to drop it:
--- DROP FUNCTION IF EXISTS find_matching_languoid(uuid);
 
 
 -- ============================================================================
@@ -715,15 +658,38 @@ ALTER TABLE public.profile
 -- reference for project languages going forward.
 
 -- First, ensure all rows have languoid_id populated (should already be done by STEP 4-5)
--- For any remaining NULLs, try to populate from language_id using pre-computed mapping
+-- For any remaining NULLs, recreate the mapping using efficient JOINs
 
--- Create temp mapping table (only for languages that need mapping)
+-- Create temp mapping table using JOINs (same approach as STEP 4)
 CREATE TEMP TABLE _pll_step10_map AS
-SELECT DISTINCT language_id, 
-       find_matching_languoid(language_id) as languoid_id
-FROM public.project_language_link
-WHERE language_id IS NOT NULL
-  AND languoid_id IS NULL;
+SELECT 
+  l.id as language_id,
+  COALESCE(
+    (SELECT ls.languoid_id FROM public.languoid_source ls 
+     WHERE l.iso639_3 IS NOT NULL AND trim(l.iso639_3) != ''
+       AND lower(trim(ls.unique_identifier)) = lower(trim(l.iso639_3))
+       AND lower(ls.name) = 'iso639-3' AND ls.active = true LIMIT 1),
+    (SELECT lo.id FROM public.languoid lo 
+     WHERE l.english_name IS NOT NULL AND trim(l.english_name) != ''
+       AND lower(trim(lo.name)) = lower(trim(l.english_name)) AND lo.active = true LIMIT 1),
+    (SELECT la.subject_languoid_id FROM public.languoid_alias la 
+     WHERE l.english_name IS NOT NULL AND trim(l.english_name) != ''
+       AND lower(trim(la.name)) = lower(trim(l.english_name)) AND la.active = true LIMIT 1),
+    (SELECT lo.id FROM public.languoid lo 
+     WHERE l.native_name IS NOT NULL AND trim(l.native_name) != ''
+       AND lower(trim(lo.name)) = lower(trim(l.native_name)) AND lo.active = true LIMIT 1),
+    (SELECT la.subject_languoid_id FROM public.languoid_alias la 
+     WHERE l.native_name IS NOT NULL AND trim(l.native_name) != ''
+       AND lower(trim(la.name)) = lower(trim(l.native_name)) AND la.active = true LIMIT 1),
+    -- Fallback: use language_id as languoid_id (for newly created languoids in STEP 5)
+    l.id::text
+  ) as languoid_id
+FROM public.language l
+WHERE l.id IN (
+  SELECT DISTINCT language_id FROM public.project_language_link
+  WHERE language_id IS NOT NULL AND languoid_id IS NULL
+)
+AND l.active = true;
 
 CREATE INDEX ON _pll_step10_map(language_id);
 
