@@ -34,10 +34,6 @@ export function MigrationScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
-  useEffect(() => {
-    runMigration();
-  }, []);
-
   async function runMigration() {
     try {
       console.log('[MigrationScreen] Starting migration...');
@@ -90,10 +86,16 @@ export function MigrationScreen() {
     }
   }
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      void runMigration();
+    });
+  }, []);
+
   function handleRetry() {
     setError(null);
     setIsComplete(false);
-    runMigration();
+    void runMigration();
   }
 
   const progressPercent =
@@ -236,7 +238,7 @@ export function MigrationScreenMinimal() {
       }
     }
 
-    migrate();
+    void migrate();
   }, []);
 
   return (
