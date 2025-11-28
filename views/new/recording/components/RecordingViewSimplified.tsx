@@ -29,9 +29,11 @@ import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
+import { Audio } from 'expo-av';
 import { ArrowLeft, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
 import { Alert, InteractionManager, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -146,6 +148,52 @@ const RecordingViewSimplified = ({
   // Track pending asset names to prevent duplicates when recording multiple assets quickly
   const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
 
+  // Track which asset is currently playing during play-all
+  const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
+    string | null
+  >(null);
+  const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
+  const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  // Track segment ranges for each asset (start position, end position, duration)
+  const assetSegmentRangesRef = React.useRef<
+    Map<string, { startMs: number; endMs: number; durationMs: number }>
+  >(new Map());
+  // Track last scrolled asset to avoid scrolling to the same asset multiple times
+  const lastScrolledAssetIdRef = React.useRef<string | null>(null);
+
+  // Create SharedValues for each asset's progress (0-100 percentage)
+  // We need to create them at the top level, so we'll create a pool and map them
+  // Store the mapping in a ref that gets updated when assets change
+  const assetProgressSharedMapRef = React.useRef<
+    Map<string, ReturnType<typeof useSharedValue<number>>>
+  >(new Map());
+
+  // Create SharedValues for assets (max 100 assets supported)
+  // We create a pool and reuse them - must create at top level (hooks rule)
+  const progressPool0 = useSharedValue(0);
+  const progressPool1 = useSharedValue(0);
+  const progressPool2 = useSharedValue(0);
+  const progressPool3 = useSharedValue(0);
+  const progressPool4 = useSharedValue(0);
+  const progressPool5 = useSharedValue(0);
+  const progressPool6 = useSharedValue(0);
+  const progressPool7 = useSharedValue(0);
+  const progressPool8 = useSharedValue(0);
+  const progressPool9 = useSharedValue(0);
+  // Create more if needed (extend this pattern or use a different approach)
+  const progressPool = React.useRef([
+    progressPool0,
+    progressPool1,
+    progressPool2,
+    progressPool3,
+    progressPool4,
+    progressPool5,
+    progressPool6,
+    progressPool7,
+    progressPool8,
+    progressPool9
+  ]).current;
+
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
@@ -181,7 +229,7 @@ const RecordingViewSimplified = ({
   // Load assets from database
   // Use initialAssets if provided to avoid redundant query and instant render
   const {
-    data: rawAssets,
+    data: rawAssets = [],
     isOfflineLoading,
     isError,
     offlineError
@@ -289,6 +337,31 @@ const RecordingViewSimplified = ({
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
+
+  // Map assets to SharedValues from the pool (after assets is declared)
+  const assetIdsKey = React.useMemo(
+    () => assets.map((a) => a.id).join(','),
+    [assets]
+  );
+  React.useEffect(() => {
+    if (assets.length === 0) {
+      assetProgressSharedMapRef.current.clear();
+      return;
+    }
+
+    const map = assetProgressSharedMapRef.current;
+    map.clear();
+
+    // Assign SharedValues from pool to assets
+    for (let i = 0; i < Math.min(assets.length, progressPool.length); i++) {
+      const asset = assets[i];
+      if (asset) {
+        // Reset the SharedValue
+        progressPool[i]!.value = 0;
+        map.set(asset.id, progressPool[i]!);
+      }
+    }
+  }, [assetIdsKey, assets, progressPool]);
 
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
@@ -423,7 +496,10 @@ const RecordingViewSimplified = ({
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
-              debugLog('✅ Using direct local URI:', constructedUri.slice(0, 80));
+              debugLog(
+                '✅ Using direct local URI:',
+                constructedUri.slice(0, 80)
+              );
             } else {
               // File doesn't exist at expected path - try to find it in attachment queue
               debugLog(
@@ -547,9 +623,8 @@ const RecordingViewSimplified = ({
               if (fallbackLink?.audio) {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri = getLocalAttachmentUriWithOPFS(
-                      fallbackAudioValue
-                    );
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -593,9 +668,8 @@ const RecordingViewSimplified = ({
               if (fallbackLink?.audio) {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri = getLocalAttachmentUriWithOPFS(
-                      fallbackAudioValue
-                    );
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       debugLog(
@@ -666,6 +740,153 @@ const RecordingViewSimplified = ({
     [audioContext, getAssetAudioUris]
   );
 
+  // Track currently playing asset based on audio position during play-all
+  React.useEffect(() => {
+    if (
+      !audioContext.isPlaying ||
+      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
+    ) {
+      setCurrentlyPlayingAssetId(null);
+      return;
+    }
+
+    // Calculate which asset is playing based on cumulative position
+    // Also update progress for each asset based on its segment range
+    const checkCurrentAsset = () => {
+      const uris = Array.from(assetUriMapRef.current.keys());
+      const durations = segmentDurationsRef.current;
+      const ranges = assetSegmentRangesRef.current;
+
+      if (uris.length === 0) return;
+
+      const position = audioContext.position; // Position in milliseconds
+
+      // Update progress for each asset based on its segment range
+      const progressMap = assetProgressSharedMapRef.current;
+      for (const [assetId, range] of ranges.entries()) {
+        const progressShared = progressMap.get(assetId);
+        if (!progressShared) {
+          debugLog(
+            `⚠️ No progress SharedValue found for asset ${assetId.slice(0, 8)}`
+          );
+          continue;
+        }
+
+        if (position < range.startMs) {
+          // Before this asset's segments - no progress
+          progressShared.value = 0;
+        } else if (position >= range.endMs) {
+          // After this asset's segments - fully complete
+          progressShared.value = 100;
+        } else {
+          // Within this asset's segments - calculate progress
+          const assetPosition = position - range.startMs;
+          const progressPercent = (assetPosition / range.durationMs) * 100;
+          const clampedProgress = Math.min(100, Math.max(0, progressPercent));
+          progressShared.value = clampedProgress;
+          debugLog(
+            `📊 Asset ${assetId.slice(0, 8)} progress: ${Math.round(clampedProgress)}% (position: ${Math.round(position)}ms, range: [${Math.round(range.startMs)}-${Math.round(range.endMs)}]ms)`
+          );
+        }
+      }
+
+      // Find which asset is currently playing
+      let newPlayingAssetId: string | null = null;
+
+      // If we don't have durations yet, use simple percentage-based approach
+      if (durations.length === 0 || durations.every((d) => d === 0)) {
+        const duration = audioContext.duration;
+        if (duration === 0) return;
+
+        // Fallback: use percentage-based calculation
+        const positionPercent = position / duration;
+        const uriIndex = Math.min(
+          Math.floor(positionPercent * uris.length),
+          uris.length - 1
+        );
+
+        const currentUri = uris[uriIndex];
+        if (currentUri) {
+          const assetId = assetUriMapRef.current.get(currentUri);
+          if (assetId) {
+            newPlayingAssetId = assetId;
+          }
+        }
+      } else {
+        // Calculate which segment we're in based on cumulative durations
+        let cumulativeDuration = 0;
+        for (let i = 0; i < uris.length; i++) {
+          const segmentDuration = durations[i] || 0;
+          const segmentStart = cumulativeDuration;
+          cumulativeDuration += segmentDuration;
+
+          // If position is within this segment's range
+          if (
+            (position >= segmentStart && position <= cumulativeDuration) ||
+            (i === uris.length - 1 && position >= segmentStart)
+          ) {
+            const currentUri = uris[i];
+            if (currentUri) {
+              const assetId = assetUriMapRef.current.get(currentUri);
+              if (assetId) {
+                newPlayingAssetId = assetId;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Update currently playing asset ID and scroll to it
+      if (newPlayingAssetId) {
+        setCurrentlyPlayingAssetId((prev) => {
+          if (newPlayingAssetId !== prev) {
+            debugLog(
+              `🎵 Highlighting asset ${newPlayingAssetId.slice(0, 8)} (was: ${prev?.slice(0, 8) ?? 'none'})`
+            );
+
+            // Scroll to the currently playing asset (only if it changed)
+            if (
+              wheelRef.current &&
+              newPlayingAssetId !== lastScrolledAssetIdRef.current
+            ) {
+              // Find the index of the asset in the assets array
+              const assetIndex = assets.findIndex(
+                (a) => a.id === newPlayingAssetId
+              );
+              if (assetIndex >= 0) {
+                debugLog(
+                  `📜 Scrolling to asset at index ${assetIndex} (asset ${newPlayingAssetId.slice(0, 8)})`
+                );
+                // Scroll the item to the top of the wheel
+                // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
+                wheelRef.current.scrollItemToTop(assetIndex - 1, true);
+                lastScrolledAssetIdRef.current = newPlayingAssetId;
+              } else {
+                debugLog(
+                  `⚠️ Could not find asset ${newPlayingAssetId.slice(0, 8)} in assets array`
+                );
+              }
+            }
+
+            return newPlayingAssetId;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Check immediately and then periodically while playing
+    checkCurrentAsset();
+    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
+    return () => clearInterval(interval);
+    // Note: We intentionally read audioContext.position and audioContext.duration inside the callback
+    // rather than including them as dependencies, because they change frequently (every ~200ms)
+    // and we don't want to re-run the effect that often. The interval handles the updates.
+    // assetProgressSharedMap is a ref, so we access it directly in the callback.
+    // assets is included to find the asset index for scrolling.
+  }, [audioContext.isPlaying, audioContext.currentAudioId, assets]);
+
   // Handle play all assets
   const handlePlayAllAssets = React.useCallback(async () => {
     try {
@@ -676,6 +897,15 @@ const RecordingViewSimplified = ({
       if (isPlayingAll) {
         debugLog('⏸️ Stopping play all');
         await audioContext.stopCurrentSound();
+        setCurrentlyPlayingAssetId(null);
+        assetUriMapRef.current.clear();
+        segmentDurationsRef.current = [];
+        assetSegmentRangesRef.current.clear();
+        lastScrolledAssetIdRef.current = null;
+        // Reset all asset progress
+        for (const progressShared of assetProgressSharedMapRef.current.values()) {
+          progressShared.value = 0;
+        }
       } else {
         debugLog('▶️ Playing all assets');
         if (assets.length === 0) {
@@ -683,11 +913,18 @@ const RecordingViewSimplified = ({
           return;
         }
 
-        // Collect all URIs from all assets in order
+        // Collect all URIs from all assets in order, tracking which asset each URI belongs to
         const allUris: string[] = [];
+        assetUriMapRef.current.clear();
+        segmentDurationsRef.current = [];
+
         for (const asset of assets) {
           const uris = await getAssetAudioUris(asset.id);
-          allUris.push(...uris);
+          for (const uri of uris) {
+            allUris.push(uri);
+            // Map each URI to its asset ID
+            assetUriMapRef.current.set(uri, asset.id);
+          }
         }
 
         if (allUris.length === 0) {
@@ -698,10 +935,119 @@ const RecordingViewSimplified = ({
         debugLog(
           `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
         );
+
+        // Preload durations for accurate highlighting and calculate asset segment ranges
+        try {
+          const durations: number[] = [];
+          for (const uri of allUris) {
+            try {
+              const { sound } = await Audio.Sound.createAsync({ uri });
+              const status = await sound.getStatusAsync();
+              await sound.unloadAsync();
+              durations.push(
+                status.isLoaded ? (status.durationMillis ?? 0) : 0
+              );
+            } catch (error) {
+              debugLog(
+                `Failed to get duration for ${uri.slice(0, 30)}:`,
+                error
+              );
+              durations.push(0);
+            }
+          }
+          segmentDurationsRef.current = durations;
+          debugLog(
+            `📊 Loaded durations for ${durations.length} segments:`,
+            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
+          );
+
+          // Calculate segment ranges for each asset
+          assetSegmentRangesRef.current.clear();
+          let cumulativeStart = 0;
+          for (const asset of assets) {
+            const assetUris = allUris.filter(
+              (uri) => assetUriMapRef.current.get(uri) === asset.id
+            );
+            if (assetUris.length === 0) continue;
+
+            // Find the indices of this asset's URIs in the allUris array
+            const assetUriIndices: number[] = [];
+            for (let i = 0; i < allUris.length; i++) {
+              const uri = allUris[i];
+              if (uri && assetUriMapRef.current.get(uri) === asset.id) {
+                assetUriIndices.push(i);
+              }
+            }
+
+            // Calculate total duration for this asset's segments
+            const assetDuration = assetUriIndices.reduce(
+              (sum, idx) => sum + (durations[idx] || 0),
+              0
+            );
+
+            const startMs = cumulativeStart;
+            const endMs = cumulativeStart + assetDuration;
+
+            assetSegmentRangesRef.current.set(asset.id, {
+              startMs,
+              endMs,
+              durationMs: assetDuration
+            });
+
+            // Reset progress for this asset
+            const progressShared = assetProgressSharedMapRef.current.get(
+              asset.id
+            );
+            if (progressShared) {
+              progressShared.value = 0;
+              debugLog(`🔄 Reset progress for asset ${asset.id.slice(0, 8)}`);
+            } else {
+              debugLog(
+                `⚠️ No progress SharedValue found for asset ${asset.id.slice(0, 8)} when setting up ranges`
+              );
+            }
+
+            debugLog(
+              `📊 Asset ${asset.id.slice(0, 8)} segments: ${assetUriIndices.length} segments, ${Math.round(assetDuration / 1000)}s total, range [${Math.round(startMs)}-${Math.round(endMs)}]ms`
+            );
+
+            cumulativeStart = endMs;
+          }
+        } catch (error) {
+          debugLog('Failed to preload durations:', error);
+          // Continue anyway - will use percentage-based fallback
+        }
+
+        // Set the first asset as currently playing and scroll to it
+        if (assets.length > 0 && assets[0]) {
+          const firstAssetId = assets[0].id;
+          setCurrentlyPlayingAssetId(firstAssetId);
+          lastScrolledAssetIdRef.current = null; // Reset to allow immediate scroll
+
+          // Scroll to first asset immediately
+          if (wheelRef.current) {
+            debugLog(
+              `📜 Scrolling to first asset at index 0 (asset ${firstAssetId.slice(0, 8)})`
+            );
+            // scrollItemToTop adds 1 internally, so subtract 1 to get correct position (0 -> -1 -> 0)
+            wheelRef.current.scrollItemToTop(-1, true);
+            lastScrolledAssetIdRef.current = firstAssetId;
+          }
+        }
+
         await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
       }
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
+      setCurrentlyPlayingAssetId(null);
+      assetUriMapRef.current.clear();
+      segmentDurationsRef.current = [];
+      assetSegmentRangesRef.current.clear();
+      lastScrolledAssetIdRef.current = null;
+      // Reset all asset progress
+      for (const progressShared of assetProgressSharedMapRef.current.values()) {
+        progressShared.value = 0;
+      }
     }
   }, [audioContext, getAssetAudioUris, assets]);
 
@@ -859,15 +1205,24 @@ const RecordingViewSimplified = ({
         // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
         // Save audio file locally (with retry logic for timing issues)
-        let localUri: string;
-        try {
-          localUri = await saveAudioLocally(uri);
-        } catch (error) {
-          // Release the reserved name on error
-          pendingAssetNamesRef.current.delete(assetName);
-          console.error('❌ Failed to save audio file locally:', error);
-          throw error; // Re-throw to be caught by outer catch block
+        const saveResult = await (async () => {
+          try {
+            const savedUri = await saveAudioLocally(uri);
+            return { success: true as const, uri: savedUri };
+          } catch (error) {
+            // Release the reserved name on error
+            pendingAssetNamesRef.current.delete(assetName);
+            console.error('❌ Failed to save audio file locally:', error);
+            return { success: false as const, error };
+          }
+        })();
+
+        if (!saveResult.success) {
+          // Re-throw to be caught by outer catch block
+          throw saveResult.error;
         }
+
+        const localUri = saveResult.uri;
 
         // Queue DB write (serialized to prevent race conditions)
         dbWriteQueueRef.current = dbWriteQueueRef.current
@@ -1077,9 +1432,6 @@ const RecordingViewSimplified = ({
         );
 
         try {
-          // Dynamically import Audio only when needed
-          const { Audio } = await import('expo-av');
-
           const newCounts = new Map<string, number>();
           const newDurations = new Map<string, number>();
 
@@ -1329,7 +1681,7 @@ const RecordingViewSimplified = ({
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
             source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
+            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
             download_profiles: [currentUser.id]
@@ -1404,7 +1756,8 @@ const RecordingViewSimplified = ({
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
                       source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
+                      languoid_id:
+                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]
@@ -1573,14 +1926,28 @@ const RecordingViewSimplified = ({
   // This eliminates 10 re-renders/second during audio playback
   const renderAssetItem = React.useCallback(
     ({ item, index }: { item: UIAsset; index: number }) => {
-      const isThisAssetPlaying =
+      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
+      const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isThisAssetPlayingInPlayAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+      const isThisAssetPlaying =
+        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
       const canMergeDown =
         index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
+
+      // Get custom progress for play-all mode
+      const customProgress =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+          ? assetProgressSharedMapRef.current.get(item.id)
+          : undefined;
 
       return (
         <AssetCard
@@ -1592,6 +1959,7 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
+          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1614,6 +1982,7 @@ const RecordingViewSimplified = ({
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
+      currentlyPlayingAssetId,
       // audioContext.position REMOVED - uses SharedValues now!
       // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
@@ -1633,8 +2002,15 @@ const RecordingViewSimplified = ({
   // This eliminates re-creating all children 10+ times per second during audio playback
   const wheelChildren = React.useMemo(() => {
     return assetsForLegendList.map((item, index) => {
-      const isThisAssetPlaying =
+      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
+      const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isThisAssetPlayingInPlayAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+      const isThisAssetPlaying =
+        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
       const canMergeDown =
         index < assetsForLegendList.length - 1 &&
@@ -1642,6 +2018,13 @@ const RecordingViewSimplified = ({
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
+
+      // Get custom progress for play-all mode
+      const customProgress =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+          ? assetProgressSharedMapRef.current.get(item.id)
+          : undefined;
 
       return (
         <AssetCard
@@ -1654,6 +2037,7 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
+          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1677,6 +2061,8 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
+    currentlyPlayingAssetId,
+    // assetProgressSharedMap REMOVED - it's a ref, accessed directly in render
     // audioContext.position REMOVED - uses SharedValues now!
     // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,

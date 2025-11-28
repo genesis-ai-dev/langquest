@@ -30,12 +30,14 @@ export interface AssetListItemProps {
   asset: AssetQuestLink;
   questId: string;
   attachmentState?: AttachmentRecord;
+  isCurrentlyPlaying?: boolean;
 }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
   questId,
-  attachmentState
+  attachmentState,
+  isCurrentlyPlaying = false
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -98,7 +100,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   return (
     <Pressable onPress={handlePress}>
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''}`}
+        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-primary border-2 bg-primary/5' : ''}`}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 gap-1">
