@@ -133,12 +133,13 @@ export const migration_1_0_to_2_0: Migration = {
         )
     `);
 
-    console.log('[Migration 1.0→2.0] ✓ project_language_link_local records created');
+    console.log(
+      '[Migration 1.0→2.0] ✓ project_language_link_local records created'
+    );
 
     // Step 2: Try to use existing synced languoids if they match the language_id
     // The server migration uses language_id as the languoid_id, so check if that languoid exists
-    if (onProgress)
-      onProgress(2, 4, 'Checking for existing synced languoids');
+    if (onProgress) onProgress(2, 4, 'Checking for existing synced languoids');
     console.log(
       '[Migration 1.0→2.0] Checking for existing synced languoids...'
     );
