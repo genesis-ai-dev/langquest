@@ -6,6 +6,7 @@
   },
   "build": {
     "development": {
+      "autoIncrement": true,
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
@@ -32,6 +33,13 @@
         "EXPO_PUBLIC_APP_VARIANT": "preview"
       }
     },
+    "preview-simulator": {
+      "extends": "preview",
+      "ios": {
+        "simulator": true,
+        "distribution": "internal"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production",
@@ -39,6 +47,13 @@
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
         "EXPO_PUBLIC_APP_VARIANT": "production"
+      }
+    },
+    "production-simulator": {
+      "extends": "production",
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
       }
     }
   },

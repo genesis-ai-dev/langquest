@@ -60,7 +60,8 @@ export class ProfileService {
       email: string;
       password: string;
     };
-    ui_language_id: string;
+    ui_language_id?: string; // Deprecated, use ui_languoid_id
+    ui_languoid_id?: string;
     terms_accepted?: boolean;
     terms_version?: string;
   }) {
@@ -74,18 +75,35 @@ export class ProfileService {
 
       if (updateError) throw updateError;
 
-      // Update profile with username and ui_language_id
+      // Update profile with username and ui_languoid_id (prefer ui_languoid_id over ui_language_id)
+      const profileUpdate: Record<string, unknown> = {
+        username: input.credentials.username,
+        terms_accepted: input.terms_accepted ?? false,
+        terms_version: input.terms_version ?? null
+      };
+
+      if (input.ui_languoid_id) {
+        profileUpdate.ui_languoid_id = input.ui_languoid_id;
+      } else if (input.ui_language_id) {
+        // Backward compatibility: still accept ui_language_id
+        profileUpdate.ui_language_id = input.ui_language_id;
+      }
+
       const { error: profileError } = await supabaseConnector.client
         .from('profile')
-        .update({
-          username: input.credentials.username,
-          ui_language_id: input.ui_language_id,
-          terms_accepted: input.terms_accepted ?? false,
-          terms_version: input.terms_version ?? null
-        })
+        .update(profileUpdate)
         .eq('id', updateData.user.id);
 
       if (profileError) throw profileError;
+
+      // Update auth metadata with ui_languoid_id
+      if (input.ui_languoid_id) {
+        await supabaseConnector.client.auth.updateUser({
+          data: {
+            ui_languoid_id: input.ui_languoid_id
+          }
+        });
+      }
 
       // Fetch the complete profile
       const { data: profile, error: fetchError } =
@@ -106,7 +124,8 @@ export class ProfileService {
 
   async updateProfile(data: {
     id: string;
-    ui_language_id?: string;
+    ui_language_id?: string; // Deprecated, use ui_languoid_id
+    ui_languoid_id?: string;
     // avatar?: string;
     password?: string;
     terms_accepted?: boolean;
@@ -122,9 +141,8 @@ export class ProfileService {
         if (updateError) throw updateError;
       }
 
-      // Update profile data
+      // Update profile data - prefer ui_languoid_id over ui_language_id
       const updateData: Partial<Profile> = {
-        ...(data.ui_language_id && { ui_language_id: data.ui_language_id }),
         // ...(data.avatar && { avatar: data.avatar }),
         ...(data.terms_accepted !== undefined && {
           terms_accepted: data.terms_accepted
@@ -133,6 +151,14 @@ export class ProfileService {
           terms_accepted_at: data.terms_accepted_at
         })
       };
+
+      // Prefer ui_languoid_id over ui_language_id
+      if (data.ui_languoid_id) {
+        updateData.ui_languoid_id = data.ui_languoid_id;
+      } else if (data.ui_language_id) {
+        // Backward compatibility: still accept ui_language_id
+        updateData.ui_language_id = data.ui_language_id;
+      }
 
       console.log('Updating profile with data:', updateData);
 
@@ -145,10 +171,18 @@ export class ProfileService {
           .select()
           .single<Profile>();
 
-      if (updateData.ui_language_id) {
+      // Update auth metadata with ui_languoid_id (prefer over ui_language_id)
+      if (data.ui_languoid_id) {
         await supabaseConnector.client.auth.updateUser({
           data: {
-            ui_language_id: updateData.ui_language_id
+            ui_languoid_id: data.ui_languoid_id
+          }
+        });
+      } else if (data.ui_language_id) {
+        // Backward compatibility
+        await supabaseConnector.client.auth.updateUser({
+          data: {
+            ui_language_id: data.ui_language_id
           }
         });
       }

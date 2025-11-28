@@ -11,6 +11,7 @@ import {
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
+import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
@@ -35,7 +36,9 @@ import {
   InfoIcon,
   LockIcon,
   MicIcon,
+  PauseIcon,
   PencilIcon,
+  PlayIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -62,10 +65,13 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { asset_content_link } from '@/db/drizzleSchema';
+import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
+import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
@@ -90,6 +96,7 @@ export default function NextGenAssetsView() {
   } = useCurrentNavigation();
   const { goBack } = useAppNavigation();
   const { currentUser } = useAuth();
+  const audioContext = useAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
@@ -346,6 +353,129 @@ export default function NextGenAssetsView() {
     currentQuestId
   );
 
+  // Special audio ID for "play all" mode
+  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
+
+  // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
+  const getAssetAudioUris = React.useCallback(
+    async (assetId: string): Promise<string[]> => {
+      try {
+        // Get audio content links for this asset
+        const contentLinks = await system.db
+          .select()
+          .from(asset_content_link)
+          .where(eq(asset_content_link.asset_id, assetId));
+
+        if (contentLinks.length === 0) {
+          return [];
+        }
+
+        // Get audio values from content links (can be URIs or attachment IDs)
+        const audioValues = contentLinks
+          .flatMap((link) => {
+            const audioArray = link.audio ?? [];
+            return audioArray;
+          })
+          .filter((value): value is string => !!value);
+
+        if (audioValues.length === 0) {
+          return [];
+        }
+
+        // Process each audio value - can be either a local URI or an attachment ID
+        const uris: string[] = [];
+        for (const audioValue of audioValues) {
+          // Check if this is already a local URI (starts with 'local/' or 'file://')
+          if (audioValue.startsWith('local/')) {
+            // It's a direct local URI from saveAudioLocally()
+            // Use getLocalAttachmentUriWithOPFS to construct the full path
+            const localUri = getLocalAttachmentUriWithOPFS(audioValue);
+            uris.push(localUri);
+          } else if (audioValue.startsWith('file://')) {
+            // Already a full file URI
+            uris.push(audioValue);
+          } else {
+            // It's an attachment ID - look it up in the attachment queue
+            if (!system.permAttachmentQueue) continue;
+
+            const attachment = await system.powersync.getOptional<{
+              id: string;
+              local_uri: string | null;
+            }>(
+              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
+              [audioValue]
+            );
+
+            if (attachment?.local_uri) {
+              const localUri = system.permAttachmentQueue.getLocalUri(
+                attachment.local_uri
+              );
+              uris.push(localUri);
+            } else {
+              // Try to get cloud URL if local not available
+              try {
+                if (!AppConfig.supabaseBucket) {
+                  continue;
+                }
+                const { data } = system.supabaseConnector.client.storage
+                  .from(AppConfig.supabaseBucket)
+                  .getPublicUrl(audioValue);
+                if (data.publicUrl) {
+                  uris.push(data.publicUrl);
+                }
+              } catch (error) {
+                console.error('Failed to get cloud audio URL:', error);
+              }
+            }
+          }
+        }
+
+        return uris;
+      } catch (error) {
+        console.error('Failed to fetch audio URIs:', error);
+        return [];
+      }
+    },
+    []
+  );
+
+  // Handle play all assets
+  const handlePlayAllAssets = React.useCallback(async () => {
+    try {
+      const isPlayingAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
+
+      if (isPlayingAll) {
+        await audioContext.stopCurrentSound();
+      } else {
+        if (assets.length === 0) {
+          console.warn('⚠️ No assets to play');
+          return;
+        }
+
+        // Collect all URIs from all assets in order
+        const allUris: string[] = [];
+        for (const asset of assets) {
+          const uris = await getAssetAudioUris(asset.id);
+          allUris.push(...uris);
+        }
+
+        if (allUris.length === 0) {
+          console.error('❌ No audio URIs found for any assets');
+          return;
+        }
+
+        console.log(
+          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
+        );
+        await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
+      }
+    } catch (error) {
+      console.error('❌ Failed to play all assets:', error);
+    }
+  }, [audioContext, getAssetAudioUris, assets]);
+
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
@@ -566,6 +696,24 @@ export default function NextGenAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
+          {assets.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handlePlayAllAssets}
+              className="h-10 w-10"
+            >
+              <Icon
+                as={
+                  audioContext.isPlaying &&
+                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+                    ? PauseIcon
+                    : PlayIcon
+                }
+                size={20}
+              />
+            </Button>
+          )}
         </View>
         {isPublished ? (
           // Only show published badge if user is creator, member, or owner

@@ -6,38 +6,43 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { useAuth } from '@/contexts/AuthContext';
-import { language as languageTable } from '@/db/drizzleSchema';
-import { system } from '@/db/powersync/system';
+import { languoid } from '@/db/drizzleSchema';
+import {
+  useLanguoidEndonyms,
+  useLanguoids,
+  useUIReadyLanguoids
+} from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq } from 'drizzle-orm';
 import { LanguagesIcon } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
 
-type Language = typeof languageTable.$inferSelect;
+type Languoid = typeof languoid.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string | null;
-  onChange?: (language: Language) => void;
+  onChange?: (languoid: Languoid) => void;
   label?: boolean;
   containerStyle?: object;
   className?: string;
   uiReadyOnly?: boolean;
 }
 
-export function getAllLanguageOption(language?: Language | null): Option {
-  if (language) {
+export function getAllLanguageOption(
+  languoid?: Languoid | null,
+  endonymMap?: Map<string, string>
+): Option {
+  if (languoid) {
+    const endonym = endonymMap?.get(languoid.id);
+    const displayName = endonym ?? languoid.name ?? '';
     return {
-      value: language.id,
-      label: language.native_name ?? language.english_name ?? ''
+      value: languoid.id,
+      label: displayName
     };
   }
 }
@@ -66,94 +71,50 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
 
   const { t } = useLocalization();
-  const { isAuthenticated } = useAuth();
 
-  const conditions = [
-    eq(languageTable.active, true),
-    uiReadyOnly && eq(languageTable.ui_ready, true)
-  ];
+  // Use useUIReadyLanguoids if uiReadyOnly, otherwise use useLanguoids
+  const { languoids: uiReadyLanguoids } = useUIReadyLanguoids();
+  const { languoids: allLanguoids } = useLanguoids();
+  const languoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
 
-  // Factory function to create offline query conditionally
-  // This prevents PowerSync access warnings for anonymous users
-  const getOfflineQuery = useCallback(() => {
-    // For anonymous users, return a placeholder SQL string that won't access system.db
-    if (!isAuthenticated) {
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-
-    // Only create CompilableQuery when user is authenticated
-    // Check PowerSync status at query creation time
-    try {
-      if (!system.isPowerSyncInitialized()) {
-        return 'SELECT * FROM language WHERE 1=0' as any;
-      }
-      return toCompilableQuery(
-        system.db.query.language.findMany({
-          where: and(...conditions.filter(Boolean))
-        })
-      );
-    } catch (error) {
-      // If query creation fails, return placeholder
-      console.warn(
-        'Failed to create languages offline query, using placeholder:',
-        error
-      );
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-  }, [isAuthenticated, uiReadyOnly]);
-
-  // Create query lazily - only when needed
-  const offlineQuery = useMemo(() => getOfflineQuery(), [getOfflineQuery]);
-
-  // Use useHybridData to fetch ALL languages (not just UI-ready ones)
-  // Always enabled - languages are needed for UI even for anonymous users (terms page, login, etc.)
-  const { data: languages } = useHybridData<Language>({
-    dataType: 'all-languages',
-    queryKeyParams: [uiReadyOnly],
-    offlineQuery,
-    enabled: true, // Always enabled - needed for anonymous users on terms/login pages
-    // Enable cloud queries for anonymous users (needed for terms page, login pages, etc.)
-    enableCloudQuery: true,
-
-    // Cloud query - get all active languages
-    cloudQueryFn: async () => {
-      let query = system.supabaseConnector.client
-        .from('language')
-        .select('*')
-        .eq('active', true);
-
-      if (uiReadyOnly) query = query.eq('ui_ready', true);
-
-      const { data, error } = await query.overrideTypes<Language[]>();
-      if (error) throw error;
-      return data;
-    }
-  });
+  // Fetch endonyms for all languoids
+  const languoidIds = useMemo(() => languoids.map((l) => l.id), [languoids]);
+  const { endonymMap } = useLanguoidEndonyms(languoidIds);
 
   useEffect(() => {
-    if (languages.length > 0) {
+    if (languoids.length > 0) {
       setLanguagesLoaded?.(true);
     }
-  }, [languages, setLanguagesLoaded]);
+  }, [languoids, setLanguagesLoaded]);
 
   // Use controlled value if provided, otherwise fall back to saved language
   // Don't set a default language on mount - let it be empty until user selects
   const selectedLanguage = value
-    ? languages.find((l) => l.id === value)
-    : (uiLanguage ?? languages.find((lang) => lang.locale === 'en'));
+    ? languoids.find((l) => l.id === value)
+    : uiLanguage
+      ? languoids.find((l) => {
+          // Handle backward compatibility: uiLanguage might be old Language type
+          if ('name' in (uiLanguage as any)) {
+            return l.id === (uiLanguage as any).id;
+          }
+          return false;
+        })
+      : languoids.find((lang) => lang.name === 'English');
 
-  const selectedOption = getAllLanguageOption(selectedLanguage);
+  const selectedOption = getAllLanguageOption(selectedLanguage, endonymMap);
 
   return (
     <Select
       value={selectedOption}
       onValueChange={(option) => {
         if (!option) return;
-        const lang = languages.find((l) => l.id === option.value);
+        const lang = languoids.find((l) => l.id === option.value);
         if (lang) {
           // Always save the language and set UI language
-          setSavedLanguage(lang);
-          setUILanguage(lang);
+          // TODO: Update store to support Languoid type
+          // For now, use type assertion to handle transition
+          setSavedLanguage(lang as any);
+          setUILanguage(lang as any);
           // If onChange is provided, call it as well (for controlled mode)
           if (onChange) onChange(lang);
         }
@@ -169,13 +130,16 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         />
       </SelectTrigger>
       <SelectContent insets={contentInsets} className="w-full">
-        {languages
-          .filter((l) => l.native_name)
-          .map((lang) => (
-            <SelectItem key={lang.id} {...getAllLanguageOption(lang)!}>
-              {lang.native_name}
-            </SelectItem>
-          ))}
+        {languoids
+          .filter((l) => l.name)
+          .map((lang) => {
+            const option = getAllLanguageOption(lang, endonymMap);
+            return (
+              <SelectItem key={lang.id} {...option!}>
+                {option?.label}
+              </SelectItem>
+            );
+          })}
       </SelectContent>
     </Select>
   );

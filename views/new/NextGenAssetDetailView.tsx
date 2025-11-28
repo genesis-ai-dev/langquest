@@ -12,7 +12,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import { asset, language as languageTable, project } from '@/db/drizzleSchema';
+import {
+  asset,
+  languoid as languoidTable,
+  project,
+  project_language_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -24,7 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -248,11 +253,42 @@ export default function NextGenAssetDetailView() {
   const queriedProjectData = queriedProjectDataArray?.[0];
   const projectData = currentProjectData || queriedProjectData;
 
-  const translationLanguageId = React.useMemo(() => {
-    if (!projectData?.target_language_id) return '';
-    const langId = projectData.target_language_id;
-    return typeof langId === 'string' ? langId : String(langId);
-  }, [projectData?.target_language_id]);
+  // Get target languoid_id from project_language_link
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', currentProjectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId
+  });
+
+  const translationLanguageId = targetLanguoidLink[0]?.languoid_id || '';
 
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
@@ -319,59 +355,31 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  const contentLanguageIds = React.useMemo(() => {
+  // Collect content-level languoid IDs for this asset (prefer languoid_id, fallback to source_language_id)
+  const contentLanguoidIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
-      if (c.source_language_id) ids.add(c.source_language_id);
+      const languoidId = c.languoid_id || c.source_language_id;
+      if (languoidId) ids.add(languoidId);
     });
     return Array.from(ids);
   }, [activeAsset?.content]);
 
-  // Fetch all languages used by content items
-  const getLanguagesOfflineQuery = React.useCallback(() => {
-    if (!isAuthenticated) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-    try {
-      if (!system.isPowerSyncInitialized()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-        return 'SELECT * FROM language WHERE 1=0' as any;
-      }
-      return toCompilableQuery(
-        system.db.query.language.findMany({
-          where: contentLanguageIds.length
-            ? inArray(languageTable.id, contentLanguageIds)
-            : undefined
-        })
-      );
-    } catch (error) {
-      console.warn(
-        'Failed to create languages offline query, using placeholder:',
-        error
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-  }, [contentLanguageIds, isAuthenticated]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const languagesOfflineQuery = React.useMemo(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    () => getLanguagesOfflineQuery(),
-    [getLanguagesOfflineQuery]
-  );
-
-  const { data: contentLanguages = [] } = useHybridData<
-    typeof languageTable.$inferSelect
-  >({
-    dataType: 'languages-by-id',
-    queryKeyParams: contentLanguageIds,
-    offlineQuery: languagesOfflineQuery,
+  // Fetch all languoids used by content items
+  const { data: contentLanguoids = [] } = useHybridData({
+    dataType: 'languoids-by-id',
+    queryKeyParams: contentLanguoidIds,
+    offlineQuery: toCompilableQuery(
+      system.db.query.languoid.findMany({
+        where: contentLanguoidIds.length
+          ? inArray(languoidTable.id, contentLanguoidIds)
+          : undefined
+      })
+    ),
     enableCloudQuery: false
   });
 
-  const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
+  const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
 
   // Active tab is now derived from asset content via useMemo above
 
@@ -604,15 +612,19 @@ export default function NextGenAssetDetailView() {
                   <View>
                     <SourceContent
                       content={activeAsset.content[currentContentIndex]}
-                      sourceLanguage={
-                        activeAsset.content[currentContentIndex]
-                          ?.source_language_id
-                          ? (languageById.get(
-                              activeAsset.content[currentContentIndex]
-                                ?.source_language_id
-                            ) ?? null)
-                          : null
-                      }
+                      sourceLanguage={(() => {
+                        const content =
+                          activeAsset.content[currentContentIndex];
+                        if (!content) return null;
+                        const languoidId =
+                          content.languoid_id || content.source_language_id;
+                        const languoid = languoidId
+                          ? (languoidById.get(languoidId) ?? null)
+                          : null;
+                        // TODO: Update SourceContent to accept Languoid type
+                        // For now, use type assertion to handle transition
+                        return languoid as any;
+                      })()}
                       audioSegments={getContentAudioUris(
                         activeAsset.content[currentContentIndex]
                       )}

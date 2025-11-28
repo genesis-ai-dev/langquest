@@ -22,30 +22,30 @@ SET row_security = off;
 -- Data for Name: profile; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "ui_language_id", "active", "terms_accepted", "terms_accepted_at") VALUES
-	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('fd56eb4e-0b54-4715-863c-f865aee0b16d', '2024-12-28 21:40:32.521063+00', '2024-12-28 21:40:32.521063+00', 'Caleb', NULL, NULL, true, false, NULL),
-	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
-	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
+INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "ui_language_id", "ui_languoid_id", "active", "terms_accepted", "terms_accepted_at") VALUES
+	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('fd56eb4e-0b54-4715-863c-f865aee0b16d', '2024-12-28 21:40:32.521063+00', '2024-12-28 21:40:32.521063+00', 'Caleb', NULL, NULL, NULL, true, false, NULL),
+	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
+	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
 
 
 --
@@ -59,6 +59,89 @@ INSERT INTO "public"."language" ("id", "created_at", "last_updated", "native_nam
 	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Diidxazá', 'Zapoteco de Santiago', 'zas', false, NULL, true, NULL),
 	('2f1e3d4c-5b6a-7890-1234-567890abcdef', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Nuntajɨ̃yi', 'Popoluca', 'poi', false, NULL, true, NULL),
 	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', '2025-03-13 00:31:36.819037+00', '2025-03-13 00:31:36.819037+00', 'Universal', 'Universal', 'unv', false, NULL, true, NULL);
+
+
+--
+-- Data for Name: languoid; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', NULL, 'English', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('7c37870b-7d52-4589-934f-576f03781263', NULL, 'Spanish', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', NULL, 'Mixteco de Penasco', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', NULL, 'Zapoteco de Santiago', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('2f1e3d4c-5b6a-7890-1234-567890abcdef', NULL, 'Popoluca', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', NULL, 'Universal', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: languoid_alias; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_languoid_id", "name", "alias_type", "source_names", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('a1a1a1a1-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'English', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'Español', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Tu''un Savi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Diidxazá', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'Nuntajɨ̃yi', 'endonym', ARRAY['glottolog'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: languoid_source; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", "unique_identifier", "url", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('b2b2b2b2-0001-4000-8000-000000000001', 'iso639-3', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'eng', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0002-4000-8000-000000000002', 'iso639-3', NULL, '7c37870b-7d52-4589-934f-576f03781263', 'spa', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0003-4000-8000-000000000003', 'iso639-3', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'mil', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0004-4000-8000-000000000004', 'iso639-3', NULL, '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'zas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0005-4000-8000-000000000005', 'iso639-3', NULL, '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'poi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: languoid_property; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."languoid_property" ("id", "languoid_id", "key", "value", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('c3c3c3c3-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'macroareas', 'Eurasia', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: region; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."region" ("id", "parent_id", "name", "level", "geometry", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('d4d4d4d4-0001-4000-8000-000000000001', NULL, 'Mexico', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0002-4000-8000-000000000002', 'd4d4d4d4-0001-4000-8000-000000000001', 'Oaxaca', 'subnational', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0003-4000-8000-000000000003', NULL, 'United States', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4d4d4d4-0004-4000-8000-000000000004', NULL, 'Spain', 'nation', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: region_source; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."region_source" ("id", "name", "version", "region_id", "unique_identifier", "url", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('e5e5e5e5-0001-4000-8000-000000000001', 'iso3166-1', NULL, 'd4d4d4d4-0001-4000-8000-000000000001', 'MX', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5e5e5e5-0002-4000-8000-000000000002', 'iso3166-1', NULL, 'd4d4d4d4-0003-4000-8000-000000000003', 'US', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5e5e5e5-0003-4000-8000-000000000003', 'iso3166-1', NULL, 'd4d4d4d4-0004-4000-8000-000000000004', 'ES', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+
+
+--
+-- Data for Name: languoid_region; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "majority", "official", "native", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
+	('f6f6f6f6-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'd4d4d4d4-0003-4000-8000-000000000003', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0001-4000-8000-000000000001', true, true, false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0003-4000-8000-000000000003', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0004-4000-8000-000000000004', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0004-4000-8000-000000000004', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0005-4000-8000-000000000005', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0006-4000-8000-000000000006', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'd4d4d4d4-0001-4000-8000-000000000001', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -215,9 +298,11 @@ INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "des
 	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas - Zapoteco de Santiago', 'Traducción de Lucas al Zapoteco de Santiago', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', true);
 
 -- Add source language via project_language_link (replaces the removed source_language_id column)
-INSERT INTO "public"."project_language_link" ("project_id", "language_id", "language_type", "active", "created_at", "last_updated") VALUES
-	('bace07b1-41de-4535-9c68-aa81683d9370', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
-	('b819ba73-2274-468d-b18d-330b1ecf49b1', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00');
+INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
+	('bace07b1-41de-4535-9c68-aa81683d9370', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('bace07b1-41de-4535-9c68-aa81683d9370', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'target', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'target', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00');
 
 
 --
@@ -230,8 +315,8 @@ INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "descr
 	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true);
 
 -- Link Mixteco project to Universal language as a source via project_language_link
-INSERT INTO "public"."project_language_link" ("project_id", "language_id", "language_type", "active", "created_at", "last_updated") VALUES
-  ('bace07b1-41de-4535-9c68-aa81683d9370', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'source', true, NOW(), NOW());
+INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
+  ('bace07b1-41de-4535-9c68-aa81683d9370', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', 'source', true, NOW(), NOW());
 
 
 --
