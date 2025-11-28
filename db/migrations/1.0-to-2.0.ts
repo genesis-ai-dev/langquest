@@ -8,14 +8,11 @@
  * for synced data.
  *
  * Changes:
- * 1. Add ui_languoid_id column to profile_local
- * 2. Add languoid_id column to asset_content_link_local
- * 3. Add languoid_id column to project_language_link_local (REQUIRED - new PK)
- * 4. Create project_language_link_local records from project.target_language_id
+ * 1. Create project_language_link_local records from project.target_language_id
  *    (old projects may have target_language_id but no link record)
- * 5. Link to existing synced languoids where available
- * 6. Create languoid_local records for any languages that don't have languoids
- * 7. Populate languoid_id in project_language_link_local and asset_content_link_local
+ * 2. Link to existing synced languoids where available
+ * 3. Create languoid_local records for any languages that don't have languoids
+ * 4. Populate languoid_id in project_language_link_local and asset_content_link_local
  *
  * CRITICAL: This migration must handle FOUR scenarios:
  * 1. Old projects with project.target_language_id but no project_language_link record
@@ -26,13 +23,14 @@
  * For each case, we check if a matching languoid already exists (synced or local).
  * If not, we create a new languoid_local record.
  *
- * NOTE: New languoid/region tables are created automatically by the schema.
- * This migration only handles data transformation for existing records.
+ * NOTE: The languoid_id and ui_languoid_id columns are already defined in the Drizzle schema.
+ * PowerSync creates tables with all schema-defined columns automatically.
+ * DO NOT use addColumn() for schema-defined columns - it corrupts raw PowerSync tables.
+ * This migration only handles DATA transformation for existing records.
  */
 
 import { sql } from 'drizzle-orm';
 import type { Migration } from './index';
-import { addColumn, columnExists } from './utils';
 
 export const migration_1_0_to_2_0: Migration = {
   fromVersion: '1.0',
@@ -42,61 +40,17 @@ export const migration_1_0_to_2_0: Migration = {
   async migrate(db, onProgress) {
     console.log('[Migration 1.0→2.0] Starting languoid migration...');
 
-    // Step 1: Add ui_languoid_id column to profile_local
-    if (onProgress) onProgress(1, 7, 'Adding ui_languoid_id to profile_local');
-    console.log(
-      '[Migration 1.0→2.0] Adding ui_languoid_id to profile_local...'
-    );
+    // NOTE: We do NOT use addColumn() for ui_languoid_id, languoid_id columns because:
+    // 1. These columns are already defined in the Drizzle schema (drizzleSchemaColumns.ts)
+    // 2. PowerSync creates local-only tables with ALL schema-defined columns
+    // 3. Using addColumn() on raw PowerSync tables corrupts the table structure
+    // 4. This migration only needs to handle DATA transformation, not schema changes
 
-    if (!(await columnExists(db, 'profile_local', 'ui_languoid_id'))) {
-      await addColumn(db, 'profile_local', 'ui_languoid_id TEXT DEFAULT NULL');
-    }
-    console.log('[Migration 1.0→2.0] ✓ profile_local.ui_languoid_id added');
-
-    // Step 2: Add languoid_id column to asset_content_link_local
-    if (onProgress)
-      onProgress(2, 7, 'Adding languoid_id to asset_content_link_local');
-    console.log(
-      '[Migration 1.0→2.0] Adding languoid_id to asset_content_link_local...'
-    );
-
-    if (!(await columnExists(db, 'asset_content_link_local', 'languoid_id'))) {
-      await addColumn(
-        db,
-        'asset_content_link_local',
-        'languoid_id TEXT DEFAULT NULL'
-      );
-    }
-    console.log(
-      '[Migration 1.0→2.0] ✓ asset_content_link_local.languoid_id added'
-    );
-
-    // Step 3: Add languoid_id column to project_language_link_local
-    // This is required because it's part of the new primary key
-    if (onProgress)
-      onProgress(3, 7, 'Adding languoid_id to project_language_link_local');
-    console.log(
-      '[Migration 1.0→2.0] Adding languoid_id to project_language_link_local...'
-    );
-
-    if (
-      !(await columnExists(db, 'project_language_link_local', 'languoid_id'))
-    ) {
-      await addColumn(
-        db,
-        'project_language_link_local',
-        'languoid_id TEXT DEFAULT NULL'
-      );
-    }
-    console.log(
-      '[Migration 1.0→2.0] ✓ project_language_link_local.languoid_id added'
-    );
-
-    // Step 4: Create project_language_link_local records from project_local.target_language_id
+    // Step 1: Create project_language_link_local records from project_local.target_language_id
     // This handles old projects created before project_language_link existed
     // These projects have target_language_id on the project table but no link record
     if (onProgress)
-      onProgress(4, 7, 'Creating missing project_language_link records');
+      onProgress(1, 4, 'Creating missing project_language_link records');
     console.log(
       '[Migration 1.0→2.0] Creating project_language_link_local from project_local.target_language_id...'
     );
@@ -181,10 +135,10 @@ export const migration_1_0_to_2_0: Migration = {
 
     console.log('[Migration 1.0→2.0] ✓ project_language_link_local records created');
 
-    // Step 5: Try to use existing synced languoids if they match the language_id
+    // Step 2: Try to use existing synced languoids if they match the language_id
     // The server migration uses language_id as the languoid_id, so check if that languoid exists
     if (onProgress)
-      onProgress(5, 7, 'Checking for existing synced languoids');
+      onProgress(2, 4, 'Checking for existing synced languoids');
     console.log(
       '[Migration 1.0→2.0] Checking for existing synced languoids...'
     );
@@ -214,10 +168,10 @@ export const migration_1_0_to_2_0: Migration = {
 
     console.log('[Migration 1.0→2.0] ✓ Synced languoid references applied');
 
-    // Step 6: Create languoid_local records for any remaining language references
+    // Step 3: Create languoid_local records for any remaining language references
     // Check BOTH synced and local language tables, and create languoid_local if missing
     if (onProgress)
-      onProgress(6, 7, 'Creating languoid records for unmatched languages');
+      onProgress(3, 4, 'Creating languoid records for unmatched languages');
     console.log(
       '[Migration 1.0→2.0] Creating languoid_local for unmatched languages...'
     );
@@ -420,8 +374,8 @@ export const migration_1_0_to_2_0: Migration = {
 
     console.log('[Migration 1.0→2.0] ✓ languoid_local records created');
 
-    // Step 7: Populate languoid_id references for all remaining records
-    if (onProgress) onProgress(7, 7, 'Populating languoid_id references');
+    // Step 4: Populate languoid_id references for all remaining records
+    if (onProgress) onProgress(4, 4, 'Populating languoid_id references');
     console.log('[Migration 1.0→2.0] Populating languoid_id references...');
 
     // Update project_language_link_local.languoid_id - check both synced and local languoids
