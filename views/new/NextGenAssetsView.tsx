@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -31,7 +30,8 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { LegendList } from '@legendapp/list';
 import {
   ArrowBigDownDashIcon,
-  CheckIcon,
+  CheckCheck,
+  CloudUpload,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -42,7 +42,6 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  Share2Icon,
   ShieldOffIcon,
   UserPlusIcon
 } from 'lucide-react-native';
@@ -61,6 +60,7 @@ import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
@@ -715,98 +715,125 @@ export default function NextGenAssetsView() {
             </Button>
           )}
         </View>
-        {isPublished ? (
-          // Only show published badge if user is creator, member, or owner
-          canSeePublishedBadge ? (
-            <Badge
-              variant="default"
-              className="flex flex-row items-center gap-1 bg-chart-5/80"
-            >
-              <Icon as={CheckIcon} size={14} className="text-white" />
-              <Text className="font-medium text-white">{t('published')}</Text>
-            </Badge>
-          ) : (
-            // Show membership request button for non-members viewing published quest
-            isPrivateProject && (
-              <Button
-                variant="default"
-                size="sm"
-                onPress={() => setShowPrivateAccessModal(true)}
-              >
-                <Icon as={UserPlusIcon} size={16} />
-                <Icon as={LockIcon} size={16} />
-              </Button>
-            )
-          )
-        ) : (
-          // Only show publish/record buttons for authenticated users
-          currentUser && (
-            <View className="flex flex-row items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={isPublishing || !isOnline || !isMember}
-                onPress={() => {
-                  if (!isOnline) {
-                    Alert.alert(t('error'), t('cannotPublishWhileOffline'));
-                    return;
-                  }
-
-                  if (!isMember) {
-                    Alert.alert(t('error'), t('membersOnlyPublish'));
-                    return;
-                  }
-
-                  if (!currentQuestId) {
-                    console.error('No current quest id');
-                    return;
-                  }
-
-                  // Use quest name if available, otherwise generic message
-                  const questName = selectedQuest?.name || 'this chapter';
-
-                  Alert.alert(
-                    t('publishChapter'),
-                    t('publishChapterMessage').replace(
-                      '{questName}',
-                      questName
-                    ),
-                    [
-                      {
-                        text: t('cancel'),
-                        style: 'cancel'
-                      },
-                      {
-                        text: t('publish'),
-                        style: 'default',
-                        onPress: () => {
-                          publishQuest();
-                        }
-                      }
-                    ]
-                  );
-                }}
-              >
-                {isPublishing ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
+        <View className="flex flex-row items-center gap-2">
+          {isPublished ? (
+            // Only show cloud-check icon if user is creator, member, or owner
+            canSeePublishedBadge ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 py-0"
+                  onPress={() => {
+                    Alert.alert(t('questSyncedToCloud'));
+                  }}
+                >
+                  <View className="flex-row items-center gap-0.5">
+                    <Icon as={CloudUpload} size={18} />
+                    <Icon as={CheckCheck} size={14} />
+                  </View>
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
                   />
-                ) : (
-                  <Icon as={Share2Icon} />
                 )}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-[1.5px] border-primary"
-                onPress={() => setShowRecording(true)}
-              >
-                <Icon as={PencilIcon} className="text-primary" />
-              </Button>
-            </View>
-          )
-        )}
+              </>
+            ) : (
+              // Show membership request button for non-members viewing published quest
+              isPrivateProject && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => setShowPrivateAccessModal(true)}
+                >
+                  <Icon as={UserPlusIcon} size={16} />
+                  <Icon as={LockIcon} size={16} />
+                </Button>
+              )
+            )
+          ) : (
+            // Only show publish/record buttons for authenticated users
+            currentUser && (
+              <View className="flex flex-row items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={isPublishing || !isOnline || !isMember}
+                  onPress={() => {
+                    if (!isOnline) {
+                      Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                      return;
+                    }
+
+                    if (!isMember) {
+                      Alert.alert(t('error'), t('membersOnlyPublish'));
+                      return;
+                    }
+
+                    if (!currentQuestId) {
+                      console.error('No current quest id');
+                      return;
+                    }
+
+                    // Use quest name if available, otherwise generic message
+                    const questName = selectedQuest?.name || 'this chapter';
+
+                    Alert.alert(
+                      t('publishChapter'),
+                      t('publishChapterMessage').replace(
+                        '{questName}',
+                        questName
+                      ),
+                      [
+                        {
+                          text: t('cancel'),
+                          style: 'cancel'
+                        },
+                        {
+                          text: t('publish'),
+                          style: 'default',
+                          onPress: () => {
+                            publishQuest();
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  {isPublishing ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
+                    />
+                  ) : (
+                    <Icon as={CloudUpload} />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-[1.5px] border-primary"
+                  onPress={() => setShowRecording(true)}
+                >
+                  <Icon as={PencilIcon} className="text-primary" />
+                </Button>
+                currentQuestId && currentProjectId && (
+                <ExportButton
+                  questId={currentQuestId}
+                  projectId={currentProjectId || ''}
+                  questName={selectedQuest?.name}
+                  disabled={isPublishing || !isOnline}
+                  membership={membership}
+                />
+                )
+              </View>
+            )
+          )}
+        </View>
       </View>
 
       <Input
