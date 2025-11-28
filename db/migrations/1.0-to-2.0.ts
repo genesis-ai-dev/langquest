@@ -11,8 +11,20 @@
  * 1. Add ui_languoid_id column to profile_local
  * 2. Add languoid_id column to asset_content_link_local
  * 3. Add languoid_id column to project_language_link_local (REQUIRED - new PK)
- * 4. Create languoid_local records from language_local for offline projects
- * 5. Populate languoid_id in project_language_link_local
+ * 4. Create project_language_link_local records from project.target_language_id
+ *    (old projects may have target_language_id but no link record)
+ * 5. Link to existing synced languoids where available
+ * 6. Create languoid_local records for any languages that don't have languoids
+ * 7. Populate languoid_id in project_language_link_local and asset_content_link_local
+ *
+ * CRITICAL: This migration must handle FOUR scenarios:
+ * 1. Old projects with project.target_language_id but no project_language_link record
+ * 2. language_id points to a LOCAL language (language_local) - created offline
+ * 3. language_id points to a SYNCED language (language via PowerSync) - downloaded project
+ * 4. Neither - language_id exists but language record was not synced (limited sync rules)
+ *
+ * For each case, we check if a matching languoid already exists (synced or local).
+ * If not, we create a new languoid_local record.
  *
  * NOTE: New languoid/region tables are created automatically by the schema.
  * This migration only handles data transformation for existing records.
@@ -31,7 +43,7 @@ export const migration_1_0_to_2_0: Migration = {
     console.log('[Migration 1.0→2.0] Starting languoid migration...');
 
     // Step 1: Add ui_languoid_id column to profile_local
-    if (onProgress) onProgress(1, 5, 'Adding ui_languoid_id to profile_local');
+    if (onProgress) onProgress(1, 7, 'Adding ui_languoid_id to profile_local');
     console.log(
       '[Migration 1.0→2.0] Adding ui_languoid_id to profile_local...'
     );
@@ -43,7 +55,7 @@ export const migration_1_0_to_2_0: Migration = {
 
     // Step 2: Add languoid_id column to asset_content_link_local
     if (onProgress)
-      onProgress(2, 5, 'Adding languoid_id to asset_content_link_local');
+      onProgress(2, 7, 'Adding languoid_id to asset_content_link_local');
     console.log(
       '[Migration 1.0→2.0] Adding languoid_id to asset_content_link_local...'
     );
@@ -62,7 +74,7 @@ export const migration_1_0_to_2_0: Migration = {
     // Step 3: Add languoid_id column to project_language_link_local
     // This is required because it's part of the new primary key
     if (onProgress)
-      onProgress(3, 5, 'Adding languoid_id to project_language_link_local');
+      onProgress(3, 7, 'Adding languoid_id to project_language_link_local');
     console.log(
       '[Migration 1.0→2.0] Adding languoid_id to project_language_link_local...'
     );
@@ -80,18 +92,137 @@ export const migration_1_0_to_2_0: Migration = {
       '[Migration 1.0→2.0] ✓ project_language_link_local.languoid_id added'
     );
 
-    // Step 4: Create languoid_local records from language_local
-    // For offline projects, we need to create languoid records for any languages
-    // that are referenced by project_language_link_local but don't have languoids yet.
-    // We use language_id as the languoid_id (matching server migration pattern).
+    // Step 4: Create project_language_link_local records from project_local.target_language_id
+    // This handles old projects created before project_language_link existed
+    // These projects have target_language_id on the project table but no link record
     if (onProgress)
-      onProgress(4, 5, 'Creating languoid records for offline languages');
+      onProgress(4, 7, 'Creating missing project_language_link records');
     console.log(
-      '[Migration 1.0→2.0] Creating languoid_local from language_local...'
+      '[Migration 1.0→2.0] Creating project_language_link_local from project_local.target_language_id...'
     );
 
-    // Find all language_ids referenced in project_language_link_local that need languoids
-    // Insert into languoid_local using language_id as the id (matching server pattern)
+    // Create project_language_link_local records for local projects that have target_language_id
+    // but don't have a corresponding link record yet
+    await db.run(sql`
+      INSERT OR IGNORE INTO project_language_link_local (
+        id,
+        project_id,
+        language_id,
+        languoid_id,
+        language_type,
+        active,
+        source,
+        download_profiles,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT 
+        p.id || '_target_' || p.target_language_id,
+        p.id,
+        p.target_language_id,
+        p.target_language_id,
+        'target',
+        1,
+        'local',
+        p.download_profiles,
+        p.created_at,
+        p.last_updated,
+        p._metadata
+      FROM project_local p
+      WHERE p.target_language_id IS NOT NULL
+        AND p.active = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM project_language_link_local pll 
+          WHERE pll.project_id = p.id AND pll.language_type = 'target'
+        )
+    `);
+
+    // Also check synced project table for projects that might be synced but missing link records
+    // This can happen if the project was synced before the server migration ran
+    await db.run(sql`
+      INSERT OR IGNORE INTO project_language_link_local (
+        id,
+        project_id,
+        language_id,
+        languoid_id,
+        language_type,
+        active,
+        source,
+        download_profiles,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT 
+        p.id || '_target_' || p.target_language_id,
+        p.id,
+        p.target_language_id,
+        p.target_language_id,
+        'target',
+        1,
+        'local',
+        p.download_profiles,
+        p.created_at,
+        p.last_updated,
+        NULL
+      FROM project p
+      WHERE p.target_language_id IS NOT NULL
+        AND p.active = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM project_language_link pll 
+          WHERE pll.project_id = p.id AND pll.language_type = 'target'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM project_language_link_local pll 
+          WHERE pll.project_id = p.id AND pll.language_type = 'target'
+        )
+    `);
+
+    console.log('[Migration 1.0→2.0] ✓ project_language_link_local records created');
+
+    // Step 5: Try to use existing synced languoids if they match the language_id
+    // The server migration uses language_id as the languoid_id, so check if that languoid exists
+    if (onProgress)
+      onProgress(5, 7, 'Checking for existing synced languoids');
+    console.log(
+      '[Migration 1.0→2.0] Checking for existing synced languoids...'
+    );
+
+    // Update project_language_link_local with synced languoid if it exists
+    // (Server migration creates languoid with id = language_id)
+    await db.run(sql`
+      UPDATE project_language_link_local
+      SET languoid_id = language_id
+      WHERE languoid_id IS NULL
+        AND language_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM languoid WHERE languoid.id = project_language_link_local.language_id
+        )
+    `);
+
+    // Same for asset_content_link_local
+    await db.run(sql`
+      UPDATE asset_content_link_local
+      SET languoid_id = source_language_id
+      WHERE languoid_id IS NULL
+        AND source_language_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM languoid WHERE languoid.id = asset_content_link_local.source_language_id
+        )
+    `);
+
+    console.log('[Migration 1.0→2.0] ✓ Synced languoid references applied');
+
+    // Step 6: Create languoid_local records for any remaining language references
+    // Check BOTH synced and local language tables, and create languoid_local if missing
+    if (onProgress)
+      onProgress(6, 7, 'Creating languoid records for unmatched languages');
+    console.log(
+      '[Migration 1.0→2.0] Creating languoid_local for unmatched languages...'
+    );
+
+    // Create from LOCAL language table first
     await db.run(sql`
       INSERT OR IGNORE INTO languoid_local (
         id,
@@ -120,9 +251,44 @@ export const migration_1_0_to_2_0: Migration = {
       INNER JOIN project_language_link_local pll ON pll.language_id = l.id
       WHERE pll.languoid_id IS NULL
         AND l.active = 1
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = l.id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = l.id)
     `);
 
-    // Also create languoid records for languages in asset_content_link_local
+    // Create from SYNCED language table (for downloaded projects where languoid wasn't synced)
+    await db.run(sql`
+      INSERT OR IGNORE INTO languoid_local (
+        id,
+        name,
+        level,
+        ui_ready,
+        active,
+        source,
+        creator_id,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT DISTINCT
+        l.id,
+        COALESCE(l.english_name, l.native_name, 'Unknown'),
+        'language',
+        COALESCE(l.ui_ready, 0),
+        1,
+        'local',
+        l.creator_id,
+        l.created_at,
+        l.last_updated,
+        NULL
+      FROM language l
+      INNER JOIN project_language_link_local pll ON pll.language_id = l.id
+      WHERE pll.languoid_id IS NULL
+        AND l.active = 1
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = l.id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = l.id)
+    `);
+
+    // Handle asset_content_link_local - from local language
     await db.run(sql`
       INSERT OR IGNORE INTO languoid_local (
         id,
@@ -151,30 +317,153 @@ export const migration_1_0_to_2_0: Migration = {
       INNER JOIN asset_content_link_local acl ON acl.source_language_id = l.id
       WHERE acl.languoid_id IS NULL
         AND l.active = 1
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = l.id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = l.id)
+    `);
+
+    // Handle asset_content_link_local - from synced language
+    await db.run(sql`
+      INSERT OR IGNORE INTO languoid_local (
+        id,
+        name,
+        level,
+        ui_ready,
+        active,
+        source,
+        creator_id,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT DISTINCT
+        l.id,
+        COALESCE(l.english_name, l.native_name, 'Unknown'),
+        'language',
+        COALESCE(l.ui_ready, 0),
+        1,
+        'local',
+        l.creator_id,
+        l.created_at,
+        l.last_updated,
+        NULL
+      FROM language l
+      INNER JOIN asset_content_link_local acl ON acl.source_language_id = l.id
+      WHERE acl.languoid_id IS NULL
+        AND l.active = 1
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = l.id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = l.id)
+    `);
+
+    // FALLBACK: For any remaining language_ids where neither language table has the record
+    // (e.g., language was never synced due to sync rules), create a minimal languoid
+    await db.run(sql`
+      INSERT OR IGNORE INTO languoid_local (
+        id,
+        name,
+        level,
+        ui_ready,
+        active,
+        source,
+        creator_id,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT DISTINCT
+        pll.language_id,
+        'Unknown Language',
+        'language',
+        0,
+        1,
+        'local',
+        NULL,
+        datetime('now'),
+        datetime('now'),
+        NULL
+      FROM project_language_link_local pll
+      WHERE pll.languoid_id IS NULL
+        AND pll.language_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = pll.language_id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = pll.language_id)
+    `);
+
+    await db.run(sql`
+      INSERT OR IGNORE INTO languoid_local (
+        id,
+        name,
+        level,
+        ui_ready,
+        active,
+        source,
+        creator_id,
+        created_at,
+        last_updated,
+        _metadata
+      )
+      SELECT DISTINCT
+        acl.source_language_id,
+        'Unknown Language',
+        'language',
+        0,
+        1,
+        'local',
+        NULL,
+        datetime('now'),
+        datetime('now'),
+        NULL
+      FROM asset_content_link_local acl
+      WHERE acl.languoid_id IS NULL
+        AND acl.source_language_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM languoid WHERE languoid.id = acl.source_language_id)
+        AND NOT EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = acl.source_language_id)
     `);
 
     console.log('[Migration 1.0→2.0] ✓ languoid_local records created');
 
-    // Step 5: Populate languoid_id in project_language_link_local and asset_content_link_local
-    if (onProgress) onProgress(5, 5, 'Populating languoid_id references');
+    // Step 7: Populate languoid_id references for all remaining records
+    if (onProgress) onProgress(7, 7, 'Populating languoid_id references');
     console.log('[Migration 1.0→2.0] Populating languoid_id references...');
 
-    // Update project_language_link_local.languoid_id to match language_id
-    // This works because we created languoids with id = language_id
+    // Update project_language_link_local.languoid_id - check both synced and local languoids
     await db.run(sql`
       UPDATE project_language_link_local
       SET languoid_id = language_id
       WHERE languoid_id IS NULL
         AND language_id IS NOT NULL
+        AND (
+          EXISTS (SELECT 1 FROM languoid WHERE languoid.id = project_language_link_local.language_id)
+          OR EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = project_language_link_local.language_id)
+        )
     `);
 
-    // Update asset_content_link_local.languoid_id to match source_language_id
+    // Update asset_content_link_local.languoid_id - check both synced and local languoids
     await db.run(sql`
       UPDATE asset_content_link_local
       SET languoid_id = source_language_id
       WHERE languoid_id IS NULL
         AND source_language_id IS NOT NULL
+        AND (
+          EXISTS (SELECT 1 FROM languoid WHERE languoid.id = asset_content_link_local.source_language_id)
+          OR EXISTS (SELECT 1 FROM languoid_local WHERE languoid_local.id = asset_content_link_local.source_language_id)
+        )
     `);
+
+    // Log any remaining records without languoid_id for debugging
+    const remainingPll = (await db.get(sql`
+      SELECT COUNT(*) as count FROM project_language_link_local 
+      WHERE languoid_id IS NULL AND language_id IS NOT NULL
+    `)) as { count: number } | undefined;
+
+    const remainingAcl = (await db.get(sql`
+      SELECT COUNT(*) as count FROM asset_content_link_local 
+      WHERE languoid_id IS NULL AND source_language_id IS NOT NULL
+    `)) as { count: number } | undefined;
+
+    if (remainingPll?.count || remainingAcl?.count) {
+      console.warn(
+        `[Migration 1.0→2.0] ⚠️ ${remainingPll?.count || 0} project_language_link_local and ${remainingAcl?.count || 0} asset_content_link_local records still missing languoid_id`
+      );
+    }
 
     console.log('[Migration 1.0→2.0] ✓ languoid_id references populated');
     console.log('[Migration 1.0→2.0] ✓ Migration complete');
