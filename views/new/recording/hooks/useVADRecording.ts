@@ -62,9 +62,11 @@ export function useVADRecording({
   const segmentTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  
+
   // Track energy range during VAD recording
-  const energyRangeRef = React.useRef<{ min: number; max: number } | null>(null);
+  const energyRangeRef = React.useRef<{ min: number; max: number } | null>(
+    null
+  );
 
   React.useEffect(() => {
     onSegmentStartRef.current = onSegmentStart;
@@ -78,8 +80,14 @@ export function useVADRecording({
     if (isRecording && energyResult) {
       const energy = energyResult.energy;
       if (energyRangeRef.current) {
-        energyRangeRef.current.min = Math.min(energyRangeRef.current.min, energy);
-        energyRangeRef.current.max = Math.max(energyRangeRef.current.max, energy);
+        energyRangeRef.current.min = Math.min(
+          energyRangeRef.current.min,
+          energy
+        );
+        energyRangeRef.current.max = Math.max(
+          energyRangeRef.current.max,
+          energy
+        );
       } else {
         energyRangeRef.current = { min: energy, max: energy };
       }
@@ -232,7 +240,7 @@ export function useVADRecording({
         // Then update React state (for non-perf-critical components)
         setIsRecording(true);
         segmentStartTimeRef.current = Date.now();
-        
+
         // Initialize energy range tracking for this segment
         const initialEnergy = energyResult?.energy ?? 0;
         energyRangeRef.current = { min: initialEnergy, max: initialEnergy };

@@ -24,15 +24,24 @@ export function useChapterExport() {
 
   const exportMutation = useMutation<ExportResponse, Error, ExportRequest>({
     mutationFn: async (request: ExportRequest) => {
-      const localhost = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || (__DEV__ ? localhost : 'https://langquest.org');
-      
+      const localhost =
+        Platform.OS === 'android'
+          ? 'http://10.0.2.2:3000'
+          : 'http://localhost:3000';
+      const siteUrl =
+        process.env.EXPO_PUBLIC_SITE_URL ||
+        (__DEV__ ? localhost : 'https://langquest.org');
+
       // Detect environment from Supabase URL if not provided
       let environment = request.environment;
       if (!environment) {
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
         // Check if it's local Supabase (development)
-        if (supabaseUrl.includes('127.0.0.1') || supabaseUrl.includes('localhost') || supabaseUrl.includes(':54321')) {
+        if (
+          supabaseUrl.includes('127.0.0.1') ||
+          supabaseUrl.includes('localhost') ||
+          supabaseUrl.includes(':54321')
+        ) {
           environment = 'development';
         } else if (supabaseUrl.includes('preview')) {
           environment = 'preview';
@@ -40,11 +49,11 @@ export function useChapterExport() {
           environment = 'production';
         }
       }
-      
+
       console.log('[Export] Using site URL:', siteUrl);
       console.log('[Export] Detected environment:', environment);
       console.log('[Export] Request:', { ...request, environment });
-      
+
       // Get the current session token
       const {
         data: { session }
@@ -77,7 +86,8 @@ export function useChapterExport() {
           try {
             const errorData = await response.json();
             // Prefer debug.message if available (more helpful), otherwise use error
-            errorMessage = errorData.debug?.message || errorData.error || errorMessage;
+            errorMessage =
+              errorData.debug?.message || errorData.error || errorMessage;
             console.log('[Export] Error details:', errorData);
           } catch {
             // JSON parse failed, try to get text
@@ -94,7 +104,9 @@ export function useChapterExport() {
 
       if (!isJson) {
         const text = await response.text();
-        throw new Error(`Expected JSON response but got ${contentType || 'unknown'}. Response: ${text.substring(0, 200)}`);
+        throw new Error(
+          `Expected JSON response but got ${contentType || 'unknown'}. Response: ${text.substring(0, 200)}`
+        );
       }
 
       const data = await response.json();
@@ -123,9 +135,14 @@ export function useExportStatus(exportId: string | null) {
         throw new Error('Export ID is required');
       }
 
-      const localhost = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || (__DEV__ ? localhost : 'https://langquest.org');
-      
+      const localhost =
+        Platform.OS === 'android'
+          ? 'http://10.0.2.2:3000'
+          : 'http://localhost:3000';
+      const siteUrl =
+        process.env.EXPO_PUBLIC_SITE_URL ||
+        (__DEV__ ? localhost : 'https://langquest.org');
+
       // Get the current session token
       const {
         data: { session }
@@ -164,7 +181,9 @@ export function useExportStatus(exportId: string | null) {
 
       if (!isJson) {
         const text = await response.text();
-        throw new Error(`Expected JSON response but got ${contentType || 'unknown'}. Response: ${text.substring(0, 200)}`);
+        throw new Error(
+          `Expected JSON response but got ${contentType || 'unknown'}. Response: ${text.substring(0, 200)}`
+        );
       }
 
       const data = await response.json();
@@ -210,4 +229,3 @@ export async function shareExportLink(shareUrl: string): Promise<void> {
     Alert.alert('Error', 'Failed to share export link');
   }
 }
-

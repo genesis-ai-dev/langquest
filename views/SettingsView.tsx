@@ -57,9 +57,7 @@ export default function SettingsView() {
     (state) => state.enableAiSuggestions
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
-  const enableQuestExport = useLocalStore(
-    (state) => state.enableQuestExport
-  );
+  const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent

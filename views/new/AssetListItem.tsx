@@ -100,7 +100,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   return (
     <Pressable onPress={handlePress}>
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-primary border-2 bg-primary/5' : ''}`}
+        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''}`}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 gap-1">

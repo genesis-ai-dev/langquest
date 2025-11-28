@@ -322,8 +322,7 @@ export const useLocalStore = create<LocalState>()(
       setEnableAiSuggestions: (enabled) =>
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
-      setEnableQuestExport: (enabled) =>
-        set({ enableQuestExport: enabled }),
+      setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) => set({ vadThreshold: threshold }),

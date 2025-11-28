@@ -356,13 +356,13 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             amplitude = Math.max(0.02, Math.min(0.8, base + noise));
             appendLiveSample(amplitude);
           }
-          
+
           // Track energy range
           energyRange.min = Math.min(energyRange.min, amplitude);
           energyRange.max = Math.max(energyRange.max, amplitude);
         }
       });
-      
+
       // Store energy range ref for logging on stop
       (activeRecording as any)._energyRange = energyRange;
       console.log('🎙️ Recording started successfully!');
