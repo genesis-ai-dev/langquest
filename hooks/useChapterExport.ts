@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { system } from '@/db/powersync/system';
-import { Alert, Share } from 'react-native';
+import { Alert, Share, Platform } from 'react-native';
 
 export interface ExportRequest {
   quest_id: string;
@@ -24,7 +24,8 @@ export function useChapterExport() {
 
   const exportMutation = useMutation<ExportResponse, Error, ExportRequest>({
     mutationFn: async (request: ExportRequest) => {
-      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || 'https://langquest.org';
+      const localhost = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || (__DEV__ ? localhost : 'https://langquest.org');
       
       // Detect environment from Supabase URL if not provided
       let environment = request.environment;
@@ -64,6 +65,8 @@ export function useChapterExport() {
         body: JSON.stringify({ ...request, environment })
       });
 
+      console.log('[Export] API Response Status:', response.status);
+
       // Check content type before parsing JSON
       const contentType = response.headers.get('content-type');
       const isJson = contentType?.includes('application/json');
@@ -73,7 +76,9 @@ export function useChapterExport() {
         if (isJson) {
           try {
             const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
+            // Prefer debug.message if available (more helpful), otherwise use error
+            errorMessage = errorData.debug?.message || errorData.error || errorMessage;
+            console.log('[Export] Error details:', errorData);
           } catch {
             // JSON parse failed, try to get text
             const text = await response.text();
@@ -93,6 +98,7 @@ export function useChapterExport() {
       }
 
       const data = await response.json();
+      console.log('[Export] API Response Data:', data);
       return data as ExportResponse;
     },
     onSuccess: (data) => {
@@ -117,7 +123,8 @@ export function useExportStatus(exportId: string | null) {
         throw new Error('Export ID is required');
       }
 
-      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || 'https://langquest.org';
+      const localhost = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL || (__DEV__ ? localhost : 'https://langquest.org');
       
       // Get the current session token
       const {

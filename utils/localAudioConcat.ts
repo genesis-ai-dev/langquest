@@ -1,4 +1,12 @@
-import { asset, quest_asset_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  languoid,
+  profile,
+  project,
+  project_language_link,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -506,8 +514,132 @@ export async function concatenateAndShareQuestAudio(
       throw new Error('No valid audio files found after conversion');
     }
 
+    // Fetch project, languoid, and user names for filename
+    let projectName = '';
+    let languoidName = '';
+    let userName = '';
+
+    // Get current user's username
+    try {
+      const {
+        data: { session }
+      } = await system.supabaseConnector.client.auth.getSession();
+      const userId = session?.user.id;
+      if (userId) {
+        const profileData = await system.db
+          .select({ username: profile.username })
+          .from(profile)
+          .where(eq(profile.id, userId))
+          .limit(1);
+
+        const profileRecord = profileData[0] as
+          | { username: string | null }
+          | undefined;
+        if (profileRecord?.username) {
+          userName = profileRecord.username;
+        } else if (session.user.email) {
+          // Fallback to email prefix if no username
+          const emailPrefix = session.user.email.split('@')[0];
+          if (emailPrefix) {
+            userName = emailPrefix;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch username for filename:', error);
+    }
+
+    try {
+      // Get quest to find project_id
+      const questData = await system.db
+        .select({ project_id: quest.project_id })
+        .from(quest)
+        .where(eq(quest.id, questId))
+        .limit(1);
+
+      const questRecord = questData[0] as
+        | { project_id: string | null }
+        | undefined;
+      const projectId = questRecord?.project_id;
+      if (projectId) {
+        // Get project name
+        const projectData = await system.db
+          .select({ name: project.name })
+          .from(project)
+          .where(eq(project.id, projectId))
+          .limit(1);
+
+        const projectRecord = projectData[0] as
+          | { name: string | null }
+          | undefined;
+        if (projectRecord?.name) {
+          projectName = projectRecord.name;
+        }
+
+        // Get target languoid name
+        const languoidLink = await system.db
+          .select({ languoid_id: project_language_link.languoid_id })
+          .from(project_language_link)
+          .where(
+            and(
+              eq(project_language_link.project_id, projectId),
+              eq(project_language_link.language_type, 'target'),
+              isNotNull(project_language_link.languoid_id)
+            )
+          )
+          .limit(1);
+
+        const languoidLinkRecord = languoidLink[0] as
+          | { languoid_id: string | null }
+          | undefined;
+        const languoidId = languoidLinkRecord?.languoid_id;
+        if (languoidId) {
+          const languoidData = await system.db
+            .select({ name: languoid.name })
+            .from(languoid)
+            .where(eq(languoid.id, languoidId))
+            .limit(1);
+
+          const languoidRecord = languoidData[0] as
+            | { name: string | null }
+            | undefined;
+          if (languoidRecord?.name) {
+            languoidName = languoidRecord.name;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(
+        'Failed to fetch project/languoid names for filename:',
+        error
+      );
+      // Continue with just quest name if fetch fails
+    }
+
     // Create output file path (use native path format)
-    const outputFileName = `${questName || 'quest'}-${Date.now()}.m4a`;
+    // Use little-endian date format (DDMMYYYY)
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear());
+    const dateStr = `${day}${month}${year}`; // DDMMYYYY format
+
+    // Sanitize names for filename
+    const sanitize = (name: string) =>
+      name
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+
+    // Build filename parts: username-project-languoid-quest-date
+    const parts: string[] = [];
+    if (questName) parts.push(sanitize(questName));
+    if (projectName) parts.push(sanitize(projectName));
+    if (languoidName) parts.push(sanitize(languoidName));
+    if (userName) parts.push(sanitize(userName));
+    if (parts.length === 0) parts.push('quest');
+
+    const outputFileName = `${parts.join('-')}-${dateStr}.m4a`;
     const outputPath = `${FileSystem.cacheDirectory}${outputFileName}`;
     const outputNativePath = getNativePath(outputPath);
 
