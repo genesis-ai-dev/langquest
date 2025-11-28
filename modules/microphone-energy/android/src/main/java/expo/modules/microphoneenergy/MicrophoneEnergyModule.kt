@@ -11,6 +11,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.*
 import kotlin.math.sqrt
+import kotlin.math.pow
 
 class MicrophoneEnergyModule : Module() {
   private var audioRecord: AudioRecord? = null
@@ -235,7 +236,7 @@ class MicrophoneEnergyModule : Module() {
     
     // Convert dB back to amplitude (matching expo-av's conversion)
     // amplitude = 10^(dB/20)
-    val amplitude = kotlin.math.pow(10.0, clampedDb / 20.0)
+    val amplitude = 10.0.pow(clampedDb / 20.0)
     
     // Apply EMA smoothing on the amplitude (to match expo-av's output range)
     smoothedEnergy = emaAlpha * amplitude.toFloat() + (1.0f - emaAlpha) * smoothedEnergy

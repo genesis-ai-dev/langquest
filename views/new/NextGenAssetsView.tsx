@@ -1197,15 +1197,15 @@ export default function NextGenAssetsView() {
                 >
                   <Icon as={PencilIcon} className="text-primary" />
                 </Button>
-                currentQuestId && currentProjectId && (
-                <ExportButton
-                  questId={currentQuestId}
-                  projectId={currentProjectId || ''}
-                  questName={selectedQuest?.name}
-                  disabled={isPublishing || !isOnline}
-                  membership={membership}
-                />
-                )
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId || ''}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
               </View>
             )
           )}
