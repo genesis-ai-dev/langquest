@@ -7,6 +7,7 @@ import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
+import { useThemeColor } from '@/utils/styleUtils';
 import { Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
@@ -30,6 +31,7 @@ export function ExportButton({
   membership: passedMembership
 }: ExportButtonProps) {
   const { t } = useLocalization();
+  const primaryColor = useThemeColor('primary');
   // Use passed membership if available, otherwise fetch it
   const { membership: fetchedMembership, isMembershipLoading } =
     useUserPermissions(projectId, 'open_project');
@@ -164,7 +166,7 @@ export function ExportButton({
         className="border-[1.5px] border-primary"
       >
         {isConcatenating ? (
-          <ActivityIndicator size="small" />
+          <ActivityIndicator size="small" color={primaryColor} />
         ) : (
           <Icon as={Share2Icon} className="text-primary" />
         )}
