@@ -9,6 +9,11 @@ import {
   createBlockedUsersTable,
   createInviteTable,
   createLanguageTable,
+  createLanguoidAliasTable,
+  createLanguoidPropertyTable,
+  createLanguoidRegionTable,
+  createLanguoidSourceTable,
+  createLanguoidTable,
   createNotificationTable,
   createProfileProjectLinkTable,
   createProfileTable,
@@ -19,6 +24,10 @@ import {
   createQuestClosureTable,
   createQuestTable,
   createQuestTagLinkTable,
+  createRegionAliasTable,
+  createRegionPropertyTable,
+  createRegionSourceTable,
+  createRegionTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
@@ -40,6 +49,11 @@ export const userRelations = relations(profile_synced, ({ many, one }) => ({
     fields: [profile_synced.ui_language_id],
     references: [language_synced.id],
     relationName: 'uiLanguage'
+  }),
+  ui_languoid: one(languoid_synced, {
+    fields: [profile_synced.ui_languoid_id],
+    references: [languoid_synced.id],
+    relationName: 'uiLanguoid'
   }),
   sent_invites: many(invite_synced, { relationName: 'invite_sender' }),
   received_invites: many(invite_synced, { relationName: 'invite_receiver' }),
@@ -64,6 +78,214 @@ export const language_syncedRelations = relations(
     }),
     targetLanguageProjects: many(project_synced, {
       relationName: 'targetLanguage'
+    })
+  })
+);
+
+// Languoid tables
+export const languoid_synced = createLanguoidTable('synced', {
+  profile: profile_synced
+});
+
+export const languoid_syncedRelations = relations(
+  languoid_synced,
+  ({ one, many }) => ({
+    creator: one(profile_synced, {
+      fields: [languoid_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    }),
+    parent: one(languoid_synced, {
+      fields: [languoid_synced.parent_id],
+      references: [languoid_synced.id],
+      relationName: 'languoid_parent'
+    }),
+    children: many(languoid_synced, { relationName: 'languoid_parent' }),
+    uiUsers: many(profile_synced, { relationName: 'uiLanguoid' }),
+    aliases: many(languoid_alias_synced, { relationName: 'subject_languoid' }),
+    sources: many(languoid_source_synced),
+    properties: many(languoid_property_synced),
+    regions: many(languoid_region_synced)
+  })
+);
+
+export const languoid_alias_synced = createLanguoidAliasTable('synced', {
+  languoid: languoid_synced,
+  profile: profile_synced
+});
+
+export const languoid_alias_syncedRelations = relations(
+  languoid_alias_synced,
+  ({ one }) => ({
+    subject_languoid: one(languoid_synced, {
+      fields: [languoid_alias_synced.subject_languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'subject_languoid'
+    }),
+    label_languoid: one(languoid_synced, {
+      fields: [languoid_alias_synced.label_languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'label_languoid'
+    }),
+    creator: one(profile_synced, {
+      fields: [languoid_alias_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_source_synced = createLanguoidSourceTable('synced', {
+  languoid: languoid_synced,
+  profile: profile_synced
+});
+
+export const languoid_source_syncedRelations = relations(
+  languoid_source_synced,
+  ({ one }) => ({
+    languoid: one(languoid_synced, {
+      fields: [languoid_source_synced.languoid_id],
+      references: [languoid_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [languoid_source_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_property_synced = createLanguoidPropertyTable('synced', {
+  languoid: languoid_synced,
+  profile: profile_synced
+});
+
+export const languoid_property_syncedRelations = relations(
+  languoid_property_synced,
+  ({ one }) => ({
+    languoid: one(languoid_synced, {
+      fields: [languoid_property_synced.languoid_id],
+      references: [languoid_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [languoid_property_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_synced = createRegionTable('synced', {
+  profile: profile_synced
+});
+
+export const region_syncedRelations = relations(
+  region_synced,
+  ({ one, many }) => ({
+    creator: one(profile_synced, {
+      fields: [region_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    }),
+    parent: one(region_synced, {
+      fields: [region_synced.parent_id],
+      references: [region_synced.id],
+      relationName: 'region_parent'
+    }),
+    children: many(region_synced, { relationName: 'region_parent' }),
+    aliases: many(region_alias_synced),
+    sources: many(region_source_synced),
+    properties: many(region_property_synced),
+    languoids: many(languoid_region_synced)
+  })
+);
+
+export const region_alias_synced = createRegionAliasTable('synced', {
+  region: region_synced,
+  languoid: languoid_synced,
+  profile: profile_synced
+});
+
+export const region_alias_syncedRelations = relations(
+  region_alias_synced,
+  ({ one }) => ({
+    subject_region: one(region_synced, {
+      fields: [region_alias_synced.subject_region_id],
+      references: [region_synced.id]
+    }),
+    label_languoid: one(languoid_synced, {
+      fields: [region_alias_synced.label_languoid_id],
+      references: [languoid_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [region_alias_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_source_synced = createRegionSourceTable('synced', {
+  region: region_synced,
+  profile: profile_synced
+});
+
+export const region_source_syncedRelations = relations(
+  region_source_synced,
+  ({ one }) => ({
+    region: one(region_synced, {
+      fields: [region_source_synced.region_id],
+      references: [region_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [region_source_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_property_synced = createRegionPropertyTable('synced', {
+  region: region_synced,
+  profile: profile_synced
+});
+
+export const region_property_syncedRelations = relations(
+  region_property_synced,
+  ({ one }) => ({
+    region: one(region_synced, {
+      fields: [region_property_synced.region_id],
+      references: [region_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [region_property_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_region_synced = createLanguoidRegionTable('synced', {
+  languoid: languoid_synced,
+  region: region_synced,
+  profile: profile_synced
+});
+
+export const languoid_region_syncedRelations = relations(
+  languoid_region_synced,
+  ({ one }) => ({
+    languoid: one(languoid_synced, {
+      fields: [languoid_region_synced.languoid_id],
+      references: [languoid_synced.id]
+    }),
+    region: one(region_synced, {
+      fields: [languoid_region_synced.region_id],
+      references: [region_synced.id]
+    }),
+    creator: one(profile_synced, {
+      fields: [languoid_region_synced.creator_id],
+      references: [profile_synced.id],
+      relationName: 'creator'
     })
   })
 );
@@ -226,6 +448,11 @@ export const project_language_link_syncedRelations = relations(
     language: one(language_synced, {
       fields: [project_language_link_synced.language_id],
       references: [language_synced.id]
+    }),
+    languoid: one(languoid_synced, {
+      fields: [project_language_link_synced.languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'languoid'
     })
   })
 );
@@ -311,6 +538,11 @@ export const asset_content_link_syncedRelations = relations(
     source_language: one(language_synced, {
       fields: [asset_content_link_synced.source_language_id],
       references: [language_synced.id]
+    }),
+    languoid: one(languoid_synced, {
+      fields: [asset_content_link_synced.languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'languoid'
     })
   })
 );

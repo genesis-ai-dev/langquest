@@ -16,6 +16,7 @@ ios/
 .env.*
 !.env.*.example
 *.swp
+gitignore_scripts/
 
 /modules/**/android/build
 /public/@powersync

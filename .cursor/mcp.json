@@ -29,6 +29,10 @@
     },
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?read_only=true"
+    },
+    "maestro": {
+      "command": "maestro",
+      "args": ["mcp"]
     }
   }
 }
