@@ -260,70 +260,57 @@ BEGIN
   RAISE NOTICE 'profile.ui_languoid_id: completed, total updated: %', total_updated;
 END $$;
 
--- Populate asset_content_link.languoid_id from asset_content_link.source_language_id (batched)
--- This is the largest table, so we use smaller batches
-DO $$
-DECLARE
-  batch_size INT := 2000;
-  rows_updated INT;
-  total_updated INT := 0;
-BEGIN
-  LOOP
-    UPDATE public.asset_content_link acl
-    SET languoid_id = find_matching_languoid(acl.source_language_id)
-    WHERE acl.id IN (
-      SELECT id FROM public.asset_content_link
-      WHERE source_language_id IS NOT NULL
-        AND languoid_id IS NULL
-        AND active = true
-      LIMIT batch_size
-    );
-    
-    GET DIAGNOSTICS rows_updated = ROW_COUNT;
-    total_updated := total_updated + rows_updated;
-    
-    EXIT WHEN rows_updated = 0;
-    
-    RAISE NOTICE 'asset_content_link.languoid_id: updated % rows (total: %)', rows_updated, total_updated;
-  END LOOP;
-  
-  RAISE NOTICE 'asset_content_link.languoid_id: completed, total updated: %', total_updated;
-END $$;
+-- Populate asset_content_link.languoid_id from asset_content_link.source_language_id
+-- OPTIMIZATION: Pre-compute language->languoid mapping once, then use fast JOIN update
+-- Only compute mappings for languages actually referenced in rows that need updating
 
--- Populate project_language_link.languoid_id from project_language_link.language_id (batched)
-DO $$
-DECLARE
-  batch_size INT := 1000;
-  rows_updated INT;
-  total_updated INT := 0;
-BEGIN
-  LOOP
-    -- Use composite key columns for identification since PK is changing
-    WITH to_update AS (
-      SELECT project_id, language_id, language_type
-      FROM public.project_language_link
-      WHERE language_id IS NOT NULL
-        AND languoid_id IS NULL
-        AND active = true
-      LIMIT batch_size
-    )
-    UPDATE public.project_language_link pll
-    SET languoid_id = find_matching_languoid(pll.language_id)
-    FROM to_update tu
-    WHERE pll.project_id = tu.project_id
-      AND pll.language_id = tu.language_id
-      AND pll.language_type = tu.language_type;
-    
-    GET DIAGNOSTICS rows_updated = ROW_COUNT;
-    total_updated := total_updated + rows_updated;
-    
-    EXIT WHEN rows_updated = 0;
-    
-    RAISE NOTICE 'project_language_link.languoid_id: updated % rows (total: %)', rows_updated, total_updated;
-  END LOOP;
-  
-  RAISE NOTICE 'project_language_link.languoid_id: completed, total updated: %', total_updated;
-END $$;
+-- Step 1: Create temp mapping table (only for languages that need mapping, not all 8k)
+CREATE TEMP TABLE _lang_to_languoid_map AS
+SELECT DISTINCT source_language_id as language_id, 
+       find_matching_languoid(source_language_id) as languoid_id
+FROM public.asset_content_link
+WHERE source_language_id IS NOT NULL
+  AND languoid_id IS NULL
+  AND active = true;
+
+CREATE INDEX ON _lang_to_languoid_map(language_id);
+
+-- Step 2: Fast JOIN-based UPDATE (no function calls, just a simple join)
+UPDATE public.asset_content_link acl
+SET languoid_id = m.languoid_id
+FROM _lang_to_languoid_map m
+WHERE acl.source_language_id = m.language_id
+  AND acl.languoid_id IS NULL
+  AND acl.active = true
+  AND m.languoid_id IS NOT NULL;
+
+DROP TABLE _lang_to_languoid_map;
+
+-- Populate project_language_link.languoid_id from project_language_link.language_id
+-- Uses same pre-computed mapping approach for efficiency
+
+-- Step 1: Create temp mapping table (only for languages that need mapping)
+CREATE TEMP TABLE _pll_lang_to_languoid_map AS
+SELECT DISTINCT language_id, 
+       find_matching_languoid(language_id) as languoid_id
+FROM public.project_language_link
+WHERE language_id IS NOT NULL
+  AND languoid_id IS NULL
+  AND active = true;
+
+CREATE INDEX ON _pll_lang_to_languoid_map(language_id);
+
+-- Step 2: Fast JOIN-based UPDATE
+UPDATE public.project_language_link pll
+SET languoid_id = m.languoid_id
+FROM _pll_lang_to_languoid_map m
+WHERE pll.language_id = m.language_id
+  AND pll.languoid_id IS NULL
+  AND pll.active = true
+  AND m.languoid_id IS NOT NULL;
+
+-- Cleanup temp table
+DROP TABLE _pll_lang_to_languoid_map;
 
 -- ============================================================================
 -- STEP 5: Create languoid records for unmatched languages
@@ -728,38 +715,27 @@ ALTER TABLE public.profile
 -- reference for project languages going forward.
 
 -- First, ensure all rows have languoid_id populated (should already be done by STEP 4-5)
--- For any remaining NULLs, try to populate from language_id (batched to avoid timeout)
-DO $$
-DECLARE
-  batch_size INT := 1000;
-  rows_updated INT;
-  total_updated INT := 0;
-BEGIN
-  LOOP
-    WITH to_update AS (
-      SELECT project_id, language_id, language_type
-      FROM public.project_language_link
-      WHERE languoid_id IS NULL
-        AND language_id IS NOT NULL
-      LIMIT batch_size
-    )
-    UPDATE public.project_language_link pll
-    SET languoid_id = find_matching_languoid(pll.language_id)
-    FROM to_update tu
-    WHERE pll.project_id = tu.project_id
-      AND pll.language_id = tu.language_id
-      AND pll.language_type = tu.language_type;
-    
-    GET DIAGNOSTICS rows_updated = ROW_COUNT;
-    total_updated := total_updated + rows_updated;
-    
-    EXIT WHEN rows_updated = 0;
-    
-    RAISE NOTICE 'STEP 10 - project_language_link.languoid_id backfill: updated % rows (total: %)', rows_updated, total_updated;
-  END LOOP;
-  
-  RAISE NOTICE 'STEP 10 - project_language_link.languoid_id backfill: completed, total updated: %', total_updated;
-END $$;
+-- For any remaining NULLs, try to populate from language_id using pre-computed mapping
+
+-- Create temp mapping table (only for languages that need mapping)
+CREATE TEMP TABLE _pll_step10_map AS
+SELECT DISTINCT language_id, 
+       find_matching_languoid(language_id) as languoid_id
+FROM public.project_language_link
+WHERE language_id IS NOT NULL
+  AND languoid_id IS NULL;
+
+CREATE INDEX ON _pll_step10_map(language_id);
+
+-- Fast JOIN-based UPDATE for remaining NULLs
+UPDATE public.project_language_link pll
+SET languoid_id = m.languoid_id
+FROM _pll_step10_map m
+WHERE pll.language_id = m.language_id
+  AND pll.languoid_id IS NULL
+  AND m.languoid_id IS NOT NULL;
+
+DROP TABLE _pll_step10_map;
 
 -- For any still-NULL languoid_id, create new languoid records
 DO $$
