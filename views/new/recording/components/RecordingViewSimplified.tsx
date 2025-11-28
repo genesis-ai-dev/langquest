@@ -20,6 +20,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
+  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
@@ -350,26 +351,51 @@ const RecordingViewSimplified = ({
   // ============================================================================
 
   // Fetch audio URIs for an asset
+  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        // Get audio content links for this asset
-        const contentLinks = await system.db
+        // Get content links from both synced and local tables
+        const assetContentLinkSynced = resolveTable('asset_content_link', {
+          localOverride: false
+        });
+        const contentLinksSynced = await system.db
           .select()
-          .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, assetId));
+          .from(assetContentLinkSynced)
+          .where(eq(assetContentLinkSynced.asset_id, assetId));
+
+        const assetContentLinkLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const contentLinksLocal = await system.db
+          .select()
+          .from(assetContentLinkLocal)
+          .where(eq(assetContentLinkLocal.asset_id, assetId));
+
+        // Prefer synced links, but merge with local for fallback
+        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
+
+        // Deduplicate by ID (prefer synced over local)
+        const seenIds = new Set<string>();
+        const uniqueLinks = allContentLinks.filter((link) => {
+          if (seenIds.has(link.id)) {
+            return false;
+          }
+          seenIds.add(link.id);
+          return true;
+        });
 
         debugLog(
-          `📀 Found ${contentLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
+          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
         );
 
-        if (contentLinks.length === 0) {
+        if (uniqueLinks.length === 0) {
           debugLog('No content links found for asset:', assetId);
           return [];
         }
 
         // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = contentLinks
+        const audioValues = uniqueLinks
           .flatMap((link) => {
             const audioArray = link.audio ?? [];
             debugLog(
@@ -393,17 +419,151 @@ const RecordingViewSimplified = ({
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            // Use getLocalAttachmentUriWithOPFS to construct the full path
-            const localUri = getLocalAttachmentUriWithOPFS(audioValue);
-            uris.push(localUri);
-            debugLog('✅ Using direct local URI:', localUri.slice(0, 80));
+            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            // Check if file exists at constructed path
+            if (await fileExists(constructedUri)) {
+              uris.push(constructedUri);
+              debugLog('✅ Using direct local URI:', constructedUri.slice(0, 80));
+            } else {
+              // File doesn't exist at expected path - try to find it in attachment queue
+              debugLog(
+                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
+              );
+
+              if (system.permAttachmentQueue) {
+                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
+                const filename = audioValue.replace(/^local\//, '');
+                // Extract UUID part (without extension) for more flexible matching
+                const uuidPart = filename.split('.')[0];
+
+                // Search attachment queue by filename or UUID
+                let attachment = await system.powersync.getOptional<{
+                  id: string;
+                  filename: string | null;
+                  local_uri: string | null;
+                }>(
+                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
+                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
+                );
+
+                // If not found, try searching all attachments for this asset's content links
+                if (!attachment && uniqueLinks.length > 0) {
+                  const allAttachmentIds = uniqueLinks
+                    .flatMap((link) => link.audio ?? [])
+                    .filter(
+                      (av): av is string =>
+                        typeof av === 'string' &&
+                        !av.startsWith('local/') &&
+                        !av.startsWith('file://')
+                    );
+                  if (allAttachmentIds.length > 0) {
+                    const placeholders = allAttachmentIds
+                      .map(() => '?')
+                      .join(',');
+                    attachment = await system.powersync.getOptional<{
+                      id: string;
+                      filename: string | null;
+                      local_uri: string | null;
+                    }>(
+                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
+                      allAttachmentIds
+                    );
+                  }
+                }
+
+                if (attachment?.local_uri) {
+                  const foundUri = system.permAttachmentQueue.getLocalUri(
+                    attachment.local_uri
+                  );
+                  // Verify the found file actually exists
+                  if (await fileExists(foundUri)) {
+                    uris.push(foundUri);
+                    debugLog(
+                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
+                    );
+                  } else {
+                    debugLog(
+                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
+                    );
+                  }
+                } else {
+                  // Try fallback to local table for alternative audio values
+                  const fallbackLink = contentLinksLocal.find(
+                    (link) => link.asset_id === assetId
+                  );
+                  if (fallbackLink?.audio) {
+                    for (const fallbackAudioValue of fallbackLink.audio) {
+                      if (fallbackAudioValue.startsWith('file://')) {
+                        if (await fileExists(fallbackAudioValue)) {
+                          uris.push(fallbackAudioValue);
+                          debugLog(`✅ Found fallback file URI`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI
-            uris.push(audioValue);
-            debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
+            // Already a full file URI - verify it exists
+            if (await fileExists(audioValue)) {
+              uris.push(audioValue);
+              debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
+            } else {
+              debugLog(`⚠️ File URI does not exist: ${audioValue}`);
+              // Try to find in attachment queue by extracting filename from path
+              if (system.permAttachmentQueue) {
+                const filename = audioValue.split('/').pop();
+                if (filename) {
+                  const attachment = await system.powersync.getOptional<{
+                    id: string;
+                    filename: string | null;
+                    local_uri: string | null;
+                  }>(
+                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
+                    [filename, filename]
+                  );
+
+                  if (attachment?.local_uri) {
+                    const foundUri = system.permAttachmentQueue.getLocalUri(
+                      attachment.local_uri
+                    );
+                    if (await fileExists(foundUri)) {
+                      uris.push(foundUri);
+                      debugLog(`✅ Found attachment in queue for file URI`);
+                    }
+                  }
+                }
+              }
+            }
           } else {
             // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) continue;
+            if (!system.permAttachmentQueue) {
+              // No attachment queue - try fallback to local table
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri = getLocalAttachmentUriWithOPFS(
+                      fallbackAudioValue
+                    );
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      break;
+                    }
+                  }
+                }
+              }
+              continue;
+            }
 
             const attachment = await system.powersync.getOptional<{
               id: string;
@@ -417,10 +577,45 @@ const RecordingViewSimplified = ({
               const localUri = system.permAttachmentQueue.getLocalUri(
                 attachment.local_uri
               );
-              uris.push(localUri);
-              debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
+              if (await fileExists(localUri)) {
+                uris.push(localUri);
+                debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
+              }
             } else {
-              debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
+              // Attachment ID not found in queue - try fallback to local table
+              debugLog(
+                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
+              );
+
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri = getLocalAttachmentUriWithOPFS(
+                      fallbackAudioValue
+                    );
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      debugLog(
+                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      debugLog(
+                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  }
+                }
+              } else {
+                debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
+              }
             }
           }
         }
