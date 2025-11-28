@@ -3963,6 +3963,25 @@ export const localizations = {
     indonesian:
       'Aktifkan saran terjemahan berbasis AI berdasarkan terjemahan terdekat'
   },
+  playAll: {
+    english: 'Play All Assets',
+    spanish: 'Reproducir Todos los Recursos',
+    brazilian_portuguese: 'Reproduzir Todos os Recursos',
+    tok_pisin: 'Playim Olgeta Assets',
+    indonesian: 'Putar Semua Aset'
+  },
+  playAllDescription: {
+    english:
+      'Enable the play all assets feature to play all audio assets in sequence',
+    spanish:
+      'Habilitar la función de reproducir todos los recursos para reproducir todos los recursos de audio en secuencia',
+    brazilian_portuguese:
+      'Habilitar a função de reproduzir todos os recursos para reproduzir todos os recursos de áudio em sequência',
+    tok_pisin:
+      'Onim play all assets feature long playim olgeta audio assets long wanpela taim',
+    indonesian:
+      'Aktifkan fitur putar semua aset untuk memutar semua aset audio secara berurutan'
+  },
   advanced: {
     english: 'Advanced',
     spanish: 'Avanzado',

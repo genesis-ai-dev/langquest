@@ -90,6 +90,8 @@ export interface LocalState {
   // Experimental features
   enableAiSuggestions: boolean;
   setEnableAiSuggestions: (enabled: boolean) => void;
+  enablePlayAll: boolean;
+  setEnablePlayAll: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: 0.005-0.1 (lower = more sensitive, picks up quiet speech)
@@ -216,6 +218,7 @@ export const useLocalStore = create<LocalState>()(
 
       // Experimental features (defaults)
       enableAiSuggestions: false,
+      enablePlayAll: false,
 
       // VAD settings (defaults)
       vadThreshold: 0.085, // 8.5% sensitivity
@@ -315,6 +318,7 @@ export const useLocalStore = create<LocalState>()(
       // Experimental features setters
       setEnableAiSuggestions: (enabled) =>
         set({ enableAiSuggestions: enabled }),
+      setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
