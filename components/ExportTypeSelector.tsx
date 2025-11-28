@@ -11,7 +11,7 @@ import { Text } from '@/components/ui/text';
 import { useChapterExport, useExportStatus } from '@/hooks/useChapterExport';
 import { useLocalization } from '@/hooks/useLocalization';
 import * as Clipboard from 'expo-clipboard';
-import { CopyIcon, GlobeIcon, Share2Icon, XIcon } from 'lucide-react-native';
+import { CopyIcon, GlobeIcon, Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
 
@@ -141,14 +141,9 @@ export function ExportTypeSelector({
           <DrawerTitle>
             {t('selectExportType') || 'Select Export Type'}
           </DrawerTitle>
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon">
-              <Icon as={XIcon} size={24} />
-            </Button>
-          </DrawerClose>
         </DrawerHeader>
 
-        <View className="flex-col gap-3 p-4">
+        <View className="flex-col gap-3">
           <Button
             variant="outline"
             onPress={() => onSelect('local')}
@@ -213,9 +208,9 @@ export function ExportTypeSelector({
             </Button>
           )}
 
-          <Button variant="ghost" onPress={onClose} className="mt-2">
-            <Text>{t('cancel') || 'Cancel'}</Text>
-          </Button>
+          <DrawerClose className="flex flex-row gap-2">
+            <Text>{t('cancel')}</Text>
+          </DrawerClose>
         </View>
       </DrawerContent>
     </Drawer>

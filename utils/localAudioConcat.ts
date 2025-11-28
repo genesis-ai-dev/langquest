@@ -16,7 +16,7 @@ import {
 } from '@/utils/fileUtils';
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
-import { Share } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { concatAudioFiles, convertToM4a } from 'react-native-audio-concat';
 
 /**
@@ -674,18 +674,20 @@ export async function concatenateAndShareQuestAudio(
 
     console.log(`Audio concatenated successfully: ${outputPath}`);
 
-    // Share the concatenated file (use file:// URI format for Share API)
-    const result = await Share.share({
-      url: outputPath, // Share API expects file:// URI
-      title: questName || 'Quest Audio',
-      message: `Audio export: ${questName || 'Quest'}`
+    // Check if sharing is available on this platform
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Sharing is not available on this device');
+    }
+
+    // Share the concatenated file using expo-sharing (works on both iOS and Android)
+    await Sharing.shareAsync(outputPath, {
+      mimeType: 'audio/mp4',
+      UTI: 'com.apple.m4a-audio', // iOS-specific type identifier for M4A
+      dialogTitle: questName || 'Quest Audio'
     });
 
-    if (result.action === Share.sharedAction) {
-      console.log('Audio shared successfully');
-    } else {
-      console.log('Share dismissed or cancelled');
-    }
+    console.log('Audio share dialog opened successfully');
   } catch (error) {
     console.error('Failed to concatenate and share audio:', error);
     throw error;
