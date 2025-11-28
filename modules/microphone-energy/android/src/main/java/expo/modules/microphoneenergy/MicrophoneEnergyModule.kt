@@ -23,7 +23,7 @@ class MicrophoneEnergyModule : Module() {
   private var isRecordingSegment = false
   private var segmentFile: java.io.File? = null
   private var segmentStartTime: Long = 0
-  private val sampleRate = 16000
+  private val sampleRate = 44100
   
   // Segment audio data collected in memory
   private var segmentBuffers = ArrayList<ShortArray>()
@@ -96,8 +96,10 @@ class MicrophoneEnergyModule : Module() {
       val audioFormat = AudioFormat.ENCODING_PCM_16BIT
       val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
 
+      // Use DEFAULT audio source to allow system to choose best available microphone
+      // This matches expo-av's approach and provides better audio quality
       audioRecord = AudioRecord(
-        MediaRecorder.AudioSource.MIC,
+        MediaRecorder.AudioSource.DEFAULT,
         sampleRate,
         channelConfig,
         audioFormat,
@@ -208,16 +210,35 @@ class MicrophoneEnergyModule : Module() {
     // Copy the data for ring buffer
     val dataCopy = audioData.copyOf(bytesRead)
 
-    // Simple energy calculation (RMS - Root Mean Square)
-    var energy = 0.0
+    // Calculate peak amplitude (max absolute value) - matching expo-av's approach
+    // expo-av uses getMaxAmplitude() which returns peak, not RMS
+    var peakAmplitude = 0.0
     for (i in 0 until bytesRead) {
-      val sample = audioData[i] / 32768.0 // Normalize to -1.0 to 1.0
-      energy += sample * sample
+      val sample = kotlin.math.abs(audioData[i] / 32768.0) // Normalize to 0-1.0, take absolute
+      peakAmplitude = kotlin.math.max(peakAmplitude, sample)
     }
-    energy = sqrt(energy / bytesRead)
     
-    // Apply EMA smoothing
-    smoothedEnergy = emaAlpha * energy.toFloat() + (1.0f - emaAlpha) * smoothedEnergy
+    // Convert peak amplitude to dB using expo-av's formula
+    // expo-av: dB = 20 * log10(amplitude / 32767) for Android
+    // For normalized amplitude (0-1), we use reference of 1.0
+    // dB = 20 * log10(peakAmplitude / 1.0) = 20 * log10(peakAmplitude)
+    val minDb = -60.0  // Match expo-av's minimum dB
+    val maxDb = 0.0    // Match expo-av's maximum dB
+    
+    // Convert peak amplitude to dB
+    // Add small epsilon to avoid log(0)
+    val epsilon = 1e-10
+    val db = 20.0 * kotlin.math.log10(kotlin.math.max(peakAmplitude, epsilon))
+    
+    // Clamp dB to expo-av's range (-60 to 0)
+    val clampedDb = kotlin.math.max(minDb, kotlin.math.min(maxDb, db))
+    
+    // Convert dB back to amplitude (matching expo-av's conversion)
+    // amplitude = 10^(dB/20)
+    val amplitude = kotlin.math.pow(10.0, clampedDb / 20.0)
+    
+    // Apply EMA smoothing on the amplitude (to match expo-av's output range)
+    smoothedEnergy = emaAlpha * amplitude.toFloat() + (1.0f - emaAlpha) * smoothedEnergy
 
     // Manage ring buffer (always buffer when not recording segment)
     if (!isRecordingSegment) {

@@ -328,6 +328,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       setRecording(activeRecording);
       setRecordingDuration(0);
 
+      // Track energy range for logging
+      const energyRange = { min: Infinity, max: -Infinity };
+
       // ✅ Notify parent AFTER recording is ready
       onRecordingStart();
 
@@ -340,20 +343,28 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           onRecordingDurationUpdate?.(duration);
 
           const anyStatus = status as unknown as { metering?: number };
+          let amplitude: number;
           if (typeof anyStatus.metering === 'number') {
             const db = anyStatus.metering;
             const normalizedDb = Math.max(-60, Math.min(0, db));
-            const amplitude = Math.pow(10, normalizedDb / 20);
+            amplitude = Math.pow(10, normalizedDb / 20);
             appendLiveSample(amplitude);
           } else {
             const t = duration / 1000;
             const base = 0.3 + Math.sin(t * 24) * 0.15;
             const noise = (Math.random() - 0.5) * 0.1;
-            const fallbackEnergy = Math.max(0.02, Math.min(0.8, base + noise));
-            appendLiveSample(fallbackEnergy);
+            amplitude = Math.max(0.02, Math.min(0.8, base + noise));
+            appendLiveSample(amplitude);
           }
+          
+          // Track energy range
+          energyRange.min = Math.min(energyRange.min, amplitude);
+          energyRange.max = Math.max(energyRange.max, amplitude);
         }
       });
+      
+      // Store energy range ref for logging on stop
+      (activeRecording as any)._energyRange = energyRange;
       console.log('🎙️ Recording started successfully!');
     } catch (error) {
       console.error('❌ Failed to start recording:', error);
@@ -378,6 +389,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
+
+      // Log energy range for hold-to-record
+      const energyRange = (recording as any)._energyRange;
+      if (energyRange && energyRange.min !== Infinity) {
+        console.log(
+          `📊 Hold-to-Record Energy Range | min: ${energyRange.min.toFixed(4)}, max: ${energyRange.max.toFixed(4)}, range: ${(energyRange.max - energyRange.min).toFixed(4)}`
+        );
+      }
 
       if (uri) {
         if (recordingDuration >= MIN_RECORDING_DURATION) {
