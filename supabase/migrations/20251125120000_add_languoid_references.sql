@@ -232,25 +232,98 @@ BEGIN
 END;
 $$;
 
--- Populate profile.ui_languoid_id from profile.ui_language_id
-UPDATE public.profile p
-SET ui_languoid_id = find_matching_languoid(p.ui_language_id)
-WHERE p.ui_language_id IS NOT NULL
-  AND p.ui_languoid_id IS NULL;
+-- Populate profile.ui_languoid_id from profile.ui_language_id (batched)
+DO $$
+DECLARE
+  batch_size INT := 1000;
+  rows_updated INT;
+  total_updated INT := 0;
+BEGIN
+  LOOP
+    UPDATE public.profile p
+    SET ui_languoid_id = find_matching_languoid(p.ui_language_id)
+    WHERE p.id IN (
+      SELECT id FROM public.profile
+      WHERE ui_language_id IS NOT NULL
+        AND ui_languoid_id IS NULL
+      LIMIT batch_size
+    );
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    total_updated := total_updated + rows_updated;
+    
+    EXIT WHEN rows_updated = 0;
+    
+    RAISE NOTICE 'profile.ui_languoid_id: updated % rows (total: %)', rows_updated, total_updated;
+  END LOOP;
+  
+  RAISE NOTICE 'profile.ui_languoid_id: completed, total updated: %', total_updated;
+END $$;
 
--- Populate asset_content_link.languoid_id from asset_content_link.source_language_id
-UPDATE public.asset_content_link acl
-SET languoid_id = find_matching_languoid(acl.source_language_id)
-WHERE acl.source_language_id IS NOT NULL
-  AND acl.languoid_id IS NULL
-  AND acl.active = true;
+-- Populate asset_content_link.languoid_id from asset_content_link.source_language_id (batched)
+-- This is the largest table, so we use smaller batches
+DO $$
+DECLARE
+  batch_size INT := 2000;
+  rows_updated INT;
+  total_updated INT := 0;
+BEGIN
+  LOOP
+    UPDATE public.asset_content_link acl
+    SET languoid_id = find_matching_languoid(acl.source_language_id)
+    WHERE acl.id IN (
+      SELECT id FROM public.asset_content_link
+      WHERE source_language_id IS NOT NULL
+        AND languoid_id IS NULL
+        AND active = true
+      LIMIT batch_size
+    );
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    total_updated := total_updated + rows_updated;
+    
+    EXIT WHEN rows_updated = 0;
+    
+    RAISE NOTICE 'asset_content_link.languoid_id: updated % rows (total: %)', rows_updated, total_updated;
+  END LOOP;
+  
+  RAISE NOTICE 'asset_content_link.languoid_id: completed, total updated: %', total_updated;
+END $$;
 
--- Populate project_language_link.languoid_id from project_language_link.language_id
-UPDATE public.project_language_link pll
-SET languoid_id = find_matching_languoid(pll.language_id)
-WHERE pll.language_id IS NOT NULL
-  AND pll.languoid_id IS NULL
-  AND pll.active = true;
+-- Populate project_language_link.languoid_id from project_language_link.language_id (batched)
+DO $$
+DECLARE
+  batch_size INT := 1000;
+  rows_updated INT;
+  total_updated INT := 0;
+BEGIN
+  LOOP
+    -- Use composite key columns for identification since PK is changing
+    WITH to_update AS (
+      SELECT project_id, language_id, language_type
+      FROM public.project_language_link
+      WHERE language_id IS NOT NULL
+        AND languoid_id IS NULL
+        AND active = true
+      LIMIT batch_size
+    )
+    UPDATE public.project_language_link pll
+    SET languoid_id = find_matching_languoid(pll.language_id)
+    FROM to_update tu
+    WHERE pll.project_id = tu.project_id
+      AND pll.language_id = tu.language_id
+      AND pll.language_type = tu.language_type;
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    total_updated := total_updated + rows_updated;
+    
+    EXIT WHEN rows_updated = 0;
+    
+    RAISE NOTICE 'project_language_link.languoid_id: updated % rows (total: %)', rows_updated, total_updated;
+  END LOOP;
+  
+  RAISE NOTICE 'project_language_link.languoid_id: completed, total updated: %', total_updated;
+END $$;
 
 -- ============================================================================
 -- STEP 5: Create languoid records for unmatched languages
@@ -362,15 +435,18 @@ END $$;
 -- ============================================================================
 -- Update languoid.ui_ready based on corresponding language.ui_ready for all
 -- matched languoids (both newly created and existing)
+-- Note: ui_ready languages are typically few (< 100), so this doesn't need aggressive batching
 
 UPDATE public.languoid lo
 SET ui_ready = true,
     last_updated = NOW()
-FROM public.language l
-WHERE l.active = true
-  AND l.ui_ready = true
-  AND find_matching_languoid(l.id) = lo.id
-  AND lo.ui_ready = false;
+WHERE lo.id IN (
+  SELECT find_matching_languoid(l.id)
+  FROM public.language l
+  WHERE l.active = true
+    AND l.ui_ready = true
+)
+AND lo.ui_ready = false;
 
 -- ============================================================================
 -- STEP 7: Update schema version
@@ -652,11 +728,38 @@ ALTER TABLE public.profile
 -- reference for project languages going forward.
 
 -- First, ensure all rows have languoid_id populated (should already be done by STEP 4-5)
--- For any remaining NULLs, try to populate from language_id
-UPDATE public.project_language_link pll
-SET languoid_id = find_matching_languoid(pll.language_id)
-WHERE pll.languoid_id IS NULL
-  AND pll.language_id IS NOT NULL;
+-- For any remaining NULLs, try to populate from language_id (batched to avoid timeout)
+DO $$
+DECLARE
+  batch_size INT := 1000;
+  rows_updated INT;
+  total_updated INT := 0;
+BEGIN
+  LOOP
+    WITH to_update AS (
+      SELECT project_id, language_id, language_type
+      FROM public.project_language_link
+      WHERE languoid_id IS NULL
+        AND language_id IS NOT NULL
+      LIMIT batch_size
+    )
+    UPDATE public.project_language_link pll
+    SET languoid_id = find_matching_languoid(pll.language_id)
+    FROM to_update tu
+    WHERE pll.project_id = tu.project_id
+      AND pll.language_id = tu.language_id
+      AND pll.language_type = tu.language_type;
+    
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+    total_updated := total_updated + rows_updated;
+    
+    EXIT WHEN rows_updated = 0;
+    
+    RAISE NOTICE 'STEP 10 - project_language_link.languoid_id backfill: updated % rows (total: %)', rows_updated, total_updated;
+  END LOOP;
+  
+  RAISE NOTICE 'STEP 10 - project_language_link.languoid_id backfill: completed, total updated: %', total_updated;
+END $$;
 
 -- For any still-NULL languoid_id, create new languoid records
 DO $$
@@ -1484,4 +1587,3 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.search_languoids(text, integer, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.search_languoids(text, integer, boolean) TO anon;
-
