@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -31,7 +30,8 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { LegendList } from '@legendapp/list';
 import {
   ArrowBigDownDashIcon,
-  CheckIcon,
+  CheckCheck,
+  CloudUpload,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -42,7 +42,6 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  Share2Icon,
   ShieldOffIcon,
   UserPlusIcon
 } from 'lucide-react-native';
@@ -61,17 +60,18 @@ import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
+import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { asset_content_link } from '@/db/drizzleSchema';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
-import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { resolveTable } from '@/utils/dbUtils';
+import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
@@ -112,6 +112,14 @@ export default function NextGenAssetsView() {
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  // Track which asset is currently playing during play-all
+  const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
+    string | null
+  >(null);
+  const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
+  const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
+  const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
+  const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -299,17 +307,36 @@ export default function NextGenAssetsView() {
   }, [safeAttachmentStates]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
-      <AssetListItem
-        key={item.id}
-        asset={item}
-        attachmentState={safeAttachmentStates.get(item.id)}
-        questId={currentQuestId || ''}
-      />
-    ),
+    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => {
+      const isPlaying =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+
+      // Debug logging for highlighting
+      if (isPlaying && __DEV__) {
+        console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
+      }
+
+      return (
+        <AssetListItem
+          key={item.id}
+          asset={item}
+          attachmentState={safeAttachmentStates.get(item.id)}
+          questId={currentQuestId || ''}
+          isCurrentlyPlaying={isPlaying}
+        />
+      );
+    },
     // Use stable memo key instead of Map reference to prevent hook dependency issues
     // Always has exactly 2 dependencies (string, string) - never changes size
-    [currentQuestId, safeAttachmentStates]
+    [
+      currentQuestId,
+      safeAttachmentStates,
+      audioContext.isPlaying,
+      audioContext.currentAudioId,
+      currentlyPlayingAssetId
+    ]
   );
 
   const onEndReached = React.useCallback(() => {
@@ -357,21 +384,46 @@ export default function NextGenAssetsView() {
   const PLAY_ALL_AUDIO_ID = 'play-all-assets';
 
   // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
+  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        // Get audio content links for this asset
-        const contentLinks = await system.db
+        // Get content links from both synced and local tables
+        const assetContentLinkSynced = resolveTable('asset_content_link', {
+          localOverride: false
+        });
+        const contentLinksSynced = await system.db
           .select()
-          .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, assetId));
+          .from(assetContentLinkSynced)
+          .where(eq(assetContentLinkSynced.asset_id, assetId));
 
-        if (contentLinks.length === 0) {
+        const assetContentLinkLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const contentLinksLocal = await system.db
+          .select()
+          .from(assetContentLinkLocal)
+          .where(eq(assetContentLinkLocal.asset_id, assetId));
+
+        // Prefer synced links, but merge with local for fallback
+        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
+
+        // Deduplicate by ID (prefer synced over local)
+        const seenIds = new Set<string>();
+        const uniqueLinks = allContentLinks.filter((link) => {
+          if (seenIds.has(link.id)) {
+            return false;
+          }
+          seenIds.add(link.id);
+          return true;
+        });
+
+        if (uniqueLinks.length === 0) {
           return [];
         }
 
         // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = contentLinks
+        const audioValues = uniqueLinks
           .flatMap((link) => {
             const audioArray = link.audio ?? [];
             return audioArray;
@@ -388,15 +440,148 @@ export default function NextGenAssetsView() {
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            // Use getLocalAttachmentUriWithOPFS to construct the full path
-            const localUri = getLocalAttachmentUriWithOPFS(audioValue);
-            uris.push(localUri);
+            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            // Check if file exists at constructed path
+            if (await fileExists(constructedUri)) {
+              uris.push(constructedUri);
+            } else {
+              // File doesn't exist at expected path - try to find it in attachment queue
+              console.log(
+                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
+              );
+
+              if (system.permAttachmentQueue) {
+                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
+                const filename = audioValue.replace(/^local\//, '');
+                // Extract UUID part (without extension) for more flexible matching
+                const uuidPart = filename.split('.')[0];
+
+                // Search attachment queue by filename or UUID
+                let attachment = await system.powersync.getOptional<{
+                  id: string;
+                  filename: string | null;
+                  local_uri: string | null;
+                }>(
+                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
+                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
+                );
+
+                // If not found, try searching all attachments for this asset's content links
+                if (!attachment && uniqueLinks.length > 0) {
+                  const allAttachmentIds = uniqueLinks
+                    .flatMap((link) => link.audio ?? [])
+                    .filter(
+                      (av): av is string =>
+                        typeof av === 'string' &&
+                        !av.startsWith('local/') &&
+                        !av.startsWith('file://')
+                    );
+                  if (allAttachmentIds.length > 0) {
+                    const placeholders = allAttachmentIds
+                      .map(() => '?')
+                      .join(',');
+                    attachment = await system.powersync.getOptional<{
+                      id: string;
+                      filename: string | null;
+                      local_uri: string | null;
+                    }>(
+                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
+                      allAttachmentIds
+                    );
+                  }
+                }
+
+                if (attachment?.local_uri) {
+                  const foundUri = system.permAttachmentQueue.getLocalUri(
+                    attachment.local_uri
+                  );
+                  // Verify the found file actually exists
+                  if (await fileExists(foundUri)) {
+                    uris.push(foundUri);
+                    console.log(
+                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
+                    );
+                  } else {
+                    console.warn(
+                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
+                    );
+                  }
+                } else {
+                  // Try fallback to local table for alternative audio values
+                  const fallbackLink = contentLinksLocal.find(
+                    (link) => link.asset_id === assetId
+                  );
+                  if (fallbackLink?.audio) {
+                    for (const fallbackAudioValue of fallbackLink.audio) {
+                      if (fallbackAudioValue.startsWith('file://')) {
+                        if (await fileExists(fallbackAudioValue)) {
+                          uris.push(fallbackAudioValue);
+                          console.log(`✅ Found fallback file URI`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI
-            uris.push(audioValue);
+            // Already a full file URI - verify it exists
+            if (await fileExists(audioValue)) {
+              uris.push(audioValue);
+            } else {
+              console.warn(`File URI does not exist: ${audioValue}`);
+              // Try to find in attachment queue by extracting filename from path
+              if (system.permAttachmentQueue) {
+                const filename = audioValue.split('/').pop();
+                if (filename) {
+                  const attachment = await system.powersync.getOptional<{
+                    id: string;
+                    filename: string | null;
+                    local_uri: string | null;
+                  }>(
+                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
+                    [filename, filename]
+                  );
+
+                  if (attachment?.local_uri) {
+                    const foundUri = system.permAttachmentQueue.getLocalUri(
+                      attachment.local_uri
+                    );
+                    if (await fileExists(foundUri)) {
+                      uris.push(foundUri);
+                      console.log(`✅ Found attachment in queue for file URI`);
+                    }
+                  }
+                }
+              }
+            }
           } else {
             // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) continue;
+            if (!system.permAttachmentQueue) {
+              // No attachment queue - try fallback to local table
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      break;
+                    }
+                  }
+                }
+              }
+              continue;
+            }
 
             const attachment = await system.powersync.getOptional<{
               id: string;
@@ -410,21 +595,55 @@ export default function NextGenAssetsView() {
               const localUri = system.permAttachmentQueue.getLocalUri(
                 attachment.local_uri
               );
-              uris.push(localUri);
+              if (await fileExists(localUri)) {
+                uris.push(localUri);
+              }
             } else {
-              // Try to get cloud URL if local not available
-              try {
-                if (!AppConfig.supabaseBucket) {
-                  continue;
+              // Attachment ID not found in queue - try fallback to local table
+              console.log(
+                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
+              );
+
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      console.log(
+                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      console.log(
+                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  }
                 }
-                const { data } = system.supabaseConnector.client.storage
-                  .from(AppConfig.supabaseBucket)
-                  .getPublicUrl(audioValue);
-                if (data.publicUrl) {
-                  uris.push(data.publicUrl);
+              } else {
+                // Try to get cloud URL if local not available
+                try {
+                  if (!AppConfig.supabaseBucket) {
+                    continue;
+                  }
+                  const { data } = system.supabaseConnector.client.storage
+                    .from(AppConfig.supabaseBucket)
+                    .getPublicUrl(audioValue);
+                  if (data.publicUrl) {
+                    uris.push(data.publicUrl);
+                  }
+                } catch (error) {
+                  console.error('Failed to get cloud audio URL:', error);
                 }
-              } catch (error) {
-                console.error('Failed to get cloud audio URL:', error);
               }
             }
           }
@@ -439,6 +658,103 @@ export default function NextGenAssetsView() {
     []
   );
 
+  // Track currently playing asset based on audio position
+  React.useEffect(() => {
+    if (
+      !audioContext.isPlaying ||
+      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
+    ) {
+      setCurrentlyPlayingAssetId(null);
+      return;
+    }
+
+    // Calculate which asset is playing based on cumulative position
+    const checkCurrentAsset = () => {
+      const uris = uriOrderRef.current;
+      const durations = segmentDurationsRef.current;
+
+      if (uris.length === 0) return;
+
+      const position = audioContext.position; // Position in milliseconds
+
+      // If we don't have durations yet, use simple percentage-based approach
+      if (durations.length === 0 || durations.every((d) => d === 0)) {
+        const duration = audioContext.duration;
+        if (duration === 0) {
+          console.log(
+            `⏸️ No duration available yet (position: ${position}ms, duration: ${duration}ms)`
+          );
+          return;
+        }
+
+        // Fallback: use percentage-based calculation
+        const positionPercent = position / duration;
+        const uriIndex = Math.min(
+          Math.floor(positionPercent * uris.length),
+          uris.length - 1
+        );
+
+        const currentUri = uris[uriIndex];
+        if (currentUri) {
+          const assetId = assetUriMapRef.current.get(currentUri);
+          if (assetId) {
+            if (assetId !== currentlyPlayingAssetId) {
+              console.log(
+                `🎵 [Fallback] Highlighting asset ${assetId.slice(0, 8)} (segment ${uriIndex + 1}/${uris.length}, ${Math.round(positionPercent * 100)}%)`
+              );
+              setCurrentlyPlayingAssetId(assetId);
+            }
+          } else {
+            console.warn(`⚠️ No asset ID found for URI at index ${uriIndex}`);
+          }
+        }
+        return;
+      }
+
+      // Calculate which segment we're in based on cumulative durations
+      let cumulativeDuration = 0;
+      for (let i = 0; i < uris.length; i++) {
+        const segmentDuration = durations[i] || 0;
+        const segmentStart = cumulativeDuration;
+        cumulativeDuration += segmentDuration;
+
+        // If position is within this segment's range
+        // Use <= for the last segment to catch it even if position is slightly off
+        if (
+          (position >= segmentStart && position <= cumulativeDuration) ||
+          (i === uris.length - 1 && position >= segmentStart)
+        ) {
+          const currentUri = uris[i];
+          if (currentUri) {
+            const assetId = assetUriMapRef.current.get(currentUri);
+            if (assetId) {
+              if (assetId !== currentlyPlayingAssetId) {
+                console.log(
+                  `🎵 Highlighting asset ${assetId.slice(0, 8)} (segment ${i + 1}/${uris.length}, position: ${Math.round(position)}ms in range [${Math.round(segmentStart)}-${Math.round(cumulativeDuration)}]ms)`
+                );
+                setCurrentlyPlayingAssetId(assetId);
+              }
+            } else {
+              console.warn(`⚠️ No asset ID found for URI at index ${i}`);
+            }
+          }
+          break;
+        }
+      }
+    };
+
+    // Check immediately and then periodically while playing
+    checkCurrentAsset();
+    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
+    return () => clearInterval(interval);
+  }, [
+    audioContext.isPlaying,
+    audioContext.currentAudioId,
+    audioContext.position,
+    audioContext.duration,
+    currentlyPlayingAssetId
+  ]);
+
   // Handle play all assets
   const handlePlayAllAssets = React.useCallback(async () => {
     try {
@@ -448,17 +764,35 @@ export default function NextGenAssetsView() {
 
       if (isPlayingAll) {
         await audioContext.stopCurrentSound();
+        setCurrentlyPlayingAssetId(null);
+        assetUriMapRef.current.clear();
+        assetOrderRef.current = [];
+        uriOrderRef.current = [];
+        segmentDurationsRef.current = [];
       } else {
         if (assets.length === 0) {
           console.warn('⚠️ No assets to play');
           return;
         }
 
-        // Collect all URIs from all assets in order
+        // Collect all URIs from all assets in order, tracking which asset each URI belongs to
         const allUris: string[] = [];
+        assetUriMapRef.current.clear();
+        assetOrderRef.current = [];
+        uriOrderRef.current = [];
+        segmentDurationsRef.current = [];
+
         for (const asset of assets) {
           const uris = await getAssetAudioUris(asset.id);
-          allUris.push(...uris);
+          if (uris.length > 0) {
+            assetOrderRef.current.push(asset.id);
+            for (const uri of uris) {
+              allUris.push(uri);
+              uriOrderRef.current.push(uri);
+              // Map each URI to its asset ID
+              assetUriMapRef.current.set(uri, asset.id);
+            }
+          }
         }
 
         if (allUris.length === 0) {
@@ -469,10 +803,52 @@ export default function NextGenAssetsView() {
         console.log(
           `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
         );
+
+        // Preload durations for accurate highlighting
+        // This helps us know which asset is playing at any given time
+        try {
+          const { Audio } = await import('expo-av');
+          const durations: number[] = [];
+          for (const uri of allUris) {
+            try {
+              const { sound } = await Audio.Sound.createAsync({ uri });
+              const status = await sound.getStatusAsync();
+              await sound.unloadAsync();
+              durations.push(
+                status.isLoaded ? (status.durationMillis ?? 0) : 0
+              );
+            } catch (error) {
+              console.warn(
+                `Failed to get duration for ${uri.slice(0, 30)}:`,
+                error
+              );
+              durations.push(0);
+            }
+          }
+          segmentDurationsRef.current = durations;
+          console.log(
+            `📊 Loaded durations for ${durations.length} segments:`,
+            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
+          );
+        } catch (error) {
+          console.warn('Failed to preload durations:', error);
+          // Continue anyway - will use percentage-based fallback
+        }
+
+        // Set the first asset as currently playing
+        if (assetOrderRef.current.length > 0) {
+          setCurrentlyPlayingAssetId(assetOrderRef.current[0] || null);
+        }
+
         await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
       }
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
+      setCurrentlyPlayingAssetId(null);
+      assetUriMapRef.current.clear();
+      assetOrderRef.current = [];
+      uriOrderRef.current = [];
+      segmentDurationsRef.current = [];
     }
   }, [audioContext, getAssetAudioUris, assets]);
 
@@ -715,98 +1091,125 @@ export default function NextGenAssetsView() {
             </Button>
           )}
         </View>
-        {isPublished ? (
-          // Only show published badge if user is creator, member, or owner
-          canSeePublishedBadge ? (
-            <Badge
-              variant="default"
-              className="flex flex-row items-center gap-1 bg-chart-5/80"
-            >
-              <Icon as={CheckIcon} size={14} className="text-white" />
-              <Text className="font-medium text-white">{t('published')}</Text>
-            </Badge>
-          ) : (
-            // Show membership request button for non-members viewing published quest
-            isPrivateProject && (
-              <Button
-                variant="default"
-                size="sm"
-                onPress={() => setShowPrivateAccessModal(true)}
-              >
-                <Icon as={UserPlusIcon} size={16} />
-                <Icon as={LockIcon} size={16} />
-              </Button>
-            )
-          )
-        ) : (
-          // Only show publish/record buttons for authenticated users
-          currentUser && (
-            <View className="flex flex-row items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={isPublishing || !isOnline || !isMember}
-                onPress={() => {
-                  if (!isOnline) {
-                    Alert.alert(t('error'), t('cannotPublishWhileOffline'));
-                    return;
-                  }
-
-                  if (!isMember) {
-                    Alert.alert(t('error'), t('membersOnlyPublish'));
-                    return;
-                  }
-
-                  if (!currentQuestId) {
-                    console.error('No current quest id');
-                    return;
-                  }
-
-                  // Use quest name if available, otherwise generic message
-                  const questName = selectedQuest?.name || 'this chapter';
-
-                  Alert.alert(
-                    t('publishChapter'),
-                    t('publishChapterMessage').replace(
-                      '{questName}',
-                      questName
-                    ),
-                    [
-                      {
-                        text: t('cancel'),
-                        style: 'cancel'
-                      },
-                      {
-                        text: t('publish'),
-                        style: 'default',
-                        onPress: () => {
-                          publishQuest();
-                        }
-                      }
-                    ]
-                  );
-                }}
-              >
-                {isPublishing ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
+        <View className="flex flex-row items-center gap-2">
+          {isPublished ? (
+            // Only show cloud-check icon if user is creator, member, or owner
+            canSeePublishedBadge ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 py-0"
+                  onPress={() => {
+                    Alert.alert(t('questSyncedToCloud'));
+                  }}
+                >
+                  <View className="flex-row items-center gap-0.5">
+                    <Icon as={CloudUpload} size={18} />
+                    <Icon as={CheckCheck} size={14} />
+                  </View>
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
                   />
-                ) : (
-                  <Icon as={Share2Icon} />
                 )}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-[1.5px] border-primary"
-                onPress={() => setShowRecording(true)}
-              >
-                <Icon as={PencilIcon} className="text-primary" />
-              </Button>
-            </View>
-          )
-        )}
+              </>
+            ) : (
+              // Show membership request button for non-members viewing published quest
+              isPrivateProject && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => setShowPrivateAccessModal(true)}
+                >
+                  <Icon as={UserPlusIcon} size={16} />
+                  <Icon as={LockIcon} size={16} />
+                </Button>
+              )
+            )
+          ) : (
+            // Only show publish/record buttons for authenticated users
+            currentUser && (
+              <View className="flex flex-row items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={isPublishing || !isOnline || !isMember}
+                  onPress={() => {
+                    if (!isOnline) {
+                      Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                      return;
+                    }
+
+                    if (!isMember) {
+                      Alert.alert(t('error'), t('membersOnlyPublish'));
+                      return;
+                    }
+
+                    if (!currentQuestId) {
+                      console.error('No current quest id');
+                      return;
+                    }
+
+                    // Use quest name if available, otherwise generic message
+                    const questName = selectedQuest?.name || 'this chapter';
+
+                    Alert.alert(
+                      t('publishChapter'),
+                      t('publishChapterMessage').replace(
+                        '{questName}',
+                        questName
+                      ),
+                      [
+                        {
+                          text: t('cancel'),
+                          style: 'cancel'
+                        },
+                        {
+                          text: t('publish'),
+                          style: 'default',
+                          onPress: () => {
+                            publishQuest();
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  {isPublishing ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
+                    />
+                  ) : (
+                    <Icon as={CloudUpload} />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-[1.5px] border-primary"
+                  onPress={() => setShowRecording(true)}
+                >
+                  <Icon as={PencilIcon} className="text-primary" />
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId || ''}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
+              </View>
+            )
+          )}
+        </View>
       </View>
 
       <Input
@@ -856,6 +1259,7 @@ export default function NextGenAssetsView() {
         <LegendList
           data={assets}
           keyExtractor={(item) => item.id}
+          extraData={currentlyPlayingAssetId}
           renderItem={({ item }) => renderItem({ item })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}

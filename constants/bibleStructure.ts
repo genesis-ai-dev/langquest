@@ -300,7 +300,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
     ]
   },
   {
-    id: 'joh',
+    id: 'jhn',
     name: 'John',
     chapters: 21,
     verses: [

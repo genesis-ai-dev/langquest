@@ -29,7 +29,7 @@ interface StateUpdate {
 }
 
 class DebugProfiler {
-  private enabled = __DEV__;
+  private enabled = false; // Disabled
   private navigationStartTimes = new Map<string, number>();
   private renderCounts = new Map<string, number>();
   private queryTimes = new Map<string, number>();
@@ -286,13 +286,14 @@ class DebugProfiler {
         };
 
         // Try to capture stack trace (may cause additional blocking, so be careful)
-        if (delta > 100 && !this.isCapturingStack) {
+        // Note: isCapturingStack is already checked earlier in the function
+        if (delta > 100) {
           this.isCapturingStack = true;
           try {
-            blockingEvent.stack = new Error().stack
-              ?.split('\n')
-              .slice(1, 6)
-              .join('\n');
+            const stack = new Error().stack;
+            if (stack) {
+              blockingEvent.stack = stack.split('\n').slice(1, 6).join('\n');
+            }
           } catch {
             // Ignore stack capture errors
           } finally {
@@ -508,9 +509,10 @@ export const trackStateUpdate = (
 };
 
 // Start blocking detection immediately
-if (__DEV__) {
-  profiler.startBlockingDetection();
-}
+// Disabled
+// if (__DEV__) {
+//   profiler.startBlockingDetection();
+// }
 
 // Make available globally for debugging
 declare global {
