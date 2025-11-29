@@ -317,10 +317,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       for (const op of transaction.crud) {
         lastOp = op;
-        // Default metadata if none was stamped (covers any raw SQL writes)
-        const metadata =
-          (op as unknown as { metadata: OpMetadata | null }).metadata ??
-          getDefaultOpMetadata();
+        // Read schema_version from the record's _metadata (stamped during insert/update)
+        // Falls back to current app version for raw SQL writes or legacy data
+        const recordMetadata = (
+          op.opData as { _metadata?: OpMetadata | null } | undefined
+        )?._metadata;
+        const metadata = recordMetadata ?? getDefaultOpMetadata();
+
+        // Log the schema version being used (helps debug version mismatches)
+        console.log(
+          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (default)'}`
+        );
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -402,6 +409,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
         if (opData && 'source' in opData) {
           delete opData.source;
+        }
+
+        // Strip _metadata from the record - it's only for internal version tracking
+        if (opData && '_metadata' in opData) {
+          delete opData._metadata;
         }
 
         let record: Record<string, unknown> | null | undefined = undefined;
