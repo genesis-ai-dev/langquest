@@ -29,7 +29,6 @@ import { Alert } from 'react-native';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
-import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
 
@@ -317,16 +316,25 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       for (const op of transaction.crud) {
         lastOp = op;
-        // Read schema_version from the record's _metadata (stamped during insert/update)
-        // Falls back to current app version for raw SQL writes or legacy data
+        // Read schema_version from CrudEntry.metadata (populated by PowerSync when trackMetadata: true)
+        // See: https://docs.powersync.com/usage/use-case-examples/custom-types-arrays-and-json
         const recordMetadata = (
-          op.opData as { _metadata?: OpMetadata | null } | undefined
-        )?._metadata;
-        const metadata = recordMetadata ?? getDefaultOpMetadata();
+          op as unknown as { metadata?: OpMetadata | null }
+        ).metadata;
 
-        // Log the schema version being used (helps debug version mismatches)
+        if (!recordMetadata) {
+          console.warn(
+            `[uploadData] ${op.table} op has no _metadata - treating as legacy v0 data. ` +
+              `This may indicate the publish operation isn't stamping metadata correctly.`
+          );
+        }
+
+        // NEVER use current app version as default - old ops must be transformed
+        // Use '0' to ensure v0_to_v1 + v1_to_v2 transforms run for legacy data
+        const metadata: OpMetadata = recordMetadata ?? { schema_version: '0' };
+
         console.log(
-          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (default)'}`
+          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
         );
 
         // Find composite key config for this table
@@ -410,11 +418,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         if (opData && 'source' in opData) {
           delete opData.source;
         }
-
-        // Strip _metadata from the record - it's only for internal version tracking
-        if (opData && '_metadata' in opData) {
-          delete opData._metadata;
-        }
+        // Note: _metadata is handled automatically by PowerSync when trackMetadata: true
+        // It stores _metadata in a separate column and exposes it via CrudEntry.metadata
 
         let record: Record<string, unknown> | null | undefined = undefined;
         let opName: 'put' | 'patch' | 'delete';
