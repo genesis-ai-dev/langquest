@@ -121,10 +121,10 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       queryKeyParams: [targetLanguageId ?? ''],
       offlineQuery: targetLanguageId
         ? toCompilableQuery(
-        system.db.query.language.findMany({
-          columns: { id: true, native_name: true, english_name: true },
+            system.db.query.language.findMany({
+              columns: { id: true, native_name: true, english_name: true },
               where: eq(languageTable.id, targetLanguageId)
-        })
+            })
           )
         : 'SELECT * FROM language WHERE 1 = 0',
       cloudQueryFn: async () => {
