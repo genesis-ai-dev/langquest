@@ -318,9 +318,27 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         lastOp = op;
         // Read schema_version from CrudEntry.metadata (populated by PowerSync when trackMetadata: true)
         // See: https://docs.powersync.com/usage/use-case-examples/custom-types-arrays-and-json
-        const recordMetadata = (
-          op as unknown as { metadata?: OpMetadata | null }
+        // Note: PowerSync stores metadata as a JSON string, so we need to parse it
+        const rawMetadata = (
+          op as unknown as { metadata?: string | OpMetadata | null }
         ).metadata;
+
+        let recordMetadata: OpMetadata | null = null;
+        if (rawMetadata) {
+          if (typeof rawMetadata === 'string') {
+            try {
+              recordMetadata = JSON.parse(rawMetadata) as OpMetadata;
+            } catch (e) {
+              console.warn(
+                `[uploadData] ${op.table} op has invalid _metadata JSON:`,
+                rawMetadata
+              );
+            }
+          } else {
+            // Already an object (in case PowerSync changes behavior)
+            recordMetadata = rawMetadata;
+          }
+        }
 
         if (!recordMetadata) {
           console.warn(
