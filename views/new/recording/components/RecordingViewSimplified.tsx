@@ -20,6 +20,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
+  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
@@ -28,9 +29,11 @@ import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
+import { Audio } from 'expo-av';
 import { ArrowLeft, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
 import { Alert, InteractionManager, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -145,6 +148,52 @@ const RecordingViewSimplified = ({
   // Track pending asset names to prevent duplicates when recording multiple assets quickly
   const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
 
+  // Track which asset is currently playing during play-all
+  const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
+    string | null
+  >(null);
+  const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
+  const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  // Track segment ranges for each asset (start position, end position, duration)
+  const assetSegmentRangesRef = React.useRef<
+    Map<string, { startMs: number; endMs: number; durationMs: number }>
+  >(new Map());
+  // Track last scrolled asset to avoid scrolling to the same asset multiple times
+  const lastScrolledAssetIdRef = React.useRef<string | null>(null);
+
+  // Create SharedValues for each asset's progress (0-100 percentage)
+  // We need to create them at the top level, so we'll create a pool and map them
+  // Store the mapping in a ref that gets updated when assets change
+  const assetProgressSharedMapRef = React.useRef<
+    Map<string, ReturnType<typeof useSharedValue<number>>>
+  >(new Map());
+
+  // Create SharedValues for assets (max 100 assets supported)
+  // We create a pool and reuse them - must create at top level (hooks rule)
+  const progressPool0 = useSharedValue(0);
+  const progressPool1 = useSharedValue(0);
+  const progressPool2 = useSharedValue(0);
+  const progressPool3 = useSharedValue(0);
+  const progressPool4 = useSharedValue(0);
+  const progressPool5 = useSharedValue(0);
+  const progressPool6 = useSharedValue(0);
+  const progressPool7 = useSharedValue(0);
+  const progressPool8 = useSharedValue(0);
+  const progressPool9 = useSharedValue(0);
+  // Create more if needed (extend this pattern or use a different approach)
+  const progressPool = React.useRef([
+    progressPool0,
+    progressPool1,
+    progressPool2,
+    progressPool3,
+    progressPool4,
+    progressPool5,
+    progressPool6,
+    progressPool7,
+    progressPool8,
+    progressPool9
+  ]).current;
+
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
   const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
@@ -180,7 +229,7 @@ const RecordingViewSimplified = ({
   // Load assets from database
   // Use initialAssets if provided to avoid redundant query and instant render
   const {
-    data: rawAssets,
+    data: rawAssets = [],
     isOfflineLoading,
     isError,
     offlineError
@@ -289,6 +338,31 @@ const RecordingViewSimplified = ({
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
 
+  // Map assets to SharedValues from the pool (after assets is declared)
+  const assetIdsKey = React.useMemo(
+    () => assets.map((a) => a.id).join(','),
+    [assets]
+  );
+  React.useEffect(() => {
+    if (assets.length === 0) {
+      assetProgressSharedMapRef.current.clear();
+      return;
+    }
+
+    const map = assetProgressSharedMapRef.current;
+    map.clear();
+
+    // Assign SharedValues from pool to assets
+    for (let i = 0; i < Math.min(assets.length, progressPool.length); i++) {
+      const asset = assets[i];
+      if (asset) {
+        // Reset the SharedValue
+        progressPool[i]!.value = 0;
+        map.set(asset.id, progressPool[i]!);
+      }
+    }
+  }, [assetIdsKey, assets, progressPool]);
+
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
   // when assets array reference changes but content is identical
@@ -350,26 +424,51 @@ const RecordingViewSimplified = ({
   // ============================================================================
 
   // Fetch audio URIs for an asset
+  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        // Get audio content links for this asset
-        const contentLinks = await system.db
+        // Get content links from both synced and local tables
+        const assetContentLinkSynced = resolveTable('asset_content_link', {
+          localOverride: false
+        });
+        const contentLinksSynced = await system.db
           .select()
-          .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, assetId));
+          .from(assetContentLinkSynced)
+          .where(eq(assetContentLinkSynced.asset_id, assetId));
+
+        const assetContentLinkLocal = resolveTable('asset_content_link', {
+          localOverride: true
+        });
+        const contentLinksLocal = await system.db
+          .select()
+          .from(assetContentLinkLocal)
+          .where(eq(assetContentLinkLocal.asset_id, assetId));
+
+        // Prefer synced links, but merge with local for fallback
+        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
+
+        // Deduplicate by ID (prefer synced over local)
+        const seenIds = new Set<string>();
+        const uniqueLinks = allContentLinks.filter((link) => {
+          if (seenIds.has(link.id)) {
+            return false;
+          }
+          seenIds.add(link.id);
+          return true;
+        });
 
         debugLog(
-          `📀 Found ${contentLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
+          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
         );
 
-        if (contentLinks.length === 0) {
+        if (uniqueLinks.length === 0) {
           debugLog('No content links found for asset:', assetId);
           return [];
         }
 
         // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = contentLinks
+        const audioValues = uniqueLinks
           .flatMap((link) => {
             const audioArray = link.audio ?? [];
             debugLog(
@@ -393,17 +492,153 @@ const RecordingViewSimplified = ({
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            // Use getLocalAttachmentUriWithOPFS to construct the full path
-            const localUri = getLocalAttachmentUriWithOPFS(audioValue);
-            uris.push(localUri);
-            debugLog('✅ Using direct local URI:', localUri.slice(0, 80));
+            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            // Check if file exists at constructed path
+            if (await fileExists(constructedUri)) {
+              uris.push(constructedUri);
+              debugLog(
+                '✅ Using direct local URI:',
+                constructedUri.slice(0, 80)
+              );
+            } else {
+              // File doesn't exist at expected path - try to find it in attachment queue
+              debugLog(
+                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
+              );
+
+              if (system.permAttachmentQueue) {
+                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
+                const filename = audioValue.replace(/^local\//, '');
+                // Extract UUID part (without extension) for more flexible matching
+                const uuidPart = filename.split('.')[0];
+
+                // Search attachment queue by filename or UUID
+                let attachment = await system.powersync.getOptional<{
+                  id: string;
+                  filename: string | null;
+                  local_uri: string | null;
+                }>(
+                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
+                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
+                );
+
+                // If not found, try searching all attachments for this asset's content links
+                if (!attachment && uniqueLinks.length > 0) {
+                  const allAttachmentIds = uniqueLinks
+                    .flatMap((link) => link.audio ?? [])
+                    .filter(
+                      (av): av is string =>
+                        typeof av === 'string' &&
+                        !av.startsWith('local/') &&
+                        !av.startsWith('file://')
+                    );
+                  if (allAttachmentIds.length > 0) {
+                    const placeholders = allAttachmentIds
+                      .map(() => '?')
+                      .join(',');
+                    attachment = await system.powersync.getOptional<{
+                      id: string;
+                      filename: string | null;
+                      local_uri: string | null;
+                    }>(
+                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
+                      allAttachmentIds
+                    );
+                  }
+                }
+
+                if (attachment?.local_uri) {
+                  const foundUri = system.permAttachmentQueue.getLocalUri(
+                    attachment.local_uri
+                  );
+                  // Verify the found file actually exists
+                  if (await fileExists(foundUri)) {
+                    uris.push(foundUri);
+                    debugLog(
+                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
+                    );
+                  } else {
+                    debugLog(
+                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
+                    );
+                  }
+                } else {
+                  // Try fallback to local table for alternative audio values
+                  const fallbackLink = contentLinksLocal.find(
+                    (link) => link.asset_id === assetId
+                  );
+                  if (fallbackLink?.audio) {
+                    for (const fallbackAudioValue of fallbackLink.audio) {
+                      if (fallbackAudioValue.startsWith('file://')) {
+                        if (await fileExists(fallbackAudioValue)) {
+                          uris.push(fallbackAudioValue);
+                          debugLog(`✅ Found fallback file URI`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI
-            uris.push(audioValue);
-            debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
+            // Already a full file URI - verify it exists
+            if (await fileExists(audioValue)) {
+              uris.push(audioValue);
+              debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
+            } else {
+              debugLog(`⚠️ File URI does not exist: ${audioValue}`);
+              // Try to find in attachment queue by extracting filename from path
+              if (system.permAttachmentQueue) {
+                const filename = audioValue.split('/').pop();
+                if (filename) {
+                  const attachment = await system.powersync.getOptional<{
+                    id: string;
+                    filename: string | null;
+                    local_uri: string | null;
+                  }>(
+                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
+                    [filename, filename]
+                  );
+
+                  if (attachment?.local_uri) {
+                    const foundUri = system.permAttachmentQueue.getLocalUri(
+                      attachment.local_uri
+                    );
+                    if (await fileExists(foundUri)) {
+                      uris.push(foundUri);
+                      debugLog(`✅ Found attachment in queue for file URI`);
+                    }
+                  }
+                }
+              }
+            }
           } else {
             // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) continue;
+            if (!system.permAttachmentQueue) {
+              // No attachment queue - try fallback to local table
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      break;
+                    }
+                  }
+                }
+              }
+              continue;
+            }
 
             const attachment = await system.powersync.getOptional<{
               id: string;
@@ -417,10 +652,44 @@ const RecordingViewSimplified = ({
               const localUri = system.permAttachmentQueue.getLocalUri(
                 attachment.local_uri
               );
-              uris.push(localUri);
-              debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
+              if (await fileExists(localUri)) {
+                uris.push(localUri);
+                debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
+              }
             } else {
-              debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
+              // Attachment ID not found in queue - try fallback to local table
+              debugLog(
+                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
+              );
+
+              const fallbackLink = contentLinksLocal.find(
+                (link) => link.asset_id === assetId
+              );
+              if (fallbackLink?.audio) {
+                for (const fallbackAudioValue of fallbackLink.audio) {
+                  if (fallbackAudioValue.startsWith('local/')) {
+                    const fallbackUri =
+                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                    if (await fileExists(fallbackUri)) {
+                      uris.push(fallbackUri);
+                      debugLog(
+                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  } else if (fallbackAudioValue.startsWith('file://')) {
+                    if (await fileExists(fallbackAudioValue)) {
+                      uris.push(fallbackAudioValue);
+                      debugLog(
+                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
+                      );
+                      break;
+                    }
+                  }
+                }
+              } else {
+                debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
+              }
             }
           }
         }
@@ -471,6 +740,153 @@ const RecordingViewSimplified = ({
     [audioContext, getAssetAudioUris]
   );
 
+  // Track currently playing asset based on audio position during play-all
+  React.useEffect(() => {
+    if (
+      !audioContext.isPlaying ||
+      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
+    ) {
+      setCurrentlyPlayingAssetId(null);
+      return;
+    }
+
+    // Calculate which asset is playing based on cumulative position
+    // Also update progress for each asset based on its segment range
+    const checkCurrentAsset = () => {
+      const uris = Array.from(assetUriMapRef.current.keys());
+      const durations = segmentDurationsRef.current;
+      const ranges = assetSegmentRangesRef.current;
+
+      if (uris.length === 0) return;
+
+      const position = audioContext.position; // Position in milliseconds
+
+      // Update progress for each asset based on its segment range
+      const progressMap = assetProgressSharedMapRef.current;
+      for (const [assetId, range] of ranges.entries()) {
+        const progressShared = progressMap.get(assetId);
+        if (!progressShared) {
+          debugLog(
+            `⚠️ No progress SharedValue found for asset ${assetId.slice(0, 8)}`
+          );
+          continue;
+        }
+
+        if (position < range.startMs) {
+          // Before this asset's segments - no progress
+          progressShared.value = 0;
+        } else if (position >= range.endMs) {
+          // After this asset's segments - fully complete
+          progressShared.value = 100;
+        } else {
+          // Within this asset's segments - calculate progress
+          const assetPosition = position - range.startMs;
+          const progressPercent = (assetPosition / range.durationMs) * 100;
+          const clampedProgress = Math.min(100, Math.max(0, progressPercent));
+          progressShared.value = clampedProgress;
+          debugLog(
+            `📊 Asset ${assetId.slice(0, 8)} progress: ${Math.round(clampedProgress)}% (position: ${Math.round(position)}ms, range: [${Math.round(range.startMs)}-${Math.round(range.endMs)}]ms)`
+          );
+        }
+      }
+
+      // Find which asset is currently playing
+      let newPlayingAssetId: string | null = null;
+
+      // If we don't have durations yet, use simple percentage-based approach
+      if (durations.length === 0 || durations.every((d) => d === 0)) {
+        const duration = audioContext.duration;
+        if (duration === 0) return;
+
+        // Fallback: use percentage-based calculation
+        const positionPercent = position / duration;
+        const uriIndex = Math.min(
+          Math.floor(positionPercent * uris.length),
+          uris.length - 1
+        );
+
+        const currentUri = uris[uriIndex];
+        if (currentUri) {
+          const assetId = assetUriMapRef.current.get(currentUri);
+          if (assetId) {
+            newPlayingAssetId = assetId;
+          }
+        }
+      } else {
+        // Calculate which segment we're in based on cumulative durations
+        let cumulativeDuration = 0;
+        for (let i = 0; i < uris.length; i++) {
+          const segmentDuration = durations[i] || 0;
+          const segmentStart = cumulativeDuration;
+          cumulativeDuration += segmentDuration;
+
+          // If position is within this segment's range
+          if (
+            (position >= segmentStart && position <= cumulativeDuration) ||
+            (i === uris.length - 1 && position >= segmentStart)
+          ) {
+            const currentUri = uris[i];
+            if (currentUri) {
+              const assetId = assetUriMapRef.current.get(currentUri);
+              if (assetId) {
+                newPlayingAssetId = assetId;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Update currently playing asset ID and scroll to it
+      if (newPlayingAssetId) {
+        setCurrentlyPlayingAssetId((prev) => {
+          if (newPlayingAssetId !== prev) {
+            debugLog(
+              `🎵 Highlighting asset ${newPlayingAssetId.slice(0, 8)} (was: ${prev?.slice(0, 8) ?? 'none'})`
+            );
+
+            // Scroll to the currently playing asset (only if it changed)
+            if (
+              wheelRef.current &&
+              newPlayingAssetId !== lastScrolledAssetIdRef.current
+            ) {
+              // Find the index of the asset in the assets array
+              const assetIndex = assets.findIndex(
+                (a) => a.id === newPlayingAssetId
+              );
+              if (assetIndex >= 0) {
+                debugLog(
+                  `📜 Scrolling to asset at index ${assetIndex} (asset ${newPlayingAssetId.slice(0, 8)})`
+                );
+                // Scroll the item to the top of the wheel
+                // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
+                wheelRef.current.scrollItemToTop(assetIndex - 1, true);
+                lastScrolledAssetIdRef.current = newPlayingAssetId;
+              } else {
+                debugLog(
+                  `⚠️ Could not find asset ${newPlayingAssetId.slice(0, 8)} in assets array`
+                );
+              }
+            }
+
+            return newPlayingAssetId;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Check immediately and then periodically while playing
+    checkCurrentAsset();
+    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
+    return () => clearInterval(interval);
+    // Note: We intentionally read audioContext.position and audioContext.duration inside the callback
+    // rather than including them as dependencies, because they change frequently (every ~200ms)
+    // and we don't want to re-run the effect that often. The interval handles the updates.
+    // assetProgressSharedMap is a ref, so we access it directly in the callback.
+    // assets is included to find the asset index for scrolling.
+  }, [audioContext.isPlaying, audioContext.currentAudioId, assets]);
+
   // Handle play all assets
   const handlePlayAllAssets = React.useCallback(async () => {
     try {
@@ -481,6 +897,15 @@ const RecordingViewSimplified = ({
       if (isPlayingAll) {
         debugLog('⏸️ Stopping play all');
         await audioContext.stopCurrentSound();
+        setCurrentlyPlayingAssetId(null);
+        assetUriMapRef.current.clear();
+        segmentDurationsRef.current = [];
+        assetSegmentRangesRef.current.clear();
+        lastScrolledAssetIdRef.current = null;
+        // Reset all asset progress
+        for (const progressShared of assetProgressSharedMapRef.current.values()) {
+          progressShared.value = 0;
+        }
       } else {
         debugLog('▶️ Playing all assets');
         if (assets.length === 0) {
@@ -488,11 +913,18 @@ const RecordingViewSimplified = ({
           return;
         }
 
-        // Collect all URIs from all assets in order
+        // Collect all URIs from all assets in order, tracking which asset each URI belongs to
         const allUris: string[] = [];
+        assetUriMapRef.current.clear();
+        segmentDurationsRef.current = [];
+
         for (const asset of assets) {
           const uris = await getAssetAudioUris(asset.id);
-          allUris.push(...uris);
+          for (const uri of uris) {
+            allUris.push(uri);
+            // Map each URI to its asset ID
+            assetUriMapRef.current.set(uri, asset.id);
+          }
         }
 
         if (allUris.length === 0) {
@@ -503,10 +935,119 @@ const RecordingViewSimplified = ({
         debugLog(
           `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
         );
+
+        // Preload durations for accurate highlighting and calculate asset segment ranges
+        try {
+          const durations: number[] = [];
+          for (const uri of allUris) {
+            try {
+              const { sound } = await Audio.Sound.createAsync({ uri });
+              const status = await sound.getStatusAsync();
+              await sound.unloadAsync();
+              durations.push(
+                status.isLoaded ? (status.durationMillis ?? 0) : 0
+              );
+            } catch (error) {
+              debugLog(
+                `Failed to get duration for ${uri.slice(0, 30)}:`,
+                error
+              );
+              durations.push(0);
+            }
+          }
+          segmentDurationsRef.current = durations;
+          debugLog(
+            `📊 Loaded durations for ${durations.length} segments:`,
+            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
+          );
+
+          // Calculate segment ranges for each asset
+          assetSegmentRangesRef.current.clear();
+          let cumulativeStart = 0;
+          for (const asset of assets) {
+            const assetUris = allUris.filter(
+              (uri) => assetUriMapRef.current.get(uri) === asset.id
+            );
+            if (assetUris.length === 0) continue;
+
+            // Find the indices of this asset's URIs in the allUris array
+            const assetUriIndices: number[] = [];
+            for (let i = 0; i < allUris.length; i++) {
+              const uri = allUris[i];
+              if (uri && assetUriMapRef.current.get(uri) === asset.id) {
+                assetUriIndices.push(i);
+              }
+            }
+
+            // Calculate total duration for this asset's segments
+            const assetDuration = assetUriIndices.reduce(
+              (sum, idx) => sum + (durations[idx] || 0),
+              0
+            );
+
+            const startMs = cumulativeStart;
+            const endMs = cumulativeStart + assetDuration;
+
+            assetSegmentRangesRef.current.set(asset.id, {
+              startMs,
+              endMs,
+              durationMs: assetDuration
+            });
+
+            // Reset progress for this asset
+            const progressShared = assetProgressSharedMapRef.current.get(
+              asset.id
+            );
+            if (progressShared) {
+              progressShared.value = 0;
+              debugLog(`🔄 Reset progress for asset ${asset.id.slice(0, 8)}`);
+            } else {
+              debugLog(
+                `⚠️ No progress SharedValue found for asset ${asset.id.slice(0, 8)} when setting up ranges`
+              );
+            }
+
+            debugLog(
+              `📊 Asset ${asset.id.slice(0, 8)} segments: ${assetUriIndices.length} segments, ${Math.round(assetDuration / 1000)}s total, range [${Math.round(startMs)}-${Math.round(endMs)}]ms`
+            );
+
+            cumulativeStart = endMs;
+          }
+        } catch (error) {
+          debugLog('Failed to preload durations:', error);
+          // Continue anyway - will use percentage-based fallback
+        }
+
+        // Set the first asset as currently playing and scroll to it
+        if (assets.length > 0 && assets[0]) {
+          const firstAssetId = assets[0].id;
+          setCurrentlyPlayingAssetId(firstAssetId);
+          lastScrolledAssetIdRef.current = null; // Reset to allow immediate scroll
+
+          // Scroll to first asset immediately
+          if (wheelRef.current) {
+            debugLog(
+              `📜 Scrolling to first asset at index 0 (asset ${firstAssetId.slice(0, 8)})`
+            );
+            // scrollItemToTop adds 1 internally, so subtract 1 to get correct position (0 -> -1 -> 0)
+            wheelRef.current.scrollItemToTop(-1, true);
+            lastScrolledAssetIdRef.current = firstAssetId;
+          }
+        }
+
         await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
       }
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
+      setCurrentlyPlayingAssetId(null);
+      assetUriMapRef.current.clear();
+      segmentDurationsRef.current = [];
+      assetSegmentRangesRef.current.clear();
+      lastScrolledAssetIdRef.current = null;
+      // Reset all asset progress
+      for (const progressShared of assetProgressSharedMapRef.current.values()) {
+        progressShared.value = 0;
+      }
     }
   }, [audioContext, getAssetAudioUris, assets]);
 
@@ -664,15 +1205,24 @@ const RecordingViewSimplified = ({
         // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
         // Save audio file locally (with retry logic for timing issues)
-        let localUri: string;
-        try {
-          localUri = await saveAudioLocally(uri);
-        } catch (error) {
-          // Release the reserved name on error
-          pendingAssetNamesRef.current.delete(assetName);
-          console.error('❌ Failed to save audio file locally:', error);
-          throw error; // Re-throw to be caught by outer catch block
+        const saveResult = await (async () => {
+          try {
+            const savedUri = await saveAudioLocally(uri);
+            return { success: true as const, uri: savedUri };
+          } catch (error) {
+            // Release the reserved name on error
+            pendingAssetNamesRef.current.delete(assetName);
+            console.error('❌ Failed to save audio file locally:', error);
+            return { success: false as const, error };
+          }
+        })();
+
+        if (!saveResult.success) {
+          // Re-throw to be caught by outer catch block
+          throw saveResult.error;
         }
+
+        const localUri = saveResult.uri;
 
         // Queue DB write (serialized to prevent race conditions)
         dbWriteQueueRef.current = dbWriteQueueRef.current
@@ -882,9 +1432,6 @@ const RecordingViewSimplified = ({
         );
 
         try {
-          // Dynamically import Audio only when needed
-          const { Audio } = await import('expo-av');
-
           const newCounts = new Map<string, number>();
           const newDurations = new Map<string, number>();
 
@@ -1134,7 +1681,7 @@ const RecordingViewSimplified = ({
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
             source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
+            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
             download_profiles: [currentUser.id]
@@ -1209,7 +1756,8 @@ const RecordingViewSimplified = ({
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
                       source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id: c.languoid_id || c.source_language_id, // Use languoid_id if available, fallback to source_language_id
+                      languoid_id:
+                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]
@@ -1378,14 +1926,28 @@ const RecordingViewSimplified = ({
   // This eliminates 10 re-renders/second during audio playback
   const renderAssetItem = React.useCallback(
     ({ item, index }: { item: UIAsset; index: number }) => {
-      const isThisAssetPlaying =
+      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
+      const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isThisAssetPlayingInPlayAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+      const isThisAssetPlaying =
+        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
       const canMergeDown =
         index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
+
+      // Get custom progress for play-all mode
+      const customProgress =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+          ? assetProgressSharedMapRef.current.get(item.id)
+          : undefined;
 
       return (
         <AssetCard
@@ -1397,6 +1959,7 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
+          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1419,6 +1982,7 @@ const RecordingViewSimplified = ({
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
+      currentlyPlayingAssetId,
       // audioContext.position REMOVED - uses SharedValues now!
       // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
@@ -1438,8 +2002,15 @@ const RecordingViewSimplified = ({
   // This eliminates re-creating all children 10+ times per second during audio playback
   const wheelChildren = React.useMemo(() => {
     return assetsForLegendList.map((item, index) => {
-      const isThisAssetPlaying =
+      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
+      const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
+      const isThisAssetPlayingInPlayAll =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+      const isThisAssetPlaying =
+        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
       const canMergeDown =
         index < assetsForLegendList.length - 1 &&
@@ -1447,6 +2018,13 @@ const RecordingViewSimplified = ({
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
+
+      // Get custom progress for play-all mode
+      const customProgress =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+          ? assetProgressSharedMapRef.current.get(item.id)
+          : undefined;
 
       return (
         <AssetCard
@@ -1459,6 +2037,7 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
+          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1482,6 +2061,8 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
+    currentlyPlayingAssetId,
+    // assetProgressSharedMap REMOVED - it's a ref, accessed directly in render
     // audioContext.position REMOVED - uses SharedValues now!
     // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,
