@@ -42,6 +42,7 @@ interface QuestOffloadVerificationDrawerProps {
   onContinue: () => void;
   verificationState: VerificationState;
   isOffloading: boolean;
+  questName?: string;
 }
 
 interface CategoryRowProps {
@@ -136,7 +137,8 @@ export function QuestOffloadVerificationDrawer({
   onOpenChange,
   onContinue,
   verificationState,
-  isOffloading
+  isOffloading,
+  questName
 }: QuestOffloadVerificationDrawerProps) {
   const { t } = useLocalization();
   const {
@@ -222,7 +224,7 @@ export function QuestOffloadVerificationDrawer({
     }
   );
 
-  // Calculate if ready to offload (all records verified, no errors, no pending uploads)
+  // Calculate if ready to remove (all records verified, no errors, no pending uploads)
   const isReadyToOffload =
     !isVerifying &&
     !hasPendingUploads &&
@@ -252,17 +254,21 @@ export function QuestOffloadVerificationDrawer({
         <DrawerHeader>
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <DrawerTitle>{t('offloadQuest') || 'Offload Quest'}</DrawerTitle>
+              <DrawerTitle>
+                {t('offloadQuest') || 'Remove Download'}
+              </DrawerTitle>
               <Text className="text-sm text-muted-foreground">
                 {hasPendingUploads
                   ? t('pendingUploadsDetected') || 'Pending uploads detected'
                   : isVerifying
                     ? t('verifyingCloudData') || 'Verifying data in cloud...'
                     : isReadyToOffload
-                      ? t('readyToOffload') || 'Ready to offload'
+                      ? questName
+                        ? `Ready to remove "${questName.trim()}"`
+                        : t('readyToRemove') || 'Ready to remove'
                       : hasError
                         ? t('cannotOffloadErrors') ||
-                          'Cannot offload - errors detected'
+                          'Cannot remove - errors detected'
                         : t('checkingPendingChanges') ||
                           'Checking for pending changes...'}
               </Text>
@@ -295,7 +301,7 @@ export function QuestOffloadVerificationDrawer({
                 </View>
                 <Text className="text-sm text-muted-foreground">
                   {t('pendingUploadsMessage') ||
-                    `You have ${pendingUploadCount} pending upload(s). Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.`}
+                    `You have ${pendingUploadCount} pending upload(s). Please wait for all changes to upload to the cloud before removing. Connect to the internet and wait for sync to complete.`}
                 </Text>
               </View>
             </View>
@@ -380,8 +386,8 @@ export function QuestOffloadVerificationDrawer({
               {isReadyToOffload && (
                 <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
                   <Text className="text-sm text-yellow-600">
-                    {t('offloadWarning') ||
-                      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.'}
+                    {t('removeQuestWarning') ||
+                      'This will remove the local copy of this quest and all related files from your device. Data will remain safely in the cloud and can be re-downloaded later.'}
                   </Text>
                 </View>
               )}
@@ -400,7 +406,7 @@ export function QuestOffloadVerificationDrawer({
                   </View>
                   <Text className="text-sm text-destructive">
                     {t('cannotOffloadErrors') ||
-                      'Some data has not been uploaded to the cloud yet. Check the list above for items marked in red - these need to sync before you can safely offload.'}
+                      'Some data has not been uploaded to the cloud yet. Check the list above for items marked in red - these need to sync before you can safely remove.'}
                   </Text>
                   {progress.attachments.count >
                     progress.attachments.verified && (
@@ -419,7 +425,7 @@ export function QuestOffloadVerificationDrawer({
                         ⚠️ DEV MODE ONLY
                       </Text>
                       <Text className="mb-2 text-xs text-yellow-600">
-                        Force offload will delete local data even if not fully
+                        Force remove will delete local data even if not fully
                         backed up. Use only for testing!
                       </Text>
                       <Button
@@ -430,7 +436,7 @@ export function QuestOffloadVerificationDrawer({
                         disabled={hasPendingUploads || isOffloading}
                       >
                         <Text className="text-xs font-bold text-yellow-600">
-                          Force Offload (Dev Only)
+                          Force Remove (Dev Only)
                         </Text>
                       </Button>
                     </View>
@@ -454,7 +460,7 @@ export function QuestOffloadVerificationDrawer({
                 : hasPendingUploads
                   ? t('waitingForUploads') || 'Waiting for Uploads'
                   : isReadyToOffload
-                    ? t('continueToOffload') || 'Offload from Device'
+                    ? t('removeQuestFromDevice') || 'Remove from device'
                     : t('cannotOffload') || 'Cannot Offload'}
             </Text>
           </Button>
