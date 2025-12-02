@@ -29,48 +29,6 @@ When you modify the schema, you must:
 4. Create a local migration for SQLite
 5. Handle data transformation, especially for destructive changes
 
-## Metadata (`_metadata`) Column
-
-**Important**: All tables include an `_metadata` column that tracks schema versions for migration purposes. This column is automatically handled by the system.
-
-### How `_metadata` Works
-
-- **Automatic Stamping**: The `System` class automatically stamps `_metadata` on all `INSERT` and `UPDATE` operations via proxy wrappers. You don't need to manually add `_metadata` when writing data.
-- **PowerSync Integration**: When PowerSync is configured with `trackMetadata: true`, it automatically manages `_metadata` storage and exposes it via `CrudEntry.metadata` during uploads.
-- **Schema Definition**: The `_metadata` column is already included in both `syncedColumns` and `localColumns` in `drizzleSchemaColumns.ts`. It's automatically added to all tables via `getBaseColumns()`.
-- **Version Tracking**: The `_metadata.schema_version` field stores the schema version (e.g., `'2.0'`, `'2.1'`) that was active when the record was created or last migrated.
-
-### Metadata Structure
-
-```typescript
-interface OpMetadata {
-  schema_version: string; // e.g., '2.0', '2.1'
-  // Future fields can be added here
-}
-```
-
-### Legacy Data Handling
-
-- Records without `_metadata` or with `NULL` `_metadata.schema_version` are treated as schema version `'0'` (legacy data)
-- This ensures that all transform functions (`v0_to_v1`, `v1_to_v2`, etc.) run for legacy data
-- The Supabase connector automatically detects and handles legacy metadata during uploads
-
-### Transaction Support
-
-Metadata stamping works automatically inside transactions. The `System` class wraps the `transaction()` method to ensure `_metadata` is stamped on all operations within transaction callbacks.
-
-### What You Don't Need to Do
-
-- ❌ **Don't manually add `_metadata`** when inserting/updating records - it's automatic
-- ❌ **Don't modify `_metadata` directly** in migrations (use `updateMetadataVersion()` utility)
-- ❌ **Don't worry about `_metadata` in schema definitions** - it's already included via `getBaseColumns()`
-
-### What Migrations Should Do
-
-- ✅ **Update `_metadata.schema_version`** on all records after schema changes (handled automatically by migration utilities)
-- ✅ **Query `_metadata.schema_version`** to detect which records need transformation
-- ✅ **Use migration utilities** like `updateMetadataVersion()` to update metadata correctly
-
 ## Step-by-Step Migration Process
 
 ### 1. Modify Shared Schema Definitions
@@ -238,9 +196,6 @@ export const migration_2_0_to_2_1: Migration = {
 
     // DO NOT migrate 'asset' table - server RPC handles this
 
-    // Note: _metadata.schema_version is automatically updated by updateMetadataVersion()
-    // which is called by the migration system after this function completes
-
     if (onProgress) onProgress(2, 2, 'Migration complete');
   }
 };
@@ -333,8 +288,6 @@ export const migrations: Migration[] = [
 - **Bump major version** for destructive changes (`2.0` → `3.0`)
 - **Provide progress updates** for long-running migrations
 - **Document why** the migration exists (link to PR/ticket)
-- **Rely on automatic `_metadata` stamping** - the System class handles this automatically
-- **Use migration utilities** to update `_metadata.schema_version` (don't modify directly)
 
 ### ❌ DON'T
 
@@ -345,8 +298,6 @@ export const migrations: Migration[] = [
 - **Don't deploy untested migrations** - always test on real data first
 - **Don't forget to update `APP_SCHEMA_VERSION`** in `db/constants.ts`
 - **Don't forget to update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts`
-- **Don't manually add `_metadata`** to INSERT/UPDATE operations - it's automatic
-- **Don't modify `_metadata` directly** in migrations - use `updateMetadataVersion()` utility
 
 ## Data Transformation Guidelines
 
@@ -413,4 +364,3 @@ Before deploying a migration:
 - Supabase migration rules: `.cursor/rules/supabase/migrations/create-migration.mdc`
 - Migration utilities: `db/migrations/utils.ts`
 - Schema version constant: `db/constants.ts` (`APP_SCHEMA_VERSION`)
-- Metadata handling implementation: PR #585 (automatic `_metadata` stamping via System class proxy)
