@@ -357,8 +357,249 @@ Before deploying a migration:
 - [ ] Verify data integrity after migration
 - [ ] Test on both iOS and Android (if applicable)
 
-## References
+## Server-Side Migration Functions (RPC Transforms)
 
+**When to create server-side migration functions:**
+
+Server-side migration functions (also called "transform functions") are needed when:
+
+- **Synced tables** need data transformation during upload from older client versions
+- **Schema changes** require enriching records with new fields (e.g., adding `languoid_id` to records that only have `language_id`)
+- **Legacy data** from older app versions needs to be transformed before insertion
+- **Cross-table transformations** are needed (e.g., splitting one table into multiple)
+
+**Important**: Client-side migrations only handle `*_local` tables. Synced tables are transformed server-side via RPC functions when data is uploaded from PowerSync.
+
+### Transform Function Pattern
+
+Transform functions follow this pattern:
+
+```sql
+-- Migration: Add vX_to_vY transform for [description]
+-- Purpose: [What this transform does]
+--
+-- Transform chain:
+--   vX.x data → vX_to_vY → vY.x data
+--   vY.x+ data → passthrough
+
+CREATE OR REPLACE FUNCTION public.vX_to_vY(
+  p_ops public.mutation_op[],
+  p_meta jsonb
+)
+RETURNS public.mutation_op[]
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  out_ops public.mutation_op[] := '{}';
+  op public.mutation_op;
+  v_meta text := coalesce(p_meta->>'schema_version', '');
+  v_record jsonb;
+BEGIN
+  raise log '[vX_to_vY] start meta=% ops_count=%',
+    v_meta,
+    coalesce(array_length(p_ops,1),0);
+
+  FOREACH op IN ARRAY p_ops LOOP
+    raise log '[vX_to_vY] inbound op: table=% op=% record=%',
+      op.table_name, op.op, op.record::text;
+
+    -- Transform specific tables
+    IF lower(op.table_name) = 'table_name' THEN
+      v_record := op.record;
+
+      -- Only transform if needed (e.g., missing field)
+      IF (v_record->>'new_field') IS NULL AND (v_record->>'old_field') IS NOT NULL THEN
+        -- Add new_field based on old_field
+        v_record := v_record || jsonb_build_object('new_field', derive_value_from_old_field(v_record));
+        raise log '[vX_to_vY] table_name: added new_field';
+      END IF;
+
+      out_ops := out_ops || (row(op.table_name, op.op, v_record))::public.mutation_op;
+    ELSE
+      -- Passthrough for all other tables
+      out_ops := out_ops || op;
+    END IF;
+  END LOOP;
+
+  raise log '[vX_to_vY] end out_ops_count=%', coalesce(array_length(out_ops,1),0);
+
+  RETURN out_ops;
+END;
+$$;
+```
+
+### Helper Functions and Lookup Tables
+
+For complex transformations, create helper functions and lookup tables:
+
+```sql
+-- Example: Create lookup table for fast transformations
+CREATE TABLE IF NOT EXISTS public.language_languoid_map (
+  language_id uuid PRIMARY KEY,
+  languoid_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Example: Helper function for transformations
+CREATE OR REPLACE FUNCTION public.get_or_create_languoid_for_language(p_language_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_languoid_id uuid;
+BEGIN
+  -- Check cache first
+  SELECT languoid_id INTO v_languoid_id
+  FROM public.language_languoid_map
+  WHERE language_id = p_language_id;
+
+  IF v_languoid_id IS NOT NULL THEN
+    RETURN v_languoid_id;
+  END IF;
+
+  -- Lookup logic here...
+  -- Cache result in mapping table
+
+  RETURN v_languoid_id;
+END;
+$$;
+```
+
+### Chaining Transforms
+
+Transform functions are chained based on the client's schema version:
+
+**Transform chain pattern:**
+
+- `v0.x` data → `v0_to_v1()` → `v1_to_v2()` → v2.0 data
+- `v1.x` data → `v1_to_v2()` → v2.0 data
+- `v2.0+` data → passthrough (no transform)
+
+**Updating mutation handlers:**
+
+Update `apply_table_mutation` and `apply_table_mutation_transaction` to chain transforms:
+
+```sql
+CREATE OR REPLACE FUNCTION public.apply_table_mutation(
+  p_op text,
+  p_table_name text,
+  p_record jsonb,
+  p_client_meta jsonb DEFAULT '{}'::jsonb
+)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_meta text := coalesce(p_client_meta->>'schema_version', '0');
+  v_version_is_v0 boolean := (v_meta = '0') OR (v_meta LIKE '0.%');
+  v_version_is_v1 boolean := (v_meta = '1') OR (v_meta LIKE '1.%');
+  ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
+BEGIN
+  -- Versioned transform chain
+  IF v_version_is_v0 THEN
+    -- v0 → v0_to_v1 → v1_to_v2
+    ops := public.v0_to_v1(ops, p_client_meta);
+    ops := public.v1_to_v2(ops, p_client_meta);
+  ELSIF v_version_is_v1 THEN
+    -- v1 → v1_to_v2
+    ops := public.v1_to_v2(ops, p_client_meta);
+  END IF;
+  -- v2+ data passes through unchanged
+
+  -- Execute transformed ops...
+END;
+$$;
+```
+
+### Key Principles
+
+**✅ DO:**
+
+- **Check schema version** from `p_meta->>'schema_version'` to determine if transform is needed
+- **Only transform when needed** - check if fields are missing before adding them
+- **Passthrough unchanged ops** - only transform tables that need it
+- **Log transformations** - use `raise log` for debugging
+- **Handle errors gracefully** - wrap transformations in exception handlers
+- **Cache lookups** - use lookup tables for expensive operations
+- **Chain transforms** - update mutation handlers to call transforms in order
+- **Test with real data** - verify transforms work with actual legacy data
+
+**❌ DON'T:**
+
+- **Don't transform current version data** - only transform older versions
+- **Don't modify ops in place** - create new `mutation_op` records
+- **Don't skip version checks** - always check `schema_version` before transforming
+- **Don't forget to update mutation handlers** - transforms won't run unless chained
+- **Don't create transforms for local-only changes** - those are handled client-side
+
+### Example: Adding New Required Field
+
+When adding a new required field (e.g., `languoid_id`) to synced tables:
+
+1. **Create lookup table** (if needed for fast lookups):
+
+```sql
+CREATE TABLE IF NOT EXISTS public.language_languoid_map (
+  language_id uuid PRIMARY KEY,
+  languoid_id uuid NOT NULL
+);
+```
+
+2. **Create helper function** (if needed):
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_or_create_languoid_for_language(p_language_id uuid)
+RETURNS uuid
+-- ... implementation
+```
+
+3. **Create transform function**:
+
+```sql
+CREATE OR REPLACE FUNCTION public.v1_to_v2(
+  p_ops public.mutation_op[],
+  p_meta jsonb
+)
+RETURNS public.mutation_op[]
+-- ... adds languoid_id to records that have language_id but not languoid_id
+```
+
+4. **Update mutation handlers** to chain the transform:
+
+```sql
+-- In apply_table_mutation and apply_table_mutation_transaction
+IF v_version_is_v1 THEN
+  ops := public.v1_to_v2(ops, p_client_meta);
+END IF;
+```
+
+### Metadata Handling
+
+Transform functions receive metadata via `p_meta jsonb`:
+
+- **Schema version**: `p_meta->>'schema_version'` (e.g., `'1.0'`, `'2.0'`)
+- **Legacy format**: Older clients may send `p_meta->>'metadata'` instead
+- **Default**: Treat missing metadata as `'0'` (legacy v0 data)
+
+**Example metadata extraction:**
+
+```sql
+DECLARE
+  v_meta text := coalesce(
+    p_meta->>'schema_version',  -- New format
+    p_meta->>'metadata',        -- Legacy format
+    '0'                         -- Default to v0
+  );
+  v_version_is_v1 boolean := (v_meta = '1') OR (v_meta LIKE '1.%');
+```
+
+### References
+
+- Example transform: `supabase/migrations/20251128120000_add_v1_to_v2_transform.sql`
+- Mutation handlers: `apply_table_mutation`, `apply_table_mutation_transaction`
+- Mutation op type: `public.mutation_op` (table_name, op, record)
 - Local migration README: `db/migrations/README.md`
 - Example migration: `db/migrations/EXAMPLE_1.0-to-1.1.ts`
 - Supabase migration rules: `.cursor/rules/supabase/migrations/create-migration.mdc`
