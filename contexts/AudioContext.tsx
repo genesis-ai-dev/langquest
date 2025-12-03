@@ -322,10 +322,28 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAudio() {
+/**
+ * Hook to access audio playback functionality.
+ * @param options - Configuration options
+ * @param options.stopOnUnmount - Whether to stop audio when component unmounts (default: true)
+ */
+export function useAudio(options?: { stopOnUnmount?: boolean }) {
   const context = useContext(AudioContext);
   if (context === undefined) {
     throw new Error('useAudio must be used within an AudioProvider');
   }
+
+  const stopOnUnmount = options?.stopOnUnmount ?? true;
+
+  // Stop playback when component unmounts (unless disabled)
+  React.useEffect(() => {
+    if (!stopOnUnmount) {
+      return;
+    }
+    return () => {
+      void context.stopCurrentSound();
+    };
+  }, [context, stopOnUnmount]);
+
   return context;
 }
