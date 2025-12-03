@@ -9,7 +9,6 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { WithSource } from '@/utils/dbUtils';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
@@ -29,7 +28,8 @@ import {
   isNull,
   like,
   notInArray,
-  or
+  or,
+  sql
 } from 'drizzle-orm';
 import { useMemo } from 'react';
 import {
@@ -1032,6 +1032,7 @@ export function useAssetsQuestLinkById(
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[];
 };
 
 export function useAssetsByQuest(
@@ -1081,7 +1082,12 @@ export function useAssetsByQuest(
           .select({
             ...getTableColumns(asset),
             quest_visible: quest_asset_link.visible,
-            quest_active: quest_asset_link.active
+            quest_active: quest_asset_link.active,
+            tag_ids: sql<string>`(
+              SELECT json_group_array(${asset_tag_link.tag_id}) 
+              FROM ${asset_tag_link} 
+              WHERE ${asset_tag_link.asset_id} = ${asset.id}
+            )`
           })
           .from(asset)
           .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
@@ -1094,7 +1100,30 @@ export function useAssetsByQuest(
           .limit(pageSize)
           .offset(offset);
 
-        return assets;
+        // Convert tag_ids from JSON string to array for consistency with cloud query
+        const processedAssets = assets.map((asset) => {
+          let tagIds: string[] = [];
+          try {
+            if (asset.tag_ids) {
+              const parsed = JSON.parse(String(asset.tag_ids));
+              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
+            }
+          } catch (error) {
+            console.warn(
+              '[useAssetsByQuest] Failed to parse tag_ids:',
+              asset.tag_ids,
+              error
+            );
+            tagIds = [];
+          }
+
+          return {
+            ...asset,
+            tag_ids: tagIds
+          } as AssetQuestLink;
+        });
+
+        return processedAssets;
       } catch (error) {
         console.error('[ASSETS] Offline query error:', error);
         return [];
@@ -1118,7 +1147,8 @@ export function useAssetsByQuest(
           visible,
           active,
           asset:asset_id (
-            *
+            *,
+            asset_tag_link(tag_id)
           )
         `
         )
@@ -1161,16 +1191,21 @@ export function useAssetsByQuest(
       if (error) throw error;
 
       // Map to AssetQuestLink format with quest_visible and quest_active
-      const assets: AssetQuestLink[] = data
-        .map((item) => {
-          if (!item.asset) return null;
-          return {
-            ...item.asset,
-            quest_visible: item.visible,
-            quest_active: item.active
-          } as AssetQuestLink;
-        })
-        .filter((item): item is AssetQuestLink => item !== null);
+      const assets: AssetQuestLink[] = data.map((item) => {
+        // Extract tag IDs from asset_tag_link array
+        const assetWithTags = item.asset as Asset & {
+          asset_tag_link?: { tag_id: string }[];
+        };
+        const tag_ids: string[] =
+          assetWithTags.asset_tag_link?.map((link) => link.tag_id) || [];
+
+        return {
+          ...item.asset,
+          quest_visible: item.visible,
+          quest_active: item.active,
+          tag_ids
+        } as AssetQuestLink;
+      });
 
       return assets;
     },

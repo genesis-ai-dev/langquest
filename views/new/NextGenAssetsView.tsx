@@ -79,6 +79,7 @@ type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[] | undefined;
 };
 
 export default function NextGenAssetsView() {
@@ -291,6 +292,17 @@ export default function NextGenAssetsView() {
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
   }, [safeAttachmentStates]);
 
+  const handleAssetUpdate = React.useCallback(async () => {
+    // await queryClient.invalidateQueries({
+    //   // queryKey: ['assets', 'by-quest', currentQuestId],
+    //   queryKey: ['by-quest', currentQuestId],
+    //   exact: false
+    // });
+    await queryClient.invalidateQueries({
+      queryKey: ['assets']
+    });
+  }, [queryClient]);
+
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => (
       <AssetListItem
@@ -298,11 +310,12 @@ export default function NextGenAssetsView() {
         asset={item}
         attachmentState={safeAttachmentStates.get(item.id)}
         questId={currentQuestId || ''}
+        onUpdate={handleAssetUpdate}
       />
     ),
     // Use stable memo key instead of Map reference to prevent hook dependency issues
     // Always has exactly 2 dependencies (string, string) - never changes size
-    [currentQuestId, safeAttachmentStates]
+    [currentQuestId, safeAttachmentStates, handleAssetUpdate]
   );
 
   const onEndReached = React.useCallback(() => {

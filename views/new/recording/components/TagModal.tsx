@@ -5,7 +5,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import type { Tag } from '@/hooks/db/useSearchTags';
+import type { Tag } from '@/database_services/tagCache';
 import { useSearchTags } from '@/hooks/db/useSearchTags';
 import React from 'react';
 import type { TextInput } from 'react-native';
@@ -20,6 +20,7 @@ import Animated, {
 interface TagModalProps {
   isVisible: boolean;
   selectedTag?: Tag;
+  initialSelectedTags?: Tag[];
   searchTerm?: string;
   limit?: number;
   onClose: () => void;
@@ -29,15 +30,17 @@ interface TagModalProps {
 export function TagModal({
   isVisible,
   selectedTag,
+  initialSelectedTags = [],
   searchTerm = '',
   limit = 20,
   onClose,
   onAssignTags
 }: TagModalProps) {
   const [localSearchTerm, setLocalSearchTerm] = React.useState(searchTerm);
-  const [selectedTags, setSelectedTags] = React.useState<Tag[]>(
-    selectedTag ? [selectedTag] : []
-  );
+  const [selectedTags, setSelectedTags] = React.useState<Tag[]>(() => {
+    if (selectedTag) return [selectedTag];
+    return initialSelectedTags;
+  });
   const [modalVisible, setModalVisible] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
 
@@ -53,9 +56,13 @@ export function TagModal({
   React.useEffect(() => {
     if (isVisible) {
       setLocalSearchTerm(searchTerm);
-      setSelectedTags(selectedTag ? [selectedTag] : []);
+      if (selectedTag) {
+        setSelectedTags([selectedTag]);
+      } else {
+        setSelectedTags(initialSelectedTags);
+      }
     }
-  }, [isVisible, searchTerm, selectedTag]);
+  }, [isVisible, searchTerm, selectedTag, initialSelectedTags]);
 
   // Handle modal visibility with exit animation
   React.useEffect(() => {
@@ -126,7 +133,11 @@ export function TagModal({
 
   const handleCancel = () => {
     setLocalSearchTerm(searchTerm);
-    setSelectedTags(selectedTag ? [selectedTag] : []);
+    if (selectedTag) {
+      setSelectedTags([selectedTag]);
+    } else {
+      setSelectedTags(initialSelectedTags);
+    }
     onClose();
   };
 

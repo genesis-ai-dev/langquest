@@ -9,16 +9,19 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import type { Tag } from '@/database_services/tagCache';
+import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
-import type { Tag } from '@/hooks/db/useSearchTags';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   EyeOffIcon,
   HardDriveIcon,
   PauseIcon,
+  Plus,
   TagIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -33,16 +36,19 @@ type Asset = typeof asset_type.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[] | undefined;
 };
 export interface AssetListItemProps {
   asset: AssetQuestLink;
   questId: string;
+  onUpdate?: () => void;
   attachmentState?: AttachmentRecord;
 }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
   questId,
+  onUpdate,
   attachmentState
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
@@ -51,6 +57,10 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   const { t } = useLocalization();
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
+
+  const getManyTags = useTagStore((s) => s.getManyTags);
+  const tags = getManyTags(asset.tag_ids || []);
+  console.log('[Fetched tags from store]:', tags);
 
   // Download mutation
   const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
@@ -62,13 +72,29 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
 
   const handleOpenTagModal = () => {
+    console.log('Opening tag modal for asset:', asset.id);
     setIsTagModalVisible(true);
   };
 
-  const handleAssignTags = (tags: Tag[]) => {
-    console.log('Tags assigned to asset:', asset.id, tags);
-    // TODO: Implement tag assignment logic
-    setIsTagModalVisible(false);
+  const handleAssignTags = async (tags: Tag[]) => {
+    try {
+      // Extract tag IDs from the tags array
+      const tagIds = tags.map((tag) => tag.id);
+
+      // Use the tagService to assign tags to the asset
+      await tagService.assignTagsToAssetLocal(asset.id, tagIds);
+
+      onUpdate?.();
+
+      console.log(
+        `Successfully assigned ${tagIds.length} tags to asset ${asset.id}`
+      );
+    } catch (error) {
+      console.error('Failed to assign tags to asset:', error);
+      // TODO: Show error toast/alert to user
+    } finally {
+      setIsTagModalVisible(false);
+    }
   };
 
   const layerStatus = useStatusContext();
@@ -116,6 +142,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     downloadAsset({ userId: currentUser.id, download: !isDownloaded });
   };
 
+  const tag = tags.length > 0 ? tags[0] : null;
+
   return (
     <Pressable onPress={handlePress}>
       <Card
@@ -149,25 +177,26 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                 </View>
               </View>
               <View className="flex flex-row items-center justify-center gap-2">
-                {/* <Icon as={TagIcon} className="w-3 text-secondary-foreground" />
-                <CardTitle className="text-xs">{'Verse:1'}</CardTitle> */}
-                <Pressable
-                  className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/30 bg-primary/30 px-4"
-                  onPress={handleOpenTagModal}
-                >
-                  <Icon as={TagIcon} size={12} className="text-white" />
+                <Pressable onPress={handleOpenTagModal}>
+                  {tags.length === 0 ? (
+                    <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
+                      <Icon as={Plus} size={10} className="text-white" />
+                      <Icon as={TagIcon} size={10} className="text-white" />
+                    </View>
+                  ) : (
+                    <View pointerEvents="none">
+                      <Badge
+                        variant="default"
+                        className="flex flex-row items-center gap-1 bg-primary/30"
+                      >
+                        <Icon as={TagIcon} size={12} className="text-white" />
+                        <CardTitle className="text-xs text-white">
+                          {tag && `${tag.key}${tag.value && `: ${tag.value}`}`}
+                        </CardTitle>
+                      </Badge>
+                    </View>
+                  )}
                 </Pressable>
-                {1 == 0 && (
-                  <Badge
-                    variant="default"
-                    className="flex flex-row items-center gap-1 bg-primary/30"
-                  >
-                    <Icon as={TagIcon} size={12} className="text-white" />
-                    <CardTitle className="text-xs text-white">
-                      {`Verse:1`}
-                    </CardTitle>
-                  </Badge>
-                )}
               </View>
               <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}
@@ -193,6 +222,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
         isVisible={isTagModalVisible}
         searchTerm=""
         limit={200}
+        initialSelectedTags={tags}
         onClose={() => setIsTagModalVisible(false)}
         onAssignTags={handleAssignTags}
       />
