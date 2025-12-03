@@ -21,6 +21,7 @@ import {
   reasonOptions,
   sourceOptions,
   statusOptions,
+  submissionTypeOptions,
   templateOptions
 } from './constants';
 import type {
@@ -352,6 +353,9 @@ export function createAssetTable<
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
+      // NULL for source assets (assets without source_asset_id)
+      // 'translation' or 'transcription' for assets that are translations/transcriptions
+      submission_type: text({ enum: submissionTypeOptions }),
       ...extraColumns
     },
     (table) => {

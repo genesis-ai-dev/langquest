@@ -1,6 +1,6 @@
 // Schema version tracking for migrations
 // This file has no dependencies to avoid circular imports
-export const APP_SCHEMA_VERSION = '2.0';
+export const APP_SCHEMA_VERSION = '3.0';
 
 export const reasonOptions = [
   'inappropriate_content',
@@ -12,8 +12,8 @@ export const statusOptions = [
   'pending',
   'accepted',
   'declined',
-  'withdrawn'
-  // 'expired'
+  'withdrawn',
+  'expired'
 ] as const;
 
 export const templateOptions = ['unstructured', 'bible'] as const;
@@ -21,3 +21,5 @@ export const templateOptions = ['unstructured', 'bible'] as const;
 export const sourceOptions = ['local', 'synced', 'cloud'] as const;
 
 export const membershipOptions = ['owner', 'member'] as const;
+
+export const submissionTypeOptions = ['translation', 'transcription'] as const;

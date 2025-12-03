@@ -22,47 +22,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { deleteIfExists } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
-  MicIcon,
-  Lightbulb,
-  TextIcon,
   EyeIcon,
-  XIcon,
-  RefreshCwIcon
+  Lightbulb,
+  MicIcon,
+  RefreshCwIcon,
+  TextIcon,
+  XIcon
 } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import {
-  Alert,
-  ActivityIndicator,
-  View,
-  Pressable,
-  Modal,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
 import type { TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 import { z } from 'zod';
-import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
-import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useHybridData } from './useHybridData';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -74,6 +74,7 @@ interface NextGenNewTranslationModalProps {
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
   translationLanguageId: string; // The language of the new translation asset being created
+  submissionType?: 'translation' | 'transcription'; // Type of submission being created
 }
 
 type TranslationType = 'text' | 'audio';
@@ -86,7 +87,8 @@ export default function NextGenNewTranslationModal({
   assetName,
   assetContent,
   sourceLanguage,
-  translationLanguageId
+  translationLanguageId,
+  submissionType = 'translation'
 }: NextGenNewTranslationModalProps) {
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
@@ -252,7 +254,16 @@ export default function NextGenNewTranslationModal({
 
   // Get source language ID from asset content or prop
   const sourceLanguageId =
-    assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
+    assetContent?.[0]?.source_language_id ||
+    assetContent?.[0]?.languoid_id ||
+    sourceLanguage?.id ||
+    null;
+
+  // For transcriptions, use source language; for translations, use target language
+  const submissionLanguageId =
+    submissionType === 'transcription'
+      ? sourceLanguageId || translationLanguageId
+      : translationLanguageId;
 
   // Query language names (source language is optional, target is required)
   // Only query when modal is visible to avoid unnecessary queries
@@ -313,13 +324,17 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
       if (translationType === 'text' && !data.text) {
-        throw new Error(t('enterTranslation'));
+        throw new Error(
+          submissionType === 'translation'
+            ? t('enterTranslation')
+            : t('enterYourTranscription')
+        );
       }
       if (translationType === 'audio' && !data.audioUri) {
         throw new Error('Please record audio');
       }
 
-      if (!translationLanguageId || !currentProjectId || !currentQuestId) {
+      if (!submissionLanguageId || !currentProjectId || !currentQuestId) {
         throw new Error('Missing required context');
       }
 
@@ -353,10 +368,11 @@ export default function NextGenNewTranslationModal({
           .insert(resolveTable('asset'))
           .values({
             source_asset_id: assetId,
-            source_language_id: translationLanguageId,
+            source_language_id: submissionLanguageId,
             project_id: currentProjectId,
             creator_id: currentUser.id,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            submission_type: submissionType
           })
           .returning();
 
@@ -367,12 +383,14 @@ export default function NextGenNewTranslationModal({
         const contentValues: {
           asset_id: string;
           source_language_id: string;
+          languoid_id?: string;
           download_profiles: string[];
           text?: string;
           audio?: string[];
         } = {
           asset_id: newAsset.id,
-          source_language_id: translationLanguageId,
+          source_language_id: submissionLanguageId,
+          languoid_id: submissionLanguageId,
           download_profiles: [currentUser.id]
         };
 
@@ -395,7 +413,12 @@ export default function NextGenNewTranslationModal({
     },
     onSuccess: () => {
       form.reset();
-      Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
+      Alert.alert(
+        t('success'),
+        submissionType === 'translation'
+          ? t('translationSubmittedSuccessfully')
+          : t('transcriptionSubmittedSuccessfully')
+      );
       onSuccess?.();
       onClose();
     },
@@ -404,7 +427,11 @@ export default function NextGenNewTranslationModal({
       console.error('[CREATE TRANSLATION] Error stack:', error.stack);
       Alert.alert(
         t('error'),
-        t('failedCreateTranslation') + '\n\n' + error.message
+        (submissionType === 'translation'
+          ? t('failedCreateTranslation')
+          : t('failedCreateTranscription')) +
+          '\n\n' +
+          error.message
       );
     }
   });
@@ -522,7 +549,11 @@ export default function NextGenNewTranslationModal({
       <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>
-            <DrawerTitle>{t('newTranslation')}</DrawerTitle>
+            <DrawerTitle>
+              {submissionType === 'translation'
+                ? t('newTranslation')
+                : t('newTranscription')}
+            </DrawerTitle>
           </DrawerHeader>
 
           <DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
@@ -549,12 +580,14 @@ export default function NextGenNewTranslationModal({
                 <Text className="text-lg font-bold text-foreground">
                   {assetName || t('unknown')}
                 </Text>
-                <Text className="text-sm text-muted-foreground">
-                  {sourceLanguage?.native_name ||
-                    sourceLanguage?.english_name ||
-                    t('unknown')}{' '}
-                  → {t('targetLanguage')}
-                </Text>
+                {submissionType === 'translation' && (
+                  <Text className="text-sm text-muted-foreground">
+                    {sourceLanguage?.native_name ||
+                      sourceLanguage?.english_name ||
+                      t('unknown')}{' '}
+                    → {t('targetLanguage')}
+                  </Text>
+                )}
               </View>
 
               {/* Source Content Preview */}
@@ -750,7 +783,11 @@ export default function NextGenNewTranslationModal({
                             <Textarea
                               {...transformInputProps(field)}
                               ref={textareaRef}
-                              placeholder={t('enterTranslation')}
+                              placeholder={
+                                submissionType === 'translation'
+                                  ? t('enterTranslation')
+                                  : t('enterYourTranscription')
+                              }
                               drawerInput
                               onSelectionChange={(e) => {
                                 setCursorPosition(

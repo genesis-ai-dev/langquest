@@ -21,6 +21,7 @@
 import { sql } from 'drizzle-orm';
 import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
+import { migration_2_0_to_3_0 } from './2.0-to-3.0';
 import { updateMetadataVersion } from './utils';
 
 // Type alias for database with common query methods
@@ -67,9 +68,9 @@ export const migrations: Migration[] = [
   // Start with 0.0 to 1.0 to handle existing unversioned data
   migration_0_0_to_1_0,
   // Breaking change: Add languoid support for offline projects
-  migration_1_0_to_2_0
-  // Add future migrations here:
-  // migration_2_0_to_2_1,
+  migration_1_0_to_2_0,
+  // Breaking change: Add submission_type to asset table (requires backfill)
+  migration_2_0_to_3_0
 ];
 
 // ============================================================================

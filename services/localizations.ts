@@ -606,6 +606,13 @@ export const localizations = {
     tok_pisin: 'Nupela Translation',
     indonesian: 'Terjemahan Baru'
   },
+  newTranscription: {
+    english: 'New Transcription',
+    spanish: 'Nueva Transcripción',
+    brazilian_portuguese: 'Nova Transcrição',
+    tok_pisin: 'Nupela Transcription',
+    indonesian: 'Transkripsi Baru'
+  },
   newUser: {
     english: 'New user?',
     spanish: '¿Usuario nuevo?',
@@ -3384,6 +3391,13 @@ export const localizations = {
     tok_pisin: 'Ol Translation',
     indonesian: 'Terjemahan'
   },
+  transcriptions: {
+    english: 'Transcriptions',
+    spanish: 'Transcripciones',
+    brazilian_portuguese: 'Transcrições',
+    tok_pisin: 'Ol Transcription',
+    indonesian: 'Transkripsi'
+  },
   doRecord: {
     english: 'Record',
     spanish: 'Grabar',
@@ -4323,7 +4337,21 @@ export const localizations = {
     tok_pisin: 'Transcription bilong yu i go pinis',
     indonesian: 'Transkripsi Anda telah dikirim'
   },
+  transcriptionSubmittedSuccessfully: {
+    english: 'Your transcription has been submitted',
+    spanish: 'Tu transcripción ha sido enviada',
+    brazilian_portuguese: 'Sua transcrição foi enviada',
+    tok_pisin: 'Transcription bilong yu i go pinis',
+    indonesian: 'Transkripsi Anda telah dikirim'
+  },
   failedToCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar a transcrição',
+    tok_pisin: 'I no inap mekim transcription',
+    indonesian: 'Gagal membuat transkripsi'
+  },
+  failedCreateTranscription: {
     english: 'Failed to create transcription',
     spanish: 'Error al crear la transcripción',
     brazilian_portuguese: 'Falha ao criar a transcrição',
@@ -4378,6 +4406,14 @@ export const localizations = {
     brazilian_portuguese: 'Nenhuma tradução ainda. Seja o primeiro a traduzir!',
     tok_pisin: 'I no gat translation yet. Yu ken namba wan long translate!',
     indonesian: 'Belum ada terjemahan. Jadilah yang pertama menerjemahkan!'
+  },
+  noTranscriptionsYet: {
+    english: 'No transcriptions yet. Be the first to transcribe!',
+    spanish: 'No hay transcripciones aún. Sé el primero en transcribir!',
+    brazilian_portuguese:
+      'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
+    tok_pisin: 'I no gat transcription yet. Yu ken namba wan long transcribe!',
+    indonesian: 'Belum ada transkripsi. Jadilah yang pertama menyalin!'
   },
   viewProjectLimitedAccess: {
     english: 'View Project (Limited Access)',

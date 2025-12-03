@@ -177,6 +177,10 @@ export default function NextGenAssetDetailView() {
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
 
+  // State for submission type tabs (translations vs transcriptions)
+  const [submissionTab, setSubmissionTab] = useState<
+    'translations' | 'transcriptions'
+  >('translations');
   const {
     data: queriedAsset,
     isLoading: isAssetLoading,
@@ -524,6 +528,9 @@ export default function NextGenAssetDetailView() {
     setShowNewTranslationModal(true);
   };
 
+  const submissionType: 'translation' | 'transcription' =
+    submissionTab === 'translations' ? 'translation' : 'transcription';
+
   return (
     <View className="mb-safe flex-1 px-4">
       {/* Header */}
@@ -763,24 +770,69 @@ export default function NextGenAssetDetailView() {
         </View>
       </Tabs>
 
-      {/* Translations List - Pass project data to avoid re-querying */}
+      {/* Submissions List - Translations or Transcriptions */}
       <View className="flex-1">
-        <NextGenTranslationsList
-          assetId={currentAssetId}
-          assetName={activeAsset.name}
-          refreshKey={translationsRefreshKey}
-          projectData={
-            projectData
-              ? {
-                  private: Boolean(projectData.private),
-                  name: projectData.name as string | undefined,
-                  id: projectData.id as string | undefined
-                }
-              : undefined
+        <Tabs
+          value={submissionTab}
+          onValueChange={(value) =>
+            setSubmissionTab(value as 'translations' | 'transcriptions')
           }
-          canVote={canTranslate}
-          membership={translateMembership}
-        />
+        >
+          <TabsList className="w-full flex-row">
+            <TabsTrigger
+              value="translations"
+              className="flex-1 items-center py-2"
+            >
+              <Text className="text-base">{t('translations')}</Text>
+            </TabsTrigger>
+            <TabsTrigger
+              value="transcriptions"
+              className="flex-1 items-center py-2"
+            >
+              <Text className="text-base">{t('transcriptions')}</Text>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="translations" className="flex-1">
+            <NextGenTranslationsList
+              assetId={currentAssetId}
+              assetName={activeAsset.name}
+              refreshKey={translationsRefreshKey}
+              projectData={
+                projectData
+                  ? {
+                      private: Boolean(projectData.private),
+                      name: projectData.name as string | undefined,
+                      id: projectData.id as string | undefined
+                    }
+                  : undefined
+              }
+              canVote={canTranslate}
+              membership={translateMembership}
+              submissionType="translation"
+            />
+          </TabsContent>
+
+          <TabsContent value="transcriptions" className="flex-1">
+            <NextGenTranslationsList
+              assetId={currentAssetId}
+              assetName={activeAsset.name}
+              refreshKey={translationsRefreshKey}
+              projectData={
+                projectData
+                  ? {
+                      private: Boolean(projectData.private),
+                      name: projectData.name as string | undefined,
+                      id: projectData.id as string | undefined
+                    }
+                  : undefined
+              }
+              canVote={canTranslate}
+              membership={translateMembership}
+              submissionType="transcription"
+            />
+          </TabsContent>
+        </Tabs>
       </View>
 
       {/* New Translation Button with PrivateAccessGate */}
@@ -834,12 +886,14 @@ export default function NextGenAssetDetailView() {
         >
           <Icon as={PlusIcon} size={24} />
           <Text className="font-bold text-secondary">
-            {t('newTranslation')}
+            {submissionTab === 'translations'
+              ? t('newTranslation')
+              : t('newTranscription')}
           </Text>
         </Button>
       )}
 
-      {/* New Translation Modal */}
+      {/* New Translation/Transcription Modal */}
       {canTranslate && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
@@ -850,6 +904,7 @@ export default function NextGenAssetDetailView() {
           assetContent={activeAsset.content}
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
+          submissionType={submissionType}
         />
       )}
 

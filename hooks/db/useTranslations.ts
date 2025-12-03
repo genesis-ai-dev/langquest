@@ -124,13 +124,18 @@ export function useTargetAssetsWithVoteCountByAssetId(
   voteRefreshKey: string,
   useOfflineData: boolean,
   sort: 'voteCount' | 'dateSubmitted',
-  sortOrder: SortOrder = 'desc'
+  sortOrder: SortOrder = 'desc',
+  submissionType: 'translation' | 'transcription' = 'translation'
 ) {
   const { sql: _, ...operators } = getOrderByOperators();
   const { currentUser } = useAuth();
 
   const conditions = [
     eq(asset.source_asset_id, asset_id),
+    // Handle NULL submission_type as 'translation' for backward compatibility
+    submissionType === 'translation'
+      ? sql`COALESCE(${asset.submission_type}, 'translation') = 'translation'`
+      : eq(asset.submission_type, submissionType),
     !retrieveHiddenContent && eq(asset.visible, true),
     // Only filter blocked content/users if user is authenticated
     currentUser?.id &&
@@ -151,7 +156,8 @@ export function useTargetAssetsWithVoteCountByAssetId(
       translationsRefreshKey || 0,
       voteRefreshKey,
       sort,
-      sortOrder
+      sortOrder,
+      submissionType
     ],
 
     // PowerSync query using Drizzle
@@ -215,6 +221,15 @@ export function useTargetAssetsWithVoteCountByAssetId(
 
       // Filter by source asset
       query = query.eq('source_asset_id', asset_id);
+
+      // Filter by submission type (handle NULL as 'translation' for backward compatibility)
+      if (submissionType === 'translation') {
+        query = query.or(
+          `submission_type.is.null,submission_type.eq.translation`
+        );
+      } else {
+        query = query.eq('submission_type', submissionType);
+      }
 
       // Filter by visibility if not retrieving hidden content
       if (!retrieveHiddenContent) {

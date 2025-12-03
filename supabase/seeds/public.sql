@@ -366,9 +366,9 @@ INSERT INTO "public"."quest_tag_link" ("quest_id", "tag_id", "active", "created_
 --
 
 -- Seed the translations as assets (matching the migration's translation-to-asset conversion)
-INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "project_id", "source_asset_id", "creator_id", "order_index", "download_profiles", "active") VALUES
-	('1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'bace07b1-41de-4535-9c68-aa81683d9370', '13120777-7cef-4942-b2b8-37cd9f241c1b', 'fd56eb4e-0b54-4715-863c-f865aee0b16d', 0, ARRAY['fd56eb4e-0b54-4715-863c-f865aee0b16d']::uuid[], true),
-	('38003a13-ec16-99cf-1973-c6bf864f63a8', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'bace07b1-41de-4535-9c68-aa81683d9370', '13120777-7cef-4942-b2b8-37cd9f241c1b', '135167eb-7a93-4d90-8b00-85508facac71', 0, ARRAY['135167eb-7a93-4d90-8b00-85508facac71']::uuid[], true);
+INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "project_id", "source_asset_id", "creator_id", "order_index", "download_profiles", "submission_type", "active") VALUES
+	('1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'bace07b1-41de-4535-9c68-aa81683d9370', '13120777-7cef-4942-b2b8-37cd9f241c1b', 'fd56eb4e-0b54-4715-863c-f865aee0b16d', 0, ARRAY['fd56eb4e-0b54-4715-863c-f865aee0b16d']::uuid[], 'translation', true),
+	('38003a13-ec16-99cf-1973-c6bf864f63a8', '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'bace07b1-41de-4535-9c68-aa81683d9370', '13120777-7cef-4942-b2b8-37cd9f241c1b', '135167eb-7a93-4d90-8b00-85508facac71', 0, ARRAY['135167eb-7a93-4d90-8b00-85508facac71']::uuid[], 'translation', true);
 
 -- Create asset_content_link records for the translation content
 INSERT INTO "public"."asset_content_link" ("id", "created_at", "last_updated", "asset_id", "source_language_id", "text", "audio", "download_profiles", "active") VALUES
