@@ -3,6 +3,7 @@ import {
   asset_content_link,
   asset_tag_link,
   profile_project_link,
+  project_language_link,
   quest,
   quest_asset_link,
   quest_tag_link,
@@ -13,6 +14,7 @@ import {
   asset_synced,
   asset_tag_link_synced,
   profile_project_link_synced,
+  project_language_link_synced,
   project_synced,
   quest_asset_link_synced,
   quest_synced,
@@ -214,7 +216,7 @@ export async function publishQuest(questId: string, projectId: string) {
 
     // IMPORTANT: Insert ALL data in a SINGLE transaction to maintain ordering
     // PowerSync preserves the order of operations within a transaction
-    // Order: project → profile_project_link → parent quests → child quests → assets → links
+    // Order: project → profile_project_link → project_language_link → parent quests → child quests → assets → links
     const audioUploadResults = await system.db.transaction(async (tx) => {
       // Step 1: Insert project FIRST (required for foreign keys)
       // IDEMPOTENT: Use INSERT OR IGNORE to allow re-publishing
@@ -237,6 +239,16 @@ export async function publishQuest(questId: string, projectId: string) {
           '⏭️ No new profile_project_links to publish (already synced)'
         );
       }
+
+      // Step 2b: Insert project_language_link (depends on project)
+      // PK is now (project_id, languoid_id, language_type) - languoid_id is required
+      const projectLanguageLinkColumns = getTableColumns(
+        project_language_link_synced
+      );
+      // Only publish links with languoid_id (required for PK)
+      const projectLanguageLinkQuery = `INSERT OR IGNORE INTO project_language_link_synced(${projectLanguageLinkColumns}) SELECT ${projectLanguageLinkColumns} FROM project_language_link_local WHERE project_id = '${projectId}' AND languoid_id IS NOT NULL AND source = 'local'`;
+      console.log('projectLanguageLinkQuery', projectLanguageLinkQuery);
+      await tx.run(sql.raw(projectLanguageLinkQuery));
 
       // Step 3: Insert quests (parents first, then children)
       const questColumns = getTableColumns(quest_synced);

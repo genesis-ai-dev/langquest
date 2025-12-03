@@ -29,6 +29,16 @@
  * The functions in this file handle both cases automatically:
  * - Schema functions (addColumn, renameColumn, dropColumn) access raw PowerSync
  * - Data functions (transformColumn, copyColumn, updateMetadataVersion) use views
+ *
+ * ⚠️  WARNING: DO NOT USE addColumn() FOR SCHEMA-DEFINED COLUMNS!
+ * ================================================================
+ * PowerSync creates local-only tables with ALL columns from the Drizzle schema.
+ * If a column is already defined in drizzleSchemaColumns.ts, it will already
+ * exist in the raw PowerSync table. Using addColumn() will corrupt the table
+ * by adding a duplicate column with a different structure.
+ *
+ * Only use addColumn() for truly DYNAMIC columns that are NOT in the schema.
+ * For most migrations, you only need DATA operations (UPDATE/INSERT via views).
  */
 
 import { sql } from 'drizzle-orm';
@@ -47,6 +57,10 @@ export type { DrizzleDB };
  *
  * CRITICAL: This modifies the underlying PowerSync table, not the view!
  * Views cannot be altered. We need to access the raw PowerSync table.
+ *
+ * ⚠️  WARNING: Do NOT use this for columns defined in drizzleSchemaColumns.ts!
+ * PowerSync auto-creates tables with schema-defined columns. Using addColumn()
+ * for existing columns will corrupt the table structure.
  *
  * @param db - Drizzle database instance (contains .powersync for raw access)
  * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
