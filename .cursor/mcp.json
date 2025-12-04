@@ -22,11 +22,6 @@
         "list_all_categories"
       ]
     },
-    // "coolors": {
-    //   "command": "npx",
-    //   "args": ["-y", "@trishchuk/coolors-mcp"],
-    //   "description": "When converting from HSL make sure to round the values to the nearest percentage."
-    // },
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?read_only=true"
     },

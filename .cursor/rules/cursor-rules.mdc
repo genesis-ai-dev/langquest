@@ -1,0 +1,183 @@
+---
+description: Guidelines for writing effective Cursor rules (.mdc files)
+alwaysApply: false
+---
+
+# Writing Cursor Rules
+
+Guidelines for creating effective `.mdc` rule files that provide clear, actionable guidance to the AI assistant.
+
+## File Structure
+
+### Frontmatter
+
+Every rule file must start with frontmatter:
+
+```yaml
+---
+description: Brief description of what this rule covers
+alwaysApply: false  # Set to true only if rule should always be active
+# globs:
+#   - '**/*.tsx'  # Optional: file patterns where rule applies
+---
+```
+
+**Best practices:**
+- `description`: Keep it concise (one sentence). Describe the rule's purpose.
+- `alwaysApply`: Default to `false`. Only set `true` for fundamental rules that should always be active.
+- `globs`: Use sparingly. Only specify if the rule applies to specific file patterns.
+
+## Content Guidelines
+
+### Be Specific and Actionable
+
+✅ **Good:**
+```markdown
+When creating a new React component:
+1. Use TypeScript with explicit prop types
+2. Export the component as default
+3. Place it in `components/` directory
+```
+
+❌ **Bad:**
+```markdown
+Components should be well-structured and follow best practices.
+```
+
+### Use Clear Examples
+
+Include code examples that demonstrate the rule:
+
+```markdown
+## Example
+
+```typescript
+// ✅ Correct
+export default function Button({ label }: { label: string }) {
+  return <button>{label}</button>;
+}
+
+// ❌ Incorrect
+export function Button(props: any) {
+  return <button>{props.label}</button>;
+}
+```
+
+### Organize with Headers
+
+Use clear hierarchical structure:
+
+```markdown
+## Main Topic
+
+### Subsection
+
+#### Specific Point
+```
+
+### Use Lists for Multiple Points
+
+Prefer bullet points or numbered lists for multiple related items:
+
+```markdown
+When handling errors:
+- Log the error with context
+- Show user-friendly message
+- Return fallback value
+```
+
+### Include DOs and DON'Ts
+
+Use clear positive and negative examples:
+
+```markdown
+### ✅ DO
+- Use descriptive variable names
+- Add TypeScript types
+
+### ❌ DON'T
+- Use single-letter variables
+- Use `any` type
+```
+
+## Writing Style
+
+**Note:** Follow general writing guidelines from `.cursor/rules/writing.mdc` for voice, tone, and style.
+
+### Be Direct
+
+- Write in imperative mood ("Use TypeScript" not "You should use TypeScript")
+- Avoid hedging ("Always" not "You might want to")
+- Be concise - remove unnecessary words
+
+### Focus on What Matters
+
+- Don't include obvious information
+- Focus on project-specific conventions
+- Explain the "why" when it's not obvious
+
+### Use Consistent Formatting
+
+- Use code blocks for code examples
+- Use backticks for inline code references
+- Use consistent markdown formatting
+
+## Common Patterns
+
+### Step-by-Step Processes
+
+For multi-step processes, use numbered lists:
+
+```markdown
+## Migration Process
+
+1. Update schema definition
+2. Create migration file
+3. Test locally
+4. Deploy to staging
+```
+
+### Conditional Rules
+
+Use clear conditional statements:
+
+```markdown
+When creating a new API endpoint:
+- If it's public: Add rate limiting
+- If it's authenticated: Check user permissions
+- If it modifies data: Include validation
+```
+
+### References
+
+Link to related documentation:
+
+```markdown
+## References
+
+- Migration guide: `db/migrations/README.md`
+- API docs: `docs/api.md`
+```
+
+## What to Avoid
+
+- ❌ Vague statements without examples
+- ❌ Overly long rules (break into multiple files)
+- ❌ Duplicating information from official docs
+- ❌ Including implementation details that change frequently
+- ❌ Rules that contradict each other
+
+## Rule Organization
+
+Group related rules:
+- Keep rules focused on a single topic
+- Use subdirectories for related rules (e.g., `supabase/`)
+- Name files descriptively (`app-database-migration.mdc` not `migration.mdc`)
+
+## Testing Your Rule
+
+After writing a rule:
+1. Read it as if you're new to the project
+2. Verify examples are accurate
+3. Check that it doesn't conflict with other rules
+4. Ensure it's actionable, not just descriptive

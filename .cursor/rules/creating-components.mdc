@@ -1,11 +1,69 @@
 ---
-description: Guidelines to follow when writing new components & pages/views
+description: Guidelines to follow when writing new components & pages/views based on components.build standards
 alwaysApply: false
 ---
 
 ## Methodology
 
-Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/composition).
+Follow the [components.build](https://www.components.build/) specification for building modern, composable, and accessible UI components. Use the [Composition Pattern](https://www.radix-ui.com/primitives/docs/guides/composition).
+
+## Artifact Taxonomy
+
+Understand the hierarchy of UI artifacts:
+
+1. **Primitive** - Lowest-level building block providing behavior and accessibility without styling (e.g., Radix UI Primitives)
+2. **Component** - Styled, reusable UI unit that adds visual design to primitives (e.g., shadcn/ui components)
+3. **Pattern** - Specific composition solving a UI/UX problem (e.g., form validation with inline errors)
+4. **Block** - Opinionated composition solving a concrete use case (e.g., pricing table, auth screens)
+5. **Page** - Complete single-route view composed of multiple blocks
+6. **Template** - Multi-page collection with routing and project structure
+7. **Utility** - Non-visual helper (hooks, class utilities, keybinding helpers)
+
+Most of our work focuses on **Components** and **Patterns**.
+
+## Core Principles
+
+### Composability and Reusability
+
+- Favor composition over inheritance
+- Build components that can be combined and nested
+- Expose clear API via props/slots for customization
+- Make components reusable in different contexts
+
+### Accessible by Default
+
+- Use semantic HTML elements appropriate to component's role
+- Augment with WAI-ARIA attributes when necessary
+- Ensure keyboard navigation and focus management
+- Test with screen readers
+- Accessibility is not optional - it's a baseline feature
+
+### Customizability and Theming
+
+- Avoid hard-coding visual styles that cannot be overridden
+- Provide mechanisms for theming (CSS variables, className, style props)
+- Come with sensible defaults but allow easy customization
+- Use design tokens for visual values
+
+### Lightweight and Performant
+
+- Minimize dependencies
+- Avoid bloating with unnecessary logic
+- Strive for good rendering and interaction performance
+- Minimize unnecessary re-renders
+
+### Transparency and Code Ownership
+
+- Components should not be black boxes
+- Code should be inspectable and modifiable
+- Provide source maps and readable code
+
+### Well-documented and DX-Friendly
+
+- Clear documentation with examples
+- Document purpose, props, and usage
+- Include accessibility notes (keyboard controls, ARIA attributes)
+- Document customization options
 
 ## Existing Components
 
@@ -14,6 +72,54 @@ Before creating a new UI component, check these resources for existing component
 - [React Native Reusables](https://reactnativereusables.com/docs) - Official documentation
 - [React Native Primitives](https://rn-primitives.vercel.app/) - Radix UI primitives for React Native
 - [React Native Reusables - Community Resources](https://github.com/founded-labs/react-native-reusables/blob/main/COMMUNITY_RESOURCES.md) - Community-contributed components and examples (ignore the drawer suggestion)
+
+## Composition Patterns
+
+### Children / Slots
+
+- **Children** (implicit slot): JSX between opening/closing tags
+- **Named slots**: Props like `icon`, `footer`, or `<Component.Slot>` subcomponents
+- **Slot forwarding**: Pass DOM attributes/className/refs through to underlying element
+
+### Render Props (Function-as-Child)
+
+Use when parent must own data/behavior but consumer must fully control markup:
+
+```tsx
+<ParentComponent data={data}>
+  {(item) => <ChildComponent key={item.id} {...item} />}
+</ParentComponent>
+```
+
+### Compound Components
+
+Use subcomponents to compose complex UI:
+
+```tsx
+<Card>
+  <Card.Header>Title</Card.Header>
+  <Card.Content>Body</Card.Content>
+  <Card.Footer>Actions</Card.Footer>
+</Card>
+```
+
+### Controlled vs. Uncontrolled
+
+- **Controlled**: Value driven by props, emits `onChange` (source of truth is parent)
+- **Uncontrolled**: Holds internal state, may expose `defaultValue` and imperative reset
+- Many inputs should support both patterns
+
+### Polymorphism / asChild
+
+Use `asChild` prop to allow component to render as a different element:
+
+```tsx
+<Button asChild>
+  <Link href="/">Click me</Link>
+</Button>
+```
+
+This renders as `<Link>` instead of `<button>`, preserving all Button behavior.
 
 ## Icons
 
@@ -25,19 +131,80 @@ Before creating a new UI component, check these resources for existing component
 
 ## Implementation Notes
 
-- **Library Selection**: Before reaching for a third-party library, check the [Expo SDK documentation](https://docs.expo.dev/versions/latest/) for first-party solutions. Expo provides well-maintained, cross-platform APIs for many common needs (camera, file system, haptics, etc.) that integrate seamlessly with the Expo ecosystem.
+### Library Selection
+
+Before reaching for a third-party library, check the [Expo SDK documentation](https://docs.expo.dev/versions/latest/) for first-party solutions. Expo provides well-maintained, cross-platform APIs for many common needs (camera, file system, haptics, etc.) that integrate seamlessly with the Expo ecosystem.
+
+### Styling
 
 - Don't use margin (`m-*` properties in tailwind), use views with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
-
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
-
 - Don't use Tailwind leading-none or actually anything that would have a line-height of less than 1.3, because it causes text clipping.
+- Use **variants** for discrete style/behavior permutations (e.g., `size="sm|md|lg"`, `tone="neutral|destructive"`). Variants are not separate components.
+- Use **design tokens** (CSS variables) for theming: `--color-bg`, `--radius-md`, `--space-2`
+- Support **className** merging for customization
+- Components should be **headless** (behavior only) or **styled** (default visual design but override-friendly)
 
-- **React 19**: Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.
+### Data Attributes
 
-- **Colors accessed in JavaScript**: When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
+Use data attributes for styling hooks and state:
 
-- **Worklet Threading**: Don't use `runOnJS` from `react-native-reanimated`. Instead, use `react-native-worklets` for scheduling work on the React Native thread from worklets. Don't use `queueMicrotask` directly - always use `scheduleOnRN` from `react-native-worklets` to defer state updates and ensure they run on the React Native thread. **CRITICAL**: When using `scheduleOnRN`, you MUST pass function references (named functions declared outside the worklet), never anonymous functions or arrow functions inline - these will cause crashes. Always declare wrapper functions outside your worklet and pass them by reference. Example: Declare `const updateState = (value) => setState(value);` outside the worklet, then use `scheduleOnRN(updateState, newValue)`.
+- `data-slot` - Identify component parts for styling
+- `data-state` - Indicate component state (open, closed, checked, etc.)
+- `data-disabled`, `data-selected`, etc. - State indicators
+
+Example:
+
+```tsx
+<View data-slot="trigger" data-state={isOpen ? 'open' : 'closed'}>
+```
+
+### Types and Props API
+
+- **TypeScript**: Ship with comprehensive types for maximum safety and autocomplete
+- **Props API**: Stable, typed, documented with defaults and a11y ramifications
+- Support both **controlled** and **uncontrolled** patterns where applicable
+- Document all props: name, type, default, required, description
+
+### React 19
+
+- Don't use `React.forwardRef` anymore. In React 19, components can accept `ref` as a regular prop directly. Simply add `ref` to your component's props interface and use it directly.
+
+### Colors accessed in JavaScript
+
+When using colors in JavaScript (not in Tailwind classes), always use the `useThemeColor` hook from `components` to ensure proper dark and light mode color switching automatically. In non-component contexts, use `getThemeColor` which gets the theme at the time the function is run.
+
+### Worklet Threading
+
+Don't use `runOnJS` from `react-native-reanimated`. Instead, use `react-native-worklets` for scheduling work on the React Native thread from worklets. Don't use `queueMicrotask` directly - always use `scheduleOnRN` from `react-native-worklets` to defer state updates and ensure they run on the React Native thread. **CRITICAL**: When using `scheduleOnRN`, you MUST pass function references (named functions declared outside the worklet), never anonymous functions or arrow functions inline - these will cause crashes. Always declare wrapper functions outside your worklet and pass them by reference. Example: Declare `const updateState = (value) => setState(value);` outside the worklet, then use `scheduleOnRN(updateState, newValue)`.
+
+## Accessibility
+
+### Keyboard Navigation
+
+- Document and implement keyboard map for every interactive component
+- Support standard patterns: `Tab`, `Arrow keys`, `Home/End`, `Escape`
+- Ensure all interactive elements are keyboard accessible
+
+### Focus Management
+
+- Rules for initial focus, roving focus, focus trapping
+- Focus return on teardown (e.g., modals)
+- Focus indicators visible and clear
+
+### ARIA Attributes
+
+- Use semantic HTML elements (`<button>`, `<ul>/<li>`, etc.)
+- Augment with ARIA when necessary:
+  - `role` - Communicate semantics (`role="menu"`)
+  - `aria-*` states - State (`aria-checked`, `aria-expanded`)
+  - `aria-*` properties - Relationships (`aria-controls`, `aria-labelledby`)
+- Test with screen readers
+
+### Color Contrast
+
+- Ensure sufficient color contrast for text and interactive elements
+- Don't rely solely on color to convey information
 
 ## React Compiler & Memoization
 
@@ -56,3 +223,17 @@ While React Compiler can automatically memoize components, it has limitations an
 - **Composition Over Memoization**: When dealing with re-render issues, prefer composition techniques (moving state down, splitting contexts, extracting components) over manual memoization when possible.
 
 - **ESLint Disable Comments**: Never use `// eslint-disable-next-line` or similar ESLint disable comments in your code. These comments prevent React Compiler from properly analyzing and optimizing your code. If ESLint flags an issue, fix the underlying problem rather than suppressing the warning. For legitimate cases where a dependency should be excluded (like stable functions or refs), refactor the code to make the stability explicit rather than disabling the exhaustive-deps rule.
+
+## References
+
+- [components.build Specification](https://www.components.build/)
+- [components.build Definitions](https://www.components.build/definitions)
+- [components.build Core Principles](https://www.components.build/principles)
+- [components.build Composition](https://www.components.build/composition)
+- [components.build Accessibility](https://www.components.build/accessibility)
+- [components.build Design Tokens](https://www.components.build/design-tokens)
+- [components.build Styling](https://www.components.build/styling)
+- [components.build Types](https://www.components.build/types)
+- [components.build Polymorphism](https://www.components.build/polymorphism)
+- [components.build asChild](https://www.components.build/as-child)
+- [components.build Data Attributes](https://www.components.build/data-attributes)
