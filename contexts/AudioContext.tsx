@@ -57,7 +57,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Start updating position at regular intervals when playing
   const startPositionTracking = () => {
     clearPositionInterval();
-    isTrackingPosition.value = true;
+    isTrackingPositionRef.current.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
       if (soundRef.current) {
@@ -69,7 +69,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               cumulativeDuration += segmentDurations.current[i] || 0;
             }
             const totalPosition = cumulativeDuration + status.positionMillis;
-            cumulativePositionShared.value = totalPosition; // Update SharedValue
+            cumulativePositionSharedRef.current.value = totalPosition; // Update SharedValue
             setPositionState(totalPosition);
           }
         });
@@ -215,7 +215,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           0
         );
         setDuration(totalDuration);
-        durationShared.value = totalDuration; // Update SharedValue
+        durationSharedRef.current.value = totalDuration; // Update SharedValue
       }
 
       // Start tracking position
@@ -229,7 +229,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         if (status.didJustFinish) {
           clearPositionInterval();
-          isTrackingPosition.value = false;
+          isTrackingPositionRef.current.value = false;
           void sound.unloadAsync();
           soundRef.current = null;
 
@@ -241,8 +241,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             setIsPlaying(false);
             setCurrentAudioId(null);
             setPositionState(0);
-            positionShared.value = 0;
-            durationShared.value = 0;
+            positionSharedRef.current.value = 0;
+            durationSharedRef.current.value = 0;
           }
         }
       });
@@ -283,7 +283,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         0
       );
       setDuration(totalDuration);
-      durationShared.value = totalDuration; // Update SharedValue
+      durationSharedRef.current.value = totalDuration; // Update SharedValue
     } catch {
       // Failed to preload durations, will calculate on the fly
     }
@@ -322,10 +322,34 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAudio() {
+/**
+ * Hook to access audio playback functionality.
+ * @param options - Configuration options
+ * @param options.stopOnUnmount - Whether to stop audio when component unmounts (default: true)
+ */
+export function useAudio(options?: { stopOnUnmount?: boolean }) {
   const context = useContext(AudioContext);
   if (context === undefined) {
     throw new Error('useAudio must be used within an AudioProvider');
   }
+
+  const stopOnUnmount = options?.stopOnUnmount ?? true;
+  const stopCurrentSoundRef = React.useRef(context.stopCurrentSound);
+
+  // Keep ref updated with latest function
+  React.useEffect(() => {
+    stopCurrentSoundRef.current = context.stopCurrentSound;
+  }, [context.stopCurrentSound]);
+
+  // Stop playback when component unmounts (unless disabled)
+  React.useEffect(() => {
+    if (!stopOnUnmount) {
+      return;
+    }
+    return () => {
+      void stopCurrentSoundRef.current();
+    };
+  }, [stopOnUnmount]);
+
   return context;
 }
