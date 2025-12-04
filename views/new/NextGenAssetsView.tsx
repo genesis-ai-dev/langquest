@@ -27,6 +27,7 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import {
   ArrowBigDownDashIcon,
@@ -46,7 +47,7 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -440,7 +441,8 @@ export default function NextGenAssetsView() {
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
@@ -567,7 +569,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -611,7 +613,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       console.log(
@@ -907,16 +909,16 @@ export default function NextGenAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
+        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
-        Alert.alert(t('error'), result.message || t('error'), [
+        RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok') }
         ]);
       }
     },
     onError: (error) => {
       console.error('Publish error:', error);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
         [{ text: t('ok') }]
@@ -1002,14 +1004,14 @@ export default function NextGenAssetsView() {
 
       console.log('✅ [Offload] All queries invalidated');
 
-      Alert.alert(t('success'), t('offloadComplete'));
+      RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError'));
+      RNAlert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }
@@ -1100,7 +1102,7 @@ export default function NextGenAssetsView() {
                   variant="outline"
                   className="h-10 px-4 py-0"
                   onPress={() => {
-                    Alert.alert(t('questSyncedToCloud'));
+                    RNAlert.alert(t('questSyncedToCloud'));
                   }}
                 >
                   <View className="flex-row items-center gap-0.5">
@@ -1141,12 +1143,12 @@ export default function NextGenAssetsView() {
                   disabled={isPublishing || !isOnline || !isMember}
                   onPress={() => {
                     if (!isOnline) {
-                      Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
                       return;
                     }
 
                     if (!isMember) {
-                      Alert.alert(t('error'), t('membersOnlyPublish'));
+                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
                       return;
                     }
 
@@ -1158,7 +1160,7 @@ export default function NextGenAssetsView() {
                     // Use quest name if available, otherwise generic message
                     const questName = selectedQuest?.name || 'this chapter';
 
-                    Alert.alert(
+                    RNAlert.alert(
                       t('publishChapter'),
                       t('publishChapterMessage').replace(
                         '{questName}',

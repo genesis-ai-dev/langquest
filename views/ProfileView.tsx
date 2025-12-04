@@ -46,7 +46,8 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Platform, Alert as RNAlert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -220,24 +221,20 @@ export default function ProfileView() {
                 loading={seedDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  if (Platform.OS === 'web') {
-                    void seedDatabase();
-                  } else {
-                    RNAlert.alert(
-                      'Seed data',
-                      'This will reset local development data and seed the database. Continue?',
-                      [
-                        { text: t('cancel'), style: 'cancel' },
-                        {
-                          text: t('confirm'),
-                          style: 'destructive',
-                          onPress: () => {
-                            void seedDatabase();
-                          }
+                  RNAlert.alert(
+                    'Seed data',
+                    'This will reset local development data and seed the database. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void seedDatabase();
                         }
-                      ]
-                    );
-                  }
+                      }
+                    ]
+                  );
                 }}
               >
                 <Text>Seed data</Text>
@@ -247,24 +244,20 @@ export default function ProfileView() {
                 loading={deleteDatabasePending}
                 className="flex-1"
                 onPress={() => {
-                  if (Platform.OS === 'web') {
-                    void deleteDatabase();
-                  } else {
-                    RNAlert.alert(
-                      'Delete data',
-                      'This will reset local development data. Continue?',
-                      [
-                        { text: t('cancel'), style: 'cancel' },
-                        {
-                          text: t('confirm'),
-                          style: 'destructive',
-                          onPress: () => {
-                            void deleteDatabase();
-                          }
+                  RNAlert.alert(
+                    'Delete data',
+                    'This will reset local development data. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void deleteDatabase();
                         }
-                      ]
-                    );
-                  }
+                      }
+                    ]
+                  );
                 }}
               >
                 <Text>Wipe local db</Text>
@@ -275,24 +268,20 @@ export default function ProfileView() {
               loading={deleteAttachmentsPending}
               className="w-full"
               onPress={() => {
-                if (Platform.OS === 'web') {
-                  void deleteAttachments();
-                } else {
-                  RNAlert.alert(
-                    'Delete local attachments',
-                    'This will reset local attachments. Continue?',
-                    [
-                      { text: t('cancel'), style: 'cancel' },
-                      {
-                        text: t('confirm'),
-                        style: 'destructive',
-                        onPress: () => {
-                          void deleteAttachments();
-                        }
+                RNAlert.alert(
+                  'Delete local attachments',
+                  'This will reset local attachments. Continue?',
+                  [
+                    { text: t('cancel'), style: 'cancel' },
+                    {
+                      text: t('confirm'),
+                      style: 'destructive',
+                      onPress: () => {
+                        void deleteAttachments();
                       }
-                    ]
-                  );
-                }
+                    }
+                  ]
+                );
               }}
             >
               <Text>Wipe local attachments</Text>

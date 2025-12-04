@@ -13,7 +13,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import * as Clipboard from 'expo-clipboard';
 import { CopyIcon, GlobeIcon, Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 import { FEATURE_FLAG_SHOW_FEEDBACK_EXPORT } from '@/utils/featureFlags';
 
@@ -55,7 +56,7 @@ export function ExportTypeSelector({
       // If we already have an export with a share_url, use it
       if (shareUrl) {
         await Clipboard.setStringAsync(shareUrl);
-        Alert.alert(successTitle, linkCopiedMessage);
+        RNAlert.alert(successTitle, linkCopiedMessage);
         setIsCopyingLink(false);
         return;
       }
@@ -73,7 +74,7 @@ export function ExportTypeSelector({
             if (data.status === 'ready' && data.share_url) {
               Clipboard.setStringAsync(data.share_url)
                 .then(() => {
-                  Alert.alert(successTitle, linkCopiedMessage);
+                  RNAlert.alert(successTitle, linkCopiedMessage);
                   setIsCopyingLink(false);
                 })
                 .catch((error) => {
@@ -81,7 +82,7 @@ export function ExportTypeSelector({
                     error instanceof Error
                       ? error.message
                       : exportFailedMessage;
-                  Alert.alert(errorTitle, errorMessage);
+                  RNAlert.alert(errorTitle, errorMessage);
                   setIsCopyingLink(false);
                 });
             } else {
@@ -94,7 +95,7 @@ export function ExportTypeSelector({
               error.message ||
               exportFailedMessage ||
               'Failed to create export link';
-            Alert.alert(errorTitle, errorMessage);
+            RNAlert.alert(errorTitle, errorMessage);
             setIsCopyingLink(false);
           }
         }
@@ -102,7 +103,7 @@ export function ExportTypeSelector({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : exportFailedMessage;
-      Alert.alert(errorTitle, errorMessage);
+      RNAlert.alert(errorTitle, errorMessage);
       setIsCopyingLink(false);
     }
   };
@@ -116,14 +117,14 @@ export function ExportTypeSelector({
     ) {
       Clipboard.setStringAsync(exportData.share_url)
         .then(() => {
-          Alert.alert(
+          RNAlert.alert(
             t('success') || 'Success',
             t('linkCopied') || 'Link copied to clipboard!'
           );
           setIsCopyingLink(false);
         })
         .catch((error) => {
-          Alert.alert(
+          RNAlert.alert(
             t('error') || 'Error',
             error instanceof Error
               ? error.message

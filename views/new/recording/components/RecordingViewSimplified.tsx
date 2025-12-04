@@ -24,6 +24,7 @@ import {
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -32,7 +33,7 @@ import { and, asc, eq, getTableColumns } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import { ArrowLeft, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
-import { Alert, InteractionManager, View } from 'react-native';
+import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
@@ -492,7 +493,8 @@ const RecordingViewSimplified = ({
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
@@ -624,7 +626,7 @@ const RecordingViewSimplified = ({
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -669,7 +671,7 @@ const RecordingViewSimplified = ({
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       debugLog(
@@ -1512,7 +1514,7 @@ const RecordingViewSimplified = ({
                   // Get the full URI for this audio
                   let audioUri: string | null = null;
                   if (audioValue.startsWith('local/')) {
-                    audioUri = getLocalAttachmentUriWithOPFS(audioValue);
+                    audioUri = await getLocalAttachmentUriWithOPFS(audioValue);
                   } else if (audioValue.startsWith('file://')) {
                     audioUri = audioValue;
                   } else if (system.permAttachmentQueue) {
@@ -1723,7 +1725,7 @@ const RecordingViewSimplified = ({
     );
     if (selectedOrdered.length < 2) return;
 
-    Alert.alert(
+    RNAlert.alert(
       'Merge Assets',
       `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
       [
@@ -1792,7 +1794,7 @@ const RecordingViewSimplified = ({
                 debugLog('✅ Batch merge completed');
               } catch (e) {
                 console.error('Failed to batch merge local assets', e);
-                Alert.alert(
+                RNAlert.alert(
                   'Error',
                   'Failed to merge assets. Please try again.'
                 );
@@ -1817,7 +1819,7 @@ const RecordingViewSimplified = ({
     );
     if (selectedOrdered.length < 1) return;
 
-    Alert.alert(
+    RNAlert.alert(
       'Delete Assets',
       `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
       [
@@ -1846,7 +1848,7 @@ const RecordingViewSimplified = ({
                 );
               } catch (e) {
                 console.error('Failed to batch delete local assets', e);
-                Alert.alert(
+                RNAlert.alert(
                   'Error',
                   'Failed to delete assets. Please try again.'
                 );
@@ -1891,7 +1893,7 @@ const RecordingViewSimplified = ({
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
           console.warn('⚠️ Rename blocked:', error.message);
-          Alert.alert('Error', error.message);
+          RNAlert.alert('Error', error.message);
         }
       }
     },

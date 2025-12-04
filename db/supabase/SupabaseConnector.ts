@@ -25,7 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
-import { Alert } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
@@ -569,7 +569,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           );
         }
         try {
-          Alert.alert(
+          RNAlert.alert(
             'Upload issue',
             `There was an issue uploading your content. We're investigating and your data will be made available to others as soon as possible. Reference code: ${response.ref_code ?? 'N/A'}`
           );

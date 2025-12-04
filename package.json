@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
+    "@blazejkustra/react-native-alert": "^1.0.0",
     "@expo-google-fonts/noto-sans": "^0.4.2",
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "^5.2.6",
@@ -64,7 +65,6 @@
     "@powersync/tanstack-react-query": "^0.1.6",
     "@powersync/web": "^1.27.1",
     "@quidone/react-native-wheel-picker": "^1.6.1",
-    "@quidone/react-native-wheel-picker-feedback": "^2.0.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-documents/picker": "^10.1.5",

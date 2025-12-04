@@ -171,6 +171,20 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     return this.saveToQueue(photoAttachment);
   }
 
+  /**
+   * Saves an audio file to the shared_attachments folder and creates an attachment record.
+   *
+   * @param tempUri - The temporary URI of the audio file to save. Must be a file:// URI or local path, not a blob URL.
+   * @param tx - Optional transaction context for database operations.
+   * @returns A promise that resolves to the created AttachmentRecord.
+   * @throws Error if tempUri is a blob URL (must be converted to file first).
+   *
+   * @example
+   * ```typescript
+   * const audioUri = await saveAudioLocally(blobUrl);
+   * const attachment = await permAttachmentQueue.saveAudio(audioUri);
+   * ```
+   */
   async saveAudio(
     tempUri: string,
     tx?: Parameters<Parameters<typeof this.db.transaction>[0]>[0]
@@ -187,17 +201,6 @@ export class PermAttachmentQueue extends AbstractSharedAttachmentQueue {
     }
 
     const recordId = getFileName(tempUri)!;
-
-    // Double-check the recordId doesn't contain blob URL
-    if (recordId.includes('blob:')) {
-      console.error(
-        '[PermAttachmentQueue] getFileName returned blob URL:',
-        recordId
-      );
-      throw new Error(
-        'Invalid file path - contains blob URL. Must use proper file path.'
-      );
-    }
 
     const audioAttachment = await this.newAttachmentRecord({
       id: recordId
