@@ -16,6 +16,7 @@ import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 
@@ -87,9 +88,12 @@ export function MigrationScreen() {
   }
 
   useEffect(() => {
-    queueMicrotask(() => {
+    // Use scheduleOnRN instead of queueMicrotask per workspace rules
+    // Declare wrapper function outside to pass as reference
+    const startMigration = () => {
       void runMigration();
-    });
+    };
+    scheduleOnRN(startMigration);
   }, []);
 
   function handleRetry() {
