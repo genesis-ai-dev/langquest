@@ -65,7 +65,6 @@
     "@powersync/tanstack-react-query": "^0.1.6",
     "@powersync/web": "^1.27.1",
     "@quidone/react-native-wheel-picker": "^1.6.1",
-    "@quidone/react-native-wheel-picker-feedback": "^2.0.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-documents/picker": "^10.1.5",
