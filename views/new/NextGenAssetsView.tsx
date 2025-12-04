@@ -441,7 +441,8 @@ export default function NextGenAssetsView() {
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            const constructedUri = await getLocalAttachmentUriWithOPFS(audioValue);
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
