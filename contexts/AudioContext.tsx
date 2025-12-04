@@ -334,6 +334,12 @@ export function useAudio(options?: { stopOnUnmount?: boolean }) {
   }
 
   const stopOnUnmount = options?.stopOnUnmount ?? true;
+  const stopCurrentSoundRef = React.useRef(context.stopCurrentSound);
+
+  // Keep ref updated with latest function
+  React.useEffect(() => {
+    stopCurrentSoundRef.current = context.stopCurrentSound;
+  }, [context.stopCurrentSound]);
 
   // Stop playback when component unmounts (unless disabled)
   React.useEffect(() => {
@@ -341,9 +347,9 @@ export function useAudio(options?: { stopOnUnmount?: boolean }) {
       return;
     }
     return () => {
-      void context.stopCurrentSound();
+      void stopCurrentSoundRef.current();
     };
-  }, [context, stopOnUnmount]);
+  }, [stopOnUnmount]);
 
   return context;
 }
