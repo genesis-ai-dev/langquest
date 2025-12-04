@@ -156,7 +156,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
 
         // Handle direct local URIs (from recording view before publish)
         if (audioValue.startsWith('local/')) {
-          const constructedUri = await getLocalAttachmentUriWithOPFS(audioValue);
+          const constructedUri =
+            await getLocalAttachmentUriWithOPFS(audioValue);
           // Check if file exists at constructed path
           if (await fileExists(constructedUri)) {
             localUri = constructedUri;
@@ -336,7 +337,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
               // Find any local URI in the fallback link
               for (const fallbackAudioValue of fallbackLocalLink.audio) {
                 if (fallbackAudioValue.startsWith('local/')) {
-                  localUri = await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                  localUri =
+                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                   console.log(
                     `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
                   );
@@ -407,7 +409,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
               // Find any local URI in the fallback link
               for (const fallbackAudioValue of fallbackLocalLink.audio) {
                 if (fallbackAudioValue.startsWith('local/')) {
-                  localUri = await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                  localUri =
+                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                   console.log(
                     `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
                   );
