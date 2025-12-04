@@ -277,7 +277,7 @@ export async function saveAudioLocally(uri: string) {
     throw new Error(errorMsg);
   }
 
-  const newPath = getLocalUri(getLocalFilePathSuffix(newUri));
+  const newPath = getLocalAttachmentUri(newUri);
   await ensureDir(getDirectory(newPath));
 
   // Debug: Log the URIs before moving
@@ -302,9 +302,6 @@ export async function saveAudioLocally(uri: string) {
     throw error;
   }
 
-  console.log(
-    '✅ Audio file saved locally:',
-    `${getLocalUri(getLocalFilePathSuffix('local'))}/${newUri}`
-  );
+  console.log('✅ Audio file saved locally:', getLocalAttachmentUri(newUri));
   return newUri;
 }

@@ -106,6 +106,15 @@ export async function readFile(
 
 export async function deleteFile(_uri: string) {
   console.log('deleteFile', _uri);
+
+  // If it's a blob URL, revoke it and return early
+  if (_uri.startsWith('blob:')) {
+    console.log('Revoking blob URL:', _uri);
+    URL.revokeObjectURL(_uri);
+    return;
+  }
+
+  // Otherwise, proceed with OPFS file deletion
   const pathSegments = _uri.split('/');
   const fileName = pathSegments.pop();
   const directoryPath = pathSegments.join('/');
@@ -158,6 +167,16 @@ export function getLocalUri(filePath: string) {
 }
 
 export async function getFileInfo(_uri: string | null | undefined) {
+  if (_uri?.startsWith('blob:')) {
+    const response = await fetch(_uri);
+    const blob = await response.blob();
+    return {
+      exists: true,
+      isDirectory: false,
+      size: blob.size,
+      lastModified: 0
+    };
+  }
   console.log('getFileInfo', _uri);
   const handle = await getOPFSHandle(_uri ?? '', 'file');
   const file = await handle?.getFile();
