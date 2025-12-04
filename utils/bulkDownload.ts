@@ -11,6 +11,15 @@ interface DiscoveredIds {
   assetTagLinkIds: string[];
   tagIds: string[];
   languageIds: string[];
+  languoidIds: string[];
+  languoidAliasIds: string[];
+  languoidSourceIds: string[];
+  languoidPropertyIds: string[];
+  languoidRegionIds: string[];
+  regionIds: string[];
+  regionAliasIds: string[];
+  regionSourceIds: string[];
+  regionPropertyIds: string[];
 }
 
 interface BulkDownloadResult {
@@ -205,6 +214,82 @@ export async function bulkDownloadQuest(
       discoveredIds.languageIds
     );
     results.push({ tableName: 'language', recordsUpdated: languagesUpdated });
+
+    // Update languoid-related tables
+    const languoidsUpdated = await updateTable(
+      'languoid',
+      discoveredIds.languoidIds
+    );
+    results.push({
+      tableName: 'languoid',
+      recordsUpdated: languoidsUpdated
+    });
+
+    const languoidAliasesUpdated = await updateTable(
+      'languoid_alias',
+      discoveredIds.languoidAliasIds
+    );
+    results.push({
+      tableName: 'languoid_alias',
+      recordsUpdated: languoidAliasesUpdated
+    });
+
+    const languoidSourcesUpdated = await updateTable(
+      'languoid_source',
+      discoveredIds.languoidSourceIds
+    );
+    results.push({
+      tableName: 'languoid_source',
+      recordsUpdated: languoidSourcesUpdated
+    });
+
+    const languoidPropertiesUpdated = await updateTable(
+      'languoid_property',
+      discoveredIds.languoidPropertyIds
+    );
+    results.push({
+      tableName: 'languoid_property',
+      recordsUpdated: languoidPropertiesUpdated
+    });
+
+    const languoidRegionsUpdated = await updateTable(
+      'languoid_region',
+      discoveredIds.languoidRegionIds
+    );
+    results.push({
+      tableName: 'languoid_region',
+      recordsUpdated: languoidRegionsUpdated
+    });
+
+    const regionsUpdated = await updateTable('region', discoveredIds.regionIds);
+    results.push({ tableName: 'region', recordsUpdated: regionsUpdated });
+
+    const regionAliasesUpdated = await updateTable(
+      'region_alias',
+      discoveredIds.regionAliasIds
+    );
+    results.push({
+      tableName: 'region_alias',
+      recordsUpdated: regionAliasesUpdated
+    });
+
+    const regionSourcesUpdated = await updateTable(
+      'region_source',
+      discoveredIds.regionSourceIds
+    );
+    results.push({
+      tableName: 'region_source',
+      recordsUpdated: regionSourcesUpdated
+    });
+
+    const regionPropertiesUpdated = await updateTable(
+      'region_property',
+      discoveredIds.regionPropertyIds
+    );
+    results.push({
+      tableName: 'region_property',
+      recordsUpdated: regionPropertiesUpdated
+    });
 
     console.log('📥 [Bulk Download] Completed successfully:', results);
     return results;

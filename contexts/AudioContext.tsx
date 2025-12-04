@@ -40,6 +40,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Use SharedValue instead of ref for worklet access (prevents serialization warnings)
   const isTrackingPosition = useSharedValue(false);
 
+  // Store SharedValues in refs to satisfy React Compiler (they're stable references)
+  const positionSharedRef = useRef(positionShared);
+  const durationSharedRef = useRef(durationShared);
+  const cumulativePositionSharedRef = useRef(cumulativePositionShared);
+  const isTrackingPositionRef = useRef(isTrackingPosition);
+
   // Clear the position update interval
   const clearPositionInterval = () => {
     if (positionUpdateInterval.current) {
@@ -88,35 +94,41 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const stopCurrentSound = async () => {
     clearPositionInterval();
-    isTrackingPosition.value = false;
+    // Update SharedValue via ref to satisfy React Compiler
+    isTrackingPositionRef.current.value = false;
 
     // Reset sequence state
     sequenceQueue.current = [];
     currentSequenceIndex.current = 0;
     segmentDurations.current = [];
-    cumulativePositionShared.value = 0;
+    // Update SharedValue via ref to satisfy React Compiler
+    cumulativePositionSharedRef.current.value = 0;
 
     if (soundRef.current) {
       await soundRef.current.stopAsync();
       await soundRef.current.unloadAsync();
       soundRef.current = null;
-      setIsPlaying(false);
-      setCurrentAudioId(null);
-      setPositionState(0);
-      setDuration(0);
-
-      // Reset SharedValues
-      positionShared.value = 0;
-      durationShared.value = 0;
     }
+
+    // Always reset state, even if soundRef.current is null
+    // This fixes the issue where pause state gets stuck
+    setIsPlaying(false);
+    setCurrentAudioId(null);
+    setPositionState(0);
+    setDuration(0);
+
+    // Reset SharedValues via refs to satisfy React Compiler
+    positionSharedRef.current.value = 0;
+    durationSharedRef.current.value = 0;
   };
 
   const setPosition = async (newPosition: number) => {
     if (soundRef.current && isPlaying) {
       await soundRef.current.setPositionAsync(newPosition);
       setPositionState(newPosition);
-      cumulativePositionShared.value = newPosition;
-      positionShared.value = newPosition; // Update SharedValue
+      // Update SharedValues via refs to satisfy React Compiler
+      cumulativePositionSharedRef.current.value = newPosition;
+      positionSharedRef.current.value = newPosition;
     }
   };
 
@@ -128,11 +140,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         await playSound(nextUri, currentAudioId || undefined, true);
       }
     } else {
-      // Sequence finished
+      // Sequence finished - reset all state
       sequenceQueue.current = [];
       currentSequenceIndex.current = 0;
       segmentDurations.current = [];
-      cumulativePositionShared.value = 0;
+      // Reset SharedValues via refs to satisfy React Compiler
+      cumulativePositionSharedRef.current.value = 0;
+      positionSharedRef.current.value = 0;
+      durationSharedRef.current.value = 0;
+      isTrackingPositionRef.current.value = false;
+      setIsPlaying(false);
+      setCurrentAudioId(null);
+      setPositionState(0);
+      setDuration(0);
+      clearPositionInterval();
     }
   };
 
@@ -141,13 +162,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     audioId?: string,
     isSequencePart = false
   ) => {
-    console.log('🎵 AudioContext.playSound - URI:', uri.slice(0, 80));
-    console.log('🎵 AudioContext.playSound - audioId:', audioId?.slice(0, 12));
-    console.log('🎵 Is part of sequence:', isSequencePart);
-
     // Stop current sound if any is playing (but preserve sequence state)
     if (soundRef.current) {
-      console.log('🛑 Stopping previous sound');
       clearPositionInterval();
 
       // Store the duration of the previous segment if part of a sequence
@@ -165,7 +181,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Set up audio mode
-    console.log('🔊 Setting audio mode...');
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
@@ -174,13 +189,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     // Load and play new sound
     try {
-      console.log('📂 Creating Audio.Sound from URI...');
-      console.log('🔍 URI:', uri);
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: true }
       );
-      console.log('✅ Sound created successfully');
 
       soundRef.current = sound;
       setIsPlaying(true);
@@ -191,10 +203,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       // Get initial status to set the duration
       const status = await sound.getStatusAsync();
-      console.log(
-        '📊 Sound status:',
-        status.isLoaded ? 'loaded' : 'not loaded'
-      );
       if (status.isLoaded) {
         const durationMs = status.durationMillis ?? 0;
 
@@ -208,22 +216,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         );
         setDuration(totalDuration);
         durationShared.value = totalDuration; // Update SharedValue
-
-        console.log(
-          '⏱️ Segment duration:',
-          durationMs,
-          'ms (',
-          (durationMs / 1000).toFixed(1),
-          's)'
-        );
-        console.log(
-          '⏱️ Total duration:',
-          totalDuration,
-          'ms (',
-          (totalDuration / 1000).toFixed(1),
-          's)'
-        );
-        console.log('▶️ Is playing:', status.isPlaying);
       }
 
       // Start tracking position
@@ -232,12 +224,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Set up listener for when sound finishes playing
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) {
-          console.warn('⚠️ Status update - sound not loaded');
           return;
         }
 
         if (status.didJustFinish) {
-          console.log('🏁 Sound finished playing');
           clearPositionInterval();
           isTrackingPosition.value = false;
           void sound.unloadAsync();
@@ -245,11 +235,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
           // Check if there are more sounds in the sequence
           if (sequenceQueue.current.length > 0) {
-            console.log('▶️ Next in sequence...');
             void playNextInSequence();
           } else {
             // No more sounds in sequence
-            console.log('✅ Playback complete');
             setIsPlaying(false);
             setCurrentAudioId(null);
             setPositionState(0);
@@ -258,9 +246,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }
         }
       });
-    } catch (error) {
-      console.error('❌ Error in AudioContext.playSound:', error);
-      console.error('❌ Error details:', JSON.stringify(error));
+    } catch {
       setIsPlaying(false);
       setCurrentAudioId(null);
     }
@@ -269,8 +255,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const playSoundSequence = async (uris: string[], audioId?: string) => {
     if (uris.length === 0) return;
 
-    console.log(`🎬 Starting sequence of ${uris.length} segments`);
-
     // Stop any current playback
     await stopCurrentSound();
 
@@ -278,7 +262,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     sequenceQueue.current = uris;
     currentSequenceIndex.current = 0;
     segmentDurations.current = new Array<number>(uris.length).fill(0);
-    cumulativePositionShared.value = 0;
+    // Update SharedValue via ref to satisfy React Compiler
+    cumulativePositionSharedRef.current.value = 0;
 
     // Preload all segment durations for accurate total duration
     // This helps calculate progress correctly from the start
@@ -297,14 +282,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         (sum, d) => sum + d,
         0
       );
-      console.log(`⏱️ Preloaded total duration: ${totalDuration}ms`);
       setDuration(totalDuration);
       durationShared.value = totalDuration; // Update SharedValue
-    } catch (error) {
-      console.warn(
-        '⚠️ Failed to preload durations, will calculate on the fly:',
-        error
-      );
+    } catch {
+      // Failed to preload durations, will calculate on the fly
     }
 
     // Play first sound

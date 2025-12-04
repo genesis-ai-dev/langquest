@@ -13,7 +13,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { APP_SCHEMA_VERSION } from './constants';
 import type { DrizzleDB } from './migrations/index';
-import { getMinimumSchemaVersion } from './migrations/index';
 import { AppConfig } from './supabase/AppConfig';
 
 // ============================================================================
@@ -214,33 +213,32 @@ export async function fetchServerSchemaVersion(
 /**
  * Get the local schema version to compare with server
  *
- * Strategy:
- * 1. If there are local-only records, use their minimum schema version
- * 2. If no local-only records exist, use APP_SCHEMA_VERSION (the code's schema version)
+ * IMPORTANT: This returns the app's expected schema version (APP_SCHEMA_VERSION),
+ * NOT the version of data in the local database. The local data version is only
+ * relevant for migrations, not for app upgrade checks.
  *
- * @param db - Drizzle database instance
- * @returns Local schema version string
+ * For app upgrade checks, we compare:
+ * - App's expected version (APP_SCHEMA_VERSION) - what the code supports
+ * - Server's version - what the server requires
+ *
+ * If these don't match, the app needs to be upgraded. Local data migrations
+ * happen separately and don't affect this check.
+ *
+ * @param db - Drizzle database instance (unused, kept for API compatibility)
+ * @returns Local schema version string (always APP_SCHEMA_VERSION)
  */
-export async function getLocalSchemaVersion(db: DrizzleDB): Promise<string> {
-  console.log('[SchemaVersionService] Getting local schema version...');
-
-  // Check if we have any local-only records with schema versions
-  const minLocalVersion = await getMinimumSchemaVersion(db);
-
-  if (minLocalVersion !== null) {
-    console.log(
-      '[SchemaVersionService] Using local-only records version:',
-      minLocalVersion
-    );
-    return minLocalVersion;
-  }
-
-  // No local-only records, use the code's schema version
+export function getLocalSchemaVersion(_db: DrizzleDB): Promise<string> {
   console.log(
-    '[SchemaVersionService] No local-only records, using APP_SCHEMA_VERSION:',
+    '[SchemaVersionService] Getting local schema version (app expected version)...'
+  );
+
+  // Always return APP_SCHEMA_VERSION for app upgrade checks
+  // The local data version is handled separately by the migration system
+  console.log(
+    '[SchemaVersionService] Using APP_SCHEMA_VERSION:',
     APP_SCHEMA_VERSION
   );
-  return APP_SCHEMA_VERSION;
+  return Promise.resolve(APP_SCHEMA_VERSION);
 }
 
 /**

@@ -51,6 +51,8 @@ export default function SettingsView() {
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
   );
+  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
+  const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -65,6 +67,10 @@ export default function SettingsView() {
   const setDebugMode = useLocalStore((state) => state.setDebugMode);
   const setEnableAiSuggestions = useLocalStore(
     (state) => state.setEnableAiSuggestions
+  );
+  const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
+  const setEnableQuestExport = useLocalStore(
+    (state) => state.setEnableQuestExport
   );
 
   // Settings are loaded from the centralized store
@@ -99,6 +105,14 @@ export default function SettingsView() {
 
   const handleAiSuggestionsToggle = (value: boolean) => {
     setEnableAiSuggestions(value);
+  };
+
+  const handlePlayAllToggle = (value: boolean) => {
+    setEnablePlayAll(value);
+  };
+  const handleQuestExportToggle = (value: boolean) => {
+    setEnableQuestExport(value);
+    console.log('Quest export:', value);
   };
 
   const handleClearCache = () => {
@@ -229,6 +243,25 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableAiSuggestions,
           onPress: () => handleAiSuggestionsToggle(!enableAiSuggestions)
+        },
+        {
+          id: 'playAll',
+          title: t('playAll'),
+          description: t('playAllDescription'),
+          type: 'toggle',
+          value: enablePlayAll,
+          onPress: () => handlePlayAllToggle(!enablePlayAll)
+        },
+        {
+          id: 'questExport',
+          title: t('questExport') || 'Quest Export',
+          description:
+            t('questExportDescription') ||
+            'Export bible chapters as audio files for sharing and distribution',
+          type: 'toggle',
+          value: enableQuestExport,
+          onPress: () => handleQuestExportToggle(!enableQuestExport),
+          disabled: !isOnline
         }
       ]
     },
