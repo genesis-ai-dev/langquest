@@ -57,7 +57,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Start updating position at regular intervals when playing
   const startPositionTracking = () => {
     clearPositionInterval();
-    isTrackingPosition.value = true;
+    isTrackingPositionRef.current.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
       if (soundRef.current) {
@@ -69,7 +69,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               cumulativeDuration += segmentDurations.current[i] || 0;
             }
             const totalPosition = cumulativeDuration + status.positionMillis;
-            cumulativePositionShared.value = totalPosition; // Update SharedValue
+            cumulativePositionSharedRef.current.value = totalPosition; // Update SharedValue
             setPositionState(totalPosition);
           }
         });
@@ -215,7 +215,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           0
         );
         setDuration(totalDuration);
-        durationShared.value = totalDuration; // Update SharedValue
+        durationSharedRef.current.value = totalDuration; // Update SharedValue
       }
 
       // Start tracking position
@@ -229,7 +229,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         if (status.didJustFinish) {
           clearPositionInterval();
-          isTrackingPosition.value = false;
+          isTrackingPositionRef.current.value = false;
           void sound.unloadAsync();
           soundRef.current = null;
 
@@ -241,8 +241,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             setIsPlaying(false);
             setCurrentAudioId(null);
             setPositionState(0);
-            positionShared.value = 0;
-            durationShared.value = 0;
+            positionSharedRef.current.value = 0;
+            durationSharedRef.current.value = 0;
           }
         }
       });
@@ -283,7 +283,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         0
       );
       setDuration(totalDuration);
-      durationShared.value = totalDuration; // Update SharedValue
+      durationSharedRef.current.value = totalDuration; // Update SharedValue
     } catch {
       // Failed to preload durations, will calculate on the fly
     }
