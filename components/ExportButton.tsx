@@ -143,7 +143,10 @@ export function ExportButton({
           } else if (data.status === 'ready') {
             // Don't show alert if we're sharing (share sheet will show)
             if (!data.share_url) {
-              RNAlert.alert(t('success'), t('exportReady') || 'Export is ready!');
+              RNAlert.alert(
+                t('success'),
+                t('exportReady') || 'Export is ready!'
+              );
             }
           }
         },

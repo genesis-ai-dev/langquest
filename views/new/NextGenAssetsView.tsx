@@ -441,7 +441,7 @@ export default function NextGenAssetsView() {
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            const constructedUri = await getLocalAttachmentUriWithOPFS(audioValue);
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
@@ -568,7 +568,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -612,7 +612,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       console.log(

@@ -626,7 +626,7 @@ const RecordingViewSimplified = ({
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -671,7 +671,7 @@ const RecordingViewSimplified = ({
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       debugLog(
