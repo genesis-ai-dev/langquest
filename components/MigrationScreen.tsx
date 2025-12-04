@@ -35,6 +35,12 @@ export function MigrationScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
+  // Declare wrapper function outside useEffect to pass as reference to scheduleOnRN
+  // Per workspace rules: must pass function references, never inline arrow functions
+  function startMigration() {
+    void runMigration();
+  }
+
   async function runMigration() {
     try {
       console.log('[MigrationScreen] Starting migration...');
@@ -89,12 +95,8 @@ export function MigrationScreen() {
 
   useEffect(() => {
     // Use scheduleOnRN instead of queueMicrotask per workspace rules
-    // Declare wrapper function outside to pass as reference
-    const startMigration = () => {
-      void runMigration();
-    };
     scheduleOnRN(startMigration);
-  }, []);
+  }, [startMigration]);
 
   function handleRetry() {
     setError(null);
