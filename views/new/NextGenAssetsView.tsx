@@ -806,38 +806,8 @@ export default function NextGenAssetsView() {
           `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
         );
 
-        // Preload durations for accurate highlighting
-        // This helps us know which asset is playing at any given time
-        try {
-          const { Audio } = await import('expo-av');
-          const durations: number[] = [];
-          for (const uri of allUris) {
-            try {
-              const { sound } = await Audio.Sound.createAsync({ uri });
-              const status = await sound.getStatusAsync();
-              await sound.unloadAsync();
-              durations.push(
-                status.isLoaded ? (status.durationMillis ?? 0) : 0
-              );
-            } catch (error) {
-              console.warn(
-                `Failed to get duration for ${uri.slice(0, 30)}:`,
-                error
-              );
-              durations.push(0);
-            }
-          }
-          segmentDurationsRef.current = durations;
-          console.log(
-            `📊 Loaded durations for ${durations.length} segments:`,
-            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
-          );
-        } catch (error) {
-          console.warn('Failed to preload durations:', error);
-          // Continue anyway - will use percentage-based fallback
-        }
-
         // Set the first asset as currently playing
+        // Note: Duration preloading is handled by AudioContext.playSoundSequence
         if (assetOrderRef.current.length > 0) {
           setCurrentlyPlayingAssetId(assetOrderRef.current[0] || null);
         }

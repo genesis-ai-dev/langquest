@@ -266,17 +266,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     cumulativePositionSharedRef.current.value = 0;
 
     // Preload all segment durations for accurate total duration
-    // This helps calculate progress correctly from the start
+    // NOTE: Process sequentially to avoid ExoPlayer threading issues on Android
+    // (ExoPlayer requires all player operations on the main thread)
     try {
-      const durationPromises = uris.map(async (uri, index) => {
+      for (let index = 0; index < uris.length; index++) {
+        const uri = uris[index]!;
         const { sound } = await Audio.Sound.createAsync({ uri });
         const status = await sound.getStatusAsync();
         await sound.unloadAsync();
         if (status.isLoaded) {
           segmentDurations.current[index] = status.durationMillis ?? 0;
         }
-      });
-      await Promise.all(durationPromises);
+      }
 
       const totalDuration = segmentDurations.current.reduce(
         (sum, d) => sum + d,

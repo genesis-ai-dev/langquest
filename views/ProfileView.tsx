@@ -407,7 +407,12 @@ export default function ProfileView() {
             <AlertTitle>{t('onlineOnlyFeatures')}</AlertTitle>
           </Alert>
         )}
-        {/* Language Selection - Always available */}
+        {/* Save Button */}
+        <FormSubmit onPress={handleFormSubmit}>
+          <Text>{t('submit')}</Text>
+        </FormSubmit>
+
+        {/* Language Selection - Not part of password reset form */}
         <FormField
           control={form.control}
           name="selectedLanguoidId"
@@ -422,11 +427,6 @@ export default function ProfileView() {
             </FormItem>
           )}
         />
-
-        {/* Save Button */}
-        <FormSubmit onPress={handleFormSubmit}>
-          <Text>{t('submit')}</Text>
-        </FormSubmit>
 
         {/* Advanced Options Section - Always visible when authenticated */}
         {currentUser && systemReady && (
