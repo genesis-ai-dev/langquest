@@ -170,6 +170,7 @@ export function useLanguoidById(languoid_id?: string) {
  * Returns a map of languoid_id -> endonym name
  * Fetches endonyms (native names) for a list of languoids
  * Prefers endonyms where label_languoid_id = subject_languoid_id (self-referential)
+ * Only includes endonyms that have 'lexvo' in their source_names array
  */
 export function useLanguoidEndonyms(languoidIds: string[]) {
   const { db, supabaseConnector } = system;
@@ -192,7 +193,8 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
           and(
             eq(fields.alias_type, 'endonym'),
             eq(fields.active, true),
-            inArray(fields.subject_languoid_id, languoidIds)
+            inArray(fields.subject_languoid_id, languoidIds),
+            sql`'lexvo' = ANY(${fields.source_names})`
           )
       })
     ),
@@ -204,6 +206,7 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
         .eq('alias_type', 'endonym')
         .eq('active', true)
         .in('subject_languoid_id', languoidIds)
+        .contains('source_names', ['lexvo'])
         .overrideTypes<
           {
             subject_languoid_id: string;
