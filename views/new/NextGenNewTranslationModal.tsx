@@ -60,7 +60,6 @@ import type { TextInput } from 'react-native';
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   TouchableWithoutFeedback,
@@ -330,16 +329,13 @@ export default function NextGenNewTranslationModal({
 
       let audioAttachment: string | null = null;
       if (data.audioUri && system.permAttachmentQueue) {
-        let audioUriToSave = data.audioUri;
-
-        // On web, blob URLs need to be converted to local files first
-        if (Platform.OS === 'web' && audioUriToSave.startsWith('blob:')) {
-          // Convert blob URL to local file path (e.g., "local/filename.webm")
-          audioUriToSave = await saveAudioLocally(audioUriToSave);
-        }
+        // Convert recording to local attachment path
+        // - On web: converts blob URL to OPFS file
+        // - On native: moves from cache dir to local attachments dir
+        const localAudioPath = await saveAudioLocally(data.audioUri);
 
         const attachment = await system.permAttachmentQueue.saveAudio(
-          getLocalAttachmentUri(audioUriToSave)
+          getLocalAttachmentUri(localAudioPath)
         );
         audioAttachment = attachment.filename;
       }
