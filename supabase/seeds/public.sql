@@ -22,30 +22,30 @@ SET row_security = off;
 -- Data for Name: profile; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "ui_language_id", "ui_languoid_id", "active", "terms_accepted", "terms_accepted_at") VALUES
-	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('fd56eb4e-0b54-4715-863c-f865aee0b16d', '2024-12-28 21:40:32.521063+00', '2024-12-28 21:40:32.521063+00', 'Caleb', NULL, NULL, NULL, true, false, NULL),
-	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
-	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
+INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "email", "ui_language_id", "ui_languoid_id", "active", "terms_accepted", "terms_accepted_at") VALUES
+	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'dodira5836@rykone.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'common.wallaby.kwyn@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'comprehensive.flea.umwb@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'retail.caterpillar.vnih@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'influential.lemur.lrji@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'scornful.viper.uyca@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'extreme.nightingale.bihh@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'international.badger.wpqb@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, 'important.roundworm.vimq@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, 'full.capybara.nlul@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, 'mixed.giraffe.dngf@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, 'overall.flea.cfvf@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
+	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'reluctant.walrus.sjzn@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'ryderwishart@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'delicate.goose.wjuk@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('fd56eb4e-0b54-4715-863c-f865aee0b16d', '2024-12-28 21:40:32.521063+00', '2024-12-28 21:40:32.521063+00', 'Caleb', NULL, 'caleb@caleb.com', NULL, NULL, true, false, NULL),
+	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'milhouse@milhouse.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'ryder@ryder.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'rrsrsrandallktan@hotmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, '422eanboi@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'ryderwishart+langquest10032025@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'realdinozoid@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
+	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'ben.scholtens@me.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
 
 
 --
@@ -293,9 +293,9 @@ INSERT INTO "public"."asset_tag_link" ("asset_id", "tag_id", "active", "created_
 -- Data for Name: project; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "description", "target_language_id", "active") VALUES
-	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas - Mixteco de Penasco', 'Traducción de Lucas al Mixteco de Penasco', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', true),
-	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas - Zapoteco de Santiago', 'Traducción de Lucas al Zapoteco de Santiago', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', true);
+INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "description", "target_language_id", "creator_id", "download_profiles", "active") VALUES
+	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas - Mixteco de Penasco', 'Traducción de Lucas al Mixteco de Penasco', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], true),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas - Zapoteco de Santiago', 'Traducción de Lucas al Zapoteco de Santiago', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], true);
 
 -- Add source language via project_language_link (replaces the removed source_language_id column)
 INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
@@ -420,13 +420,20 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "asset_id", "po
 	('2f359fb4-2a9d-b450-7993-4b0e46949343', '2025-02-19 18:07:57+00', '2025-02-19 18:08:02+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'down', '', 'f2adf435-fd35-4927-8644-9b03785722b5', false),
 	('e21209a8-e126-f157-f6dd-a9e350a55da9', '2025-02-19 18:07:47+00', '2025-02-19 18:08:05+00', '3061b4b0-cc57-1592-bbc5-6e7eadfa8e76', 'up', '', 'f2adf435-fd35-4927-8644-9b03785722b5', true);
 
-UPDATE "public"."project" 
-SET "creator_id" = 'c111d43b-5983-4342-9d9e-5fc8d09d77b9' 
-WHERE "id" = 'bace07b1-41de-4535-9c68-aa81683d9370';
+--
+-- Data for Name: profile_project_link; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Create profile_project_link records for project creators
+-- download_profiles will be set by database trigger from project.download_profiles
+--
 
-UPDATE "public"."project" 
-SET "creator_id" = 'f2adf435-fd35-4927-8644-9b03785722b5' 
-WHERE "id" = 'b819ba73-2274-468d-b18d-330b1ecf49b1';
+INSERT INTO "public"."profile_project_link" ("profile_id", "project_id", "membership", "active", "download_profiles", "created_at", "last_updated") VALUES
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00')
+ON CONFLICT ("profile_id", "project_id") DO UPDATE SET
+	"download_profiles" = EXCLUDED."download_profiles",
+	"membership" = EXCLUDED."membership",
+	"active" = EXCLUDED."active",
+	"last_updated" = EXCLUDED."last_updated";
 
 -- Temporarily set search_path so unqualified names inside functions resolve to public
 SELECT set_config('search_path', 'public', true);
