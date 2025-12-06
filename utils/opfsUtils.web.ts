@@ -108,7 +108,7 @@ export async function getOPFSHandle<T extends 'file' | 'directory'>(
  */
 export async function opfsFileToBlobUrl(path: string) {
   const fileHandle = await getOPFSHandle(path, 'file');
-  if (!fileHandle) throw new Error('File not found');
+  if (!fileHandle) throw new Error(`File not found: ${path}`);
 
   const file = await fileHandle.getFile();
   return URL.createObjectURL(file);

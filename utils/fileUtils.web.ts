@@ -4,8 +4,11 @@
  */
 
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
-import { getFileName } from './fileUtils';
 import { getOPFSHandle, opfsFileToBlobUrl } from './opfsUtils.web';
+
+export function getFileName(uri: string) {
+  return uri.split('/').pop();
+}
 
 export async function deleteIfExists(
   _uri: string | null | undefined
@@ -83,23 +86,35 @@ export async function writeFile(
 export async function readFile(
   _fileURI: string,
   _options?: { encoding?: 'utf8' | 'base64' }
-): Promise<string> {
+): Promise<ArrayBuffer> {
   console.log('readFile', _fileURI);
   const sourceHandle = await getOPFSHandle(_fileURI, 'file');
   const sourceFile = await sourceHandle?.getFile();
-  const sourceContent = await sourceFile?.text();
-  if (!sourceContent) {
+
+  if (!sourceFile) {
     throw new Error(`File does not exist: ${_fileURI}`);
   }
-  console.log(
-    'sourceContent',
-    _options?.encoding === 'base64' ? btoa(sourceContent) : sourceContent
-  );
-  return _options?.encoding === 'base64' ? btoa(sourceContent) : sourceContent;
+
+  // For binary files (audio, images, etc.), always read as ArrayBuffer
+  // This prevents data corruption from UTF-8 conversion
+  // Match native behavior: always return ArrayBuffer regardless of encoding option
+  const arrayBuffer = await sourceFile.arrayBuffer();
+
+  console.log('sourceContent (ArrayBuffer)', arrayBuffer.byteLength, 'bytes');
+  return arrayBuffer;
 }
 
 export async function deleteFile(_uri: string) {
   console.log('deleteFile', _uri);
+
+  // If it's a blob URL, revoke it and return early
+  if (_uri.startsWith('blob:')) {
+    console.log('Revoking blob URL:', _uri);
+    URL.revokeObjectURL(_uri);
+    return;
+  }
+
+  // Otherwise, proceed with OPFS file deletion
   const pathSegments = _uri.split('/');
   const fileName = pathSegments.pop();
   const directoryPath = pathSegments.join('/');
@@ -152,6 +167,16 @@ export function getLocalUri(filePath: string) {
 }
 
 export async function getFileInfo(_uri: string | null | undefined) {
+  if (_uri?.startsWith('blob:')) {
+    const response = await fetch(_uri);
+    const blob = await response.blob();
+    return {
+      exists: true,
+      isDirectory: false,
+      size: blob.size,
+      lastModified: 0
+    };
+  }
   console.log('getFileInfo', _uri);
   const handle = await getOPFSHandle(_uri ?? '', 'file');
   const file = await handle?.getFile();
@@ -171,9 +196,13 @@ export function getLocalFilePathSuffix(filename: string): string {
 }
 
 export async function getLocalAttachmentUriWithOPFS(filePath: string) {
-  const localUri = getLocalUri(getLocalFilePathSuffix(filePath));
+  const localUri = getLocalAttachmentUri(filePath);
   const opfsUri = opfsFileToBlobUrl(localUri);
   return opfsUri;
+}
+
+export function getLocalAttachmentUri(filePath: string) {
+  return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
 // save the file in the browser locally

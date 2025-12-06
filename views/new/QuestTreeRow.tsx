@@ -19,7 +19,8 @@ import {
   Plus
 } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 type Quest = typeof questTable.$inferSelect;
 
@@ -43,7 +44,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   canCreateNew,
-  isDownloading = false,
+  isDownloading: _isDownloading = false,
   onToggleExpand,
   onAddChild,
   onDownloadClick,
@@ -68,7 +69,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
     // Anonymous users can navigate directly to cloud records (cloud-only browsing)
     // Authenticated users need to download cloud quests before viewing
     if (currentUser && isCloudQuest && !isDownloaded) {
-      Alert.alert(t('downloadRequired'), t('downloadQuestToView'), [
+      RNAlert.alert(t('downloadRequired'), t('downloadQuestToView'), [
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('downloadNow'),

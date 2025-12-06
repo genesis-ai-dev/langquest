@@ -12,7 +12,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
-import { asset, language as languageTable, project } from '@/db/drizzleSchema';
+import {
+  asset,
+  languoid as languoidTable,
+  project,
+  project_language_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -24,7 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -41,6 +46,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -248,11 +254,42 @@ export default function NextGenAssetDetailView() {
   const queriedProjectData = queriedProjectDataArray?.[0];
   const projectData = currentProjectData || queriedProjectData;
 
-  const translationLanguageId = React.useMemo(() => {
-    if (!projectData?.target_language_id) return '';
-    const langId = projectData.target_language_id;
-    return typeof langId === 'string' ? langId : String(langId);
-  }, [projectData?.target_language_id]);
+  // Get target languoid_id from project_language_link
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', currentProjectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId
+  });
+
+  const translationLanguageId = targetLanguoidLink[0]?.languoid_id || '';
 
   const { hasAccess: canTranslate, membership: translateMembership } =
     useUserPermissions(
@@ -319,95 +356,95 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  const contentLanguageIds = React.useMemo(() => {
+  // Collect content-level languoid IDs for this asset (prefer languoid_id, fallback to source_language_id)
+  const contentLanguoidIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
-      if (c.source_language_id) ids.add(c.source_language_id);
+      const languoidId = c.languoid_id || c.source_language_id;
+      if (languoidId) ids.add(languoidId);
     });
     return Array.from(ids);
   }, [activeAsset?.content]);
 
-  // Fetch all languages used by content items
-  const getLanguagesOfflineQuery = React.useCallback(() => {
-    if (!isAuthenticated) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-    try {
-      if (!system.isPowerSyncInitialized()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-        return 'SELECT * FROM language WHERE 1=0' as any;
-      }
-      return toCompilableQuery(
-        system.db.query.language.findMany({
-          where: contentLanguageIds.length
-            ? inArray(languageTable.id, contentLanguageIds)
-            : undefined
-        })
-      );
-    } catch (error) {
-      console.warn(
-        'Failed to create languages offline query, using placeholder:',
-        error
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM language WHERE 1=0' as any;
-    }
-  }, [contentLanguageIds, isAuthenticated]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const languagesOfflineQuery = React.useMemo(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    () => getLanguagesOfflineQuery(),
-    [getLanguagesOfflineQuery]
-  );
-
-  const { data: contentLanguages = [] } = useHybridData<
-    typeof languageTable.$inferSelect
-  >({
-    dataType: 'languages-by-id',
-    queryKeyParams: contentLanguageIds,
-    offlineQuery: languagesOfflineQuery,
+  // Fetch all languoids used by content items
+  const { data: contentLanguoids = [] } = useHybridData({
+    dataType: 'languoids-by-id',
+    queryKeyParams: contentLanguoidIds,
+    offlineQuery: toCompilableQuery(
+      system.db.query.languoid.findMany({
+        where: contentLanguoidIds.length
+          ? inArray(languoidTable.id, contentLanguoidIds)
+          : undefined
+      })
+    ),
     enableCloudQuery: false
   });
 
-  const languageById = new Map(contentLanguages.map((l) => [l.id, l] as const));
+  const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
 
   // Active tab is now derived from asset content via useMemo above
 
   // Reset content index when asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
-    queueMicrotask(() => {
+    scheduleOnRN(() => {
       setCurrentContentIndex(0);
     });
   }, [currentAssetId]);
   // Get audio URIs for a specific content item (not all content flattened)
-  function getContentAudioUris(
-    content: typeof asset_content_link.$inferSelect
-  ): string[] {
-    if (!content.audio) return [];
+  // Both web and native now use async OPFS resolution
+  const [resolvedAudioUris, setResolvedAudioUris] = useState<string[]>([]);
 
-    return content.audio
-      .filter(
+  useEffect(() => {
+    const content = activeAsset?.content?.[currentContentIndex];
+    if (!content?.audio) {
+      // Use queueMicrotask to avoid synchronous setState warning
+      scheduleOnRN(() => {
+        setResolvedAudioUris([]);
+      });
+      return;
+    }
+
+    // Resolve OPFS URIs asynchronously (works for both web and native)
+    const resolveUris = async () => {
+      const audioValues = content.audio!.filter(
         (audioValue: unknown): audioValue is string =>
           typeof audioValue === 'string'
-      )
-      .map((audioValue: string) => {
-        // Handle direct local URIs (from recording view before publish)
-        if (audioValue.startsWith('local/')) {
-          return getLocalAttachmentUriWithOPFS(audioValue);
-        }
+      );
 
-        // Handle full file URIs
-        if (audioValue.startsWith('file://')) {
-          return audioValue;
-        }
+      const resolved = await Promise.all(
+        audioValues.map(async (audioValue: string): Promise<string | null> => {
+          // Handle full file URIs
+          if (audioValue.startsWith('file://')) {
+            return audioValue;
+          }
 
-        // For anonymous users, get cloud URLs from Supabase storage
-        const isPowerSyncReady = system.isPowerSyncInitialized();
-        if (!isAuthenticated || !isPowerSyncReady) {
-          // Get public URL from Supabase storage
+          // For anonymous users, get cloud URLs from Supabase storage
+          const isPowerSyncReady = system.isPowerSyncInitialized();
+          if (!isAuthenticated || !isPowerSyncReady) {
+            // Get public URL from Supabase storage
+            try {
+              if (!AppConfig.supabaseBucket) {
+                console.warn('Supabase bucket not configured');
+                return null;
+              }
+              const { data } = system.supabaseConnector.client.storage
+                .from(AppConfig.supabaseBucket)
+                .getPublicUrl(audioValue);
+              return data.publicUrl;
+            } catch (error) {
+              console.error('Failed to get cloud audio URL:', error);
+              return null;
+            }
+          }
+
+          // Handle attachment IDs (look up in attachment queue) for authenticated users
+          const attachmentState = attachmentStates.get(audioValue);
+          if (attachmentState?.local_uri) {
+            return getLocalAttachmentUriWithOPFS(attachmentState.filename);
+          }
+
+          // Fallback: try to get cloud URL if local not available
           try {
             if (!AppConfig.supabaseBucket) {
               console.warn('Supabase bucket not configured');
@@ -418,34 +455,24 @@ export default function NextGenAssetDetailView() {
               .getPublicUrl(audioValue);
             return data.publicUrl;
           } catch (error) {
-            console.error('Failed to get cloud audio URL:', error);
+            console.error('Failed to get fallback cloud audio URL:', error);
             return null;
           }
-        }
+        })
+      );
 
-        // Handle attachment IDs (look up in attachment queue) for authenticated users
-        const attachmentState = attachmentStates.get(audioValue);
-        if (attachmentState?.local_uri) {
-          return getLocalUri(attachmentState.local_uri);
-        }
+      setResolvedAudioUris(resolved.filter((uri) => uri !== null));
+    };
 
-        // Fallback: try to get cloud URL if local not available
-        try {
-          if (!AppConfig.supabaseBucket) {
-            console.warn('Supabase bucket not configured');
-            return null;
-          }
-          const { data } = system.supabaseConnector.client.storage
-            .from(AppConfig.supabaseBucket)
-            .getPublicUrl(audioValue);
-          return data.publicUrl;
-        } catch (error) {
-          console.error('Failed to get fallback cloud audio URL:', error);
-          return null;
-        }
-      })
-      .filter((uri: string | null): uri is string => uri !== null);
-  }
+    void resolveUris();
+  }, [
+    activeAsset?.content,
+    currentContentIndex,
+    attachmentStates,
+    isAuthenticated
+  ]);
+
+  console.log('resolvedAudioUris', resolvedAudioUris);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
@@ -604,18 +631,20 @@ export default function NextGenAssetDetailView() {
                   <View>
                     <SourceContent
                       content={activeAsset.content[currentContentIndex]}
-                      sourceLanguage={
-                        activeAsset.content[currentContentIndex]
-                          ?.source_language_id
-                          ? (languageById.get(
-                              activeAsset.content[currentContentIndex]
-                                ?.source_language_id
-                            ) ?? null)
-                          : null
-                      }
-                      audioSegments={getContentAudioUris(
-                        activeAsset.content[currentContentIndex]
-                      )}
+                      sourceLanguage={(() => {
+                        const content =
+                          activeAsset.content[currentContentIndex];
+                        if (!content) return null;
+                        const languoidId =
+                          content.languoid_id || content.source_language_id;
+                        const languoid = languoidId
+                          ? (languoidById.get(languoidId) ?? null)
+                          : null;
+                        // TODO: Update SourceContent to accept Languoid type
+                        // For now, use type assertion to handle transition
+                        return languoid as any;
+                      })()}
+                      audioSegments={resolvedAudioUris}
                       isLoading={isLoadingAttachments}
                     />
                     <View className="flex w-full flex-row justify-between">

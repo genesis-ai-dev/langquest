@@ -63,12 +63,36 @@ export function useVADRecording({
     null
   );
 
+  // Track energy range during VAD recording
+  const energyRangeRef = React.useRef<{ min: number; max: number } | null>(
+    null
+  );
+
   React.useEffect(() => {
     onSegmentStartRef.current = onSegmentStart;
     onSegmentCompleteRef.current = onSegmentComplete;
   }, [onSegmentStart, onSegmentComplete]);
 
   const currentEnergy = energyResult?.energy ?? 0;
+
+  // Track energy range during recording
+  React.useEffect(() => {
+    if (isRecording && energyResult) {
+      const energy = energyResult.energy;
+      if (energyRangeRef.current) {
+        energyRangeRef.current.min = Math.min(
+          energyRangeRef.current.min,
+          energy
+        );
+        energyRangeRef.current.max = Math.max(
+          energyRangeRef.current.max,
+          energy
+        );
+      } else {
+        energyRangeRef.current = { min: energy, max: energy };
+      }
+    }
+  }, [isRecording, energyResult]);
 
   // Track previous settings to detect actual changes (not just effect re-runs)
   const prevThresholdRef = React.useRef(threshold);
@@ -81,11 +105,9 @@ export function useVADRecording({
     // Configure VAD whenever settings change (even if already active)
     // This ensures settings are always up-to-date before VAD is enabled
     const configureVAD = async () => {
-      // CRITICAL: Convert threshold from normalized (0-1) to raw RMS (0-20) format
-      // The native module expects raw RMS energy values, but threshold is stored normalized
-      // Native module returns raw RMS (0-20 range), so threshold must match that format
-      const MAX_ENERGY = 20.0;
-      const rawThreshold = threshold * MAX_ENERGY;
+      // CRITICAL: Pass threshold directly without scaling
+      // The native module now uses 0-1 peak amplitude, same as our normalized threshold
+      const rawThreshold = threshold;
 
       // CRITICAL: The native module multiplies threshold by onsetMultiplier (0.25) for onset detection
       // So if user wants final threshold of X, we need to send X / 0.25 = 4X
@@ -147,9 +169,8 @@ export function useVADRecording({
 
             await MicrophoneEnergyModule.enableVAD();
             // Log threshold values for debugging
-            const MAX_ENERGY = 20.0;
             const ONSET_MULTIPLIER = 0.25;
-            const rawThreshold = threshold * MAX_ENERGY;
+            const rawThreshold = threshold;
             const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
             const effectiveOnsetThreshold = baseThreshold * ONSET_MULTIPLIER;
             console.log(
@@ -220,6 +241,10 @@ export function useVADRecording({
         setIsRecording(true);
         segmentStartTimeRef.current = Date.now();
 
+        // Initialize energy range tracking for this segment
+        const initialEnergy = energyResult?.energy ?? 0;
+        energyRangeRef.current = { min: initialEnergy, max: initialEnergy };
+
         // Set a timeout to clean up if segment never completes (e.g., discarded for being too short)
         // Timeout is very long (60 seconds) to handle long recordings and avoid false positives
         // Real segments should complete within silence duration (typically 300-3000ms)
@@ -253,6 +278,15 @@ export function useVADRecording({
           payload.uri,
           `(${payload.duration}ms)`
         );
+
+        // Log energy range for VAD recording
+        if (energyRangeRef.current) {
+          const range = energyRangeRef.current;
+          console.log(
+            `📊 VAD Recording Energy Range | min: ${range.min.toFixed(4)}, max: ${range.max.toFixed(4)}, range: ${(range.max - range.min).toFixed(4)}`
+          );
+          energyRangeRef.current = null;
+        }
 
         // CRITICAL: Update SharedValue FIRST for instant UI response
         isRecordingShared.value = false;

@@ -2,7 +2,7 @@ import type { invite } from '@/db/drizzleSchema';
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
-import { getThemeColor } from '@/utils/styleUtils';
+import { useThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
@@ -44,11 +44,13 @@ export function InvitedProjectListItem({
 
   const project = projectData[0];
 
+  const primaryColor = useThemeColor('primary');
+
   if (isLoading) {
     return (
       <View className={className}>
         <View className="h-[175px] items-center justify-center rounded-lg border border-border bg-card">
-          <ActivityIndicator size="small" color={getThemeColor('primary')} />
+          <ActivityIndicator size="small" color={primaryColor} />
         </View>
       </View>
     );

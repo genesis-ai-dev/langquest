@@ -107,7 +107,7 @@ enabled = true
 # in emails.
 site_url = "env(EXPO_PUBLIC_SITE_URL)"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["env(EXPO_PUBLIC_SITE_URL)/**","langquest://*", "langquest://reset-password", "https://langquest.org/reset-password", "exp://10.0.0.206:8081/--/reset-password", "https://langquest.org/registration-confirmation", "langquest://registration-confirmation", "https://langquest.vercel.app/","https://langquest-website-frontier-rnd.vercel.app/**", "https://langquest-*-website-frontier-rnd.vercel.app", "https://langquest-*-website-frontier-rnd.vercel.app/**"]
+additional_redirect_urls = ["env(EXPO_PUBLIC_SITE_URL)/**","langquest://*", "langquest://reset-password", "https://langquest.org/reset-password", "exp://10.0.0.206:8081/--/reset-password", "https://langquest.org/registration-confirmation", "langquest://registration-confirmation", "https://langquest.vercel.app/","https://langquest-website-frontier-rnd.vercel.app/**", "https://langquest-*-website-frontier-rnd.vercel.app", "https://langquest-*-website-frontier-rnd.vercel.app/**", "http://localhost:3000/**", "http://127.0.0.1:3000/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # If disabled, the refresh token will never expire.

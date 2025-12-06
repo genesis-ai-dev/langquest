@@ -1,0 +1,223 @@
+---
+description: Guidelines for creating polished UI animations, transitions, and interactive components. Apply when building animated elements, adding motion to UI, or implementing components like drawers, toasts, and buttons with feedback.
+alwaysApply: false
+---
+
+# Animation Guidelines
+
+Learnings from Emil Kowalski's UI animation blog posts.
+
+## Keep Animations Fast
+
+- Default to use `ease-out` for most animations.
+- Animations should never be longer than 1s (unless it's illustrative), most of them should be under 500ms.
+- Release/exit animations should be faster than enter animations (e.g., 200ms exit vs 300ms enter).
+
+## Easing Rules
+
+- Don't use built-in CSS easings unless it's `ease` or `linear`.
+- Use the following custom easing curves for a polished feel:
+
+```css
+/* Standard ease-out - good default for most animations */
+--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+/* Smooth ease-in-out for symmetrical animations */
+--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+/* Snappy ease for quick feedback */
+--ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+
+/* Spring-like bounce */
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+```
+
+## Button Press Feedback
+
+Always add a subtle scale-down effect on button press for immediate feedback:
+
+```css
+.button {
+  transition: transform 160ms ease-out;
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+```
+
+This makes the UI feel responsive and "listening" to the user.
+
+## Never Scale From Zero
+
+Don't animate from `scale(0)` - it feels abrupt and unnatural. Start from a slightly larger scale:
+
+```css
+/* Bad */
+@keyframes appear {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Good */
+@keyframes appear {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+```
+
+## Origin-Aware Animations
+
+Set `transform-origin` to match the trigger point. Dropdowns should expand from the button that triggers them:
+
+```css
+/* Dropdown triggered from a button on the right */
+.dropdown {
+  transform-origin: top right;
+}
+
+/* Popover appearing from bottom center */
+.popover {
+  transform-origin: bottom center;
+}
+```
+
+## Tooltip Timing
+
+- Add a delay (300-500ms) for the first tooltip to prevent accidental activation
+- Subsequent tooltips should appear instantly while the user is exploring
+- This prevents tooltip "flickering" when users move their mouse across the UI
+
+## The Magic of Clip Path
+
+Use `clip-path` for smooth reveal animations. It's hardware-accelerated and doesn't affect layout:
+
+```css
+/* Hide from right, reveal from left */
+.overlay {
+  clip-path: inset(0px 100% 0px 0px); /* Hidden */
+  transition: clip-path 200ms ease-out;
+}
+
+.overlay.revealed {
+  clip-path: inset(0px 0px 0px 0px); /* Visible */
+}
+```
+
+### Hold to Delete Pattern
+
+Create a confirmation interaction using clip-path:
+
+```jsx
+<button className="button">
+  {/* Colored overlay revealed on hold */}
+  <div aria-hidden="true" className="hold-overlay">
+    <TrashIcon />
+    Hold to Delete
+  </div>
+  {/* Default content */}
+  <TrashIcon />
+  Hold to Delete
+</button>
+```
+
+```css
+.button {
+  position: relative;
+  transition: transform 160ms ease-out;
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+.hold-overlay {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0px 100% 0px 0px);
+  transition: clip-path 200ms ease-out; /* Fast release */
+  background: var(--destructive);
+  color: white;
+}
+
+.button:active .hold-overlay {
+  clip-path: inset(0px 0px 0px 0px);
+  transition: clip-path 2s linear; /* Slow fill on hold */
+}
+```
+
+## CSS Transforms Best Practices
+
+- Transforms are GPU-accelerated and don't trigger layout recalculation
+- Prefer `transform` over `top`/`left`/`width`/`height` for animations
+- Combine transforms in a single property: `transform: translateX(10px) scale(0.95) rotate(2deg)`
+- Order matters: transforms are applied right to left
+
+## Drawer Component Tips
+
+- Use `transform: translateX()` or `translateY()` for slide animations
+- Add a backdrop with fade animation
+- Handle swipe-to-dismiss with velocity detection
+- Snap to open/closed states based on drag distance and velocity
+
+## Toast Component Tips
+
+- Stack multiple toasts with staggered positioning
+- Use enter animations from the edge of the screen
+- Exit animations should be faster than enter
+- Consider hover-to-pause auto-dismiss behavior
+
+## Developing Taste
+
+1. **Surround yourself with great work** - Follow designers, study apps you admire
+2. **Analyze, don't just appreciate** - Ask "why does this feel good?"
+3. **Practice deliberately** - Recreate animations you like
+4. **Share publicly** - Get feedback and iterate
+
+## Good vs Great Animations
+
+| Good              | Great                            |
+| ----------------- | -------------------------------- |
+| Generic easing    | Custom easing curves             |
+| Center origin     | Origin-aware (from trigger)      |
+| Same speed in/out | Fast exit, slower enter          |
+| Abrupt start/end  | Smooth acceleration              |
+| Single property   | Orchestrated multiple properties |
+
+## Spring-Based Animations
+
+For interactive elements, spring physics feel more natural than duration-based animations:
+
+- Springs respond to velocity (dragging fast = more bounce)
+- No fixed duration - they settle naturally
+- Use libraries like Motion (Framer Motion) or React Native Reanimated for spring animations
+
+## Performance Tips
+
+- Use `will-change` sparingly and only on elements about to animate
+- Prefer `opacity` and `transform` - they're composited on the GPU
+- Avoid animating `width`, `height`, `padding`, `margin` - they cause layout thrash
+- Use `clip-path` for reveal effects instead of changing dimensions
+
+## Sources
+
+- [Building a Hold to Delete Component](https://emilkowal.ski/ui/building-a-hold-to-delete-component)
+- [Developing Taste](https://emilkowal.ski/ui/developing-taste)
+- [7 Practical Animation Tips](https://emilkowal.ski/ui/7-practical-animation-tips)
+- [Animating in Public](https://emilkowal.ski/ui/animating-in-public)
+- [The Magic of Clip Path](https://emilkowal.ski/ui/the-magic-of-clip-path)
+- [Good vs Great Animations](https://emilkowal.ski/ui/good-vs-great-animations)
+- [Great Animations](https://emilkowal.ski/ui/great-animations)
+- [CSS Transforms](https://emilkowal.ski/ui/css-transforms)
+- [Building a Drawer Component](https://emilkowal.ski/ui/building-a-drawer-component)
+- [Building a Toast Component](https://emilkowal.ski/ui/building-a-toast-component)

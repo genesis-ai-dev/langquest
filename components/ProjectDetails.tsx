@@ -1,8 +1,5 @@
 import type { project } from '@/db/drizzleSchema';
-import {
-  language as languageTable,
-  project_language_link
-} from '@/db/drizzleSchema';
+import { languoid, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -13,7 +10,7 @@ import { default as React } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Project = typeof project.$inferSelect;
-type Language = typeof languageTable.$inferSelect;
+type Languoid = typeof languoid.$inferSelect;
 
 interface ProjectDetailsProps {
   project: Project;
@@ -24,25 +21,21 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  // Fetch project source languages from project_language_link and single target from project
-  const { data: sourceLanguages = [] } = useHybridData<
-    Pick<Language, 'id' | 'native_name' | 'english_name'>,
-    Language
+  // Fetch project source languoids from project_language_link
+  const { data: sourceLanguoids = [] } = useHybridData<
+    Pick<Languoid, 'id' | 'name'>,
+    Languoid
   >({
-    dataType: 'project-source-languages',
+    dataType: 'project-source-languoids',
     queryKeyParams: [project.id],
     offlineQuery: toCompilableQuery(
       system.db
         .select({
-          id: languageTable.id,
-          native_name: languageTable.native_name,
-          english_name: languageTable.english_name
+          id: languoid.id,
+          name: languoid.name
         })
         .from(project_language_link)
-        .innerJoin(
-          languageTable,
-          eq(project_language_link.language_id, languageTable.id)
-        )
+        .innerJoin(languoid, eq(project_language_link.languoid_id, languoid.id))
         .where(
           and(
             eq(project_language_link.project_id, project.id),
@@ -53,49 +46,62 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('project_language_link')
-        .select('language:language_id(id, native_name, english_name)')
+        .select('languoid:languoid_id(id, name)')
         .eq('project_id', project.id)
         .eq('language_type', 'source')
-        .overrideTypes<{ language: Language }[]>();
+        .not('languoid_id', 'is', null)
+        .overrideTypes<{ languoid: Languoid }[]>();
       if (error) throw error;
-      return data.map((row) => row.language);
+      return data.map((row) => row.languoid).filter(Boolean);
     },
     transformCloudData: (lang) => ({
       id: lang.id,
-      native_name: lang.native_name,
-      english_name: lang.english_name
+      name: lang.name
     })
   });
 
-  const { data: targetLangArr = [] } = useHybridData<
-    Pick<Language, 'id' | 'native_name' | 'english_name'>,
-    Language
+  // Fetch target languoid from project_language_link
+  const { data: targetLanguoidArr = [] } = useHybridData<
+    Pick<Languoid, 'id' | 'name'>,
+    Languoid
   >({
-    dataType: 'project-target-language',
-    queryKeyParams: [project.target_language_id],
+    dataType: 'project-target-languoid',
+    queryKeyParams: [project.id],
     offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        columns: { id: true, native_name: true, english_name: true },
-        where: eq(languageTable.id, project.target_language_id)
-      })
+      system.db
+        .select({
+          id: languoid.id,
+          name: languoid.name
+        })
+        .from(project_language_link)
+        .innerJoin(languoid, eq(project_language_link.languoid_id, languoid.id))
+        .where(
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
-        .from('language')
-        .select('id, native_name, english_name')
-        .eq('id', project.target_language_id)
-        .overrideTypes<Language[]>();
+        .from('project_language_link')
+        .select('languoid:languoid_id(id, name)')
+        .eq('project_id', project.id)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid: Languoid }[]>();
       if (error) throw error;
-      return data;
+      return data.map((row) => row.languoid).filter(Boolean);
     },
     transformCloudData: (lang) => ({
       id: lang.id,
-      native_name: lang.native_name,
-      english_name: lang.english_name
+      name: lang.name
     })
   });
 
-  const targetLanguage = targetLangArr[0];
+  const targetLanguoid = targetLanguoidArr[0];
 
   return (
     <View style={styles.overlay}>
@@ -106,13 +112,13 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <View style={styles.infoRow}>
           <Ionicons name="language-outline" size={20} color={colors.text} />
           <Text style={styles.infoText}>
-            {sourceLanguages.length
-              ? sourceLanguages
-                  .map((l) => l.native_name || l.english_name)
+            {sourceLanguoids.length
+              ? sourceLanguoids
+                  .map((l) => l.name)
                   .filter(Boolean)
                   .join(', ')
               : '—'}{' '}
-            → {targetLanguage?.native_name || targetLanguage?.english_name}
+            → {targetLanguoid?.name || '—'}
           </Text>
         </View>
 

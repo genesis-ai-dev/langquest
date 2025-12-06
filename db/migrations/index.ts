@@ -20,6 +20,7 @@
 
 import { sql } from 'drizzle-orm';
 import { migration_0_0_to_1_0 } from './0.0-to-1.0';
+import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { updateMetadataVersion } from './utils';
 
 // Type alias for database with common query methods
@@ -64,10 +65,11 @@ export interface MigrationResult {
  */
 export const migrations: Migration[] = [
   // Start with 0.0 to 1.0 to handle existing unversioned data
-  migration_0_0_to_1_0
-  // migration_1_0_to_1_1,
+  migration_0_0_to_1_0,
+  // Breaking change: Add languoid support for offline projects
+  migration_1_0_to_2_0
   // Add future migrations here:
-  // migration_1_1_to_1_2,
+  // migration_2_0_to_2_1,
 ];
 
 // ============================================================================
@@ -138,7 +140,17 @@ export async function getMinimumSchemaVersion(
       'project_language_link_local',
       'subscription_local',
       'blocked_users_local',
-      'blocked_content_local'
+      'blocked_content_local',
+      // Languoid/region tables (v1.1+)
+      'languoid_local',
+      'languoid_alias_local',
+      'languoid_source_local',
+      'languoid_property_local',
+      'region_local',
+      'region_alias_local',
+      'region_source_local',
+      'region_property_local',
+      'languoid_region_local'
     ];
 
     let minVersion: string | null = null;

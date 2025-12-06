@@ -11,6 +11,15 @@ interface VerifiedIds {
   assetTagLinkIds: string[];
   tagIds: string[];
   languageIds: string[];
+  languoidIds: string[];
+  languoidAliasIds: string[];
+  languoidSourceIds: string[];
+  languoidPropertyIds: string[];
+  languoidRegionIds: string[];
+  regionIds: string[];
+  regionAliasIds: string[];
+  regionSourceIds: string[];
+  regionPropertyIds: string[];
 }
 
 interface BulkUndownloadResult {
@@ -146,6 +155,82 @@ export async function bulkUndownloadQuest(
       verifiedIds.languageIds
     );
     results.push({ tableName: 'language', recordsUpdated: languagesUpdated });
+
+    // Remove from languoid-related tables
+    const regionPropertiesUpdated = await removeFromTable(
+      'region_property',
+      verifiedIds.regionPropertyIds
+    );
+    results.push({
+      tableName: 'region_property',
+      recordsUpdated: regionPropertiesUpdated
+    });
+
+    const regionSourcesUpdated = await removeFromTable(
+      'region_source',
+      verifiedIds.regionSourceIds
+    );
+    results.push({
+      tableName: 'region_source',
+      recordsUpdated: regionSourcesUpdated
+    });
+
+    const regionAliasesUpdated = await removeFromTable(
+      'region_alias',
+      verifiedIds.regionAliasIds
+    );
+    results.push({
+      tableName: 'region_alias',
+      recordsUpdated: regionAliasesUpdated
+    });
+
+    const regionsUpdated = await removeFromTable(
+      'region',
+      verifiedIds.regionIds
+    );
+    results.push({ tableName: 'region', recordsUpdated: regionsUpdated });
+
+    const languoidRegionsUpdated = await removeFromTable(
+      'languoid_region',
+      verifiedIds.languoidRegionIds
+    );
+    results.push({
+      tableName: 'languoid_region',
+      recordsUpdated: languoidRegionsUpdated
+    });
+
+    const languoidPropertiesUpdated = await removeFromTable(
+      'languoid_property',
+      verifiedIds.languoidPropertyIds
+    );
+    results.push({
+      tableName: 'languoid_property',
+      recordsUpdated: languoidPropertiesUpdated
+    });
+
+    const languoidSourcesUpdated = await removeFromTable(
+      'languoid_source',
+      verifiedIds.languoidSourceIds
+    );
+    results.push({
+      tableName: 'languoid_source',
+      recordsUpdated: languoidSourcesUpdated
+    });
+
+    const languoidAliasesUpdated = await removeFromTable(
+      'languoid_alias',
+      verifiedIds.languoidAliasIds
+    );
+    results.push({
+      tableName: 'languoid_alias',
+      recordsUpdated: languoidAliasesUpdated
+    });
+
+    const languoidsUpdated = await removeFromTable(
+      'languoid',
+      verifiedIds.languoidIds
+    );
+    results.push({ tableName: 'languoid', recordsUpdated: languoidsUpdated });
 
     const tagsUpdated = await removeFromTable('tag', verifiedIds.tagIds);
     results.push({ tableName: 'tag', recordsUpdated: tagsUpdated });

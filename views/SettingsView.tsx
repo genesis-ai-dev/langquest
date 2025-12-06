@@ -16,13 +16,8 @@ import { cn } from '@/utils/styleUtils';
 import type { Href } from 'expo-router';
 import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface SettingsSection {
   title: string;
@@ -56,6 +51,8 @@ export default function SettingsView() {
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
   );
+  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
+  const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -70,6 +67,10 @@ export default function SettingsView() {
   const setDebugMode = useLocalStore((state) => state.setDebugMode);
   const setEnableAiSuggestions = useLocalStore(
     (state) => state.setEnableAiSuggestions
+  );
+  const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
+  const setEnableQuestExport = useLocalStore(
+    (state) => state.setEnableQuestExport
   );
 
   // Settings are loaded from the centralized store
@@ -106,15 +107,23 @@ export default function SettingsView() {
     setEnableAiSuggestions(value);
   };
 
+  const handlePlayAllToggle = (value: boolean) => {
+    setEnablePlayAll(value);
+  };
+  const handleQuestExportToggle = (value: boolean) => {
+    setEnableQuestExport(value);
+    console.log('Quest export:', value);
+  };
+
   const handleClearCache = () => {
-    Alert.alert(t('clearCache'), t('clearCacheConfirmation'), [
+    RNAlert.alert(t('clearCache'), t('clearCacheConfirmation'), [
       { text: t('cancel'), style: 'cancel' },
       {
         text: t('clear'),
         style: 'destructive',
         onPress: () => {
           // TODO: Implement cache clearing logic
-          Alert.alert(t('success'), t('cacheClearedSuccess'));
+          RNAlert.alert(t('success'), t('cacheClearedSuccess'));
         }
       }
     ]);
@@ -122,11 +131,11 @@ export default function SettingsView() {
 
   const handleExportData = () => {
     if (!isOnline) {
-      Alert.alert(t('error'), t('exportRequiresInternet'));
+      RNAlert.alert(t('error'), t('exportRequiresInternet'));
       return;
     }
     // TODO: Implement data export logic
-    Alert.alert(t('info'), t('exportDataComingSoon'));
+    RNAlert.alert(t('info'), t('exportDataComingSoon'));
   };
 
   const settingsSections: SettingsSection[] = [
@@ -201,7 +210,7 @@ export default function SettingsView() {
           title: t('helpCenter'),
           type: 'link',
           onPress: () => {
-            Alert.alert(t('info'), t('helpCenterComingSoon'));
+            RNAlert.alert(t('info'), t('helpCenterComingSoon'));
           }
         },
         {
@@ -210,7 +219,7 @@ export default function SettingsView() {
           type: 'link',
           onPress: () => {
             // TODO: Implement contact support logic
-            Alert.alert(t('info'), t('contactSupportComingSoon'));
+            RNAlert.alert(t('info'), t('contactSupportComingSoon'));
           }
         },
         {
@@ -219,7 +228,7 @@ export default function SettingsView() {
           type: 'link',
           onPress: () => {
             // TODO: Navigate to terms page
-            Alert.alert(t('info'), t('termsAndConditionsComingSoon'));
+            RNAlert.alert(t('info'), t('termsAndConditionsComingSoon'));
           }
         }
       ]
@@ -234,6 +243,25 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableAiSuggestions,
           onPress: () => handleAiSuggestionsToggle(!enableAiSuggestions)
+        },
+        {
+          id: 'playAll',
+          title: t('playAll'),
+          description: t('playAllDescription'),
+          type: 'toggle',
+          value: enablePlayAll,
+          onPress: () => handlePlayAllToggle(!enablePlayAll)
+        },
+        {
+          id: 'questExport',
+          title: t('questExport') || 'Quest Export',
+          description:
+            t('questExportDescription') ||
+            'Export bible chapters as audio files for sharing and distribution',
+          type: 'toggle',
+          value: enableQuestExport,
+          onPress: () => handleQuestExportToggle(!enableQuestExport),
+          disabled: !isOnline
         }
       ]
     },

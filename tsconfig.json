@@ -13,9 +13,15 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "types/**/*.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
   ],
-  "exclude": ["llm_supp_files", "node_modules", "supabase/functions/**/*"]
+  "exclude": [
+    "llm_supp_files",
+    "node_modules",
+    "supabase/functions/**/*",
+    "maestro/**/*"
+  ]
 }

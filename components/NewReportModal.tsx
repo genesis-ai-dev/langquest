@@ -12,13 +12,8 @@ import { useReports } from '@/hooks/useReports';
 import { useLocalStore } from '@/store/localStore';
 import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
+import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar
@@ -89,7 +84,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleSubmit = async () => {
     if (!currentUser || !isAuthenticated) {
-      Alert.alert(
+      RNAlert.alert(
         t('signInRequired'),
         t('blockContentLoginMessage') ||
           'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
@@ -108,7 +103,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     }
 
     if (!reason) {
-      Alert.alert('Error', t('selectReason'));
+      RNAlert.alert('Error', t('selectReason'));
       return;
     }
 
@@ -154,13 +149,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setBlockUserOption(false);
       setBlockContentOption(false);
       onClose();
-      Alert.alert(t('success'), t('reportSubmitted'));
+      RNAlert.alert(t('success'), t('reportSubmitted'));
 
       // Pass whether content was blocked so parent can close modal
       onReportSubmitted?.(contentBlocked);
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert(t('error'), t('failedToSubmitReport'));
+      RNAlert.alert(t('error'), t('failedToSubmitReport'));
     }
   };
 

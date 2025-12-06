@@ -34,7 +34,8 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
-  withTiming
+  withTiming,
+  type SharedValue
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
@@ -51,6 +52,9 @@ interface AssetCardProps {
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
+  // Custom progress for play-all mode (0-100 percentage)
+  // If provided, this overrides the default global progress calculation
+  customProgress?: SharedValue<number>;
   onPress: () => void;
   onLongPress: () => void;
   onPlay: (assetId: string) => void;
@@ -95,6 +99,7 @@ function AssetCardInternal({
   isPlaying,
   duration,
   segmentCount,
+  customProgress,
   onPress,
   onLongPress,
   onPlay,
@@ -120,10 +125,17 @@ function AssetCardInternal({
 
   // NEW: Calculate progress from SharedValues (no re-renders!)
   // This runs entirely on the UI thread at 60fps
+  // If customProgress is provided (for play-all mode), use that instead
   const animatedProgress = useDerivedValue(() => {
     'worklet';
     if (!isPlaying) return 0;
 
+    // Use custom progress if provided (for play-all mode with asset-specific progress)
+    if (customProgress) {
+      return customProgress.value;
+    }
+
+    // Otherwise, use global progress calculation
     const pos = audioContext.positionShared.value;
     const dur = audioContext.durationShared.value;
 
@@ -132,7 +144,7 @@ function AssetCardInternal({
     // Calculate progress percentage (0-100)
     const progressPercent = (pos / dur) * 100;
     return Math.min(100, Math.max(0, progressPercent));
-  }, [isPlaying]);
+  }, [isPlaying, customProgress]);
 
   // Progress bar style (interpolate to slightly lead at the end)
   const progressBarStyle = useAnimatedStyle(() => {
@@ -325,6 +337,8 @@ export const AssetCard = React.memo(AssetCardInternal, (prev, next) => {
     prev.duration === next.duration &&
     prev.segmentCount === next.segmentCount &&
     prev.canMergeDown === next.canMergeDown &&
+    // Compare customProgress SharedValue reference (needed when it changes from undefined to SharedValue)
+    prev.customProgress === next.customProgress &&
     // Callbacks are stable (wrapped in useCallback in parent), so we can skip checking them
     prev.onPress === next.onPress &&
     prev.onLongPress === next.onLongPress &&

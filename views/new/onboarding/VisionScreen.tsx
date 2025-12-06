@@ -25,6 +25,7 @@ export function VisionScreen() {
   const logoRotation = useSharedValue(0);
 
   // Determine which icon to use based on color scheme
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
   const iconSource =
     colorScheme === 'dark'
       ? require('@/assets/icons/icon_dark.png')

@@ -54,7 +54,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       [
         '@powersync/react-native',
         '@op-engineering/op-sqlite',
-        '@powersync/op-sqlite'
+        '@powersync/op-sqlite',
+        'react-native-audio-concat'
       ].includes(moduleName)
     ) {
       return {

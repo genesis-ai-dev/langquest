@@ -191,7 +191,7 @@ export function VADSettingsDrawer({
     energyResult,
     startEnergyDetection,
     stopEnergyDetection,
-    energyShared
+    energyShared: _energyShared
   } = useMicrophoneEnergy();
   const { t } = useLocalization();
   const [showHelp, setShowHelp] = React.useState(false);
@@ -283,7 +283,7 @@ export function VADSettingsDrawer({
   const getActivePills = (db: number) => {
     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
 
-    return INPUT_PILLS.map((pill, index) => {
+    return INPUT_PILLS.map((pill) => {
       if (clampedDb < pill.minDb) {
         // Below this pill's range - empty
         return { ...pill, isActive: false, fillPercent: 0 };
@@ -376,8 +376,8 @@ export function VADSettingsDrawer({
           const currentDb = energyToDb(avg);
           const thresholdDb = energyToDb(threshold);
 
-          const normalizedMin = normalizeEnergy(min);
-          const normalizedMax = normalizeEnergy(max);
+          const _normalizedMin = normalizeEnergy(min);
+          const _normalizedMax = normalizeEnergy(max);
           const normalizedAvg = normalizeEnergy(avg);
 
           // Find which pill the current dB falls into
@@ -431,6 +431,7 @@ export function VADSettingsDrawer({
       }
       energySamplesRef.current = [];
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, isActive, threshold]);
 
   // Collect energy samples for logging
@@ -459,7 +460,7 @@ export function VADSettingsDrawer({
         await startEnergyDetection();
         // Wait a bit for energy detection to stabilize
         await new Promise((resolve) => setTimeout(resolve, 200));
-      } catch (error) {
+      } catch (_error) {
         setCalibrationError(
           t('vadCalibrationFailed') || 'Failed to start microphone'
         );
@@ -664,6 +665,7 @@ export function VADSettingsDrawer({
           )}
 
           {/* Display Mode Selection */}
+          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
             <View className="gap-3">
               <View>

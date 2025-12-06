@@ -264,6 +264,83 @@ export class System {
     // Capture PowerSync instance for migrations
     const powersyncInstance = this.powersync;
 
+    /**
+     * Wrap insert() to stamp _metadata on values
+     */
+    function wrapInsert(target: any) {
+      return (table: any) => {
+        const builder = target.insert(table);
+        return new Proxy(builder, {
+          get(b, m) {
+            if (m === 'values') {
+              return (v: any) => b.values(stamp(v));
+            }
+            return Reflect.get(b, m);
+          }
+        });
+      };
+    }
+
+    /**
+     * Wrap update() to stamp _metadata on set values
+     */
+    function wrapUpdate(target: any) {
+      return (table: any) => {
+        const builder = target.update(table);
+        return new Proxy(builder, {
+          get(b, m) {
+            if (m === 'set') {
+              return (v: any) => b.set(stamp(v));
+            }
+            return Reflect.get(b, m);
+          }
+        });
+      };
+    }
+
+    /**
+     * Create a proxy that wraps insert/update to stamp _metadata
+     * Used for both the main db and transaction contexts
+     */
+    function createMetadataProxy(
+      target: any,
+      extraProps?: Record<string, any>
+    ) {
+      return new Proxy(target, {
+        get(t: any, prop: any, receiver: any) {
+          // Check extra props first (e.g., rawPowerSync)
+          if (extraProps && prop in extraProps) {
+            return extraProps[prop];
+          }
+          if (prop === 'insert') {
+            return wrapInsert(t);
+          }
+          if (prop === 'update') {
+            return wrapUpdate(t);
+          }
+          return Reflect.get(t, prop, receiver);
+        }
+      });
+    }
+
+    /**
+     * Wrap transaction() to also wrap the transaction context (tx)
+     * This ensures _metadata stamping works inside transactions
+     */
+    function wrapTransaction(target: any) {
+      const originalTransaction = target.transaction.bind(target);
+      return async <T>(
+        callback: (tx: any) => Promise<T>,
+        config?: any
+      ): Promise<T> => {
+        return originalTransaction(async (tx: any) => {
+          // Wrap the transaction context with the same metadata stamping
+          const txWithMetadata = createMetadataProxy(tx);
+          return callback(txWithMetadata);
+        }, config);
+      };
+    }
+
     const dbWithMetadata = new Proxy(rawDb as any, {
       get(target: any, prop: any, receiver: any) {
         // Expose raw PowerSync for migrations that need to alter tables
@@ -271,30 +348,13 @@ export class System {
           return powersyncInstance;
         }
         if (prop === 'insert') {
-          return (table: any) => {
-            const builder = target.insert(table);
-            return new Proxy(builder, {
-              get(b, m) {
-                if (m === 'values') {
-                  return (v: any) => b.values(stamp(v));
-                }
-                return Reflect.get(b, m);
-              }
-            });
-          };
+          return wrapInsert(target);
         }
         if (prop === 'update') {
-          return (table: any) => {
-            const builder = target.update(table);
-            return new Proxy(builder, {
-              get(b, m) {
-                if (m === 'set') {
-                  return (v: any) => b.set(stamp(v));
-                }
-                return Reflect.get(b, m);
-              }
-            });
-          };
+          return wrapUpdate(target);
+        }
+        if (prop === 'transaction') {
+          return wrapTransaction(target);
         }
         return Reflect.get(target, prop, receiver);
       }

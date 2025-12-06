@@ -9,7 +9,8 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { CloudUpload, XIcon } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
 import { Button } from './ui/button';
@@ -61,7 +62,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   // Handle error in useEffect to avoid setState during render
   useEffect(() => {
     if (isError && isVisible) {
-      Alert.alert(t('error'), t('questSettingsLoadError'));
+      RNAlert.alert(t('error'), t('questSettingsLoadError'));
       onClose();
     }
   }, [isError, isVisible, onClose, t]);
@@ -98,14 +99,14 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         questId
       );
 
-      Alert.alert(
+      RNAlert.alert(
         t('success'),
         questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
       );
       //    }
     } catch (error) {
       console.log(error);
-      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
+      RNAlert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -140,13 +141,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
       // questMadeActive -> 'The quest has been made active'
       // error -> 'Error'
       // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-      Alert.alert(
+      RNAlert.alert(
         t('success'),
         questData.active ? t('questMadeInactive') : t('questMadeActive')
       );
     } catch (error) {
       console.log(error);
-      Alert.alert(t('error'), t('failedToUpdateQuestSettings'));
+      RNAlert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
     }
@@ -168,13 +169,13 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
         }
       });
 
-      Alert.alert(t('success'), t('offloadComplete'));
+      RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
       onClose();
       refetch();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError'));
+      RNAlert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }

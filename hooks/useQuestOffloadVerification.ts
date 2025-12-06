@@ -23,6 +23,15 @@ export interface VerifiedIds {
   assetTagLinkIds: string[];
   tagIds: string[];
   languageIds: string[];
+  languoidIds: string[];
+  languoidAliasIds: string[];
+  languoidSourceIds: string[];
+  languoidPropertyIds: string[];
+  languoidRegionIds: string[];
+  regionIds: string[];
+  regionAliasIds: string[];
+  regionSourceIds: string[];
+  regionPropertyIds: string[];
   attachmentIds: string[];
 }
 
@@ -92,6 +101,15 @@ export function useQuestOffloadVerification(
     assetTagLinkIds: [],
     tagIds: [],
     languageIds: [],
+    languoidIds: [],
+    languoidAliasIds: [],
+    languoidSourceIds: [],
+    languoidPropertyIds: [],
+    languoidRegionIds: [],
+    regionIds: [],
+    regionAliasIds: [],
+    regionSourceIds: [],
+    regionPropertyIds: [],
     attachmentIds: []
   });
 
@@ -190,6 +208,17 @@ export function useQuestOffloadVerification(
       assetTagLinkIds: [],
       tagIds: [],
       languageIds: [],
+      // Languoid IDs are intentionally left empty during offload verification
+      // Languoids are shared resources and shouldn't be undownloaded with individual quests
+      languoidIds: [],
+      languoidAliasIds: [],
+      languoidSourceIds: [],
+      languoidPropertyIds: [],
+      languoidRegionIds: [],
+      regionIds: [],
+      regionAliasIds: [],
+      regionSourceIds: [],
+      regionPropertyIds: [],
       attachmentIds: []
     };
 

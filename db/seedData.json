@@ -56,6 +56,430 @@
       "uiReady": false
     }
   ],
+  "languoids": [
+    {
+      "id": "lang-eng",
+      "parent_id": null,
+      "name": "English",
+      "level": "language",
+      "ui_ready": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lang-spa",
+      "parent_id": null,
+      "name": "Spanish",
+      "level": "language",
+      "ui_ready": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lang-mil",
+      "parent_id": null,
+      "name": "Mixteco de Penasco",
+      "level": "language",
+      "ui_ready": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lang-zas",
+      "parent_id": null,
+      "name": "Zapoteco de Santiago",
+      "level": "language",
+      "ui_ready": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lang-poi",
+      "parent_id": null,
+      "name": "Popoluca",
+      "level": "language",
+      "ui_ready": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "languoid_aliases": [
+    {
+      "id": "alias-eng-native",
+      "subject_languoid_id": "lang-eng",
+      "label_languoid_id": "lang-eng",
+      "name": "English",
+      "alias_type": "autonym",
+      "source_names": ["glottolog"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "alias-spa-native",
+      "subject_languoid_id": "lang-spa",
+      "label_languoid_id": "lang-spa",
+      "name": "Español",
+      "alias_type": "autonym",
+      "source_names": ["glottolog"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "alias-mil-native",
+      "subject_languoid_id": "lang-mil",
+      "label_languoid_id": "lang-mil",
+      "name": "Tu'un Savi",
+      "alias_type": "autonym",
+      "source_names": ["glottolog"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "alias-zas-native",
+      "subject_languoid_id": "lang-zas",
+      "label_languoid_id": "lang-zas",
+      "name": "Diidxazá",
+      "alias_type": "autonym",
+      "source_names": ["glottolog"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "alias-poi-native",
+      "subject_languoid_id": "lang-poi",
+      "label_languoid_id": "lang-poi",
+      "name": "Nuntajɨ̃yi",
+      "alias_type": "autonym",
+      "source_names": ["glottolog"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "languoid_sources": [
+    {
+      "id": "lsrc-eng-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-eng",
+      "unique_identifier": "eng",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lsrc-spa-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-spa",
+      "unique_identifier": "spa",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lsrc-mil-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-mil",
+      "unique_identifier": "mil",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lsrc-zas-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-zas",
+      "unique_identifier": "zas",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lsrc-poi-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-poi",
+      "unique_identifier": "poi",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "languoid_properties": [
+    {
+      "id": "prop-eng-macroarea",
+      "languoid_id": "lang-eng",
+      "key": "macroareas",
+      "value": "North America",
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "prop-spa-macroarea",
+      "languoid_id": "lang-spa",
+      "key": "macroareas",
+      "value": "Eurasia",
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "prop-mil-macroarea",
+      "languoid_id": "lang-mil",
+      "key": "macroareas",
+      "value": "North America",
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "prop-zas-macroarea",
+      "languoid_id": "lang-zas",
+      "key": "macroareas",
+      "value": "North America",
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "prop-poi-macroarea",
+      "languoid_id": "lang-poi",
+      "key": "macroareas",
+      "value": "North America",
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "regions": [
+    {
+      "id": "region-mexico",
+      "parent_id": null,
+      "name": "Mexico",
+      "level": "nation",
+      "geometry": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "region-oaxaca",
+      "parent_id": "region-mexico",
+      "name": "Oaxaca",
+      "level": "state",
+      "geometry": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "region-usa",
+      "parent_id": null,
+      "name": "United States",
+      "level": "nation",
+      "geometry": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "region-spain",
+      "parent_id": null,
+      "name": "Spain",
+      "level": "nation",
+      "geometry": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "region_sources": [
+    {
+      "id": "rsrc-mexico-iso",
+      "name": "iso3166-1",
+      "version": null,
+      "region_id": "region-mexico",
+      "unique_identifier": "MX",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "rsrc-usa-iso",
+      "name": "iso3166-1",
+      "version": null,
+      "region_id": "region-usa",
+      "unique_identifier": "US",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "rsrc-spain-iso",
+      "name": "iso3166-1",
+      "version": null,
+      "region_id": "region-spain",
+      "unique_identifier": "ES",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
+  "languoid_regions": [
+    {
+      "id": "lr-eng-usa",
+      "languoid_id": "lang-eng",
+      "region_id": "region-usa",
+      "majority": true,
+      "official": true,
+      "native": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lr-spa-mexico",
+      "languoid_id": "lang-spa",
+      "region_id": "region-mexico",
+      "majority": true,
+      "official": true,
+      "native": false,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lr-spa-spain",
+      "languoid_id": "lang-spa",
+      "region_id": "region-spain",
+      "majority": true,
+      "official": true,
+      "native": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lr-mil-oaxaca",
+      "languoid_id": "lang-mil",
+      "region_id": "region-oaxaca",
+      "majority": false,
+      "official": false,
+      "native": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lr-zas-oaxaca",
+      "languoid_id": "lang-zas",
+      "region_id": "region-oaxaca",
+      "majority": false,
+      "official": false,
+      "native": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lr-poi-mexico",
+      "languoid_id": "lang-poi",
+      "region_id": "region-mexico",
+      "majority": false,
+      "official": false,
+      "native": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    }
+  ],
   "users": [
     {
       "id": "user-1",
@@ -65,7 +489,8 @@
       "versionChainId": "user-1-chain",
       "username": "John",
       "password": "password",
-      "uiLanguageId": "lang-eng"
+      "uiLanguageId": "lang-eng",
+      "ui_languoid_id": "lang-eng"
     },
     {
       "id": "user-2",
@@ -75,7 +500,8 @@
       "versionChainId": "user-2-chain",
       "username": "Emma",
       "password": "password",
-      "uiLanguageId": "lang-eng"
+      "uiLanguageId": "lang-eng",
+      "ui_languoid_id": "lang-eng"
     },
     {
       "id": "user-3",
@@ -85,7 +511,8 @@
       "versionChainId": "user-3-chain",
       "username": "David",
       "password": "password",
-      "uiLanguageId": "lang-eng"
+      "uiLanguageId": "lang-eng",
+      "ui_languoid_id": "lang-eng"
     },
     {
       "id": "user-4",
@@ -95,7 +522,8 @@
       "versionChainId": "user-4-chain",
       "username": "Maria",
       "password": "password",
-      "uiLanguageId": "lang-spa"
+      "uiLanguageId": "lang-spa",
+      "ui_languoid_id": "lang-spa"
     },
     {
       "id": "user-5",
@@ -105,7 +533,8 @@
       "versionChainId": "user-5-chain",
       "username": "Carlos",
       "password": "password",
-      "uiLanguageId": "lang-spa"
+      "uiLanguageId": "lang-spa",
+      "ui_languoid_id": "lang-spa"
     },
     {
       "id": "user-6",
@@ -115,7 +544,8 @@
       "versionChainId": "user-6-chain",
       "username": "Ana",
       "password": "password",
-      "uiLanguageId": "lang-spa"
+      "uiLanguageId": "lang-spa",
+      "ui_languoid_id": "lang-spa"
     }
   ],
   "projects": [
@@ -151,6 +581,74 @@
       "description": "Vocabulario visual de Génesis en Popoluca",
       "sourceLanguageId": "lang-spa",
       "targetLanguageId": "lang-poi"
+    }
+  ],
+  "project_language_links": [
+    {
+      "id": "proj-luke-mix_source",
+      "project_id": "proj-luke-mix",
+      "language_id": "lang-spa",
+      "languoid_id": "lang-spa",
+      "language_type": "source",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "proj-luke-mix_target",
+      "project_id": "proj-luke-mix",
+      "language_id": "lang-mil",
+      "languoid_id": "lang-mil",
+      "language_type": "target",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "proj-luke-zap_source",
+      "project_id": "proj-luke-zap",
+      "language_id": "lang-spa",
+      "languoid_id": "lang-spa",
+      "language_type": "source",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "proj-luke-zap_target",
+      "project_id": "proj-luke-zap",
+      "language_id": "lang-zas",
+      "languoid_id": "lang-zas",
+      "language_type": "target",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "proj-gen-pop_source",
+      "project_id": "proj-gen-pop",
+      "language_id": "lang-spa",
+      "languoid_id": "lang-spa",
+      "language_type": "source",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "proj-gen-pop_target",
+      "project_id": "proj-gen-pop",
+      "language_id": "lang-poi",
+      "languoid_id": "lang-poi",
+      "language_type": "target",
+      "download_profiles": null,
+      "active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z"
     }
   ],
   "tags": [

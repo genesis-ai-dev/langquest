@@ -1,6 +1,5 @@
 import { Icon } from '@/components/ui/icon';
-import { getThemeColor } from '@/utils/styleUtils';
-import { LucideIcon } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
@@ -87,7 +86,8 @@ export function AnimatedOnboardingIcon({
           -1,
           false
         );
-      } else if (animationType === 'rotate') {
+      } else {
+        // animationType must be 'rotate' at this point
         rotate.value = withRepeat(
           withTiming(360, {
             duration: 3000,

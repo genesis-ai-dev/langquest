@@ -22,7 +22,7 @@ import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { resolveTable } from '@/utils/dbUtils';
 import type { AttachmentState } from '@powersync/attachments';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 // ============================================================================
@@ -52,7 +52,7 @@ interface ChapterData {
     id: string;
     name: string;
     description: string | null;
-    target_language_id: string;
+    target_language_id: string | null; // Now nullable - languoid_id is the canonical reference
     creator_id: string | null;
     private: boolean;
     visible: boolean;
@@ -128,8 +128,20 @@ interface ChapterData {
     id: string;
     asset_id: string;
     source_language_id: string | null;
+    languoid_id: string | null; // New languoid reference
     text: string | null;
     audio: string[] | null;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
+  projectLanguageLinks?: {
+    id: string;
+    project_id: string;
+    language_id: string | null; // Now nullable - for backward compatibility
+    languoid_id: string; // Required - part of new PK
+    language_type: 'source' | 'target';
     download_profiles: string[] | null;
     created_at: string;
     last_updated: string;
@@ -299,7 +311,7 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     console.log(`📝 Found ${assets.length} assets`);
   }
 
-  // 4. Get all asset content links
+  // 4. Get all asset content links (including languoid_id)
   let assetContentLinks: ChapterData['assetContentLinks'] = [];
   if (assetIds.length > 0) {
     assetContentLinks = await system.db
@@ -309,6 +321,23 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
       .orderBy(assetContentLinkLocal.created_at);
 
     console.log(`🔗 Found ${assetContentLinks.length} content links`);
+  }
+
+  // 4b. Get project_language_link records if project exists
+  let projectLanguageLinks: ChapterData['projectLanguageLinks'] = undefined;
+  if (project) {
+    const projectLanguageLinkLocal = resolveTable('project_language_link', {
+      localOverride: true
+    });
+    const links = await system.db
+      .select()
+      .from(projectLanguageLinkLocal)
+      .where(eq(projectLanguageLinkLocal.project_id, project.id));
+
+    if (links.length > 0) {
+      projectLanguageLinks = links;
+      console.log(`🔗 Found ${links.length} project language links`);
+    }
   }
 
   // 5. Get quest tags
@@ -353,7 +382,8 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     assetContentLinks,
     tags,
     questTagLinks,
-    assetTagLinks
+    assetTagLinks,
+    projectLanguageLinks
   };
 }
 
@@ -912,6 +942,62 @@ async function executePublishTransaction(
         console.log(`⏭️  Project already exists in synced table, skipping`);
       }
 
+      // 1b. Publish project_language_link records if they exist
+      // PK is now (project_id, languoid_id, language_type) - languoid_id is required
+      if (data.projectLanguageLinks && data.projectLanguageLinks.length > 0) {
+        const projectLanguageLinkTable = resolveTable('project_language_link', {
+          localOverride: false
+        });
+
+        console.log(
+          `🔗 Publishing ${data.projectLanguageLinks.length} project language links...`
+        );
+        let skipped = 0;
+        for (const link of data.projectLanguageLinks) {
+          // Skip links without languoid_id - they can't be inserted (PK requirement)
+          if (!link.languoid_id) {
+            console.warn(
+              `⚠️ Skipping project_language_link without languoid_id for project ${link.project_id}`
+            );
+            skipped++;
+            continue;
+          }
+
+          // Check using new PK (project_id, languoid_id, language_type)
+          const [existing] = await tx
+            .select()
+            .from(projectLanguageLinkTable)
+            .where(
+              and(
+                eq(projectLanguageLinkTable.project_id, link.project_id),
+                eq(projectLanguageLinkTable.languoid_id, link.languoid_id),
+                eq(projectLanguageLinkTable.language_type, link.language_type)
+              )
+            )
+            .limit(1);
+
+          if (!existing) {
+            await tx.insert(projectLanguageLinkTable).values({
+              project_id: link.project_id,
+              language_id: link.language_id || null, // Optional - for backward compatibility
+              languoid_id: link.languoid_id, // Required - part of PK
+              language_type: link.language_type,
+              download_profiles: link.download_profiles,
+              created_at: link.created_at,
+              last_updated: link.last_updated,
+              active: link.active
+            });
+          } else {
+            skipped++;
+          }
+        }
+        if (skipped > 0) {
+          console.log(
+            `⏭️  Skipped ${skipped} project language links (already exist or missing languoid_id)`
+          );
+        }
+      }
+
       // CRITICAL: Also publish the profile_project_link (for RLS policies)
       const profileProjectLinkTable = resolveTable('profile_project_link', {
         localOverride: false
@@ -1137,7 +1223,8 @@ async function executePublishTransaction(
           await tx.insert(assetContentLink).values({
             id: link.id,
             asset_id: link.asset_id,
-            source_language_id: link.source_language_id,
+            source_language_id: link.source_language_id, // Keep for backward compatibility
+            languoid_id: link.languoid_id, // Include new languoid reference
             text: link.text,
             audio: link.audio,
             download_profiles: link.download_profiles,

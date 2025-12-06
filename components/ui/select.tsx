@@ -112,12 +112,14 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Portal hostName={portalHost}>
       <SelectPrimitive.Overlay
         style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
+        pointerEvents={open ? 'auto' : 'none'}
       >
         <View className="z-[9999]">
           <MotiView
             from={{ opacity: 0 }}
             animate={{ opacity: open ? 1 : 0 }}
             transition={{ type: 'timing', duration: 200 }}
+            pointerEvents={open ? 'auto' : 'none'}
           >
             <SelectPrimitive.Content
               ref={ref}

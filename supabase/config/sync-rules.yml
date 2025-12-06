@@ -3,8 +3,8 @@ bucket_definitions:
     data:
       #   Sync all rows-- Select all data from User table
       - SELECT * FROM "profile"
-      #   Sync all languages globally so they're available for project creation
-      - SELECT * FROM "language" WHERE active = true
+      #   Sync all ui_ready languoids globally so they're available for project creation
+      - SELECT * FROM "languoid" WHERE active = true AND ui_ready = true
 
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
@@ -14,13 +14,40 @@ bucket_definitions:
       - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
-      - SELECT project_id || '_' || language_id as id, * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
+      - SELECT project_id || '_' || languoid_id as id, * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
       - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
+
+      # Sync languoids - using download_profiles directly (populated by bulk download function)
+      - SELECT * FROM "languoid" WHERE bucket.profile_id in download_profiles
+
+      # Sync languoid aliases - using download_profiles directly
+      - SELECT * FROM "languoid_alias" WHERE bucket.profile_id in download_profiles
+
+      # Sync languoid sources - using download_profiles directly
+      - SELECT * FROM "languoid_source" WHERE bucket.profile_id in download_profiles
+
+      # Sync languoid properties - using download_profiles directly
+      - SELECT * FROM "languoid_property" WHERE bucket.profile_id in download_profiles
+
+      # Sync languoid_region links - using download_profiles directly
+      - SELECT * FROM "languoid_region" WHERE bucket.profile_id in download_profiles
+
+      # Sync regions - using download_profiles directly
+      - SELECT * FROM "region" WHERE bucket.profile_id in download_profiles
+
+      # Sync region aliases - using download_profiles directly
+      - SELECT * FROM "region_alias" WHERE bucket.profile_id in download_profiles
+
+      # Sync region sources - using download_profiles directly
+      - SELECT * FROM "region_source" WHERE bucket.profile_id in download_profiles
+
+      # Sync region properties - using download_profiles directly
+      - SELECT * FROM "region_property" WHERE bucket.profile_id in download_profiles
 
       - SELECT
         *

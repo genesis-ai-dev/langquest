@@ -10,6 +10,11 @@ import {
   createBlockedUsersTable,
   createInviteTable,
   createLanguageTable,
+  createLanguoidAliasTable,
+  createLanguoidPropertyTable,
+  createLanguoidRegionTable,
+  createLanguoidSourceTable,
+  createLanguoidTable,
   createNotificationTable,
   createProfileProjectLinkTable,
   createProfileTable,
@@ -20,6 +25,10 @@ import {
   createQuestClosureTable,
   createQuestTable,
   createQuestTagLinkTable,
+  createRegionAliasTable,
+  createRegionPropertyTable,
+  createRegionSourceTable,
+  createRegionTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
@@ -42,6 +51,11 @@ export const userRelations = relations(profile, ({ many, one }) => ({
     references: [language.id],
     relationName: 'uiLanguage'
   }),
+  ui_languoid: one(languoid, {
+    fields: [profile.ui_languoid_id],
+    references: [languoid.id],
+    relationName: 'uiLanguoid'
+  }),
   sent_invites: many(invite, { relationName: 'invite_sender' }),
   received_invites: many(invite, { relationName: 'invite_receiver' }),
   sent_requests: many(request, { relationName: 'request_sender' })
@@ -59,6 +73,195 @@ export const languageRelations = relations(language, ({ one, many }) => ({
   sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
   targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
+
+// Languoid tables
+export const languoid = createLanguoidTable('merged', { profile });
+
+export const languoidRelations = relations(languoid, ({ one, many }) => ({
+  creator: one(profile, {
+    fields: [languoid.creator_id],
+    references: [profile.id],
+    relationName: 'creator'
+  }),
+  parent: one(languoid, {
+    fields: [languoid.parent_id],
+    references: [languoid.id],
+    relationName: 'languoid_parent'
+  }),
+  children: many(languoid, { relationName: 'languoid_parent' }),
+  uiUsers: many(profile, { relationName: 'uiLanguoid' }),
+  aliases: many(languoid_alias, { relationName: 'subject_languoid' }),
+  sources: many(languoid_source),
+  properties: many(languoid_property),
+  regions: many(languoid_region)
+}));
+
+export const languoid_alias = createLanguoidAliasTable('merged', {
+  languoid,
+  profile
+});
+
+export const languoid_aliasRelations = relations(languoid_alias, ({ one }) => ({
+  subject_languoid: one(languoid, {
+    fields: [languoid_alias.subject_languoid_id],
+    references: [languoid.id],
+    relationName: 'subject_languoid'
+  }),
+  label_languoid: one(languoid, {
+    fields: [languoid_alias.label_languoid_id],
+    references: [languoid.id],
+    relationName: 'label_languoid'
+  }),
+  creator: one(profile, {
+    fields: [languoid_alias.creator_id],
+    references: [profile.id],
+    relationName: 'creator'
+  })
+}));
+
+export const languoid_source = createLanguoidSourceTable('merged', {
+  languoid,
+  profile
+});
+
+export const languoid_sourceRelations = relations(
+  languoid_source,
+  ({ one }) => ({
+    languoid: one(languoid, {
+      fields: [languoid_source.languoid_id],
+      references: [languoid.id]
+    }),
+    creator: one(profile, {
+      fields: [languoid_source.creator_id],
+      references: [profile.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_property = createLanguoidPropertyTable('merged', {
+  languoid,
+  profile
+});
+
+export const languoid_propertyRelations = relations(
+  languoid_property,
+  ({ one }) => ({
+    languoid: one(languoid, {
+      fields: [languoid_property.languoid_id],
+      references: [languoid.id]
+    }),
+    creator: one(profile, {
+      fields: [languoid_property.creator_id],
+      references: [profile.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region = createRegionTable('merged', { profile });
+
+export const regionRelations = relations(region, ({ one, many }) => ({
+  creator: one(profile, {
+    fields: [region.creator_id],
+    references: [profile.id],
+    relationName: 'creator'
+  }),
+  parent: one(region, {
+    fields: [region.parent_id],
+    references: [region.id],
+    relationName: 'region_parent'
+  }),
+  children: many(region, { relationName: 'region_parent' }),
+  aliases: many(region_alias),
+  sources: many(region_source),
+  properties: many(region_property),
+  languoids: many(languoid_region)
+}));
+
+export const region_alias = createRegionAliasTable('merged', {
+  region,
+  languoid,
+  profile
+});
+
+export const region_aliasRelations = relations(region_alias, ({ one }) => ({
+  subject_region: one(region, {
+    fields: [region_alias.subject_region_id],
+    references: [region.id]
+  }),
+  label_languoid: one(languoid, {
+    fields: [region_alias.label_languoid_id],
+    references: [languoid.id]
+  }),
+  creator: one(profile, {
+    fields: [region_alias.creator_id],
+    references: [profile.id],
+    relationName: 'creator'
+  })
+}));
+
+export const region_source = createRegionSourceTable('merged', {
+  region,
+  profile
+});
+
+export const region_sourceRelations = relations(region_source, ({ one }) => ({
+  region: one(region, {
+    fields: [region_source.region_id],
+    references: [region.id]
+  }),
+  creator: one(profile, {
+    fields: [region_source.creator_id],
+    references: [profile.id],
+    relationName: 'creator'
+  })
+}));
+
+export const region_property = createRegionPropertyTable('merged', {
+  region,
+  profile
+});
+
+export const region_propertyRelations = relations(
+  region_property,
+  ({ one }) => ({
+    region: one(region, {
+      fields: [region_property.region_id],
+      references: [region.id]
+    }),
+    creator: one(profile, {
+      fields: [region_property.creator_id],
+      references: [profile.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_region = createLanguoidRegionTable('merged', {
+  languoid,
+  region,
+  profile
+});
+
+export const languoid_regionRelations = relations(
+  languoid_region,
+  ({ one }) => ({
+    languoid: one(languoid, {
+      fields: [languoid_region.languoid_id],
+      references: [languoid.id]
+    }),
+    region: one(region, {
+      fields: [languoid_region.region_id],
+      references: [region.id]
+    }),
+    creator: one(profile, {
+      fields: [languoid_region.creator_id],
+      references: [profile.id],
+      relationName: 'creator'
+    })
+  })
+);
 
 export const project = createProjectTable('merged', { language, profile });
 
@@ -197,6 +400,11 @@ export const project_language_linkRelations = relations(
     language: one(language, {
       fields: [project_language_link.language_id],
       references: [language.id]
+    }),
+    languoid: one(languoid, {
+      fields: [project_language_link.languoid_id],
+      references: [languoid.id],
+      relationName: 'languoid'
     })
   })
 );
@@ -270,6 +478,11 @@ export const asset_content_linkRelations = relations(
     source_language: one(language, {
       fields: [asset_content_link.source_language_id],
       references: [language.id]
+    }),
+    languoid: one(languoid, {
+      fields: [asset_content_link.languoid_id],
+      references: [languoid.id],
+      relationName: 'languoid'
     })
   })
 );

@@ -50,6 +50,29 @@ const emailTypeEndpoint = {
   signup: 'registration-confirmation',
   recovery: 'reset-password'
 };
+
+/**
+ * Maps languoid.name to locale code for email localization
+ */
+function mapLanguoidNameToLocale(
+  languoidName: string | null | undefined
+): string {
+  if (!languoidName) return 'en';
+
+  const normalized = languoidName.toLowerCase().trim();
+
+  // Map languoid names to locale codes
+  const mapping: Record<string, string> = {
+    english: 'en',
+    spanish: 'es',
+    'brazilian portuguese': 'pt-BR',
+    'tok pisin': 'tpi-PG',
+    'standard indonesian': 'id-ID',
+    indonesian: 'id-ID' // Also handle just "Indonesian"
+  };
+
+  return mapping[normalized] ?? 'en';
+}
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('not allowed', {
@@ -98,16 +121,27 @@ Deno.serve(async (req) => {
         // Get sender details
         const { data: sender } = await supabase
           .from('profile')
-          .select('username, ui_language_id')
+          .select('username, ui_language_id, ui_languoid_id')
           .eq('id', record.sender_profile_id)
           .single();
-        // Get language for localization
-        const { data: language } = await supabase
-          .from('language')
-          .select('locale')
-          .eq('id', sender?.ui_language_id)
-          .single();
-        const locale = language?.locale ?? 'en';
+        // Get languoid for localization (prefer ui_languoid_id, fallback to ui_language_id)
+        let locale = 'en';
+        if (sender?.ui_languoid_id) {
+          const { data: languoid } = await supabase
+            .from('languoid')
+            .select('name')
+            .eq('id', sender.ui_languoid_id)
+            .single();
+          locale = mapLanguoidNameToLocale(languoid?.name);
+        } else if (sender?.ui_language_id) {
+          // Fallback to old language table for backward compatibility
+          const { data: language } = await supabase
+            .from('language')
+            .select('locale')
+            .eq('id', sender.ui_language_id)
+            .single();
+          locale = language?.locale ?? 'en';
+        }
         const joinUrl = `${Deno.env.get('PLAY_STORE_URL')}`;
         const inviteComponent = React.createElement(InviteEmail, {
           projectName: project?.name ?? 'Unknown Project',
@@ -156,15 +190,33 @@ Deno.serve(async (req) => {
     // Get user profile from database
     const { data: profile } = await supabase
       .from('profile')
-      .select('ui_language_id')
+      .select('ui_language_id, ui_languoid_id')
       .eq('username', user.user_metadata?.username)
       .single();
-    const { data: language } = await supabase
-      .from('language')
-      .select('locale')
-      .eq('id', profile?.ui_language_id ?? user.user_metadata?.ui_language_id)
-      .single();
-    const locale = language?.locale ?? 'en';
+
+    // Get locale from languoid (prefer ui_languoid_id, fallback to ui_language_id)
+    let locale = 'en';
+    const uiLanguoidId =
+      profile?.ui_languoid_id ?? user.user_metadata?.ui_languoid_id;
+    const uiLanguageId =
+      profile?.ui_language_id ?? user.user_metadata?.ui_language_id;
+
+    if (uiLanguoidId) {
+      const { data: languoid } = await supabase
+        .from('languoid')
+        .select('name')
+        .eq('id', uiLanguoidId)
+        .single();
+      locale = mapLanguoidNameToLocale(languoid?.name);
+    } else if (uiLanguageId) {
+      // Fallback to old language table for backward compatibility
+      const { data: language } = await supabase
+        .from('language')
+        .select('locale')
+        .eq('id', uiLanguageId)
+        .single();
+      locale = language?.locale ?? 'en';
+    }
     const parsedRedirectTo = new URL(redirect_to);
     const parsedSiteUrl = new URL(site_url);
     const projectRef = parsedSiteUrl.host.split('.')[0];
