@@ -86,6 +86,7 @@ type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[] | undefined;
 };
 
 export default function NextGenAssetsView() {
@@ -307,6 +308,17 @@ export default function NextGenAssetsView() {
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
   }, [safeAttachmentStates]);
 
+  const handleAssetUpdate = React.useCallback(async () => {
+    // await queryClient.invalidateQueries({
+    //   // queryKey: ['assets', 'by-quest', currentQuestId],
+    //   queryKey: ['by-quest', currentQuestId],
+    //   exact: false
+    // });
+    await queryClient.invalidateQueries({
+      queryKey: ['assets']
+    });
+  }, [queryClient]);
+
   const renderItem = React.useCallback(
     ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => {
       const isPlaying =
@@ -326,6 +338,7 @@ export default function NextGenAssetsView() {
           attachmentState={safeAttachmentStates.get(item.id)}
           questId={currentQuestId || ''}
           isCurrentlyPlaying={isPlaying}
+          onUpdate={handleAssetUpdate}
         />
       );
     },
@@ -336,7 +349,8 @@ export default function NextGenAssetsView() {
       safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
-      currentlyPlayingAssetId
+      currentlyPlayingAssetId,
+      handleAssetUpdate
     ]
   );
 
