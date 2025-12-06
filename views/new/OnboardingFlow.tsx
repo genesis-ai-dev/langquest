@@ -193,7 +193,8 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
               id: `${currentUser!.id}_${project.id}`,
               project_id: project.id,
               profile_id: currentUser!.id,
-              membership: 'owner'
+              membership: 'owner',
+              download_profiles: [currentUser!.id]
             });
 
           newProject = project as {

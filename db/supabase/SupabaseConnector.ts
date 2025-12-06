@@ -5,6 +5,7 @@ import type {
   PowerSyncBackendConnector as PowerSyncBackendConnectorNative
 } from '@powersync/react-native';
 import { UpdateType as UpdateTypeNative } from '@powersync/react-native';
+import * as Updates from 'expo-updates';
 
 // Import from web SDK - will be empty on native
 import { UpdateType as UpdateTypeWeb } from '@powersync/web';
@@ -21,11 +22,11 @@ const UpdateType = UpdateTypeNative || UpdateTypeWeb;
 
 import type { Profile } from '@/database_services/profileService';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
-import RNAlert from '@blazejkustra/react-native-alert';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
@@ -263,6 +264,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     await this.client.auth.signOut();
     const supabaseAuthKey = await getSupabaseAuthKey();
     if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
+    await Updates.reloadAsync();
   }
 
   async fetchCredentials() {

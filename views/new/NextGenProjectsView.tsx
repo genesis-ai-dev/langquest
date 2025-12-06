@@ -140,7 +140,8 @@ export default function NextGenProjectsView() {
               id: `${currentUser.id}_${newProject.id}`,
               project_id: newProject.id,
               profile_id: currentUser.id,
-              membership: 'owner'
+              membership: 'owner',
+              download_profiles: [currentUser.id]
             });
 
           // Create project_language_link with languoid_id
@@ -157,7 +158,7 @@ export default function NextGenProjectsView() {
             languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,
-            download_profiles: [currentUser!.id]
+            download_profiles: [currentUser.id]
           });
         });
       },

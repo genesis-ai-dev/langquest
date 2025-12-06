@@ -1,15 +1,31 @@
+config:
+  edition: 2
+
+streams:
+  co_member_profiles:
+    query: |
+      SELECT * FROM profile
+      WHERE id IN (
+        SELECT profile_id FROM profile_project_link
+        WHERE auth.user_id() in download_profiles
+        AND membership IS NOT NULL
+        AND active = true
+      )
+    auto_subscribe: true
+
 bucket_definitions:
   global_bucket:
     data:
-      #   Sync all rows-- Select all data from User table
-      - SELECT * FROM "profile"
       #   Sync all ui_ready languoids globally so they're available for project creation
       - SELECT * FROM "languoid" WHERE active = true AND ui_ready = true
 
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
     data:
-      #   - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
+      # Sync the user's own profile
+      - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
+
+      # Co-member profiles are synced via the co_member_profiles sync stream
       - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
@@ -21,6 +37,7 @@ bucket_definitions:
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
+      - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles
 
       # Sync languoids - using download_profiles directly (populated by bulk download function)
       - SELECT * FROM "languoid" WHERE bucket.profile_id in download_profiles

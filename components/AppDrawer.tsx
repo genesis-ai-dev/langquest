@@ -33,7 +33,7 @@ import {
   XCircle
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Keyboard, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -203,6 +203,8 @@ export default function AppDrawer({
   React.useEffect(() => {
     if (drawerIsVisible) {
       setHasOpened(true);
+      // Dismiss keyboard when drawer opens
+      Keyboard.dismiss();
     }
   }, [drawerIsVisible]);
 

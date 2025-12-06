@@ -888,6 +888,7 @@ export function createProfileProjectLinkTable<
     {
       ...getBaseColumns(source),
       membership: text({ enum: membershipOptions }).default('member').notNull(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
       profile_id: text()
         .notNull()
         .references(() => profile.id),
