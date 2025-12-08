@@ -17,6 +17,7 @@ import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
 import { Keyboard, View } from 'react-native';
@@ -26,6 +27,7 @@ import { z } from 'zod';
 export default function ResetPasswordView() {
   const { signOut } = useAuth();
   const { t } = useLocalization();
+  const router = useRouter();
 
   const formSchema = z
     .object({
@@ -144,6 +146,21 @@ export default function ResetPasswordView() {
               disabled={isPending}
             >
               <Text>{t('updatePassword')}</Text>
+            </Button>
+
+            <Button
+              onPress={() => {
+                // Sign out to clear password reset session, then navigate back
+                safeNavigate(() => {
+                  void signOut().then(() => {
+                    router.push('/');
+                  });
+                });
+              }}
+              disabled={isPending}
+              variant="link"
+            >
+              <Text>{t('cancel')}</Text>
             </Button>
           </View>
         </View>
