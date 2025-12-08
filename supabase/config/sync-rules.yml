@@ -24,6 +24,8 @@ bucket_definitions:
     data:
       # Sync the user's own profile
       - SELECT * FROM "profile" WHERE "profile".id = bucket.profile_id
+      # Sync the user's project memberships
+      - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE "profile_project_link".profile_id = bucket.profile_id AND active = true
 
       # Co-member profiles are synced via the co_member_profiles sync stream
       - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
@@ -37,7 +39,7 @@ bucket_definitions:
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
-      - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles
+      - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles AND active = true
 
       # Sync languoids - using download_profiles directly (populated by bulk download function)
       - SELECT * FROM "languoid" WHERE bucket.profile_id in download_profiles
@@ -103,10 +105,6 @@ bucket_definitions:
       WHERE profile_id = request.user_id()
         AND active = true
     data:
-      - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
-        WHERE project_id = bucket.project_id
-        AND active = true
-
       # Sync project record for the project_id, this makes the my projects tab reactive to changes
       - SELECT * FROM project
         WHERE id = bucket.project_id

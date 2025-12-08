@@ -34,8 +34,7 @@ begin
           and ppl.active = true;
     -- When becoming inactive, clear download_profiles (no need to sync other members)
     elsif new.active is distinct from true and (tg_op = 'INSERT' or old.active = true) then
-        new.download_profiles := null;
-        return new;
+        new.download_profiles := public.normalize_download_profiles('{}');
     end if;
     
     -- Always ensure self is never in download_profiles (safeguard against seeds/manual inserts)
