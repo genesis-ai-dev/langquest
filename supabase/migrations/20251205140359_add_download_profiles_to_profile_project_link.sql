@@ -35,7 +35,10 @@ begin
     end if;
     
     -- Always ensure self is never in download_profiles (safeguard against seeds/manual inserts)
-    new.download_profiles := array_remove(coalesce(new.download_profiles, '{}'), new.profile_id);
+    -- Normalize empty arrays
+    new.download_profiles := public.normalize_download_profiles(
+        array_remove(new.download_profiles, new.profile_id)
+    );
     
     return new;
 end;
@@ -61,13 +64,14 @@ security definer
 set search_path = ''
 as $$
 begin
-    -- If this record became active, add this member to all OTHER ppl records
+    -- If this record became active, add this member to all OTHER active ppl records
     if new.active = true and (tg_op = 'INSERT' or old.active is distinct from true) then
         update public.profile_project_link 
         set download_profiles = array_append(coalesce(download_profiles, '{}'), new.profile_id)
         where project_id = new.project_id
           and profile_id != new.profile_id
-          and not (download_profiles @> array[new.profile_id]);
+          and active = true
+          and (download_profiles is null or not (download_profiles @> array[new.profile_id]));
     end if;
     
     return new;
@@ -107,8 +111,11 @@ begin
     end if;
     
     -- Remove this member from ALL ppl records for this project
+    -- Normalize empty arrays to null
     update public.profile_project_link 
-    set download_profiles = array_remove(coalesce(download_profiles, '{}'), leaving_id)
+    set download_profiles = public.normalize_download_profiles(
+        array_remove(download_profiles, leaving_id)
+    )
     where project_id = proj_id;
     
     return coalesce(new, old);
@@ -126,14 +133,15 @@ execute function public.ppl_remove_member_after();
 
 -- ============================================================================
 -- Backfill: Set download_profiles to OTHER active members for each record
+-- Normalize empty arrays to null
 -- ============================================================================
 update public.profile_project_link ppl
-set download_profiles = (
-    select coalesce(array_agg(other.profile_id), '{}')
+set download_profiles = public.normalize_download_profiles((
+    select array_agg(other.profile_id)
     from public.profile_project_link other
     where other.project_id = ppl.project_id
       and other.active = true
       and other.profile_id != ppl.profile_id
-)
+))
 where ppl.active = true;
 
