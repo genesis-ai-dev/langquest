@@ -14,7 +14,7 @@
 
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
@@ -34,12 +34,6 @@ export function MigrationScreen() {
   });
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
-
-  // Declare wrapper function outside useEffect to pass as reference to scheduleOnRN
-  // Per workspace rules: must pass function references, never inline arrow functions
-  function startMigration() {
-    void runMigration();
-  }
 
   async function runMigration() {
     try {
@@ -92,6 +86,12 @@ export function MigrationScreen() {
       });
     }
   }
+
+  // Memoize wrapper function to pass as reference to scheduleOnRN
+  // Per workspace rules: must pass function references, never inline arrow functions
+  const startMigration = useCallback(() => {
+    void runMigration();
+  }, []); // Empty deps: runMigration uses stable state setters
 
   useEffect(() => {
     // Use scheduleOnRN instead of queueMicrotask per workspace rules
