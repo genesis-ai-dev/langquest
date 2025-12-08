@@ -60,7 +60,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   const { currentUser } = useAuth();
   const { goToProject } = useAppNavigation();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<Step>('region');
   const [projectType, setProjectType] = useState<

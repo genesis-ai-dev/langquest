@@ -37,12 +37,8 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert as RNAlert,
-  ScrollView,
-  View
-} from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 interface NotificationItem {
   id: string;

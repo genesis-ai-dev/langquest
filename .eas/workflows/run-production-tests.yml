@@ -1,0 +1,107 @@
+name: run-tests
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!readme_images/**'
+      - '!scripts/**'
+      - '!tooling/**'
+      - '!restore-remote-db-backup/**'
+      - '!debug_closure_issue.sql'
+      - '!supabase/**'
+      - '!**/*.backup'
+      - '!.github/**'
+      - '!.prettierignore'
+      - '!prettier.config.mjs'
+      - '!eslint.config.mts'
+      - '!knip.json'
+      - '!deno.json'
+      - '!.cursor/**'
+      - '!.vscode/**'
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+
+  android_get_build:
+    name: Check for existing android build
+    needs: [fingerprint]
+    type: get-build
+    environment: production
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: production-simulator
+      platform: android
+
+  android_repack:
+    name: Repack Android
+    needs: [android_get_build]
+    if: ${{ needs.android_get_build.outputs.build_id }}
+    type: repack
+    environment: production
+    params:
+      build_id: ${{ needs.android_get_build.outputs.build_id }}
+
+  android_build:
+    name: Build Android
+    needs: [android_get_build]
+    if: ${{ !needs.android_get_build.outputs.build_id }}
+    type: build
+    environment: production
+    params:
+      platform: android
+      profile: production-simulator
+
+  android_maestro:
+    name: Run Android Maestro Tests
+    after: [android_repack, android_build]
+    type: maestro
+    environment: production
+    image: latest
+    params:
+      build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
+      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+
+  # ios_get_build:
+  #   name: Check for existing ios build
+  #   needs: [fingerprint]
+  #   type: get-build
+  #   environment: production
+  #   params:
+  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+  #     profile: production-simulator
+
+  # ios_repack:
+  #   name: Repack iOS
+  #   needs: [ios_get_build]
+  #   if: ${{ needs.ios_get_build.outputs.build_id }}
+  #   type: repack
+  #   environment: production
+  #   params:
+  #     build_id: ${{ needs.ios_get_build.outputs.build_id }}
+
+  # ios_build:
+  #   name: Build iOS
+  #   needs: [ios_get_build]
+  #   if: ${{ !needs.ios_get_build.outputs.build_id }}
+  #   type: build
+  #   environment: production
+  #   params:
+  #     platform: ios
+  #     profile: production-simulator
+
+  # ios_maestro:
+  #   name: Run iOS Maestro Tests
+  #   after: [ios_repack, ios_build]
+  #   type: maestro
+  #   environment: production
+  #   image: latest
+  #   params:
+  #     build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
+  #     flow_path: ['maestro.yaml']
+  #     flow_path: ['maestro.yaml']

@@ -1,0 +1,101 @@
+---
+description: Security best practices and principles for Expo and React Native development
+alwaysApply: false
+---
+
+# Security Development Principles for Expo & React Native
+
+These rules define essential practices for writing secure code in Expo and React Native applications.
+
+**Source:** Based on [cursor-security-rules](https://github.com/matank001/cursor-security-rules) by Matan Kotick and Amit Ziv.
+
+## Core Security Principles
+
+### 1. Do Not Expose Secrets in Client-Side Code
+
+- **Rule:** Secrets such as API keys, credentials, private keys, or tokens must never appear in client-side code, public repositories, or bundled app files.
+- **Action:**
+  - Use environment variables with `EXPO_PUBLIC_` prefix for non-sensitive config only
+  - Store sensitive data in `expo-secure-store` or backend
+  - Never commit secrets to version control
+
+### 2. Use Secure Storage for Sensitive Data
+
+- **Rule:** Sensitive data (tokens, passwords, PII) must be stored securely, not in AsyncStorage or plain text.
+- **Action:**
+  - Use `expo-secure-store` for sensitive data
+  - Never store credentials in AsyncStorage, SharedPreferences, or UserDefaults
+
+### 3. Enforce Secure Communication Protocols
+
+- **Rule:** Only secure protocols (HTTPS, TLS) must be used for all external communications.
+- **Action:**
+  - Never use HTTP for API calls or data transmission
+  - Enforce TLS/HTTPS in all `fetch()` calls and API requests
+
+### 4. Validate All User Input
+
+- **Rule:** All user input must be validated before use, especially before sending to backend, database, or rendering.
+- **Action:**
+  - Validate input type, length, and format on the client
+  - Use allow-lists where possible
+  - Remember: client-side validation is for UX only; backend must also validate
+
+### 5. Do Not Log Sensitive Information
+
+- **Rule:** Logs must not contain credentials, tokens, personal identifiers, or other sensitive data.
+- **Action:**
+  - Sanitize logs before writing
+  - Avoid logging user input, API keys, or tokens
+  - Be careful with React Native debuggers and console logs
+
+### 6. Avoid Executing Dynamic Code
+
+- **Rule:** Dynamically constructed code or expressions must not be executed at runtime.
+- **Action:**
+  - Avoid `eval()`, `Function()`, or similar dynamic code execution
+  - Never execute user-provided code strings
+  - Be cautious with WebView content and injected scripts
+
+### 7. Never Trust Client-Side Security Logic
+
+- **Rule:** Critical security logic (authentication, authorization, validation) must never rely solely on client-side code.
+- **Action:**
+  - Always validate and enforce security on the backend/Supabase
+  - Client-side checks are for UX only
+  - Use Supabase Row Level Security (RLS) for data access control
+
+### 8. Sanitize Data Before Rendering
+
+- **Rule:** User-generated content must be sanitized before rendering to prevent XSS attacks.
+- **Action:**
+  - Escape HTML/JavaScript in text content
+  - Be careful with WebView content
+  - Validate URLs before rendering links
+
+## Secure Local Database Usage (PowerSync + Drizzle ORM)
+
+- **Rule:** Never construct SQL queries by concatenating or interpolating user input directly into the query string.
+- **Action:** Use Drizzle ORM query builder (`system.db.query.*`) which automatically parameterizes queries. Never use raw SQL with string interpolation or `db.execute()` with user input.
+
+## PowerSync Security
+
+**Critical:** PowerSync Sync Rules control what data users can access.
+
+- **Sync Rules** are defined in `supabase/config/sync-rules.yml`
+- Never expose sensitive data in global buckets — use user-specific buckets with `request.user_id()`
+- Review Sync Rules changes carefully — they control what data syncs to which users
+- Never expose PowerSync JWT secrets in client code
+- Validate data on client before PowerSync uploads to backend
+
+## File Operations
+
+- Validate file paths and restrict to app's document directory
+- Never use user input directly in file paths
+- Check file types and sizes before processing
+
+## Deep Links and URL Handling
+
+- Validate deep link URLs before processing
+- Sanitize URL parameters
+- Don't trust deep link data without validation

@@ -12,6 +12,11 @@ import {
   createBlockedUsersTable,
   createInviteTable,
   createLanguageTable,
+  createLanguoidAliasTable,
+  createLanguoidPropertyTable,
+  createLanguoidRegionTable,
+  createLanguoidSourceTable,
+  createLanguoidTable,
   createNotificationTable,
   createProfileProjectLinkTable,
   createProfileTable,
@@ -22,6 +27,10 @@ import {
   createQuestClosureTable,
   createQuestTable,
   createQuestTagLinkTable,
+  createRegionAliasTable,
+  createRegionPropertyTable,
+  createRegionSourceTable,
+  createRegionTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
@@ -45,6 +54,11 @@ export const user_localRelations = relations(
       fields: [profile_local.ui_language_id],
       references: [language_local.id],
       relationName: 'uiLanguage'
+    }),
+    ui_languoid: one(languoid_local, {
+      fields: [profile_local.ui_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'uiLanguoid'
     }),
     sent_invites: many(invite_local, { relationName: 'invite_sender' }),
     received_invites: many(invite_local, { relationName: 'invite_receiver' }),
@@ -70,6 +84,214 @@ export const language_localRelations = relations(
     }),
     targetLanguageProjects: many(project_local, {
       relationName: 'targetLanguage'
+    })
+  })
+);
+
+// Languoid tables
+export const languoid_local = createLanguoidTable('local', {
+  profile: profile_local
+});
+
+export const languoid_localRelations = relations(
+  languoid_local,
+  ({ one, many }) => ({
+    creator: one(profile_local, {
+      fields: [languoid_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    }),
+    parent: one(languoid_local, {
+      fields: [languoid_local.parent_id],
+      references: [languoid_local.id],
+      relationName: 'languoid_parent'
+    }),
+    children: many(languoid_local, { relationName: 'languoid_parent' }),
+    uiUsers: many(profile_local, { relationName: 'uiLanguoid' }),
+    aliases: many(languoid_alias_local, { relationName: 'subject_languoid' }),
+    sources: many(languoid_source_local),
+    properties: many(languoid_property_local),
+    regions: many(languoid_region_local)
+  })
+);
+
+export const languoid_alias_local = createLanguoidAliasTable('local', {
+  languoid: languoid_local,
+  profile: profile_local
+});
+
+export const languoid_alias_localRelations = relations(
+  languoid_alias_local,
+  ({ one }) => ({
+    subject_languoid: one(languoid_local, {
+      fields: [languoid_alias_local.subject_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'subject_languoid'
+    }),
+    label_languoid: one(languoid_local, {
+      fields: [languoid_alias_local.label_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'label_languoid'
+    }),
+    creator: one(profile_local, {
+      fields: [languoid_alias_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_source_local = createLanguoidSourceTable('local', {
+  languoid: languoid_local,
+  profile: profile_local
+});
+
+export const languoid_source_localRelations = relations(
+  languoid_source_local,
+  ({ one }) => ({
+    languoid: one(languoid_local, {
+      fields: [languoid_source_local.languoid_id],
+      references: [languoid_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [languoid_source_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_property_local = createLanguoidPropertyTable('local', {
+  languoid: languoid_local,
+  profile: profile_local
+});
+
+export const languoid_property_localRelations = relations(
+  languoid_property_local,
+  ({ one }) => ({
+    languoid: one(languoid_local, {
+      fields: [languoid_property_local.languoid_id],
+      references: [languoid_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [languoid_property_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_local = createRegionTable('local', {
+  profile: profile_local
+});
+
+export const region_localRelations = relations(
+  region_local,
+  ({ one, many }) => ({
+    creator: one(profile_local, {
+      fields: [region_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    }),
+    parent: one(region_local, {
+      fields: [region_local.parent_id],
+      references: [region_local.id],
+      relationName: 'region_parent'
+    }),
+    children: many(region_local, { relationName: 'region_parent' }),
+    aliases: many(region_alias_local),
+    sources: many(region_source_local),
+    properties: many(region_property_local),
+    languoids: many(languoid_region_local)
+  })
+);
+
+export const region_alias_local = createRegionAliasTable('local', {
+  region: region_local,
+  languoid: languoid_local,
+  profile: profile_local
+});
+
+export const region_alias_localRelations = relations(
+  region_alias_local,
+  ({ one }) => ({
+    subject_region: one(region_local, {
+      fields: [region_alias_local.subject_region_id],
+      references: [region_local.id]
+    }),
+    label_languoid: one(languoid_local, {
+      fields: [region_alias_local.label_languoid_id],
+      references: [languoid_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [region_alias_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_source_local = createRegionSourceTable('local', {
+  region: region_local,
+  profile: profile_local
+});
+
+export const region_source_localRelations = relations(
+  region_source_local,
+  ({ one }) => ({
+    region: one(region_local, {
+      fields: [region_source_local.region_id],
+      references: [region_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [region_source_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const region_property_local = createRegionPropertyTable('local', {
+  region: region_local,
+  profile: profile_local
+});
+
+export const region_property_localRelations = relations(
+  region_property_local,
+  ({ one }) => ({
+    region: one(region_local, {
+      fields: [region_property_local.region_id],
+      references: [region_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [region_property_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
+    })
+  })
+);
+
+export const languoid_region_local = createLanguoidRegionTable('local', {
+  languoid: languoid_local,
+  region: region_local,
+  profile: profile_local
+});
+
+export const languoid_region_localRelations = relations(
+  languoid_region_local,
+  ({ one }) => ({
+    languoid: one(languoid_local, {
+      fields: [languoid_region_local.languoid_id],
+      references: [languoid_local.id]
+    }),
+    region: one(region_local, {
+      fields: [languoid_region_local.region_id],
+      references: [region_local.id]
+    }),
+    creator: one(profile_local, {
+      fields: [languoid_region_local.creator_id],
+      references: [profile_local.id],
+      relationName: 'creator'
     })
   })
 );
@@ -226,6 +448,11 @@ export const project_language_link_localRelations = relations(
     language: one(language_local, {
       fields: [project_language_link_local.language_id],
       references: [language_local.id]
+    }),
+    languoid: one(languoid_local, {
+      fields: [project_language_link_local.languoid_id],
+      references: [languoid_local.id],
+      relationName: 'languoid'
     })
   })
 );
@@ -311,6 +538,11 @@ export const asset_content_link_localRelations = relations(
     source_language: one(language_local, {
       fields: [asset_content_link_local.source_language_id],
       references: [language_local.id]
+    }),
+    languoid: one(languoid_local, {
+      fields: [asset_content_link_local.languoid_id],
+      references: [languoid_local.id],
+      relationName: 'languoid'
     })
   })
 );

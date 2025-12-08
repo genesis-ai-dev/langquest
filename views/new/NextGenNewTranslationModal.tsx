@@ -22,47 +22,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { deleteIfExists } from '@/utils/fileUtils';
+import {
+  deleteIfExists,
+  getLocalAttachmentUri,
+  saveAudioLocally
+} from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
-  MicIcon,
-  Lightbulb,
-  TextIcon,
   EyeIcon,
-  XIcon,
-  RefreshCwIcon
+  Lightbulb,
+  MicIcon,
+  RefreshCwIcon,
+  TextIcon,
+  XIcon
 } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import {
-  Alert,
-  ActivityIndicator,
-  View,
-  Pressable,
-  Modal,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
 import type { TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 import { z } from 'zod';
-import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
-import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useHybridData } from './useHybridData';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -122,31 +126,40 @@ export default function NextGenNewTranslationModal({
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
     queryKeyParams: [currentProjectId || ''],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
-    cloudQueryFn: async () => {
+    cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
       if (!currentProjectId) return [];
-      const { data, error } = await system.supabaseConnector.client
+      const result = await system.supabaseConnector.client
         .from('project')
         .select('*')
         .eq('id', currentProjectId)
-        .limit(1)
-        .overrideTypes<(typeof project.$inferSelect)[]>();
-      if (error) throw error;
-      return data ?? [];
+        .limit(1);
+      if (result.error) throw result.error;
+      const typedData = result.data as (typeof project.$inferSelect)[] | null;
+      return typedData || [];
     },
-    enableCloudQuery: currentProjectId !== null && !currentProjectData,
-    enableOfflineQuery: currentProjectId !== null && !currentProjectData
+    enableCloudQuery: !!currentProjectId && !currentProjectData,
+    enableOfflineQuery: !!currentProjectId && !currentProjectData
   });
 
-  const queriedProjectData = queriedProjectDataArray?.[0];
+  const queriedProjectData =
+    queriedProjectDataArray.length > 0 ? queriedProjectDataArray[0] : undefined;
 
   // Prefer passed project data for instant rendering
-  const projectData = currentProjectData || queriedProjectData;
+  // Extract project data from WithSource wrapper if needed
+  const projectData =
+    currentProjectData ||
+    (queriedProjectData && 'source' in queriedProjectData
+      ? (queriedProjectData as typeof project.$inferSelect & {
+          source?: string;
+        })
+      : queriedProjectData);
 
   const { hasAccess: canTranslate } = useUserPermissions(
     currentProjectId || '',
     'translate',
-    (projectData as Record<string, unknown>)?.private as boolean | undefined
+    (projectData as typeof project.$inferSelect | undefined)?.private
   );
 
   React.useEffect(() => {
@@ -188,6 +201,8 @@ export default function NextGenNewTranslationModal({
   const [predictionDetails, setPredictionDetails] = useState<{
     rawResponse: string;
     examples: { source: string; target: string }[];
+    hasApiKey?: boolean;
+    error?: string;
   } | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -252,21 +267,23 @@ export default function NextGenNewTranslationModal({
     visible ? translationLanguageId : ''
   );
 
+  // Get first content text as preview
+  const contentPreview = assetContent?.[0]?.text || '';
+
   // Get nearby translations for examples (only when modal is visible to avoid unnecessary queries)
   // Note: useNearbyTranslations now automatically selects only the highest-rated translation per asset
   // and limits to 30 examples maximum (hardcoded)
+  // Pass sourceText for contextual relevance ranking
   const { data: nearbyExamples = [], isLoading: isLoadingExamples } =
     useNearbyTranslations(
       visible ? currentQuestId || undefined : undefined,
-      visible ? translationLanguageId : ''
+      visible ? translationLanguageId : '',
+      visible ? contentPreview : null
     );
 
   // Translation prediction hook
   const { mutateAsync: predictTranslation, isPending: isPredicting } =
     useTranslationPrediction();
-
-  // Get first content text as preview
-  const contentPreview = assetContent?.[0]?.text || '';
 
   // Button disabled only when actively predicting (prevents double-clicks)
   const isButtonDisabled = isPredicting;
@@ -288,10 +305,10 @@ export default function NextGenNewTranslationModal({
         '[NEW TRANSLATION MODAL] Modal opened without permission or anonymous user'
       );
       if (!isAuthenticated) {
-        Alert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
+        RNAlert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
         setAuthView('sign-in');
       } else {
-        Alert.alert(t('error'), t('membersOnly'));
+        RNAlert.alert(t('error'), t('membersOnly'));
       }
       onClose();
     }
@@ -312,14 +329,13 @@ export default function NextGenNewTranslationModal({
 
       let audioAttachment: string | null = null;
       if (data.audioUri && system.permAttachmentQueue) {
-        if (data.audioUri.includes('blob:')) {
-          throw new Error(
-            'Audio recording failed to save locally. Please try recording again.'
-          );
-        }
+        // Convert recording to local attachment path
+        // - On web: converts blob URL to OPFS file
+        // - On native: moves from cache dir to local attachments dir
+        const localAudioPath = await saveAudioLocally(data.audioUri);
 
         const attachment = await system.permAttachmentQueue.saveAudio(
-          data.audioUri
+          getLocalAttachmentUri(localAudioPath)
         );
         audioAttachment = attachment.filename;
       }
@@ -382,14 +398,14 @@ export default function NextGenNewTranslationModal({
     },
     onSuccess: () => {
       form.reset();
-      Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
+      RNAlert.alert(t('success'), t('translationSubmittedSuccessfully'));
       onSuccess?.();
       onClose();
     },
     onError: (error) => {
       console.error('[CREATE TRANSLATION] Error creating translation:', error);
       console.error('[CREATE TRANSLATION] Error stack:', error.stack);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         t('failedCreateTranslation') + '\n\n' + error.message
       );
@@ -407,7 +423,7 @@ export default function NextGenNewTranslationModal({
 
   const handlePredictTranslation = async () => {
     if (!contentPreview.trim()) {
-      Alert.alert(
+      RNAlert.alert(
         'No Source Text',
         'There is no source text to translate. Please select an asset with content.',
         [{ text: 'OK' }]
@@ -416,7 +432,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!isOnline) {
-      Alert.alert(
+      RNAlert.alert(
         'Offline',
         'AI translation requires an internet connection. Please check your network and try again.',
         [{ text: 'OK' }]
@@ -425,7 +441,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!targetLanguageData) {
-      Alert.alert(
+      RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
         [{ text: 'OK' }]
@@ -434,6 +450,9 @@ export default function NextGenNewTranslationModal({
     }
 
     const sourceText = contentPreview.trim();
+
+    // Show examples even if API call fails
+    const examplesToShow = nearbyExamples;
 
     try {
       // Source language is optional - use "Unknown" if not available
@@ -450,7 +469,7 @@ export default function NextGenNewTranslationModal({
 
       const result = await predictTranslation({
         sourceText,
-        examples: nearbyExamples,
+        examples: examplesToShow,
         sourceLanguageName,
         targetLanguageName
       });
@@ -465,14 +484,34 @@ export default function NextGenNewTranslationModal({
       setPredictedTranslation(result.translation);
       setPredictionDetails({
         rawResponse: result.rawResponse || result.translation,
-        examples: nearbyExamples || []
+        examples: examplesToShow,
+        hasApiKey: true
       });
     } catch (error) {
       console.error('[AI PREDICTION] Error:', error);
-      Alert.alert(
-        t('error'),
-        `Failed to predict translation: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+
+      // Check if error is due to missing API key
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const isApiKeyError =
+        errorMessage.includes('API key') ||
+        errorMessage.includes('not configured');
+
+      // Still show examples even if API key is missing
+      setPredictionDetails({
+        rawResponse: '',
+        examples: examplesToShow,
+        hasApiKey: false,
+        error: isApiKeyError ? 'API key not configured' : errorMessage
+      });
+
+      // Only show alert if it's not an API key error (we'll show it in the UI instead)
+      if (!isApiKeyError) {
+        RNAlert.alert(
+          t('error'),
+          `Failed to predict translation: ${errorMessage}`
+        );
+      }
     }
   };
 
@@ -607,6 +646,63 @@ export default function NextGenNewTranslationModal({
                             )}
                         </View>
                       </View>
+                    ) : enableAiSuggestions &&
+                      predictionDetails &&
+                      predictionDetails.hasApiKey === false ? (
+                      // Show examples button when API key is missing
+                      <View className="border-warning/30 bg-warning/5 rounded-lg border-2 p-4">
+                        <View className="mb-2 flex-row items-center justify-between">
+                          <View className="flex-row items-center gap-2">
+                            <Icon
+                              as={Lightbulb}
+                              size={18}
+                              className="text-warning"
+                            />
+                            <Text className="text-warning-foreground text-sm font-semibold">
+                              API Key Not Configured
+                            </Text>
+                          </View>
+                          <View className="flex-row items-center gap-2">
+                            {predictionDetails.examples.length > 0 && (
+                              <Pressable
+                                onPress={() => setShowDetailsModal(true)}
+                                className="border-warning/30 rounded-md border bg-background p-2"
+                              >
+                                <Icon
+                                  as={EyeIcon}
+                                  size={18}
+                                  className="text-warning"
+                                />
+                              </Pressable>
+                            )}
+                            <Pressable
+                              onPress={() => {
+                                void handlePredictTranslation();
+                              }}
+                              disabled={isButtonDisabled}
+                              className={cn(
+                                'border-warning/30 rounded-md border bg-background p-2',
+                                isButtonDisabled && 'opacity-50'
+                              )}
+                            >
+                              {isPredicting || isLoadingExamples ? (
+                                <ActivityIndicator size="small" color="#000" />
+                              ) : (
+                                <Icon
+                                  as={RefreshCwIcon}
+                                  size={18}
+                                  className="text-warning"
+                                />
+                              )}
+                            </Pressable>
+                          </View>
+                        </View>
+                        <Text className="text-warning-foreground text-sm">
+                          {predictionDetails.examples.length > 0
+                            ? `${predictionDetails.examples.length} contextually relevant examples found. View details to see them.`
+                            : 'No examples available. Configure API key to enable translation prediction.'}
+                        </Text>
+                      </View>
                     ) : (
                       enableAiSuggestions &&
                       translationType === 'text' && (
@@ -725,7 +821,7 @@ export default function NextGenNewTranslationModal({
                       '[CREATE TRANSLATION] Form validation failed'
                     );
                   }
-                  Alert.alert(t('error'), t('fillFields'));
+                  RNAlert.alert(t('error'), t('fillFields'));
                 }
               )}
             >
@@ -766,6 +862,23 @@ export default function NextGenNewTranslationModal({
                   </View>
 
                   <ScrollView className="max-h-[80%]">
+                    {/* API Key Warning */}
+                    {predictionDetails &&
+                      predictionDetails.hasApiKey === false && (
+                        <View className="border-warning bg-warning/10 mb-6 rounded-lg border-2 p-4">
+                          <Text className="text-warning-foreground mb-2 text-base font-semibold">
+                            API Key Not Configured
+                          </Text>
+                          <Text className="text-warning-foreground text-sm">
+                            Translation prediction requires an OpenRouter API
+                            key to be configured. The examples below show
+                            contextually relevant translation examples that
+                            would be used for prediction, but no AI translation
+                            can be generated without an API key.
+                          </Text>
+                        </View>
+                      )}
+
                     {/* Examples Section */}
                     {predictionDetails && (
                       <View className="mb-6">
@@ -825,19 +938,21 @@ export default function NextGenNewTranslationModal({
                       </View>
                     )}
 
-                    {/* Raw Response Section */}
-                    {predictionDetails && (
-                      <View>
-                        <Text className="mb-3 text-base font-semibold text-foreground">
-                          Raw Model Response
-                        </Text>
-                        <View className="rounded-lg border border-border bg-muted/30 p-3">
-                          <Text className="font-mono text-sm leading-5 text-foreground">
-                            {predictionDetails.rawResponse}
+                    {/* Raw Response Section - Only show if we have an API key and a response */}
+                    {predictionDetails &&
+                      predictionDetails.hasApiKey !== false &&
+                      predictionDetails.rawResponse && (
+                        <View>
+                          <Text className="mb-3 text-base font-semibold text-foreground">
+                            Raw Model Response
                           </Text>
+                          <View className="rounded-lg border border-border bg-muted/30 p-3">
+                            <Text className="font-mono text-sm leading-5 text-foreground">
+                              {predictionDetails.rawResponse}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                    )}
+                      )}
                   </ScrollView>
 
                   <Pressable

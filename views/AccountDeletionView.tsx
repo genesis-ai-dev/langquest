@@ -26,13 +26,8 @@ import {
   Trash2
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Alert as RNAlert,
-  Linking,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 export default function AccountDeletionView() {
   const { t } = useLocalization();
