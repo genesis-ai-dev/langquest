@@ -426,11 +426,10 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "asset_id", "po
 -- download_profiles contains OTHER active members (not self) - set empty here, triggers handle it
 --
 
-INSERT INTO "public"."profile_project_link" ("profile_id", "project_id", "membership", "active", "download_profiles", "created_at", "last_updated") VALUES
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, '{}'::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
-	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, '{}'::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00')
+INSERT INTO "public"."profile_project_link" ("profile_id", "project_id", "membership", "active", "created_at", "last_updated") VALUES
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00')
 ON CONFLICT ("profile_id", "project_id") DO UPDATE SET
-	"download_profiles" = EXCLUDED."download_profiles",
 	"membership" = EXCLUDED."membership",
 	"active" = EXCLUDED."active",
 	"last_updated" = EXCLUDED."last_updated";

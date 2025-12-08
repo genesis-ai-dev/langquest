@@ -25,16 +25,17 @@ security definer
 set search_path = ''
 as $$
 begin
-    -- Only populate when becoming active
+    -- When becoming active, populate with other active members
     if new.active = true and (tg_op = 'INSERT' or old.active is distinct from true) then
-        -- Get all OTHER active members' profile_ids for this project
-        -- (self isn't active yet, so this naturally excludes self)
         select coalesce(array_agg(ppl.profile_id), '{}')
         into new.download_profiles
         from public.profile_project_link ppl
         where ppl.project_id = new.project_id
           and ppl.active = true;
     end if;
+    
+    -- Always ensure self is never in download_profiles (safeguard against seeds/manual inserts)
+    new.download_profiles := array_remove(coalesce(new.download_profiles, '{}'), new.profile_id);
     
     return new;
 end;
