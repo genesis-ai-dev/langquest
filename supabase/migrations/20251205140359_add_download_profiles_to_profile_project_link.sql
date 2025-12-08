@@ -41,14 +41,33 @@ EXECUTE FUNCTION copy_project_download_profiles_to_profile_project_link();
 -- Function to propagate new member's profile_id to project and all existing profile_project_link records
 -- This ensures when a new member joins, their profile_id is added to download_profiles
 -- so they can be synced and other members can see their profile
+-- Also handles UPDATE when someone accepts an invite (active changes from false to true)
 CREATE OR REPLACE FUNCTION propagate_new_member_download_profiles() 
 RETURNS TRIGGER AS $$
 DECLARE
     new_member_id uuid;
     project_id_val uuid;
+    should_propagate boolean := false;
 BEGIN
-    -- Only process if this is an active membership
-    IF NEW.membership IS NOT NULL AND NEW.active = true THEN
+    -- Determine if we should propagate based on trigger operation
+    IF TG_OP = 'INSERT' THEN
+        -- On INSERT: propagate if membership is active
+        should_propagate := (NEW.membership IS NOT NULL AND NEW.active = true);
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- On UPDATE: propagate if membership became active (was inactive, now active)
+        -- This handles cases where someone accepts an invite and active gets set to true
+        should_propagate := (
+            NEW.membership IS NOT NULL 
+            AND NEW.active = true
+            AND (
+                OLD.active = false
+                OR (OLD.membership IS NOT NULL AND OLD.active = false)
+            )
+        );
+    END IF;
+    
+    -- Only process if this is an active membership that should be propagated
+    IF should_propagate THEN
         new_member_id := NEW.profile_id;
         project_id_val := NEW.project_id;
         
@@ -68,11 +87,11 @@ BEGIN
             ELSE array_append(COALESCE(download_profiles, '{}'), new_member_id)
         END
         WHERE project_id = project_id_val
-          AND (profile_id != new_member_id OR project_id != project_id_val)  -- Don't update the record we just inserted
+          AND profile_id != new_member_id  -- Don't update the record we just inserted/updated
           AND membership IS NOT NULL
           AND active = true;
         
-        -- Also update the new record itself to include its own profile_id
+        -- Also update the new/updated record itself to include its own profile_id
         -- (in case the project had no download_profiles initially)
         UPDATE public.profile_project_link 
         SET download_profiles = CASE 
@@ -86,11 +105,59 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create trigger that fires AFTER INSERT to propagate new member's profile_id
+-- Function to remove member's profile_id from download_profiles when they leave
+-- This fires on DELETE or when membership becomes inactive/null
+CREATE OR REPLACE FUNCTION remove_member_download_profiles() 
+RETURNS TRIGGER AS $$
+DECLARE
+    leaving_member_id uuid;
+    project_id_val uuid;
+BEGIN
+    -- Determine which record we're working with (OLD for DELETE/UPDATE, NEW for UPDATE)
+    IF TG_OP = 'DELETE' THEN
+        leaving_member_id := OLD.profile_id;
+        project_id_val := OLD.project_id;
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Only remove if membership became inactive or null
+        IF (OLD.membership IS NOT NULL AND OLD.active = true) 
+           AND (NEW.membership IS NULL OR NEW.active = false) THEN
+            leaving_member_id := OLD.profile_id;
+            project_id_val := OLD.project_id;
+        ELSE
+            -- No change in membership status, nothing to do
+            RETURN NEW;
+        END IF;
+    ELSE
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+    
+    -- Remove leaving member's profile_id from the project's download_profiles
+    UPDATE public.project 
+    SET download_profiles = array_remove(COALESCE(download_profiles, '{}'), leaving_member_id)
+    WHERE id = project_id_val;
+    
+    -- Remove leaving member's profile_id from all profile_project_link records for this project
+    UPDATE public.profile_project_link 
+    SET download_profiles = array_remove(COALESCE(download_profiles, '{}'), leaving_member_id)
+    WHERE project_id = project_id_val
+      AND download_profiles @> ARRAY[leaving_member_id];
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger that fires AFTER INSERT OR UPDATE to propagate new member's profile_id
+-- UPDATE is needed for cases where someone accepts an invite and active/membership gets set
 CREATE TRIGGER trigger_propagate_new_member_download_profiles 
-AFTER INSERT ON public.profile_project_link 
+AFTER INSERT OR UPDATE ON public.profile_project_link 
 FOR EACH ROW
 EXECUTE FUNCTION propagate_new_member_download_profiles();
+
+-- Create trigger that fires AFTER DELETE or UPDATE to remove member's profile_id
+CREATE TRIGGER trigger_remove_member_download_profiles 
+AFTER DELETE OR UPDATE ON public.profile_project_link 
+FOR EACH ROW
+EXECUTE FUNCTION remove_member_download_profiles();
 
 -- Backfill existing profile_project_link records with download_profiles from their projects
 UPDATE public.profile_project_link ppl

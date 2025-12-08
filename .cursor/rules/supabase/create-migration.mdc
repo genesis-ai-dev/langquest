@@ -49,3 +49,16 @@ Write Postgres-compatible SQL code for Supabase migration files that:
   - Include comments explaining the rationale and intended behavior of each security policy
 
 The generated SQL code should be production-ready, well-documented, and aligned with Supabase's best practices.
+
+## Idempotency
+
+All migrations must be idempotent - safe to run multiple times without errors.
+
+Key patterns:
+
+- Use `if not exists` for tables, indexes, columns
+- Use `create or replace` for functions
+- Always `drop trigger if exists` before creating triggers
+- Use `do $$` blocks with existence checks for constraints
+
+Example:

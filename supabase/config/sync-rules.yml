@@ -8,7 +8,6 @@ streams:
       WHERE id IN (
         SELECT profile_id FROM profile_project_link
         WHERE auth.user_id() in download_profiles
-        AND membership IS NOT NULL
         AND active = true
       )
     auto_subscribe: true
@@ -101,14 +100,8 @@ bucket_definitions:
     parameters: |
       SELECT project_id FROM profile_project_link
       WHERE profile_id = request.user_id()
-        AND membership IS NOT NULL
         AND active = true
     data:
-      - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
-        WHERE project_id = bucket.project_id
-        AND membership IS NOT NULL
-        AND active = true
-
       # Sync project record for the project_id, this makes the my projects tab reactive to changes
       - SELECT * FROM project
         WHERE id = bucket.project_id
