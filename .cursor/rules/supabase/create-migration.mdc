@@ -62,4 +62,20 @@ Key patterns:
 - Always `drop trigger if exists` before creating triggers
 - Use `do $$` blocks with existence checks for constraints
 
-Example:
+## Statement Timeout
+
+For migrations that may take a long time (e.g., backfilling data, updating many rows), set an appropriate statement timeout at the beginning of the migration:
+
+```sql
+-- Increase timeout for long-running migration
+set statement_timeout = '30min';
+```
+
+When to use:
+
+- Backfilling data across large tables
+- Running `UPDATE` statements that affect many rows
+- Creating indexes on large tables (consider `CREATE INDEX CONCURRENTLY` instead)
+- Any operation that might exceed the default timeout
+
+Note: The timeout automatically resets after the transaction/session ends, so you don't need to explicitly reset it.
