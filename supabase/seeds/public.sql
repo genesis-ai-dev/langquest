@@ -423,12 +423,12 @@ INSERT INTO "public"."vote" ("id", "created_at", "last_updated", "asset_id", "po
 --
 -- Data for Name: profile_project_link; Type: TABLE DATA; Schema: public; Owner: postgres
 -- Create profile_project_link records for project creators
--- download_profiles will be set by database trigger from project.download_profiles
+-- download_profiles contains OTHER active members (not self) - set empty here, triggers handle it
 --
 
 INSERT INTO "public"."profile_project_link" ("profile_id", "project_id", "membership", "active", "download_profiles", "created_at", "last_updated") VALUES
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
-	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00')
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', 'bace07b1-41de-4535-9c68-aa81683d9370', 'owner', true, '{}'::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('f2adf435-fd35-4927-8644-9b03785722b5', 'b819ba73-2274-468d-b18d-330b1ecf49b1', 'owner', true, '{}'::uuid[], '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00')
 ON CONFLICT ("profile_id", "project_id") DO UPDATE SET
 	"download_profiles" = EXCLUDED."download_profiles",
 	"membership" = EXCLUDED."membership",
