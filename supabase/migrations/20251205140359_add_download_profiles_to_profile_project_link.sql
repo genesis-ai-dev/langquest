@@ -32,10 +32,14 @@ begin
         from public.profile_project_link ppl
         where ppl.project_id = new.project_id
           and ppl.active = true;
+    -- When becoming inactive, clear download_profiles (no need to sync other members)
+    elsif new.active is distinct from true and (tg_op = 'INSERT' or old.active = true) then
+        new.download_profiles := null;
+        return new;
     end if;
     
     -- Always ensure self is never in download_profiles (safeguard against seeds/manual inserts)
-    -- Normalize empty arrays
+    -- Normalize empty arrays to null
     new.download_profiles := public.normalize_download_profiles(
         array_remove(new.download_profiles, new.profile_id)
     );
@@ -131,17 +135,4 @@ after update or delete on public.profile_project_link
 for each row
 execute function public.ppl_remove_member_after();
 
--- ============================================================================
--- Backfill: Set download_profiles to OTHER active members for each record
--- Normalize empty arrays to null
--- ============================================================================
-update public.profile_project_link ppl
-set download_profiles = public.normalize_download_profiles((
-    select array_agg(other.profile_id)
-    from public.profile_project_link other
-    where other.project_id = ppl.project_id
-      and other.active = true
-      and other.profile_id != ppl.profile_id
-))
-where ppl.active = true;
 
