@@ -1021,9 +1021,8 @@ async function executePublishTransaction(
             membership: data.profileProjectLink.membership ?? 'member',
             created_at: data.profileProjectLink.created_at,
             last_updated: data.profileProjectLink.last_updated,
-            active: data.profileProjectLink.active,
-            download_profiles: data.profileProjectLink.download_profiles ??
-              data.project.download_profiles ?? [userId]
+            active: data.profileProjectLink.active
+            // download_profiles will be set by database trigger (contains OTHER members, not self)
           });
 
           console.log(`✅ Profile-project link published for RLS policies`);
@@ -1038,8 +1037,8 @@ async function executePublishTransaction(
             membership: 'owner',
             created_at: data.project.created_at,
             last_updated: data.project.last_updated,
-            active: true,
-            download_profiles: data.project.download_profiles ?? [userId]
+            active: true
+            // download_profiles will be set by database trigger (contains OTHER members, not self)
           });
 
           console.log(
