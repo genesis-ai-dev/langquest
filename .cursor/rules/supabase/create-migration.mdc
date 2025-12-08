@@ -1,6 +1,5 @@
 ---
-# Specify the following for Cursor rules
-description: Guidelines for writing Postgres migrations
+description: Guidelines for writing Postgres migration files
 alwaysApply: false
 ---
 
@@ -33,6 +32,8 @@ For example:
 ```
 
 ## SQL Guidelines
+
+Note: All migrations must also follow the guidelines in `.cursor/rules/supabase/postgres-sql-style-guide.mdc` for consistent SQL formatting and style.
 
 Write Postgres-compatible SQL code for Supabase migration files that:
 

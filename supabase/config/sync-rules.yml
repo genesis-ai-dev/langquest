@@ -10,6 +10,7 @@ streams:
         WHERE auth.user_id() in download_profiles
         AND active = true
       )
+      AND active = true
     auto_subscribe: true
 
 bucket_definitions:
@@ -102,6 +103,10 @@ bucket_definitions:
       WHERE profile_id = request.user_id()
         AND active = true
     data:
+      - SELECT profile_id || '_' || project_id as id, * FROM profile_project_link
+        WHERE project_id = bucket.project_id
+        AND active = true
+
       # Sync project record for the project_id, this makes the my projects tab reactive to changes
       - SELECT * FROM project
         WHERE id = bucket.project_id
