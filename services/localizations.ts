@@ -220,11 +220,11 @@ export const localizations = {
     indonesian: 'Menemukan Data Quest'
   },
   offloadQuest: {
-    english: 'Offload Quest',
-    spanish: 'Descargar Quest',
-    brazilian_portuguese: 'Descarregar Quest',
-    tok_pisin: 'Rausim Quest',
-    indonesian: 'Lepas Quest'
+    english: 'Remove Download',
+    spanish: 'Eliminar Descarga',
+    brazilian_portuguese: 'Remover Download',
+    tok_pisin: 'Rausim Daunlod',
+    indonesian: 'Hapus Unduhan'
   },
   offloadQuestDescription: {
     english: 'Remove local data to free up storage',
@@ -232,6 +232,32 @@ export const localizations = {
     brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
     tok_pisin: 'Rausim data long freeup storage',
     indonesian: 'Hapus data lokal untuk membebaskan penyimpanan'
+  },
+  questDownloadedAlertTitle: {
+    english: 'Quest Downloaded',
+    spanish: 'Misión Descargada',
+    brazilian_portuguese: 'Missão Baixada',
+    tok_pisin: 'Quest i Daunlod Pinis',
+    indonesian: 'Quest Diunduh'
+  },
+  questDownloadedMessage: {
+    english:
+      'This quest has been downloaded to your device to allow offline work and is kept in sync when you are online.',
+    spanish:
+      'Esta misión ha sido descargada en tu dispositivo para permitir trabajo sin conexión y se mantiene sincronizada cuando estás en línea.',
+    brazilian_portuguese:
+      'Esta missão foi baixada no seu dispositivo para permitir trabalho offline e é mantida sincronizada quando você está online.',
+    tok_pisin:
+      'Dispela quest i daunlod pinis long divais bilong yu long mekim wok offline na i stap sync taim yu online.',
+    indonesian:
+      'Quest ini telah diunduh ke perangkat Anda untuk memungkinkan pekerjaan offline dan tetap disinkronkan saat Anda online.'
+  },
+  removeQuestFromDevice: {
+    english: 'Remove from device',
+    spanish: 'Eliminar del dispositivo',
+    brazilian_portuguese: 'Remover do dispositivo',
+    tok_pisin: 'Rausim long divais',
+    indonesian: 'Hapus dari perangkat'
   },
   verifyingCloudData: {
     english: 'Verifying data in cloud...',
@@ -259,24 +285,24 @@ export const localizations = {
     indonesian:
       'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
   },
-  readyToOffload: {
-    english: 'Ready to offload',
-    spanish: 'Listo para descargar',
-    brazilian_portuguese: 'Pronto para descarregar',
+  readyToRemove: {
+    english: 'Ready to remove',
+    spanish: 'Listo para eliminar',
+    brazilian_portuguese: 'Pronto para remover',
     tok_pisin: 'Redi long rausim',
-    indonesian: 'Siap untuk melepas'
+    indonesian: 'Siap untuk menghapus'
   },
-  offloadWarning: {
+  removeQuestWarning: {
     english:
-      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
+      'This will remove the local copy of this quest and all related files from your device. Data will remain safely in the cloud and can be re-downloaded later.',
     spanish:
-      'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
+      'Esto eliminará la copia local de esta misión y todos los archivos relacionados de tu dispositivo. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
     brazilian_portuguese:
-      'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
+      'Isso removerá a cópia local desta missão e todos os arquivos relacionados do seu dispositivo. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
     tok_pisin:
-      'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
+      'Dispela bai rausim kopi long dispela mashin bilong dispela quest na olgeta fail i stap wantaim long divais bilong yu. Data bai stap save long klaud na yu ken daunim gen bihain.',
     indonesian:
-      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
+      'Ini akan menghapus salinan lokal quest ini dan semua file terkait dari perangkat Anda. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
   },
   storageToFree: {
     english: 'Storage to Free',

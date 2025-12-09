@@ -20,6 +20,7 @@ interface QuestListViewProps {
   isMember: boolean;
   onAddChild: (parentId: string | null) => void;
   onDownloadClick: (questId: string) => void;
+  onOffloadClick?: (questId: string) => void;
   onCloudLoadingChange?: (isLoading: boolean) => void;
   onFetchingChange?: (isFetching: boolean) => void;
   downloadingQuestId?: string | null;
@@ -45,6 +46,7 @@ export function QuestListView({
   isMember,
   onAddChild,
   onDownloadClick,
+  onOffloadClick,
   onCloudLoadingChange,
   onFetchingChange,
   downloadingQuestId,
@@ -201,6 +203,7 @@ export function QuestListView({
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => onAddChild(parentId)}
             onDownloadClick={onDownloadClick}
+            onOffloadClick={onOffloadClick}
             downloadingQuestId={downloadingQuestId}
             downloadingQuestIds={downloadingQuestIds}
           />
@@ -221,6 +224,7 @@ export function QuestListView({
       toggleExpanded,
       onAddChild,
       onDownloadClick,
+      onOffloadClick,
       isMember,
       downloadingQuestId,
       downloadingQuestIds
@@ -269,6 +273,7 @@ export function QuestListView({
               onToggleExpand={() => toggleExpanded(id)}
               onAddChild={(parentId) => onAddChild(parentId)}
               onDownloadClick={onDownloadClick}
+              onOffloadClick={onOffloadClick}
               downloadingQuestId={downloadingQuestId}
               downloadingQuestIds={downloadingQuestIds}
             />
