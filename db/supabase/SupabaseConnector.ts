@@ -25,11 +25,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
-import { Alert } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
-import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
 
@@ -317,10 +316,44 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       for (const op of transaction.crud) {
         lastOp = op;
-        // Default metadata if none was stamped (covers any raw SQL writes)
-        const metadata =
-          (op as unknown as { metadata: OpMetadata | null }).metadata ??
-          getDefaultOpMetadata();
+        // Read schema_version from CrudEntry.metadata (populated by PowerSync when trackMetadata: true)
+        // See: https://docs.powersync.com/usage/use-case-examples/custom-types-arrays-and-json
+        // Note: PowerSync stores metadata as a JSON string, so we need to parse it
+        const rawMetadata = (
+          op as unknown as { metadata?: string | OpMetadata | null }
+        ).metadata;
+
+        let recordMetadata: OpMetadata | null = null;
+        if (rawMetadata) {
+          if (typeof rawMetadata === 'string') {
+            try {
+              recordMetadata = JSON.parse(rawMetadata) as OpMetadata;
+            } catch (e) {
+              console.warn(
+                `[uploadData] ${op.table} op has invalid _metadata JSON:`,
+                rawMetadata
+              );
+            }
+          } else {
+            // Already an object (in case PowerSync changes behavior)
+            recordMetadata = rawMetadata;
+          }
+        }
+
+        if (!recordMetadata) {
+          console.warn(
+            `[uploadData] ${op.table} op has no _metadata - treating as legacy v0 data. ` +
+              `This may indicate the publish operation isn't stamping metadata correctly.`
+          );
+        }
+
+        // NEVER use current app version as default - old ops must be transformed
+        // Use '0' to ensure v0_to_v1 + v1_to_v2 transforms run for legacy data
+        const metadata: OpMetadata = recordMetadata ?? { schema_version: '0' };
+
+        console.log(
+          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
+        );
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -403,6 +436,8 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         if (opData && 'source' in opData) {
           delete opData.source;
         }
+        // Note: _metadata is handled automatically by PowerSync when trackMetadata: true
+        // It stores _metadata in a separate column and exposes it via CrudEntry.metadata
 
         let record: Record<string, unknown> | null | undefined = undefined;
         let opName: 'put' | 'patch' | 'delete';
@@ -534,7 +569,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           );
         }
         try {
-          Alert.alert(
+          RNAlert.alert(
             'Upload issue',
             `There was an issue uploading your content. We're investigating and your data will be made available to others as soon as possible. Reference code: ${response.ref_code ?? 'N/A'}`
           );

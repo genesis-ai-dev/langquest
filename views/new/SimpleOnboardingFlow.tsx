@@ -328,9 +328,9 @@ export function SimpleOnboardingFlow({
                   variant="default"
                   size="lg"
                   onPress={handleAction}
-                  className="w-full"
+                  className="w-72"
                 >
-                  <Text className="text-primary-foreground">
+                  <Text className="text-left text-primary-foreground">
                     {t('onboardingContinue')}
                   </Text>
                 </Button>
@@ -395,7 +395,7 @@ export function SimpleOnboardingFlow({
                   variant="default"
                   size="lg"
                   onPress={handleAction}
-                  className="w-full"
+                  className="w-72"
                 >
                   <Text className="text-primary-foreground">
                     {t('onboardingContinue')}
@@ -452,7 +452,7 @@ export function SimpleOnboardingFlow({
                   variant="default"
                   size="lg"
                   onPress={handleAction}
-                  className="w-full"
+                  className="w-72"
                 >
                   <Text className="text-primary-foreground">
                     {t('onboardingContinue')}
@@ -519,7 +519,7 @@ export function SimpleOnboardingFlow({
                   variant="default"
                   size="lg"
                   onPress={handleAction}
-                  className="w-full"
+                  className="w-72"
                 >
                   <Text className="text-primary-foreground">
                     {t('onboardingContinue')}

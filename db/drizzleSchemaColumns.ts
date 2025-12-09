@@ -104,7 +104,11 @@ const baseColumns = {
 
 const syncedColumns = {
   ...baseColumns,
-  source: text({ enum: sourceOptions }).default('synced').notNull()
+  source: text({ enum: sourceOptions }).default('synced').notNull(),
+  // _metadata is managed by PowerSync when trackMetadata: true
+  // We include it in the schema so Drizzle includes it in INSERT/UPDATE statements
+  // The stamp proxy in system.ts will add the value before writes
+  _metadata: text({ mode: 'json' }).$type<OpMetadata>()
 };
 
 const localColumns = {

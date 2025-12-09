@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { system } from '@/db/powersync/system';
-import { Alert, Share, Platform } from 'react-native';
+import { Share, Platform } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 
 export interface ExportRequest {
   quest_id: string;
@@ -226,6 +227,6 @@ export async function shareExportLink(shareUrl: string): Promise<void> {
     }
   } catch (error) {
     console.error('Failed to share:', error);
-    Alert.alert('Error', 'Failed to share export link');
+    RNAlert.alert('Error', 'Failed to share export link');
   }
 }

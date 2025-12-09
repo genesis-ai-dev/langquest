@@ -176,15 +176,15 @@ CREATE TEMP TABLE _language_to_languoid_map (
 
 INSERT INTO _language_to_languoid_map (language_id, languoid_id)
 SELECT id, NULL FROM public.language WHERE active = true;
-
--- Priority 1: Match by ISO 639-3 code
+  
+  -- Priority 1: Match by ISO 639-3 code
 UPDATE _language_to_languoid_map m
 SET languoid_id = (
   SELECT ls.languoid_id 
-  FROM public.languoid_source ls 
+    FROM public.languoid_source ls
   WHERE lower(trim(ls.unique_identifier)) = lower(trim(l.iso639_3))
-    AND lower(ls.name) = 'iso639-3'
-    AND ls.active = true
+      AND lower(ls.name) = 'iso639-3'
+      AND ls.active = true
   LIMIT 1
 )
 FROM public.language l
@@ -192,7 +192,7 @@ WHERE m.language_id = l.id
   AND m.languoid_id IS NULL
   AND l.iso639_3 IS NOT NULL 
   AND trim(l.iso639_3) != '';
-
+  
 -- Priority 2: Match english_name in languoid.name
 UPDATE _language_to_languoid_map m
 SET languoid_id = (
@@ -207,14 +207,14 @@ WHERE m.language_id = l.id
   AND m.languoid_id IS NULL
   AND l.english_name IS NOT NULL 
   AND trim(l.english_name) != '';
-
+    
 -- Priority 3: Match english_name in languoid_alias.name
 UPDATE _language_to_languoid_map m
 SET languoid_id = (
   SELECT la.subject_languoid_id 
-  FROM public.languoid_alias la 
+    FROM public.languoid_alias la
   WHERE lower(trim(la.name)) = lower(trim(l.english_name))
-    AND la.active = true
+      AND la.active = true
   LIMIT 1
 )
 FROM public.language l
@@ -222,7 +222,7 @@ WHERE m.language_id = l.id
   AND m.languoid_id IS NULL
   AND l.english_name IS NOT NULL 
   AND trim(l.english_name) != '';
-
+  
 -- Priority 4: Match native_name in languoid.name
 UPDATE _language_to_languoid_map m
 SET languoid_id = (
@@ -237,14 +237,14 @@ WHERE m.language_id = l.id
   AND m.languoid_id IS NULL
   AND l.native_name IS NOT NULL 
   AND trim(l.native_name) != '';
-
+    
 -- Priority 5: Match native_name in languoid_alias.name
 UPDATE _language_to_languoid_map m
 SET languoid_id = (
   SELECT la.subject_languoid_id 
-  FROM public.languoid_alias la 
+    FROM public.languoid_alias la
   WHERE lower(trim(la.name)) = lower(trim(l.native_name))
-    AND la.active = true
+      AND la.active = true
   LIMIT 1
 )
 FROM public.language l
@@ -418,11 +418,11 @@ SET ui_ready = true,
     last_updated = NOW()
 WHERE lo.id::uuid IN (
   SELECT l.id
-  FROM public.language l
-  WHERE l.active = true
-    AND l.ui_ready = true
+FROM public.language l
+WHERE l.active = true
+  AND l.ui_ready = true
 )
-AND lo.ui_ready = false;
+  AND lo.ui_ready = false;
 
 -- Cleanup mapping table (no longer needed after STEP 6)
 DROP TABLE _language_to_languoid_map;
