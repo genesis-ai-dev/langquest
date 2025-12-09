@@ -15,6 +15,22 @@ create index if not exists idx_profile_project_link_download_profiles
 on public.profile_project_link using gin (download_profiles);
 
 -- ============================================================================
+-- Helper function: Normalize empty arrays to null for consistency
+-- ============================================================================
+create or replace function public.normalize_download_profiles(p_profiles uuid[])
+returns uuid[]
+language plpgsql
+immutable
+as $$
+begin
+    if p_profiles is null or array_length(p_profiles, 1) is null then
+        return null;
+    end if;
+    return p_profiles;
+end;
+$$;
+
+-- ============================================================================
 -- BEFORE INSERT OR UPDATE trigger: Populate download_profiles with OTHER active members
 -- When joining/rejoining, set download_profiles to other active members (not self)
 -- ============================================================================
@@ -38,7 +54,7 @@ begin
     end if;
     
     -- Always ensure self is never in download_profiles (safeguard against seeds/manual inserts)
-    -- Normalize empty arrays to null
+    -- Normalize empty arrays
     new.download_profiles := public.normalize_download_profiles(
         array_remove(new.download_profiles, new.profile_id)
     );
@@ -133,5 +149,3 @@ create trigger trigger_ppl_remove_member_after
 after update or delete on public.profile_project_link
 for each row
 execute function public.ppl_remove_member_after();
-
-
