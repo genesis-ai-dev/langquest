@@ -21,6 +21,7 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useTranscription } from '@/hooks/useTranscription';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
@@ -185,6 +186,9 @@ export default function NextGenTranslationModal({
   const [editedText, setEditedText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
 
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
@@ -406,6 +410,27 @@ export default function NextGenTranslationModal({
 
   const { stopCurrentSound, isPlaying } = useAudio();
 
+  const handleTranscribe = async (uri: string) => {
+    if (!isAuthenticated) {
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio');
+      return;
+    }
+
+    try {
+      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
+      if (result.text) {
+        setEditedText(result.text);
+        setIsEditing(true);
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      RNAlert.alert(
+        t('error'),
+        t('transcriptionFailed') || 'Failed to transcribe audio. Please try again.'
+      );
+    }
+  };
+
   const handleClose = async () => {
     onOpenChange(false);
     setShowReportModal(false);
@@ -545,6 +570,12 @@ export default function NextGenTranslationModal({
                           audioSegments={audioSegments}
                           useCarousel={false}
                           mini={false}
+                          onTranscribe={
+                            isAuthenticated && allowEditing
+                              ? handleTranscribe
+                              : undefined
+                          }
+                          isTranscribing={isTranscribing}
                         />
                       </View>
                     )}

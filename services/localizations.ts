@@ -4316,6 +4316,20 @@ export const localizations = {
     tok_pisin: 'Plis login pastaim long vote',
     indonesian: 'Silakan login untuk memilih'
   },
+  pleaseLogInToTranscribe: {
+    english: 'Please log in to transcribe audio',
+    spanish: 'Por favor, inicia sesión para transcribir audio',
+    brazilian_portuguese: 'Por favor, faça login para transcrever áudio',
+    tok_pisin: 'Plis login pastaim long transcribe audio',
+    indonesian: 'Silakan login untuk mentranskripsi audio'
+  },
+  transcriptionFailed: {
+    english: 'Failed to transcribe audio. Please try again.',
+    spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese: 'Falha ao transcrever áudio. Por favor, tente novamente.',
+    tok_pisin: 'I no inap transcribe audio. Plis traim gen.',
+    indonesian: 'Gagal mentranskripsi audio. Silakan coba lagi.'
+  },
   yourTranscriptionHasBeenSubmitted: {
     english: 'Your transcription has been submitted',
     spanish: 'Tu transcripción ha sido enviada',
