@@ -141,6 +141,7 @@ export default function NextGenProjectsView() {
               project_id: newProject.id,
               profile_id: currentUser.id,
               membership: 'owner'
+              // download_profiles will be set by database trigger
             });
 
           // Create project_language_link with languoid_id

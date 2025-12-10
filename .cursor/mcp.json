@@ -28,6 +28,10 @@
     "maestro": {
       "command": "maestro",
       "args": ["mcp"]
+    },
+    "powersync": {
+      "name": "PowerSync",
+      "url": "https://powersync.mintlify.app/mcp"
     }
   }
 }

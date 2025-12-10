@@ -194,6 +194,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
               project_id: project.id,
               profile_id: currentUser!.id,
               membership: 'owner'
+              // download_profiles will be set by database trigger
             });
 
           newProject = project as {
