@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile, request } from '@/db/drizzleSchema';
 import { invite, project as projectTable } from '@/db/drizzleSchema';
@@ -19,6 +24,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHybridData } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -34,7 +40,6 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 const MAX_INVITE_ATTEMPTS = 3;
@@ -105,7 +110,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   >('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // All operations on invites, requests, and notifications go through synced tables or Supabase
@@ -1138,22 +1142,23 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                           />
                           <Label className="ml-2">{t('inviteAsOwner')}</Label>
                         </Pressable>
-                        <Pressable
-                          className="p-1"
-                          onPress={() => setShowTooltip(!showTooltip)}
-                        >
-                          <Icon
-                            as={InfoIcon}
-                            size={20}
-                            className="text-primary"
-                          />
-                        </Pressable>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Icon
+                              as={InfoIcon}
+                              size={20}
+                              className="text-primary"
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent
+                            className="w-60"
+                            side="top"
+                            align="end"
+                          >
+                            <Text variant="small">{t('ownerTooltip')}</Text>
+                          </TooltipContent>
+                        </Tooltip>
                       </View>
-                      {showTooltip && (
-                        <View className="mb-2 rounded-md bg-muted p-2">
-                          <Text variant="small">{t('ownerTooltip')}</Text>
-                        </View>
-                      )}
                       <Button
                         onPress={handleSendInvitation}
                         disabled={!isInviteButtonEnabled || isSubmitting}
