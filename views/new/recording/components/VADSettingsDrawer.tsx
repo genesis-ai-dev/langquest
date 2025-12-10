@@ -1022,7 +1022,7 @@ function VADSettingsDrawerInternal({
             </View>
           </View>
 
-          <View className="gap-3 pt-2">
+          <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
               {t('vadSilenceDuration')}
             </Text>
