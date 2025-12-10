@@ -42,11 +42,11 @@ default_pool_size = 20
 # Maximum number of client connections allowed.
 max_client_conn = 100
 
-[db.vault]
-# Vault secrets for invite trigger function
-# These secrets are used by handle_invite_trigger() to call the send-email edge function
-supabase_url = "env(EXPO_PUBLIC_SUPABASE_URL)"
-supabase_service_role_key = "env(SUPABASE_SERVICE_ROLE_KEY)"
+# [db.vault]
+# # Vault secrets for invite trigger function
+# # These secrets are used by handle_invite_trigger() to call the send-email edge function
+# supabase_url = "env(EXPO_PUBLIC_SUPABASE_URL)"
+# supabase_service_role_key = "env(SUPABASE_SERVICE_ROLE_KEY)"
 
 [db.migrations]
 # Specifies an ordered list of schema files that describe your database.
