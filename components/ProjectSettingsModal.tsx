@@ -74,12 +74,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           ? t('projectMadePrivate')
           : t('projectMadePublic');
       } else if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
+        visible = !visible;
         message = visible ? t('projectMadeVisible') : t('projectMadeInvisible');
       } else {
         if (!active) {
