@@ -40,6 +40,7 @@ type AssetQuestLink = Asset & {
 };
 export interface AssetListItemProps {
   asset: AssetQuestLink;
+  isPublished: boolean;
   questId: string;
   onUpdate?: () => void;
   attachmentState?: AttachmentRecord;
@@ -50,6 +51,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
   questId,
   isCurrentlyPlaying = false,
+  isPublished,
   onUpdate,
   attachmentState
 }) => {
@@ -60,9 +62,20 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
 
-  const getManyTags = useTagStore((s) => s.getManyTags);
-  const tags = getManyTags(asset.tag_ids || []);
-  console.log('[Fetched tags from store]:', tags);
+  const fetchManyTags = useTagStore((s) => s.fetchManyTags);
+  const [tags, setTags] = React.useState<
+    { id: string; key: string; value?: string }[]
+  >([]);
+
+  React.useEffect(() => {
+    const loadTags = async () => {
+      if (asset.tag_ids && asset.tag_ids.length > 0) {
+        const fetchedTags = await fetchManyTags(asset.tag_ids);
+        setTags(fetchedTags);
+      }
+    };
+    void loadTags();
+  }, [asset.tag_ids, fetchManyTags]);
 
   // Download mutation
   const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
@@ -179,12 +192,16 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                 </View>
               </View>
               <View className="flex flex-row items-center justify-center gap-2">
-                <Pressable onPress={handleOpenTagModal}>
+                <Pressable
+                  onPress={isPublished ? undefined : handleOpenTagModal}
+                >
                   {tags.length === 0 ? (
-                    <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
-                      <Icon as={Plus} size={10} className="text-white" />
-                      <Icon as={TagIcon} size={10} className="text-white" />
-                    </View>
+                    !isPublished && (
+                      <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
+                        <Icon as={Plus} size={10} className="text-white" />
+                        <Icon as={TagIcon} size={10} className="text-white" />
+                      </View>
+                    )
                   ) : (
                     <View pointerEvents="none">
                       <Badge

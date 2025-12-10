@@ -320,7 +320,13 @@ export default function NextGenAssetsView() {
   }, [queryClient]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => {
+    ({
+      item,
+      isPublished
+    }: {
+      item: AssetQuestLink & { source?: HybridDataSource };
+      isPublished: boolean;
+    }) => {
       const isPlaying =
         audioContext.isPlaying &&
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
@@ -340,6 +346,7 @@ export default function NextGenAssetsView() {
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
             onUpdate={handleAssetUpdate}
+            isPublished={isPublished}
           />
         </>
       );
@@ -1248,7 +1255,7 @@ export default function NextGenAssetsView() {
           data={assets}
           keyExtractor={(item) => item.id}
           extraData={currentlyPlayingAssetId}
-          renderItem={({ item }) => renderItem({ item })}
+          renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           estimatedItemSize={120}

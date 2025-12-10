@@ -33,7 +33,6 @@ import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
-import { tagService } from '@/database_services/tagService';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import {
@@ -78,10 +77,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    async function init() {
-      await tagService.preloadTagsIntoCache();
-    }
-    void init();
+    // async function init() {
+    //   await tagService.preloadTagsIntoCache();
+    // }
+    // void init();
 
     if (Platform.OS === 'web') return;
     console.log('[_layout] Setting up deep link handler');
