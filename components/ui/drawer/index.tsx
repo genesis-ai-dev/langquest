@@ -110,6 +110,7 @@ function Drawer({
   // Don't spread drawerProps directly as it's a new object reference on every render
   const stableSnapPoints = drawerProps.snapPoints;
   const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
+  const stableGestureEventsHandlersHook = drawerProps.gestureEventsHandlersHook;
 
   // Memoize snapPoints array to prevent unnecessary re-renders
   const memoizedSnapPoints = React.useMemo(() => {
@@ -125,14 +126,16 @@ function Drawer({
       open: isOpen,
       setOpen: handleSetOpen,
       snapPoints: memoizedSnapPoints,
-      enableDynamicSizing: stableEnableDynamicSizing
+      enableDynamicSizing: stableEnableDynamicSizing,
+      gestureEventsHandlersHook: stableGestureEventsHandlersHook
     };
   }, [
     ref,
     isOpen,
     handleSetOpen,
     memoizedSnapPoints,
-    stableEnableDynamicSizing
+    stableEnableDynamicSizing,
+    stableGestureEventsHandlersHook
   ]);
 
   return (
@@ -219,6 +222,7 @@ const DrawerContent = React.forwardRef<
     setOpen: _setOpen,
     ref: _ref,
     snapPoints: _snapPoints,
+    gestureEventsHandlersHook,
     ...modalProps
   } = context ?? {};
   // Extract setOpen to avoid depending on entire context object (which changes on every render)
@@ -270,6 +274,7 @@ const DrawerContent = React.forwardRef<
       // enableOverDrag={false}
       enableBlurKeyboardOnGesture
       keyboardBlurBehavior="restore"
+      gestureEventsHandlersHook={gestureEventsHandlersHook}
       // android_keyboardInputMode=""
       {...modalProps}
     >
