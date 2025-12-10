@@ -189,7 +189,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                     <View pointerEvents="none">
                       <Badge
                         variant="default"
-                        className="flex flex-row items-center gap-1 bg-primary/30"
+                        className="flex flex-row items-center gap-1"
                       >
                         <Icon as={TagIcon} size={12} className="text-white" />
                         <CardTitle className="text-xs text-white">

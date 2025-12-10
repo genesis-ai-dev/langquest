@@ -126,7 +126,14 @@ export class TagService {
             tag_id
           }));
 
-          await tx.insert(contentLocal).values(newAssignments);
+          const newAssignmentsResult = await tx
+            .insert(contentLocal)
+            .values(newAssignments)
+            .returning();
+          console.log(
+            `[TagService] New assignments result:`,
+            newAssignmentsResult
+          );
         }
 
         return { success: true, assigned_count: tag_ids.length };

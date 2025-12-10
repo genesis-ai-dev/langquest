@@ -332,14 +332,16 @@ export default function NextGenAssetsView() {
       }
 
       return (
-        <AssetListItem
-          key={item.id}
-          asset={item}
-          attachmentState={safeAttachmentStates.get(item.id)}
-          questId={currentQuestId || ''}
-          isCurrentlyPlaying={isPlaying}
-          onUpdate={handleAssetUpdate}
-        />
+        <>
+          <AssetListItem
+            key={item.id}
+            asset={item}
+            attachmentState={safeAttachmentStates.get(item.id)}
+            questId={currentQuestId || ''}
+            isCurrentlyPlaying={isPlaying}
+            onUpdate={handleAssetUpdate}
+          />
+        </>
       );
     },
     // Use stable memo key instead of Map reference to prevent hook dependency issues
