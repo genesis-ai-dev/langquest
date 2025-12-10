@@ -2144,15 +2144,15 @@ export const localizations = {
   },
   privateProjectDescription: {
     english:
-      'This is a private project. Only members and owners can contribute translations and votes.',
+      'The project is open for viewing by anyone, but only members can contribute.',
     spanish:
-      'Este es un proyecto privado. Solo los miembros y propietarios pueden contribuir con traducciones y votos.',
+      'El proyecto está abierto para visualización por cualquiera, pero solo los miembros pueden contribuir.',
     brazilian_portuguese:
-      'Este é um projeto privado. Apenas membros e proprietários podem contribuir com traduções e votos.',
+      'O projeto está aberto para visualização por qualquer pessoa, mas apenas os membros podem contribuir.',
     tok_pisin:
-      'Dispela i private project. Ol member na owner tasol ken contributim translation na vote.',
+      'Dispela project i open long olgeta man long lukim, tasol ol member tasol ken contributim.',
     indonesian:
-      'Ini adalah proyek pribadi. Hanya anggota dan pemilik yang dapat berkontribusi terjemahan dan suara.'
+      'Proyek terbuka untuk dilihat oleh siapa saja, tetapi hanya anggota yang dapat berkontribusi.'
   },
   privateProjectInfo: {
     english:
@@ -3525,39 +3525,39 @@ export const localizations = {
     indonesian: 'Pengaturan Proyek'
   },
   publicProjectDescription: {
-    english: 'Anyone can access this project',
-    spanish: 'Cualquiera puede acceder a este proyecto',
-    brazilian_portuguese: 'Qualquer pessoa pode acessar este projeto',
-    tok_pisin: 'Olgeta man i ken kam long dispela project',
-    indonesian: 'Siapa saja dapat mengakses proyek ini'
+    english: 'Anyone can view and contribute to this project',
+    spanish: 'Cualquiera puede ver y contribuir a este proyecto',
+    brazilian_portuguese: 'Qualquer pessoa pode ver e contribuir para este projeto',
+    tok_pisin: 'Olgeta man i ken lukim na contributim long dispela project',
+    indonesian: 'Siapa saja dapat melihat dan berkontribusi pada proyek ini'
   },
   visibleProjectDescription: {
-    english: 'This project appears in public listings',
-    spanish: 'Este proyecto aparece en listados públicos',
-    brazilian_portuguese: 'Este projeto aparece em listagens públicas',
-    tok_pisin: 'Dispela project i save long public list',
-    indonesian: 'Proyek ini muncul di daftar publik'
+    english: 'This project appears in public listings and can be discovered by all users',
+    spanish: 'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios',
+    brazilian_portuguese: 'Este projeto aparece em listagens públicas e pode ser descoberto por todos os usuários',
+    tok_pisin: 'Dispela project i save long public list na olgeta user i ken painim',
+    indonesian: 'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna'
   },
   invisibleProjectDescription: {
-    english: 'This project is hidden from public listings',
-    spanish: 'Este proyecto está oculto de los listados públicos',
-    brazilian_portuguese: 'Este projeto está oculto das listagens públicas',
-    tok_pisin: 'Dispela project i hait long public list',
-    indonesian: 'Proyek ini disembunyikan dari daftar publik'
+    english: 'This project is not displayed in project directories or search results',
+    spanish: 'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda',
+    brazilian_portuguese: 'Este projeto não é exibido em diretórios de projetos ou resultados de pesquisa',
+    tok_pisin: 'Dispela project i no save long project directory olsem search result',
+    indonesian: 'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian'
   },
   activeProjectDescription: {
-    english: 'This project is available for use',
-    spanish: 'Este proyecto está disponible para usar',
-    brazilian_portuguese: 'Este projeto está disponível para uso',
-    tok_pisin: 'Dispela project i redi long usim',
-    indonesian: 'Proyek ini tersedia untuk digunakan'
+    english: 'The project is currently open for viewing and contributions',
+    spanish: 'El proyecto está actualmente abierto para visualización y contribuciones',
+    brazilian_portuguese: 'O projeto está atualmente aberto para visualização e contribuições',
+    tok_pisin: 'Dispela project i open nau long lukim na contributim',
+    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi'
   },
   inactiveProjectDescription: {
-    english: 'This project is temporarily disabled',
-    spanish: 'Este proyecto está temporalmente deshabilitado',
-    brazilian_portuguese: 'Este projeto está temporariamente desabilitado',
-    tok_pisin: 'Dispela project i stop liklik taim',
-    indonesian: 'Proyek ini sementara dinonaktifkan'
+    english: 'This project is currently inactive and not accepting contributions',
+    spanish: 'Este proyecto está actualmente inactivo y no acepta contribuciones',
+    brazilian_portuguese: 'Este projeto está atualmente inativo e não está aceitando contribuições',
+    tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim',
+    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi'
   },
   loadingOptions: {
     english: 'Loading options...',
