@@ -157,7 +157,7 @@ export default function NextGenProjectsView() {
             languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,
-            download_profiles: [currentUser!.id]
+            download_profiles: [currentUser.id]
           });
         });
       },
@@ -729,6 +729,8 @@ export default function NextGenProjectsView() {
           resetForm();
         }}
         dismissible={!isCreatingProject}
+        snapPoints={[600]}
+        enableDynamicSizing={false}
       >
         <View className="flex flex-1 flex-col gap-6 p-6">
           <View className="flex flex-col gap-4">
@@ -929,7 +931,7 @@ export default function NextGenProjectsView() {
             <DrawerHeader>
               <DrawerTitle>{t('newProject')}</DrawerTitle>
             </DrawerHeader>
-            <View className="flex flex-col gap-4 px-4">
+            <View className="flex flex-col gap-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -1020,21 +1022,21 @@ export default function NextGenProjectsView() {
                   </FormItem>
                 )}
               />
-              <View className="flex-row items-center justify-between">
-                <Text>{t('private')}</Text>
-                <FormField
-                  control={form.control}
-                  name="private"
-                  render={({ field }) => (
-                    <FormItem>
+              <FormField
+                control={form.control}
+                name="private"
+                render={({ field }) => (
+                  <FormItem>
+                    <View className="flex-row items-center justify-between">
+                      <FormLabel>{t('private')}</FormLabel>
                       <FormControl>
                         <Switch {...transformSwitchProps(field)} />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </View>
+                    </View>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </View>
             <DrawerFooter>
               <FormSubmit

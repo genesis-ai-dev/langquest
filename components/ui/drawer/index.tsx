@@ -254,7 +254,7 @@ const DrawerContent = React.forwardRef<
       bottomInset={bottom}
       handleComponent={({ animatedIndex, animatedPosition, ...props }) => (
         <BSHandle
-          className={cn('rounded-t-xl bg-background', className)}
+          className="rounded-t-xl bg-background"
           animatedIndex={animatedIndex}
           animatedPosition={animatedPosition}
           indicatorClassName="h-1 w-[50px] shrink-0 rounded-full bg-secondary-foreground"
@@ -276,9 +276,8 @@ const DrawerContent = React.forwardRef<
       {/* Re-provide DrawerContext inside the portal so children can access it */}
       <DrawerContext.Provider value={context}>
         <DrawerKeyboardAwareScrollView
-          extraKeyboardSpace={20}
-          bottomOffset={96}
-          className={cn('z-[9998] flex-1 bg-background px-4', className)}
+          bottomOffset={16}
+          className={cn('z-[9998] flex-1 bg-background px-6', className)}
           {...props}
         >
           {children}
@@ -314,7 +313,10 @@ function DrawerFooter({
   ...props
 }: React.ComponentProps<typeof View> & { className?: string }) {
   return (
-    <View className={cn('mt-auto flex-col gap-2 p-4', className)} {...props}>
+    <View
+      className={cn('mt-auto flex-col gap-2 px-0 py-4', className)}
+      {...props}
+    >
       {children}
     </View>
   );

@@ -1,5 +1,5 @@
-import { cn, getThemeColor } from '@/utils/styleUtils';
 import { scoreSearchResults } from '@/utils/searchUtils';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
@@ -55,6 +55,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
     },
     ref
   ) => {
+    const primaryColor = useThemeColor('primary');
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [displayLimit, setDisplayLimit] = React.useState(pageSize);
@@ -122,44 +123,48 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
     return (
       <View ref={ref} className={cn('relative', className)}>
         {/* Trigger */}
-        <Pressable
-          onPress={handleOpen}
-          disabled={disabled}
+        <View
           className={cn(
-            'native:h-12 flex h-12 flex-row items-center justify-between rounded-md border border-input bg-card px-3 py-2',
+            'native:h-12 h-12 rounded-md border border-border bg-card shadow-sm shadow-black/5',
             disabled && 'opacity-50'
           )}
         >
-          <View className="flex flex-1 flex-row items-center gap-2">
-            {prefix}
-            {isLoading ? (
-              <View className="flex flex-row items-center gap-2">
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-                <Text className="text-sm text-muted-foreground">
-                  Loading...
+          <Pressable
+            onPress={handleOpen}
+            disabled={disabled}
+            className="flex h-full flex-1 flex-row items-center justify-between px-3 py-2"
+          >
+            <View className="flex flex-1 flex-row items-center gap-2">
+              {prefix}
+              {isLoading ? (
+                <View className="flex flex-row items-center gap-2">
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                  <Text className="text-sm text-muted-foreground">
+                    Loading...
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  className={cn(
+                    'flex-1 text-base',
+                    selectedOption ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                  numberOfLines={1}
+                >
+                  {selectedOption?.label || placeholder}
                 </Text>
-              </View>
-            ) : (
-              <Text
-                className={cn(
-                  'flex-1 text-base',
-                  selectedOption ? 'text-foreground' : 'text-muted-foreground'
-                )}
-                numberOfLines={1}
-              >
-                {selectedOption?.label || placeholder}
-              </Text>
-            )}
-          </View>
-          <Icon
-            as={ChevronDownIcon}
-            className="text-muted-foreground"
-            size={20}
-          />
-        </Pressable>
+              )}
+            </View>
+            <Icon
+              as={ChevronDownIcon}
+              className="text-muted-foreground"
+              size={20}
+            />
+          </Pressable>
+        </View>
 
         {/* Dropdown */}
         {isOpen && (
@@ -186,7 +191,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     placeholder={searchPlaceholder}
                     placeholderTextColor={getThemeColor('muted-foreground')}
                     className="h-10 rounded-md bg-card px-3 text-base text-foreground"
-                    selectionColor={getThemeColor('primary')}
+                    selectionColor={primaryColor}
                   />
                 </View>
 

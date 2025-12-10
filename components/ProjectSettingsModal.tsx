@@ -5,20 +5,19 @@ import {
 } from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { XIcon } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+  UnlockIcon,
+  XCircleIcon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { SwitchBox } from './SwitchBox';
-import { Button } from './ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from './ui/drawer';
-import { Icon } from './ui/icon';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
 
 interface ProjectSettingsModalProps {
   isVisible: boolean;
@@ -59,23 +58,18 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   }
 
   const handleToggleStatus = async (statusType: TProjectStatusType) => {
-    if (!projectData) return;
+    if (!projectData || isSubmitting) return;
     setIsSubmitting(true);
 
     let privateProject = projectData.private;
     let visible = projectData.visible;
     let active = projectData.active;
-    let message = '';
 
     try {
       if (statusType === 'private') {
         privateProject = !privateProject;
-        message = privateProject
-          ? t('projectMadePrivate')
-          : t('projectMadePublic');
       } else if (statusType === 'visible') {
         visible = !visible;
-        message = visible ? t('projectMadeVisible') : t('projectMadeInvisible');
       } else {
         if (!active) {
           visible = true;
@@ -83,7 +77,6 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         } else {
           active = false;
         }
-        message = active ? t('projectMadeActive') : t('projectMadeInactive');
       }
 
       await updateProjectStatus(
@@ -102,8 +95,6 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       );
 
       refetch();
-
-      RNAlert.alert(t('success'), message);
     } catch (error) {
       console.error('Error updating project status:', error);
       RNAlert.alert(t('error'), t('failedToUpdateProjectSettings'));
@@ -120,18 +111,15 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           onClose();
         }
       }}
+      snapPoints={[400]}
+      enableDynamicSizing={false}
     >
-      <DrawerContent className="bg-background px-4 pb-4">
-        <DrawerHeader className="flex-row items-center justify-between">
+      <DrawerContent className="bg-background pb-4">
+        <DrawerHeader>
           <DrawerTitle>{t('projectSettings')}</DrawerTitle>
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon">
-              <Icon as={XIcon} size={24} />
-            </Button>
-          </DrawerClose>
         </DrawerHeader>
 
-        <View className="flex-1 gap-4">
+        <View className="flex-1 gap-2">
           <SwitchBox
             title={t('privateProject')}
             description={
@@ -141,7 +129,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.private ?? false}
             onChange={() => handleToggleStatus('private')}
-            disabled={isSubmitting || isLoading || !isOwner}
+            disabled={isLoading || !isOwner}
+            icon={projectData?.private ? LockIcon : UnlockIcon}
           />
 
           <SwitchBox
@@ -153,7 +142,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.visible ?? false}
             onChange={() => handleToggleStatus('visible')}
-            disabled={isSubmitting || isLoading || !isOwner}
+            disabled={isLoading || !isOwner}
+            icon={projectData?.visible ? EyeIcon : EyeOffIcon}
           />
 
           <SwitchBox
@@ -165,7 +155,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.active ?? false}
             onChange={() => handleToggleStatus('active')}
-            disabled={isSubmitting || isLoading || !isOwner}
+            disabled={isLoading || !isOwner}
+            icon={projectData?.active ? CheckCircleIcon : XCircleIcon}
           />
         </View>
       </DrawerContent>

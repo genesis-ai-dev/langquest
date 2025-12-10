@@ -397,7 +397,7 @@ export default function AppDrawer({
         <DrawerHeader className="hidden">
           <DrawerTitle>{t('menu')}</DrawerTitle>
         </DrawerHeader>
-        <View className="flex flex-col gap-4">
+        <View className="flex flex-col gap-4 pt-4">
           {/* OTA Patch Version */}
           <View className="rounded-md bg-muted p-3">
             <Text className="text-center text-xs text-muted-foreground">
@@ -588,7 +588,7 @@ export default function AppDrawer({
                   key={index}
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
-                    'h-auto justify-start p-4',
+                    'native:px-2 h-auto justify-start px-2 py-4 active:scale-100',
                     item.disabled && 'opacity-50'
                   )}
                   onPress={item.onPress}
