@@ -581,6 +581,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     project_id: projectId,
                     membership: 'member',
                     active: true
+                    // download_profiles will be set by database trigger when synced to server
                   });
                 }
 
