@@ -19,6 +19,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useHybridData } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -34,7 +35,6 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 const MAX_INVITE_ATTEMPTS = 3;
@@ -577,6 +577,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     project_id: projectId,
                     membership: 'member',
                     active: true
+                    // download_profiles will be set by database trigger when synced to server
                   });
                 }
 
