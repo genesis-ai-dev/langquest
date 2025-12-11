@@ -882,7 +882,9 @@ function VADSettingsDrawerInternal({
               <Animated.View
                 style={[{ position: 'absolute', left: 0 }, pausedStatusStyle]}
               >
-                <Text className="text-xs text-muted-foreground">⏸️ Paused</Text>
+                <Text className="text-xs text-muted-foreground">
+                  ⏸️ {t('vadPaused')}
+                </Text>
               </Animated.View>
             </View>
           </View>

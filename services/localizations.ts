@@ -4657,6 +4657,13 @@ export const localizations = {
     tok_pisin: 'Wetim',
     indonesian: 'Menunggu'
   },
+  vadPaused: {
+    english: 'Paused',
+    spanish: 'Pausado',
+    brazilian_portuguese: 'Pausado',
+    tok_pisin: 'I stop liklik',
+    indonesian: 'Dijeda'
+  },
   vadThreshold: {
     english: 'Sensitivity',
     spanish: 'Sensibilidad',
