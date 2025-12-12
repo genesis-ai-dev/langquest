@@ -11,6 +11,7 @@ export type AppView =
   | 'quests'
   | 'assets'
   | 'asset-detail'
+  | 'bible-assets'
   | 'profile'
   | 'notifications'
   | 'settings'

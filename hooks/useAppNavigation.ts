@@ -169,6 +169,12 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
+      const assetView =
+        questData.projectData?.template === 'bible' ? 'bible-assets' : 'assets';
+      console.log('=============================================');
+      console.log('assetView', assetView);
+      console.log('=============================================');
+
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -180,7 +186,7 @@ export function useAppNavigation() {
       // Check if we're already at this quest
       if (
         currentState.questId === questData.id &&
-        currentState.view === 'assets'
+        currentState.view === assetView
       ) {
         // Already here, do nothing
         return;
@@ -191,11 +197,11 @@ export function useAppNavigation() {
         currentState.questId === questData.id &&
         currentState.view === 'asset-detail'
       ) {
-        goBackToView('assets');
+        goBackToView(assetView);
       } else {
         // Navigate fresh, pass data forward and preserve bookId (for Bible navigation)
         navigate({
-          view: 'assets',
+          view: assetView,
           questId: questData.id,
           questName: questData.name,
           projectId: questData.project_id,
@@ -323,13 +329,17 @@ export function useAppNavigation() {
             template: state.projectTemplate
           })
       });
+      console.log('=============================================');
+      console.log('state.questName', 'Going to AssetsView', state.questName);
+      console.log('=============================================');
       crumbs.push({
         label: state.questName,
         onPress: () =>
           goToQuest({
             id: state.questId!,
             project_id: state.projectId!,
-            name: state.questName
+            name: state.questName,
+            projectData: state.projectData
           })
       });
       crumbs.push({ label: state.assetName, onPress: undefined });
