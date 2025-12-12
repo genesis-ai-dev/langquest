@@ -1,3 +1,5 @@
+import type { Quest, Segment, TemplatedProject } from './templates';
+
 // Bible structure with books, chapters, and verse counts
 export interface BibleBook {
   id: string;
@@ -532,3 +534,44 @@ export const parseBibleReference = (
     verse: parseInt(verse)
   };
 };
+
+/**
+ * Converts BIBLE_BOOKS structure to VERSIFICATION_TEMPLATES_JSON structure.
+ * Creates a TemplatedProject for each book with chapters as quests and verses as segments.
+ *
+ * @returns Array of TemplatedProject objects representing all Bible books
+ */
+export function bibleToVersificationTemplate(): TemplatedProject[] {
+  return BIBLE_BOOKS.map((book) => {
+    const chapterQuests: Quest[] = [];
+
+    // Create a quest for each chapter
+    for (let chapterNum = 1; chapterNum <= book.chapters; chapterNum++) {
+      const verseCount = book.verses[chapterNum - 1] || 0;
+      const segments: Segment[] = [];
+
+      // Create a segment for each verse in the chapter
+      for (let verseNum = 1; verseNum <= verseCount; verseNum++) {
+        const segmentId = `${book.id}${chapterNum}:${verseNum}`;
+        const segmentName = `${book.name} ${chapterNum}:${verseNum}`;
+        segments.push({
+          id: segmentId,
+          name: segmentName
+        });
+      }
+
+      // Create a quest for the chapter with all its verses as segments
+      chapterQuests.push({
+        id: `${book.id}${chapterNum}`,
+        name: `${book.name} ${chapterNum}`,
+        segments
+      });
+    }
+
+    return {
+      id: book.id,
+      name: book.name,
+      quests: chapterQuests
+    };
+  });
+}
