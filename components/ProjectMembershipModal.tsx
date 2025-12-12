@@ -1008,7 +1008,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      snapPoints={['85%']}
+      snapPoints={['70%']}
       enableDynamicSizing={false}
     >
       <DrawerContent asChild>
@@ -1074,7 +1074,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
                 <TabsContent value="members">
                   <ScrollView
-                    style={{ maxHeight: 300 }}
+                    style={{ maxHeight: 180 }}
                     contentContainerStyle={{ paddingBottom: 16 }}
                   >
                     {sortedMembers.length > 0 ? (
@@ -1089,7 +1089,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
                 <TabsContent value="invited">
                   <ScrollView
-                    style={{ maxHeight: 300 }}
+                    style={{ maxHeight: 180 }}
                     contentContainerStyle={{ paddingBottom: 16 }}
                   >
                     {invitations.length > 0 ? (
@@ -1107,7 +1107,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {sendInvitePermissions.hasAccess && (
                   <TabsContent value="requests">
                     <ScrollView
-                      style={{ maxHeight: 300 }}
+                      style={{ maxHeight: 180 }}
                       contentContainerStyle={{ paddingBottom: 16 }}
                     >
                       {requestsData.length > 0 ? (
