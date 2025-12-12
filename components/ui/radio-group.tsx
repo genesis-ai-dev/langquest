@@ -91,7 +91,9 @@ const RadioGroupItem = React.forwardRef<View, RadioGroupItemProps>(
           )}
         </View>
         {label ? (
-          <Label className="flex-1 web:cursor-pointer">{label}</Label>
+          <Label className="native:text-sm flex-1 text-sm web:cursor-pointer">
+            {label}
+          </Label>
         ) : children ? (
           <View className="flex-1">{children}</View>
         ) : null}

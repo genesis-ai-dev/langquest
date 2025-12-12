@@ -15,19 +15,13 @@ import {
   DatabaseIcon,
   HardDriveDownloadIcon,
   InfoIcon,
-  Languages,
-  XIcon
+  LanguagesIcon,
+  TypeIcon
 } from 'lucide-react-native';
 import { default as React } from 'react';
 import { View } from 'react-native';
 import { Button } from './ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from './ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
@@ -178,25 +172,19 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       snapPoints={FEATURE_FLAG_CAN_OFFLOAD_QUEST ? [430, 470] : [260]}
     >
       <DrawerContent className="bg-background">
-        <DrawerHeader className="flex-row items-center justify-between">
-          <DrawerTitle>
-            {contentType === 'project' ? t('project') : t('quest')}
-          </DrawerTitle>
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon">
-              <Icon as={XIcon} size={24} />
-            </Button>
-          </DrawerClose>
+        <DrawerHeader>
+          <DrawerTitle>{t('info')}</DrawerTitle>
         </DrawerHeader>
 
         <View className="flex flex-col gap-4">
-          <View className="border-b border-border pb-3">
-            <Text className="text-lg font-bold">{content.name}</Text>
+          <View className="flex-row items-center gap-3">
+            <Icon as={TypeIcon} size={20} />
+            <Text className="flex-1">{content.name}</Text>
           </View>
 
           {contentType === 'project' && (
             <View className="flex-row items-center gap-3">
-              <Icon as={Languages} size={20} />
+              <Icon as={LanguagesIcon} size={20} />
               {isSourceLangLoading || isTargetLangLoading ? (
                 <Text className="text-muted-foreground">{t('loading')}</Text>
               ) : (
@@ -217,7 +205,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
           {'description' in content && content.description && (
             <View className="flex-row items-start gap-3">
               <Icon as={InfoIcon} size={20} className="mt-0.5" />
-              <Text className="flex-1 text-justify leading-5">
+              <Text className="flex-1 leading-5">
                 {content.description.replace(/\\n/g, '\n\n')}
               </Text>
             </View>

@@ -37,10 +37,10 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     const energySubscription = MicrophoneEnergyModule.addListener(
       'onEnergyResult',
       (result: VADResult) => {
-        // Update SharedValue first (for UI - no re-render)
+        // Update SharedValue only (for UI - no re-render!)
+        // REMOVED: setState for energyResult - was causing 60fps re-renders
+        // Components should use energyShared instead of energyResult
         energyShared.value = result.energy;
-        // Update state silently for logic that needs it
-        setState((prev) => ({ ...prev, energyResult: result }));
       }
     );
 

@@ -7,20 +7,20 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { CloudUpload, XIcon } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
+import {
+  CheckCircleIcon,
+  CloudUpload,
+  EyeIcon,
+  EyeOffIcon,
+  XCircleIcon
+} from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
 import { Button } from './ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from './ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
@@ -76,36 +76,26 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     questData?.source === 'local' || questData?.source === 'synced';
 
   const handleToggleVisible = async () => {
-    if (!questData) return;
-
+    if (!questData || isSubmitting) return;
     setIsSubmitting(true);
 
-    let [visible, active] = [questData.visible, questData.active];
+    let visible = questData.visible;
+    const active = questData.active;
 
     try {
-      //      if (statusType === 'visible') {
-      if (visible) {
-        visible = false;
-        active = false;
-      } else {
-        visible = true;
-      }
+      // Visibility switch is independent - only toggle visible state
+      visible = !visible;
 
       await updateQuestStatus(questId, { visible, active }, questData.source);
-      refetch();
       layerStatus.setLayerStatus(
         LayerType.QUEST,
         { visible, active, source: questData.source },
         questId
       );
 
-      RNAlert.alert(
-        t('success'),
-        questData.visible ? t('questMadeInvisible') : t('questMadeVisible')
-      );
-      //    }
+      refetch();
     } catch (error) {
-      console.log(error);
+      console.error('Error updating quest status:', error);
       RNAlert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
@@ -113,40 +103,26 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   };
 
   const handleToggleActive = async () => {
-    if (!questData) return;
-
+    if (!questData || isSubmitting) return;
     setIsSubmitting(true);
 
-    let [visible, active] = [questData.visible, questData.active];
+    const visible = questData.visible;
+    let active = questData.active;
 
     try {
-      if (!active) {
-        visible = true;
-        active = true;
-      } else {
-        active = false;
-      }
+      // Active switch is independent - only toggle active state
+      active = !active;
 
       await updateQuestStatus(questId, { visible, active }, questData.source);
-      refetch();
       layerStatus.setLayerStatus(
         LayerType.QUEST,
         { visible, active, source: questData.source },
         questId
       );
 
-      // Localization keys:
-      // success -> 'Success'
-      // questMadeInactive -> 'The quest has been made inactive'
-      // questMadeActive -> 'The quest has been made active'
-      // error -> 'Error'
-      // failedToUpdateQuestSettings -> 'Failed to update quest settings'
-      RNAlert.alert(
-        t('success'),
-        questData.active ? t('questMadeInactive') : t('questMadeActive')
-      );
+      refetch();
     } catch (error) {
-      console.log(error);
+      console.error('Error updating quest status:', error);
       RNAlert.alert(t('error'), t('failedToUpdateQuestSettings'));
     } finally {
       setIsSubmitting(false);
@@ -185,20 +161,20 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     <>
       <Drawer
         open={isVisible}
-        onOpenChange={onClose}
-        snapPoints={['60%', '90%']}
+        onOpenChange={(open) => {
+          if (!open) {
+            onClose();
+          }
+        }}
+        snapPoints={[400]}
+        enableDynamicSizing={false}
       >
-        <DrawerContent className="bg-background px-4 pb-8">
-          <DrawerHeader className="flex-row items-center justify-between">
+        <DrawerContent className="bg-background pb-4">
+          <DrawerHeader>
             <DrawerTitle>{t('questSettings')}</DrawerTitle>
-            <DrawerClose asChild>
-              <Button variant="ghost" size="icon">
-                <Icon as={XIcon} size={24} />
-              </Button>
-            </DrawerClose>
           </DrawerHeader>
 
-          <View className="flex-1 gap-4">
+          <View className="flex-1 gap-2">
             <SwitchBox
               title={t('visibility')}
               description={
@@ -208,7 +184,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               }
               value={questData?.visible ?? false}
               onChange={() => handleToggleVisible()}
-              disabled={isSubmitting || isLoading || !isOwner}
+              disabled={isLoading || !isOwner}
+              icon={questData?.visible ? EyeIcon : EyeOffIcon}
             />
             <SwitchBox
               title={t('active')}
@@ -219,7 +196,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               }
               value={questData?.active ?? false}
               onChange={() => handleToggleActive()}
-              disabled={isSubmitting || isLoading || !isOwner}
+              disabled={isLoading || !isOwner}
+              icon={questData?.active ? CheckCircleIcon : XCircleIcon}
             />
 
             {/* Offload Quest Button */}

@@ -134,7 +134,7 @@ export function OnboardingProgressIndicator({
           const isPending = index > currentStepIndex;
 
           return (
-            <View key={step} className="relative z-10 items-center">
+            <View key={step} className="relative z-[20] items-center">
               {/* Step circle */}
               <View
                 className={cn(

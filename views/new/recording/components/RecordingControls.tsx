@@ -286,7 +286,7 @@ export const RecordingControls = React.memo(
         {/* Permission overlay - only shown when permission is explicitly denied */}
         {showPermissionOverlay && (
           <View
-            className="absolute bottom-0 left-0 right-0 z-50 border-t border-border bg-background"
+            className="absolute bottom-0 left-0 right-0 z-[100] border-t border-border bg-background"
             style={{ paddingBottom: insets.bottom }}
             onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
           >
@@ -310,7 +310,7 @@ export const RecordingControls = React.memo(
         {/* Auto-calibrate prompt - shown after first-time permission grant */}
         {showAutoCalibrateOverlay && (
           <View
-            className="absolute bottom-0 left-0 right-0 z-50 border-t border-border bg-background"
+            className="absolute bottom-0 left-0 right-0 z-[100] border-t border-border bg-background"
             style={{ paddingBottom: insets.bottom }}
             onLayout={(e) => onLayout?.(e.nativeEvent.layout.height)}
           >

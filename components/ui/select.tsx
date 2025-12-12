@@ -114,7 +114,7 @@ const SelectContent = React.forwardRef<
         style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
         pointerEvents={open ? 'auto' : 'none'}
       >
-        <View className="z-[9999]">
+        <View className="z-[400]">
           <MotiView
             from={{ opacity: 0 }}
             animate={{ opacity: open ? 1 : 0 }}
@@ -124,7 +124,7 @@ const SelectContent = React.forwardRef<
             <SelectPrimitive.Content
               ref={ref}
               className={cn(
-                'relative z-50 max-h-96 min-w-[8rem] rounded-md border border-input bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+                'relative max-h-96 min-w-[8rem] rounded-md border border-input bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
                 position === 'popper' &&
                   'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
                 open

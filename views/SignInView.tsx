@@ -1,5 +1,4 @@
 import { LanguageCombobox } from '@/components/language-combobox';
-import { LanguageSelect } from '@/components/language-select';
 import { Button, buttonTextVariants } from '@/components/ui/button';
 import {
   Form,
@@ -9,6 +8,7 @@ import {
   FormMessage,
   transformInputProps
 } from '@/components/ui/form';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
@@ -17,6 +17,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -24,7 +25,6 @@ import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -173,7 +173,7 @@ export default function SignInView({
           </Pressable>
           {!isOnline && (
             <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <WifiOffIcon size={20} className="text-destructive" />
+              <Icon as={WifiOffIcon} size={20} className="text-destructive" />
               <Text className="flex-1 text-sm text-destructive">
                 {t('internetConnectionRequired')}
               </Text>

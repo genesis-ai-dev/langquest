@@ -1,4 +1,4 @@
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react-native';
@@ -11,7 +11,7 @@ import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
 const inputVariants = cva(
-  'flex w-full min-w-48 flex-row items-center rounded-md border border-input bg-card text-foreground shadow-sm shadow-black/5 web:w-full',
+  'flex w-full min-w-48 flex-row items-center rounded-md border border-border bg-card text-foreground shadow-sm shadow-black/5 web:w-full',
   {
     variants: {
       size: {
@@ -147,6 +147,7 @@ const Input = React.forwardRef<
     ref
   ) => {
     const [showPassword, setShowPassword] = React.useState(false);
+    const primaryColor = useThemeColor('primary');
 
     const Component = drawerInput ? DrawerInput : TextInput;
     return (
@@ -213,8 +214,7 @@ const Input = React.forwardRef<
             'text-muted-foreground',
             placeholderClassName
           )}
-          // TODO: change this color to the theme color whenever it changes in the global.css file
-          selectionColor={getThemeColor('primary')}
+          selectionColor={primaryColor}
           // @ts-expect-error - onChangeText is not passed from react-hook-form
           onChangeText={props.onChange}
           secureTextEntry={secureTextEntry && !showPassword}
