@@ -37,6 +37,7 @@ interface DrawerContextValue extends DrawerProps {
   ref: React.RefObject<BSModalType | null> | null;
   open: boolean;
   setOpen: (open: boolean) => void;
+  dismissible?: boolean;
 }
 
 interface DrawerProps extends Omit<BottomSheetModalProps, 'children'> {
@@ -51,7 +52,7 @@ function Drawer({
   open = false,
   onOpenChange,
   direction: _direction,
-  dismissible: _dismissible,
+  dismissible,
   ...drawerProps
 }: {
   children: React.ReactNode;
@@ -127,7 +128,8 @@ function Drawer({
       setOpen: handleSetOpen,
       snapPoints: memoizedSnapPoints,
       enableDynamicSizing: stableEnableDynamicSizing,
-      gestureEventsHandlersHook: stableGestureEventsHandlersHook
+      gestureEventsHandlersHook: stableGestureEventsHandlersHook,
+      dismissible
     };
   }, [
     ref,
@@ -135,7 +137,8 @@ function Drawer({
     handleSetOpen,
     memoizedSnapPoints,
     stableEnableDynamicSizing,
-    stableGestureEventsHandlersHook
+    stableGestureEventsHandlersHook,
+    dismissible
   ]);
 
   return (
@@ -224,6 +227,7 @@ const DrawerContent = React.forwardRef<
     ref: _ref,
     snapPoints: _snapPoints,
     gestureEventsHandlersHook,
+    dismissible,
     ...modalProps
   } = context ?? {};
   // Extract setOpen to avoid depending on entire context object (which changes on every render)
@@ -281,6 +285,8 @@ const DrawerContent = React.forwardRef<
       enableBlurKeyboardOnGesture
       keyboardBlurBehavior="restore"
       gestureEventsHandlersHook={gestureEventsHandlersHook}
+      enablePanDownToClose={dismissible !== false}
+      enableDismissOnClose={dismissible !== false}
       // android_keyboardInputMode=""
       {...modalProps}
     >
