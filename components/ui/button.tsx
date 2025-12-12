@@ -1,5 +1,5 @@
 import { TextClassContext } from '@/components/ui/text';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
@@ -68,22 +68,6 @@ const buttonTextVariants = cva(
   }
 );
 
-const activityIndicatorColorVariants = cva('', {
-  variants: {
-    variant: {
-      default: getThemeColor('primary-foreground'),
-      destructive: getThemeColor('destructive-foreground'),
-      outline: getThemeColor('accent-foreground'),
-      secondary: getThemeColor('secondary-foreground'),
-      ghost: getThemeColor('accent-foreground'),
-      link: getThemeColor('primary-foreground')
-    }
-  },
-  defaultVariants: {
-    variant: 'default'
-  }
-});
-
 type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
   VariantProps<typeof buttonVariants> & {
     loading?: boolean;
@@ -93,6 +77,20 @@ const Button = React.forwardRef<
   React.ComponentRef<typeof Pressable>,
   ButtonProps
 >(({ children, className, variant, size, ...props }, ref) => {
+  const primaryForeground = useThemeColor('primary-foreground');
+  const destructiveForeground = useThemeColor('destructive-foreground');
+  const accentForeground = useThemeColor('accent-foreground');
+  const secondaryForeground = useThemeColor('secondary-foreground');
+
+  const activityIndicatorColors = {
+    default: primaryForeground,
+    destructive: destructiveForeground,
+    outline: accentForeground,
+    secondary: secondaryForeground,
+    ghost: accentForeground,
+    link: primaryForeground
+  } as const;
+
   const isDisabled = props.disabled || props.loading;
   return (
     <TextClassContext.Provider
@@ -116,7 +114,7 @@ const Button = React.forwardRef<
           {props.loading && (
             <ActivityIndicator
               size="small"
-              color={activityIndicatorColorVariants({ variant })}
+              color={activityIndicatorColors[variant ?? 'default']}
             />
           )}
           {children}
