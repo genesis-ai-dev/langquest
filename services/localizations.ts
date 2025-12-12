@@ -3295,17 +3295,28 @@ export const localizations = {
     indonesian:
       'Asset dinonaktifkan di semua quest dan tidak dapat digunakan di mana pun.'
   },
+  assetGeneralSettingsDescription: {
+    english: 'These settings affect how the asset behaves across all quests.',
+    spanish:
+      'Estos ajustes afectan cómo se comporta el asset en todas las quests.',
+    brazilian_portuguese:
+      'Essas configurações afetam como o asset se comporta em todas as quests.',
+    tok_pisin:
+      'Ol dispela setting i senisim how asset i wok long olgeta quest.',
+    indonesian:
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di semua quest.'
+  },
   questSpecificSettingsDescription: {
     english:
-      'These settings affect how the asset behaves in this specific quest',
+      'These settings affect how the asset behaves in this specific quest.',
     spanish:
-      'Estos ajustes afectan cómo se comporta el asset en esta quest específica',
+      'Estos ajustes afectan cómo se comporta el asset en esta quest específica.',
     brazilian_portuguese:
-      'Essas configurações afetam como o asset se comporta nesta quest específica',
+      'Essas configurações afetam como o asset se comporta nesta quest específica.',
     tok_pisin:
-      'Ol dispela setting i senisim how asset i wok long dispela quest',
+      'Ol dispela setting i senisim how asset i wok long dispela quest.',
     indonesian:
-      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini'
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini.'
   },
   assetDisabledWarning: {
     english:

@@ -71,12 +71,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       } else if (statusType === 'visible') {
         visible = !visible;
       } else {
-        if (!active) {
-          visible = true;
-          active = true;
-        } else {
-          active = false;
-        }
+        // Active switch is independent - only toggle active state
+        active = !active;
       }
 
       await updateProjectStatus(
