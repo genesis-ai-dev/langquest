@@ -638,12 +638,7 @@ function VADSettingsDrawerInternal({
             <TooltipTrigger hitSlop={10}>
               <Icon as={HelpCircle} size={20} />
             </TooltipTrigger>
-            <TooltipContent
-              className="w-64"
-              side="bottom"
-              align="end"
-              variant="outline"
-            >
+            <TooltipContent className="w-64" side="bottom" align="end">
               <Text>
                 {t('vadHelpTitle')}
                 {'\n'}
