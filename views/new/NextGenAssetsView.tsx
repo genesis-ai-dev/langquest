@@ -1317,7 +1317,7 @@ export default function NextGenAssetsView() {
           bottom: insets.bottom + 24,
           right: 24
         }}
-        className="absolute z-50"
+        className="absolute z-[100]"
       >
         <SpeedDial>
           <SpeedDialItems>

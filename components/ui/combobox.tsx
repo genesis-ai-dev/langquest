@@ -171,7 +171,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
           <Animated.View
             entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(150)}
-            className="absolute left-0 right-0 top-[52px] z-50"
+            className="absolute left-0 right-0 top-[52px] z-[300]"
           >
             <MotiView
               from={{ opacity: 0, scale: 0.95 }}

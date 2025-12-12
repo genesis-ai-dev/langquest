@@ -4,7 +4,6 @@ import * as Slot from '@/components/ui/slot';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import type {
   BottomSheetModalProps,
-  BottomSheetView,
   BottomSheetModal as BSModalType
 } from '@gorhom/bottom-sheet';
 import {
@@ -13,7 +12,8 @@ import {
   BottomSheetModal,
   BottomSheetModalProvider,
   BottomSheetTextInput as DrawerInput,
-  BottomSheetScrollView as DrawerScrollView
+  BottomSheetScrollView as DrawerScrollView,
+  BottomSheetView as DrawerView
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
@@ -213,8 +213,9 @@ const DrawerContent = React.forwardRef<
   {
     className?: string;
     children?: React.ReactNode;
-  } & Partial<React.ComponentProps<typeof BottomSheetView>>
->(({ className, children, ...props }, _forwardedRef) => {
+    asChild?: boolean;
+  } & Partial<React.ComponentProps<typeof DrawerView>>
+>(({ className, children, asChild, ...props }, _forwardedRef) => {
   const context = React.useContext(DrawerContext);
 
   const {
@@ -240,6 +241,11 @@ const DrawerContent = React.forwardRef<
   const backgroundColor = useThemeColor('background');
 
   const { top, bottom } = useSafeAreaInsets();
+
+  const Component = asChild
+    ? Slot.Generic<React.ComponentPropsWithoutRef<typeof DrawerView>>
+    : DrawerKeyboardAwareScrollView;
+
   return (
     <BottomSheetModal
       ref={context?.ref}
@@ -280,13 +286,13 @@ const DrawerContent = React.forwardRef<
     >
       {/* Re-provide DrawerContext inside the portal so children can access it */}
       <DrawerContext.Provider value={context}>
-        <DrawerKeyboardAwareScrollView
-          bottomOffset={16}
-          className={cn('z-[9998] flex-1 bg-background px-6', className)}
+        <Component
+          className={cn('flex-1 bg-background px-6', 'z-[5000]', className)}
           {...props}
+          bottomOffset={16}
         >
-          {children}
-        </DrawerKeyboardAwareScrollView>
+          {children as React.ReactElement}
+        </Component>
       </DrawerContext.Provider>
     </BottomSheetModal>
   );
@@ -378,5 +384,6 @@ export {
   DrawerKeyboardAwareScrollView,
   DrawerScrollView,
   DrawerTitle,
-  DrawerTrigger
+  DrawerTrigger,
+  DrawerView
 };
