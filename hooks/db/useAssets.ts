@@ -1108,6 +1108,10 @@ export function useAssetsByQuest(
               const parsed = JSON.parse(String(asset.tag_ids));
               tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
             }
+            if (asset.metadata) {
+              const parsed = JSON.parse(String(asset.metadata));
+              asset.metadata = parsed as string | null;
+            }
           } catch (error) {
             console.warn(
               '[useAssetsByQuest] Failed to parse tag_ids:',

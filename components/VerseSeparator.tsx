@@ -1,4 +1,4 @@
-import { CircleDashedIcon } from 'lucide-react-native';
+import { AlertCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -9,13 +9,17 @@ interface VerseSeparatorProps {
   to?: number;
   label: string;
   className?: string;
+  editable?: boolean;
+  dragHandle?: React.ReactNode;
 }
 
 export function VerseSeparator({
   from,
   to,
   label,
-  className = ''
+  className = '',
+  editable = false,
+  dragHandle = null
 }: VerseSeparatorProps) {
   const hasNumbers = from !== undefined || to !== undefined;
 
@@ -36,29 +40,30 @@ export function VerseSeparator({
   };
 
   if (!hasNumbers) {
-    // No assigned - ghost pill with dashed icon
+    // No assigned - warning style with amber/orange tones
     return (
-      <View className={`w-full flex-row items-center py-2 ${className}`}>
-        <View className="h-px flex-1 bg-muted-foreground/10" />
-        <View className="mx-2 flex-row items-center gap-2 rounded-full border border-dashed border-muted-foreground/30 px-3 py-1.5">
-          <Icon
-            as={CircleDashedIcon}
-            size={14}
-            className="text-muted-foreground/40"
-          />
-          <Text className="text-xs text-muted-foreground/50">{getText()}</Text>
+      <View className={`w-full flex-row items-center py-1 ${className}`}>
+        <View className="h-px flex-1 bg-amber-500/20" />
+        <View className="mx-2 flex-row items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">
+          <Icon as={AlertCircleIcon} size={14} className="text-amber-600/70" />
+          <Text className="text-[11px] font-medium text-amber-600/80">
+            {getText()}
+          </Text>
         </View>
-        <View className="h-px flex-1 bg-muted-foreground/10" />
+        <View className="h-px flex-1 bg-amber-500/20" />
       </View>
     );
   }
 
   // Has numbers - pill style
   return (
-    <View className={`w-full flex-row items-center py-2 ${className}`}>
+    <View className={`w-full flex-row items-center py-1 ${className}`}>
       <View className="h-px flex-1 bg-primary/20" />
-      <View className="mx-2 rounded-full bg-primary/10 px-4 py-1.5">
-        <Text className="text-xs font-semibold text-primary">{getText()}</Text>
+      <View className="mx-2 flex flex-row items-center rounded-full bg-primary/10 px-3 py-1">
+        {dragHandle}
+        <Text className="text-[11px] font-semibold text-primary">
+          {getText()}
+        </Text>
       </View>
       <View className="h-px flex-1 bg-primary/20" />
     </View>

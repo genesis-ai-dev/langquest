@@ -164,43 +164,54 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   return (
     <Pressable onPress={handlePress}>
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''}`}
+        className={`${
+          !allowEditing ? 'opacity-50' : ''
+        } ${invisible ? 'opacity-30' : ''} ${
+          isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
+        } p-3`}
       >
-        <CardHeader className="flex flex-row items-start justify-between">
+        <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
-            <View className="flex flex-row items-center justify-between gap-2">
-              <View className="flex flex-1 flex-row items-center gap-2">
+            <View className="flex flex-row items-center justify-between gap-1.5">
+              <View className="flex flex-1 flex-row items-center gap-1.5">
                 {(!allowEditing || invisible) && (
-                  <View className="flex flex-row gap-1.5">
+                  <View className="flex flex-row gap-1">
                     {invisible && (
                       <Icon
                         as={EyeOffIcon}
+                        size={14}
                         className="text-secondary-foreground"
                       />
                     )}
                     {!allowEditing && (
                       <Icon
                         as={PauseIcon}
+                        size={14}
                         className="text-secondary-foreground"
                       />
                     )}
                   </View>
                 )}
                 {dragHandle}
-                <View className="flex flex-row items-center gap-2">
-                  {asset.source === 'local' && <Icon as={HardDriveIcon} />}
-                  <CardTitle numberOfLines={2}>
+                <View className="flex flex-row items-center gap-1.5">
+                  {asset.source === 'local' && (
+                    <Icon as={HardDriveIcon} size={14} />
+                  )}
+                  <CardTitle
+                    numberOfLines={2}
+                    className="text-sm leading-tight"
+                  >
                     {asset.name || t('unnamedAsset')}
                   </CardTitle>
                 </View>
               </View>
-              <View className="flex flex-row items-center justify-center gap-2">
+              <View className="flex flex-row items-center justify-center gap-1.5">
                 <Pressable
                   onPress={isPublished ? undefined : handleOpenTagModal}
                 >
                   {tags.length === 0 ? (
                     !isPublished && (
-                      <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
+                      <View className="flex h-6 w-7 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30">
                         <Icon as={Plus} size={10} className="text-white" />
                         <Icon as={TagIcon} size={10} className="text-white" />
                       </View>
@@ -209,10 +220,10 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                     <View pointerEvents="none">
                       <Badge
                         variant="default"
-                        className="flex flex-row items-center gap-1"
+                        className="flex flex-row items-center gap-1 px-2 py-0.5"
                       >
-                        <Icon as={TagIcon} size={12} className="text-white" />
-                        <CardTitle className="text-xs text-white">
+                        <Icon as={TagIcon} size={11} className="text-white" />
+                        <CardTitle className="text-[11px] leading-tight text-white">
                           {tag && `${tag.key}${tag.value && `: ${tag.value}`}`}
                         </CardTitle>
                       </Badge>
@@ -224,7 +235,7 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                 isFlaggedForDownload={isDownloaded}
                 isLoading={isDownloading}
                 onPress={handleDownloadToggle}
-                size={20}
+                size={16}
               />
             </View>
             {SHOW_DEV_ELEMENTS && (

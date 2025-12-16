@@ -352,6 +352,7 @@ export function createAssetTable<
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
+      metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
       ...extraColumns
     },
     (table) => {

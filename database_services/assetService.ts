@@ -4,7 +4,17 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+
+/**
+ * Asset metadata structure for verse ranges
+ */
+export interface AssetMetadata {
+  verse?: {
+    from: number;
+    to: number;
+  };
+}
 
 /**
  * Update an asset's name - ONLY for local-only assets
@@ -129,6 +139,108 @@ export async function updateAssetContentText(
     );
   } catch (error: unknown) {
     console.error('Failed to update asset content text:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update asset metadata (verse range) - ONLY for local-only assets
+ * @param assetId - The ID of the asset to update
+ * @param metadata - The metadata object to store (will be JSON stringified)
+ * @throws Error if asset is synced (immutable)
+ */
+export async function updateAssetMetadata(
+  assetId: string,
+  metadata: AssetMetadata | null
+): Promise<void> {
+  try {
+    const assetLocalTable = resolveTable('asset', { localOverride: true });
+
+    // Verify this asset exists in the LOCAL table
+    const localAsset = await system.db
+      .select()
+      .from(assetLocalTable)
+      .where(eq(assetLocalTable.id, assetId))
+      .limit(1);
+
+    if (!localAsset || localAsset.length === 0) {
+      throw new Error(
+        'Asset not found in local table - cannot update synced assets'
+      );
+    }
+
+    // Verify it doesn't exist in synced table (double-check it's not published)
+    const syncedTable = resolveTable('asset', { localOverride: false });
+    const syncedAsset = await system.db
+      .select()
+      .from(syncedTable)
+      .where(eq(syncedTable.id, assetId))
+      .limit(1);
+
+    if (syncedAsset && syncedAsset.length > 0) {
+      throw new Error(
+        'Cannot update synced assets - they are immutable once published'
+      );
+    }
+
+    // Safe to update - it's local only
+    const metadataStr = metadata ? JSON.stringify(metadata) : null;
+    await system.db
+      .update(assetLocalTable)
+      .set({ metadata: metadataStr })
+      .where(eq(assetLocalTable.id, assetId));
+
+    console.log(`✅ Asset ${assetId.slice(0, 8)} metadata updated`);
+  } catch (error) {
+    console.error('Failed to update asset metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Batch update asset metadata for multiple assets
+ * @param updates - Array of { assetId, metadata } objects
+ */
+export async function batchUpdateAssetMetadata(
+  updates: { assetId: string; metadata: AssetMetadata | null }[]
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  try {
+    const assetLocalTable = resolveTable('asset', { localOverride: true });
+    const syncedTable = resolveTable('asset', { localOverride: false });
+
+    const assetIds = updates.map((u) => u.assetId);
+
+    // Check which assets exist in synced table (immutable)
+    const syncedAssets = await system.db
+      .select({ id: syncedTable.id })
+      .from(syncedTable)
+      .where(inArray(syncedTable.id, assetIds));
+
+    const syncedIds = new Set(syncedAssets.map((a) => a.id));
+
+    // Filter out synced assets
+    const localUpdates = updates.filter((u) => !syncedIds.has(u.assetId));
+
+    if (localUpdates.length === 0) {
+      console.log('No local assets to update');
+      return;
+    }
+
+    // Update each local asset
+    for (const { assetId, metadata } of localUpdates) {
+      const metadataStr = metadata ? JSON.stringify(metadata) : null;
+      console.log(metadataStr);
+      await system.db
+        .update(assetLocalTable)
+        .set({ metadata: metadataStr })
+        .where(eq(assetLocalTable.id, assetId));
+    }
+
+    console.log(`✅ Updated metadata for ${localUpdates.length} assets`);
+  } catch (error) {
+    console.error('Failed to batch update asset metadata:', error);
     throw error;
   }
 }

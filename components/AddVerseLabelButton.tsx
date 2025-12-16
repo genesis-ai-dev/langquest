@@ -1,7 +1,6 @@
-import { BookmarkIcon } from 'lucide-react-native';
+import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
-import { Button } from './ui/button';
+import { Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
@@ -17,17 +16,22 @@ export function AddVerseLabelButton({
   className = ''
 }: AddVerseLabelButtonProps) {
   return (
-    <View className={`items-center ${className}`}>
-      <Button
-        variant="ghost"
-        size="sm"
+    <View className={`-mb-3 w-full flex-row items-center ${className}`}>
+      {/* <View className="h-px flex-1 bg-primary/10" /> */}
+      <View className="h-px flex-1" />
+      <Pressable
         onPress={onPress}
         disabled={disabled}
-        className="flex-row items-center gap-1 border border-primary px-4"
+        className={`mx-1.5 flex-row items-center gap-1.5 rounded-full border border-dashed border-primary/30 px-2.5 active:bg-primary/10 ${
+          disabled ? 'opacity-40' : ''
+        }`}
       >
-        <Icon as={BookmarkIcon} size={14} className="text-primary" />
-        <Text className="text-xs text-primary">Add Verse</Text>
-      </Button>
+        <Icon as={PlusCircleIcon} size={12} className="text-primary/70" />
+        <Text className="text-[10.5px] font-semibold text-primary/70">
+          Add verse
+        </Text>
+      </Pressable>
+      {/* <View className="h-px flex-1 bg-primary/10" /> */}
     </View>
   );
 }

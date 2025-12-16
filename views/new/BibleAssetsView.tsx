@@ -56,17 +56,25 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
+import { AddVerseLabelButton } from '@/components/AddVerseLabelButton';
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import { batchUpdateAssetMetadata } from '@/database_services/assetService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -80,6 +88,7 @@ import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -87,7 +96,7 @@ import RecordingViewSimplified from './recording/components/RecordingViewSimplif
 type Asset = typeof asset.$inferSelect;
 
 interface AssetMetadata {
-  verses?: {
+  verse?: {
     from: number;
     to: number;
   };
@@ -101,6 +110,20 @@ type AssetQuestLink = Asset & {
 };
 
 // List item types for rendering
+interface ListItemAsset {
+  type: 'asset';
+  content: AssetQuestLink;
+  key: string;
+}
+
+interface ListItemSeparator {
+  type: 'separator';
+  from?: number;
+  to?: number;
+  key: string;
+}
+
+type ListItem = ListItemAsset | ListItemSeparator;
 
 export default function BibleAssetsView() {
   const {
@@ -124,6 +147,27 @@ export default function BibleAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [verseSelectorState, setVerseSelectorState] = React.useState<{
+    isOpen: boolean;
+    key: string | null;
+    from?: number;
+    to?: number;
+  }>({ isOpen: false, key: null });
+
+  // Manual verse separators created by the user
+  const [manualSeparators, setManualSeparators] = React.useState<
+    { from: number; to: number; key: string }[]
+  >([]);
+
+  // Function to add a new verse separator
+  const addVerseSeparator = React.useCallback((from: number, to: number) => {
+    const newSeparator = {
+      from,
+      to,
+      key: `manual-sep-${from}-${to}-${Date.now()}`
+    };
+    setManualSeparators((prev) => [...prev, newSeparator]);
+  }, []);
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
@@ -136,18 +180,17 @@ export default function BibleAssetsView() {
   const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  const fixedItemsIndexesRef = React.useRef<number[]>([0]);
 
-  const [verseLabelLists, setVerseLabelLists] = React.useState<boolean[]>(
-    () => {
-      if (!currentQuestData || !currentBookId) return [];
-      const chapterNum = (currentQuestData as { chapterNumber?: number })
-        ?.chapterNumber;
-      if (typeof chapterNum !== 'number') return [];
-      const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
-      const verseCount = book?.verses[chapterNum - 1] ?? 0;
-      return Array.from<boolean>({ length: verseCount }).fill(false);
-    }
-  );
+  // Get verse count for current chapter
+  const verseCount = React.useMemo(() => {
+    if (!currentQuestData || !currentBookId) return 0;
+    const chapterNum = (currentQuestData as { chapterNumber?: number })
+      ?.chapterNumber;
+    if (typeof chapterNum !== 'number') return 0;
+    const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
+    return book?.verses[chapterNum - 1] ?? 0;
+  }, [currentQuestData, currentBookId]);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
@@ -308,7 +351,162 @@ export default function BibleAssetsView() {
     return Array.from(assetMap.values());
   }, [data.pages]);
 
-  const listItems = React.useMemo((): ListItem[] => {}, [assets]);
+  const listItems = React.useMemo((): ListItem[] => {
+    // Separate assets with and without metadata
+    const assetsWithMeta = assets.filter(
+      (a) => a.metadata?.verse?.from != null
+    );
+    const assetsWithoutMeta = assets.filter(
+      (a) => a.metadata?.verse?.from == null
+    );
+
+    // Sort assets with metadata by verse.from
+    assetsWithMeta.sort((a, b) => {
+      const aFrom = a.metadata?.verse?.from ?? 0;
+      const bFrom = b.metadata?.verse?.from ?? 0;
+      return aFrom - bFrom;
+    });
+
+    // First build the list with auto separators + assets
+    const result: ListItem[] = [];
+    let currentFrom: number | undefined;
+    let currentTo: number | undefined;
+
+    // Process assets with metadata
+    for (const asset of assetsWithMeta) {
+      const from = asset.metadata?.verse?.from;
+      const to = asset.metadata?.verse?.to;
+
+      // If different from current group, add separator
+      if (from !== currentFrom || to !== currentTo) {
+        result.push({
+          type: 'separator',
+          from,
+          to,
+          key: `sep-${from}-${to}`
+        });
+        currentFrom = from;
+        currentTo = to;
+      }
+
+      result.push({
+        type: 'asset',
+        content: asset,
+        key: asset.id
+      });
+    }
+
+    // Prepare unassigned block (append later)
+    const unassignedBlock: ListItem[] = [];
+    if (assetsWithoutMeta.length > 0) {
+      unassignedBlock.push({
+        type: 'separator',
+        key: 'sep-unassigned'
+      });
+
+      for (const asset of assetsWithoutMeta) {
+        unassignedBlock.push({
+          type: 'asset',
+          content: asset,
+          key: asset.id
+        });
+      }
+    }
+
+    // Insert manual separators in-order before the unassigned block
+    const sortedManualSeps = [...manualSeparators].sort(
+      (a, b) => a.from - b.from
+    );
+
+    for (const sep of sortedManualSeps) {
+      const sepItem: ListItemSeparator = {
+        type: 'separator',
+        from: sep.from,
+        to: sep.to,
+        key: sep.key
+      };
+
+      // Find the first separator with 'from' greater than this sep.from
+      let insertIdx = result.findIndex(
+        (item) =>
+          item.type === 'separator' &&
+          item.from !== undefined &&
+          sep.from < item.from
+      );
+      if (insertIdx === -1) {
+        insertIdx = result.length;
+      }
+      result.splice(insertIdx, 0, sepItem);
+    }
+
+    // Final assembly: result (with manual seps inserted) + unassigned block
+    const combined: ListItem[] = [...result, ...unassignedBlock];
+
+    // Deduplicate separators with the same range to avoid duplicates after drag/drop
+    const seenSeparators = new Set<string>();
+    const deduped: ListItem[] = [];
+    for (const item of combined) {
+      if (item.type === 'separator') {
+        const sepKey = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
+        if (seenSeparators.has(sepKey)) {
+          continue;
+        }
+        seenSeparators.add(sepKey);
+      }
+      deduped.push(item);
+    }
+
+    return deduped;
+  }, [assets, manualSeparators]);
+
+  // Compute the allowed range for a new separator based on existing separators
+  // The AddVerseLabelButton is above the current separator, so:
+  // - rangeFrom = previous separator's "to" + 1 (or 1 if no previous)
+  // - rangeTo = CURRENT separator's "from" - 1 (or verseCount if current has no "from")
+  const computeAllowedRange = React.useCallback(
+    (separatorKey: string) => {
+      const currentIdx = listItems.findIndex((i) => i.key === separatorKey);
+      if (currentIdx === -1) {
+        return { from: 1, to: verseCount || 1 };
+      }
+
+      const currentSep = listItems[currentIdx];
+
+      // Get the CURRENT separator's "from" value (this is the ceiling for new range)
+      let currentFrom: number | undefined;
+      if (currentSep && currentSep.type === 'separator') {
+        currentFrom = currentSep.from;
+      }
+
+      // Look backward for the PREVIOUS separator to get its "to" value
+      let prevTo: number | undefined;
+      for (let i = currentIdx - 1; i >= 0; i--) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.to !== undefined) {
+          prevTo = item.to;
+          break;
+        }
+      }
+
+      // Calculate range:
+      // - From: previous separator's "to" + 1, or 1 if no previous
+      // - To: CURRENT separator's "from" - 1, or verseCount if current has no "from"
+      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+      const rangeTo =
+        currentFrom !== undefined ? currentFrom - 1 : verseCount || 1;
+
+      // Ensure valid range (from <= to)
+      const finalFrom = Math.max(1, rangeFrom);
+      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+
+      console.log(
+        `computeAllowedRange for ${separatorKey}: prevTo=${prevTo}, currentFrom=${currentFrom} => from=${finalFrom}, to=${finalTo}`
+      );
+
+      return { from: finalFrom, to: finalTo };
+    },
+    [listItems, verseCount]
+  );
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -352,18 +550,22 @@ export default function BibleAssetsView() {
   const renderItem = React.useCallback(
     ({
       item,
-      isPublished
+      isPublished,
+      index
     }: {
-      item: AssetQuestLink & { source?: HybridDataSource };
+      item: ListItem;
       isPublished: boolean;
+      index: number;
     }) => {
-      const isPlaying =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
-
+      // Handle separator items
       const dragHandle = !isPublished ? (
-        <Sortable.Handle>
+        <Sortable.Handle
+          mode={
+            fixedItemsIndexesRef.current.includes(index)
+              ? 'fixed-order'
+              : 'draggable'
+          }
+        >
           <Icon
             as={GripVerticalIcon}
             size={24}
@@ -372,31 +574,60 @@ export default function BibleAssetsView() {
         </Sortable.Handle>
       ) : null;
 
+      if (item.type === 'separator') {
+        return (
+          <View>
+            <AddVerseLabelButton
+              onPress={() => {
+                // Calculate the allowed range based on neighboring separators
+                const allowedRange = computeAllowedRange(item.key);
+                setVerseSelectorState({
+                  isOpen: true,
+                  key: item.key,
+                  from: allowedRange.from,
+                  to: allowedRange.to
+                });
+              }}
+            />
+            <VerseSeparator
+              editable={!isPublished}
+              from={item.from}
+              to={item.to}
+              label="Verse"
+              dragHandle={dragHandle}
+            />
+          </View>
+        );
+      }
+
+      // Handle asset items
+      const asset = item.content;
+      const isPlaying =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === asset.id;
+
       return (
-        <>
-          <VerseSeparator to={3} label="Verse" />
-          <BibleAssetListItem
-            key={item.id}
-            asset={item}
-            attachmentState={safeAttachmentStates.get(item.id)}
-            questId={currentQuestId || ''}
-            isCurrentlyPlaying={isPlaying}
-            onUpdate={handleAssetUpdate}
-            isPublished={isPublished}
-            dragHandle={dragHandle}
-          />
-        </>
+        <BibleAssetListItem
+          key={asset.id}
+          asset={asset}
+          attachmentState={safeAttachmentStates.get(asset.id)}
+          questId={currentQuestId || ''}
+          isCurrentlyPlaying={isPlaying}
+          onUpdate={handleAssetUpdate}
+          isPublished={isPublished}
+          dragHandle={dragHandle}
+        />
       );
     },
-    // Use stable memo key instead of Map reference to prevent hook dependency issues
-    // Always has exactly 2 dependencies (string, string) - never changes size
     [
       currentQuestId,
       safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
-      handleAssetUpdate
+      handleAssetUpdate,
+      computeAllowedRange
     ]
   );
 
@@ -1077,29 +1308,65 @@ export default function BibleAssetsView() {
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
   const projectName = currentProjectData?.name || '';
 
-  interface SortableGridDragEndParams {
-    key: string;
-    fromIndex: number;
-    toIndex: number;
+  async function _handleSorting(params: {
     indexToKey: string[];
-    keyToIndex: Record<string, number>;
-    data: AssetQuestLink[];
-  }
-
-  function handleSorting(params: SortableGridDragEndParams) {
+    data: ListItem[];
+  }) {
     console.log('🔄 Sorting complete!');
-    console.log('🔄 Dragged item key:', params.key);
-    console.log('🔄 From index:', params.fromIndex);
-    console.log('🔄 To index:', params.toIndex);
     console.log('🔄 New order (keys):', params.indexToKey);
-    console.log('🔄 Key to index map:', params.keyToIndex);
-    // console.log('🔄 Reordered data:', params.data);
 
-    // Example: Get the new order of asset IDs
-    const newAssetOrder = params.indexToKey;
-    console.log('🔄 New asset ID order:', newAssetOrder);
+    // Build a map of key -> item for quick lookup
+    const keyToItem = new Map(params.data.map((item) => [item.key, item]));
 
-    // You can now save this order to the database or state
+    // Iterate through the new order and update asset metadata
+    // based on the preceding separator
+    let currentSeparator: ListItemSeparator | null = null;
+    const updates: { assetId: string; metadata: AssetMetadata | null }[] = [];
+
+    for (const key of params.indexToKey) {
+      const item = keyToItem.get(key);
+      if (!item) continue;
+
+      if (item.type === 'separator') {
+        currentSeparator = item;
+      } else if (item.type === 'asset') {
+        // Determine the metadata based on the current separator
+        const newMetadata: AssetMetadata | null = currentSeparator?.from
+          ? {
+              verse: {
+                from: currentSeparator.from,
+                to: currentSeparator.to ?? currentSeparator.from
+              }
+            }
+          : null;
+
+        // Check if metadata has changed
+        const currentMetadata = item.content.metadata;
+        const hasChanged =
+          JSON.stringify(newMetadata) !== JSON.stringify(currentMetadata);
+
+        if (hasChanged) {
+          updates.push({
+            assetId: item.content.id,
+            metadata: newMetadata
+          });
+        }
+      }
+    }
+
+    // Batch update all changed assets
+    if (updates.length > 0) {
+      try {
+        await batchUpdateAssetMetadata(updates);
+        console.log(`✅ Updated ${updates.length} asset(s) metadata`);
+
+        // Invalidate queries to refresh the UI
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch(); // Refresh current assets to remove stale separators
+      } catch (err: unknown) {
+        console.error('Failed to update asset metadata:', err);
+      }
+    }
   }
 
   return (
@@ -1107,8 +1374,8 @@ export default function BibleAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">
+            {/* Title */}
             {t('assets')}
-            {` -- REMOVE -- `}
           </Text>
           <Button
             variant="ghost"
@@ -1324,12 +1591,17 @@ export default function BibleAssetsView() {
             autoScrollEnabled={true}
             columnGap={1}
             columns={1}
-            data={assets}
-            renderItem={({ item }) => renderItem({ item, isPublished })}
-            rowGap={10}
+            data={listItems}
+            renderItem={({ item, index }) =>
+              renderItem({ item, isPublished, index })
+            }
+            rowGap={3}
             scrollableRef={scrollableRef} // required for auto scroll
             overDrag="vertical"
-            // onDragEnd={(params) => handleSorting(params)}
+            onDragStart={(params) => {
+              console.log('🔄 Drag start:', params);
+            }}
+            onDragEnd={(params) => void _handleSorting(params)}
             customHandle
             // autoScrollActivationOffset={75}
             // autoScrollSpeed={1}
@@ -1526,6 +1798,38 @@ export default function BibleAssetsView() {
           onClose={() => setShowPrivateAccessModal(false)}
         />
       )}
+
+      {/* Verse Range Selector Drawer */}
+      <Drawer
+        open={verseSelectorState.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVerseSelectorState({ isOpen: false, key: null });
+          }
+        }}
+        snapPoints={['40%']}
+        enableDynamicSizing={false}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Select Verse Range</DrawerTitle>
+          </DrawerHeader>
+          <View className="p-4">
+            <VerseRangeSelector
+              from={verseSelectorState.from ?? 1}
+              to={verseSelectorState.to ?? verseCount}
+              ScrollViewComponent={GHScrollView}
+              onApply={(from, to) => {
+                addVerseSeparator(from, to);
+                setVerseSelectorState({ isOpen: false, key: null });
+              }}
+              onCancel={() =>
+                setVerseSelectorState({ isOpen: false, key: null })
+              }
+            />
+          </View>
+        </DrawerContent>
+      </Drawer>
     </View>
   );
 }
