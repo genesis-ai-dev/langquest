@@ -37,7 +37,7 @@ PowerSync stores synced data as **schemaless JSON** internally. The client-side 
 >
 > — [PowerSync: Implementing Schema Changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
 
-**Important clarification:** PowerSync handles *schema changes* (adding/removing columns) automatically without migrations. However, **data transformations** (modifying existing data, backfilling values, computing derived fields) still require client-side migrations.
+**Important clarification:** PowerSync handles _schema changes_ (adding/removing columns) automatically without migrations. However, **data transformations** (modifying existing data, backfilling values, computing derived fields) still require client-side migrations.
 
 ### When Local Migrations Are NOT Needed
 
@@ -72,7 +72,6 @@ Does client code actively read/write this column?
     ├── YES → Skip local migration (missing values = NULL)
     └── NO → Need local migration (or make column nullable)
 ```
-
 
 ## Step-by-Step Migration Process
 
@@ -167,7 +166,7 @@ The `createAssetTable()` function (and similar create functions) accept an optio
 
 **Note**: Skip this step if you're only adding local-only columns (they don't exist in Postgres).
 
-Create a new migration file following `.cursor/rules/supabase/migrations/create-migration.mdc`:
+Create a new migration file following `.cursor/rules/supabase/create-migration.mdc`:
 
 **File location**: `supabase/migrations/`
 **Naming**: `YYYYMMDDHHmmss_short_description.sql`
@@ -647,6 +646,6 @@ DECLARE
 - Mutation op type: `public.mutation_op` (table_name, op, record)
 - Local migration README: `db/migrations/README.md`
 - Example migration: `db/migrations/EXAMPLE_1.0-to-1.1.ts`
-- Supabase migration rules: `.cursor/rules/supabase/migrations/create-migration.mdc`
+- Supabase migration rules: `.cursor/rules/supabase/create-migration.mdc`
 - Migration utilities: `db/migrations/utils.ts`
 - Schema version constant: `db/constants.ts` (`APP_SCHEMA_VERSION`)
