@@ -3,14 +3,9 @@ import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  TextInput,
-  View
-} from 'react-native';
+import { ActivityIndicator, FlatList, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { ButtonPressable } from './button';
 import { Icon } from './icon';
 import { Text } from './text';
 
@@ -129,9 +124,9 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
             disabled && 'opacity-50'
           )}
         >
-          <Pressable
+          <ButtonPressable
             onPress={handleOpen}
-            disabled={disabled}
+            enabled={!disabled}
             className="flex h-full flex-1 flex-row items-center justify-between px-3 py-2"
           >
             <View className="flex flex-1 flex-row items-center gap-2">
@@ -163,7 +158,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
               className="text-muted-foreground"
               size={20}
             />
-          </Pressable>
+          </ButtonPressable>
         </View>
 
         {/* Dropdown */}
@@ -201,7 +196,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     data={displayedOptions}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) => (
-                      <Pressable
+                      <ButtonPressable
                         onPress={() => handleSelect(item.value)}
                         className={cn(
                           'flex flex-row items-center justify-between px-3 py-3',
@@ -227,7 +222,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                             className="ml-2 text-accent-foreground"
                           />
                         )}
-                      </Pressable>
+                      </ButtonPressable>
                     )}
                     ListEmptyComponent={() => (
                       <View className="flex items-center justify-center py-8">
@@ -240,7 +235,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     )}
                     ListFooterComponent={() =>
                       hasMore ? (
-                        <Pressable
+                        <ButtonPressable
                           onPress={handleLoadMore}
                           className="flex items-center py-2"
                         >
@@ -248,7 +243,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                             Showing {displayedOptions.length} of{' '}
                             {filteredOptions.length} - Tap to load more
                           </Text>
-                        </Pressable>
+                        </ButtonPressable>
                       ) : null
                     }
                     onEndReached={handleLoadMore}
@@ -275,7 +270,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
 
         {/* Backdrop */}
         {isOpen && (
-          <Pressable
+          <ButtonPressable
             onPress={handleClose}
             className="absolute inset-0 -z-10"
             style={{

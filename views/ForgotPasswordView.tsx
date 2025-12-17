@@ -108,6 +108,7 @@ export default function ForgotPasswordView({
                     prefix={MailIcon}
                     prefixStyling={false}
                     placeholder={t('enterEmailForPasswordReset')}
+                    mask
                   />
                 </FormControl>
                 <FormMessage />

@@ -140,7 +140,6 @@ const Button = React.forwardRef<
     const handlePress = React.useCallback(
       (options: AnimatedPressableOptions) => {
         if (onPress) {
-          console.log('handlePress', onPress);
           // Check function arity to determine handler type
           // AnimatedPressableOptions handlers expect exactly 1 required parameter
           // react-hook-form handlers expect 0 or 1 optional parameter
