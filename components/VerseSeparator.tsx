@@ -1,4 +1,4 @@
-import { AlertCircleIcon } from 'lucide-react-native';
+import { AlertCircleIcon, MoveVerticalIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -10,7 +10,13 @@ interface VerseSeparatorProps {
   label: string;
   className?: string;
   editable?: boolean;
-  dragHandle?: React.ReactNode;
+  dragHandleComponent?: React.ComponentType<{
+    mode?: 'fixed-order' | 'draggable';
+    children?: React.ReactNode;
+  }>;
+  dragHandleProps?: {
+    mode?: 'fixed-order' | 'draggable';
+  };
 }
 
 export function VerseSeparator({
@@ -19,7 +25,8 @@ export function VerseSeparator({
   label,
   className = '',
   editable = false,
-  dragHandle = null
+  dragHandleComponent: DragHandleComponent,
+  dragHandleProps
 }: VerseSeparatorProps) {
   const hasNumbers = from !== undefined || to !== undefined;
 
@@ -59,8 +66,14 @@ export function VerseSeparator({
   return (
     <View className={`w-full flex-row items-center py-1 ${className}`}>
       <View className="h-px flex-1 bg-primary/20" />
-      <View className="mx-2 flex flex-row items-center rounded-full bg-primary/10 px-3 py-1">
-        {dragHandle}
+      <View className="mx-2 flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1">
+        {DragHandleComponent && editable && (
+          <DragHandleComponent {...dragHandleProps}>
+            <View className="flex size-4 items-center justify-center overflow-hidden rounded-lg bg-primary-foreground/40">
+              <Icon as={MoveVerticalIcon} size={12} className="text-primary" />
+            </View>
+          </DragHandleComponent>
+        )}
         <Text className="text-[11px] font-semibold text-primary">
           {getText()}
         </Text>

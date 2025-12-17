@@ -171,10 +171,6 @@ export function useAppNavigation() {
     }) => {
       const assetView =
         questData.projectData?.template === 'bible' ? 'bible-assets' : 'assets';
-      console.log('=============================================');
-      console.log('assetView', assetView);
-      console.log('=============================================');
-
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -329,9 +325,6 @@ export function useAppNavigation() {
             template: state.projectTemplate
           })
       });
-      console.log('=============================================');
-      console.log('state.questName', 'Going to AssetsView', state.questName);
-      console.log('=============================================');
       crumbs.push({
         label: state.questName,
         onPress: () =>

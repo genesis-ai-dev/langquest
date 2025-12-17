@@ -6,8 +6,10 @@ import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
 interface VerseRangeSelectorProps {
-  from: number;
-  to: number;
+  // Either provide availableVerses array OR from/to range (for backward compatibility)
+  availableVerses?: number[];
+  from?: number;
+  to?: number;
   selectedFrom?: number;
   selectedTo?: number;
   onApply: (from: number, to: number) => void;
@@ -15,9 +17,12 @@ interface VerseRangeSelectorProps {
   className?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ScrollViewComponent?: React.ComponentType<any>;
+  // Optional function to limit the maximum "to" value based on selected "from"
+  getMaxToForFrom?: (selectedFrom: number) => number;
 }
 
 export function VerseRangeSelector({
+  availableVerses,
   from,
   to,
   selectedFrom: initialFrom,
@@ -25,7 +30,8 @@ export function VerseRangeSelector({
   onApply,
   onCancel,
   className = '',
-  ScrollViewComponent = ScrollView
+  ScrollViewComponent = ScrollView,
+  getMaxToForFrom
 }: VerseRangeSelectorProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<number | undefined>(
     initialFrom
@@ -34,30 +40,54 @@ export function VerseRangeSelector({
     initialTo
   );
 
-  // Generate array of numbers from `from` to `to`
+  // Generate array of numbers - use availableVerses if provided, otherwise generate from/to range
   const allNumbers = React.useMemo(() => {
-    const numbers: number[] = [];
-    for (let i = from; i <= to; i++) {
-      numbers.push(i);
+    if (availableVerses && availableVerses.length > 0) {
+      return availableVerses;
     }
-    return numbers;
-  }, [from, to]);
+    // Fallback to from/to range for backward compatibility
+    if (from !== undefined && to !== undefined) {
+      const numbers: number[] = [];
+      for (let i = from; i <= to; i++) {
+        numbers.push(i);
+      }
+      return numbers;
+    }
+    return [];
+  }, [availableVerses, from, to]);
+
+  // Calculate max "to" value when "from" is selected
+  const maxTo = React.useMemo(() => {
+    if (selectedFrom === undefined) {
+      return allNumbers.length > 0 ? allNumbers[allNumbers.length - 1] : (to || 1);
+    }
+    if (getMaxToForFrom) {
+      return getMaxToForFrom(selectedFrom);
+    }
+    // If no getMaxToForFrom function, allow up to the last available verse
+    return allNumbers.length > 0 ? allNumbers[allNumbers.length - 1] : (to || 1);
+  }, [selectedFrom, getMaxToForFrom, allNumbers, to]);
 
   // Check if a number is selectable based on current selection state
   const isNumberSelectable = React.useCallback(
     (num: number) => {
-      // If nothing selected, all numbers are selectable
+      // Number must be in the available numbers list
+      if (!allNumbers.includes(num)) {
+        return false;
+      }
+      
+      // If nothing selected, all available numbers are selectable
       if (selectedFrom === undefined) {
         return true;
       }
-      // If only "from" selected, only numbers >= selectedFrom are selectable
+      // If only "from" selected, only numbers >= selectedFrom and <= maxTo are selectable
       if (selectedTo === undefined) {
-        return num >= selectedFrom;
+        return num >= selectedFrom && num <= maxTo && allNumbers.includes(num);
       }
       // If both selected, nothing is selectable (user must clear first)
       return false;
     },
-    [selectedFrom, selectedTo]
+    [selectedFrom, selectedTo, maxTo, allNumbers]
   );
 
   const handleNumberPress = (num: number) => {
@@ -66,9 +96,11 @@ export function VerseRangeSelector({
     if (selectedFrom === undefined) {
       // First selection - set "from"
       setSelectedFrom(num);
+      // Clear "to" if it was set, since maxTo might have changed
+      setSelectedTo(undefined);
     } else if (selectedTo === undefined) {
-      // Second selection - set "to"
-      setSelectedTo(num);
+      // Second selection - set "to" (but limit to maxTo)
+      setSelectedTo(Math.min(num, maxTo));
     }
   };
 
