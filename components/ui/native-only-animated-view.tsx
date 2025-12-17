@@ -23,4 +23,3 @@ function NativeOnlyAnimatedView(
 }
 
 export { NativeOnlyAnimatedView };
-
