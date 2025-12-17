@@ -590,7 +590,7 @@ export default function AppDrawer({
                   key={index}
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
-                    'native:px-2 h-auto justify-start px-2 py-4 active:scale-100',
+                    'native:px-2 h-auto justify-start px-2 py-4',
                     item.disabled && 'opacity-50'
                   )}
                   onPress={item.onPress}

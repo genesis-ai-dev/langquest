@@ -5,8 +5,9 @@ import type { LucideIcon } from 'lucide-react-native';
 import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
-import { Platform, Pressable, TextInput, View } from 'react-native';
+import { Platform, TextInput, View } from 'react-native';
 import { KeyboardController } from 'react-native-keyboard-controller';
+import { ButtonPressable } from './button';
 import { DrawerInput } from './drawer';
 import { Icon } from './icon';
 
@@ -221,7 +222,7 @@ const Input = React.forwardRef<
           {...props}
         />
         {!hideEye && secureTextEntry && (
-          <Pressable
+          <ButtonPressable
             className="flex items-center justify-center"
             onPress={() => setShowPassword(!showPassword)}
           >
@@ -229,7 +230,7 @@ const Input = React.forwardRef<
               as={showPassword ? EyeOffIcon : EyeIcon}
               className={iconSizeVariants({ size })}
             />
-          </Pressable>
+          </ButtonPressable>
         )}
         {suffix && (
           <View

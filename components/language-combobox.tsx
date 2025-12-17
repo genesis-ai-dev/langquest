@@ -19,7 +19,7 @@ import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
   useAnimatedStyle,
@@ -28,6 +28,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { ButtonPressable } from './ui/button';
 
 type Languoid = typeof languoid.$inferSelect;
 
@@ -456,7 +457,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           // Special rendering for "Create new" option
           if (item.isCreateOption) {
             return (
-              <Pressable
+              <ButtonPressable
                 className="flex flex-row items-center bg-primary/10 p-3"
                 onPress={() => handleValueChange(item)}
               >
@@ -474,7 +475,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     Add this as a new language
                   </Text>
                 </View>
-              </Pressable>
+              </ButtonPressable>
             );
           }
 

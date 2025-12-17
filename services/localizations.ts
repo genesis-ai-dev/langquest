@@ -3320,15 +3320,15 @@ export const localizations = {
   },
   assetDisabledWarning: {
     english:
-      "⚠️ This asset is disabled across all quests. You can't change its settings for this quest.",
+      'This asset is disabled globally. You cannot change its settings for this quest.',
     spanish:
-      '⚠️ Este asset está deshabilitado en todas las quests. No puedes cambiar sus ajustes para esta quest.',
+      'Este asset está deshabilitado globalmente. No puedes cambiar sus ajustes para esta quest.',
     brazilian_portuguese:
-      '⚠️ Este asset está desabilitado em todas as quests. Você não pode alterar suas configurações para esta quest.',
+      'Este asset está desabilitado globalmente. Você não pode alterar suas configurações para esta quest.',
     tok_pisin:
-      '⚠️ Dispela asset i stop long olgeta quest. Yu no ken senisim setting bilong em long dispela quest.',
+      'Dispela asset i stop olgeta ples. Yu no inap senisim setting bilong em long dispela quest.',
     indonesian:
-      '⚠️ Asset ini dinonaktifkan di semua quest. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
+      'Asset ini dinonaktifkan secara global. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
   },
   assetVisibleThisQuest: {
     english: 'The asset is shown in this quest. Unless hidden globally.',
@@ -3545,46 +3545,46 @@ export const localizations = {
   },
   visibleProjectDescription: {
     english:
-      'This project appears in public listings and can be discovered by all users',
+      'This project appears in public listings and can be discovered by all users.',
     spanish:
-      'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios',
+      'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios.',
     brazilian_portuguese:
-      'Este projeto aparece em listagens públicas e pode ser descoberto por todos os usuários',
+      'Este projeto aparece em listagens públicas e pode ser descoberto por todos os usuários.',
     tok_pisin:
-      'Dispela project i save long public list na olgeta user i ken painim',
+      'Dispela project i save long public list na olgeta user i ken painim.',
     indonesian:
-      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna'
+      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna.'
   },
   invisibleProjectDescription: {
     english:
-      'This project is not displayed in project directories or search results',
+      'This project is not displayed in project directories or search results.',
     spanish:
-      'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda',
+      'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda.',
     brazilian_portuguese:
-      'Este projeto não é exibido em diretórios de projetos ou resultados de pesquisa',
+      'Este projeto não é exibido em diretórios de projetos ou resultados de pesquisa.',
     tok_pisin:
-      'Dispela project i no save long project directory olsem search result',
+      'Dispela project i no save long project directory olsem search result.',
     indonesian:
-      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian'
+      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian.'
   },
   activeProjectDescription: {
-    english: 'The project is currently open for viewing and contributions',
+    english: 'The project is currently open for viewing and contributions.',
     spanish:
-      'El proyecto está actualmente abierto para visualización y contribuciones',
+      'El proyecto está actualmente abierto para visualización y contribuciones.',
     brazilian_portuguese:
-      'O projeto está atualmente aberto para visualização e contribuições',
-    tok_pisin: 'Dispela project i open nau long lukim na contributim',
-    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi'
+      'O projeto está atualmente aberto para visualização e contribuições.',
+    tok_pisin: 'Dispela project i open nau long lukim na contributim.',
+    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi.'
   },
   inactiveProjectDescription: {
     english:
-      'This project is currently inactive and not accepting contributions',
+      'This project is currently inactive and not accepting contributions.',
     spanish:
-      'Este proyecto está actualmente inactivo y no acepta contribuciones',
+      'Este proyecto está actualmente inactivo y no acepta contribuciones.',
     brazilian_portuguese:
-      'Este projeto está atualmente inativo e não está aceitando contribuições',
-    tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim',
-    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi'
+      'Este projeto está atualmente inativo e não está aceitando contribuições.',
+    tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim.',
+    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi.'
   },
   loadingOptions: {
     english: 'Loading options...',

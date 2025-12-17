@@ -69,12 +69,17 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
   barCount = 60,
   maxHeight = 24
 }) => {
-  // Ring buffer arrays
+  // Ring buffer arrays - created once and stored in refs
+  // Note: This pattern works because useRef's initial value is only evaluated once
   const waveformBars = useRef<SharedValue<number>[]>(
+    // eslint-disable-next-line react-compiler/react-compiler
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     Array.from({ length: barCount }, () => useSharedValue(0.01))
   ).current;
 
   const waveformRecordingState = useRef<SharedValue<boolean>[]>(
+    // eslint-disable-next-line react-compiler/react-compiler
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     Array.from({ length: barCount }, () => useSharedValue(false))
   ).current;
 

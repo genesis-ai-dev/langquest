@@ -10,10 +10,10 @@ import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
 import { useLocalStore } from '@/store/localStore';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

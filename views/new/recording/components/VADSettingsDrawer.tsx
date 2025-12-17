@@ -112,13 +112,12 @@ const visualPositionToDb = (percent: number): number => {
 };
 
 // Factory to create a gesture handler hook that tracks dragging state
-function createDraggingGestureHandler(
-  isDraggingRef: React.MutableRefObject<SharedValue<boolean>>
-) {
+// FIXED: Pass SharedValue directly instead of wrapping in a ref
+// The ref wrapper was causing Reanimated warnings about modifying frozen objects
+function createDraggingGestureHandler(draggingShared: SharedValue<boolean>) {
   // Return a hook function that will be called by BottomSheet
   return function useDraggingGestureHandler() {
     const defaultHandlers = useGestureEventsHandlersDefault();
-    const draggingShared = isDraggingRef.current;
 
     return {
       handleOnStart: (
@@ -163,6 +162,7 @@ interface VADSettingsDrawerProps {
   displayMode: 'fullscreen' | 'footer';
   onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
   autoCalibrateOnOpen?: boolean; // Automatically start calibration when drawer opens
+  energyShared?: SharedValue<number>; // Optional: Use this energy source when VAD is locked
 }
 
 function VADSettingsDrawerInternal({
@@ -175,15 +175,23 @@ function VADSettingsDrawerInternal({
   isVADLocked = false,
   displayMode,
   onDisplayModeChange,
-  autoCalibrateOnOpen = false
+  autoCalibrateOnOpen = false,
+  energyShared: externalEnergyShared
 }: VADSettingsDrawerProps) {
   const {
     isActive,
     energyResult: _energyResult,
     startEnergyDetection,
     stopEnergyDetection,
-    energyShared
+    resetEnergy,
+    energyShared: internalEnergyShared
   } = useMicrophoneEnergy();
+
+  // Use external energy source when VAD is locked, otherwise use internal
+  const energyShared =
+    isVADLocked && externalEnergyShared
+      ? externalEnergyShared
+      : internalEnergyShared;
   const { t } = useLocalization();
   const { width: screenWidth } = useWindowDimensions();
   const accentColor = useThemeColor('accent');
@@ -319,29 +327,60 @@ function VADSettingsDrawerInternal({
     const currentIsActive = isActiveRef.current;
 
     // Only act on actual changes, not on every render
-    if (isOpen && !wasOpen && !currentIsActive) {
-      // Drawer just opened - start energy detection
-      console.log(
-        '🎯 VAD Settings: Starting energy detection for live preview'
-      );
-      void startEnergyDetectionRef.current();
+    if (isOpen && !wasOpen) {
+      // Drawer just opened
+      // CRITICAL: If VAD is locked, energy detection is already running via useVADRecording
+      // Don't call startEnergyDetection() again - it would interfere with the native module
+      if (isVADLocked) {
+        console.log(
+          '🎯 VAD Settings: Drawer opened with VAD locked - using existing energy detection'
+        );
+        // Don't reset energy or start detection - let useVADRecording manage it
+      } else {
+        // Reset energy values to prevent stuck values from previous session
+        resetEnergy();
+        latestEnergyRef.current = 0;
+
+        if (!currentIsActive) {
+          console.log(
+            '🎯 VAD Settings: Starting energy detection for live preview'
+          );
+          void startEnergyDetectionRef.current();
+        } else {
+          console.log(
+            '🎯 VAD Settings: Drawer opened but energy detection already active (skipping start)'
+          );
+        }
+      }
     } else if (!isOpen && wasOpen) {
       // Drawer just closed - cancel any in-progress calibration
       cancelCalibration();
 
-      if (currentIsActive && !isVADLocked) {
-        // Stop energy detection only if VAD is not locked
-        // If VAD is locked, let useVADRecording manage the energy detection
+      // CRITICAL: If VAD is locked, don't touch energy detection or reset values
+      // useVADRecording is managing the native module and needs consistent state
+      if (!isVADLocked) {
+        // Reset energy values only when VAD is not locked
+        resetEnergy();
+        latestEnergyRef.current = 0;
+
+        if (currentIsActive) {
+          // Stop energy detection only if VAD is not locked
+          // If VAD is locked, let useVADRecording manage the energy detection
+          console.log(
+            '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
+          );
+          void stopEnergyDetectionRef.current();
+        }
+      } else {
         console.log(
-          '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
+          '🎯 VAD Settings: Drawer closed with VAD locked - leaving energy detection running'
         );
-        void stopEnergyDetectionRef.current();
       }
     }
 
     // Update refs for next render
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, isVADLocked, cancelCalibration]);
+  }, [isOpen, isVADLocked, cancelCalibration, resetEnergy]);
 
   // Logging completely disabled for performance
   // To enable: uncomment the effects below and set ENABLE_VAD_LOGGING = true
@@ -523,12 +562,12 @@ function VADSettingsDrawerInternal({
   const energyBarWidthShared = useSharedValue(energyBarTotalWidth);
   // Track if drawer is being dragged (to pause calculations)
   const isDragging = useSharedValue(false);
-  const isDraggingRef = React.useRef(isDragging);
 
   // Create custom gesture handler hook using factory
+  // FIXED: Pass SharedValue directly - refs were causing Reanimated warnings
   const gestureHandlerHook = React.useMemo(
-    () => createDraggingGestureHandler(isDraggingRef),
-    []
+    () => createDraggingGestureHandler(isDragging),
+    [isDragging]
   );
 
   // Sync isDragging to JS thread for SVG color changes
@@ -1091,7 +1130,8 @@ export const VADSettingsDrawer = React.memo(
       prevProps.silenceDuration === nextProps.silenceDuration &&
       prevProps.isVADLocked === nextProps.isVADLocked &&
       prevProps.displayMode === nextProps.displayMode &&
-      prevProps.autoCalibrateOnOpen === nextProps.autoCalibrateOnOpen;
+      prevProps.autoCalibrateOnOpen === nextProps.autoCalibrateOnOpen &&
+      prevProps.energyShared === nextProps.energyShared;
 
     // Return true if primitive props are equal (skip re-render)
     // This prevents re-renders from useMicrophoneEnergy's internal state updates

@@ -112,13 +112,6 @@ function AssetCardInternal({
   // Renameable = local and not currently saving
   const isRenameable = isLocal;
 
-  // DEBUG: Log segment count and duration for this asset
-  React.useEffect(() => {
-    console.log(
-      `🃏 AssetCard render: ${asset.name} | segments: ${segmentCount ?? 'loading'} | duration: ${duration ? `${Math.round(duration / 1000)}s` : 'loading'}`
-    );
-  }, [segmentCount, duration, asset.name]);
-
   // ============================================================================
   // REANIMATED ANIMATIONS (Run on native thread for better performance)
   // ============================================================================

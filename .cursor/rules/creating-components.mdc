@@ -140,14 +140,6 @@ This renders as `<Link>` instead of `<button>`, preserving all Button behavior.
 
 ## Implementation Notes
 
-### Types and Props API
-
-- **TypeScript**: Ship with comprehensive types for maximum safety and autocomplete
-- **Props API**: Stable, typed, documented with defaults and a11y ramifications
-- Support both **controlled** and **uncontrolled** patterns where applicable (see [Controlled vs. Uncontrolled](#controlled-vs-uncontrolled))
-- Document all props: name, type, default, required, description
-- Document purpose, usage, accessibility notes (keyboard controls, ARIA attributes), and customization options
-
 ### Styling
 
 - Don't use margin (`m-*` properties in tailwind), use `View`s with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
@@ -157,20 +149,6 @@ This renders as `<Link>` instead of `<button>`, preserving all Button behavior.
 - Use **design tokens** (CSS variables) for theming: `--color-bg`, `--radius-md`, `--space-2`
 - Support **className** merging for customization
 - Components should be **headless** (behavior only) or **styled** (default visual design but override-friendly)
-
-### Data Attributes
-
-Use data attributes for styling hooks and state:
-
-- `data-slot` - Identify component parts for styling
-- `data-state` - Indicate component state (open, closed, checked, etc.)
-- `data-disabled`, `data-selected`, etc. - State indicators
-
-Example:
-
-```tsx
-<View data-slot="trigger" data-state={isOpen ? 'open' : 'closed'}>
-```
 
 ### Icons
 
@@ -192,12 +170,6 @@ Use `useThemeColor` hook from `components` for colors in JavaScript (not Tailwin
 
 Use `scheduleOnRN` from `react-native-worklets` (not `runOnJS` or `queueMicrotask`) to schedule work on the React Native thread. **CRITICAL**: Pass function references only, never inline arrow functions - these crash. Declare wrapper functions outside worklets and pass by reference. Example: `const updateState = (value) => setState(value);` then `scheduleOnRN(updateState, newValue)`.
 
-### Drawer Component
-
-Use `DrawerClose` for basic close triggers. Only use controlled close (`onClose` prop) when you need additional logic before closing (e.g., confirmation dialogs, form validation).
-
-For input fields inside drawers, use `<Input drawerInput />` instead of importing `DrawerInput` directly. This ensures correct styling, platform behavior, and features like prefix/suffix support.
-
 ## React Compiler & Memoization
 
 **Reference**: [I tried React Compiler today, and guess what...](https://www.developerway.com/posts/i-tried-react-compiler)
@@ -215,3 +187,25 @@ While React Compiler can automatically memoize components, it has limitations an
 - **Composition Over Memoization**: When dealing with re-render issues, prefer composition techniques (moving state down, splitting contexts, extracting components) over manual memoization when possible.
 
 - **ESLint Disable Comments**: Never use `// eslint-disable-next-line` or similar ESLint disable comments in your code. These comments prevent React Compiler from properly analyzing and optimizing your code. If ESLint flags an issue, fix the underlying problem rather than suppressing the warning. For legitimate cases where a dependency should be excluded (like stable functions or refs), refactor the code to make the stability explicit rather than disabling the exhaustive-deps rule.
+
+### Types and Props API
+
+- **TypeScript**: Ship with comprehensive types for maximum safety and autocomplete
+- **Props API**: Stable, typed, documented with defaults and a11y ramifications
+- Support both **controlled** and **uncontrolled** patterns where applicable (see [Controlled vs. Uncontrolled](#controlled-vs-uncontrolled))
+- Document all props: name, type, default, required, description
+- Document purpose, usage, accessibility notes (keyboard controls, ARIA attributes), and customization options
+
+### Data Attributes
+
+Use data attributes for styling hooks and state:
+
+- `data-slot` - Identify component parts for styling
+- `data-state` - Indicate component state (open, closed, checked, etc.)
+- `data-disabled`, `data-selected`, etc. - State indicators
+
+Example:
+
+```tsx
+<View data-slot="trigger" data-state={isOpen ? 'open' : 'closed'}>
+```

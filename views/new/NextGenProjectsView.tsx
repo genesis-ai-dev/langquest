@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -730,7 +730,7 @@ export default function NextGenProjectsView() {
           resetForm();
         }}
         dismissible={!isCreatingProject}
-        snapPoints={[600]}
+        snapPoints={[700]}
         enableDynamicSizing={false}
       >
         <View className="flex flex-1 flex-col gap-6 p-6">
@@ -835,9 +835,7 @@ export default function NextGenProjectsView() {
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   />
                   {currentUser && (
-                    <DrawerTrigger
-                      className={buttonVariants({ size: 'icon-lg' })}
-                    >
+                    <DrawerTrigger size="icon-lg">
                       <Icon as={PlusIcon} className="text-primary-foreground" />
                     </DrawerTrigger>
                   )}

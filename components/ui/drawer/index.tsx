@@ -17,10 +17,10 @@ import {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { buttonTextVariants, buttonVariants } from '../button';
-import { Text, TextClassContext } from '../text';
+import { Button } from '../button';
+import { Text } from '../text';
 
 import type { BottomSheetScrollViewMethods } from '@gorhom/bottom-sheet';
 import {
@@ -151,57 +151,37 @@ function Drawer({
 // DrawerTrigger - button that opens the drawer
 function DrawerTrigger({
   children,
-  asChild,
+  variant = 'default',
   ...props
 }: {
   children: React.ReactNode;
-  asChild?: boolean;
-} & React.ComponentProps<typeof Pressable>) {
+} & React.ComponentProps<typeof Button>) {
   const context = React.useContext(DrawerContext);
 
-  const Component = asChild ? Slot.Pressable : Pressable;
-
   return (
-    <Component onPress={() => context?.setOpen(true)} {...props}>
+    <Button variant={variant} onPress={() => context?.setOpen(true)} {...props}>
       {children}
-    </Component>
+    </Button>
   );
 }
 
 // DrawerClose - button that closes the drawer
 function DrawerClose({
   children,
-  asChild,
-  className,
   ...props
 }: {
   children: React.ReactNode;
-  asChild?: boolean;
-} & React.ComponentProps<typeof Pressable>) {
+} & React.ComponentProps<typeof Button>) {
   const context = React.useContext(DrawerContext);
 
-  const handlePress = () => {
-    // Also update state to keep things in sync
-    context?.setOpen(false);
-  };
-
-  const Component = asChild ? Slot.Pressable : Pressable;
-
   return (
-    <TextClassContext.Provider
-      value={buttonTextVariants({
-        variant: 'outline',
-        className: cn('web:pointer-events-none', props.disabled && 'opacity-50')
-      })}
+    <Button
+      variant="outline"
+      onPress={() => context?.setOpen(false)}
+      {...props}
     >
-      <Component
-        onPress={handlePress}
-        className={cn(buttonVariants({ variant: 'outline' }), className)}
-        {...props}
-      >
-        {children}
-      </Component>
-    </TextClassContext.Provider>
+      {children}
+    </Button>
   );
 }
 
@@ -248,7 +228,7 @@ const DrawerContent = React.forwardRef<
 
   const Component = asChild
     ? Slot.Generic<React.ComponentPropsWithoutRef<typeof DrawerView>>
-    : DrawerKeyboardAwareScrollView;
+    : DrawerScrollView;
 
   return (
     <BottomSheetModal
@@ -275,15 +255,17 @@ const DrawerContent = React.forwardRef<
           {...props}
         />
       )}
-      snapPoints={(_snapPoints ?? [])
-        .filter((point) => point !== '100%')
-        .concat(['100%'])}
+      snapPoints={
+        _snapPoints ?? []
+        /*.filter((point) => point !== '100%')
+        .concat(['100%'])*/
+      }
       backgroundStyle={{ backgroundColor }}
       // enableContentPanningGesture={false}
       // enableDynamicSizing={typeof context?.snapPoints === 'undefined'}
       // enableOverDrag={false}
       enableBlurKeyboardOnGesture
-      keyboardBlurBehavior="restore"
+      // keyboardBlurBehavior="restore"
       gestureEventsHandlersHook={gestureEventsHandlersHook}
       enablePanDownToClose={dismissible !== false}
       enableDismissOnClose={dismissible !== false}
@@ -293,7 +275,11 @@ const DrawerContent = React.forwardRef<
       {/* Re-provide DrawerContext inside the portal so children can access it */}
       <DrawerContext.Provider value={context}>
         <Component
-          className={cn('flex-1 bg-background px-6', 'z-[5000]', className)}
+          className={cn(
+            'flex flex-1 flex-col bg-background px-6',
+            'z-[5000]',
+            className
+          )}
           {...props}
           bottomOffset={16}
         >
@@ -330,10 +316,7 @@ function DrawerFooter({
   ...props
 }: React.ComponentProps<typeof View> & { className?: string }) {
   return (
-    <View
-      className={cn('mt-auto flex-col gap-2 px-0 py-4', className)}
-      {...props}
-    >
+    <View className={cn('mt-auto flex-col gap-2 py-4', className)} {...props}>
       {children}
     </View>
   );
@@ -369,11 +352,11 @@ const AnimatedScrollView =
   Reanimated.createAnimatedComponent<KeyboardAwareScrollViewProps>(
     KeyboardAwareScrollView
   );
-const DrawerScrollViewComponent = createBottomSheetScrollableComponent<
+const BottomSheetScrollViewComponent = createBottomSheetScrollableComponent<
   BottomSheetScrollViewMethods,
   BottomSheetScrollViewProps
 >(SCROLLABLE_TYPE.SCROLLVIEW, AnimatedScrollView);
-const DrawerKeyboardAwareScrollView = memo(DrawerScrollViewComponent);
+const DrawerKeyboardAwareScrollView = memo(BottomSheetScrollViewComponent);
 
 DrawerKeyboardAwareScrollView.displayName = 'DrawerKeyboardAwareScrollView';
 
@@ -387,7 +370,7 @@ export {
   DrawerFooter,
   DrawerHeader,
   DrawerInput,
-  DrawerKeyboardAwareScrollView,
+  // DrawerKeyboardAwareScrollView,
   DrawerScrollView,
   DrawerTitle,
   DrawerTrigger,

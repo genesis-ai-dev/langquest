@@ -1,6 +1,7 @@
 import { cn } from '@/utils/styleUtils';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { ButtonPressable } from './button';
 import { Label } from './label';
 
 interface RadioGroupContextValue {
@@ -58,49 +59,52 @@ interface RadioGroupItemProps {
   children?: React.ReactNode;
 }
 
-const RadioGroupItem = React.forwardRef<View, RadioGroupItemProps>(
-  ({ className, value, label, disabled: itemDisabled, children }, ref) => {
-    const {
-      value: selectedValue,
-      onValueChange,
-      disabled
-    } = useRadioGroupContext();
-    const isSelected = selectedValue === value;
-    const isDisabled = disabled || itemDisabled;
+const RadioGroupItem = ({
+  className,
+  value,
+  label,
+  disabled: itemDisabled,
+  children
+}: RadioGroupItemProps) => {
+  const {
+    value: selectedValue,
+    onValueChange,
+    disabled
+  } = useRadioGroupContext();
+  const isSelected = selectedValue === value;
+  const isDisabled = disabled || itemDisabled;
 
-    return (
-      <Pressable
-        ref={ref}
-        disabled={isDisabled}
-        onPress={() => !isDisabled && onValueChange(value)}
+  return (
+    <ButtonPressable
+      enabled={!isDisabled}
+      onPress={() => !isDisabled && onValueChange(value)}
+      className={cn(
+        'flex-row items-center gap-3 rounded-lg border border-input bg-background px-4 py-3 active:bg-accent web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+        isSelected && 'border-primary bg-accent',
+        isDisabled && 'opacity-50',
+        className
+      )}
+    >
+      <View
         className={cn(
-          'flex-row items-center gap-3 rounded-lg border border-input bg-background px-4 py-3 active:bg-accent web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
-          isSelected && 'border-primary bg-accent',
-          isDisabled && 'opacity-50',
-          className
+          'aspect-square h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+          isSelected ? 'border-primary bg-primary' : 'border-input'
         )}
       >
-        <View
-          className={cn(
-            'aspect-square h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-            isSelected ? 'border-primary bg-primary' : 'border-input'
-          )}
-        >
-          {isSelected && (
-            <View className="h-2.5 w-2.5 rounded-full bg-primary-foreground" />
-          )}
-        </View>
-        {label ? (
-          <Label className="native:text-sm flex-1 text-sm web:cursor-pointer">
-            {label}
-          </Label>
-        ) : children ? (
-          <View className="flex-1">{children}</View>
-        ) : null}
-      </Pressable>
-    );
-  }
-);
+        {isSelected && (
+          <View className="h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+        )}
+      </View>
+      {label ? (
+        <Label className="native:text-sm flex-1 text-sm web:cursor-pointer">
+          {label}
+        </Label>
+      ) : children ? (
+        <View className="flex-1">{children}</View>
+      ) : null}
+    </ButtonPressable>
+  );
+};
 RadioGroupItem.displayName = 'RadioGroupItem';
 
 export { RadioGroup, RadioGroupItem };
