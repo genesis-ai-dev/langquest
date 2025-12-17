@@ -43,7 +43,7 @@ import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
-import { RenameAssetModal } from './RenameAssetModal';
+import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
@@ -212,8 +212,8 @@ const RecordingViewSimplified = ({
     cancelSelection
   } = useSelectionMode();
 
-  // Rename modal state
-  const [showRenameModal, setShowRenameModal] = React.useState(false);
+  // Rename drawer state
+  const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
 
@@ -1868,7 +1868,7 @@ const RecordingViewSimplified = ({
     (assetId: string, currentName: string | null) => {
       setRenameAssetId(assetId);
       setRenameAssetName(currentName ?? '');
-      setShowRenameModal(true);
+      setShowRenameDrawer(true);
     },
     []
   );
@@ -2222,11 +2222,16 @@ const RecordingViewSimplified = ({
         )}
       </View>
 
-      {/* Rename modal */}
-      <RenameAssetModal
-        isVisible={showRenameModal}
+      {/* Rename drawer */}
+      <RenameAssetDrawer
+        isOpen={showRenameDrawer}
         currentName={renameAssetName}
-        onClose={() => setShowRenameModal(false)}
+        onOpenChange={(open) => {
+          setShowRenameDrawer(open);
+          if (!open) {
+            setRenameAssetId(null);
+          }
+        }}
         onSave={handleSaveRename}
       />
 
