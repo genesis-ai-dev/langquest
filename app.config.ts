@@ -8,7 +8,7 @@ const iconLight = './assets/icons/icon_light.png';
 // const iconMono = './assets/icons/icon_mono.png';
 
 const siteHost = 'langquest.org';
-const uniqueIdentifier = 'com.etengenesis.langquest';
+export const uniqueIdentifier = 'com.etengenesis.langquest';
 
 const appVariant =
   process.env.EXPO_PUBLIC_APP_VARIANT ||
