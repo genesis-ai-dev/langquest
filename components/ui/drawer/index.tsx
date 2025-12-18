@@ -228,7 +228,7 @@ const DrawerContent = React.forwardRef<
 
   const Component = asChild
     ? Slot.Generic<React.ComponentPropsWithoutRef<typeof DrawerView>>
-    : DrawerScrollView;
+    : DrawerKeyboardAwareScrollView;
 
   return (
     <BottomSheetModal

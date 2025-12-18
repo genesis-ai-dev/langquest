@@ -1102,7 +1102,7 @@ export default function ProjectDirectoryView() {
                           placeholder={t('questName')}
                           size="sm"
                           prefix={FolderPenIcon}
-                          drawerInput
+                          // drawerInput
                           type="next"
                         />
                       </FormControl>
@@ -1120,7 +1120,7 @@ export default function ProjectDirectoryView() {
                           {...transformInputProps(field)}
                           placeholder={t('description')}
                           size="sm"
-                          drawerInput
+                          // drawerInput
                         />
                       </FormControl>
                       <FormMessage />
