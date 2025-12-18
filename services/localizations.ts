@@ -193,6 +193,13 @@ export const localizations = {
     tok_pisin: 'Download project',
     indonesian: 'Unduh Proyek'
   },
+  downloadQuest: {
+    english: 'Download Quest',
+    spanish: 'Descargar Quest',
+    brazilian_portuguese: 'Descarregar Quest',
+    tok_pisin: 'Download quest',
+    indonesian: 'Unduh Quest'
+  },
   downloadProjectOfflineWarning: {
     english:
       "If you don't download the project, you won't be able to contribute to it offline. You can download it later by pressing the project card's download button.",
