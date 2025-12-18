@@ -21,7 +21,8 @@ import {
   reasonOptions,
   sourceOptions,
   statusOptions,
-  templateOptions
+  templateOptions,
+  versificationTemplateOptions
 } from './constants';
 import type {
   asset_local,
@@ -214,6 +215,9 @@ export function createProjectTable<
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       template: text({ enum: templateOptions }).default('unstructured'),
+      versification_template: text({
+        enum: versificationTemplateOptions
+      }),
       source_language_id: text(), // FK to language dropped - migrating to languoid
       target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
