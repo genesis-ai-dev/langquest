@@ -49,7 +49,7 @@ export const VAD_THRESHOLD_DEFAULT = 0.05;
 // VAD silence duration constants (in milliseconds)
 export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
 export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
-export const VAD_SILENCE_DURATION_DEFAULT = 1000; // 1 second
+export const VAD_SILENCE_DURATION_DEFAULT = 300; // 0.3 seconds
 
 // Recently visited item types
 export interface RecentProject {
