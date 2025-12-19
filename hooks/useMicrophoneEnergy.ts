@@ -1,5 +1,5 @@
 import { Audio } from 'expo-av';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
 import type { VADResult } from '../modules/microphone-energy';
@@ -18,8 +18,10 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   clearError: () => void;
   startSegment: (options?: { prerollMs?: number }) => Promise<void>;
   stopSegment: () => Promise<string | null>;
-  // NEW: SharedValue for high-performance UI updates
+  // SharedValue for high-performance UI updates (no re-renders!)
   energyShared: SharedValue<number>;
+  // Ref for logic that needs the latest value without re-renders
+  energyRef: { current: number };
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergy {
@@ -29,18 +31,23 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     error: null
   });
 
-  // NEW: SharedValue for high-performance UI updates (no re-renders!)
+  // SharedValue for high-performance UI updates (no re-renders!)
   const energyShared = useSharedValue(0);
+  
+  // Ref for logic that needs the latest value (calibration, etc.) - NO re-renders
+  const energyRef = useRef(0);
 
   // Setup event listeners
   useEffect(() => {
     const energySubscription = MicrophoneEnergyModule.addListener(
       'onEnergyResult',
       (result: VADResult) => {
-        // Update SharedValue first (for UI - no re-render)
+        // Update SharedValue for UI (no re-render)
         energyShared.value = result.energy;
-        // Update state silently for logic that needs it
-        setState((prev) => ({ ...prev, energyResult: result }));
+        // Update ref for logic that needs it (no re-render)
+        energyRef.current = result.energy;
+        // REMOVED: setState call that was causing 30-60 re-renders per second!
+        // Components should use energyShared or energyRef instead
       }
     );
 
@@ -157,6 +164,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     clearError,
     startSegment,
     stopSegment,
-    energyShared
+    energyShared,
+    energyRef
   };
 }

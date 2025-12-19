@@ -187,13 +187,14 @@ export function VADSettingsDrawer({
   onDisplayModeChange,
   autoCalibrateOnOpen = false
 }: VADSettingsDrawerProps) {
-  const {
-    isActive,
-    energyResult,
-    startEnergyDetection,
-    stopEnergyDetection,
-    energyShared: _energyShared
-  } = useMicrophoneEnergy();
+  const micEnergy = useMicrophoneEnergy();
+  // Extract with proper types to avoid TypeScript issues with .web.ts resolution
+  const isActive = micEnergy.isActive;
+  const startEnergyDetection = micEnergy.startEnergyDetection;
+  const stopEnergyDetection = micEnergy.stopEnergyDetection;
+  const _energyShared = micEnergy.energyShared;
+  // Create a typed reference to the energy ref
+  const energyRef: { current: number } = micEnergy.energyRef;
   const { t } = useLocalization();
   const [showHelp, setShowHelp] = React.useState(false);
 
@@ -208,10 +209,10 @@ export function VADSettingsDrawer({
     setLocalThreshold(threshold);
   }, [threshold]);
 
-  // Debounced store update to avoid blocking UI
-  const updateThreshold = React.useCallback(
+  // Immediate UI update function - updates local state instantly
+  const updateThresholdImmediate = React.useCallback(
     (newThreshold: number) => {
-      // Update local state immediately for instant UI feedback
+      // Update local state immediately - instant UI feedback, NO DELAYS
       setLocalThreshold(newThreshold);
 
       // Clear any pending store update
@@ -219,14 +220,29 @@ export function VADSettingsDrawer({
         clearTimeout(storeUpdateTimeoutRef.current);
       }
 
-      // Debounce store update (persistence can be slow)
+      // Save to store in background (don't block UI thread)
       storeUpdateTimeoutRef.current = setTimeout(() => {
         onThresholdChange(newThreshold);
         storeUpdateTimeoutRef.current = null;
-      }, 100); // Small delay to batch rapid changes
+      }, 500);
     },
     [onThresholdChange]
   );
+
+  // Save threshold when drawer closes (flush immediately)
+  React.useEffect(() => {
+    if (!isOpen) {
+      // Flush any pending update immediately when drawer closes
+      if (storeUpdateTimeoutRef.current) {
+        clearTimeout(storeUpdateTimeoutRef.current);
+        storeUpdateTimeoutRef.current = null;
+      }
+      // Only update if changed
+      if (localThreshold !== threshold) {
+        onThresholdChange(localThreshold);
+      }
+    }
+  }, [isOpen]); // Only depend on isOpen to avoid unnecessary runs
 
   // Cleanup timeout on unmount
   React.useEffect(() => {
@@ -250,48 +266,45 @@ export function VADSettingsDrawer({
   const calibrationTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  // Ref to track latest energy value for calibration sampling
-  const latestEnergyRef = React.useRef<number>(0);
+  // NOTE: Now using energyRef from useMicrophoneEnergy for calibration sampling
 
-  // Refs for logging statistics
-  const energySamplesRef = React.useRef<number[]>([]);
-  const loggingIntervalRef = React.useRef<ReturnType<
+  // Refs for logging statistics (kept for potential future use)
+  const _energySamplesRef = React.useRef<number[]>([]);
+  const _loggingIntervalRef = React.useRef<ReturnType<
     typeof setInterval
   > | null>(null);
 
-  const currentEnergy = energyResult?.energy ?? 0;
+  // Display-only state for the energy number (throttled updates - 5x/sec max)
+  const [displayEnergy, setDisplayEnergy] = React.useState(0);
+  const displayUpdateRef = React.useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
 
-  // Throttle energy updates to reduce re-renders (update React state max 15 times/sec)
-  const [throttledEnergy, setThrottledEnergy] = React.useState(currentEnergy);
-  const lastUpdateRef = React.useRef<number>(0);
-  const THROTTLE_MS = 66; // ~15 updates per second (1000/15 ≈ 66ms)
-
+  // Throttled display update - only re-renders when display value changes significantly
   React.useEffect(() => {
-    if (energyResult?.energy !== undefined) {
-      latestEnergyRef.current = energyResult.energy;
-
-      // Throttle React state updates
-      const now = Date.now();
-      if (now - lastUpdateRef.current >= THROTTLE_MS) {
-        setThrottledEnergy(energyResult.energy);
-        lastUpdateRef.current = now;
-      } else {
-        // Schedule update if not throttled
-        const timeoutId = setTimeout(
-          () => {
-            setThrottledEnergy(energyResult.energy);
-            lastUpdateRef.current = Date.now();
-          },
-          THROTTLE_MS - (now - lastUpdateRef.current)
-        );
-
-        return () => clearTimeout(timeoutId);
-      }
+    if (isOpen && isActive) {
+      displayUpdateRef.current = setInterval(() => {
+        const currentValue = energyRef.current;
+        setDisplayEnergy((prev) => {
+          // Only update if changed by more than 0.5% to avoid constant updates
+          if (Math.abs(currentValue - prev) > 0.005) {
+            return currentValue;
+          }
+          return prev;
+        });
+      }, 200); // Update display at most 5 times per second
     }
-  }, [energyResult?.energy]);
+    return () => {
+      if (displayUpdateRef.current) {
+        clearInterval(displayUpdateRef.current);
+        displayUpdateRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- energyRef is a stable ref, doesn't need to be a dependency
+  }, [isOpen, isActive]);
 
-  // Use throttled energy for React-based UI updates
-  const displayEnergy = throttledEnergy;
+  // Current energy for calculations - uses the throttled display value
+  const currentEnergy = displayEnergy;
 
   // Normalize energy value to 0-1 range
   // The native module returns raw RMS energy values (typically 0-20 range based on logs)
@@ -406,10 +419,39 @@ export function VADSettingsDrawer({
     [thresholdDb]
   );
 
-  // Energy calculations depend on displayEnergy (throttled) - memoize to prevent unnecessary recalculations
+  // Button handlers - defined after thresholdPosition is calculated
+  const handleDecreaseThreshold = React.useCallback(() => {
+    const stepPercent = 2;
+    const newPos = Math.max(0, thresholdPosition - stepPercent);
+    const newDb = visualPositionToDb(newPos);
+    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
+    const newEnergy =
+      clampedDb <= DB_MIN ? VAD_THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
+    const newThreshold = Math.max(
+      VAD_THRESHOLD_MIN,
+      Math.min(VAD_THRESHOLD_MAX, newEnergy)
+    );
+    updateThresholdImmediate(Number(newThreshold.toFixed(4)));
+  }, [thresholdPosition, updateThresholdImmediate]);
+
+  const handleIncreaseThreshold = React.useCallback(() => {
+    const stepPercent = 2;
+    const newPos = Math.min(100, thresholdPosition + stepPercent);
+    const newDb = visualPositionToDb(newPos);
+    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
+    const newEnergy =
+      clampedDb <= DB_MIN ? VAD_THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
+    const newThreshold = Math.max(
+      VAD_THRESHOLD_MIN,
+      Math.min(VAD_THRESHOLD_MAX, newEnergy)
+    );
+    updateThresholdImmediate(Number(newThreshold.toFixed(4)));
+  }, [thresholdPosition, updateThresholdImmediate]);
+
+  // Energy calculations - memoize to prevent unnecessary recalculations
   const normalizedCurrentEnergy = React.useMemo(
-    () => normalizeEnergy(displayEnergy),
-    [displayEnergy]
+    () => normalizeEnergy(currentEnergy),
+    [currentEnergy]
   );
   const currentDb = React.useMemo(
     () => energyToDb(normalizedCurrentEnergy),
@@ -428,8 +470,6 @@ export function VADSettingsDrawer({
       );
       void startEnergyDetection();
     } else if (!isOpen && isActive && !isVADLocked) {
-      // Only stop if drawer closes AND VAD is not locked
-      // If VAD is locked, let useVADRecording manage the energy detection
       console.log(
         '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
       );
@@ -443,96 +483,40 @@ export function VADSettingsDrawer({
     stopEnergyDetection
   ]);
 
+  // TEMPORARILY DISABLED FOR PERFORMANCE TESTING
   // Logging: Track energy statistics while drawer is open
-  React.useEffect(() => {
-    if (isOpen && isActive) {
-      // Collect energy samples
-      energySamplesRef.current = [];
-
-      // Log statistics every 3 seconds
-      loggingIntervalRef.current = setInterval(() => {
-        const samples = energySamplesRef.current;
-        if (samples.length > 0) {
-          const min = Math.min(...samples);
-          const max = Math.max(...samples);
-          const avg =
-            samples.reduce((sum, val) => sum + val, 0) / samples.length;
-          const currentDb = energyToDb(avg);
-          const thresholdDb = energyToDb(threshold);
-
-          const _normalizedMin = normalizeEnergy(min);
-          const _normalizedMax = normalizeEnergy(max);
-          const normalizedAvg = normalizeEnergy(avg);
-
-          // Find which pill the current dB falls into
-          let activePillIndex = -1;
-          let activePillFill = 0;
-          for (let i = 0; i < INPUT_PILLS.length; i++) {
-            const pill = INPUT_PILLS[i]!;
-            if (currentDb >= pill.minDb && currentDb < pill.maxDb) {
-              activePillIndex = i;
-              activePillFill =
-                ((currentDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
-              break;
-            }
-          }
-
-          // Log pill ranges for debugging
-          const pillRanges = INPUT_PILLS.map(
-            (p, i) => `P${i}: ${p.minDb.toFixed(1)} to ${p.maxDb.toFixed(1)} dB`
-          ).join(', ');
-
-          console.log('📊 VAD Energy Stats:', {
-            samples: samples.length,
-            rawAvg: avg.toFixed(4),
-            normalizedAvg: normalizedAvg.toFixed(4),
-            avgDb: currentDb.toFixed(1),
-            activePill:
-              activePillIndex >= 0
-                ? `Pill ${activePillIndex} (${activePillFill.toFixed(1)}% filled)`
-                : 'None',
-            threshold: localThreshold.toFixed(4),
-            thresholdDb: thresholdDb.toFixed(1),
-            pillRanges
-          });
-
-          // Reset samples for next interval
-          energySamplesRef.current = [];
-        }
-      }, 3000); // Every 3 seconds
-
-      return () => {
-        if (loggingIntervalRef.current) {
-          clearInterval(loggingIntervalRef.current);
-          loggingIntervalRef.current = null;
-        }
-      };
-    } else {
-      // Clear interval when drawer closes
-      if (loggingIntervalRef.current) {
-        clearInterval(loggingIntervalRef.current);
-        loggingIntervalRef.current = null;
-      }
-      energySamplesRef.current = [];
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isActive, threshold]);
-
-  // Collect energy samples for logging (use latestEnergyRef to avoid throttling delay)
-  React.useEffect(() => {
-    if (isOpen && isActive && latestEnergyRef.current > 0) {
-      energySamplesRef.current.push(latestEnergyRef.current);
-      // Keep only last 100 samples to avoid memory issues
-      if (energySamplesRef.current.length > 100) {
-        energySamplesRef.current.shift();
-      }
-    }
-  }, [isOpen, isActive, throttledEnergy]); // Trigger on throttled updates, but use ref value
+  // React.useEffect(() => {
+  //   if (isOpen && isActive) {
+  //     energySamplesRef.current = [];
+  //     loggingIntervalRef.current = setInterval(() => {
+  //       const samples = energySamplesRef.current;
+  //       if (samples.length > 0) {
+  //         console.log('📊 VAD Energy Stats:', { samples: samples.length });
+  //         energySamplesRef.current = [];
+  //       }
+  //     }, 3000);
+  //     return () => {
+  //       if (loggingIntervalRef.current) {
+  //         clearInterval(loggingIntervalRef.current);
+  //         loggingIntervalRef.current = null;
+  //       }
+  //     };
+  //   }
+  // }, [isOpen, isActive, threshold]);
+  //
+  // React.useEffect(() => {
+  //   if (isOpen && isActive && currentEnergy > 0) {
+  //     energySamplesRef.current.push(currentEnergy);
+  //     if (energySamplesRef.current.length > 100) {
+  //       energySamplesRef.current.shift();
+  //     }
+  //   }
+  // }, [isOpen, isActive, currentEnergy]);
 
   // Reset to default threshold
-  const handleResetToDefault = () => {
-    updateThreshold(VAD_THRESHOLD_DEFAULT);
-  };
+  const handleResetToDefault = React.useCallback(() => {
+    updateThresholdImmediate(VAD_THRESHOLD_DEFAULT);
+  }, [updateThresholdImmediate]);
 
   // Auto-calibrate function
   const handleAutoCalibrate = React.useCallback(async () => {
@@ -569,8 +553,8 @@ export function VADSettingsDrawer({
 
     // Sample energy levels - use ref to avoid stale closure and worklet issues
     const sampleInterval = setInterval(() => {
-      // Use ref to get latest energy value (updated from useEffect)
-      const currentEnergy = latestEnergyRef.current;
+      // Use energyRef from hook (updated on every energy event, no re-renders)
+      const currentEnergy = energyRef.current;
       if (
         currentEnergy !== undefined &&
         !isNaN(currentEnergy) &&
@@ -629,7 +613,7 @@ export function VADSettingsDrawer({
       );
 
       // Apply threshold automatically
-      updateThreshold(Number(newThreshold.toFixed(4)));
+      updateThresholdImmediate(Number(newThreshold.toFixed(4)));
 
       setIsCalibrating(false);
       setCalibrationProgress(0);
@@ -687,17 +671,17 @@ export function VADSettingsDrawer({
     onSilenceDurationChange(newValue);
   };
 
-  // Animated pulse when above threshold (use throttled energy and local threshold)
+  // Animated pulse when above threshold
   const pulseScale = useSharedValue(1);
 
   React.useEffect(() => {
-    if (displayEnergy > localThreshold) {
+    if (currentEnergy > localThreshold) {
       pulseScale.value = withSequence(
         withTiming(1.1, { duration: 100 }),
         withTiming(1, { duration: 100 })
       );
     }
-  }, [displayEnergy, localThreshold, pulseScale]);
+  }, [currentEnergy, localThreshold, pulseScale]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -816,7 +800,7 @@ export function VADSettingsDrawer({
               </View>
             </View>
           )}
-          {/* Input Level Visualization - Tiered Pills */}
+          {/* Input Level Visualization - TEMPORARILY DISABLED FOR PERFORMANCE TESTING */}
           <View className="gap-3">
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
@@ -825,18 +809,17 @@ export function VADSettingsDrawer({
               </Text>
             </View>
 
-            {/* Input Level Pills - Horizontal Row (10 equal-width pills) */}
+            {/* Input Level Pills */}
             <View className="relative h-12 w-full flex-row gap-1">
               {activePills.map((pill, index) => {
+                const fillWidth = Math.min(100, pill.fillPercent);
                 return (
                   <View key={index} className="relative flex-1">
-                    {/* Pill background */}
                     <View className="h-full w-full overflow-hidden rounded-full bg-muted/50">
-                      {/* Pill fill */}
                       <Animated.View
                         style={[
                           {
-                            width: `${Math.min(100, pill.fillPercent)}%`,
+                            width: `${fillWidth}%`,
                             height: '100%'
                           },
                           pill.isActive && animatedStyle
@@ -853,7 +836,7 @@ export function VADSettingsDrawer({
                 );
               })}
 
-              {/* Threshold marker spanning all pills vertically */}
+              {/* Threshold indicator line */}
               <View
                 style={{
                   left: `${Math.min(100, Math.max(0, thresholdPosition))}%`,
@@ -931,27 +914,11 @@ export function VADSettingsDrawer({
                 </View>
               </View>
 
-              {/* Control buttons */}
+              {/* Control buttons - optimized for instant response */}
               <View className="absolute inset-0 flex-row items-center justify-between px-2">
                 <Button
                   variant="secondary"
-                  onPress={() => {
-                    const currentPos = thresholdPosition;
-                    const stepPercent = 2; // 2% visual step
-                    const newPos = Math.max(0, currentPos - stepPercent);
-                    const newDb = visualPositionToDb(newPos);
-                    // Convert dB back to energy (0-1), clamp dB to valid range first
-                    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy =
-                      clampedDb <= DB_MIN
-                        ? VAD_THRESHOLD_MIN
-                        : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(
-                      VAD_THRESHOLD_MIN,
-                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
-                    );
-                    updateThreshold(Number(newThreshold.toFixed(4)));
-                  }}
+                  onPress={handleDecreaseThreshold}
                   disabled={localThreshold <= VAD_THRESHOLD_MIN}
                   className="size-12"
                 >
@@ -960,23 +927,7 @@ export function VADSettingsDrawer({
 
                 <Button
                   variant="secondary"
-                  onPress={() => {
-                    const currentPos = thresholdPosition;
-                    const stepPercent = 2; // 2% visual step
-                    const newPos = Math.min(100, currentPos + stepPercent);
-                    const newDb = visualPositionToDb(newPos);
-                    // Convert dB back to energy (0-1), clamp dB to valid range first
-                    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy =
-                      clampedDb <= DB_MIN
-                        ? VAD_THRESHOLD_MIN
-                        : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(
-                      VAD_THRESHOLD_MIN,
-                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
-                    );
-                    updateThreshold(Number(newThreshold.toFixed(4)));
-                  }}
+                  onPress={handleIncreaseThreshold}
                   disabled={localThreshold >= VAD_THRESHOLD_MAX}
                   className="size-12"
                 >
