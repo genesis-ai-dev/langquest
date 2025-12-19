@@ -492,11 +492,21 @@ class MicrophoneEnergyModule : Module() {
 
       segmentFile = null
       segmentBuffers.clear()
+      
+      // Clear ring buffer to prevent stale audio in next segment's preroll
+      synchronized(ringBuffer) {
+        ringBuffer.clear()
+      }
+      println("🗑️ Ring buffer cleared for fresh preroll")
 
     } catch (e: Exception) {
       promise.reject("STOP_SEGMENT_ERROR", "Failed to stop segment: ${e.message}", e)
       segmentFile = null
       segmentBuffers.clear()
+      // Clear ring buffer to prevent stale audio in next segment's preroll
+      synchronized(ringBuffer) {
+        ringBuffer.clear()
+      }
     }
   }
 }

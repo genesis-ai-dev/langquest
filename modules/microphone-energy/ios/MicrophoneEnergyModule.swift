@@ -468,6 +468,8 @@ public class MicrophoneEnergyModule: Module {
         
         guard let fileURL = segmentFile else {
             segmentBuffers.removeAll()
+            // Clear ring buffer to prevent stale audio in next segment's preroll
+            ringBuffer.removeAll()
             return nil
         }
         
@@ -545,6 +547,10 @@ public class MicrophoneEnergyModule: Module {
         
         segmentFile = nil
         segmentBuffers.removeAll()
+        
+        // Clear ring buffer to prevent stale audio in next segment's preroll
+        ringBuffer.removeAll()
+        print("🗑️ Ring buffer cleared for fresh preroll")
         
         return uri
     }
