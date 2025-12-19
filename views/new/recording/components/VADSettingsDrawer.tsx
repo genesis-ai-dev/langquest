@@ -244,15 +244,18 @@ export function VADSettingsDrawer({
   }, []);
 
   // Convert energy (0-1) to approximate dB (-60 to 0)
-  const energyToDb = React.useCallback((energy: number) => {
-    // First normalize if energy is in raw range
-    const normalized = energy > 1.0 ? normalizeEnergy(energy) : energy;
-    if (normalized <= 0) return DB_MIN;
-    // Convert normalized energy (0-1) to dB (-60 to 0)
-    // Use a mapping that gives us -60dB at very low values, 0dB at max
-    const db = 20 * Math.log10(Math.max(normalized, 0.001)); // Clamp to avoid -Infinity
-    return Math.max(DB_MIN, Math.min(DB_MAX, db));
-  }, [normalizeEnergy]);
+  const energyToDb = React.useCallback(
+    (energy: number) => {
+      // First normalize if energy is in raw range
+      const normalized = energy > 1.0 ? normalizeEnergy(energy) : energy;
+      if (normalized <= 0) return DB_MIN;
+      // Convert normalized energy (0-1) to dB (-60 to 0)
+      // Use a mapping that gives us -60dB at very low values, 0dB at max
+      const db = 20 * Math.log10(Math.max(normalized, 0.001)); // Clamp to avoid -Infinity
+      return Math.max(DB_MIN, Math.min(DB_MAX, db));
+    },
+    [normalizeEnergy]
+  );
 
   // Convert dB to visual position on pill scale
   // Since pills are equal width, each pill is 10% of the visual space
@@ -435,7 +438,6 @@ export function VADSettingsDrawer({
       }
       energySamplesRef.current = [];
     }
-
   }, [isOpen, isActive, threshold, energyToDb, normalizeEnergy]);
 
   // Collect energy samples for logging
