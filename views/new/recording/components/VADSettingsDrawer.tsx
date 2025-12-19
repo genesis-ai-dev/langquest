@@ -17,6 +17,13 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
+import {
+  VAD_SILENCE_DURATION_MAX,
+  VAD_SILENCE_DURATION_MIN,
+  VAD_THRESHOLD_DEFAULT,
+  VAD_THRESHOLD_MAX,
+  VAD_THRESHOLD_MIN
+} from '@/store/localStore';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import {
   ArrowBigLeft,
@@ -45,9 +52,6 @@ import Svg, { Circle } from 'react-native-svg';
 const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
 
 // Threshold constants
-const THRESHOLD_MIN = 0.001;
-const THRESHOLD_MAX = 1.0;
-const THRESHOLD_DEFAULT = 0.03;
 const CALIBRATION_DURATION_MS = 3000; // 3 seconds
 const CALIBRATION_SAMPLE_INTERVAL_MS = 50; // Sample every 50ms
 const CALIBRATION_MULTIPLIER = 4.0; // 12 dB = ~4x multiplier
@@ -230,17 +234,17 @@ export function VADSettingsDrawer({
   // Normalize energy value to 0-1 range
   // The native module returns raw RMS energy values (typically 0-20 range based on logs)
   // We need to normalize them to 0-1 for dB conversion and threshold comparison
-  const normalizeEnergy = (energy: number): number => {
+  const normalizeEnergy = React.useCallback((energy: number): number => {
     // Based on logs showing values ~9-14, we'll use a dynamic max
     // Normalize to 0-1, clamping at reasonable max
     // Using 20 as max seems reasonable based on observed values
     const MAX_ENERGY = 20.0;
     const normalized = Math.min(1.0, Math.max(0, energy / MAX_ENERGY));
     return normalized;
-  };
+  }, []);
 
   // Convert energy (0-1) to approximate dB (-60 to 0)
-  const energyToDb = (energy: number) => {
+  const energyToDb = React.useCallback((energy: number) => {
     // First normalize if energy is in raw range
     const normalized = energy > 1.0 ? normalizeEnergy(energy) : energy;
     if (normalized <= 0) return DB_MIN;
@@ -248,7 +252,7 @@ export function VADSettingsDrawer({
     // Use a mapping that gives us -60dB at very low values, 0dB at max
     const db = 20 * Math.log10(Math.max(normalized, 0.001)); // Clamp to avoid -Infinity
     return Math.max(DB_MIN, Math.min(DB_MAX, db));
-  };
+  }, [normalizeEnergy]);
 
   // Convert dB to visual position on pill scale
   // Since pills are equal width, each pill is 10% of the visual space
@@ -431,8 +435,8 @@ export function VADSettingsDrawer({
       }
       energySamplesRef.current = [];
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isActive, threshold]);
+
+  }, [isOpen, isActive, threshold, energyToDb, normalizeEnergy]);
 
   // Collect energy samples for logging
   React.useEffect(() => {
@@ -447,7 +451,7 @@ export function VADSettingsDrawer({
 
   // Reset to default threshold
   const handleResetToDefault = () => {
-    onThresholdChange(THRESHOLD_DEFAULT);
+    onThresholdChange(VAD_THRESHOLD_DEFAULT);
   };
 
   // Auto-calibrate function
@@ -540,8 +544,8 @@ export function VADSettingsDrawer({
       // Calculate new threshold: 4x normalized background noise (12 dB above)
       // Threshold is stored in normalized 0-1 range
       const newThreshold = Math.max(
-        THRESHOLD_MIN,
-        Math.min(THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
+        VAD_THRESHOLD_MIN,
+        Math.min(VAD_THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
       );
 
       // Apply threshold automatically
@@ -594,12 +598,12 @@ export function VADSettingsDrawer({
 
   // Increment/decrement handlers for silence duration
   const incrementSilence = () => {
-    const newValue = Math.min(3000, silenceDuration + 100);
+    const newValue = Math.min(VAD_SILENCE_DURATION_MAX, silenceDuration + 100);
     onSilenceDurationChange(newValue);
   };
 
   const decrementSilence = () => {
-    const newValue = Math.max(500, silenceDuration - 100);
+    const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
     onSilenceDurationChange(newValue);
   };
 
@@ -860,15 +864,15 @@ export function VADSettingsDrawer({
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
                     const newEnergy =
                       clampedDb <= DB_MIN
-                        ? THRESHOLD_MIN
+                        ? VAD_THRESHOLD_MIN
                         : Math.pow(10, clampedDb / 20);
                     const newThreshold = Math.max(
-                      THRESHOLD_MIN,
-                      Math.min(THRESHOLD_MAX, newEnergy)
+                      VAD_THRESHOLD_MIN,
+                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
                     );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
-                  disabled={threshold <= THRESHOLD_MIN}
+                  disabled={threshold <= VAD_THRESHOLD_MIN}
                   className="size-12"
                 >
                   <Icon as={ArrowBigLeft} size={20} />
@@ -885,15 +889,15 @@ export function VADSettingsDrawer({
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
                     const newEnergy =
                       clampedDb <= DB_MIN
-                        ? THRESHOLD_MIN
+                        ? VAD_THRESHOLD_MIN
                         : Math.pow(10, clampedDb / 20);
                     const newThreshold = Math.max(
-                      THRESHOLD_MIN,
-                      Math.min(THRESHOLD_MAX, newEnergy)
+                      VAD_THRESHOLD_MIN,
+                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
                     );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
-                  disabled={threshold >= THRESHOLD_MAX}
+                  disabled={threshold >= VAD_THRESHOLD_MAX}
                   className="size-12"
                 >
                   <Icon as={ArrowBigRight} size={20} />
@@ -954,7 +958,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={decrementSilence}
-                disabled={silenceDuration <= 500}
+                disabled={silenceDuration <= VAD_SILENCE_DURATION_MIN}
                 className="size-14"
               >
                 <Icon as={Minus} size={24} />
@@ -977,7 +981,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={incrementSilence}
-                disabled={silenceDuration >= 3000}
+                disabled={silenceDuration >= VAD_SILENCE_DURATION_MAX}
                 className="size-14"
               >
                 <Icon as={Plus} size={24} />
