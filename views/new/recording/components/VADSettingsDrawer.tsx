@@ -42,12 +42,17 @@ import {
 import React from 'react';
 import { View } from 'react-native';
 import Animated, {
+  cancelAnimation,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
+
+// Animated circle for Reanimated
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
 
@@ -691,6 +696,46 @@ export function VADSettingsDrawer({
     };
   });
 
+  // Silence timer progress (1 = full/speaking, 0 = empty/will split)
+  const silenceTimerProgress = useSharedValue(0);
+  const wasAboveThreshold = useSharedValue(false);
+
+  // Track silence timer: fills instantly when speaking, drains over silenceDuration when quiet
+  React.useEffect(() => {
+    const isAboveThreshold = normalizedCurrentEnergy > localThreshold;
+
+    if (isAboveThreshold) {
+      // Speaking: instantly fill to 100%
+      cancelAnimation(silenceTimerProgress);
+      silenceTimerProgress.value = 1;
+      wasAboveThreshold.value = true;
+    } else if (wasAboveThreshold.value) {
+      // Just went quiet: start draining over silenceDuration
+      wasAboveThreshold.value = false;
+      silenceTimerProgress.value = withTiming(0, {
+        duration: silenceDuration
+      });
+    }
+  }, [
+    normalizedCurrentEnergy,
+    localThreshold,
+    silenceDuration,
+    silenceTimerProgress,
+    wasAboveThreshold
+  ]);
+
+  // Circular progress indicator props
+  const CIRCLE_SIZE = 40;
+  const STROKE_WIDTH = 5;
+  const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+  const animatedCircleProps = useAnimatedProps(() => {
+    const progress = silenceTimerProgress.value;
+    const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+    return { strokeDashoffset };
+  });
+
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={[730, 900]}>
       <DrawerContent className="max-h-[90%]">
@@ -997,17 +1042,53 @@ export function VADSettingsDrawer({
                 <Icon as={Minus} size={24} />
               </Button>
 
-              <View className="flex-1 items-center rounded-lg border border-border bg-muted p-3">
-                <Text className="text-2xl font-bold text-foreground">
-                  {(silenceDuration / 1000).toFixed(1)}s
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {silenceDuration < 1000
-                    ? t('vadQuickSegments')
-                    : silenceDuration <= 1500
-                      ? t('vadBalanced')
-                      : t('vadCompleteThoughts')}
-                </Text>
+              <View className="flex-1 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-muted p-3">
+                {/* Duration text */}
+                <View className="items-center">
+                  <Text className="text-2xl font-bold text-foreground">
+                    {(silenceDuration / 1000).toFixed(1)}s
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {silenceDuration < 1000
+                      ? t('vadQuickSegments')
+                      : silenceDuration <= 1500
+                        ? t('vadBalanced')
+                        : t('vadCompleteThoughts')}
+                  </Text>
+                </View>
+
+                {/* Circular silence timer indicator */}
+                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
+                  <Svg
+                    width={CIRCLE_SIZE}
+                    height={CIRCLE_SIZE}
+                    style={{
+                      transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
+                    }}
+                  >
+                    {/* Background circle */}
+                    <Circle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke="#cccccc"
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                    />
+                    {/* Animated progress circle */}
+                    <AnimatedCircle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke="#22c55e"
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                      strokeDasharray={CIRCUMFERENCE}
+                      animatedProps={animatedCircleProps}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
               </View>
 
               <Button
