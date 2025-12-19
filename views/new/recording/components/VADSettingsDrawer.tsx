@@ -18,6 +18,8 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
+  VAD_SILENCE_DURATION_MAX,
+  VAD_SILENCE_DURATION_MIN,
   VAD_THRESHOLD_DEFAULT,
   VAD_THRESHOLD_MAX,
   VAD_THRESHOLD_MIN
@@ -662,12 +664,12 @@ export function VADSettingsDrawer({
 
   // Increment/decrement handlers for silence duration
   const incrementSilence = () => {
-    const newValue = Math.min(3000, silenceDuration + 100);
+    const newValue = Math.min(VAD_SILENCE_DURATION_MAX, silenceDuration + 100);
     onSilenceDurationChange(newValue);
   };
 
   const decrementSilence = () => {
-    const newValue = Math.max(500, silenceDuration - 100);
+    const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
     onSilenceDurationChange(newValue);
   };
 
@@ -989,7 +991,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={decrementSilence}
-                disabled={silenceDuration <= 500}
+                disabled={silenceDuration <= VAD_SILENCE_DURATION_MIN}
                 className="size-14"
               >
                 <Icon as={Minus} size={24} />
@@ -1012,7 +1014,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={incrementSilence}
-                disabled={silenceDuration >= 3000}
+                disabled={silenceDuration >= VAD_SILENCE_DURATION_MAX}
                 className="size-14"
               >
                 <Icon as={Plus} size={24} />

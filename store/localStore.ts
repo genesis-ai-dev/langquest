@@ -46,6 +46,11 @@ export const VAD_THRESHOLD_MIN = 0.001;
 export const VAD_THRESHOLD_MAX = 1.0;
 export const VAD_THRESHOLD_DEFAULT = 0.05;
 
+// VAD silence duration constants (in milliseconds)
+export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
+export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
+export const VAD_SILENCE_DURATION_DEFAULT = 1000; // 1 second
+
 // Recently visited item types
 export interface RecentProject {
   id: string;
@@ -102,7 +107,7 @@ export interface LocalState {
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
-  // vadSilenceDuration: 500-3000ms (how long to wait before stopping recording)
+  // vadSilenceDuration: VAD_SILENCE_DURATION_MIN to VAD_SILENCE_DURATION_MAX (how long to wait before stopping recording)
   // vadDisplayMode: 'fullscreen' = waveform takes over screen, 'footer' = small waveform in footer
   vadThreshold: number;
   setVadThreshold: (threshold: number) => void;
@@ -230,7 +235,7 @@ export const useLocalStore = create<LocalState>()(
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
-      vadSilenceDuration: 1000, // 1 second pause
+      vadSilenceDuration: VAD_SILENCE_DURATION_DEFAULT,
       vadDisplayMode: 'footer', // Default to footer mode
 
       // Authentication view state
@@ -338,7 +343,12 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
       setVadSilenceDuration: (duration) =>
-        set({ vadSilenceDuration: duration }),
+        set({
+          vadSilenceDuration: Math.max(
+            VAD_SILENCE_DURATION_MIN,
+            Math.min(VAD_SILENCE_DURATION_MAX, duration)
+          )
+        }),
       setVadDisplayMode: (mode) => set({ vadDisplayMode: mode }),
 
       // Navigation context setters
