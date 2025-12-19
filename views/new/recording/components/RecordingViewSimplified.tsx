@@ -138,6 +138,7 @@ const RecordingViewSimplified = ({
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -2132,7 +2133,7 @@ const RecordingViewSimplified = ({
             {t('assets')} ({assets.length})
           </Text>
         </View>
-        {assets.length > 0 && (
+        {assets.length > 0 && enablePlayAll && (
           <Button
             variant="ghost"
             size="icon"
