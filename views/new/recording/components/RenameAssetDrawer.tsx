@@ -9,7 +9,8 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerTitle
+  DrawerTitle,
+  DrawerView
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -70,32 +71,34 @@ export function RenameAssetDrawer({
 
   return (
     <Drawer open={isOpen} onOpenChange={handleOpenChange} dismissible>
-      <DrawerContent className="gap-4">
-        <DrawerHeader>
-          <DrawerTitle>Rename Asset</DrawerTitle>
-        </DrawerHeader>
+      <DrawerContent asChild>
+        <DrawerView className="gap-4">
+          <DrawerHeader>
+            <DrawerTitle>Rename Asset</DrawerTitle>
+          </DrawerHeader>
 
-        <View className="gap-4">
-          <Input
-            ref={inputRef}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter asset name"
-            selectTextOnFocus
-            onSubmitEditing={handleSave}
-            returnKeyType="done"
-            drawerInput
-          />
-        </View>
+          <View className="gap-4">
+            <Input
+              ref={inputRef}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter asset name"
+              selectTextOnFocus
+              onSubmitEditing={handleSave}
+              returnKeyType="done"
+              drawerInput
+            />
+          </View>
 
-        <DrawerFooter className="flex flex-row gap-3">
-          <DrawerClose className="flex-1">
-            <Text>Cancel</Text>
-          </DrawerClose>
-          <Button onPress={handleSave} className="flex-1">
-            <Text>Save</Text>
-          </Button>
-        </DrawerFooter>
+          <DrawerFooter className="flex flex-row gap-3">
+            <DrawerClose className="flex-1">
+              <Text>Cancel</Text>
+            </DrawerClose>
+            <Button onPress={handleSave} className="flex-1">
+              <Text>Save</Text>
+            </Button>
+          </DrawerFooter>
+        </DrawerView>
       </DrawerContent>
     </Drawer>
   );
