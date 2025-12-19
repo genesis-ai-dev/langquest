@@ -2333,6 +2333,7 @@ const RecordingViewSimplified = ({
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
         autoCalibrateOnOpen={autoCalibrateOnOpen}
+        energyShared={energyShared}
       />
     </View>
   );
