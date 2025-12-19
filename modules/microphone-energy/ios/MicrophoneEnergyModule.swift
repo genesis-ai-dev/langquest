@@ -9,9 +9,9 @@ public class MicrophoneEnergyModule: Module {
     private var audioConverter: AVAudioConverter?
     private var desiredFormat: AVAudioFormat?
     
-    // Ring buffer for capturing speech onset (1000ms for better onset capture)
+    // Ring buffer for capturing speech onset (200ms preroll)
     private var ringBuffer: [AVAudioPCMBuffer] = []
-    private let ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+    private let ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
     private var isRecordingSegment = false
     private var segmentFile: URL?
     private var segmentStartTime: TimeInterval = 0
@@ -389,7 +389,7 @@ public class MicrophoneEnergyModule: Module {
                 // Start segment with preroll
                 Task {
                     do {
-                        try await startSegment(options: ["prerollMs": 1000])
+                        try await startSegment(options: ["prerollMs": 200])
                     } catch {
                         print("⚠️ Native VAD: Failed to start segment: \(error.localizedDescription)")
                     }
@@ -429,8 +429,8 @@ public class MicrophoneEnergyModule: Module {
             return
         }
         
-        // Get preroll duration (default 500ms)
-        let prerollMs = (options?["prerollMs"] as? NSNumber)?.intValue ?? 500
+        // Get preroll duration (default 200ms)
+        let prerollMs = (options?["prerollMs"] as? NSNumber)?.intValue ?? 200
         
         // Create temp file for segment (WAV format for compatibility)
         let tempDir = FileManager.default.temporaryDirectory

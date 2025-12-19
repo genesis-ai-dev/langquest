@@ -18,9 +18,9 @@ class MicrophoneEnergyModule : Module() {
   private var isActive = false
   private var recordingScope: CoroutineScope? = null
   
-  // Ring buffer for capturing speech onset (1000ms for better onset capture)
+  // Ring buffer for capturing speech onset (200ms preroll)
   private val ringBuffer = ArrayDeque<ShortArray>()
-  private val ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+  private val ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
   private var isRecordingSegment = false
   private var segmentFile: java.io.File? = null
   private var segmentStartTime: Long = 0
@@ -318,7 +318,7 @@ class MicrophoneEnergyModule : Module() {
             println("⚠️ Native VAD: Failed to start segment: $message")
           }
         }
-        startSegment(mapOf("prerollMs" to 1000), promise)
+        startSegment(mapOf("prerollMs" to 200), promise)
       } else if (timeSinceOnset > 300) {
         // Timeout - false alarm
         println("⚠️ Native VAD: Onset timeout - false alarm")
@@ -383,8 +383,8 @@ class MicrophoneEnergyModule : Module() {
     }
 
     try {
-      // Get preroll duration (default 500ms)
-      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 500
+      // Get preroll duration (default 200ms)
+      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 200
 
       // Create temp file for segment (WAV format for compatibility)
       val context = appContext.reactContext ?: throw Exception("Context not available")
