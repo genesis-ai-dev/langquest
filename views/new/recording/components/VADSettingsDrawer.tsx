@@ -74,10 +74,10 @@ const ENERGY_GRADIENT_COLORS_DIMMED = [
 ] as const;
 
 // Segmented energy bar constants
-const ENERGY_BAR_PILL_WIDTH = 6; // Individual pill width in px
+const ENERGY_BAR_PILL_WIDTH = 18; // Individual pill width in px
 const ENERGY_BAR_HEIGHT = 28; // Bar height in px
-const ENERGY_BAR_SPACING = 10; // Gap between pills in px
-const ENERGY_BAR_RADIUS = 2; // Pill corner radius in px
+const ENERGY_BAR_SPACING = 4; // Gap between pills in px
+const ENERGY_BAR_RADIUS = 4; // Pill corner radius in px
 // Total horizontal padding: DrawerContent px-6 (24px × 2) + BottomSheetScrollView paddingHorizontal (16px × 2)
 const ENERGY_BAR_HORIZONTAL_PADDING = 48;
 
@@ -93,13 +93,17 @@ const DB_MIN = -60; // Minimum dB (very quiet)
 const DB_MAX = 0; // Maximum dB (maximum level)
 
 // Pure helper functions (no component dependencies)
+// CRITICAL: Native module sends energy as normalized amplitude (0-1 range)
+// NOT raw RMS energy, so normalizeEnergy should only clamp, not divide
 const normalizeEnergy = (energy: number): number => {
-  const MAX_ENERGY = 20.0;
-  return Math.min(1.0, Math.max(0, energy / MAX_ENERGY));
+  // Energy from native is already normalized amplitude (0-1)
+  // Only clamp to ensure it's in valid range
+  return Math.min(1.0, Math.max(0, energy));
 };
 
 const energyToDb = (energy: number): number => {
-  const normalized = energy > 1.0 ? normalizeEnergy(energy) : energy;
+  // Energy is already normalized (0-1), just clamp if needed
+  const normalized = energy > 1.0 ? 1.0 : Math.max(0, energy);
   if (normalized <= 0) return DB_MIN;
   const db = 20 * Math.log10(Math.max(normalized, 0.001));
   return Math.max(DB_MIN, Math.min(DB_MAX, db));
@@ -269,11 +273,14 @@ function VADSettingsDrawerInternal({
 
   // Simplified: Single derived value for dB calculation
   // Reduced from 2 derived values to 1 to reduce UI thread overhead
+  // CRITICAL: Native module sends smoothedEnergy as normalized amplitude (0-1 range)
+  // NOT raw RMS energy, so we should NOT divide by MAX_ENERGY
   const currentDbShared = useDerivedValue(() => {
     'worklet';
     const energy = energyShared.value;
-    const MAX_ENERGY = 20.0;
-    const normalized = Math.min(1.0, Math.max(0, energy / MAX_ENERGY));
+    // Energy is already normalized amplitude (0-1) from native module
+    // Native module: peak amplitude → dB → amplitude (0-1) → EMA smoothed
+    const normalized = Math.min(1.0, Math.max(0, energy));
     if (normalized <= 0) return DB_MIN;
     const db = 20 * Math.log10(Math.max(normalized, 0.001));
     return Math.max(DB_MIN, Math.min(DB_MAX, db));
@@ -462,17 +469,15 @@ function VADSettingsDrawerInternal({
         return;
       }
 
-      // Calculate average background noise (raw RMS energy)
+      // Calculate average background noise
+      // CRITICAL: Native module sends normalized amplitude (0-1), not raw RMS
+      // So we should use the values directly without dividing by MAX_ENERGY
       const average =
         samples.reduce((sum, val) => sum + val, 0) / samples.length;
 
-      // Normalize the average energy to 0-1 range (matching visualization)
-      // Swift/Android send raw RMS energy values that need normalization
-      const MAX_ENERGY = 20.0;
-      const normalizedAverage = Math.min(
-        1.0,
-        Math.max(0, average / MAX_ENERGY)
-      );
+      // Energy is already normalized amplitude (0-1) from native module
+      // Just clamp to ensure valid range
+      const normalizedAverage = Math.min(1.0, Math.max(0, average));
 
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
@@ -508,9 +513,9 @@ function VADSettingsDrawerInternal({
   const handleAutoCalibrateRef = React.useRef<
     typeof handleAutoCalibrate | null
   >(null);
-  const onThresholdChangeRef = React.useRef<
-    typeof onThresholdChange | null
-  >(null);
+  const onThresholdChangeRef = React.useRef<typeof onThresholdChange | null>(
+    null
+  );
 
   // Keep refs updated with latest callbacks (use refs to avoid dependency loops)
   // Update refs in effect to satisfy linter (refs are still updated synchronously before use)
