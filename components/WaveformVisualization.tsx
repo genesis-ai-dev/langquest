@@ -30,11 +30,25 @@ const WaveformBar = React.memo(
   ({ barValue, barWasRecorded, maxHeight }: WaveformBarProps) => {
     const barAnimatedStyle = useAnimatedStyle(() => {
       'worklet';
-      const targetHeight = Math.max(2, barValue.value * maxHeight);
+      const energy = Math.max(0, Math.min(1, barValue.value));
+
+      // For recorded bars (red), use a much lower exponent to make them scale dramatically
+      // Lower exponent (0.6) = very aggressive scaling - makes mid-range values much taller
+      // For non-recorded bars (blue), use higher exponent to keep them subtle
+      const exponent = barWasRecorded.value ? 0.6 : 2.5;
+      const barScale = barWasRecorded.value ? 4.0 : 1.0;
+
+      // Calculate height with aggressive scaling for recorded bars
+      // With energy ~0.05 and exponent 0.6: pow(0.05, 0.6) ≈ 0.18, * 24 * 4 = ~17px
+      const scaledHeight = Math.pow(energy, exponent) * maxHeight * barScale;
+
+      // Set minimum heights - higher minimum for recorded bars to ensure visibility
+      const minHeight = barWasRecorded.value ? 10 : 2;
+      const visualHeight = Math.max(minHeight, scaledHeight);
 
       return {
-        height: withTiming(targetHeight, {
-          duration: 20,
+        height: withTiming(visualHeight, {
+          duration: 16,
           easing: Easing.linear
         }),
         backgroundColor: barWasRecorded.value ? colors.error : colors.primary
@@ -43,7 +57,7 @@ const WaveformBar = React.memo(
 
     return (
       <AnimatedView
-        className="min-h-[2px] w-[3px] rounded-full"
+        className="min-h-[2px] w-[4px] rounded-full"
         style={barAnimatedStyle}
       />
     );
