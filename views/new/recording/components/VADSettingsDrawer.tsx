@@ -548,7 +548,7 @@ function VADSettingsDrawerInternal({
       hasAutoCalibratedRef.current = true;
       // Small delay to ensure drawer is fully open and energy detection can start
       const timer = setTimeout(() => {
-        void handleAutoCalibrateRef.current();
+        void handleAutoCalibrateRef.current?.();
       }, 300);
       return () => clearTimeout(timer);
     }
