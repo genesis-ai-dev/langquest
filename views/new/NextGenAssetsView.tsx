@@ -241,6 +241,7 @@ export default function NextGenAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   const {
     data,
@@ -1044,7 +1045,7 @@ export default function NextGenAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && (
+          {assets.length > 0 && enablePlayAll && (
             <Button
               variant="ghost"
               size="icon"

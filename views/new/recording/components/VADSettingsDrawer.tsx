@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
+import {
+  VAD_SILENCE_DURATION_MAX,
+  VAD_SILENCE_DURATION_MIN,
+  VAD_THRESHOLD_DEFAULT,
+  VAD_THRESHOLD_MAX,
+  VAD_THRESHOLD_MIN
+} from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
 import { useGestureEventsHandlersDefault } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -77,9 +84,6 @@ const ENERGY_BAR_HORIZONTAL_PADDING = 48;
 const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
 
 // Threshold constants
-const THRESHOLD_MIN = 0.001;
-const THRESHOLD_MAX = 1.0;
-const THRESHOLD_DEFAULT = 0.03;
 const CALIBRATION_DURATION_MS = 3000; // 3 seconds
 const CALIBRATION_SAMPLE_INTERVAL_MS = 50; // Sample every 50ms
 const CALIBRATION_MULTIPLIER = 4.0; // 12 dB = ~4x multiplier
@@ -389,7 +393,7 @@ function VADSettingsDrawerInternal({
 
   // Reset to default threshold
   const handleResetToDefault = () => {
-    onThresholdChange(THRESHOLD_DEFAULT);
+    onThresholdChange(VAD_THRESHOLD_DEFAULT);
   };
 
   // Auto-calibrate function
@@ -484,12 +488,12 @@ function VADSettingsDrawerInternal({
       // Calculate new threshold: 4x normalized background noise (12 dB above)
       // Threshold is stored in normalized 0-1 range
       const newThreshold = Math.max(
-        THRESHOLD_MIN,
-        Math.min(THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
+        VAD_THRESHOLD_MIN,
+        Math.min(VAD_THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
       );
 
       // Apply threshold automatically (use ref to avoid dependency issues)
-      onThresholdChangeRef.current(Number(newThreshold.toFixed(4)));
+      onThresholdChangeRef.current?.(Number(newThreshold.toFixed(4)));
 
       setIsCalibrating(false);
       setCalibrationProgress(0);
@@ -501,17 +505,25 @@ function VADSettingsDrawerInternal({
 
   // Auto-calibrate when drawer opens with autoCalibrateOnOpen flag
   const hasAutoCalibratedRef = React.useRef(false);
-  const handleAutoCalibrateRef = React.useRef(handleAutoCalibrate);
-  const onThresholdChangeRef = React.useRef(onThresholdChange);
+  const handleAutoCalibrateRef = React.useRef<
+    typeof handleAutoCalibrate | null
+  >(null);
+  const onThresholdChangeRef = React.useRef<
+    typeof onThresholdChange | null
+  >(null);
 
   // Keep refs updated with latest callbacks (use refs to avoid dependency loops)
-  // Update refs directly without effect to prevent infinite loops
-  handleAutoCalibrateRef.current = handleAutoCalibrate;
-  onThresholdChangeRef.current = onThresholdChange;
+  // Update refs in effect to satisfy linter (refs are still updated synchronously before use)
+  React.useEffect(() => {
+    handleAutoCalibrateRef.current = handleAutoCalibrate;
+    onThresholdChangeRef.current = onThresholdChange;
+  }, [handleAutoCalibrate, onThresholdChange]);
 
   // Track isCalibrating with ref to avoid dependency loop
   const isCalibratingRef = React.useRef(isCalibrating);
-  isCalibratingRef.current = isCalibrating;
+  React.useEffect(() => {
+    isCalibratingRef.current = isCalibrating;
+  }, [isCalibrating]);
 
   React.useEffect(() => {
     // Reset flag when drawer closes
@@ -546,12 +558,12 @@ function VADSettingsDrawerInternal({
 
   // Increment/decrement handlers for silence duration
   const incrementSilence = () => {
-    const newValue = Math.min(3000, silenceDuration + 100);
+    const newValue = Math.min(VAD_SILENCE_DURATION_MAX, silenceDuration + 100);
     onSilenceDurationChange(newValue);
   };
 
   const decrementSilence = () => {
-    const newValue = Math.max(500, silenceDuration - 100);
+    const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
     onSilenceDurationChange(newValue);
   };
 
@@ -978,15 +990,15 @@ function VADSettingsDrawerInternal({
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
                     const newEnergy =
                       clampedDb <= DB_MIN
-                        ? THRESHOLD_MIN
+                        ? VAD_THRESHOLD_MIN
                         : Math.pow(10, clampedDb / 20);
                     const newThreshold = Math.max(
-                      THRESHOLD_MIN,
-                      Math.min(THRESHOLD_MAX, newEnergy)
+                      VAD_THRESHOLD_MIN,
+                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
                     );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
-                  disabled={threshold <= THRESHOLD_MIN}
+                  disabled={threshold <= VAD_THRESHOLD_MIN}
                   className="size-12"
                 >
                   <Icon as={ArrowBigLeft} size={20} />
@@ -1003,15 +1015,15 @@ function VADSettingsDrawerInternal({
                     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
                     const newEnergy =
                       clampedDb <= DB_MIN
-                        ? THRESHOLD_MIN
+                        ? VAD_THRESHOLD_MIN
                         : Math.pow(10, clampedDb / 20);
                     const newThreshold = Math.max(
-                      THRESHOLD_MIN,
-                      Math.min(THRESHOLD_MAX, newEnergy)
+                      VAD_THRESHOLD_MIN,
+                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
                     );
                     onThresholdChange(Number(newThreshold.toFixed(4)));
                   }}
-                  disabled={threshold >= THRESHOLD_MAX}
+                  disabled={threshold >= VAD_THRESHOLD_MAX}
                   className="size-12"
                 >
                   <Icon as={ArrowBigRight} size={20} />
@@ -1066,9 +1078,9 @@ function VADSettingsDrawerInternal({
             <View className="flex-row items-center gap-3">
               <Button
                 variant="outline"
-                size="icon-2xl"
+                size="icon-xl"
                 onPress={decrementSilence}
-                disabled={silenceDuration <= 500}
+                disabled={silenceDuration <= VAD_SILENCE_DURATION_MIN}
               >
                 <Icon as={Minus} size={24} />
               </Button>
@@ -1088,9 +1100,9 @@ function VADSettingsDrawerInternal({
 
               <Button
                 variant="outline"
-                size="icon-2xl"
+                size="icon-xl"
                 onPress={incrementSilence}
-                disabled={silenceDuration >= 3000}
+                disabled={silenceDuration >= VAD_SILENCE_DURATION_MAX}
               >
                 <Icon as={Plus} size={24} />
               </Button>
