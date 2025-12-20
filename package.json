@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "2.0.7",
   "scripts": {
-    "start": "REACT_NATIVE_DEBUGGER_FRONTEND_PATH=node_modules/@react-native/debugger-frontend/dist/third-party/front_end/ expo start --dev-client",
+    "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
     "export:ios": "EXPO_ATLAS=true npx expo export --platform ios",
