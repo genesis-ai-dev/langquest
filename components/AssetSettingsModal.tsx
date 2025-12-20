@@ -7,26 +7,18 @@ import { useQuestById } from '@/hooks/db/useQuests';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
-} from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
 import RNAlert from '@blazejkustra/react-native-alert';
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  EyeOffIcon,
+  XCircleIcon
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import { SwitchBox } from './SwitchBox';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
+import { Text } from './ui/text';
 
 interface AssetSettingsModalProps {
   isVisible: boolean;
@@ -62,9 +54,14 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
     refetch
   } = useAssetStatuses(assetId, questId);
 
+  React.useEffect(() => {
+    if (isError) {
+      RNAlert.alert(t('error'), t('assetSettingsLoadError'));
+      onClose();
+    }
+  }, [isError, onClose, t]);
+
   if (isError) {
-    RNAlert.alert(t('error'), t('assetSettingsLoadError'));
-    onClose();
     return null;
   }
 
@@ -72,26 +69,19 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   const assetQuestData = statusData?.currentQuest;
 
   const handleToggleStatusGeneral = async (statusType: TStatusType) => {
-    if (!assetData) return;
-
+    if (!assetData || isSubmitting) return;
     setIsSubmitting(true);
-    try {
-      let [visible, active] = [assetData.visible, assetData.active];
 
+    let visible = assetData.visible;
+    let active = assetData.active;
+
+    try {
       if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
+        // Visibility switch is independent - only toggle visible state
+        visible = !visible;
       } else {
-        if (!active) {
-          visible = true;
-          active = true;
-        } else {
-          active = false;
-        }
+        // Active switch is independent - only toggle active state
+        active = !active;
       }
 
       await updateAssetStatus(
@@ -115,19 +105,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         assetId,
         questId
       );
-
-      const message =
-        statusType === 'visible'
-          ? assetData.visible
-            ? t('assetMadeInvisibleAllQuests')
-            : t('assetMadeVisibleAllQuests')
-          : assetData.active
-            ? t('assetMadeInactiveAllQuests')
-            : t('assetMadeActiveAllQuests');
-
-      RNAlert.alert(t('success'), message);
     } catch (error) {
-      console.error('Error updating asset visibility / active:', error);
+      console.error('Error updating asset status:', error);
       RNAlert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
@@ -135,26 +114,19 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   };
 
   const handleToggleStatusQuest = async (statusType: TStatusType) => {
-    if (!assetQuestData) return;
-
+    if (!assetQuestData || isSubmitting) return;
     setIsSubmitting(true);
-    try {
-      let [visible, active] = [assetQuestData.visible, assetQuestData.active];
 
+    let visible = assetQuestData.visible;
+    let active = assetQuestData.active;
+
+    try {
       if (statusType === 'visible') {
-        if (visible) {
-          visible = false;
-          active = false;
-        } else {
-          visible = true;
-        }
+        // Visibility switch is independent - only toggle visible state
+        visible = !visible;
       } else {
-        if (!active) {
-          visible = true;
-          active = true;
-        } else {
-          active = false;
-        }
+        // Active switch is independent - only toggle active state
+        active = !active;
       }
 
       await updateAssetStatus(
@@ -179,19 +151,8 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
         assetId,
         questId
       );
-
-      const message =
-        statusType === 'visible'
-          ? assetQuestData.visible
-            ? t('assetMadeInvisibleQuest')
-            : t('assetMadeVisibleQuest')
-          : assetQuestData.active
-            ? t('assetMadeInactiveQuest')
-            : t('assetMadeActiveQuest');
-
-      RNAlert.alert(t('success'), message);
     } catch (error) {
-      console.error('Error updating asset visibility / active:', error);
+      console.error('Error updating asset status:', error);
       RNAlert.alert(t('error'), t('failedToUpdateAssetSettings'));
     } finally {
       setIsSubmitting(false);
@@ -199,150 +160,92 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <Drawer
+      open={isVisible}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      snapPoints={['80%']}
+      enableDynamicSizing={false}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable style={sharedStyles.modalOverlay} onPress={onClose}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={[sharedStyles.modal, styles.modalContainer]}>
-              <View style={styles.header}>
-                <Text style={sharedStyles.modalTitle}>
-                  {t('assetSettings')}
-                </Text>
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              {/* Changing settings to the Asset itself. This will affect all quests */}
-              <Text style={styles.settingTitle}>{t('general')}</Text>
-              <Text style={styles.infoText}>
-                These settings affect how the asset behaves across all quests
-              </Text>
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  assetData?.visible
-                    ? t('visibilityDescription')
-                    : t('assetHiddenAllQuests')
-                }
-                value={assetData?.visible ?? false}
-                onChange={() => handleToggleStatusGeneral('visible')}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
+      <DrawerContent className="bg-background pb-4">
+        <DrawerHeader>
+          <DrawerTitle>{t('assetSettings')}</DrawerTitle>
+        </DrawerHeader>
 
-              <SwitchBox
-                title={t('active')}
-                description={
-                  assetData?.visible
-                    ? t('activeDescription')
-                    : t('assetDisabledAllQuests')
-                }
-                value={assetData?.active ?? false}
-                onChange={() => handleToggleStatusGeneral('active')}
-                disabled={isSubmitting || isLoading || !isOwner}
-              />
+        <View className="flex-1 gap-2">
+          {/* Changing settings to the Asset itself. This will affect all quests */}
+          <Text className="mb-1 text-base font-semibold">{t('general')}</Text>
+          <Text className="mb-2 text-xs text-muted-foreground">
+            {t('assetGeneralSettingsDescription')}
+          </Text>
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              assetData?.visible
+                ? t('visibilityDescription')
+                : t('assetHiddenAllQuests')
+            }
+            value={assetData?.visible ?? false}
+            onChange={() => handleToggleStatusGeneral('visible')}
+            disabled={isLoading || !isOwner}
+            icon={assetData?.visible ? EyeIcon : EyeOffIcon}
+          />
 
-              <View style={{ height: 22 }} />
+          <SwitchBox
+            title={t('active')}
+            description={
+              assetData?.active
+                ? t('activeDescription')
+                : t('assetDisabledAllQuests')
+            }
+            value={assetData?.active ?? false}
+            onChange={() => handleToggleStatusGeneral('active')}
+            disabled={isLoading || !isOwner}
+            icon={assetData?.active ? CheckCircleIcon : XCircleIcon}
+          />
 
-              {/* Changing settings to the Asset related to this quest only */}
-              <Text style={styles.settingTitle}>{t('currentQuest')}</Text>
-              <Text style={styles.infoText}>
-                {assetData?.active
-                  ? t('questSpecificSettingsDescription')
-                  : t('assetDisabledWarning')}
-              </Text>
+          <View className="h-6" />
 
-              <SwitchBox
-                title={t('visibility')}
-                description={
-                  assetQuestData?.visible
-                    ? t('assetVisibleThisQuest')
-                    : t('assetHiddenThisQuest')
-                }
-                value={assetQuestData?.visible ?? false}
-                onChange={() => handleToggleStatusQuest('visible')}
-                disabled={
-                  isSubmitting || isLoading || !isOwner || !assetData?.active
-                }
-              />
+          {/* Changing settings to the Asset related to this quest only */}
+          <Text className="mb-1 text-base font-semibold">
+            {t('currentQuest')}
+          </Text>
+          <Text className="mb-2 text-xs text-muted-foreground">
+            {assetData?.active
+              ? t('questSpecificSettingsDescription')
+              : t('assetDisabledWarning')}
+          </Text>
 
-              <SwitchBox
-                title={t('active')}
-                description={
-                  assetQuestData?.active
-                    ? t('assetActiveThisQuest')
-                    : t('assetInactiveThisQuest')
-                }
-                value={assetQuestData?.active ?? false}
-                onChange={() => handleToggleStatusQuest('active')}
-                disabled={
-                  isSubmitting || isLoading || !isOwner || !assetData?.active
-                }
-              />
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              assetQuestData?.visible
+                ? t('assetVisibleThisQuest')
+                : t('assetHiddenThisQuest')
+            }
+            value={assetQuestData?.visible ?? false}
+            onChange={() => handleToggleStatusQuest('visible')}
+            disabled={isLoading || !isOwner || !assetData?.active}
+            icon={assetQuestData?.visible ? EyeIcon : EyeOffIcon}
+          />
+
+          <SwitchBox
+            title={t('active')}
+            description={
+              assetQuestData?.active
+                ? t('assetActiveThisQuest')
+                : t('assetInactiveThisQuest')
+            }
+            value={assetQuestData?.active ?? false}
+            onChange={() => handleToggleStatusQuest('active')}
+            disabled={isLoading || !isOwner || !assetData?.active}
+            icon={assetQuestData?.active ? CheckCircleIcon : XCircleIcon}
+          />
+        </View>
+      </DrawerContent>
+    </Drawer>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.medium
-  },
-  closeButton: {
-    padding: spacing.xsmall
-  },
-  content: {
-    paddingVertical: spacing.small
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inputBorder
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: spacing.medium
-  },
-  settingTitle: {
-    fontSize: fontSizes.medium,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xsmall
-  },
-  settingDescription: {
-    fontSize: fontSizes.small,
-    color: colors.textSecondary
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.primaryLight,
-    padding: spacing.medium,
-    borderRadius: borderRadius.medium,
-    marginTop: spacing.medium,
-    gap: spacing.small
-  },
-  infoText: {
-    // flex: 1,
-    fontSize: fontSizes.xsmall,
-    color: colors.text,
-    lineHeight: 20
-  }
-});

@@ -13,14 +13,14 @@ import {
 } from 'react-hook-form';
 
 import { Label } from '@/components/ui/label';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { buttonTextVariants, buttonVariants } from './button';
+import { View } from 'react-native';
+import { Button } from './button';
 import type { Option } from './select';
 import { getOptionFromValue } from './select';
 import * as Slot from './slot';
-import { Text, TextClassContext } from './text';
+import { Text } from './text';
 
 const Form = FormProvider;
 
@@ -148,7 +148,7 @@ const FormLabel = React.forwardRef<
   return (
     <Label
       ref={ref}
-      className={cn(error && 'text-destructive', className)}
+      className={cn('native:text-sm', error && 'text-destructive', className)}
       htmlFor={formItemId}
       {...props}
     />
@@ -220,59 +220,21 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = 'FormMessage';
 
-const FormSubmit = React.forwardRef<
-  React.ComponentRef<typeof Slot.Pressable>,
-  React.ComponentPropsWithoutRef<typeof Slot.Pressable> & {
-    asChild?: boolean;
-    activityIndicatorClassName?: string;
-    activityIndicatorColor?: string;
-  }
->(
-  (
-    {
-      children,
-      asChild,
-      className,
-      activityIndicatorClassName,
-      activityIndicatorColor,
-      ...props
-    },
-    ref
-  ) => {
-    const { control } = useFormContext();
-    const { isValid, isSubmitting } = useFormState({ control });
-    const isDisabled = !isValid || isSubmitting || props.disabled;
+const FormSubmit = ({
+  children,
+  disabled,
+  ...props
+}: React.ComponentProps<typeof Button>) => {
+  const { control } = useFormContext();
+  const { isValid, isSubmitting } = useFormState({ control });
+  const isDisabled = !isValid || isSubmitting || !!disabled;
 
-    const Component = asChild ? Slot.Pressable : Pressable;
-
-    return (
-      <TextClassContext.Provider value={buttonTextVariants({ className })}>
-        <Component
-          ref={ref}
-          disabled={isDisabled}
-          {...props}
-          className={cn(
-            'flex flex-row items-center gap-2',
-            isDisabled &&
-              'opacity-50 hover:opacity-50 web:pointer-events-none web:cursor-default',
-            buttonVariants({ className })
-          )}
-        >
-          <>
-            {isSubmitting && (
-              <ActivityIndicator
-                size="small"
-                color={activityIndicatorColor || getThemeColor('secondary')}
-                className={activityIndicatorClassName}
-              />
-            )}
-            {children}
-          </>
-        </Component>
-      </TextClassContext.Provider>
-    );
-  }
-);
+  return (
+    <Button {...props} disabled={isDisabled} loading={isSubmitting}>
+      {children}
+    </Button>
+  );
+};
 FormSubmit.displayName = 'FormSubmit';
 
 export {

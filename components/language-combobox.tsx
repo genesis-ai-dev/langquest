@@ -1,9 +1,10 @@
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { languoid } from '@/db/drizzleSchema';
+import type { languoid } from '@/db/drizzleSchema';
+import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
-  type LanguoidSearchResult,
   useLanguoidEndonyms,
   useLanguoidSearch,
   useLanguoids,
@@ -14,11 +15,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
-import { cn, getThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon, PlusCircleIcon } from 'lucide-react-native';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
   useAnimatedStyle,
@@ -27,6 +28,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { ButtonPressable } from './ui/button';
 
 type Languoid = typeof languoid.$inferSelect;
 
@@ -111,6 +113,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   allowCreate = false,
   onCreateNew
 }) => {
+  const primaryColor = useThemeColor('primary');
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
   const setUILanguage = useLocalStore((state) => state.setUILanguage);
   const uiLanguage = useLocalStore((state) => state.uiLanguage);
@@ -349,12 +352,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   // Show loading state while fetching initial data
   if (isLocalLoading && localLanguoids.length === 0) {
     return (
-      <View
-        className={cn(
-          'h-12 rounded-md border border-input bg-card px-3',
-          className
-        )}
-      >
+      <View className={cn('h-12 border border-border bg-card px-3', className)}>
         <LoadingState />
       </View>
     );
@@ -369,14 +367,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           borderRadius: 8,
           paddingHorizontal: 12,
           backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('input')
+          borderColor: getThemeColor('border')
         }}
         placeholderStyle={{
-          fontSize: 16,
+          fontSize: 14,
           color: getThemeColor('muted-foreground')
         }}
         selectedTextStyle={{
-          fontSize: 16,
+          fontSize: 14,
+          lineHeight: 48,
           color: getThemeColor('foreground')
         }}
         iconStyle={{
@@ -385,16 +384,22 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         }}
         containerStyle={{
           borderRadius: 8,
+          overflow: 'hidden',
           borderWidth: 1,
-          marginTop: 4,
+          marginTop: 8,
           backgroundColor: getThemeColor('card'),
           borderColor: getThemeColor('border')
         }}
         dropdownPosition="auto"
         itemTextStyle={{
-          fontSize: 16,
+          fontSize: 14,
           color: getThemeColor('foreground')
         }}
+        itemContainerStyle={{
+          borderRadius: 8,
+          overflow: 'hidden'
+        }}
+        // activeColor={getThemeColor('primary')}
         activeColor={getThemeColor('primary')}
         data={sortedData}
         search
@@ -405,33 +410,25 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         value={effectiveValue}
         onChange={handleValueChange}
         renderInputSearch={() => (
-          <View className="border-b border-input p-2">
-            <View className="flex flex-row items-center gap-2">
-              <TextInput
-                value={immediateSearchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t('searchLanguages') || 'Search languages...'}
-                placeholderTextColor={getThemeColor('muted-foreground')}
-                className="h-10 flex-1 rounded-md bg-card px-3 text-base text-foreground"
-                selectionColor={getThemeColor('primary')}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {(isSearchLoading || isCreating) && (
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-              )}
-            </View>
-            {/* Show hint when server search is active */}
-            {shouldUseServerSearch && isQueryValid && (
-              <Text className="mt-1 px-1 text-xs text-muted-foreground">
-                {isOnline
-                  ? t('searching') || 'Searching...'
-                  : t('searching') || 'Searching...'}
-              </Text>
-            )}
+          <View className="overflow-hidden border-b border-border">
+            <Input
+              value={immediateSearchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('searchLanguages') || 'Search languages...'}
+              prefix={SearchIcon}
+              size="sm"
+              className="border-0"
+              autoCapitalize="none"
+              autoCorrect={false}
+              suffix={
+                (isSearchLoading || isCreating) && immediateSearchQuery ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                ) : undefined
+              }
+            />
           </View>
         )}
         flatListProps={{
@@ -460,8 +457,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           // Special rendering for "Create new" option
           if (item.isCreateOption) {
             return (
-              <Pressable
-                className="flex flex-row items-center bg-primary/10 px-3 py-3"
+              <ButtonPressable
+                className="flex flex-row items-center bg-primary/10 p-3"
                 onPress={() => handleValueChange(item)}
               >
                 <Icon
@@ -478,7 +475,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     Add this as a new language
                   </Text>
                 </View>
-              </Pressable>
+              </ButtonPressable>
             );
           }
 

@@ -266,10 +266,8 @@ export function QuestDownloadDiscoveryDrawer({
             </Text>
           </Button>
 
-          <DrawerClose asChild>
-            <Button variant="outline" disabled={isDiscovering}>
-              <Text>{t('cancel')}</Text>
-            </Button>
+          <DrawerClose variant="outline" disabled={isDiscovering}>
+            <Text>{t('cancel')}</Text>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
