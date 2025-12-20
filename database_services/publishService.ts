@@ -70,6 +70,7 @@ interface ChapterData {
     created_at: string;
     last_updated: string;
     active: boolean;
+    download_profiles?: string[] | null;
   };
   chapter: {
     id: string;
@@ -1021,6 +1022,7 @@ async function executePublishTransaction(
             created_at: data.profileProjectLink.created_at,
             last_updated: data.profileProjectLink.last_updated,
             active: data.profileProjectLink.active
+            // download_profiles will be set by database trigger (contains OTHER members, not self)
           });
 
           console.log(`✅ Profile-project link published for RLS policies`);
@@ -1036,6 +1038,7 @@ async function executePublishTransaction(
             created_at: data.project.created_at,
             last_updated: data.project.last_updated,
             active: true
+            // download_profiles will be set by database trigger (contains OTHER members, not self)
           });
 
           console.log(

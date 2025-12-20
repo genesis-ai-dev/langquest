@@ -187,15 +187,13 @@ function Generic<Extra extends object>(props: GenericExtraProps<Extra>) {
     return null;
   }
 
+  const elementToClone = isTextChildren(children) ? <></> : children;
   const mergedProps = mergeProps(slotProps, (children as any).props);
   const finalProps = isFragment(children as React.ReactElement)
     ? filterFragmentProps(mergedProps)
     : mergedProps;
 
-  return React.cloneElement(
-    children as React.ReactElement<any>,
-    finalProps as Partial<any> & React.Attributes
-  );
+  return React.cloneElement(elementToClone, finalProps);
 }
 
 export { Generic, Image, Input, Pressable, Text, View };

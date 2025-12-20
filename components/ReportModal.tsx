@@ -10,11 +10,11 @@ import { blockService } from '@/database_services/blockService';
 import { reportService } from '@/database_services/reportService';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

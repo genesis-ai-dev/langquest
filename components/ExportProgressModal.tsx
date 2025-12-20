@@ -51,10 +51,8 @@ export function ExportProgressModal({
       <DrawerContent className="bg-background">
         <DrawerHeader className="flex-row items-center justify-between">
           <DrawerTitle>{t('exportProgress') || 'Export Progress'}</DrawerTitle>
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon">
-              <Icon as={XIcon} size={24} />
-            </Button>
+          <DrawerClose variant="ghost" size="icon">
+            <Icon as={XIcon} size={24} />
           </DrawerClose>
         </DrawerHeader>
 

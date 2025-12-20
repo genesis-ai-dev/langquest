@@ -26,8 +26,52 @@ When you modify the schema, you must:
 1. Update the shared column definitions
 2. Update the local schema (`drizzleSchemaLocal.ts`) to match the shared definitions
 3. Create a Supabase migration for Postgres
-4. Create a local migration for SQLite
+4. Create a local migration for SQLite (when needed - see below)
 5. Handle data transformation, especially for destructive changes
+
+## PowerSync is Schemaless (Important!)
+
+PowerSync stores synced data as **schemaless JSON** internally. The client-side Drizzle schema is just a "view" on top of this data. This has important implications:
+
+> "The schema as supplied on the client is only a view on top of the schemaless data. Updating this client-side schema is immediate when the new version of the app runs, **with no client-side migrations required**."
+>
+> — [PowerSync: Implementing Schema Changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
+
+**Important clarification:** PowerSync handles _schema changes_ (adding/removing columns) automatically without migrations. However, **data transformations** (modifying existing data, backfilling values, computing derived fields) still require client-side migrations.
+
+### When Local Migrations Are NOT Needed
+
+**For synced tables**, you typically don't need a local SQLite migration when:
+
+- **Adding a nullable column** - PowerSync handles this automatically. Existing records will have `undefined`/missing values, which behave the same as `NULL`.
+- **The column is only used server-side** - e.g., columns used only in sync rules or server triggers don't need local migration.
+- **The column syncs DOWN but is never written locally** - e.g., `download_profiles` is populated by server triggers and used by sync rules; local records never need it.
+
+**PowerSync behavior:**
+
+- Columns not in the client schema are stored internally but not accessible
+- Adding columns with `NULL` defaults works without issues
+- Nothing fails hard on schema mismatches
+
+### When Local Migrations ARE Needed
+
+You still need local migrations for:
+
+1. **Columns actively read/written by client code** - If client code queries or inserts the column on local records and expects it to exist.
+2. **Destructive changes** - Removing or renaming columns that client code depends on.
+3. **Data transformations** - When existing local data needs to be modified or backfilled with computed values.
+
+> **Note:** Both synced tables AND `*_local` tables use PowerSync's architecture (JSON storage + SQLite views). They're all schemaless. The difference is just sync scope, not storage mechanism.
+
+### Decision Flowchart
+
+```
+Does client code actively read/write this column?
+├── NO → Skip local migration (PowerSync handles it schemalessly)
+└── YES → Is it a nullable/optional column?
+    ├── YES → Skip local migration (missing values = NULL)
+    └── NO → Need local migration (or make column nullable)
+```
 
 ## Step-by-Step Migration Process
 
@@ -122,7 +166,7 @@ The `createAssetTable()` function (and similar create functions) accept an optio
 
 **Note**: Skip this step if you're only adding local-only columns (they don't exist in Postgres).
 
-Create a new migration file following `.cursor/rules/supabase/migrations/create-migration.mdc`:
+Create a new migration file following `.cursor/rules/supabase/create-migration.mdc`:
 
 **File location**: `supabase/migrations/`
 **Naming**: `YYYYMMDDHHmmss_short_description.sql`
@@ -602,6 +646,6 @@ DECLARE
 - Mutation op type: `public.mutation_op` (table_name, op, record)
 - Local migration README: `db/migrations/README.md`
 - Example migration: `db/migrations/EXAMPLE_1.0-to-1.1.ts`
-- Supabase migration rules: `.cursor/rules/supabase/migrations/create-migration.mdc`
+- Supabase migration rules: `.cursor/rules/supabase/create-migration.mdc`
 - Migration utilities: `db/migrations/utils.ts`
 - Schema version constant: `db/constants.ts` (`APP_SCHEMA_VERSION`)

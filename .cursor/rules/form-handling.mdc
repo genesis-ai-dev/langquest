@@ -1,0 +1,639 @@
+---
+description: Guidelines for handling forms with react-hook-form, Zod validation, and TanStack Query mutations
+globs:
+  - '**/*.tsx'
+---
+
+# Form Handling
+
+Guidelines for building forms using react-hook-form, Zod validation, and custom UI components.
+
+## Required Imports
+
+```typescript
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,      // optional
+  FormMessage,
+  FormSubmit,
+  transformInputProps,
+  transformSwitchProps  // for Switch components
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+```
+
+## Form Structure
+
+### 1. Define Zod Schema with Localized Messages
+
+```typescript
+const { t } = useLocalization();
+
+const formSchema = z.object({
+  name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+  email: z
+    .string()
+    .email(t('enterValidEmail'))
+    .nonempty(t('emailRequired'))
+    .toLowerCase()
+    .trim(),
+  description: z
+    .string()
+    .max(196, t('descriptionTooLong', { max: 196 }))
+    .trim()
+    .optional(),
+  isPrivate: z.boolean()
+});
+
+type FormData = z.infer<typeof formSchema>;
+```
+
+### 2. Define Default Values
+
+```typescript
+const defaultValues = {
+  name: '',
+  email: '',
+  description: '',
+  isPrivate: false
+} as const;
+```
+
+### 3. Initialize Form with useForm
+
+```typescript
+const form = useForm<FormData>({
+  defaultValues,
+  resolver: zodResolver(formSchema),
+  disabled: !currentUser?.id  // optional: disable when not authenticated
+});
+```
+
+### 4. Create Mutation for Submission
+
+```typescript
+const { mutateAsync: submitForm, isPending } = useMutation({
+  mutationFn: async (values: FormData) => {
+    // Perform API call or database operation
+    await someService.create(values);
+  },
+  onSuccess: () => {
+    form.reset(defaultValues);
+    setIsOpen(false);
+    // Invalidate/refetch relevant queries
+  },
+  onError: (error) => {
+    console.error('Failed to submit:', error);
+    RNAlert.alert(t('error'), error.message);
+  }
+});
+```
+
+### 5. Handle Form Submission
+
+```typescript
+const handleFormSubmit = form.handleSubmit((data) => submitForm(data));
+```
+
+## Rendering Forms
+
+### Basic Form Layout
+
+```tsx
+<Form {...form}>
+  <View className="flex flex-col gap-4">
+    <FormField
+      control={form.control}
+      name="name"
+      render={({ field }) => (
+        <FormItem>
+          <FormControl>
+            <Input
+              {...transformInputProps(field)}
+              placeholder={t('name')}
+              prefix={UserIcon}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+
+    <FormSubmit onPress={handleFormSubmit}>
+      <Text>{t('submit')}</Text>
+    </FormSubmit>
+  </View>
+</Form>
+```
+
+### With Labels
+
+```tsx
+<FormField
+  control={form.control}
+  name="template"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>{t('template')}</FormLabel>
+      <FormControl>
+        <RadioGroup value={field.value} onValueChange={field.onChange}>
+          {options.map((option) => (
+            <RadioGroupItem key={option} value={option} label={t(option)} />
+          ))}
+        </RadioGroup>
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Switch/Boolean Fields
+
+```tsx
+<View className="flex-row items-center justify-between">
+  <Text>{t('private')}</Text>
+  <FormField
+    control={form.control}
+    name="private"
+    render={({ field }) => (
+      <FormItem>
+        <FormControl>
+          <Switch {...transformSwitchProps(field)} />
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+</View>
+```
+
+### Textarea Fields
+
+```tsx
+<FormField
+  control={form.control}
+  name="description"
+  render={({ field }) => (
+    <FormItem>
+      <FormControl>
+        <Textarea
+          {...transformInputProps(field)}
+          placeholder={t('description')}
+          size="sm"
+          drawerInput  // when inside a drawer
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Password Fields
+
+```tsx
+<FormField
+  control={form.control}
+  name="password"
+  render={({ field }) => (
+    <FormItem>
+      <FormControl>
+        <Input
+          {...transformInputProps(field)}
+          onSubmitEditing={() => void handleFormSubmit()}
+          returnKeyType="done"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="password"
+          prefix={LockIcon}
+          placeholder={t('password')}
+          secureTextEntry
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+## Analytics Masking (Privacy)
+
+Use the `mask` prop on inputs containing sensitive/PII data to prevent PostHog from capturing it. This sets `accessibilityLabel="ph-no-capture"` on the input.
+
+```tsx
+// ✅ Mask sensitive fields
+<Input
+  {...transformInputProps(field)}
+  mask                          // Prevents analytics capture
+  autoCapitalize="none"
+  keyboardType="email-address"
+  prefix={MailIcon}
+  placeholder={t('email')}
+/>
+```
+
+**Fields that should use `mask`:**
+- Email addresses
+- Usernames
+- Any PII (personally identifiable information)
+
+**Note:** `secureTextEntry` fields (passwords) are automatically masked.
+
+## Forms in Drawers
+
+When placing forms inside `Drawer` components:
+
+```tsx
+<Drawer
+  open={isOpen}
+  onOpenChange={(open) => {
+    setIsOpen(open);
+    if (!open) form.reset(defaultValues);  // Reset on close
+  }}
+  dismissible={!isPending}  // Prevent dismissal while submitting
+>
+  <DrawerContent className="pb-safe">
+    <Form {...form}>
+      <DrawerHeader>
+        <DrawerTitle>{t('createNew')}</DrawerTitle>
+      </DrawerHeader>
+      <View className="flex flex-col gap-4 px-4">
+        {/* Form fields with drawerInput prop on inputs */}
+        <FormField ... />
+      </View>
+      <DrawerFooter>
+        <FormSubmit onPress={handleFormSubmit}>
+          <Text>{t('create')}</Text>
+        </FormSubmit>
+        <DrawerClose disabled={isPending}>
+          <Text>{t('cancel')}</Text>
+        </DrawerClose>
+      </DrawerFooter>
+    </Form>
+  </DrawerContent>
+</Drawer>
+```
+
+## Keyboard Handling
+
+For full-page forms, use `KeyboardAwareScrollView`:
+
+```tsx
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+
+<Form {...form}>
+  <KeyboardAwareScrollView
+    className="flex-1"
+    contentContainerClassName="flex flex-col gap-4 p-6"
+    bottomOffset={96}
+    extraKeyboardSpace={20}
+    showsVerticalScrollIndicator={false}
+  >
+    {/* Form fields */}
+  </KeyboardAwareScrollView>
+</Form>
+```
+
+## Input Field Navigation
+
+Use `type="next"` for sequential field navigation:
+
+```tsx
+<Input
+  {...transformInputProps(field)}
+  type="next"           // Focus next field on submit
+  submitBehavior="submit"
+/>
+```
+
+For the last field, trigger form submission:
+
+```tsx
+<Input
+  {...transformInputProps(field)}
+  onSubmitEditing={() => void handleFormSubmit()}
+  returnKeyType="done"
+/>
+```
+
+## Complex Validation with .refine()
+
+```typescript
+const formSchema = z
+  .object({
+    password: z.string().min(6, t('passwordMinLength')),
+    confirmPassword: z.string()
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: t('passwordsNoMatch'),
+    path: ['confirmPassword']  // Attach error to specific field
+  });
+```
+
+## Conditional Validation with .superRefine()
+
+```typescript
+const formSchema = z
+  .object({
+    currentPassword: z.string().optional(),
+    newPassword: z.string().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword && data.newPassword.length > 0) {
+      if (!data.currentPassword) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'currentPasswordRequired',
+          path: ['currentPassword']
+        });
+      }
+      if (data.newPassword.length < 6) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'passwordMinLength',
+          path: ['newPassword']
+        });
+      }
+    }
+  });
+```
+
+## Optimistic Updates Pattern
+
+For immediate UI feedback while mutation is processing:
+
+```typescript
+const { mutateAsync: createItem, isPending } = useMutation({
+  mutationFn: async (values: FormData) => {
+    // Database operation
+    return await db.insert(table).values(values).returning();
+  },
+  onMutate: async (values) => {
+    // Cancel in-flight queries
+    await queryClient.cancelQueries({ queryKey: ['items'] });
+    
+    // Snapshot for rollback
+    const previous = queryClient.getQueryData(['items']);
+    
+    // Optimistically update cache
+    queryClient.setQueryData(['items'], (old) => [
+      ...(old || []),
+      { ...values, id: `temp-${Date.now()}` }
+    ]);
+    
+    return { previous };
+  },
+  onSuccess: () => {
+    form.reset(defaultValues);
+    setIsOpen(false);
+  },
+  onError: (error, _values, context) => {
+    // Rollback on error
+    if (context?.previous) {
+      queryClient.setQueryData(['items'], context.previous);
+    }
+    RNAlert.alert(t('error'), error.message);
+  },
+  onSettled: () => {
+    // Refetch to ensure consistency
+    queryClient.invalidateQueries({ queryKey: ['items'] });
+  }
+});
+```
+
+## Form Reset Patterns
+
+### Reset on Drawer Open
+
+```tsx
+useEffect(() => {
+  if (isOpen) {
+    form.reset(defaultValues);
+  }
+}, [isOpen, form]);
+```
+
+### Reset with Pre-filled Values
+
+```tsx
+const resetForm = () => {
+  form.reset(defaultValues);
+  if (savedValue) {
+    form.setValue('fieldName', savedValue);
+  }
+};
+```
+
+### Partial Reset (Keep Some Values)
+
+```tsx
+form.reset({
+  ...form.getValues(),
+  password: '',
+  confirmPassword: ''
+});
+```
+
+## Network-Aware Forms
+
+```tsx
+const isOnline = useNetworkStatus();
+
+// In mutation
+const { mutateAsync: submit } = useMutation({
+  mutationFn: async (data) => {
+    if (!isOnline) {
+      throw new Error(t('internetConnectionRequired'));
+    }
+    // ... proceed with online operation
+  }
+});
+
+// In UI
+<Button
+  onPress={handleFormSubmit}
+  loading={isPending}
+  disabled={!isOnline || isPending}
+>
+  <Text>{t('submit')}</Text>
+</Button>
+
+{!isOnline && (
+  <Alert icon={WifiOffIcon} variant="destructive">
+    <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
+  </Alert>
+)}
+```
+
+## Error Handling
+
+### Alert-based Errors
+
+```typescript
+onError: (error) => {
+  RNAlert.alert(
+    t('error'),
+    error instanceof Error ? error.message : t('genericError'),
+    [
+      { text: t('ok') },
+      { text: t('retry'), onPress: () => handleFormSubmit() }
+    ]
+  );
+}
+```
+
+### Inline Validation Errors
+
+`FormMessage` automatically displays field-level errors from Zod validation.
+
+## Common Patterns Summary
+
+| Pattern | Usage |
+|---------|-------|
+| `transformInputProps(field)` | Spread on `Input`, `Textarea` components |
+| `transformSwitchProps(field)` | Spread on `Switch` components |
+| `form.handleSubmit(fn)` | Wraps submission function with validation |
+| `isPending` | Loading state from mutation |
+| `form.reset()` | Clear form or restore defaults |
+| `drawerInput` prop | Use on inputs inside drawers for proper keyboard handling |
+| `type="next"` | Chain keyboard focus between fields |
+| `mask` prop | Prevent analytics capture for PII fields (email, username) |
+
+## Additional Patterns
+
+### Watching Form Values (useWatch)
+
+Use `useWatch` for reactive form value subscriptions without re-rendering the entire form:
+
+```tsx
+import { useWatch } from 'react-hook-form';
+
+const subscription = useWatch({ control: form.control });
+
+// Derive validation state from watched values
+const isValid =
+  (mode === 'text' && !!subscription.text) ||
+  (mode === 'audio' && !!subscription.audioUri);
+```
+
+### Validation Mode
+
+Use `mode: 'onChange'` for real-time validation as user types:
+
+```typescript
+const form = useForm<FormData>({
+  defaultValues,
+  resolver: zodResolver(formSchema),
+  mode: 'onChange'  // Validates on every change
+});
+```
+
+### Custom Input Components
+
+For non-standard inputs (audio recorders, file pickers, etc.), use `field.onChange` directly:
+
+```tsx
+<FormField
+  control={form.control}
+  name="audioUri"
+  render={({ field }) => (
+    <FormItem>
+      <FormControl>
+        <AudioRecorder
+          onRecordingComplete={field.onChange}
+          resetRecording={() => field.onChange(null)}
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Form with Tabs
+
+When forms have multiple input modes (text vs audio), use Tabs with separate `TabsContent`:
+
+```tsx
+<Tabs value={inputMode} onValueChange={(v) => setInputMode(v as InputMode)}>
+  <TabsList>
+    <TabsTrigger value="text">Text</TabsTrigger>
+    <TabsTrigger value="audio">Audio</TabsTrigger>
+  </TabsList>
+
+  <TabsContent value="text">
+    <FormField name="text" ... />
+  </TabsContent>
+
+  <TabsContent value="audio">
+    <FormField name="audioUri" ... />
+  </TabsContent>
+</Tabs>
+```
+
+### New Password Fields (iOS/Android)
+
+For password reset/creation, use proper autocomplete hints:
+
+```tsx
+<Input
+  {...transformInputProps(field)}
+  textContentType="newPassword"    // iOS
+  autoComplete="new-password"      // Android
+  secureTextEntry
+/>
+```
+
+### Dismissing Keyboard Before Navigation
+
+When navigating after form submission, dismiss keyboard first to prevent UI flickering:
+
+```typescript
+import { Keyboard } from 'react-native';
+
+onSuccess: () => {
+  Keyboard.dismiss();
+  
+  RNAlert.alert(t('success'), t('message'), [
+    {
+      text: t('ok'),
+      onPress: () => safeNavigate(() => navigateAway())
+    }
+  ]);
+}
+```
+
+### Drawer with Custom Snap Points
+
+For complex forms in drawers, specify snap points and disable dynamic sizing:
+
+```tsx
+<Drawer
+  open={visible}
+  onOpenChange={(open) => !open && handleClose()}
+  snapPoints={['80%']}
+  enableDynamicSizing={false}
+>
+```
+
+### DrawerScrollView for Long Forms
+
+Use `DrawerScrollView` instead of regular `View` for scrollable drawer content:
+
+```tsx
+import { DrawerScrollView } from '@/components/ui/drawer';
+
+<DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
+  {/* Form fields */}
+</DrawerScrollView>
+```

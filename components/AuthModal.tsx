@@ -28,7 +28,7 @@ export function AuthModal({
     >
       <View style={{ backgroundColor }} className="flex-1">
         {/* Close button */}
-        <View className="absolute right-4 top-4 z-10">
+        <View className="absolute right-4 top-4 z-[20]">
           <Pressable
             onPress={onClose}
             className="rounded-full bg-background/80 p-2"

@@ -3,7 +3,6 @@ import {
   asset_content_link,
   asset_tag_link,
   profile_project_link,
-  project_language_link,
   quest,
   quest_asset_link,
   quest_tag_link,
