@@ -46,8 +46,7 @@ export default function ResetPasswordView() {
     });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    disabled: !isOnline
+    resolver: zodResolver(formSchema)
   });
 
   const { mutateAsync: updatePassword } = useMutation({
@@ -150,7 +149,7 @@ export default function ResetPasswordView() {
           />
 
           <View className="flex w-full flex-col">
-            <FormSubmit onPress={handleSubmit}>
+            <FormSubmit onPress={handleSubmit} disabled={!isOnline}>
               <Text>{t('updatePassword')}</Text>
             </FormSubmit>
 

@@ -89,8 +89,7 @@ export default function SignInView({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: sharedAuthInfo?.email
-    },
-    disabled: !isOnline
+    }
   });
 
   const handleFormSubmit = form.handleSubmit((data) => login(data));
@@ -181,7 +180,7 @@ export default function SignInView({
             </View>
           )}
           <View className="flex flex-col gap-2">
-            <FormSubmit onPress={handleFormSubmit}>
+            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('signIn')}</Text>
             </FormSubmit>
             <Button

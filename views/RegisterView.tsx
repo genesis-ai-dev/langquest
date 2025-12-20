@@ -121,7 +121,6 @@ export default function RegisterView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: !isOnline,
     defaultValues: {
       email: sharedAuthInfo?.email || '',
       password: '',
@@ -289,7 +288,7 @@ export default function RegisterView({
             </Alert>
           )}
           <View className="flex flex-col gap-2">
-            <FormSubmit onPress={handleFormSubmit}>
+            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('register')}</Text>
             </FormSubmit>
             <Button
