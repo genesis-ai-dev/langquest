@@ -207,7 +207,12 @@ export function VADSettingsDrawer({
 
   // Local state for immediate UI updates (bypasses store persistence delay)
   const [localThreshold, setLocalThreshold] = React.useState(threshold);
+  const [localSilenceDuration, setLocalSilenceDuration] =
+    React.useState(silenceDuration);
   const storeUpdateTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const silenceStoreUpdateTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
 
@@ -215,6 +220,11 @@ export function VADSettingsDrawer({
   React.useEffect(() => {
     setLocalThreshold(threshold);
   }, [threshold]);
+
+  // Sync local silence duration with prop when it changes externally
+  React.useEffect(() => {
+    setLocalSilenceDuration(silenceDuration);
+  }, [silenceDuration]);
 
   // Immediate UI update function - updates local state instantly
   const updateThresholdImmediate = React.useCallback(
@@ -236,26 +246,37 @@ export function VADSettingsDrawer({
     [onThresholdChange]
   );
 
-  // Save threshold when drawer closes (flush immediately)
+  // Save settings when drawer closes (flush immediately)
   React.useEffect(() => {
     if (!isOpen) {
-      // Flush any pending update immediately when drawer closes
+      // Flush any pending threshold update
       if (storeUpdateTimeoutRef.current) {
         clearTimeout(storeUpdateTimeoutRef.current);
         storeUpdateTimeoutRef.current = null;
       }
-      // Only update if changed
       if (localThreshold !== threshold) {
         onThresholdChange(localThreshold);
+      }
+
+      // Flush any pending silence duration update
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
+        silenceStoreUpdateTimeoutRef.current = null;
+      }
+      if (localSilenceDuration !== silenceDuration) {
+        onSilenceDurationChange(localSilenceDuration);
       }
     }
   }, [isOpen]); // Only depend on isOpen to avoid unnecessary runs
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   React.useEffect(() => {
     return () => {
       if (storeUpdateTimeoutRef.current) {
         clearTimeout(storeUpdateTimeoutRef.current);
+      }
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
       }
     };
   }, []);
@@ -667,16 +688,42 @@ export function VADSettingsDrawer({
     };
   }, []);
 
-  // Increment/decrement handlers for silence duration
-  const incrementSilence = () => {
-    const newValue = Math.min(VAD_SILENCE_DURATION_MAX, silenceDuration + 100);
-    onSilenceDurationChange(newValue);
-  };
+  // Immediate update function for silence duration
+  const updateSilenceDurationImmediate = React.useCallback(
+    (newDuration: number) => {
+      // Update local state immediately - instant UI feedback
+      setLocalSilenceDuration(newDuration);
 
-  const decrementSilence = () => {
-    const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
-    onSilenceDurationChange(newValue);
-  };
+      // Clear any pending store update
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
+      }
+
+      // Save to store in background (don't block UI)
+      silenceStoreUpdateTimeoutRef.current = setTimeout(() => {
+        onSilenceDurationChange(newDuration);
+        silenceStoreUpdateTimeoutRef.current = null;
+      }, 300);
+    },
+    [onSilenceDurationChange]
+  );
+
+  // Increment/decrement handlers for silence duration
+  const incrementSilence = React.useCallback(() => {
+    const newValue = Math.min(
+      VAD_SILENCE_DURATION_MAX,
+      localSilenceDuration + 100
+    );
+    updateSilenceDurationImmediate(newValue);
+  }, [localSilenceDuration, updateSilenceDurationImmediate]);
+
+  const decrementSilence = React.useCallback(() => {
+    const newValue = Math.max(
+      VAD_SILENCE_DURATION_MIN,
+      localSilenceDuration - 100
+    );
+    updateSilenceDurationImmediate(newValue);
+  }, [localSilenceDuration, updateSilenceDurationImmediate]);
 
   // Animated pulse when above threshold
   const pulseScale = useSharedValue(1);
@@ -700,7 +747,7 @@ export function VADSettingsDrawer({
   const silenceTimerProgress = useSharedValue(0);
   const wasAboveThreshold = useSharedValue(false);
 
-  // Track silence timer: fills instantly when speaking, drains over silenceDuration when quiet
+  // Track silence timer: fills instantly when speaking, drains over localSilenceDuration when quiet
   React.useEffect(() => {
     const isAboveThreshold = normalizedCurrentEnergy > localThreshold;
 
@@ -710,16 +757,16 @@ export function VADSettingsDrawer({
       silenceTimerProgress.value = 1;
       wasAboveThreshold.value = true;
     } else if (wasAboveThreshold.value) {
-      // Just went quiet: start draining over silenceDuration
+      // Just went quiet: start draining over localSilenceDuration
       wasAboveThreshold.value = false;
       silenceTimerProgress.value = withTiming(0, {
-        duration: silenceDuration
+        duration: localSilenceDuration
       });
     }
   }, [
     normalizedCurrentEnergy,
     localThreshold,
-    silenceDuration,
+    localSilenceDuration,
     silenceTimerProgress,
     wasAboveThreshold
   ]);
@@ -1036,7 +1083,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={decrementSilence}
-                disabled={silenceDuration <= VAD_SILENCE_DURATION_MIN}
+                disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
                 className="size-14"
               >
                 <Icon as={Minus} size={24} />
@@ -1046,12 +1093,12 @@ export function VADSettingsDrawer({
                 {/* Duration text */}
                 <View className="items-center">
                   <Text className="text-2xl font-bold text-foreground">
-                    {(silenceDuration / 1000).toFixed(1)}s
+                    {(localSilenceDuration / 1000).toFixed(1)}s
                   </Text>
                   <Text className="text-xs text-muted-foreground">
-                    {silenceDuration < 1000
+                    {localSilenceDuration < 1000
                       ? t('vadQuickSegments')
-                      : silenceDuration <= 1500
+                      : localSilenceDuration <= 1500
                         ? t('vadBalanced')
                         : t('vadCompleteThoughts')}
                   </Text>
@@ -1095,7 +1142,7 @@ export function VADSettingsDrawer({
                 variant="outline"
                 size="lg"
                 onPress={incrementSilence}
-                disabled={silenceDuration >= VAD_SILENCE_DURATION_MAX}
+                disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
                 className="size-14"
               >
                 <Icon as={Plus} size={24} />
