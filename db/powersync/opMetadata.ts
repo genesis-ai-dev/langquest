@@ -9,7 +9,6 @@ export interface OpMetadata {
 }
 
 export function getDefaultOpMetadata(): OpMetadata {
-  console.log('getDefaultOpMetadata', APP_SCHEMA_VERSION);
   return {
     schema_version: APP_SCHEMA_VERSION
   };

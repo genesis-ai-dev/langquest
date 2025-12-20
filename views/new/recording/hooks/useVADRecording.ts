@@ -11,6 +11,7 @@
 
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import MicrophoneEnergyModule from '@/modules/microphone-energy';
+import { VAD_SILENCE_DURATION_MIN } from '@/store/localStore';
 import React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
@@ -116,7 +117,7 @@ export function useVADRecording({
         silenceDuration,
         onsetMultiplier: 0.25,
         confirmMultiplier: 0.5,
-        minSegmentDuration: 500
+        minSegmentDuration: VAD_SILENCE_DURATION_MIN // Use minimum silence duration instead of hardcoded 500ms
       });
     };
 

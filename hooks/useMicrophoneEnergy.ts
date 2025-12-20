@@ -16,6 +16,7 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   startEnergyDetection: () => Promise<void>;
   stopEnergyDetection: () => Promise<void>;
   clearError: () => void;
+  resetEnergy: () => void;
   startSegment: (options?: { prerollMs?: number }) => Promise<void>;
   stopSegment: () => Promise<string | null>;
   // SharedValue for high-performance UI updates (no re-renders!)
@@ -33,21 +34,25 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
 
   // SharedValue for high-performance UI updates (no re-renders!)
   const energyShared = useSharedValue(0);
-  
+
   // Ref for logic that needs the latest value (calibration, etc.) - NO re-renders
   const energyRef = useRef(0);
+
+  // Ref to track active state to avoid stale closures
+  const isActiveRef = useRef(false);
 
   // Setup event listeners
   useEffect(() => {
     const energySubscription = MicrophoneEnergyModule.addListener(
       'onEnergyResult',
       (result: VADResult) => {
-        // Update SharedValue for UI (no re-render)
-        energyShared.value = result.energy;
-        // Update ref for logic that needs it (no re-render)
-        energyRef.current = result.energy;
-        // REMOVED: setState call that was causing 30-60 re-renders per second!
-        // Components should use energyShared or energyRef instead
+        // Only update if still active (handles rapid stop scenarios)
+        if (isActiveRef.current) {
+          // Update SharedValue only (for UI - no re-render!)
+          // REMOVED: setState for energyResult - was causing 60fps re-renders
+          // Components should use energyShared instead of energyResult
+          energyShared.value = result.energy;
+        }
       }
     );
 
@@ -72,6 +77,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     };
   }, [energyShared]);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    isActiveRef.current = state.isActive;
+  }, [state.isActive]);
+
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
       // Use expo-av for all permission handling
@@ -87,6 +97,12 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
   }, []);
 
   const startEnergyDetection = useCallback(async (): Promise<void> => {
+    // Prevent starting if already active (handles rapid start/stop scenarios)
+    if (isActiveRef.current) {
+      console.log('⚠️ Energy detection already active, skipping start');
+      return;
+    }
+
     try {
       // Check permissions first using expo-av
       const permission = await Audio.getPermissionsAsync();
@@ -96,6 +112,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
       }
 
       await MicrophoneEnergyModule.startEnergyDetection();
+      isActiveRef.current = true;
       setState((prev) => ({ ...prev, isActive: true, error: null }));
     } catch (error) {
       setState((prev) => ({
@@ -109,19 +126,29 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
   const stopEnergyDetection = useCallback(async (): Promise<void> => {
     try {
       await MicrophoneEnergyModule.stopEnergyDetection();
+      // Reset energy SharedValue to 0 to prevent stuck values
+      energyShared.value = 0;
+      isActiveRef.current = false;
       setState((prev) => ({ ...prev, isActive: false, energyResult: null }));
     } catch (error) {
+      // Still reset energy value even on error
+      energyShared.value = 0;
+      isActiveRef.current = false;
       setState((prev) => ({
         ...prev,
         error: `Stop energy detection error: ${error as string}`
       }));
       throw error;
     }
-  }, []);
+  }, [energyShared]);
 
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
+
+  const resetEnergy = useCallback(() => {
+    energyShared.value = 0;
+  }, [energyShared]);
 
   const startSegment = useCallback(async (options?: { prerollMs?: number }) => {
     try {
@@ -162,6 +189,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     startEnergyDetection,
     stopEnergyDetection,
     clearError,
+    resetEnergy,
     startSegment,
     stopSegment,
     energyShared,

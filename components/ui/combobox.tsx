@@ -1,16 +1,11 @@
-import { cn, getThemeColor } from '@/utils/styleUtils';
 import { scoreSearchResults } from '@/utils/searchUtils';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  TextInput,
-  View
-} from 'react-native';
+import { ActivityIndicator, FlatList, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { ButtonPressable } from './button';
 import { Icon } from './icon';
 import { Text } from './text';
 
@@ -55,6 +50,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
     },
     ref
   ) => {
+    const primaryColor = useThemeColor('primary');
     const [isOpen, setIsOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [displayLimit, setDisplayLimit] = React.useState(pageSize);
@@ -122,51 +118,55 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
     return (
       <View ref={ref} className={cn('relative', className)}>
         {/* Trigger */}
-        <Pressable
-          onPress={handleOpen}
-          disabled={disabled}
+        <View
           className={cn(
-            'native:h-12 flex h-12 flex-row items-center justify-between rounded-md border border-input bg-card px-3 py-2',
+            'native:h-12 h-12 rounded-md border border-border bg-card shadow-sm shadow-black/5',
             disabled && 'opacity-50'
           )}
         >
-          <View className="flex flex-1 flex-row items-center gap-2">
-            {prefix}
-            {isLoading ? (
-              <View className="flex flex-row items-center gap-2">
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-                <Text className="text-sm text-muted-foreground">
-                  Loading...
+          <ButtonPressable
+            onPress={handleOpen}
+            enabled={!disabled}
+            className="flex h-full flex-1 flex-row items-center justify-between px-3 py-2"
+          >
+            <View className="flex flex-1 flex-row items-center gap-2">
+              {prefix}
+              {isLoading ? (
+                <View className="flex flex-row items-center gap-2">
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                  <Text className="text-sm text-muted-foreground">
+                    Loading...
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  className={cn(
+                    'flex-1 text-base',
+                    selectedOption ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                  numberOfLines={1}
+                >
+                  {selectedOption?.label || placeholder}
                 </Text>
-              </View>
-            ) : (
-              <Text
-                className={cn(
-                  'flex-1 text-base',
-                  selectedOption ? 'text-foreground' : 'text-muted-foreground'
-                )}
-                numberOfLines={1}
-              >
-                {selectedOption?.label || placeholder}
-              </Text>
-            )}
-          </View>
-          <Icon
-            as={ChevronDownIcon}
-            className="text-muted-foreground"
-            size={20}
-          />
-        </Pressable>
+              )}
+            </View>
+            <Icon
+              as={ChevronDownIcon}
+              className="text-muted-foreground"
+              size={20}
+            />
+          </ButtonPressable>
+        </View>
 
         {/* Dropdown */}
         {isOpen && (
           <Animated.View
             entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(150)}
-            className="absolute left-0 right-0 top-[52px] z-50"
+            className="absolute left-0 right-0 top-[52px] z-[300]"
           >
             <MotiView
               from={{ opacity: 0, scale: 0.95 }}
@@ -186,7 +186,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     placeholder={searchPlaceholder}
                     placeholderTextColor={getThemeColor('muted-foreground')}
                     className="h-10 rounded-md bg-card px-3 text-base text-foreground"
-                    selectionColor={getThemeColor('primary')}
+                    selectionColor={primaryColor}
                   />
                 </View>
 
@@ -196,7 +196,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     data={displayedOptions}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) => (
-                      <Pressable
+                      <ButtonPressable
                         onPress={() => handleSelect(item.value)}
                         className={cn(
                           'flex flex-row items-center justify-between px-3 py-3',
@@ -222,7 +222,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                             className="ml-2 text-accent-foreground"
                           />
                         )}
-                      </Pressable>
+                      </ButtonPressable>
                     )}
                     ListEmptyComponent={() => (
                       <View className="flex items-center justify-center py-8">
@@ -235,7 +235,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                     )}
                     ListFooterComponent={() =>
                       hasMore ? (
-                        <Pressable
+                        <ButtonPressable
                           onPress={handleLoadMore}
                           className="flex items-center py-2"
                         >
@@ -243,7 +243,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                             Showing {displayedOptions.length} of{' '}
                             {filteredOptions.length} - Tap to load more
                           </Text>
-                        </Pressable>
+                        </ButtonPressable>
                       ) : null
                     }
                     onEndReached={handleLoadMore}
@@ -270,7 +270,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
 
         {/* Backdrop */}
         {isOpen && (
-          <Pressable
+          <ButtonPressable
             onPress={handleClose}
             className="absolute inset-0 -z-10"
             style={{

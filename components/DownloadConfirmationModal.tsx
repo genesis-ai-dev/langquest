@@ -1,15 +1,14 @@
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
-import { Modal, View } from 'react-native';
 
 interface DownloadConfirmationModalProps {
   visible: boolean;
@@ -60,36 +59,39 @@ export const DownloadConfirmationModal: React.FC<
     }
   };
 
+  const title =
+    downloadType === 'project'
+      ? t('downloadProject') || 'Download Project'
+      : t('downloadQuest') || 'Download Quest';
+
   return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onCancel}
+    <Drawer
+      open={visible}
+      onOpenChange={(open) => {
+        if (!open) {
+          onCancel();
+        }
+      }}
     >
-      <View className="flex-1 items-center justify-center bg-black/50 px-5">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">
-              Download {downloadType === 'project' ? 'Project' : 'Quest'}
-            </CardTitle>
-          </CardHeader>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader>
+          <DrawerTitle>{title}</DrawerTitle>
+        </DrawerHeader>
 
-          <CardContent>
-            <Text className="text-base leading-6">{getConfirmationText()}</Text>
-          </CardContent>
+        <Text className="mb-4 text-base leading-6">
+          {getConfirmationText()}
+        </Text>
 
-          <CardFooter className="flex-row justify-between gap-3">
-            <Button variant="outline" onPress={onCancel} className="flex-1">
-              <Text>Cancel</Text>
-            </Button>
+        <DrawerFooter className="gap-3">
+          <Button variant="default" onPress={onConfirm}>
+            <Text>Download</Text>
+          </Button>
 
-            <Button variant="default" onPress={onConfirm} className="flex-1">
-              <Text>Download</Text>
-            </Button>
-          </CardFooter>
-        </Card>
-      </View>
-    </Modal>
+          <Button variant="outline" onPress={onCancel}>
+            <Text>Cancel</Text>
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 };

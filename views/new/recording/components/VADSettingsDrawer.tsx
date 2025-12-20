@@ -15,6 +15,11 @@ import {
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
@@ -24,7 +29,9 @@ import {
   VAD_THRESHOLD_MAX,
   VAD_THRESHOLD_MIN
 } from '@/store/localStore';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useThemeColor } from '@/utils/styleUtils';
+import { useGestureEventsHandlersDefault } from '@gorhom/bottom-sheet';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowBigLeft,
   ArrowBigRight,
@@ -40,22 +47,50 @@ import {
   Volume1
 } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   cancelAnimation,
   useAnimatedProps,
+  useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
-  withSequence,
   withTiming
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Mask,
+  Rect,
+  Stop,
+  LinearGradient as SvgLinearGradient
+} from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
+
+// Dimmed gradient for sensitivity bar background
+const ENERGY_GRADIENT_COLORS_DIMMED = [
+  '#22c55e40',
+  '#84cc1640',
+  '#eab30840',
+  '#f9731640',
+  '#ef444440'
+] as const;
+
+// Segmented energy bar constants
+const ENERGY_BAR_PILL_WIDTH = 18; // Individual pill width in px
+const ENERGY_BAR_HEIGHT = 28; // Bar height in px
+const ENERGY_BAR_SPACING = 4; // Gap between pills in px
+const ENERGY_BAR_RADIUS = 4; // Pill corner radius in px
+// Total horizontal padding: DrawerContent px-6 (24px × 2) + BottomSheetScrollView paddingHorizontal (16px × 2)
+const ENERGY_BAR_HORIZONTAL_PADDING = 48;
 
 // Animated circle for Reanimated
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
 
+// Calibration constants
 const CALIBRATION_DURATION_MS = 3000; // 3 seconds
 const CALIBRATION_SAMPLE_INTERVAL_MS = 50; // Sample every 50ms
 const CALIBRATION_MULTIPLIER = 4.0; // 12 dB = ~4x multiplier
@@ -64,109 +99,71 @@ const CALIBRATION_MULTIPLIER = 4.0; // 12 dB = ~4x multiplier
 const DB_MIN = -60; // Minimum dB (very quiet)
 const DB_MAX = 0; // Maximum dB (maximum level)
 
-// Input pill definitions - 10 equal-width pills with logarithmically increasing dB ranges
-interface InputPill {
-  minDb: number;
-  maxDb: number;
-  color: string;
-}
-
-// Generate 10 pills with logarithmically increasing dB ranges
-// Each pill is equal width (10% of visual space)
-// dB ranges increase exponentially from left to right
-const generateInputPills = (): InputPill[] => {
-  const NUM_PILLS = 10;
-  const pills: InputPill[] = [];
-
-  // Use exponential distribution: each pill covers an exponentially larger dB range
-  // Total range: DB_MIN (-60) to DB_MAX (0) = 60 dB
-  // We'll use a logarithmic distribution
-
-  for (let i = 0; i < NUM_PILLS; i++) {
-    // Normalize position (0 to 1)
-    const normalizedPos = i / NUM_PILLS;
-    const normalizedNextPos = (i + 1) / NUM_PILLS;
-
-    // Apply exponential curve: earlier positions map to smaller dB ranges
-    // Use power curve: position^1.4 for less aggressive distribution
-    // Goal: ambient noise (-3 to -2 dB) should fill pills 7-8, not pill 9
-    // Pill 9 should only fill for very loud sounds close to 0 dB
-    const logStart = Math.pow(normalizedPos, 1.4);
-    const logEnd = Math.pow(normalizedNextPos, 1.4);
-
-    // Map back to dB range
-    const minDb = DB_MIN + logStart * (DB_MAX - DB_MIN);
-    const maxDb = DB_MIN + logEnd * (DB_MAX - DB_MIN);
-
-    // Color gradient: Blue -> Green -> Yellow -> Red
-    const colorProgress = i / (NUM_PILLS - 1);
-    let color: string;
-    if (colorProgress < 0.33) {
-      // Blue to Green
-      const t = colorProgress / 0.33;
-      color = `rgba(${59 + (34 - 59) * t}, ${130 + (197 - 130) * t}, ${246 + (94 - 246) * t}, ${0.6 + 0.2 * t})`;
-    } else if (colorProgress < 0.66) {
-      // Green to Yellow
-      const t = (colorProgress - 0.33) / 0.33;
-      color = `rgba(${34 + (234 - 34) * t}, ${197 + (179 - 197) * t}, ${94 + (8 - 94) * t}, ${0.8 + 0.1 * t})`;
-    } else {
-      // Yellow to Red
-      const t = (colorProgress - 0.66) / 0.34;
-      color = `rgba(${234 + (239 - 234) * t}, ${179 + (68 - 179) * t}, ${8 + (68 - 8) * t}, ${0.9 + 0.1 * t})`;
-    }
-
-    pills.push({
-      minDb,
-      maxDb,
-      color
-    });
-  }
-
-  return pills;
+// Pure helper functions (no component dependencies)
+// CRITICAL: Native module sends energy as normalized amplitude (0-1 range)
+// NOT raw RMS energy, so normalizeEnergy should only clamp, not divide
+const _normalizeEnergy = (energy: number): number => {
+  // Energy from native is already normalized amplitude (0-1)
+  // Only clamp to ensure it's in valid range
+  return Math.min(1.0, Math.max(0, energy));
 };
 
-const INPUT_PILLS = generateInputPills();
+const energyToDb = (energy: number): number => {
+  // Energy is already normalized (0-1), just clamp if needed
+  const normalized = energy > 1.0 ? 1.0 : Math.max(0, energy);
+  if (normalized <= 0) return DB_MIN;
+  const db = 20 * Math.log10(Math.max(normalized, 0.001));
+  return Math.max(DB_MIN, Math.min(DB_MAX, db));
+};
 
-// Circular Progress Component for calibration countdown
-interface CircularProgressProps {
-  progress: number; // 0-100
-  size: number;
-}
+const dbToVisualPosition = (db: number): number => {
+  const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
+  return ((clampedDb - DB_MIN) / (DB_MAX - DB_MIN)) * 100;
+};
 
-function CircularProgress({ progress, size }: CircularProgressProps) {
-  const radius = (size - 4) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+const visualPositionToDb = (percent: number): number => {
+  const clampedPercent = Math.max(0, Math.min(100, percent));
+  return DB_MIN + (clampedPercent / 100) * (DB_MAX - DB_MIN);
+};
 
-  return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size}>
-        {/* Background circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-          opacity={0.2}
-        />
-        {/* Progress circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </Svg>
-    </View>
-  );
+// Factory to create a gesture handler hook that tracks dragging state
+// FIXED: Pass SharedValue directly instead of wrapping in a ref
+// The ref wrapper was causing Reanimated warnings about modifying frozen objects
+function createDraggingGestureHandler(draggingShared: SharedValue<boolean>) {
+  // Return a hook function that will be called by BottomSheet
+  return function useDraggingGestureHandler() {
+    const defaultHandlers = useGestureEventsHandlersDefault();
+
+    return {
+      handleOnStart: (
+        ...args: Parameters<typeof defaultHandlers.handleOnStart>
+      ) => {
+        'worklet';
+        draggingShared.value = true;
+        defaultHandlers.handleOnStart(...args);
+      },
+      handleOnChange: (
+        ...args: Parameters<typeof defaultHandlers.handleOnChange>
+      ) => {
+        'worklet';
+        defaultHandlers.handleOnChange(...args);
+      },
+      handleOnEnd: (
+        ...args: Parameters<typeof defaultHandlers.handleOnEnd>
+      ) => {
+        'worklet';
+        draggingShared.value = false;
+        defaultHandlers.handleOnEnd(...args);
+      },
+      handleOnFinalize: (
+        ...args: Parameters<typeof defaultHandlers.handleOnFinalize>
+      ) => {
+        'worklet';
+        draggingShared.value = false;
+        defaultHandlers.handleOnFinalize(...args);
+      }
+    };
+  };
 }
 
 interface VADSettingsDrawerProps {
@@ -180,9 +177,10 @@ interface VADSettingsDrawerProps {
   displayMode: 'fullscreen' | 'footer';
   onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
   autoCalibrateOnOpen?: boolean; // Automatically start calibration when drawer opens
+  energyShared?: SharedValue<number>; // Optional: Use this energy source when VAD is locked
 }
 
-export function VADSettingsDrawer({
+function VADSettingsDrawerInternal({
   isOpen,
   onOpenChange,
   threshold,
@@ -192,18 +190,48 @@ export function VADSettingsDrawer({
   isVADLocked = false,
   displayMode,
   onDisplayModeChange,
-  autoCalibrateOnOpen = false
+  autoCalibrateOnOpen = false,
+  energyShared: externalEnergyShared
 }: VADSettingsDrawerProps) {
-  const micEnergy = useMicrophoneEnergy();
-  // Extract with proper types to avoid TypeScript issues with .web.ts resolution
-  const isActive = micEnergy.isActive;
-  const startEnergyDetection = micEnergy.startEnergyDetection;
-  const stopEnergyDetection = micEnergy.stopEnergyDetection;
-  const _energyShared = micEnergy.energyShared;
-  // Create a typed reference to the energy ref
-  const energyRef: { current: number } = micEnergy.energyRef;
+  const {
+    isActive,
+    startEnergyDetection,
+    stopEnergyDetection,
+    resetEnergy,
+    energyShared: internalEnergyShared
+  } = useMicrophoneEnergy();
+
+  // Use external energy source when VAD is locked, otherwise use internal
+  const energyShared =
+    isVADLocked && externalEnergyShared
+      ? externalEnergyShared
+      : internalEnergyShared;
+
+  // Ref to store latest energy value for calibration (updated via worklet bridge)
+  const latestEnergyRef = React.useRef(0);
   const { t } = useLocalization();
-  const [showHelp, setShowHelp] = React.useState(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const accentColor = useThemeColor('accent');
+  const mutedForegroundColor = useThemeColor('muted-foreground');
+  const primaryForegroundColor = useThemeColor('primary-foreground');
+
+  // Track dragging state on JS thread for SVG color changes
+  const [isDraggingJS, setIsDraggingJS] = React.useState(false);
+
+  // Calculate energy bar dimensions based on available width
+  const { energyBarSegments, energyBarTotalWidth } = React.useMemo(() => {
+    const availableWidth = screenWidth - ENERGY_BAR_HORIZONTAL_PADDING;
+    // N pills + (N-1) gaps = availableWidth
+    // N = (availableWidth + spacing) / (pillWidth + spacing)
+    const segments = Math.floor(
+      (availableWidth + ENERGY_BAR_SPACING) /
+        (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)
+    );
+    // Actual width: N pills + (N-1) gaps
+    const totalWidth =
+      segments * ENERGY_BAR_PILL_WIDTH + (segments - 1) * ENERGY_BAR_SPACING;
+    return { energyBarSegments: segments, energyBarTotalWidth: totalWidth };
+  }, [screenWidth]);
 
   // Local state for immediate UI updates (bypasses store persistence delay)
   const [localThreshold, setLocalThreshold] = React.useState(threshold);
@@ -287,6 +315,7 @@ export function VADSettingsDrawer({
   const [calibrationError, setCalibrationError] = React.useState<string | null>(
     null
   );
+  // Status text removed - was causing re-renders. Use worklet-based approach if needed.
   const calibrationSamplesRef = React.useRef<number[]>([]);
   const calibrationIntervalRef = React.useRef<ReturnType<
     typeof setInterval
@@ -294,163 +323,91 @@ export function VADSettingsDrawer({
   const calibrationTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  // NOTE: Now using energyRef from useMicrophoneEnergy for calibration sampling
+  // Sync threshold to SharedValue for UI thread access
+  const thresholdShared = useSharedValue(threshold);
+  const prevThresholdRef = React.useRef(threshold);
 
-  // Refs for logging statistics (kept for potential future use)
-  const _energySamplesRef = React.useRef<number[]>([]);
-  const _loggingIntervalRef = React.useRef<ReturnType<
-    typeof setInterval
-  > | null>(null);
-
-  // Display-only state for the energy number (throttled updates - 5x/sec max)
-  const [displayEnergy, setDisplayEnergy] = React.useState(0);
-  const displayUpdateRef = React.useRef<ReturnType<typeof setInterval> | null>(
-    null
-  );
-
-  // Throttled display update - only re-renders when display value changes significantly
   React.useEffect(() => {
-    if (isOpen && isActive) {
-      displayUpdateRef.current = setInterval(() => {
-        const currentValue = energyRef.current;
-        setDisplayEnergy((prev) => {
-          // Only update if changed by more than 0.5% to avoid constant updates
-          if (Math.abs(currentValue - prev) > 0.005) {
-            return currentValue;
-          }
-          return prev;
-        });
-      }, 200); // Update display at most 5 times per second
+    // Only update if threshold actually changed (prevents infinite loops)
+    if (prevThresholdRef.current !== threshold) {
+      thresholdShared.value = threshold;
+      prevThresholdRef.current = threshold;
     }
-    return () => {
-      if (displayUpdateRef.current) {
-        clearInterval(displayUpdateRef.current);
-        displayUpdateRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- energyRef is a stable ref, doesn't need to be a dependency
-  }, [isOpen, isActive]);
+  }, [threshold, thresholdShared]);
 
-  // Current energy for calculations - uses the throttled display value
-  const currentEnergy = displayEnergy;
+  // JS thread callback to update the ref (called from worklet via scheduleOnRN)
+  // CRITICAL: Must be a named function reference, not inline arrow function
+  const updateLatestEnergy = React.useCallback((energy: number) => {
+    latestEnergyRef.current = energy;
+  }, []);
 
-  // Normalize energy value to 0-1 range
-  // The native module returns raw RMS energy values (typically 0-20 range based on logs)
-  // We need to normalize them to 0-1 for dB conversion and threshold comparison
-  const normalizeEnergy = (energy: number): number => {
-    // Based on logs showing values ~9-14, we'll use a dynamic max
-    // Normalize to 0-1, clamping at reasonable max
-    // Using 20 as max seems reasonable based on observed values
-    const MAX_ENERGY = 20.0;
-    const normalized = Math.min(1.0, Math.max(0, energy / MAX_ENERGY));
-    return normalized;
-  };
+  // Update latest energy ref for calibration sampling
+  // IMPORTANT: Must use scheduleOnRN to properly bridge UI thread to JS thread
+  // No throttling - calibration samples every 50ms and needs fresh values
+  useAnimatedReaction(
+    () => energyShared.value,
+    (currentEnergy) => {
+      'worklet';
+      // Pass function reference + value, not inline arrow function (would crash)
+      scheduleOnRN(updateLatestEnergy, currentEnergy);
+    }
+  );
 
-  // Convert energy (0-1) to approximate dB (-60 to 0)
-  const energyToDb = (energy: number) => {
-    // First normalize if energy is in raw range
-    const normalized = energy > 1.0 ? normalizeEnergy(energy) : energy;
+  // Simplified: Single derived value for dB calculation
+  // Reduced from 2 derived values to 1 to reduce UI thread overhead
+  // CRITICAL: Native module sends smoothedEnergy as normalized amplitude (0-1 range)
+  // NOT raw RMS energy, so we should NOT divide by MAX_ENERGY
+  const currentDbShared = useDerivedValue(() => {
+    'worklet';
+    const energy = energyShared.value;
+    // Energy is already normalized amplitude (0-1) from native module
+    // Native module: peak amplitude → dB → amplitude (0-1) → EMA smoothed
+    const normalized = Math.min(1.0, Math.max(0, energy));
     if (normalized <= 0) return DB_MIN;
-    // Convert normalized energy (0-1) to dB (-60 to 0)
-    // Use a mapping that gives us -60dB at very low values, 0dB at max
-    const db = 20 * Math.log10(Math.max(normalized, 0.001)); // Clamp to avoid -Infinity
+    const db = 20 * Math.log10(Math.max(normalized, 0.001));
     return Math.max(DB_MIN, Math.min(DB_MAX, db));
-  };
+  });
 
-  // Convert dB to visual position on pill scale
-  // Since pills are equal width, each pill is 10% of the visual space
-  const dbToVisualPosition = (db: number): number => {
-    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
+  // Calculate threshold position - only recalculate when threshold actually changes
+  const initialThresholdPosition = React.useMemo(() => {
+    const thresholdDb = energyToDb(threshold);
+    return dbToVisualPosition(thresholdDb);
+  }, [threshold]);
 
-    // Find which pill contains this dB value
-    for (let i = 0; i < INPUT_PILLS.length; i++) {
-      const pill = INPUT_PILLS[i]!;
+  const thresholdPositionShared = useSharedValue(initialThresholdPosition);
 
-      if (clampedDb >= pill.minDb && clampedDb <= pill.maxDb) {
-        // This is the pill - calculate position within it
-        const positionInPill =
-          (clampedDb - pill.minDb) / (pill.maxDb - pill.minDb);
-        const pillStartPercent = i * 10; // Each pill is 10% wide
-        return pillStartPercent + positionInPill * 10;
-      }
+  // Update SharedValue when threshold changes
+  React.useEffect(() => {
+    const thresholdDb = energyToDb(threshold);
+    thresholdPositionShared.value = dbToVisualPosition(thresholdDb);
+  }, [threshold, thresholdPositionShared]);
+
+  // JS thread version for button handlers (only recalculates when threshold prop changes)
+  const thresholdPosition = React.useMemo(() => {
+    const thresholdDb = energyToDb(threshold);
+    return dbToVisualPosition(thresholdDb);
+  }, [threshold]);
+
+  // Cancel any in-progress calibration
+  const cancelCalibration = React.useCallback(() => {
+    if (calibrationIntervalRef.current) {
+      clearInterval(calibrationIntervalRef.current);
+      calibrationIntervalRef.current = null;
     }
-
-    // If above max, return 100%
-    if (clampedDb >= INPUT_PILLS[INPUT_PILLS.length - 1]!.maxDb) {
-      return 100;
+    if (calibrationTimeoutRef.current) {
+      clearTimeout(calibrationTimeoutRef.current);
+      calibrationTimeoutRef.current = null;
     }
+    calibrationSamplesRef.current = [];
+    setIsCalibrating(false);
+    setCalibrationProgress(0);
+  }, []);
 
-    // Fallback (shouldn't happen)
-    return 0;
-  };
-
-  // Get which pills are active/filled based on current dB
-  // Each pill represents a dB range that increases logarithmically from left to right
-  // Cumulative fill: all pills below current dB are fully filled, current pill is partially filled
-  const getActivePills = (db: number) => {
-    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, db));
-
-    return INPUT_PILLS.map((pill) => {
-      if (clampedDb < pill.minDb) {
-        // Below this pill's range - empty
-        return { ...pill, isActive: false, fillPercent: 0 };
-      } else if (clampedDb >= pill.maxDb) {
-        // Above this pill's range - fully filled (cumulative)
-        return { ...pill, isActive: true, fillPercent: 100 };
-      } else {
-        // Within this pill's range - calculate fill percentage
-        const fillPercent =
-          ((clampedDb - pill.minDb) / (pill.maxDb - pill.minDb)) * 100;
-        return {
-          ...pill,
-          isActive: true,
-          fillPercent: Math.min(100, Math.max(0, fillPercent))
-        };
-      }
-    });
-  };
-
-  // Convert visual position (0-100%) back to dB for threshold adjustment
-  // Since pills are equal width, each pill is 10% of the visual space
-  const visualPositionToDb = (percent: number): number => {
-    const clampedPercent = Math.max(0, Math.min(100, percent));
-
-    // Each pill is 10% wide
-    const pillIndex = Math.floor(clampedPercent / 10);
-    const positionInPill = (clampedPercent % 10) / 10;
-
-    // Clamp to valid pill range
-    const safePillIndex = Math.max(
-      0,
-      Math.min(INPUT_PILLS.length - 1, pillIndex)
-    );
-    const pill = INPUT_PILLS[safePillIndex]!;
-
-    // If at the end of the last pill, use maxDb
-    if (pillIndex >= INPUT_PILLS.length - 1 && positionInPill >= 0.99) {
-      return pill.maxDb;
-    }
-
-    // Calculate dB within this pill's range
-    const dbInPill = pill.minDb + positionInPill * (pill.maxDb - pill.minDb);
-    return dbInPill;
-  };
-
-  // Memoize expensive calculations to prevent re-computation on every render
-  // Use localThreshold for immediate UI updates (not waiting for store)
-  const thresholdDb = React.useMemo(
-    () => energyToDb(localThreshold),
-    [localThreshold]
-  );
-  const thresholdPosition = React.useMemo(
-    () => dbToVisualPosition(thresholdDb),
-    [thresholdDb]
-  );
-
-  // Button handlers - defined after thresholdPosition is calculated
+  // Button handlers for threshold adjustment
   const handleDecreaseThreshold = React.useCallback(() => {
+    const currentPos = thresholdPosition;
     const stepPercent = 2;
-    const newPos = Math.max(0, thresholdPosition - stepPercent);
+    const newPos = Math.max(0, currentPos - stepPercent);
     const newDb = visualPositionToDb(newPos);
     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
     const newEnergy =
@@ -463,8 +420,9 @@ export function VADSettingsDrawer({
   }, [thresholdPosition, updateThresholdImmediate]);
 
   const handleIncreaseThreshold = React.useCallback(() => {
+    const currentPos = thresholdPosition;
     const stepPercent = 2;
-    const newPos = Math.min(100, thresholdPosition + stepPercent);
+    const newPos = Math.min(100, currentPos + stepPercent);
     const newDb = visualPositionToDb(newPos);
     const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
     const newEnergy =
@@ -476,70 +434,79 @@ export function VADSettingsDrawer({
     updateThresholdImmediate(Number(newThreshold.toFixed(4)));
   }, [thresholdPosition, updateThresholdImmediate]);
 
-  // Energy calculations - memoize to prevent unnecessary recalculations
-  const normalizedCurrentEnergy = React.useMemo(
-    () => normalizeEnergy(currentEnergy),
-    [currentEnergy]
-  );
-  const currentDb = React.useMemo(
-    () => energyToDb(normalizedCurrentEnergy),
-    [normalizedCurrentEnergy]
-  );
-  const activePills = React.useMemo(
-    () => getActivePills(currentDb),
-    [currentDb]
-  );
-
   // Start monitoring when drawer opens, stop when it closes (unless VAD is locked)
-  React.useEffect(() => {
-    if (isOpen && !isActive) {
-      console.log(
-        '🎯 VAD Settings: Starting energy detection for live preview'
-      );
-      void startEnergyDetection();
-    } else if (!isOpen && isActive && !isVADLocked) {
-      console.log(
-        '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
-      );
-      void stopEnergyDetection();
-    }
-  }, [
-    isOpen,
-    isActive,
-    isVADLocked,
-    startEnergyDetection,
-    stopEnergyDetection
-  ]);
+  // Use refs to track previous state and avoid infinite loops from isActive dependency
+  const prevIsOpenRef = React.useRef(isOpen);
+  const startEnergyDetectionRef = React.useRef(startEnergyDetection);
+  const stopEnergyDetectionRef = React.useRef(stopEnergyDetection);
+  const isActiveRef = React.useRef(isActive);
 
-  // TEMPORARILY DISABLED FOR PERFORMANCE TESTING
-  // Logging: Track energy statistics while drawer is open
-  // React.useEffect(() => {
-  //   if (isOpen && isActive) {
-  //     energySamplesRef.current = [];
-  //     loggingIntervalRef.current = setInterval(() => {
-  //       const samples = energySamplesRef.current;
-  //       if (samples.length > 0) {
-  //         console.log('📊 VAD Energy Stats:', { samples: samples.length });
-  //         energySamplesRef.current = [];
-  //       }
-  //     }, 3000);
-  //     return () => {
-  //       if (loggingIntervalRef.current) {
-  //         clearInterval(loggingIntervalRef.current);
-  //         loggingIntervalRef.current = null;
-  //       }
-  //     };
-  //   }
-  // }, [isOpen, isActive, threshold]);
-  //
-  // React.useEffect(() => {
-  //   if (isOpen && isActive && currentEnergy > 0) {
-  //     energySamplesRef.current.push(currentEnergy);
-  //     if (energySamplesRef.current.length > 100) {
-  //       energySamplesRef.current.shift();
-  //     }
-  //   }
-  // }, [isOpen, isActive, currentEnergy]);
+  // Keep refs updated with latest values (safe - refs don't trigger re-renders)
+  React.useEffect(() => {
+    startEnergyDetectionRef.current = startEnergyDetection;
+    stopEnergyDetectionRef.current = stopEnergyDetection;
+    isActiveRef.current = isActive;
+  }, [startEnergyDetection, stopEnergyDetection, isActive]);
+
+  React.useEffect(() => {
+    const wasOpen = prevIsOpenRef.current;
+    const currentIsActive = isActiveRef.current;
+
+    // Only act on actual changes, not on every render
+    if (isOpen && !wasOpen) {
+      // Drawer just opened
+      // CRITICAL: If VAD is locked, energy detection is already running via useVADRecording
+      // Don't call startEnergyDetection() again - it would interfere with the native module
+      if (isVADLocked) {
+        console.log(
+          '🎯 VAD Settings: Drawer opened with VAD locked - using existing energy detection'
+        );
+        // Don't reset energy or start detection - let useVADRecording manage it
+      } else {
+        // Reset energy values to prevent stuck values from previous session
+        resetEnergy();
+        latestEnergyRef.current = 0;
+
+        if (!currentIsActive) {
+          console.log(
+            '🎯 VAD Settings: Starting energy detection for live preview'
+          );
+          void startEnergyDetectionRef.current();
+        } else {
+          console.log(
+            '🎯 VAD Settings: Drawer opened but energy detection already active (skipping start)'
+          );
+        }
+      }
+    } else if (!isOpen && wasOpen) {
+      // Drawer just closed - cancel any in-progress calibration
+      cancelCalibration();
+
+      // CRITICAL: If VAD is locked, don't touch energy detection or reset values
+      // useVADRecording is managing the native module and needs consistent state
+      if (!isVADLocked) {
+        // Reset energy values only when VAD is not locked
+        resetEnergy();
+        latestEnergyRef.current = 0;
+
+        if (currentIsActive) {
+          // Stop energy detection only if VAD is not locked
+          // If VAD is locked, let useVADRecording manage the energy detection
+          console.log(
+            '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
+          );
+          void stopEnergyDetectionRef.current();
+        }
+      } else {
+        console.log(
+          '🎯 VAD Settings: Drawer closed with VAD locked - leaving energy detection running'
+        );
+      }
+    }
+
+    // Update refs for next render
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, isVADLocked, cancelCalibration, resetEnergy]);
 
   // Reset to default threshold
   const handleResetToDefault = React.useCallback(() => {
@@ -547,16 +514,24 @@ export function VADSettingsDrawer({
   }, [updateThresholdImmediate]);
 
   // Auto-calibrate function
+  // Use refs for isCalibrating and isActive to avoid dependency loops
+  const isCalibratingRefForCallback = React.useRef(isCalibrating);
+  const isActiveRefForCallback = React.useRef(isActive);
+  React.useEffect(() => {
+    isCalibratingRefForCallback.current = isCalibrating;
+    isActiveRefForCallback.current = isActive;
+  }, [isCalibrating, isActive]);
+
   const handleAutoCalibrate = React.useCallback(async () => {
-    if (isCalibrating) return;
+    if (isCalibratingRefForCallback.current) return;
 
     // Ensure energy detection is active
-    if (!isActive) {
+    if (!isActiveRefForCallback.current) {
       try {
-        await startEnergyDetection();
+        await startEnergyDetectionRef.current();
         // Wait a bit for energy detection to stabilize
         await new Promise((resolve) => setTimeout(resolve, 200));
-      } catch (_error) {
+      } catch {
         setCalibrationError(
           t('vadCalibrationFailed') || 'Failed to start microphone'
         );
@@ -581,13 +556,9 @@ export function VADSettingsDrawer({
 
     // Sample energy levels - use ref to avoid stale closure and worklet issues
     const sampleInterval = setInterval(() => {
-      // Use energyRef from hook (updated on every energy event, no re-renders)
-      const currentEnergy = energyRef.current;
-      if (
-        currentEnergy !== undefined &&
-        !isNaN(currentEnergy) &&
-        currentEnergy > 0
-      ) {
+      // Use ref to get latest energy value (updated from useAnimatedReaction)
+      const currentEnergy = latestEnergyRef.current;
+      if (!isNaN(currentEnergy) && currentEnergy > 0) {
         calibrationSamplesRef.current.push(currentEnergy);
       }
     }, CALIBRATION_SAMPLE_INTERVAL_MS);
@@ -610,17 +581,15 @@ export function VADSettingsDrawer({
         return;
       }
 
-      // Calculate average background noise (raw RMS energy)
+      // Calculate average background noise
+      // CRITICAL: Native module sends normalized amplitude (0-1), not raw RMS
+      // So we should use the values directly without dividing by MAX_ENERGY
       const average =
         samples.reduce((sum, val) => sum + val, 0) / samples.length;
 
-      // Normalize the average energy to 0-1 range (matching visualization)
-      // Swift/Android send raw RMS energy values that need normalization
-      const MAX_ENERGY = 20.0;
-      const normalizedAverage = Math.min(
-        1.0,
-        Math.max(0, average / MAX_ENERGY)
-      );
+      // Energy is already normalized amplitude (0-1) from native module
+      // Just clamp to ensure valid range
+      const normalizedAverage = Math.min(1.0, Math.max(0, average));
 
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
@@ -649,10 +618,30 @@ export function VADSettingsDrawer({
     }, totalDuration);
 
     calibrationTimeoutRef.current = timeout;
-  }, [isCalibrating, isActive, startEnergyDetection, onThresholdChange, t]);
+  }, [t, updateThresholdImmediate]); // Removed isCalibrating, isActive, startEnergyDetection from deps - using refs instead
 
   // Auto-calibrate when drawer opens with autoCalibrateOnOpen flag
   const hasAutoCalibratedRef = React.useRef(false);
+  const handleAutoCalibrateRef = React.useRef<
+    typeof handleAutoCalibrate | null
+  >(null);
+  const onThresholdChangeRef = React.useRef<typeof onThresholdChange | null>(
+    null
+  );
+
+  // Keep refs updated with latest callbacks (use refs to avoid dependency loops)
+  // Update refs in effect to satisfy linter (refs are still updated synchronously before use)
+  React.useEffect(() => {
+    handleAutoCalibrateRef.current = handleAutoCalibrate;
+    onThresholdChangeRef.current = onThresholdChange;
+  }, [handleAutoCalibrate, onThresholdChange]);
+
+  // Track isCalibrating with ref to avoid dependency loop
+  const isCalibratingRef = React.useRef(isCalibrating);
+  React.useEffect(() => {
+    isCalibratingRef.current = isCalibrating;
+  }, [isCalibrating]);
+
   React.useEffect(() => {
     // Reset flag when drawer closes
     if (!isOpen) {
@@ -661,32 +650,28 @@ export function VADSettingsDrawer({
     }
 
     // Trigger auto-calibration once when drawer opens with flag
+    // Use ref for isCalibrating to avoid dependency loop
+    // Note: isOpen is guaranteed true here due to early return above
     if (
-      isOpen &&
       autoCalibrateOnOpen &&
-      !isCalibrating &&
+      !isCalibratingRef.current &&
       !hasAutoCalibratedRef.current
     ) {
       hasAutoCalibratedRef.current = true;
       // Small delay to ensure drawer is fully open and energy detection can start
       const timer = setTimeout(() => {
-        void handleAutoCalibrate();
+        void handleAutoCalibrateRef.current?.();
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, autoCalibrateOnOpen, isCalibrating, handleAutoCalibrate]);
+  }, [isOpen, autoCalibrateOnOpen]); // Removed isCalibrating from deps to prevent infinite loop
 
   // Cleanup calibration on unmount
   React.useEffect(() => {
     return () => {
-      if (calibrationIntervalRef.current) {
-        clearInterval(calibrationIntervalRef.current);
-      }
-      if (calibrationTimeoutRef.current) {
-        clearTimeout(calibrationTimeoutRef.current);
-      }
+      cancelCalibration();
     };
-  }, []);
+  }, [cancelCalibration]);
 
   // Immediate update function for silence duration
   const updateSilenceDurationImmediate = React.useCallback(
@@ -725,51 +710,145 @@ export function VADSettingsDrawer({
     updateSilenceDurationImmediate(newValue);
   }, [localSilenceDuration, updateSilenceDurationImmediate]);
 
-  // Animated pulse when above threshold
-  const pulseScale = useSharedValue(1);
+  // Energy level as pixel width for SVG (with frame skipping to match native ~21fps)
+  const frameCounter = useSharedValue(0);
+  const cachedEnergyLevel = useSharedValue(0);
+  // SharedValue for energy bar width (so worklets can access it)
+  const energyBarWidthShared = useSharedValue(energyBarTotalWidth);
+  // Track if drawer is being dragged (to pause calculations)
+  const isDragging = useSharedValue(false);
 
-  React.useEffect(() => {
-    if (currentEnergy > localThreshold) {
-      pulseScale.value = withSequence(
-        withTiming(1.1, { duration: 100 }),
-        withTiming(1, { duration: 100 })
-      );
+  // Create custom gesture handler hook using factory
+  // FIXED: Pass SharedValue directly - refs were causing Reanimated warnings
+  const gestureHandlerHook = React.useMemo(
+    () => createDraggingGestureHandler(isDragging),
+    [isDragging]
+  );
+
+  // Sync isDragging to JS thread for SVG color changes
+  // CRITICAL: Must use function reference with scheduleOnRN, not inline arrow
+  const updateIsDraggingJS = React.useCallback((dragging: boolean) => {
+    setIsDraggingJS(dragging);
+  }, []);
+
+  useAnimatedReaction(
+    () => isDragging.value,
+    (dragging) => {
+      'worklet';
+      scheduleOnRN(updateIsDraggingJS, dragging);
     }
-  }, [currentEnergy, localThreshold, pulseScale]);
+  );
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: pulseScale.value }]
-    };
+  // Keep shared value in sync with memoized value
+  React.useEffect(() => {
+    energyBarWidthShared.value = energyBarTotalWidth;
+  }, [energyBarTotalWidth, energyBarWidthShared]);
+
+  // Animated style for the energy fill overlay (clips the gradient SVG)
+  const energyFillStyle = useAnimatedStyle(() => {
+    'worklet';
+    // Skip calculations when drawer is being dragged
+    if (isDragging.value) {
+      return {
+        width: (cachedEnergyLevel.value / 100) * energyBarWidthShared.value
+      };
+    }
+
+    const counter = frameCounter.value;
+    frameCounter.value = (counter + 1) % 3;
+
+    // Calculate energy level every 3rd frame (~20fps to match native ~21fps)
+    let energyLevel: number;
+    if (counter === 0) {
+      const db = currentDbShared.value;
+      // Convert dB to percentage (DB_MIN to DB_MAX -> 0 to 100%)
+      energyLevel = Math.min(
+        100,
+        Math.max(0, ((db - DB_MIN) / (DB_MAX - DB_MIN)) * 100)
+      );
+      cachedEnergyLevel.value = energyLevel;
+    } else {
+      energyLevel = cachedEnergyLevel.value;
+    }
+
+    // Convert percentage to pixel width for SVG
+    const fillWidth = (energyLevel / 100) * energyBarWidthShared.value;
+    return { width: fillWidth };
+  });
+
+  // Animated styles for threshold marker on energy bar (pixel position)
+  const thresholdMarkerStyle = useAnimatedStyle(() => {
+    'worklet';
+    const posPercent = Math.min(
+      100,
+      Math.max(0, thresholdPositionShared.value)
+    );
+    // Convert percentage to pixels for the SVG energy bar
+    const posPixels = (posPercent / 100) * energyBarWidthShared.value;
+    return { left: posPixels };
+  });
+
+  // Animated styles for threshold marker on sensitivity bar (percentage)
+  const thresholdMarkerPercentStyle = useAnimatedStyle(() => {
+    'worklet';
+    const pos = Math.min(100, Math.max(0, thresholdPositionShared.value));
+    return { left: `${pos}%` };
+  });
+
+  // Animated styles for status indicator (runs entirely on UI thread, instant - no animation)
+  const recordingStatusStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (isDragging.value) return { opacity: 0 };
+    const isAbove = cachedEnergyLevel.value > thresholdPositionShared.value;
+    return { opacity: isAbove ? 1 : 0 };
+  });
+
+  const waitingStatusStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (isDragging.value) return { opacity: 0 };
+    const isAbove = cachedEnergyLevel.value > thresholdPositionShared.value;
+    return { opacity: isAbove ? 0 : 1 };
+  });
+
+  const pausedStatusStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { opacity: isDragging.value ? 1 : 0 };
   });
 
   // Silence timer progress (1 = full/speaking, 0 = empty/will split)
   const silenceTimerProgress = useSharedValue(0);
   const wasAboveThreshold = useSharedValue(false);
+  const silenceDurationShared = useSharedValue(localSilenceDuration);
 
-  // Track silence timer: fills instantly when speaking, drains over localSilenceDuration when quiet
+  // Keep silence duration shared value in sync
   React.useEffect(() => {
-    const isAboveThreshold = normalizedCurrentEnergy > localThreshold;
+    silenceDurationShared.value = localSilenceDuration;
+  }, [localSilenceDuration, silenceDurationShared]);
 
-    if (isAboveThreshold) {
-      // Speaking: instantly fill to 100%
-      cancelAnimation(silenceTimerProgress);
-      silenceTimerProgress.value = 1;
-      wasAboveThreshold.value = true;
-    } else if (wasAboveThreshold.value) {
-      // Just went quiet: start draining over localSilenceDuration
-      wasAboveThreshold.value = false;
-      silenceTimerProgress.value = withTiming(0, {
-        duration: localSilenceDuration
-      });
+  // Track silence timer on UI thread: fills instantly when speaking, drains when quiet
+  useAnimatedReaction(
+    () => ({
+      energyLevel: cachedEnergyLevel.value,
+      threshold: thresholdPositionShared.value
+    }),
+    (current) => {
+      'worklet';
+      const isAboveThreshold = current.energyLevel > current.threshold;
+
+      if (isAboveThreshold) {
+        // Speaking: instantly fill to 100%
+        cancelAnimation(silenceTimerProgress);
+        silenceTimerProgress.value = 1;
+        wasAboveThreshold.value = true;
+      } else if (wasAboveThreshold.value) {
+        // Just went quiet: start draining over silenceDuration
+        wasAboveThreshold.value = false;
+        silenceTimerProgress.value = withTiming(0, {
+          duration: silenceDurationShared.value
+        });
+      }
     }
-  }, [
-    normalizedCurrentEnergy,
-    localThreshold,
-    localSilenceDuration,
-    silenceTimerProgress,
-    wasAboveThreshold
-  ]);
+  );
 
   // Circular progress indicator props
   const CIRCLE_SIZE = 40;
@@ -784,48 +863,40 @@ export function VADSettingsDrawer({
   });
 
   return (
-    <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={[730, 900]}>
+    <Drawer
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      snapPoints={[730, 900]}
+      gestureEventsHandlersHook={gestureHandlerHook}
+    >
       <DrawerContent className="max-h-[90%]">
         <DrawerHeader className="flex-row items-start justify-between">
           <View className="flex-1">
             <DrawerTitle>{t('vadTitle')}</DrawerTitle>
             <DrawerDescription>{t('vadDescription')}</DrawerDescription>
           </View>
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => setShowHelp(!showHelp)}
-            className="mt-0"
-          >
-            <Icon as={HelpCircle} size={20} />
-          </Button>
-        </DrawerHeader>
-
-        <BottomSheetScrollView
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: 100,
-            gap: 20
-          }}
-        >
-          {/* Help Section - Collapsible */}
-          {showHelp && (
-            <View className="gap-2 rounded-lg border border-border bg-muted/50 p-4">
-              <Text className="text-sm font-semibold text-foreground">
+          <Tooltip>
+            <TooltipTrigger hitSlop={10}>
+              <Icon as={HelpCircle} size={20} />
+            </TooltipTrigger>
+            <TooltipContent className="w-64" side="bottom" align="end">
+              <Text>
                 {t('vadHelpTitle')}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
+                {'\n'}
+                {'\n'}
                 {t('vadHelpAutomatic')}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
+                {'\n'}
+                {'\n'}
                 {t('vadHelpSensitivity')}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
+                {'\n'}
+                {'\n'}
                 {t('vadHelpPause')}
               </Text>
-            </View>
-          )}
+            </TooltipContent>
+          </Tooltip>
+        </DrawerHeader>
 
+        <View className="flex flex-col gap-6">
           {/* Display Mode Selection */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
@@ -894,7 +965,7 @@ export function VADSettingsDrawer({
               </View>
             </View>
           )}
-          {/* Input Level Visualization - TEMPORARILY DISABLED FOR PERFORMANCE TESTING */}
+          {/* Input Level Visualization */}
           <View className="gap-3">
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
@@ -903,56 +974,157 @@ export function VADSettingsDrawer({
               </Text>
             </View>
 
-            {/* Input Level Pills */}
-            <View className="relative h-12 w-full flex-row gap-1">
-              {activePills.map((pill, index) => {
-                const fillWidth = Math.min(100, pill.fillPercent);
-                return (
-                  <View key={index} className="relative flex-1">
-                    <View className="h-full w-full overflow-hidden rounded-full bg-muted/50">
-                      <Animated.View
-                        style={[
-                          {
-                            width: `${fillWidth}%`,
-                            height: '100%'
-                          },
-                          pill.isActive && animatedStyle
-                        ]}
-                        className="h-full overflow-hidden rounded-full"
-                      >
-                        <View
-                          style={{ backgroundColor: pill.color }}
-                          className="h-full w-full"
-                        />
-                      </Animated.View>
-                    </View>
-                  </View>
-                );
-              })}
-
-              {/* Threshold indicator line */}
+            <View className="items-center justify-center py-2">
               <View
                 style={{
-                  left: `${Math.min(100, Math.max(0, thresholdPosition))}%`,
-                  position: 'absolute',
-                  top: 0,
-                  height: '100%',
-                  width: 3,
-                  marginLeft: -1.5,
-                  zIndex: 10
+                  width: energyBarTotalWidth,
+                  height: ENERGY_BAR_HEIGHT,
+                  position: 'relative'
                 }}
-                className="bg-destructive shadow-lg"
-              />
+              >
+                <Svg
+                  width={energyBarTotalWidth}
+                  height={ENERGY_BAR_HEIGHT}
+                  style={{ position: 'absolute', top: 0, left: 0 }}
+                >
+                  {Array.from({ length: energyBarSegments }).map((_, i) => (
+                    <Rect
+                      key={i}
+                      x={i * (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)}
+                      y={0}
+                      width={ENERGY_BAR_PILL_WIDTH}
+                      height={ENERGY_BAR_HEIGHT}
+                      rx={ENERGY_BAR_RADIUS}
+                      ry={ENERGY_BAR_RADIUS}
+                      fill={accentColor}
+                    />
+                  ))}
+                </Svg>
+
+                <Animated.View
+                  style={[
+                    {
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      height: ENERGY_BAR_HEIGHT,
+                      overflow: 'hidden'
+                    },
+                    energyFillStyle
+                  ]}
+                >
+                  <Svg width={energyBarTotalWidth} height={ENERGY_BAR_HEIGHT}>
+                    <Defs>
+                      <SvgLinearGradient
+                        id="energyGrad"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="0"
+                      >
+                        <Stop
+                          offset="0%"
+                          stopColor={
+                            isDraggingJS ? mutedForegroundColor : '#22c55e'
+                          }
+                        />
+                        <Stop
+                          offset="25%"
+                          stopColor={
+                            isDraggingJS ? mutedForegroundColor : '#84cc16'
+                          }
+                        />
+                        <Stop
+                          offset="50%"
+                          stopColor={
+                            isDraggingJS ? mutedForegroundColor : '#eab308'
+                          }
+                        />
+                        <Stop
+                          offset="75%"
+                          stopColor={
+                            isDraggingJS ? mutedForegroundColor : '#f97316'
+                          }
+                        />
+                        <Stop
+                          offset="100%"
+                          stopColor={
+                            isDraggingJS ? mutedForegroundColor : '#ef4444'
+                          }
+                        />
+                      </SvgLinearGradient>
+                      <Mask id="pillMask">
+                        {Array.from({ length: energyBarSegments }).map(
+                          (_, i) => (
+                            <Rect
+                              key={i}
+                              x={
+                                i * (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)
+                              }
+                              y={0}
+                              width={ENERGY_BAR_PILL_WIDTH}
+                              height={ENERGY_BAR_HEIGHT}
+                              rx={ENERGY_BAR_RADIUS}
+                              ry={ENERGY_BAR_RADIUS}
+                              fill="white"
+                            />
+                          )
+                        )}
+                      </Mask>
+                    </Defs>
+                    <Rect
+                      width={energyBarTotalWidth}
+                      height={ENERGY_BAR_HEIGHT}
+                      fill="url(#energyGrad)"
+                      mask="url(#pillMask)"
+                    />
+                  </Svg>
+                </Animated.View>
+
+                <Animated.View
+                  style={[
+                    {
+                      position: 'absolute',
+                      top: 0,
+                      height: ENERGY_BAR_HEIGHT,
+                      width: 3,
+                      zIndex: 10
+                    },
+                    thresholdMarkerStyle
+                  ]}
+                  className="bg-destructive shadow-lg"
+                />
+              </View>
             </View>
 
-            <Text className="text-xs text-muted-foreground">
-              {normalizedCurrentEnergy > localThreshold
-                ? `🎤 ${t('vadRecordingNow')}`
-                : `💤 ${t('vadWaiting')}`}
-            </Text>
+            <View className="relative h-5">
+              <Animated.View
+                style={[{ position: 'absolute', left: 0 }, waitingStatusStyle]}
+              >
+                <Text className="text-xs text-muted-foreground">
+                  💤 {t('vadWaiting')}
+                </Text>
+              </Animated.View>
+              <Animated.View
+                style={[
+                  { position: 'absolute', left: 0 },
+                  recordingStatusStyle
+                ]}
+              >
+                <Text className="text-xs text-muted-foreground">
+                  🎤 {t('vadRecordingNow')}
+                </Text>
+              </Animated.View>
+              <Animated.View
+                style={[{ position: 'absolute', left: 0 }, pausedStatusStyle]}
+              >
+                <Text className="text-xs text-muted-foreground">
+                  ⏸️ {t('vadPaused')}
+                </Text>
+              </Animated.View>
+            </View>
           </View>
 
-          {/* Threshold Control Bar */}
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -971,42 +1143,30 @@ export function VADSettingsDrawer({
               </Button>
             </View>
 
-            {/* Threshold Control Bar - Visual representation */}
             <View className="relative h-16 w-full overflow-hidden rounded-lg">
-              {/* Background bar matching input pills (10 equal-width segments) */}
-              <View className="absolute inset-0 flex-row">
-                {INPUT_PILLS.map((pill, index) => {
-                  return (
-                    <View
-                      key={index}
-                      style={{
-                        flex: 1,
-                        height: '100%',
-                        backgroundColor: pill.color,
-                        opacity: 0.2
-                      }}
-                    />
-                  );
-                })}
-              </View>
-
-              {/* Threshold marker/indicator */}
-              <View
-                style={{
-                  left: `${Math.min(100, Math.max(0, thresholdPosition))}%`,
-                  position: 'absolute',
-                  top: 0,
-                  height: '100%',
-                  width: 4,
-                  marginLeft: -2
-                }}
+              <LinearGradient
+                colors={ENERGY_GRADIENT_COLORS_DIMMED}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ position: 'absolute', width: '100%', height: '100%' }}
+              />
+              <Animated.View
+                style={[
+                  {
+                    position: 'absolute',
+                    top: 0,
+                    height: '100%',
+                    width: 4,
+                    marginLeft: -2
+                  },
+                  thresholdMarkerPercentStyle
+                ]}
                 className="bg-destructive shadow-lg"
               >
-                {/* Arrow pointing up */}
                 <View className="absolute -top-2 left-1/2 -translate-x-1/2">
                   <Icon as={ChevronUp} size={16} className="text-destructive" />
                 </View>
-              </View>
+              </Animated.View>
 
               {/* Control buttons - optimized for instant response */}
               <View className="absolute inset-0 flex-row items-center justify-between px-2">
@@ -1030,22 +1190,21 @@ export function VADSettingsDrawer({
               </View>
             </View>
 
-            {/* Auto-Calibrate Button */}
             <View className="gap-2">
               <Button
-                variant={isCalibrating ? 'secondary' : 'default'}
                 onPress={handleAutoCalibrate}
                 disabled={isCalibrating}
                 className="w-full"
               >
                 {isCalibrating ? (
                   <View className="flex-row items-center gap-2">
-                    <CircularProgress
-                      progress={calibrationProgress}
-                      size={20}
+                    <ActivityIndicator
+                      size="small"
+                      color={primaryForegroundColor}
                     />
                     <Text className="text-primary-foreground">
-                      {t('vadCalibrating') || 'Calibrating...'}
+                      {t('vadCalibrating') || 'Calibrating...'}{' '}
+                      {Math.round(calibrationProgress)}%
                     </Text>
                   </View>
                 ) : (
@@ -1062,7 +1221,6 @@ export function VADSettingsDrawer({
                 )}
               </Button>
 
-              {/* Calibration Error */}
               {calibrationError && (
                 <Text className="text-xs text-destructive">
                   {calibrationError}
@@ -1071,17 +1229,15 @@ export function VADSettingsDrawer({
             </View>
           </View>
 
-          {/* Silence Duration Control */}
           <View className="gap-3">
             <Text className="text-sm font-medium text-foreground">
               {t('vadSilenceDuration')}
             </Text>
 
-            {/* Increment/Decrement Controls */}
             <View className="flex-row items-center gap-3">
               <Button
                 variant="outline"
-                size="lg"
+                size="icon-xl"
                 onPress={decrementSilence}
                 disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
                 className="size-14"
@@ -1140,7 +1296,7 @@ export function VADSettingsDrawer({
 
               <Button
                 variant="outline"
-                size="lg"
+                size="icon-xl"
                 onPress={incrementSilence}
                 disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
                 className="size-14"
@@ -1153,7 +1309,7 @@ export function VADSettingsDrawer({
               {t('vadSilenceDescription')}
             </Text>
           </View>
-        </BottomSheetScrollView>
+        </View>
 
         <DrawerFooter>
           <DrawerClose>
@@ -1164,3 +1320,30 @@ export function VADSettingsDrawer({
     </Drawer>
   );
 }
+
+// Memoize with custom comparison to prevent re-renders from useMicrophoneEnergy's energyResult updates
+// CRITICAL: Must allow re-renders when isOpen changes, but ignore callback changes
+export const VADSettingsDrawer = React.memo(
+  VADSettingsDrawerInternal,
+  (prevProps, nextProps) => {
+    // React.memo: return true = props equal (skip re-render), false = props different (re-render)
+
+    // CRITICAL: Always re-render when isOpen changes (drawer open/close)
+    if (prevProps.isOpen !== nextProps.isOpen) {
+      return false; // Props changed, must re-render
+    }
+
+    // Check other primitive props (not callbacks - they cause infinite loops)
+    const primitivePropsEqual =
+      prevProps.threshold === nextProps.threshold &&
+      prevProps.silenceDuration === nextProps.silenceDuration &&
+      prevProps.isVADLocked === nextProps.isVADLocked &&
+      prevProps.displayMode === nextProps.displayMode &&
+      prevProps.autoCalibrateOnOpen === nextProps.autoCalibrateOnOpen &&
+      prevProps.energyShared === nextProps.energyShared;
+
+    // Return true if primitive props are equal (skip re-render)
+    // This prevents re-renders from useMicrophoneEnergy's internal state updates
+    return primitivePropsEqual;
+  }
+);

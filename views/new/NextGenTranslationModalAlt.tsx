@@ -26,6 +26,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,7 +49,6 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar

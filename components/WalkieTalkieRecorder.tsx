@@ -8,6 +8,7 @@ import { LockIcon, MicIcon, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -17,8 +18,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  type SharedValue
+  withTiming
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -108,14 +108,16 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const SLIDE_THRESHOLD = 120;
   const LOCK_HAPTIC_THRESHOLD = 100;
 
-  // Store current prop values in refs for gesture access
+  // Avoid React refs inside worklets: mutating `.current` after passing the ref
+  // into a worklet triggers Reanimated's "Tried to modify key `current`..." warning.
+  // Use SharedValues for any state that must be read from a worklet callback.
+  const isRecordingShared = useSharedValue(isRecording);
   const isVADLockedRef = useRef(isVADLocked);
-  const isRecordingRef = useRef(isRecording);
 
   useEffect(() => {
     isVADLockedRef.current = isVADLocked;
-    isRecordingRef.current = isRecording;
-  }, [isVADLocked, isRecording]);
+    isRecordingShared.value = isRecording;
+  }, [isVADLocked, isRecording, isRecordingShared]);
 
   // Callbacks wrapped for scheduleOnRN
   const handleSlideStart = () => {
@@ -252,7 +254,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               },
               (finished2) => {
                 'worklet';
-                if (finished2 && isRecordingRef.current) {
+                if (finished2 && isRecordingShared.value) {
                   pulseAnim.value = withTiming(1.2, {
                     duration: 500,
                     easing: Easing.inOut(Easing.ease)
