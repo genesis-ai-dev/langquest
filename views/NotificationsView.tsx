@@ -66,7 +66,7 @@ export default function NotificationsView() {
   const { currentUser } = useAuth();
   const { goToProjects } = useAppNavigation();
   const queryClient = useQueryClient();
-  const isConnected = useNetworkStatus();
+  const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   // const [refreshKey, setRefreshKey] = useState(0);
 
@@ -792,7 +792,7 @@ export default function NotificationsView() {
     <View className="flex-1 gap-4 px-4 pt-4">
       <Text className="text-2xl font-bold">{t('notifications')}</Text>
 
-      {!isConnected && (
+      {!isOnline && (
         <Alert icon={WifiIcon}>
           <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
         </Alert>
