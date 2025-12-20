@@ -1,5 +1,6 @@
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type {
   AuthError,
   AuthResponse,
@@ -7,7 +8,6 @@ import type {
   User
 } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
       // Show error to user for other errors
-      Alert.alert(
+      RNAlert.alert(
         'Initialization Error',
         'Failed to initialize the app. Please try logging out and back in.',
         [{ text: 'OK' }]
@@ -334,7 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await system.supabaseConnector.client.auth.signOut();
+    await system.supabaseConnector.signOut();
   };
 
   const resetPassword = async (email: string) => {

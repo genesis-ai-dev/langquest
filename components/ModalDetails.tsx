@@ -15,19 +15,13 @@ import {
   DatabaseIcon,
   HardDriveDownloadIcon,
   InfoIcon,
-  Languages,
-  XIcon
+  LanguagesIcon,
+  TypeIcon
 } from 'lucide-react-native';
 import { default as React } from 'react';
 import { View } from 'react-native';
 import { Button } from './ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
-} from './ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
@@ -112,38 +106,35 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       // })
     });
 
+  const targetLanguageId =
+    contentType === 'project' ? (content as Project).target_language_id : null;
+
   const { data: targetLangArr = [], isLoading: isTargetLangLoading } =
     useHybridData({
       dataType: 'project-target-language',
-      queryKeyParams: [
-        contentType === 'project' && content.id
-          ? (content as Project).target_language_id
-          : null
-      ],
-      offlineQuery: toCompilableQuery(
-        system.db.query.language.findMany({
-          columns: { id: true, native_name: true, english_name: true },
-          where: eq(languageTable.id, (content as Project).target_language_id)
-        })
-      ),
+      queryKeyParams: [targetLanguageId ?? ''],
+      offlineQuery: targetLanguageId
+        ? toCompilableQuery(
+            system.db.query.language.findMany({
+              columns: { id: true, native_name: true, english_name: true },
+              where: eq(languageTable.id, targetLanguageId)
+            })
+          )
+        : 'SELECT * FROM language WHERE 1 = 0',
       cloudQueryFn: async () => {
+        if (!targetLanguageId) return [];
         const { data, error } = await system.supabaseConnector.client
           .from('language')
           .select('id, native_name, english_name')
-          .eq('id', (content as Project).target_language_id)
+          .eq('id', targetLanguageId)
           .overrideTypes<
             Pick<Language, 'id' | 'native_name' | 'english_name'>[]
           >();
         if (error) throw error;
         return data;
       },
-      // transformCloudData: (lang) => ({
-      //   id: lang.id,
-      //   native_name: lang.native_name,
-      //   english_name: lang.english_name
-      // }),
-      enableCloudQuery: contentType === 'project' && !!content.id,
-      enableOfflineQuery: contentType === 'project' && !!content.id
+      enableCloudQuery: contentType === 'project' && !!targetLanguageId,
+      enableOfflineQuery: contentType === 'project' && !!targetLanguageId
     });
 
   const targetLanguage =
@@ -181,25 +172,19 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       snapPoints={FEATURE_FLAG_CAN_OFFLOAD_QUEST ? [430, 470] : [260]}
     >
       <DrawerContent className="bg-background">
-        <DrawerHeader className="flex-row items-center justify-between">
-          <DrawerTitle>
-            {contentType === 'project' ? t('project') : t('quest')}
-          </DrawerTitle>
-          <DrawerClose asChild>
-            <Button variant="ghost" size="icon">
-              <Icon as={XIcon} size={24} />
-            </Button>
-          </DrawerClose>
+        <DrawerHeader>
+          <DrawerTitle>{t('info')}</DrawerTitle>
         </DrawerHeader>
 
         <View className="flex flex-col gap-4">
-          <View className="border-b border-border pb-3">
-            <Text className="text-lg font-bold">{content.name}</Text>
+          <View className="flex-row items-center gap-3">
+            <Icon as={TypeIcon} size={20} />
+            <Text className="flex-1">{content.name}</Text>
           </View>
 
           {contentType === 'project' && (
             <View className="flex-row items-center gap-3">
-              <Icon as={Languages} size={20} />
+              <Icon as={LanguagesIcon} size={20} />
               {isSourceLangLoading || isTargetLangLoading ? (
                 <Text className="text-muted-foreground">{t('loading')}</Text>
               ) : (
@@ -220,7 +205,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
           {'description' in content && content.description && (
             <View className="flex-row items-start gap-3">
               <Icon as={InfoIcon} size={20} className="mt-0.5" />
-              <Text className="flex-1 text-justify leading-5">
+              <Text className="flex-1 leading-5">
                 {content.description.replace(/\\n/g, '\n\n')}
               </Text>
             </View>

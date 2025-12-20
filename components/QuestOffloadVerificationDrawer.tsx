@@ -273,10 +273,8 @@ export function QuestOffloadVerificationDrawer({
                           'Checking for pending changes...'}
               </Text>
             </View>
-            <DrawerClose asChild>
-              <Button variant="ghost" size="icon" disabled={isOffloading}>
-                <Icon as={XIcon} size={24} />
-              </Button>
+            <DrawerClose variant="ghost" size="icon" disabled={isOffloading}>
+              <Icon as={XIcon} size={24} />
             </DrawerClose>
           </View>
         </DrawerHeader>
@@ -465,10 +463,8 @@ export function QuestOffloadVerificationDrawer({
             </Text>
           </Button>
 
-          <DrawerClose asChild>
-            <Button variant="outline" disabled={isOffloading}>
-              <Text>{t('cancel')}</Text>
-            </Button>
+          <DrawerClose variant="outline" disabled={isOffloading}>
+            <Text>{t('cancel')}</Text>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

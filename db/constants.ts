@@ -1,6 +1,6 @@
 // Schema version tracking for migrations
 // This file has no dependencies to avoid circular imports
-export const APP_SCHEMA_VERSION = '1.0';
+export const APP_SCHEMA_VERSION = '2.1';
 
 export const reasonOptions = [
   'inappropriate_content',
@@ -17,6 +17,7 @@ export const statusOptions = [
 ] as const;
 
 export const templateOptions = ['unstructured', 'bible'] as const;
+export const versificationTemplateOptions = ['protestant'] as const;
 
 export const sourceOptions = ['local', 'synced', 'cloud'] as const;
 

@@ -15,12 +15,13 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -53,7 +54,7 @@ export default function ForgotPasswordView({
       if (error) throw error;
     },
     onSuccess: () => {
-      Alert.alert(t('success'), t('checkEmailForResetLink'), [
+      RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
           onPress: () =>
@@ -64,7 +65,7 @@ export default function ForgotPasswordView({
       ]);
     },
     onError: (error) => {
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedSendResetEmail')
       );
@@ -107,6 +108,7 @@ export default function ForgotPasswordView({
                     prefix={MailIcon}
                     prefixStyling={false}
                     placeholder={t('enterEmailForPasswordReset')}
+                    mask
                   />
                 </FormControl>
                 <FormMessage />
@@ -116,7 +118,7 @@ export default function ForgotPasswordView({
 
           {!isOnline && (
             <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <WifiOffIcon size={20} className="text-destructive" />
+              <Icon as={WifiOffIcon} size={20} className="text-destructive" />
               <Text className="flex-1 text-sm text-destructive">
                 {t('internetConnectionRequired')}
               </Text>

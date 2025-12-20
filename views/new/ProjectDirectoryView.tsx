@@ -60,6 +60,7 @@ import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -78,7 +79,7 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -466,7 +467,7 @@ export default function ProjectDirectoryView() {
           });
         }
       } else {
-        Alert.alert(t('error'), t('membersOnlyCreate'));
+        RNAlert.alert(t('error'), t('membersOnlyCreate'));
       }
     },
     [
@@ -490,7 +491,7 @@ export default function ProjectDirectoryView() {
   const openCreateForParent = React.useCallback(
     (parentId: string | null) => {
       if (!isMember) {
-        Alert.alert(t('error'), t('membersOnlyCreate'));
+        RNAlert.alert(t('error'), t('membersOnlyCreate'));
         return;
       }
       setParentForNewQuest(parentId);
@@ -643,7 +644,7 @@ export default function ProjectDirectoryView() {
       }
     } catch (error) {
       console.error('🗑️ [Offload] Failed:', error);
-      Alert.alert(t('error'), t('offloadError'));
+      RNAlert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
       setQuestIdToDownload(null);
@@ -1076,7 +1077,7 @@ export default function ProjectDirectoryView() {
               <DrawerHeader>
                 <DrawerTitle>{t('newQuest')}</DrawerTitle>
               </DrawerHeader>
-              <View className="flex-1 flex-col gap-4 p-4">
+              <View className="flex flex-col gap-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -1088,7 +1089,8 @@ export default function ProjectDirectoryView() {
                           placeholder={t('questName')}
                           size="sm"
                           prefix={FolderPenIcon}
-                          drawerInput
+                          // drawerInput
+                          type="next"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1105,7 +1107,7 @@ export default function ProjectDirectoryView() {
                           {...transformInputProps(field)}
                           placeholder={t('description')}
                           size="sm"
-                          drawerInput
+                          // drawerInput
                         />
                       </FormControl>
                       <FormMessage />

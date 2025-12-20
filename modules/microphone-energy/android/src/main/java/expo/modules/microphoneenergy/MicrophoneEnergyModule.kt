@@ -11,19 +11,25 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.*
 import kotlin.math.sqrt
+import kotlin.math.pow
 
 class MicrophoneEnergyModule : Module() {
   private var audioRecord: AudioRecord? = null
   private var isActive = false
   private var recordingScope: CoroutineScope? = null
   
-  // Ring buffer for capturing speech onset (1000ms for better onset capture)
-  private val ringBuffer = ArrayDeque<ShortArray>()
-  private val ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+  // Ring buffer for capturing speech onset (200ms preroll)
+  // Store tuples of (buffer, timestamp) to enable time-based clearing
+  private data class RingBufferEntry(
+    val buffer: ShortArray,
+    val timestamp: Long
+  )
+  private val ringBuffer = ArrayDeque<RingBufferEntry>()
+  private val ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
   private var isRecordingSegment = false
   private var segmentFile: java.io.File? = null
   private var segmentStartTime: Long = 0
-  private val sampleRate = 16000
+  private val sampleRate = 44100
   
   // Segment audio data collected in memory
   private var segmentBuffers = ArrayList<ShortArray>()
@@ -96,8 +102,10 @@ class MicrophoneEnergyModule : Module() {
       val audioFormat = AudioFormat.ENCODING_PCM_16BIT
       val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
 
+      // Use DEFAULT audio source to allow system to choose best available microphone
+      // This matches expo-av's approach and provides better audio quality
       audioRecord = AudioRecord(
-        MediaRecorder.AudioSource.MIC,
+        MediaRecorder.AudioSource.DEFAULT,
         sampleRate,
         channelConfig,
         audioFormat,
@@ -208,21 +216,40 @@ class MicrophoneEnergyModule : Module() {
     // Copy the data for ring buffer
     val dataCopy = audioData.copyOf(bytesRead)
 
-    // Simple energy calculation (RMS - Root Mean Square)
-    var energy = 0.0
+    // Calculate peak amplitude (max absolute value) - matching expo-av's approach
+    // expo-av uses getMaxAmplitude() which returns peak, not RMS
+    var peakAmplitude = 0.0
     for (i in 0 until bytesRead) {
-      val sample = audioData[i] / 32768.0 // Normalize to -1.0 to 1.0
-      energy += sample * sample
+      val sample = kotlin.math.abs(audioData[i] / 32768.0) // Normalize to 0-1.0, take absolute
+      peakAmplitude = kotlin.math.max(peakAmplitude, sample)
     }
-    energy = sqrt(energy / bytesRead)
     
-    // Apply EMA smoothing
-    smoothedEnergy = emaAlpha * energy.toFloat() + (1.0f - emaAlpha) * smoothedEnergy
+    // Convert peak amplitude to dB using expo-av's formula
+    // expo-av: dB = 20 * log10(amplitude / 32767) for Android
+    // For normalized amplitude (0-1), we use reference of 1.0
+    // dB = 20 * log10(peakAmplitude / 1.0) = 20 * log10(peakAmplitude)
+    val minDb = -60.0  // Match expo-av's minimum dB
+    val maxDb = 0.0    // Match expo-av's maximum dB
+    
+    // Convert peak amplitude to dB
+    // Add small epsilon to avoid log(0)
+    val epsilon = 1e-10
+    val db = 20.0 * kotlin.math.log10(kotlin.math.max(peakAmplitude, epsilon))
+    
+    // Clamp dB to expo-av's range (-60 to 0)
+    val clampedDb = kotlin.math.max(minDb, kotlin.math.min(maxDb, db))
+    
+    // Convert dB back to amplitude (matching expo-av's conversion)
+    // amplitude = 10^(dB/20)
+    val amplitude = 10.0.pow(clampedDb / 20.0)
+    
+    // Apply EMA smoothing on the amplitude (to match expo-av's output range)
+    smoothedEnergy = emaAlpha * amplitude.toFloat() + (1.0f - emaAlpha) * smoothedEnergy
 
     // Manage ring buffer (always buffer when not recording segment)
     if (!isRecordingSegment) {
       synchronized(ringBuffer) {
-        ringBuffer.addLast(dataCopy)
+        ringBuffer.addLast(RingBufferEntry(buffer = dataCopy, timestamp = timestamp.toLong()))
         if (ringBuffer.size > ringBufferMaxSize) {
           ringBuffer.removeFirst()
         }
@@ -296,7 +323,7 @@ class MicrophoneEnergyModule : Module() {
             println("⚠️ Native VAD: Failed to start segment: $message")
           }
         }
-        startSegment(mapOf("prerollMs" to 1000), promise)
+        startSegment(mapOf("prerollMs" to 200), promise)
       } else if (timeSinceOnset > 300) {
         // Timeout - false alarm
         println("⚠️ Native VAD: Onset timeout - false alarm")
@@ -361,8 +388,8 @@ class MicrophoneEnergyModule : Module() {
     }
 
     try {
-      // Get preroll duration (default 500ms)
-      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 500
+      // Get preroll duration (default 200ms)
+      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 200
 
       // Create temp file for segment (WAV format for compatibility)
       val context = appContext.reactContext ?: throw Exception("Context not available")
@@ -381,8 +408,12 @@ class MicrophoneEnergyModule : Module() {
         val buffersToWrite = minOf(ringBuffer.size, maxPrerollBuffers)
         
         segmentBuffers.clear()
-        segmentBuffers.addAll(ringBuffer.takeLast(buffersToWrite))
+        // Copy buffers (not entries) from ring buffer
+        for (entry in ringBuffer.takeLast(buffersToWrite)) {
+          segmentBuffers.add(entry.buffer)
+        }
         
+        // Don't clear ring buffer here - it will be cleared on segment end up to that point
         println("📼 Preroll: $buffersToWrite chunks (~${prerollMs}ms)")
       }
 
@@ -470,11 +501,30 @@ class MicrophoneEnergyModule : Module() {
 
       segmentFile = null
       segmentBuffers.clear()
+      
+      // Clear ring buffer only up to segment end time (+ small margin)
+      // This preserves audio that came after segment end (start of next segment)
+      val clearUpToTime = endTime + 50 // Clear up to 50ms after segment end
+      synchronized(ringBuffer) {
+        val initialCount = ringBuffer.size
+        ringBuffer.removeAll { entry ->
+          entry.timestamp <= clearUpToTime
+        }
+        val clearedCount = initialCount - ringBuffer.size
+        println("🗑️ Ring buffer: cleared $clearedCount entries up to segment end, preserved ${ringBuffer.size} entries")
+      }
 
     } catch (e: Exception) {
       promise.reject("STOP_SEGMENT_ERROR", "Failed to stop segment: ${e.message}", e)
       segmentFile = null
       segmentBuffers.clear()
+      // Clear ring buffer up to segment end time
+      val clearUpToTime = lastSegmentEndTime + 50 // Clear up to 50ms after segment end
+      synchronized(ringBuffer) {
+        ringBuffer.removeAll { entry ->
+          entry.timestamp <= clearUpToTime
+        }
+      }
     }
   }
 }

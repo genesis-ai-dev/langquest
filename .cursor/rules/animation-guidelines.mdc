@@ -1,0 +1,547 @@
+---
+description: Guidelines for creating polished UI animations, transitions, and interactive components. Covers UX principles (simplicity, fluidity, delight), navigation patterns, multi-step flows, and technical implementation for drawers, toasts, and buttons.
+alwaysApply: false
+---
+
+# Animation & UX Guidelines
+
+Learnings from Emil Kowalski's UI animation blog posts, Benjamin De Cock's CSS Day 2018 talk, and Benjamin Sperling's "Family Values" essay.
+
+## Core Philosophy
+
+### Three Guiding Principles
+
+- **Simplicity:** Ensures accessibility by hiding complexity until needed
+- **Fluidity:** Maintains continuity of experience through seamless transitions
+- **Delight:** Fosters meaningful emotional connections with users
+
+This approach respects the user's time, intelligence, and experience. It creates an environment where every interaction feels considered and worthwhile.
+
+### Design Philosophy
+
+- **Make Design Central:** Design is not a gimmick; it's a strong marketing and competitive advantage.
+- **Go the Extra Mile:** Solve problems and create products customers love using by adding "charming subtle surprises."
+- **Prioritize User Experience:** Never trade off personal convenience for the end-user experience.
+- **Code is Part of Design:** Front-end development is integral to the design process, delivering better, faster, and more enjoyable interfaces.
+- **Code for Delight:** Use code to create unexpected, fascinating, and useful interactions.
+
+## The Problem with Complex Products
+
+- Many products present all features at once—everything is right there, all the time, whether you need it or not
+- Critical flows become daunting tasks that overwhelm users
+- A lifeless, static product feels like a dead product, and a dead product feels uncared for
+- Neglected features make the entire product feel unpolished
+
+## Animation Purpose & UX
+
+Before animating, consider _why_ the animation exists:
+
+- **Be Useful:** Animations should serve a real goal, not just be gratuitous. Making users happy is also useful.
+- **Connect States:** Link actions to consequences in a logical and understandable way, showing a clear relationship between states.
+- **Keep Users Oriented:** Visually explain where users are in the interface, e.g., by sliding to the next section.
+- **Guide Attention:** Use animations to notify users of changes or draw focus to important elements.
+- **Tell a Story:** Convey ideas, provide context, and tell a better story than static elements alone.
+- **Enhance Perception:** Improve how fast and responsive your interfaces feel. Perception of speed is more important than actual performance.
+
+---
+
+## Simplicity Through Gradual Revelation
+
+The goal is to make complex products accessible to newcomers without sacrificing depth for experienced users.
+
+### Progressive Disclosure
+
+- Put fundamentals at users' fingertips
+- Everything else appears as it becomes most relevant
+- Distill overwhelming actions into manageable interactions
+- The compact nature of each step signals that tasks are approachable
+
+### Dynamic Tray System
+
+A system of components housed within trays that expand, contract, and adapt in response to user actions:
+
+**Tray Initiation Rules:**
+- Trays are initiated by the user (tapping buttons, icons, or opening notifications)
+- They can appear standalone on top of any content, or emerge from within other components like buttons
+
+**Height Variation Rule:**
+- Each subsequent tray varies in height to make progression unmistakably clear
+- This constraint may require rewriting content or tweaking designs to make transitions apparent
+
+**Single Focus Rule:**
+- Each tray is dedicated to a singular piece of content (like educational text) or a primary action (like completing a checklist)
+- Every tray has a title capturing its function and an icon for dismissal/navigation
+
+**Context Preservation:**
+- Unlike full screen transitions that displace users, trays overlay content directly onto the current interface
+- Users aren't veering off course—they're diving deeper into their current context
+- Contextual continuity keeps flows feeling integrated rather than disjointed
+
+**When to Use Trays vs Full Screens:**
+- Use trays for transient actions that don't need permanent display
+- Especially helpful for confirmation steps and warnings that appear at the right time
+- Trays can serve as starting points for elaborate flows that transition to full screen
+
+### The Room Metaphor
+
+Think of interface navigation like walking through interconnected rooms:
+
+> "Imagine seeing parts of a room through an open doorway. From a few metres away, you catch a glimpse of what's inside. As you approach and enter, the space and its contents are gradually revealed."
+
+Each user action makes the interface unfold and evolve. Users see where they're going as they go there. This keeps complexity out of sight and out of mind until required.
+
+---
+
+## Fluidity Through Seamless Transitions
+
+A fluid interface is akin to moving through water—you float rather than walk through it. Create visible links between screens, components, and features in a way that feels natural.
+
+### Purpose of Motion
+
+- Each animation serves an architectural purpose
+- Motion aids users in understanding their path from A → B
+- Create a coherent journey users can follow easily
+- Every movement feels like a logical step forward, resembling physical spaces
+
+### Avoiding Static Transitions
+
+While speed is important, applying motion thoughtfully can enhance clarity and feel just as fast:
+
+- **Directional Awareness:** When switching tabs, include a flash of directional motion. Tap left tab = transition moves left. "We fly instead of teleport."
+- **Icon Transformations:** Transform chevrons during multi-step flows (e.g., chevron → back arrow). Tiny details coupled with broader transitions clarify navigation.
+- **Text Morphing:** Instead of instantly changing button labels (Continue → Confirm), visually morph the text. Leverage shared letters (like "Con") to animate the change smoothly.
+
+### The Anti-Redundancy Principle
+
+> "A pet peeve of mine is when a component already visible on the screen unnecessarily duplicates itself during an animation."
+
+**If a component is visible and will persist in the next phase, it should remain consistent.** Components should "travel" between screens rather than disappear and reappear.
+
+Examples:
+- Wallet cards move seamlessly between screens
+- Empty states keep unchanged text constant when only a portion needs updating
+- The same element animates into its new position rather than fading out/in
+
+### Connected State Transitions
+
+Create interactions where:
+- Trays morph into full screen views
+- Buttons glide across trays
+- Buttons morph into trays and back again
+- Every interaction feeds into the next
+
+### Fluidity in Critical Flows
+
+For actions where understanding is crucial (like sending money):
+
+1. Button labels transform smoothly as context changes
+2. Values visually morph from input to confirmation screens
+3. Users can see what's happening between screens
+4. After confirmation, spinners move to indicate where to find pending items
+
+### The Cost of Removing Fluidity
+
+Without fluid animations:
+- The sense of connection is lost
+- Contextual continuity disappears
+- Actions feel like "digital whiplash"
+- Users may be unaware of significant steps they're about to take
+
+### Trust Through Motion
+
+> "When my banking app displays a glitchy animation while accessing my checking account, it erodes my trust. It makes me question whether the app truly understands what I'm trying to do."
+
+Consistent, smooth interactions communicate: "I know exactly what you need—let me get that for you..."
+
+---
+
+## Delight Through Selective Emphasis
+
+Delight is about creating moments that resonate on a personal level—making software feel more human and responsive.
+
+### The Foundation of Delight
+
+Before adding delightful moments:
+- Achieve consistent polish everywhere first
+- Users notice when parts of an app are less polished
+- Every part of the app deserves the same holistic design approach
+- Even infrequently used features should never feel like an afterthought
+
+> "It's like going to a fancy restaurant but finding it has a dirty bathroom."
+
+### The Delight-Impact Curve
+
+The potential for delight increases as feature usage frequency decreases:
+
+| Feature Frequency | Delight Strategy |
+|------------------|------------------|
+| Daily use (sending tokens) | Focus on small, efficient touches that don't become tiresome |
+| Occasional use (settings) | Add satisfying interactions that reward exploration |
+| Rare use (wallet setup) | Create memorable, celebration-worthy moments |
+
+**Why this works:** The "specialness of a moment" generally decreases with repeated encounters. Rare features benefit most from delightful surprises.
+
+### Surprise and Novelty
+
+- Easter eggs that users discover unexpectedly are strongly associated with delightful products
+- Hide magical moments in plain sight
+- The discovery process itself creates delight
+
+**Examples:**
+- QR code screen: Tapping triggers a gentle ripple effect
+- Swiping across QR code reveals a sequin-like transformation
+- Entering an amount exceeding balance triggers a playful easter egg
+
+### Appropriate Intensity
+
+Match delight intensity to feature frequency:
+
+**High-frequency features (daily use):**
+- Commas visually shift place-to-place when inputting numbers
+- Small, efficient touches that don't become annoying
+
+**Medium-frequency features:**
+- Drag-and-drop with attractive stacking animations
+- Satisfying rather than tedious interactions
+
+**Low-frequency features (rare use):**
+- Wallet setup: Interactive animation marking the significant occasion
+- Backup completion: Confetti fills the screen as reward
+- Trash items: Visually tumble into a skeuomorphic trash can with sound effects
+
+### Specific Delight Patterns
+
+| Feature | Delightful Touch |
+|---------|------------------|
+| First-time browser | Animated arrow guides toward creating a new tab |
+| Reordering items | Smooth drag-and-drop with stacking animations |
+| Stealth mode | Gentle shimmer effect signals hidden-but-updating values |
+| Price charts | Arrow flips direction alongside changing numbers |
+| Security tasks | Confetti rewards completion of essential tasks |
+
+### The Purpose of Delight
+
+Delightful moments are not just entertainment—they:
+- Value and reward the user's time and emotional investment
+- Transform mundane interactions into memorable ones
+- Create a familiar, friendly companion rather than just a tool
+
+---
+
+## Technical Animation Guidelines
+
+### Keep Animations Fast
+
+- Default to use `ease-out` for most animations.
+- Animations should never be longer than 1s (unless it's illustrative), most of them should be under 500ms.
+- Release/exit animations should be faster than enter animations (e.g., 200ms exit vs 300ms enter).
+- Make things _feel_ snappy—perception matters more than raw numbers.
+
+### Easing Rules
+
+- Don't use built-in CSS easings unless it's `ease` or `linear`.
+- Built-in easings often lack "energy"—design your own sharp easing curves.
+- **Default to Ease-Out:** For most UI animations, `ease-out` is the best choice because it kicks off immediately, providing real-time feedback.
+- **Consider Ease-In-Out:** Appropriate for elements that move and scale but stay on the screen.
+- **Avoid Linear:** Linear animations feel unnatural and lack energy; avoid them in 99% of cases.
+
+Use the following custom easing curves for a polished feel:
+
+```css
+/* Standard ease-out - good default for most animations */
+--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+/* Smooth ease-in-out for symmetrical animations */
+--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+/* Snappy ease for quick feedback */
+--ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+
+/* Spring-like bounce */
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+```
+
+### Button Press Feedback
+
+Always add a subtle scale-down effect on button press for immediate feedback:
+
+```css
+.button {
+  transition: transform 160ms ease-out;
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+```
+
+This makes the UI feel responsive and "listening" to the user.
+
+### Never Scale From Zero
+
+Don't animate from `scale(0)` - it feels abrupt and unnatural. Start from a slightly larger scale:
+
+```css
+/* Bad */
+@keyframes appear {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Good */
+@keyframes appear {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+```
+
+### Origin-Aware Animations
+
+Set `transform-origin` to match the trigger point. Dropdowns should expand from the button that triggers them:
+
+```css
+/* Dropdown triggered from a button on the right */
+.dropdown {
+  transform-origin: top right;
+}
+
+/* Popover appearing from bottom center */
+.popover {
+  transform-origin: bottom center;
+}
+```
+
+### Tooltip Timing
+
+- Add a delay (300-500ms) for the first tooltip to prevent accidental activation
+- Subsequent tooltips should appear instantly while the user is exploring
+- This prevents tooltip "flickering" when users move their mouse across the UI
+
+### The Magic of Clip Path
+
+Use `clip-path` for smooth reveal animations. It's hardware-accelerated and doesn't affect layout:
+
+```css
+/* Hide from right, reveal from left */
+.overlay {
+  clip-path: inset(0px 100% 0px 0px); /* Hidden */
+  transition: clip-path 200ms ease-out;
+}
+
+.overlay.revealed {
+  clip-path: inset(0px 0px 0px 0px); /* Visible */
+}
+```
+
+#### Hold to Delete Pattern
+
+Create a confirmation interaction using clip-path:
+
+```jsx
+<button className="button">
+  {/* Colored overlay revealed on hold */}
+  <div aria-hidden="true" className="hold-overlay">
+    <TrashIcon />
+    Hold to Delete
+  </div>
+  {/* Default content */}
+  <TrashIcon />
+  Hold to Delete
+</button>
+```
+
+```css
+.button {
+  position: relative;
+  transition: transform 160ms ease-out;
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+.hold-overlay {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0px 100% 0px 0px);
+  transition: clip-path 200ms ease-out; /* Fast release */
+  background: var(--destructive);
+  color: white;
+}
+
+.button:active .hold-overlay {
+  clip-path: inset(0px 0px 0px 0px);
+  transition: clip-path 2s linear; /* Slow fill on hold */
+}
+```
+
+### CSS Transforms Best Practices
+
+- Transforms are GPU-accelerated and don't trigger layout recalculation
+- Prefer `transform` over `top`/`left`/`width`/`height` for animations
+- Combine transforms in a single property: `transform: translateX(10px) scale(0.95) rotate(2deg)`
+- Order matters: transforms are applied right to left
+
+### Drawer Component Tips
+
+- Use `transform: translateX()` or `translateY()` for slide animations
+- Add a backdrop with fade animation
+- Handle swipe-to-dismiss with velocity detection
+- Snap to open/closed states based on drag distance and velocity
+
+### Toast Component Tips
+
+- Stack multiple toasts with staggered positioning
+- Use enter animations from the edge of the screen
+- Exit animations should be faster than enter
+- Consider hover-to-pause auto-dismiss behavior
+
+### Spring-Based Animations
+
+For interactive elements, spring physics feel more natural than duration-based animations:
+
+- Springs respond to velocity (dragging fast = more bounce)
+- No fixed duration - they settle naturally
+- Use libraries like Motion (Framer Motion) or React Native Reanimated for spring animations
+
+### Performance Tips
+
+- **Prefer Opacity & Transform:** Animate exclusively `opacity` and `transform` in CSS for steady 60 FPS. Many effects can be faked with these properties.
+- Avoid animating `width`, `height`, `padding`, `margin` - they cause layout thrash.
+- Use `clip-path` for reveal effects instead of changing dimensions.
+- Use `will-change` sparingly and only on elements about to animate. Only use it if you are experiencing performance issues and understand its side effects.
+- **Use SVG:** When opacity and transform aren't enough, SVG can provide smoother sub-pixel interpolation for animations.
+- **Web Animations API (WAAPI):** For JavaScript animations, WAAPI offers better performance than `requestAnimationFrame` because it leverages the CSS engine. WAAPI also offers more creative freedom.
+- **Inlined Assets:** Inlining SVG illustrations and code directly into HTML (e.g., for video sneak peeks or blurred image placeholders) reduces HTTP requests and delays, improving perceived performance.
+
+### Accessibility
+
+- **Respect User Preferences:** Use media queries like `prefers-reduced-motion` to disable or reduce animations for users who prefer it.
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+## Practical Implementation Guidelines
+
+### Multi-Step Flow Design
+
+1. **Map all potential paths** before designing (Family has hundreds)
+2. **Vary tray heights** to make step progression clear
+3. **Keep each step singularly focused** on one piece of content or action
+4. **Preserve context** by overlaying rather than replacing
+5. **Use motion to show direction** and relationship between steps
+
+### Transition Checklist
+
+- [ ] Does this transition show where the user came from?
+- [ ] Does the transition show where they're going?
+- [ ] Are persistent elements traveling smoothly (not duplicating)?
+- [ ] Is there directional awareness in the animation?
+- [ ] Could text labels morph rather than switch instantly?
+
+### Delight Audit
+
+When implementing a feature, ask:
+1. How frequently will users encounter this?
+2. What's the appropriate intensity of delight?
+3. Is there an opportunity for surprise/discovery?
+4. Does this feel human and responsive?
+5. Is the rest of the app polished enough to support this moment?
+
+### Visual Theme Adaptation
+
+- Trays should adapt to the current context (dark-themed flows = darker trays)
+- Maintain visual consistency across the experience
+- Let the interface feel alive and responsive to its environment
+
+### Good vs Great Animations
+
+| Good              | Great                            |
+| ----------------- | -------------------------------- |
+| Generic easing    | Custom easing curves             |
+| Center origin     | Origin-aware (from trigger)      |
+| Same speed in/out | Fast exit, slower enter          |
+| Abrupt start/end  | Smooth acceleration              |
+| Single property   | Orchestrated multiple properties |
+
+---
+
+## Developing Taste
+
+1. **Surround yourself with great work** - Follow designers, study apps you admire
+2. **Analyze, don't just appreciate** - Ask "why does this feel good?"
+3. **Practice deliberately** - Recreate animations you like
+4. **Share publicly** - Get feedback and iterate
+
+---
+
+## Trade-offs and Commitment
+
+Creating this level of experience requires:
+- Conscious trade-offs in development speed
+- Obsessive attention to detail
+- Deep understanding of app navigation architecture
+- Willingness to rewrite content to fit constraints
+- Treating the app as having unbreakable physical rules
+
+> "Crafting a fluid interface is the result of hundreds of small, deliberate decisions woven together. A single fluid transition, while worth adding, doesn't alone create a fluid interface."
+
+---
+
+## Key Takeaways
+
+1. **Simplicity ≠ Fewer Features:** It's about revealing complexity progressively
+2. **Fluidity = Orientation:** Users should never feel lost or disoriented
+3. **Delight = Respect:** Show users you value their emotional experience
+4. **Polish Everywhere:** Neglected corners diminish the whole experience
+5. **Motion Has Architecture:** Every animation should serve a navigational purpose
+6. **Surprise Scales Inversely:** Rare features benefit most from delightful moments
+
+---
+
+## Sources
+
+### Emil Kowalski's Blog Posts
+
+- [Building a Hold to Delete Component](https://emilkowal.ski/ui/building-a-hold-to-delete-component)
+- [Developing Taste](https://emilkowal.ski/ui/developing-taste)
+- [7 Practical Animation Tips](https://emilkowal.ski/ui/7-practical-animation-tips)
+- [Animating in Public](https://emilkowal.ski/ui/animating-in-public)
+- [The Magic of Clip Path](https://emilkowal.ski/ui/the-magic-of-clip-path)
+- [Good vs Great Animations](https://emilkowal.ski/ui/good-vs-great-animations)
+- [Great Animations](https://emilkowal.ski/ui/great-animations)
+- [CSS Transforms](https://emilkowal.ski/ui/css-transforms)
+- [Building a Drawer Component](https://emilkowal.ski/ui/building-a-drawer-component)
+- [Building a Toast Component](https://emilkowal.ski/ui/building-a-toast-component)
+
+### Benjamin De Cock's CSS Day 2018 Talk
+
+- Design philosophy: make design central, go the extra mile, prioritize UX
+- Animation purpose: be useful, connect states, guide attention, tell a story
+- Technical: custom easing, prefer opacity/transform, WAAPI, SVG sub-pixel rendering
+
+### Benjamin Sperling's Family Values Essay
+
+- [Family Values by Benjamin Sperling](https://benji.org/family-values) (July 8, 2024)
+- Inspired by work on Honk (real-time messaging app) and the Family crypto wallet for iOS

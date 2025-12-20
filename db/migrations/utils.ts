@@ -29,6 +29,16 @@
  * The functions in this file handle both cases automatically:
  * - Schema functions (addColumn, renameColumn, dropColumn) access raw PowerSync
  * - Data functions (transformColumn, copyColumn, updateMetadataVersion) use views
+ *
+ * ⚠️  WARNING: DO NOT USE addColumn() FOR SCHEMA-DEFINED COLUMNS!
+ * ================================================================
+ * PowerSync creates local-only tables with ALL columns from the Drizzle schema.
+ * If a column is already defined in drizzleSchemaColumns.ts, it will already
+ * exist in the raw PowerSync table. Using addColumn() will corrupt the table
+ * by adding a duplicate column with a different structure.
+ *
+ * Only use addColumn() for truly DYNAMIC columns that are NOT in the schema.
+ * For most migrations, you only need DATA operations (UPDATE/INSERT via views).
  */
 
 import { sql } from 'drizzle-orm';
@@ -47,6 +57,10 @@ export type { DrizzleDB };
  *
  * CRITICAL: This modifies the underlying PowerSync table, not the view!
  * Views cannot be altered. We need to access the raw PowerSync table.
+ *
+ * ⚠️  WARNING: Do NOT use this for columns defined in drizzleSchemaColumns.ts!
+ * PowerSync auto-creates tables with schema-defined columns. Using addColumn()
+ * for existing columns will corrupt the table structure.
  *
  * @param db - Drizzle database instance (contains .powersync for raw access)
  * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
@@ -299,7 +313,17 @@ export async function updateMetadataVersion(
     'project_language_link_local',
     'subscription_local',
     'blocked_users_local',
-    'blocked_content_local'
+    'blocked_content_local',
+    // Languoid/region tables (v1.1+)
+    'languoid_local',
+    'languoid_alias_local',
+    'languoid_source_local',
+    'languoid_property_local',
+    'region_local',
+    'region_alias_local',
+    'region_source_local',
+    'region_property_local',
+    'languoid_region_local'
   ];
 
   let updatedTables = 0;
@@ -375,6 +399,52 @@ export async function getOutdatedRecordCount(
   } catch (error) {
     console.warn(`Could not get outdated record count for ${table}:`, error);
     return 0;
+  }
+}
+
+// ============================================================================
+// COLUMN EXISTENCE CHECK
+// ============================================================================
+
+/**
+ * Check if a column exists in a table
+ * Useful for idempotent migrations that might run multiple times
+ *
+ * @param db - Drizzle database instance
+ * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
+ * @param columnName - Column name to check
+ * @returns true if column exists, false otherwise
+ */
+export async function columnExists(
+  db: DrizzleDB,
+  table: string,
+  columnName: string
+): Promise<boolean> {
+  const psTableName = `ps_data_local__${table}`;
+
+  try {
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
+      // Fallback: try to check via pragma through the view
+      const result = (await db.get(
+        sql.raw(
+          `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`
+        )
+      )) as { count: number } | undefined;
+      return (result?.count || 0) > 0;
+    }
+
+    const result = await rawPowerSync.getAll(
+      `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = ?`,
+      [columnName]
+    );
+    return (result?.[0]?.count || 0) > 0;
+  } catch (error) {
+    console.warn(
+      `[Migration] Could not check if column ${columnName} exists in ${table}:`,
+      error
+    );
+    return false;
   }
 }
 
@@ -474,7 +544,17 @@ export async function resetMetadataVersionForTesting(
     'project_language_link_local',
     'subscription_local',
     'blocked_users_local',
-    'blocked_content_local'
+    'blocked_content_local',
+    // Languoid/region tables (v1.1+)
+    'languoid_local',
+    'languoid_alias_local',
+    'languoid_source_local',
+    'languoid_property_local',
+    'region_local',
+    'region_alias_local',
+    'region_source_local',
+    'region_property_local',
+    'languoid_region_local'
   ];
 
   for (const table of tables) {

@@ -60,11 +60,11 @@ export const localizations = {
     indonesian: 'Hanya anggota proyek yang dapat membuat konten'
   },
   membersOnlyPublish: {
-    english: 'Only project members can publish',
-    spanish: 'Solo los miembros del proyecto pueden publicar',
-    brazilian_portuguese: 'Apenas membros do projeto podem publicar',
-    tok_pisin: 'Tasol ol memba bilong projek inap putim i go long olgeta',
-    indonesian: 'Hanya anggota proyek yang dapat mempublikasikan'
+    english: 'Only project members can save to the cloud',
+    spanish: 'Solo los miembros del proyecto pueden guardar en la nube',
+    brazilian_portuguese: 'Apenas membros do projeto podem salvar na nuvem',
+    tok_pisin: 'Tasol ol memba bilong projek inap save long cloud',
+    indonesian: 'Hanya anggota proyek yang dapat menyimpan ke cloud'
   },
   apply: {
     english: 'Apply',
@@ -192,6 +192,13 @@ export const localizations = {
     brazilian_portuguese: 'Descarregar Projeto',
     tok_pisin: 'Download project',
     indonesian: 'Unduh Proyek'
+  },
+  downloadQuest: {
+    english: 'Download Quest',
+    spanish: 'Descargar Quest',
+    brazilian_portuguese: 'Descarregar Quest',
+    tok_pisin: 'Download quest',
+    indonesian: 'Unduh Quest'
   },
   downloadProjectOfflineWarning: {
     english:
@@ -776,11 +783,12 @@ export const localizations = {
     indonesian: 'Diterbitkan'
   },
   cannotPublishWhileOffline: {
-    english: 'Cannot publish while offline',
-    spanish: 'No se puede publicar mientras está desconectado',
-    brazilian_portuguese: 'Não é possível publicar enquanto está desconectado',
-    tok_pisin: 'I no inap publish long no gat internet',
-    indonesian: 'Tidak dapat memublikasikan saat offline'
+    english: 'Cannot save to cloud while offline',
+    spanish: 'No se puede guardar en la nube mientras está desconectado',
+    brazilian_portuguese:
+      'Não é possível salvar na nuvem enquanto está desconectado',
+    tok_pisin: 'I no inap save long cloud long no gat internet',
+    indonesian: 'Tidak dapat menyimpan ke cloud saat offline'
   },
   chapters: {
     english: 'Chapters',
@@ -797,30 +805,30 @@ export const localizations = {
     indonesian: 'Bab'
   },
   publishChapter: {
-    english: 'Publish Chapter',
-    spanish: 'Publicar Capítulo',
-    brazilian_portuguese: 'Publicar Capítulo',
-    tok_pisin: 'Publisim Chapter',
-    indonesian: 'Publikasikan Bab'
+    english: 'Save to Cloud',
+    spanish: 'Guardar en la Nube',
+    brazilian_portuguese: 'Salvar na Nuvem',
+    tok_pisin: 'Save long Cloud',
+    indonesian: 'Simpan ke Cloud'
   },
   publish: {
-    english: 'Publish',
-    spanish: 'Publicar',
-    brazilian_portuguese: 'Publicar',
-    tok_pisin: 'Publisim',
-    indonesian: 'Publikasikan'
+    english: 'Save',
+    spanish: 'Guardar',
+    brazilian_portuguese: 'Salvar',
+    tok_pisin: 'Save',
+    indonesian: 'Simpan'
   },
   publishChapterMessage: {
     english:
-      "This will publish {questName} and all its recordings to make them available to other users.\n\nIf the parent book or project haven't been published yet, they will be published automatically.\n\n⚠️ Publishing uploads your recordings to the cloud. This cannot be undone, but you can publish new versions in the future if you want to make changes.",
+      "This will create a permanent copy of {questName} in the cloud.\n\nAll recordings will be saved as an immutable snapshot. Once saved, this version cannot be changed, but you can create new versions later if needed.\n\nIf the parent book or project haven't been saved to the cloud yet, they will be saved automatically.",
     spanish:
-      'Esto publicará {questName} y todas sus grabaciones para que estén disponibles para otros usuarios.\n\nSi el libro o proyecto padre aún no se ha publicado, se publicarán automáticamente.\n\n⚠️ La publicación carga tus grabaciones en la nube. Esto no se puede deshacer, pero puedes publicar nuevas versiones en el futuro si deseas hacer cambios.',
+      'Esto creará una copia permanente de {questName} en la nube.\n\nTodas las grabaciones se guardarán como una instantánea inmutable. Una vez guardada, esta versión no se puede cambiar, pero puedes crear nuevas versiones más tarde si es necesario.\n\nSi el libro o proyecto padre aún no se han guardado en la nube, se guardarán automáticamente.',
     brazilian_portuguese:
-      'Isso publicará {questName} e todas as suas gravações para torná-las disponíveis para outros usuários.\n\nSe o livro ou projeto pai ainda não foi publicado, eles serão publicados automaticamente.\n\n⚠️ A publicação carrega suas gravações na nuvem. Isso não pode ser desfeito, mas você pode publicar novas versões no futuro se quiser fazer alterações.',
+      'Isso criará uma cópia permanente de {questName} na nuvem.\n\nTodas as gravações serão salvas como um instantâneo imutável. Uma vez salva, esta versão não pode ser alterada, mas você pode criar novas versões mais tarde, se necessário.\n\nSe o livro ou projeto pai ainda não foram salvos na nuvem, eles serão salvos automaticamente.',
     tok_pisin:
-      'Dispela bai publisim {questName} na olgeta recording bilong en long mekim ol narapela user i ken usim.\n\nSapos papa buk o project i no publisim yet, bai ol i publisim otomatik.\n\n⚠️ Publisim i senimapim ol recording bilong yu i go long cloud. Yu no inap senisim bek dispela, tasol yu ken publisim nupela version bihain sapos yu laik mekim ol senis.',
+      'Dispela bai wokim wanpela permanent kopi bilong {questName} long cloud.\n\nOlgeta recording bai save olsem wanpela snapshot we yu no inap senisim. Taim yu save pinis, dispela version i no inap senis, tasol yu ken wokim nupela version bihain sapos yu laik.\n\nSapos papa buk o project i no save long cloud yet, bai ol i save otomatik.',
     indonesian:
-      'Ini akan memublikasikan {questName} dan semua rekamannya agar tersedia untuk pengguna lain.\n\nJika buku atau proyek induk belum dipublikasikan, mereka akan dipublikasikan secara otomatis.\n\n⚠️ Publikasi mengunggah rekaman Anda ke cloud. Ini tidak dapat dibatalkan, tetapi Anda dapat memublikasikan versi baru di masa depan jika ingin membuat perubahan.'
+      'Ini akan membuat salinan permanen dari {questName} di cloud.\n\nSemua rekaman akan disimpan sebagai snapshot yang tidak dapat diubah. Setelah disimpan, versi ini tidak dapat diubah, tetapi Anda dapat membuat versi baru nanti jika diperlukan.\n\nJika buku atau proyek induk belum disimpan ke cloud, mereka akan disimpan secara otomatis.'
   },
   quest: {
     english: 'Quest',
@@ -2169,15 +2177,15 @@ export const localizations = {
   },
   privateProjectDescription: {
     english:
-      'This is a private project. Only members and owners can contribute translations and votes.',
+      'The project is open for viewing by anyone, but only members can contribute.',
     spanish:
-      'Este es un proyecto privado. Solo los miembros y propietarios pueden contribuir con traducciones y votos.',
+      'El proyecto está abierto para visualización por cualquiera, pero solo los miembros pueden contribuir.',
     brazilian_portuguese:
-      'Este é um projeto privado. Apenas membros e proprietários podem contribuir com traduções e votos.',
+      'O projeto está aberto para visualização por qualquer pessoa, mas apenas os membros podem contribuir.',
     tok_pisin:
-      'Dispela i private project. Ol member na owner tasol ken contributim translation na vote.',
+      'Dispela project i open long olgeta man long lukim, tasol ol member tasol ken contributim.',
     indonesian:
-      'Ini adalah proyek pribadi. Hanya anggota dan pemilik yang dapat berkontribusi terjemahan dan suara.'
+      'Proyek terbuka untuk dilihat oleh siapa saja, tetapi hanya anggota yang dapat berkontribusi.'
   },
   privateProjectInfo: {
     english:
@@ -3320,29 +3328,40 @@ export const localizations = {
     indonesian:
       'Asset dinonaktifkan di semua quest dan tidak dapat digunakan di mana pun.'
   },
+  assetGeneralSettingsDescription: {
+    english: 'These settings affect how the asset behaves across all quests.',
+    spanish:
+      'Estos ajustes afectan cómo se comporta el asset en todas las quests.',
+    brazilian_portuguese:
+      'Essas configurações afetam como o asset se comporta em todas as quests.',
+    tok_pisin:
+      'Ol dispela setting i senisim how asset i wok long olgeta quest.',
+    indonesian:
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di semua quest.'
+  },
   questSpecificSettingsDescription: {
     english:
-      'These settings affect how the asset behaves in this specific quest',
+      'These settings affect how the asset behaves in this specific quest.',
     spanish:
-      'Estos ajustes afectan cómo se comporta el asset en esta quest específica',
+      'Estos ajustes afectan cómo se comporta el asset en esta quest específica.',
     brazilian_portuguese:
-      'Essas configurações afetam como o asset se comporta nesta quest específica',
+      'Essas configurações afetam como o asset se comporta nesta quest específica.',
     tok_pisin:
-      'Ol dispela setting i senisim how asset i wok long dispela quest',
+      'Ol dispela setting i senisim how asset i wok long dispela quest.',
     indonesian:
-      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini'
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini.'
   },
   assetDisabledWarning: {
     english:
-      "⚠️ This asset is disabled across all quests. You can't change its settings for this quest.",
+      'This asset is disabled globally. You cannot change its settings for this quest.',
     spanish:
-      '⚠️ Este asset está deshabilitado en todas las quests. No puedes cambiar sus ajustes para esta quest.',
+      'Este asset está deshabilitado globalmente. No puedes cambiar sus ajustes para esta quest.',
     brazilian_portuguese:
-      '⚠️ Este asset está desabilitado em todas as quests. Você não pode alterar suas configurações para esta quest.',
+      'Este asset está desabilitado globalmente. Você não pode alterar suas configurações para esta quest.',
     tok_pisin:
-      '⚠️ Dispela asset i stop long olgeta quest. Yu no ken senisim setting bilong em long dispela quest.',
+      'Dispela asset i stop olgeta ples. Yu no inap senisim setting bilong em long dispela quest.',
     indonesian:
-      '⚠️ Asset ini dinonaktifkan di semua quest. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
+      'Asset ini dinonaktifkan secara global. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
   },
   assetVisibleThisQuest: {
     english: 'The asset is shown in this quest. Unless hidden globally.',
@@ -3550,39 +3569,55 @@ export const localizations = {
     indonesian: 'Pengaturan Proyek'
   },
   publicProjectDescription: {
-    english: 'Anyone can access this project',
-    spanish: 'Cualquiera puede acceder a este proyecto',
-    brazilian_portuguese: 'Qualquer pessoa pode acessar este projeto',
-    tok_pisin: 'Olgeta man i ken kam long dispela project',
-    indonesian: 'Siapa saja dapat mengakses proyek ini'
+    english: 'Anyone can view and contribute to this project',
+    spanish: 'Cualquiera puede ver y contribuir a este proyecto',
+    brazilian_portuguese:
+      'Qualquer pessoa pode ver e contribuir para este projeto',
+    tok_pisin: 'Olgeta man i ken lukim na contributim long dispela project',
+    indonesian: 'Siapa saja dapat melihat dan berkontribusi pada proyek ini'
   },
   visibleProjectDescription: {
-    english: 'This project appears in public listings',
-    spanish: 'Este proyecto aparece en listados públicos',
-    brazilian_portuguese: 'Este projeto aparece em listagens públicas',
-    tok_pisin: 'Dispela project i save long public list',
-    indonesian: 'Proyek ini muncul di daftar publik'
+    english:
+      'This project appears in public listings and can be discovered by all users.',
+    spanish:
+      'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios.',
+    brazilian_portuguese:
+      'Este projeto aparece em listagens públicas e pode ser descoberto por todos os usuários.',
+    tok_pisin:
+      'Dispela project i save long public list na olgeta user i ken painim.',
+    indonesian:
+      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna.'
   },
   invisibleProjectDescription: {
-    english: 'This project is hidden from public listings',
-    spanish: 'Este proyecto está oculto de los listados públicos',
-    brazilian_portuguese: 'Este projeto está oculto das listagens públicas',
-    tok_pisin: 'Dispela project i hait long public list',
-    indonesian: 'Proyek ini disembunyikan dari daftar publik'
+    english:
+      'This project is not displayed in project directories or search results.',
+    spanish:
+      'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda.',
+    brazilian_portuguese:
+      'Este projeto não é exibido em diretórios de projetos ou resultados de pesquisa.',
+    tok_pisin:
+      'Dispela project i no save long project directory olsem search result.',
+    indonesian:
+      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian.'
   },
   activeProjectDescription: {
-    english: 'This project is available for use',
-    spanish: 'Este proyecto está disponible para usar',
-    brazilian_portuguese: 'Este projeto está disponível para uso',
-    tok_pisin: 'Dispela project i redi long usim',
-    indonesian: 'Proyek ini tersedia untuk digunakan'
+    english: 'The project is currently open for viewing and contributions.',
+    spanish:
+      'El proyecto está actualmente abierto para visualización y contribuciones.',
+    brazilian_portuguese:
+      'O projeto está atualmente aberto para visualização e contribuições.',
+    tok_pisin: 'Dispela project i open nau long lukim na contributim.',
+    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi.'
   },
   inactiveProjectDescription: {
-    english: 'This project is temporarily disabled',
-    spanish: 'Este proyecto está temporalmente deshabilitado',
-    brazilian_portuguese: 'Este projeto está temporariamente desabilitado',
-    tok_pisin: 'Dispela project i stop liklik taim',
-    indonesian: 'Proyek ini sementara dinonaktifkan'
+    english:
+      'This project is currently inactive and not accepting contributions.',
+    spanish:
+      'Este proyecto está actualmente inactivo y no acepta contribuciones.',
+    brazilian_portuguese:
+      'Este projeto está atualmente inativo e não está aceitando contribuições.',
+    tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim.',
+    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi.'
   },
   loadingOptions: {
     english: 'Loading options...',
@@ -3989,6 +4024,25 @@ export const localizations = {
     indonesian:
       'Aktifkan saran terjemahan berbasis AI berdasarkan terjemahan terdekat'
   },
+  playAll: {
+    english: 'Play All Assets',
+    spanish: 'Reproducir Todos los Recursos',
+    brazilian_portuguese: 'Reproduzir Todos os Recursos',
+    tok_pisin: 'Playim Olgeta Assets',
+    indonesian: 'Putar Semua Aset'
+  },
+  playAllDescription: {
+    english:
+      'Enable the play all assets feature to play all audio assets in sequence',
+    spanish:
+      'Habilitar la función de reproducir todos los recursos para reproducir todos los recursos de audio en secuencia',
+    brazilian_portuguese:
+      'Habilitar a função de reproduzir todos os recursos para reproduzir todos os recursos de áudio em sequência',
+    tok_pisin:
+      'Onim play all assets feature long playim olgeta audio assets long wanpela taim',
+    indonesian:
+      'Aktifkan fitur putar semua aset untuk memutar semua aset audio secara berurutan'
+  },
   advanced: {
     english: 'Advanced',
     spanish: 'Avanzado',
@@ -4181,6 +4235,13 @@ export const localizations = {
     brazilian_portuguese: 'Sincronizado',
     tok_pisin: 'Sync pinis',
     indonesian: 'Tersinkronisasi'
+  },
+  questSyncedToCloud: {
+    english: 'Quest is synced to cloud',
+    spanish: 'La misión está sincronizada en la nube',
+    brazilian_portuguese: 'A missão está sincronizada na nuvem',
+    tok_pisin: 'Quest i sync pinis long cloud',
+    indonesian: 'Quest telah disinkronkan ke cloud'
   },
   failed: {
     english: 'Failed',
@@ -4639,6 +4700,13 @@ export const localizations = {
     brazilian_portuguese: 'Aguardando',
     tok_pisin: 'Wetim',
     indonesian: 'Menunggu'
+  },
+  vadPaused: {
+    english: 'Paused',
+    spanish: 'Pausado',
+    brazilian_portuguese: 'Pausado',
+    tok_pisin: 'I stop liklik',
+    indonesian: 'Dijeda'
   },
   vadThreshold: {
     english: 'Sensitivity',
@@ -5741,6 +5809,155 @@ export const localizations = {
       'Selecione o idioma que deseja usar para a interface do aplicativo',
     tok_pisin: 'Pilim tokples yu laikim long yusim long app',
     indonesian: 'Pilih bahasa yang ingin Anda gunakan untuk antarmuka aplikasi'
+  },
+  exportProgress: {
+    english: 'Export Progress',
+    spanish: 'Progreso de Exportación',
+    brazilian_portuguese: 'Progresso de Exportação',
+    tok_pisin: 'Export Progress',
+    indonesian: 'Progres Exportasi'
+  },
+  exporting: {
+    english: 'Exporting chapter... This may take a few moments.',
+    spanish: 'Exportando capítulo... Esto puede tomar unos momentos.',
+    brazilian_portuguese:
+      'Exportando capítulo... Isso pode levar alguns momentos.',
+    tok_pisin: 'Exporting chapter... This may take a few moments.',
+    indonesian: 'Mengekspor bab... Ini mungkin memakan beberapa saat.'
+  },
+  exportReady: {
+    english: 'Export is ready!',
+    spanish: 'Exportación lista!',
+    brazilian_portuguese: 'Exportação pronta!',
+    tok_pisin: 'Export is ready!',
+    indonesian: 'Ekspor siap!'
+  },
+  share: {
+    english: 'Share',
+    spanish: 'Compartir',
+    brazilian_portuguese: 'Compartilhar',
+    tok_pisin: 'Share',
+    indonesian: 'Bagikan'
+  },
+  exportFailed: {
+    english: 'Export failed',
+    spanish: 'Exportación fallida',
+    brazilian_portuguese: 'Exportação falhou',
+    tok_pisin: 'Export failed',
+    indonesian: 'Ekspor gagal'
+  },
+  close: {
+    english: 'Close',
+    spanish: 'Cerrar',
+    brazilian_portuguese: 'Fechar',
+    tok_pisin: 'Close',
+    indonesian: 'Tutup'
+  },
+  exportForDistribution: {
+    english: 'Export for Distribution',
+    spanish: 'Exportar para distribución',
+    brazilian_portuguese: 'Exportar para distribuição',
+    tok_pisin: 'Export for Distribution',
+    indonesian: 'Ekspor untuk Distribusi'
+  },
+  exportForDistributionDescription: {
+    english: 'This export is intended for public distribution and sharing.',
+    spanish:
+      'Esta exportación está destinada a la distribución y el intercambio públicos.',
+    brazilian_portuguese:
+      'Esta exportação é destinada à distribuição e compartilhamento públicos.',
+    tok_pisin:
+      'Dispela export bilong wok long putim igo aut long olgeta na kisim sindaun wantaim ol arapela.',
+    indonesian: 'Ekspor ini dimaksudkan untuk distribusi dan pembagian publik.'
+  },
+  exportForFeedback: {
+    english: 'Export for Feedback',
+    spanish: 'Exportar para feedback',
+    brazilian_portuguese: 'Exportar para feedback',
+    tok_pisin: 'Export for Feedback',
+    indonesian: 'Ekspor untuk Feedback'
+  },
+  exportForFeedbackDescription: {
+    english: 'This export is intended for feedback and sharing.',
+    spanish: 'Esta exportación está destinada a feedback y compartido.',
+    brazilian_portuguese:
+      'Esta exportação é destinada a feedback e compartilhado.',
+    tok_pisin: 'Dispela export bilong wok long feedback o share.',
+    indonesian: 'Ekspor ini dimaksudkan untuk feedback dan pembagian.'
+  },
+  selectExportType: {
+    english: 'Select Export Type',
+    spanish: 'Seleccionar tipo de exportación',
+    brazilian_portuguese: 'Selecionar tipo de exportação',
+    tok_pisin: 'Makim kain export',
+    indonesian: 'Pilih Jenis Ekspor'
+  },
+  shareLocally: {
+    english: 'Share File',
+    spanish: 'Compartir archivo',
+    brazilian_portuguese: 'Compartilhar arquivo',
+    tok_pisin: 'Shareim file',
+    indonesian: 'Bagikan file'
+  },
+  shareLocallyDescription: {
+    english: 'Create a local audio file to save or share',
+    spanish: 'Crear un archivo de audio local para guardar o compartir',
+    brazilian_portuguese:
+      'Criar um arquivo de áudio local para salvar ou compartilhar',
+    tok_pisin: 'Mekim lokal audio fail long save o shareim',
+    indonesian: 'Buat file audio lokal untuk disimpan atau dibagikan'
+  },
+  questExport: {
+    english: 'Quest Export',
+    spanish: 'Exportación de Quest',
+    brazilian_portuguese: 'Exportação de Quest',
+    tok_pisin: 'Quest Export',
+    indonesian: 'Ekspor Quest'
+  },
+  questExportDescription: {
+    english:
+      'Export bible chapters as audio files for sharing and distribution',
+    spanish:
+      'Exportar capítulos de la biblia como archivos de audio para compartir y distribuir',
+    brazilian_portuguese:
+      'Exportar capítulos da bíblia como arquivos de áudio para compartilhar e distribuir',
+    tok_pisin:
+      'Exportim ol bible chapter olsem audio fail long shareim na distributim',
+    indonesian:
+      'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan'
+  },
+  copyFeedbackLink: {
+    english: 'Copy Feedback Link',
+    spanish: 'Copiar enlace de feedback',
+    brazilian_portuguese: 'Copiar link de feedback',
+    tok_pisin: 'Kopim feedback link',
+    indonesian: 'Salin Tautan Umpan Balik'
+  },
+  copyFeedbackLinkDescription: {
+    english: 'Copy a link to share for feedback',
+    spanish: 'Copiar un enlace para compartir para feedback',
+    brazilian_portuguese: 'Copiar um link para compartilhar para feedback',
+    tok_pisin: 'Kopim link long shareim bilong feedback',
+    indonesian: 'Salin tautan untuk dibagikan untuk umpan balik'
+  },
+  feedbackLinkNote: {
+    english:
+      'Note: We plan to implement a link to the LangQuest website where exports can be viewed and commented on in the future.',
+    spanish:
+      'Nota: Planeamos implementar un enlace al sitio web de LangQuest donde las exportaciones se pueden ver y comentar en el futuro.',
+    brazilian_portuguese:
+      'Nota: Planejamos implementar um link para o site LangQuest onde as exportações podem ser visualizadas e comentadas no futuro.',
+    tok_pisin:
+      'Notis: Mipela planim long mekim link long LangQuest website we ol export inap lukim na tok long en long bihain.',
+    indonesian:
+      'Catatan: Kami berencana untuk mengimplementasikan tautan ke situs web LangQuest di mana ekspor dapat dilihat dan dikomentari di masa depan.'
+  },
+  linkCopied: {
+    english: 'Link copied to clipboard!',
+    spanish: '¡Enlace copiado al portapapeles!',
+    brazilian_portuguese: 'Link copiado para a área de transferência!',
+    tok_pisin: 'Link kopim igo long clipboard!',
+    indonesian: 'Tautan disalin ke clipboard!'
   }
 } as const;
 

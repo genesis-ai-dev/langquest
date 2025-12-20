@@ -9,9 +9,14 @@ public class MicrophoneEnergyModule: Module {
     private var audioConverter: AVAudioConverter?
     private var desiredFormat: AVAudioFormat?
     
-    // Ring buffer for capturing speech onset (1000ms for better onset capture)
-    private var ringBuffer: [AVAudioPCMBuffer] = []
-    private let ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+    // Ring buffer for capturing speech onset (200ms preroll)
+    // Store tuples of (buffer, timestamp) to enable time-based clearing
+    private struct RingBufferEntry {
+        let buffer: AVAudioPCMBuffer
+        let timestamp: TimeInterval
+    }
+    private var ringBuffer: [RingBufferEntry] = []
+    private let ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
     private var isRecordingSegment = false
     private var segmentFile: URL?
     private var segmentStartTime: TimeInterval = 0
@@ -39,7 +44,7 @@ public class MicrophoneEnergyModule: Module {
     private var lastSegmentEndTime: TimeInterval = 0 // Track when last segment ended
     private let cooldownPeriodMs: TimeInterval = 500 // Cooldown after segment ends before detecting new onset
     
-    private let sampleRate: Double = 16000
+    private let sampleRate: Double = 44100
     
     public func definition() -> ModuleDefinition {
         Name("MicrophoneEnergy")
@@ -97,8 +102,11 @@ public class MicrophoneEnergyModule: Module {
         }
         
         do {
-            // Configure audio session
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            // Configure audio session with optimized settings for recording
+            // Use .playAndRecord to allow both recording and playback if needed
+            // Allow Bluetooth devices for better microphone selection
+            // Use .defaultToSpeaker to route audio to speaker when not using headphones
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
             try audioSession.setActive(true)
             
             // Create audio engine
@@ -128,6 +136,9 @@ public class MicrophoneEnergyModule: Module {
                 audioConverter = converter
             }
             
+            // Optimize buffer size for 44100 Hz sample rate
+            // At 44100 Hz, 2048 frames = ~46ms, which is good for low latency
+            // Keeping 2048 frames maintains good balance between latency and efficiency
             let bufferSize: AVAudioFrameCount = 2048
             
             // Install tap on input node
@@ -262,31 +273,49 @@ public class MicrophoneEnergyModule: Module {
     private func processAudioData(buffer: AVAudioPCMBuffer, timestamp: TimeInterval) {
         let now = timestamp
         
-        // Calculate energy (RMS - Root Mean Square)
+        // Calculate peak amplitude (max absolute value) - matching expo-av's approach
+        // expo-av uses getMaxAmplitude() which returns peak, not RMS
         // Handle both Int16 and Float32 formats
-        var energy: Double = 0.0
+        var peakAmplitude: Double = 0.0
         let frameLength = Int(buffer.frameLength)
         
         if let int16Data = buffer.int16ChannelData {
             let channelDataPointer = int16Data.pointee
             for i in 0..<frameLength {
-                let sample = Double(channelDataPointer[i]) / 32768.0 // Normalize to -1.0 to 1.0
-                energy += sample * sample
+                let sample = abs(Double(channelDataPointer[i]) / 32768.0) // Normalize to 0-1.0, take absolute
+                peakAmplitude = max(peakAmplitude, sample)
             }
         } else if let float32Data = buffer.floatChannelData {
             let channelDataPointer = float32Data.pointee
             for i in 0..<frameLength {
-                let sample = Double(channelDataPointer[i])
-                energy += sample * sample
+                let sample = abs(Double(channelDataPointer[i])) // Take absolute value
+                peakAmplitude = max(peakAmplitude, sample)
             }
         } else {
             return // Unsupported format
         }
         
-        energy = sqrt(energy / Double(frameLength))
+        // Convert peak amplitude to dB using expo-av's formula
+        // expo-av: dB = 20 * log10(amplitude / 32767) for Android
+        // For normalized amplitude (0-1), we use reference of 1.0
+        // dB = 20 * log10(peakAmplitude / 1.0) = 20 * log10(peakAmplitude)
+        let minDb: Double = -60.0  // Match expo-av's minimum dB
+        let maxDb: Double = 0.0    // Match expo-av's maximum dB
         
-        // Apply EMA smoothing
-        smoothedEnergy = emaAlpha * Float(energy) + (1.0 - emaAlpha) * smoothedEnergy
+        // Convert peak amplitude to dB
+        // Add small epsilon to avoid log(0)
+        let epsilon: Double = 1e-10
+        let db = 20.0 * log10(max(peakAmplitude, epsilon))
+        
+        // Clamp dB to expo-av's range (-60 to 0)
+        let clampedDb = max(minDb, min(maxDb, db))
+        
+        // Convert dB back to amplitude (matching expo-av's conversion)
+        // amplitude = 10^(dB/20)
+        let amplitude = pow(10.0, clampedDb / 20.0)
+        
+        // Apply EMA smoothing on the amplitude (to match expo-av's output range)
+        smoothedEnergy = emaAlpha * Float(amplitude) + (1.0 - emaAlpha) * smoothedEnergy
         
         // Create a copy of the buffer for ring buffer
         guard let bufferCopy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameCapacity) else { return }
@@ -301,7 +330,7 @@ public class MicrophoneEnergyModule: Module {
         
         // Manage ring buffer (always buffer when not recording segment)
         if !isRecordingSegment {
-            ringBuffer.append(bufferCopy)
+            ringBuffer.append(RingBufferEntry(buffer: bufferCopy, timestamp: now))
             if ringBuffer.count > ringBufferMaxSize {
                 ringBuffer.removeFirst()
             }
@@ -365,7 +394,7 @@ public class MicrophoneEnergyModule: Module {
                 // Start segment with preroll
                 Task {
                     do {
-                        try await startSegment(options: ["prerollMs": 1000])
+                        try await startSegment(options: ["prerollMs": 200])
                     } catch {
                         print("⚠️ Native VAD: Failed to start segment: \(error.localizedDescription)")
                     }
@@ -405,8 +434,8 @@ public class MicrophoneEnergyModule: Module {
             return
         }
         
-        // Get preroll duration (default 500ms)
-        let prerollMs = (options?["prerollMs"] as? NSNumber)?.intValue ?? 500
+        // Get preroll duration (default 200ms)
+        let prerollMs = (options?["prerollMs"] as? NSNumber)?.intValue ?? 200
         
         // Create temp file for segment (WAV format for compatibility)
         let tempDir = FileManager.default.temporaryDirectory
@@ -423,8 +452,12 @@ public class MicrophoneEnergyModule: Module {
         let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
         
         segmentBuffers.removeAll()
-        segmentBuffers.append(contentsOf: ringBuffer.suffix(buffersToWrite))
+        // Copy buffers (not entries) from ring buffer
+        for entry in ringBuffer.suffix(buffersToWrite) {
+            segmentBuffers.append(entry.buffer)
+        }
         
+        // Don't clear ring buffer here - it will be cleared on segment end up to that point
         print("📼 Preroll: \(buffersToWrite) chunks (~\(prerollMs)ms)")
         
         isRecordingSegment = true
@@ -444,6 +477,11 @@ public class MicrophoneEnergyModule: Module {
         
         guard let fileURL = segmentFile else {
             segmentBuffers.removeAll()
+            // Clear ring buffer up to segment end time
+            let clearUpToTime = lastSegmentEndTime + 50 // Clear up to 50ms after segment end
+            ringBuffer.removeAll { entry in
+                entry.timestamp <= clearUpToTime
+            }
             return nil
         }
         
@@ -521,6 +559,16 @@ public class MicrophoneEnergyModule: Module {
         
         segmentFile = nil
         segmentBuffers.removeAll()
+        
+        // Clear ring buffer only up to segment end time (+ small margin)
+        // This preserves audio that came after segment end (start of next segment)
+        let clearUpToTime = endTime + 50 // Clear up to 50ms after segment end
+        let initialCount = ringBuffer.count
+        ringBuffer.removeAll { entry in
+            entry.timestamp <= clearUpToTime
+        }
+        let clearedCount = initialCount - ringBuffer.count
+        print("🗑️ Ring buffer: cleared \(clearedCount) entries up to segment end, preserved \(ringBuffer.count) entries")
         
         return uri
     }

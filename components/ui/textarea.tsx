@@ -1,4 +1,4 @@
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
@@ -43,6 +43,7 @@ const Textarea = React.forwardRef<
     },
     ref
   ) => {
+    const primaryColor = useThemeColor('primary');
     const Component = drawerInput ? DrawerInput : TextInput;
     return (
       <Component
@@ -58,6 +59,7 @@ const Textarea = React.forwardRef<
           className
         )}
         placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
+        selectionColor={primaryColor}
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical="top"

@@ -14,8 +14,9 @@
 
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 
@@ -33,10 +34,6 @@ export function MigrationScreen() {
   });
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
-
-  useEffect(() => {
-    runMigration();
-  }, []);
 
   async function runMigration() {
     try {
@@ -90,10 +87,21 @@ export function MigrationScreen() {
     }
   }
 
+  // Memoize wrapper function to pass as reference to scheduleOnRN
+  // Per workspace rules: must pass function references, never inline arrow functions
+  const startMigration = useCallback(() => {
+    void runMigration();
+  }, []); // Empty deps: runMigration uses stable state setters
+
+  useEffect(() => {
+    // Use scheduleOnRN instead of queueMicrotask per workspace rules
+    scheduleOnRN(startMigration);
+  }, [startMigration]);
+
   function handleRetry() {
     setError(null);
     setIsComplete(false);
-    runMigration();
+    void runMigration();
   }
 
   const progressPercent =
@@ -236,7 +244,7 @@ export function MigrationScreenMinimal() {
       }
     }
 
-    migrate();
+    void migrate();
   }, []);
 
   return (
