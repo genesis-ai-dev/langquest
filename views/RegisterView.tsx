@@ -1,5 +1,5 @@
 import { LanguageCombobox } from '@/components/language-combobox';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -25,7 +25,7 @@ import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
@@ -282,11 +282,7 @@ export default function RegisterView({
               );
             }}
           />
-          {!isOnline && (
-            <Alert icon={WifiOffIcon} variant="destructive">
-              <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
-            </Alert>
-          )}
+          <OfflineAlert />
           <View className="flex flex-col gap-2">
             <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('register')}</Text>

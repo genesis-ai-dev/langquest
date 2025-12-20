@@ -1,3 +1,4 @@
+import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -19,7 +20,7 @@ import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
@@ -116,15 +117,7 @@ export default function ForgotPasswordView({
             )}
           />
 
-          {!isOnline && (
-            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <Icon as={WifiOffIcon} size={20} className="text-destructive" />
-              <Text className="flex-1 text-sm text-destructive">
-                {t('internetConnectionRequired')}
-              </Text>
-            </View>
-          )}
-
+          <OfflineAlert />
           <View className="flex w-full flex-col">
             <FormSubmit
               onPress={form.handleSubmit((data) => resetPassword(data))}
