@@ -10,7 +10,12 @@ public class MicrophoneEnergyModule: Module {
     private var desiredFormat: AVAudioFormat?
     
     // Ring buffer for capturing speech onset (200ms preroll)
-    private var ringBuffer: [AVAudioPCMBuffer] = []
+    // Store tuples of (buffer, timestamp) to enable time-based clearing
+    private struct RingBufferEntry {
+        let buffer: AVAudioPCMBuffer
+        let timestamp: TimeInterval
+    }
+    private var ringBuffer: [RingBufferEntry] = []
     private let ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
     private var isRecordingSegment = false
     private var segmentFile: URL?
@@ -325,7 +330,7 @@ public class MicrophoneEnergyModule: Module {
         
         // Manage ring buffer (always buffer when not recording segment)
         if !isRecordingSegment {
-            ringBuffer.append(bufferCopy)
+            ringBuffer.append(RingBufferEntry(buffer: bufferCopy, timestamp: now))
             if ringBuffer.count > ringBufferMaxSize {
                 ringBuffer.removeFirst()
             }
@@ -447,8 +452,12 @@ public class MicrophoneEnergyModule: Module {
         let buffersToWrite = min(ringBuffer.count, maxPrerollBuffers)
         
         segmentBuffers.removeAll()
-        segmentBuffers.append(contentsOf: ringBuffer.suffix(buffersToWrite))
+        // Copy buffers (not entries) from ring buffer
+        for entry in ringBuffer.suffix(buffersToWrite) {
+            segmentBuffers.append(entry.buffer)
+        }
         
+        // Don't clear ring buffer here - it will be cleared on segment end up to that point
         print("📼 Preroll: \(buffersToWrite) chunks (~\(prerollMs)ms)")
         
         isRecordingSegment = true
@@ -468,8 +477,11 @@ public class MicrophoneEnergyModule: Module {
         
         guard let fileURL = segmentFile else {
             segmentBuffers.removeAll()
-            // Clear ring buffer to prevent stale audio in next segment's preroll
-            ringBuffer.removeAll()
+            // Clear ring buffer up to segment end time
+            let clearUpToTime = lastSegmentEndTime + 50 // Clear up to 50ms after segment end
+            ringBuffer.removeAll { entry in
+                entry.timestamp <= clearUpToTime
+            }
             return nil
         }
         
@@ -548,9 +560,15 @@ public class MicrophoneEnergyModule: Module {
         segmentFile = nil
         segmentBuffers.removeAll()
         
-        // Clear ring buffer to prevent stale audio in next segment's preroll
-        ringBuffer.removeAll()
-        print("🗑️ Ring buffer cleared for fresh preroll")
+        // Clear ring buffer only up to segment end time (+ small margin)
+        // This preserves audio that came after segment end (start of next segment)
+        let clearUpToTime = endTime + 50 // Clear up to 50ms after segment end
+        let initialCount = ringBuffer.count
+        ringBuffer.removeAll { entry in
+            entry.timestamp <= clearUpToTime
+        }
+        let clearedCount = initialCount - ringBuffer.count
+        print("🗑️ Ring buffer: cleared \(clearedCount) entries up to segment end, preserved \(ringBuffer.count) entries")
         
         return uri
     }
