@@ -46,7 +46,7 @@ export default function ForgotPasswordView({
       .trim()
   });
 
-  const { mutateAsync: resetPassword } = useMutation({
+  const { mutateAsync: resetPassword, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -81,6 +81,8 @@ export default function ForgotPasswordView({
     }
   });
 
+  const handleFormSubmit = form.handleSubmit((data) => resetPassword(data));
+
   return (
     <Form {...form}>
       <KeyboardAwareScrollView
@@ -109,6 +111,8 @@ export default function ForgotPasswordView({
                     prefix={MailIcon}
                     prefixStyling={false}
                     placeholder={t('enterEmailForPasswordReset')}
+                    returnKeyType="done"
+                    onSubmitEditing={handleFormSubmit}
                     mask
                   />
                 </FormControl>
@@ -119,10 +123,7 @@ export default function ForgotPasswordView({
 
           <OfflineAlert />
           <View className="flex w-full flex-col">
-            <FormSubmit
-              onPress={form.handleSubmit((data) => resetPassword(data))}
-              disabled={!isOnline}
-            >
+            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('sendResetEmail')}</Text>
             </FormSubmit>
 
@@ -132,7 +133,7 @@ export default function ForgotPasswordView({
                   onNavigate('sign-in', { email: form.watch('email') })
                 )
               }
-              disabled={!isOnline}
+              disabled={isPending}
               variant="link"
             >
               <Text>{t('backToLogin')}</Text>

@@ -49,7 +49,7 @@ export default function ResetPasswordView() {
     resolver: zodResolver(formSchema)
   });
 
-  const { mutateAsync: updatePassword } = useMutation({
+  const { mutateAsync: updatePassword, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       const { error } = await system.supabaseConnector.client.auth.updateUser({
         password: data.password.trim()
@@ -163,6 +163,7 @@ export default function ResetPasswordView() {
                 });
               }}
               variant="link"
+              disabled={isPending}
             >
               <Text>{t('cancel')}</Text>
             </Button>

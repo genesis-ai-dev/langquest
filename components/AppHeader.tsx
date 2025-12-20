@@ -10,10 +10,10 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
 import {
   AlertTriangle,
-  ChevronRight,
+  ChevronRightIcon,
   CloudOff,
-  HelpCircle,
-  Menu,
+  HelpCircleIcon,
+  MenuIcon,
   RefreshCw
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -179,7 +179,7 @@ export default function AppHeader({
                   >
                     {!isFirst && (
                       <Icon
-                        as={ChevronRight}
+                        as={ChevronRightIcon}
                         className="mx-1 flex-shrink-0 text-muted-foreground"
                         size={16}
                       />
@@ -242,9 +242,12 @@ export default function AppHeader({
             size="icon"
             onPress={onOnboardingPress}
             className="relative mr-2 size-8"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={10}
           >
-            <Icon as={HelpCircle} size={24} className="text-muted-foreground" />
+            <Icon
+              as={HelpCircleIcon}
+              className="size-6 text-muted-foreground"
+            />
           </Button>
         )}
 
@@ -257,7 +260,7 @@ export default function AppHeader({
             className="relative size-8"
             hitSlop={10}
           >
-            <Icon as={Menu} size={24} />
+            <Icon as={MenuIcon} className="size-6" />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (

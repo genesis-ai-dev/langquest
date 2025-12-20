@@ -3,8 +3,8 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 import { cssInterop } from 'nativewind';
-import type { AnimatedPressableOptions, PressableOpacity } from 'pressto';
-import { PressableScale } from 'pressto';
+import type { AnimatedPressableOptions } from 'pressto';
+import { PressableOpacity, PressableScale } from 'pressto';
 import type { BaseSyntheticEvent } from 'react';
 import * as React from 'react';
 import { ActivityIndicator } from 'react-native';
@@ -74,6 +74,10 @@ const buttonTextVariants = cva(
 );
 
 const ButtonPressable = cssInterop(PressableScale, {
+  className: 'style'
+});
+
+const ButtonPressableOpacity = cssInterop(PressableOpacity, {
   className: 'style'
 });
 
@@ -204,5 +208,11 @@ const Button = React.forwardRef<
 
 Button.displayName = 'Button';
 
-export { Button, ButtonPressable, buttonTextVariants, buttonVariants };
+export {
+  Button,
+  ButtonPressable,
+  ButtonPressableOpacity,
+  buttonTextVariants,
+  buttonVariants
+};
 export type { ButtonProps };

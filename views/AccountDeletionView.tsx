@@ -8,15 +8,17 @@
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Link } from '@/components/ui/link';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useNetworkStatus, getNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -26,13 +28,12 @@ import {
   Trash2
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
+import { ScrollView, View } from 'react-native';
 
 export default function AccountDeletionView() {
   const { t } = useLocalization();
   const { currentUser, signOut } = useAuth();
-  const { goToProjects, goBack, navigate } = useAppNavigation();
+  const { goToProjects, goBack } = useAppNavigation();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
   const setSystemReady = useLocalStore((state) => state.setSystemReady);
@@ -175,17 +176,9 @@ export default function AccountDeletionView() {
             </View>
 
             <View className="flex flex-col gap-2">
-              <Pressable
-                onPress={() => {
-                  void Linking.openURL(
-                    `${process.env.EXPO_PUBLIC_SITE_URL}/terms`
-                  );
-                }}
-              >
-                <Text className="text-sm text-primary underline">
-                  {t('viewTerms')}
-                </Text>
-              </Pressable>
+              <Link href="/terms" push>
+                {t('viewTerms')}
+              </Link>
             </View>
           </View>
         )}

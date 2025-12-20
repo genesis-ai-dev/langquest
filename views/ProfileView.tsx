@@ -406,7 +406,7 @@ export default function ProfileView() {
           </Alert>
         )}
         {/* Save Button */}
-        <FormSubmit onPress={handleFormSubmit}>
+        <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
           <Text>{t('submit')}</Text>
         </FormSubmit>
 

@@ -1,6 +1,10 @@
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
-import { Button, buttonTextVariants } from '@/components/ui/button';
+import {
+  Button,
+  ButtonPressableOpacity,
+  buttonTextVariants
+} from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -25,7 +29,7 @@ import { useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -54,7 +58,7 @@ export default function SignInView({
     password: z.string(t('passwordRequired')).nonempty(t('passwordRequired'))
   });
 
-  const { mutateAsync: login } = useMutation({
+  const { mutateAsync: login, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -155,7 +159,7 @@ export default function SignInView({
               </FormItem>
             )}
           />
-          <Pressable
+          <ButtonPressableOpacity
             onPress={() =>
               safeNavigate(() =>
                 onNavigate('forgot-password', { email: form.watch('email') })
@@ -170,7 +174,7 @@ export default function SignInView({
             >
               {t('forgotPassword')}
             </Text>
-          </Pressable>
+          </ButtonPressableOpacity>
           <OfflineAlert />
           <View className="flex flex-col gap-2">
             <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
@@ -184,6 +188,7 @@ export default function SignInView({
               }
               variant="outline"
               className="border-border bg-input"
+              disabled={isPending}
             >
               <Text>
                 {t('newUser')} {t('register')}

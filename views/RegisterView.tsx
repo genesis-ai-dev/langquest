@@ -70,7 +70,7 @@ export default function RegisterView({
       path: ['confirmPassword']
     });
 
-  const { mutateAsync: register } = useMutation({
+  const { mutateAsync: register, isPending } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -295,6 +295,7 @@ export default function RegisterView({
               }
               variant="outline"
               className="border-border bg-input"
+              disabled={isPending}
             >
               <Text>{t('returningHero')}</Text>
             </Button>
