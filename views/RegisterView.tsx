@@ -14,9 +14,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
+import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
@@ -75,8 +77,8 @@ export default function RegisterView({
       }
       // Get languoid name - handle both Languoid (name) and old Language (english_name) types
       const languoidName =
-        (currentLanguage as any)?.name ||
-        (currentLanguage as any)?.english_name ||
+        (currentLanguage as unknown as Languoid | undefined)?.name ||
+        (currentLanguage as unknown as Language | undefined)?.english_name ||
         'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({
