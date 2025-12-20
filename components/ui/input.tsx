@@ -225,6 +225,7 @@ const Input = React.forwardRef<
           <ButtonPressable
             className="flex items-center justify-center"
             onPress={() => setShowPassword(!showPassword)}
+            hitSlop={10}
           >
             <Icon
               as={showPassword ? EyeOffIcon : EyeIcon}

@@ -1,5 +1,5 @@
 import { LanguageCombobox } from '@/components/language-combobox';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -8,24 +8,27 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
+import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -74,8 +77,8 @@ export default function RegisterView({
       }
       // Get languoid name - handle both Languoid (name) and old Language (english_name) types
       const languoidName =
-        (currentLanguage as any)?.name ||
-        (currentLanguage as any)?.english_name ||
+        (currentLanguage as unknown as Languoid | undefined)?.name ||
+        (currentLanguage as unknown as Language | undefined)?.english_name ||
         'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({
@@ -118,7 +121,6 @@ export default function RegisterView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
     defaultValues: {
       email: sharedAuthInfo?.email || '',
       password: '',
@@ -280,19 +282,11 @@ export default function RegisterView({
               );
             }}
           />
-          {!isOnline && (
-            <Alert icon={WifiOffIcon} variant="destructive">
-              <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
-            </Alert>
-          )}
+          <OfflineAlert />
           <View className="flex flex-col gap-2">
-            <Button
-              onPress={handleFormSubmit}
-              loading={isPending}
-              disabled={!isOnline || isPending}
-            >
+            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('register')}</Text>
-            </Button>
+            </FormSubmit>
             <Button
               onPress={() =>
                 safeNavigate(() =>
@@ -301,7 +295,7 @@ export default function RegisterView({
               }
               variant="outline"
               className="border-border bg-input"
-              disabled={isPending || !isOnline}
+              disabled={isPending}
             >
               <Text>{t('returningHero')}</Text>
             </Button>
