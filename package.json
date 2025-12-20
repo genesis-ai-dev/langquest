@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "2.0.7",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "REACT_NATIVE_DEBUGGER_FRONTEND_PATH=node_modules/@react-native/debugger-frontend/dist/third-party/front_end/ expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
     "export:ios": "EXPO_ATLAS=true npx expo export --platform ios",
@@ -159,6 +159,8 @@
     "@eslint/compat": "^1.2.4",
     "@libsql/client": "^0.14.0",
     "@react-native-community/cli": "latest",
+    "@react-native/debugger-frontend": "^0.83.1",
+    "@react-native/dev-middleware": "^0.83.1",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/bidirectional-map": "^1.0.4",
     "@types/default-gateway": "^7.2.2",
@@ -203,6 +205,14 @@
     "react-dom": "19.0.0",
     "@types/react": "~19.0.10",
     "jest-snapshot-prettier": "npm:prettier@^3.6.2"
+  },
+  "resolutions": {
+    "@react-native/dev-middleware": "0.83.0",
+    "@react-native/debugger-frontend": "0.83.0"
+  },
+  "resolutionComments": {
+    "@react-native/dev-middleware": "Forcing resolution to use latest Chrome DevTools.",
+    "@react-native/debugger-frontend": "Forcing resolution to use latest Chrome DevTools."
   },
   "private": true
 }
