@@ -388,9 +388,7 @@ export default function ProfileView() {
                   <FormControl>
                     <Input
                       {...transformInputProps(field)}
-                      onSubmitEditing={() => {
-                        void handleFormSubmit();
-                      }}
+                      onSubmitEditing={handleFormSubmit}
                       returnKeyType="done"
                       placeholder={t('confirmPassword')}
                       placeholderTextColor={colors.textSecondary}

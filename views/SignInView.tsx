@@ -141,9 +141,7 @@ export default function SignInView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
-                    onSubmitEditing={() => {
-                      void handleFormSubmit();
-                    }}
+                    onSubmitEditing={handleFormSubmit}
                     returnKeyType="done"
                     autoCapitalize="none"
                     autoCorrect={false}

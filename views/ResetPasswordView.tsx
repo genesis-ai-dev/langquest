@@ -81,6 +81,8 @@ export default function ResetPasswordView() {
     }
   });
 
+  const handleSubmit = form.handleSubmit((data) => updatePassword(data));
+
   return (
     <Form {...form}>
       <KeyboardAwareScrollView
@@ -113,6 +115,7 @@ export default function ResetPasswordView() {
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('newPassword')}
+                    type="next"
                     secureTextEntry
                   />
                 </FormControl>
@@ -136,6 +139,8 @@ export default function ResetPasswordView() {
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
                     secureTextEntry
                   />
                 </FormControl>
@@ -145,9 +150,7 @@ export default function ResetPasswordView() {
           />
 
           <View className="flex w-full flex-col">
-            <FormSubmit
-              onPress={form.handleSubmit((data) => updatePassword(data))}
-            >
+            <FormSubmit onPress={handleSubmit}>
               <Text>{t('updatePassword')}</Text>
             </FormSubmit>
 
