@@ -37,13 +37,7 @@ function Alert({
         )}
         {...props}
       >
-        <Icon
-          as={icon}
-          className={cn(
-            variant === 'destructive' && 'text-destructive',
-            iconClassName
-          )}
-        />
+        <Icon as={icon} className={iconClassName} />
         <View className="flex flex-1 flex-col">{children}</View>
       </View>
     </TextClassContext.Provider>
