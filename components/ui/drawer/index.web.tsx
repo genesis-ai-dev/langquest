@@ -2,16 +2,19 @@
 'use no memo';
 
 import * as React from 'react';
-import { TextInput as DrawerInput } from 'react-native';
+import { TextInput as DrawerInput, View as DrawerView } from 'react-native';
 import { ScrollView as DrawerScrollView } from 'react-native-gesture-handler';
 import { Drawer as DrawerPrimitive } from 'vaul';
 
 import { cn } from '@/utils/styleUtils';
 
 function Drawer({
+  snapPoints: _snapPoints,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
+  // const convertedSnapPoints = convertSnapPoints(snapPoints ?? []);
+  // console.log('convertedSnapPoints', convertedSnapPoints);
+  return <DrawerPrimitive.Root data-slot="drawer" snapPoints={[]} {...props} />;
 }
 
 function DrawerTrigger({
@@ -32,11 +35,22 @@ function DrawerClose({
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
+interface DrawerContentProps
+  extends React.ComponentProps<typeof DrawerPrimitive.Content> {
+  /**
+   * When true, the default wrapper is not applied.
+   * On web, this prop is accepted for API compatibility but has no effect
+   * since vaul handles the content rendering directly.
+   */
+  asChild?: boolean;
+}
+
 function DrawerContent({
   className,
   children,
+  asChild: _asChild,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+}: DrawerContentProps) {
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerPrimitive.Overlay
@@ -46,7 +60,7 @@ function DrawerContent({
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          'group/drawer-content fixed z-[9998] flex h-auto flex-col border-border bg-background',
+          'group/drawer-content fixed z-[9998] flex h-auto flex-col border-border bg-background px-6',
           'data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b',
           'data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] data-[vaul-drawer-direction=bottom]:rounded-t-lg data-[vaul-drawer-direction=bottom]:border-t',
           'data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=right]:sm:max-w-sm',
@@ -57,11 +71,7 @@ function DrawerContent({
       >
         <DrawerPrimitive.Handle
           data-slot="drawer-handle"
-          {...props}
-          className={cn(
-            'mx-auto my-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block',
-            className
-          )}
+          className="mx-auto my-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block"
         />
         {children}
       </DrawerPrimitive.Content>
@@ -74,7 +84,7 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="drawer-header"
       className={cn(
-        'flex flex-col gap-0.5 p-4 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-center group-data-[vaul-drawer-direction=top]/drawer-content:text-center md:gap-1.5 md:text-left',
+        'flex flex-col gap-0.5 py-4 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-center group-data-[vaul-drawer-direction=top]/drawer-content:text-center md:gap-1.5 md:text-left',
         className
       )}
       {...props}
@@ -86,7 +96,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="drawer-footer"
-      className={cn('mt-auto flex flex-col gap-2 p-4', className)}
+      className={cn('mt-auto flex flex-col gap-2 py-4', className)}
       {...props}
     />
   );
@@ -128,7 +138,8 @@ export {
   DrawerInput,
   DrawerScrollView,
   DrawerTitle,
-  DrawerTrigger
+  DrawerTrigger,
+  DrawerView
 };
 
 // Web fallbacks to match native API used by some screens

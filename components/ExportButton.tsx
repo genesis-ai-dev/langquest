@@ -10,7 +10,8 @@ import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
 import { Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { ExportProgressModal } from './ExportProgressModal';
 import { ExportTypeSelector } from './ExportTypeSelector';
 
@@ -113,7 +114,7 @@ export function ExportButton({
         setIsConcatenating(false);
       } catch (error) {
         setIsConcatenating(false);
-        Alert.alert(
+        RNAlert.alert(
           t('error'),
           error instanceof Error ? error.message : 'Failed to share audio'
         );
@@ -142,12 +143,15 @@ export function ExportButton({
           } else if (data.status === 'ready') {
             // Don't show alert if we're sharing (share sheet will show)
             if (!data.share_url) {
-              Alert.alert(t('success'), t('exportReady') || 'Export is ready!');
+              RNAlert.alert(
+                t('success'),
+                t('exportReady') || 'Export is ready!'
+              );
             }
           }
         },
         onError: (error) => {
-          Alert.alert(
+          RNAlert.alert(
             t('error'),
             error.message || t('exportFailed') || 'Export failed'
           );

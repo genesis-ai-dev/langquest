@@ -13,16 +13,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
 import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
 interface SettingsSection {
   title: string;
@@ -121,14 +116,14 @@ export default function SettingsView() {
   };
 
   const handleClearCache = () => {
-    Alert.alert(t('clearCache'), t('clearCacheConfirmation'), [
+    RNAlert.alert(t('clearCache'), t('clearCacheConfirmation'), [
       { text: t('cancel'), style: 'cancel' },
       {
         text: t('clear'),
         style: 'destructive',
         onPress: () => {
           // TODO: Implement cache clearing logic
-          Alert.alert(t('success'), t('cacheClearedSuccess'));
+          RNAlert.alert(t('success'), t('cacheClearedSuccess'));
         }
       }
     ]);
@@ -136,11 +131,11 @@ export default function SettingsView() {
 
   const handleExportData = () => {
     if (!isOnline) {
-      Alert.alert(t('error'), t('exportRequiresInternet'));
+      RNAlert.alert(t('error'), t('exportRequiresInternet'));
       return;
     }
     // TODO: Implement data export logic
-    Alert.alert(t('info'), t('exportDataComingSoon'));
+    RNAlert.alert(t('info'), t('exportDataComingSoon'));
   };
 
   const settingsSections: SettingsSection[] = [
@@ -215,7 +210,7 @@ export default function SettingsView() {
           title: t('helpCenter'),
           type: 'link',
           onPress: () => {
-            Alert.alert(t('info'), t('helpCenterComingSoon'));
+            RNAlert.alert(t('info'), t('helpCenterComingSoon'));
           }
         },
         {
@@ -224,7 +219,7 @@ export default function SettingsView() {
           type: 'link',
           onPress: () => {
             // TODO: Implement contact support logic
-            Alert.alert(t('info'), t('contactSupportComingSoon'));
+            RNAlert.alert(t('info'), t('contactSupportComingSoon'));
           }
         },
         {
@@ -233,7 +228,7 @@ export default function SettingsView() {
           type: 'link',
           onPress: () => {
             // TODO: Navigate to terms page
-            Alert.alert(t('info'), t('termsAndConditionsComingSoon'));
+            RNAlert.alert(t('info'), t('termsAndConditionsComingSoon'));
           }
         }
       ]

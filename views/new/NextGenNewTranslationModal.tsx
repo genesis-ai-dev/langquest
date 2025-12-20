@@ -22,47 +22,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { deleteIfExists } from '@/utils/fileUtils';
+import {
+  deleteIfExists,
+  getLocalAttachmentUri,
+  saveAudioLocally
+} from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import {
-  MicIcon,
-  Lightbulb,
-  TextIcon,
   EyeIcon,
-  XIcon,
-  RefreshCwIcon
+  Lightbulb,
+  MicIcon,
+  RefreshCwIcon,
+  TextIcon,
+  XIcon
 } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import {
-  Alert,
-  ActivityIndicator,
-  View,
-  Pressable,
-  Modal,
-  ScrollView,
-  TouchableWithoutFeedback
-} from 'react-native';
 import type { TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
 import { z } from 'zod';
-import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
-import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useHybridData } from './useHybridData';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -301,10 +305,10 @@ export default function NextGenNewTranslationModal({
         '[NEW TRANSLATION MODAL] Modal opened without permission or anonymous user'
       );
       if (!isAuthenticated) {
-        Alert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
+        RNAlert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
         setAuthView('sign-in');
       } else {
-        Alert.alert(t('error'), t('membersOnly'));
+        RNAlert.alert(t('error'), t('membersOnly'));
       }
       onClose();
     }
@@ -325,14 +329,13 @@ export default function NextGenNewTranslationModal({
 
       let audioAttachment: string | null = null;
       if (data.audioUri && system.permAttachmentQueue) {
-        if (data.audioUri.includes('blob:')) {
-          throw new Error(
-            'Audio recording failed to save locally. Please try recording again.'
-          );
-        }
+        // Convert recording to local attachment path
+        // - On web: converts blob URL to OPFS file
+        // - On native: moves from cache dir to local attachments dir
+        const localAudioPath = await saveAudioLocally(data.audioUri);
 
         const attachment = await system.permAttachmentQueue.saveAudio(
-          data.audioUri
+          getLocalAttachmentUri(localAudioPath)
         );
         audioAttachment = attachment.filename;
       }
@@ -395,14 +398,14 @@ export default function NextGenNewTranslationModal({
     },
     onSuccess: () => {
       form.reset();
-      Alert.alert(t('success'), t('translationSubmittedSuccessfully'));
+      RNAlert.alert(t('success'), t('translationSubmittedSuccessfully'));
       onSuccess?.();
       onClose();
     },
     onError: (error) => {
       console.error('[CREATE TRANSLATION] Error creating translation:', error);
       console.error('[CREATE TRANSLATION] Error stack:', error.stack);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         t('failedCreateTranslation') + '\n\n' + error.message
       );
@@ -420,7 +423,7 @@ export default function NextGenNewTranslationModal({
 
   const handlePredictTranslation = async () => {
     if (!contentPreview.trim()) {
-      Alert.alert(
+      RNAlert.alert(
         'No Source Text',
         'There is no source text to translate. Please select an asset with content.',
         [{ text: 'OK' }]
@@ -429,7 +432,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!isOnline) {
-      Alert.alert(
+      RNAlert.alert(
         'Offline',
         'AI translation requires an internet connection. Please check your network and try again.',
         [{ text: 'OK' }]
@@ -438,7 +441,7 @@ export default function NextGenNewTranslationModal({
     }
 
     if (!targetLanguageData) {
-      Alert.alert(
+      RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
         [{ text: 'OK' }]
@@ -504,7 +507,7 @@ export default function NextGenNewTranslationModal({
 
       // Only show alert if it's not an API key error (we'll show it in the UI instead)
       if (!isApiKeyError) {
-        Alert.alert(
+        RNAlert.alert(
           t('error'),
           `Failed to predict translation: ${errorMessage}`
         );
@@ -818,7 +821,7 @@ export default function NextGenNewTranslationModal({
                       '[CREATE TRANSLATION] Form validation failed'
                     );
                   }
-                  Alert.alert(t('error'), t('fillFields'));
+                  RNAlert.alert(t('error'), t('fillFields'));
                 }
               )}
             >

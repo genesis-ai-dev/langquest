@@ -76,7 +76,7 @@ cssInterop(MotiIconImpl, {
  *
  * @param {LucideIcon} as - The Lucide icon component to render.
  * @param {string} className - Utility classes to style the icon using Nativewind.
- * @param {number} size - Icon size (defaults to 14).
+ * @param {number} size - Icon size (defaults to --default-icon-size).
  * @param {...LucideProps} ...props - Additional Lucide icon props passed to the "as" icon.
  */
 function Icon({

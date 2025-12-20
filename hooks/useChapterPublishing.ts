@@ -25,9 +25,9 @@ interface UseChapterPublishingResult {
  * const handlePublish = async () => {
  *   const result = await publishChapter(chapterId);
  *   if (result.success) {
- *     Alert.alert('Success', result.message);
+ *     RNAlert.alert('Success', result.message);
  *   } else {
- *     Alert.alert('Error', result.errors.join('\n'));
+ *     RNAlert.alert('Error', result.errors.join('\n'));
  *   }
  * };
  * ```

@@ -6,6 +6,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
 import {
   AlertTriangle,
@@ -16,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -103,7 +104,7 @@ export default function AppHeader({
   const handleSyncErrorTap = () => {
     const errorMessage =
       downloadError?.message || uploadError?.message || t('syncError');
-    Alert.alert(t('syncError'), errorMessage);
+    RNAlert.alert(t('syncError'), errorMessage);
   };
 
   // Animation for sync indicator
@@ -254,7 +255,7 @@ export default function AppHeader({
             size="icon"
             onPress={drawerToggleCallback}
             className="relative size-8"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={10}
           >
             <Icon as={Menu} size={24} />
 

@@ -1,6 +1,5 @@
 ---
-# Specify the following for Cursor rules
-description: Guidelines for writing Postgres migrations
+description: Guidelines for writing Postgres migration files
 alwaysApply: false
 ---
 
@@ -34,6 +33,8 @@ For example:
 
 ## SQL Guidelines
 
+Note: All migrations must also follow the guidelines in `.cursor/rules/supabase/postgres-sql-style-guide.mdc` for consistent SQL formatting and style.
+
 Write Postgres-compatible SQL code for Supabase migration files that:
 
 - Includes a header comment with metadata about the migration, such as the purpose, affected tables/columns, and any special considerations.
@@ -49,3 +50,32 @@ Write Postgres-compatible SQL code for Supabase migration files that:
   - Include comments explaining the rationale and intended behavior of each security policy
 
 The generated SQL code should be production-ready, well-documented, and aligned with Supabase's best practices.
+
+## Idempotency
+
+All migrations must be idempotent - safe to run multiple times without errors.
+
+Key patterns:
+
+- Use `if not exists` for tables, indexes, columns
+- Use `create or replace` for functions
+- Always `drop trigger if exists` before creating triggers
+- Use `do $$` blocks with existence checks for constraints
+
+## Statement Timeout
+
+For migrations that may take a long time (e.g., backfilling data, updating many rows), set an appropriate statement timeout at the beginning of the migration:
+
+```sql
+-- Increase timeout for long-running migration
+set statement_timeout = '30min';
+```
+
+When to use:
+
+- Backfilling data across large tables
+- Running `UPDATE` statements that affect many rows
+- Creating indexes on large tables (consider `CREATE INDEX CONCURRENTLY` instead)
+- Any operation that might exceed the default timeout
+
+Note: The timeout automatically resets after the transaction/session ends, so you don't need to explicitly reset it.

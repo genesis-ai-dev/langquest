@@ -27,6 +27,7 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import {
   ArrowBigDownDashIcon,
@@ -46,7 +47,7 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -120,6 +121,9 @@ export default function NextGenAssetsView() {
   const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set()
+  );
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -240,6 +244,7 @@ export default function NextGenAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   const {
     data,
@@ -440,7 +445,8 @@ export default function NextGenAssetsView() {
           // Check if this is already a local URI (starts with 'local/' or 'file://')
           if (audioValue.startsWith('local/')) {
             // It's a direct local URI from saveAudioLocally()
-            const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
             // Check if file exists at constructed path
             if (await fileExists(constructedUri)) {
               uris.push(constructedUri);
@@ -567,7 +573,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       break;
@@ -611,7 +617,7 @@ export default function NextGenAssetsView() {
                 for (const fallbackAudioValue of fallbackLink.audio) {
                   if (fallbackAudioValue.startsWith('local/')) {
                     const fallbackUri =
-                      getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                     if (await fileExists(fallbackUri)) {
                       uris.push(fallbackUri);
                       console.log(
@@ -804,38 +810,8 @@ export default function NextGenAssetsView() {
           `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
         );
 
-        // Preload durations for accurate highlighting
-        // This helps us know which asset is playing at any given time
-        try {
-          const { Audio } = await import('expo-av');
-          const durations: number[] = [];
-          for (const uri of allUris) {
-            try {
-              const { sound } = await Audio.Sound.createAsync({ uri });
-              const status = await sound.getStatusAsync();
-              await sound.unloadAsync();
-              durations.push(
-                status.isLoaded ? (status.durationMillis ?? 0) : 0
-              );
-            } catch (error) {
-              console.warn(
-                `Failed to get duration for ${uri.slice(0, 30)}:`,
-                error
-              );
-              durations.push(0);
-            }
-          }
-          segmentDurationsRef.current = durations;
-          console.log(
-            `📊 Loaded durations for ${durations.length} segments:`,
-            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
-          );
-        } catch (error) {
-          console.warn('Failed to preload durations:', error);
-          // Continue anyway - will use percentage-based fallback
-        }
-
         // Set the first asset as currently playing
+        // Note: Duration preloading is handled by AudioContext.playSoundSequence
         if (assetOrderRef.current.length > 0) {
           setCurrentlyPlayingAssetId(assetOrderRef.current[0] || null);
         }
@@ -907,16 +883,16 @@ export default function NextGenAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        Alert.alert(t('success'), result.message, [{ text: t('ok') }]);
+        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
-        Alert.alert(t('error'), result.message || t('error'), [
+        RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok') }
         ]);
       }
     },
     onError: (error) => {
       console.error('Publish error:', error);
-      Alert.alert(
+      RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
         [{ text: t('ok') }]
@@ -1002,18 +978,56 @@ export default function NextGenAssetsView() {
 
       console.log('✅ [Offload] All queries invalidated');
 
-      Alert.alert(t('success'), t('offloadComplete'));
+      RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
       // Navigate back to project directory view (quests view)
       goBack();
     } catch (error) {
       console.error('Failed to offload quest:', error);
-      Alert.alert(t('error'), t('offloadError'));
+      RNAlert.alert(t('error'), t('offloadError'));
     } finally {
       setIsOffloading(false);
     }
   };
+
+  // Cleanup effect: Clear all refs and stop audio when component unmounts
+  // This prevents memory leaks when navigating away from the assets view
+  React.useEffect(() => {
+    // Capture refs in variables to avoid stale closure warnings
+    const assetUriMap = assetUriMapRef.current;
+    const assetOrder = assetOrderRef.current;
+    const uriOrder = uriOrderRef.current;
+    const segmentDurations = segmentDurationsRef.current;
+    const timeoutIds = timeoutIdsRef.current;
+    // Store reference to audioContext methods - access current value in cleanup
+    const audioContextRef = audioContext;
+
+    return () => {
+      // Stop audio playback if playing (check current state, not captured state)
+      if (audioContextRef.isPlaying) {
+        void audioContextRef.stopCurrentSound();
+      }
+
+      // Clear all refs to free memory
+      assetUriMap.clear();
+      assetOrder.length = 0;
+      uriOrder.length = 0;
+      segmentDurations.length = 0;
+
+      // Clear all pending timeouts
+      timeoutIds.forEach((id) => clearTimeout(id));
+      timeoutIds.clear();
+
+      // Reset state
+      setCurrentlyPlayingAssetId(null);
+
+      console.log('🧹 Cleaned up NextGenAssetsView on unmount');
+    };
+    // Empty dependency array - this effect should only run on mount/unmount
+    // We access audioContext directly in cleanup to get the latest state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!currentQuestId) {
     return (
@@ -1063,16 +1077,18 @@ export default function NextGenAssetsView() {
               void refetch();
               console.log('🔄 Assets queries invalidated');
               // Stop animation after a brief delay
-              setTimeout(() => {
+              const timeoutId = setTimeout(() => {
+                timeoutIdsRef.current.delete(timeoutId);
                 setIsRefreshing(false);
               }, 500);
+              timeoutIdsRef.current.add(timeoutId);
             }}
           >
             <Animated.View style={spinStyle}>
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && (
+          {assets.length > 0 && enablePlayAll && (
             <Button
               variant="ghost"
               size="icon"
@@ -1100,7 +1116,7 @@ export default function NextGenAssetsView() {
                   variant="outline"
                   className="h-10 px-4 py-0"
                   onPress={() => {
-                    Alert.alert(t('questSyncedToCloud'));
+                    RNAlert.alert(t('questSyncedToCloud'));
                   }}
                 >
                   <View className="flex-row items-center gap-0.5">
@@ -1141,12 +1157,12 @@ export default function NextGenAssetsView() {
                   disabled={isPublishing || !isOnline || !isMember}
                   onPress={() => {
                     if (!isOnline) {
-                      Alert.alert(t('error'), t('cannotPublishWhileOffline'));
+                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
                       return;
                     }
 
                     if (!isMember) {
-                      Alert.alert(t('error'), t('membersOnlyPublish'));
+                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
                       return;
                     }
 
@@ -1158,7 +1174,7 @@ export default function NextGenAssetsView() {
                     // Use quest name if available, otherwise generic message
                     const questName = selectedQuest?.name || 'this chapter';
 
-                    Alert.alert(
+                    RNAlert.alert(
                       t('publishChapter'),
                       t('publishChapterMessage').replace(
                         '{questName}',
@@ -1345,7 +1361,7 @@ export default function NextGenAssetsView() {
           bottom: insets.bottom + 24,
           right: 24
         }}
-        className="absolute z-50"
+        className="absolute z-[100]"
       >
         <SpeedDial>
           <SpeedDialItems>

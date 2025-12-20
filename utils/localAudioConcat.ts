@@ -17,7 +17,28 @@ import {
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { concatAudioFiles, convertToM4a } from 'react-native-audio-concat';
+import { Platform } from 'react-native';
+
+// Conditionally import react-native-audio-concat only on native platforms
+// On web, metro.config.js returns empty module, so we need to handle it gracefully
+type ConcatAudioFiles = (
+  audioData: { filePath: string }[],
+  outputPath: string
+) => Promise<string>;
+type ConvertToM4a = (inputPath: string, outputPath: string) => Promise<string>;
+
+let concatAudioFiles: ConcatAudioFiles | undefined;
+let convertToM4a: ConvertToM4a | undefined;
+
+if (Platform.OS !== 'web') {
+  try {
+    const audioConcatModule = require('react-native-audio-concat');
+    concatAudioFiles = audioConcatModule.concatAudioFiles;
+    convertToM4a = audioConcatModule.convertToM4a;
+  } catch (error) {
+    console.warn('Failed to load react-native-audio-concat:', error);
+  }
+}
 
 /**
  * Convert file:// URI to a path that native modules can use
@@ -156,7 +177,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
 
         // Handle direct local URIs (from recording view before publish)
         if (audioValue.startsWith('local/')) {
-          const constructedUri = getLocalAttachmentUriWithOPFS(audioValue);
+          const constructedUri =
+            await getLocalAttachmentUriWithOPFS(audioValue);
           // Check if file exists at constructed path
           if (await fileExists(constructedUri)) {
             localUri = constructedUri;
@@ -336,7 +358,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
               // Find any local URI in the fallback link
               for (const fallbackAudioValue of fallbackLocalLink.audio) {
                 if (fallbackAudioValue.startsWith('local/')) {
-                  localUri = getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                  localUri =
+                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                   console.log(
                     `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
                   );
@@ -407,7 +430,8 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
               // Find any local URI in the fallback link
               for (const fallbackAudioValue of fallbackLocalLink.audio) {
                 if (fallbackAudioValue.startsWith('local/')) {
-                  localUri = getLocalAttachmentUriWithOPFS(fallbackAudioValue);
+                  localUri =
+                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
                   console.log(
                     `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
                   );
@@ -444,6 +468,20 @@ export async function concatenateAndShareQuestAudio(
   questId: string,
   questName?: string
 ): Promise<void> {
+  // Check if we're on web platform
+  if (Platform.OS === 'web') {
+    throw new Error(
+      'Audio concatenation is not available on web. Please use a native device.'
+    );
+  }
+
+  // Check if native module is available
+  if (!concatAudioFiles || !convertToM4a) {
+    throw new Error(
+      'Audio concatenation module is not available. Please ensure react-native-audio-concat is properly installed.'
+    );
+  }
+
   try {
     // Get all audio URIs for the quest
     const audioUris = await getQuestAudioUris(questId);

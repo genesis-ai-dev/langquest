@@ -26,6 +26,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,12 +41,11 @@ import {
   UserCircleIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
-  Alert as RNAlert,
   TouchableWithoutFeedback,
   View
 } from 'react-native';
@@ -246,17 +246,27 @@ export default function NextGenTranslationModal({
     }
   });
 
-  const audioSegments = React.useMemo(() => {
-    if (!asset?.content) return [];
-    return asset.content
-      .flatMap((c) => c.audio ?? [])
-      .filter(Boolean)
-      .map((audio) =>
-        getLocalAttachmentUriWithOPFS(
-          attachmentStates.get(audio)?.local_uri ?? ''
+  const [audioSegments, setAudioSegments] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadAudioSegments = async () => {
+      if (!asset?.content) {
+        setAudioSegments([]);
+        return;
+      }
+      const audioIds = asset.content
+        .flatMap((c) => c.audio ?? [])
+        .filter(Boolean);
+      const segments = await Promise.all(
+        audioIds.map((audio) =>
+          getLocalAttachmentUriWithOPFS(
+            attachmentStates.get(audio)?.local_uri ?? ''
+          )
         )
-      )
-      .filter(Boolean);
+      );
+      setAudioSegments(segments.filter(Boolean));
+    };
+    void loadAudioSegments();
   }, [asset?.content, attachmentStates]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;

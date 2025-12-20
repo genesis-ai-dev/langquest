@@ -28,13 +28,10 @@ import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  Easing,
   Extrapolation,
   interpolate,
   useAnimatedStyle,
   useDerivedValue,
-  useSharedValue,
-  withTiming,
   type SharedValue
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
@@ -74,23 +71,6 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-/**
- * Calculate age of asset in milliseconds
- * Used by Reanimated worklet to compute highlight intensity
- */
-function calculateAssetAge(createdAt?: string | Date): number {
-  if (!createdAt) return Infinity; // Very old, no highlight
-
-  const now = Date.now();
-  const created =
-    typeof createdAt === 'string'
-      ? new Date(createdAt).getTime()
-      : createdAt.getTime();
-  const age = now - created;
-
-  return age < 0 ? Infinity : age;
-}
-
 function AssetCardInternal({
   asset,
   index,
@@ -111,13 +91,6 @@ function AssetCardInternal({
   const isLocal = asset.source === 'local';
   // Renameable = local and not currently saving
   const isRenameable = isLocal;
-
-  // DEBUG: Log segment count and duration for this asset
-  React.useEffect(() => {
-    console.log(
-      `🃏 AssetCard render: ${asset.name} | segments: ${segmentCount ?? 'loading'} | duration: ${duration ? `${Math.round(duration / 1000)}s` : 'loading'}`
-    );
-  }, [segmentCount, duration, asset.name]);
 
   // ============================================================================
   // REANIMATED ANIMATIONS (Run on native thread for better performance)
@@ -161,54 +134,6 @@ function AssetCardInternal({
     };
   });
 
-  // Highlight animation for newly created assets
-  // Calculate initial age once to avoid recalculation
-  const initialAge = React.useMemo(
-    () => calculateAssetAge(asset.created_at),
-    [asset.created_at]
-  );
-
-  // Animate highlight intensity on native thread
-  const highlightProgress = useSharedValue(0);
-  const HIGHLIGHT_DURATION_MS = 12000; // Total highlight duration (12 seconds)
-
-  React.useEffect(() => {
-    if (initialAge > HIGHLIGHT_DURATION_MS) {
-      // Too old, no animation needed
-      highlightProgress.value = 1; // 1 = fully decayed
-      return;
-    }
-
-    // Animate from current age to fully decayed
-    const startProgress = initialAge / HIGHLIGHT_DURATION_MS;
-    highlightProgress.value = startProgress;
-    highlightProgress.value = withTiming(1, {
-      duration: HIGHLIGHT_DURATION_MS - initialAge,
-      easing: Easing.out(Easing.ease)
-    });
-  }, [initialAge, highlightProgress]);
-
-  // Derive highlight intensity using worklet (runs on native thread)
-  const highlightIntensity = useDerivedValue(() => {
-    'worklet';
-    // Power law decay: intensity = 1 / (1 + (progress * 4)^2)
-    // At progress=0: intensity = 1.0 (full highlight)
-    // At progress=0.25: intensity = 0.5 (half)
-    // At progress=0.5: intensity = 0.2
-    // At progress=1: intensity = 0.06 (barely visible)
-    const normalized = highlightProgress.value * 4;
-    return 1 / (1 + Math.pow(normalized, 2));
-  });
-
-  const highlightStyle = useAnimatedStyle(() => {
-    'worklet';
-    const intensity = highlightIntensity.value;
-    return {
-      opacity: intensity,
-      backgroundColor: `hsl(var(--chart-5) / ${intensity * 0.3})`
-    };
-  });
-
   // Handle card press: play/pause in normal mode, toggle selection in selection mode
   const handleCardPress = React.useCallback(() => {
     if (isSelectionMode) {
@@ -229,14 +154,6 @@ function AssetCardInternal({
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
-      {/* New asset highlight - decaying gradient overlay (Reanimated on native thread) */}
-      {initialAge < 12000 && (
-        <Animated.View
-          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, highlightStyle]}
-          pointerEvents="none"
-        />
-      )}
-
       {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
       {isPlaying && (
         <View

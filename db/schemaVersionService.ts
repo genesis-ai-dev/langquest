@@ -91,14 +91,25 @@ export async function fetchServerSchemaVersion(
       }, 5000);
     });
 
-    const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
+    const result = await Promise.race([rpcPromise, timeoutPromise]);
+    const { data, error } = result as { data: unknown; error: unknown };
 
     if (error) {
       console.error(
         '[SchemaVersionService] Failed to fetch server schema:',
         error
       );
-      throw new Error(`Failed to fetch server schema: ${error.message}`);
+      let errorMessage: string;
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        try {
+          errorMessage = JSON.stringify(error);
+        } catch {
+          errorMessage = 'Unknown error occurred';
+        }
+      }
+      throw new Error(`Failed to fetch server schema: ${errorMessage}`);
     }
 
     if (!data || typeof data !== 'object' || !('schema_version' in data)) {

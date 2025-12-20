@@ -1,10 +1,10 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.0.5",
+  "version": "2.0.7",
   "scripts": {
     "start": "expo start --dev-client",
-    "start:prod": "expo start --dev-client --no-dev",
+    "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
     "export:ios": "EXPO_ATLAS=true npx expo export --platform ios",
     "export:web": "EXPO_ATLAS=true npx expo export --platform web",
@@ -18,7 +18,9 @@
     "reset-project": "node ./scripts/reset-project.js",
     "rebuild-android": "git clean -xdf node_modules package-lock.json android ios && npm i && npx expo prebuild --platform android && cd android && gradlew clean && cd ..",
     "android": "expo run:android --device",
+    "android:prod": "expo run:android --device --variant release",
     "ios": "expo run:ios --device",
+    "ios:prod": "expo run:ios --device --variant release",
     "web": "npm run powersync:copy-assets && expo start --web",
     "db:view": "npx drizzle-lab@latest visualizer --project-id LangQuest",
     "test": "jest --watchAll",
@@ -51,9 +53,10 @@
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
+    "@blazejkustra/react-native-alert": "^1.0.0",
     "@expo-google-fonts/noto-sans": "^0.4.2",
     "@expo/vector-icons": "^14.0.2",
-    "@gorhom/bottom-sheet": "^5.2.6",
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@hookform/resolvers": "^5.0.1",
     "@legendapp/list": "^2.0.12",
     "@op-engineering/op-sqlite": "^14.1.4",
@@ -64,7 +67,6 @@
     "@powersync/tanstack-react-query": "^0.1.6",
     "@powersync/web": "^1.27.1",
     "@quidone/react-native-wheel-picker": "^1.6.1",
-    "@quidone/react-native-wheel-picker-feedback": "^2.0.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-documents/picker": "^10.1.5",
@@ -82,6 +84,7 @@
     "@rn-primitives/tabs": "^1.2.0",
     "@rn-primitives/toggle": "^1.1.0",
     "@rn-primitives/toggle-group": "^1.1.0",
+    "@rn-primitives/tooltip": "^1.2.0",
     "@rn-primitives/types": "^1.1.0",
     "@supabase/supabase-js": "^2.53.0",
     "@tanstack/react-query": "^5.84.0",
@@ -122,6 +125,7 @@
     "posthog-js": "^1.265.1",
     "posthog-react-native": "^4.3.0",
     "posthog-react-native-session-replay": "^1.1.1",
+    "pressto": "^0.6.0",
     "react": "19.0.0",
     "react-compiler-runtime": "^19.0.0-beta-af1b7da-20250417",
     "react-dom": "19.0.0",
@@ -155,6 +159,8 @@
     "@eslint/compat": "^1.2.4",
     "@libsql/client": "^0.14.0",
     "@react-native-community/cli": "latest",
+    "@react-native/debugger-frontend": "^0.83.1",
+    "@react-native/dev-middleware": "^0.83.1",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/bidirectional-map": "^1.0.4",
     "@types/default-gateway": "^7.2.2",
@@ -199,6 +205,14 @@
     "react-dom": "19.0.0",
     "@types/react": "~19.0.10",
     "jest-snapshot-prettier": "npm:prettier@^3.6.2"
+  },
+  "resolutions": {
+    "@react-native/dev-middleware": "0.83.0",
+    "@react-native/debugger-frontend": "0.83.0"
+  },
+  "resolutionComments": {
+    "@react-native/dev-middleware": "Forcing resolution to use latest Chrome DevTools.",
+    "@react-native/debugger-frontend": "Forcing resolution to use latest Chrome DevTools."
   },
   "private": true
 }

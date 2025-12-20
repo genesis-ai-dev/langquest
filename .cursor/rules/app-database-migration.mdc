@@ -1,0 +1,651 @@
+---
+# Specify the following for Cursor rules
+description: Guidelines for modifying Drizzle schema and creating migrations
+# globs:
+#   - 'db/drizzleSchema*.ts'
+#   - 'db/constants.ts'
+#   - 'db/migrations/**/*.ts'
+#   - 'supabase/migrations/**/*.sql'
+alwaysApply: false
+---
+
+# Database: Drizzle Schema Migration Process
+
+When modifying the Drizzle schema, you must update multiple components in a coordinated manner to ensure both local SQLite and cloud Postgres schemas stay in sync.
+
+## Overview
+
+This project uses a dual-schema system:
+
+- **Local SQLite** (`drizzleSchemaLocal`): For offline-first data stored in PowerSync
+- **Cloud Postgres** (`drizzleSchema`): For synced data in Supabase
+- **Shared definitions** (`drizzleSchemaColumns.ts`): Common table/column definitions used by both
+
+When you modify the schema, you must:
+
+1. Update the shared column definitions
+2. Update the local schema (`drizzleSchemaLocal.ts`) to match the shared definitions
+3. Create a Supabase migration for Postgres
+4. Create a local migration for SQLite (when needed - see below)
+5. Handle data transformation, especially for destructive changes
+
+## PowerSync is Schemaless (Important!)
+
+PowerSync stores synced data as **schemaless JSON** internally. The client-side Drizzle schema is just a "view" on top of this data. This has important implications:
+
+> "The schema as supplied on the client is only a view on top of the schemaless data. Updating this client-side schema is immediate when the new version of the app runs, **with no client-side migrations required**."
+>
+> — [PowerSync: Implementing Schema Changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
+
+**Important clarification:** PowerSync handles _schema changes_ (adding/removing columns) automatically without migrations. However, **data transformations** (modifying existing data, backfilling values, computing derived fields) still require client-side migrations.
+
+### When Local Migrations Are NOT Needed
+
+**For synced tables**, you typically don't need a local SQLite migration when:
+
+- **Adding a nullable column** - PowerSync handles this automatically. Existing records will have `undefined`/missing values, which behave the same as `NULL`.
+- **The column is only used server-side** - e.g., columns used only in sync rules or server triggers don't need local migration.
+- **The column syncs DOWN but is never written locally** - e.g., `download_profiles` is populated by server triggers and used by sync rules; local records never need it.
+
+**PowerSync behavior:**
+
+- Columns not in the client schema are stored internally but not accessible
+- Adding columns with `NULL` defaults works without issues
+- Nothing fails hard on schema mismatches
+
+### When Local Migrations ARE Needed
+
+You still need local migrations for:
+
+1. **Columns actively read/written by client code** - If client code queries or inserts the column on local records and expects it to exist.
+2. **Destructive changes** - Removing or renaming columns that client code depends on.
+3. **Data transformations** - When existing local data needs to be modified or backfilled with computed values.
+
+> **Note:** Both synced tables AND `*_local` tables use PowerSync's architecture (JSON storage + SQLite views). They're all schemaless. The difference is just sync scope, not storage mechanism.
+
+### Decision Flowchart
+
+```
+Does client code actively read/write this column?
+├── NO → Skip local migration (PowerSync handles it schemalessly)
+└── YES → Is it a nullable/optional column?
+    ├── YES → Skip local migration (missing values = NULL)
+    └── NO → Need local migration (or make column nullable)
+```
+
+## Step-by-Step Migration Process
+
+### 1. Modify Shared Schema Definitions
+
+Update `db/drizzleSchemaColumns.ts` to modify table/column definitions:
+
+```typescript
+// Example: Adding a new column
+export function createAssetTable(source: TableSource, refs: {...}) {
+  return tableCreator(source)('asset', {
+    ...getBaseColumns(source),
+    // ... existing fields ...
+    new_field: text(), // NEW FIELD
+  });
+}
+```
+
+**Important**: The functions in `drizzleSchemaColumns.ts` are used by both:
+
+- `drizzleSchema.ts` (creates 'merged' tables for views)
+- `drizzleSchemaLocal.ts` (manually maintained, creates '\_local' tables)
+
+### 2. Update Schema Version
+
+Update `APP_SCHEMA_VERSION` in `db/constants.ts`:
+
+```typescript
+export const APP_SCHEMA_VERSION = '2.1'; // Changed from '2.0'
+```
+
+**Version Format**: `MAJOR.MINOR`
+
+- **Minor version** (2.0 → 2.1): Additive changes only (new columns, new tables, new indexes)
+- **Major version** (2.0 → 3.0): Destructive changes (removed columns, renamed columns, changed types, dropped tables)
+
+### 3. Update Local Schema
+
+Update `db/drizzleSchemaLocal.ts` to match changes in `drizzleSchemaColumns.ts`.
+
+**Important**: `drizzleSchemaLocal.ts` is manually maintained and should be edited directly. When you modify table definitions in `drizzleSchemaColumns.ts`, you must also update the corresponding `*_local` table definitions in `drizzleSchemaLocal.ts`.
+
+For example, if you add a column to `createAssetTable()` in `drizzleSchemaColumns.ts`, ensure that `asset_local` in `drizzleSchemaLocal.ts` also includes that column:
+
+```typescript
+// In drizzleSchemaLocal.ts
+export const asset_local = createAssetTable('local', {
+  language: language_local,
+  project: project_local,
+  profile: profile_local
+});
+```
+
+The `createAssetTable()` function will automatically include the new column when called with `'local'` as the source parameter.
+
+#### Local-Only Columns
+
+If you need a column that exists **only in the local SQLite schema** (not synced to cloud), add it directly to `drizzleSchemaLocal.ts` using the `columns` parameter without modifying `drizzleSchemaColumns.ts`.
+
+**How to add a local-only column:**
+
+```typescript
+// In drizzleSchemaLocal.ts
+import { text } from 'drizzle-orm/sqlite-core';
+
+export const asset_local = createAssetTable(
+  'local',
+  {
+    language: language_local,
+    project: project_local,
+    profile: profile_local
+  },
+  {
+    // Add local-only columns as third parameter
+    local_cache_flag: text().default('false'),
+    offline_metadata: text({ mode: 'json' }).$type<Record<string, unknown>>()
+  }
+);
+```
+
+The `createAssetTable()` function (and similar create functions) accept an optional `columns` parameter as the third argument, which allows you to add extra columns that are merged into the base table definition.
+
+**Important notes for local-only columns:**
+
+- **Do NOT** add them to `drizzleSchemaColumns.ts` (they won't sync to cloud)
+- **Do NOT** create a Supabase migration (they don't exist in Postgres)
+- **DO** create a local migration if adding to existing tables (see step 5)
+- **DO** document why the column is local-only in comments
+- **DO** ensure the column name doesn't conflict with cloud schema columns
+
+### 4. Create Supabase Migration (Postgres)
+
+**Note**: Skip this step if you're only adding local-only columns (they don't exist in Postgres).
+
+Create a new migration file following `.cursor/rules/supabase/create-migration.mdc`:
+
+**File location**: `supabase/migrations/`
+**Naming**: `YYYYMMDDHHmmss_short_description.sql`
+
+```sql
+-- Migration: Add new_field to asset table
+-- Version: 2.0 → 2.1
+
+-- Add new column
+alter table asset
+  add column new_field text;
+
+-- Add comment
+comment on column asset.new_field is 'Description of the new field';
+
+-- If needed, populate existing records
+update asset
+set new_field = 'default_value'
+where new_field is null;
+```
+
+**For destructive changes** (major version), include data transformation:
+
+```sql
+-- Migration: Remove deprecated_field from asset table
+-- Version: 2.0 → 3.0 (MAJOR - destructive change)
+
+-- Step 1: Copy data to new location if needed
+alter table asset
+  add column new_field text;
+
+update asset
+set new_field = deprecated_field
+where deprecated_field is not null;
+
+-- Step 2: Drop old column
+alter table asset
+  drop column deprecated_field;
+```
+
+### 5. Create Local Migration (SQLite)
+
+**Note**: This step is required for both regular columns and local-only columns. Even if a column is local-only and doesn't need a Supabase migration, you still need a local migration to add it to existing SQLite tables.
+
+Create a new migration file in `db/migrations/`:
+
+**File location**: `db/migrations/`
+**Naming**: `MAJOR_MINOR-to-MAJOR_MINOR.ts` (e.g., `2.0-to-2.1.ts`)
+
+```typescript
+import { sql } from 'drizzle-orm';
+import type { Migration } from './index';
+import { addColumn } from './utils';
+
+export const migration_2_0_to_2_1: Migration = {
+  fromVersion: '2.0',
+  toVersion: '2.1',
+  description: 'Add new_field to asset_local table',
+
+  async migrate(db, onProgress) {
+    console.log('[Migration 2.0→2.1] Starting migration...');
+
+    // CRITICAL: Only migrate *_local tables!
+    // Synced tables are migrated server-side via RPC
+    // When local data is uploaded, the server transforms it automatically
+
+    if (onProgress) onProgress(1, 2, 'Adding new_field column');
+
+    // Add column to local table only
+    await addColumn(db, 'asset_local', 'new_field TEXT DEFAULT NULL');
+
+    // DO NOT migrate 'asset' table - server RPC handles this
+
+    if (onProgress) onProgress(2, 2, 'Migration complete');
+  }
+};
+```
+
+**For local-only columns**, the migration is the same, but note that no Supabase migration is needed:
+
+```typescript
+export const migration_2_0_to_2_1: Migration = {
+  fromVersion: '2.0',
+  toVersion: '2.1',
+  description: 'Add local_cache_flag to asset_local (local-only column)',
+
+  async migrate(db, onProgress) {
+    console.log('[Migration 2.0→2.1] Adding local-only column...');
+
+    // Add local-only column - no Supabase migration needed
+    if (onProgress) onProgress(1, 1, 'Adding local_cache_flag column');
+    await addColumn(db, 'asset_local', 'local_cache_flag TEXT DEFAULT "false"');
+
+    console.log('[Migration 2.0→2.1] ✓ Local-only column added');
+  }
+};
+```
+
+**For destructive changes**, include comprehensive data transformation:
+
+```typescript
+export const migration_2_0_to_3_0: Migration = {
+  fromVersion: '2.0',
+  toVersion: '3.0',
+  description: 'Remove deprecated_field from asset_local (breaking change)',
+
+  async migrate(db, onProgress) {
+    console.log('[Migration 2.0→3.0] Starting destructive migration...');
+
+    // Step 1: Copy data to new location if needed
+    if (onProgress) onProgress(1, 3, 'Copying deprecated_field data');
+
+    await addColumn(db, 'asset_local', 'new_field TEXT');
+    await copyColumn(db, 'asset_local', 'deprecated_field', 'new_field');
+
+    // Step 2: Transform data if needed
+    if (onProgress) onProgress(2, 3, 'Transforming data');
+
+    await transformColumn(
+      db,
+      'asset_local',
+      'new_field',
+      "CASE WHEN new_field = 'old_value' THEN 'new_value' ELSE new_field END"
+    );
+
+    // Step 3: Drop old column (SQLite 3.35.0+)
+    if (onProgress) onProgress(3, 3, 'Removing deprecated column');
+
+    await dropColumn(db, 'asset_local', 'deprecated_field');
+
+    console.log('[Migration 2.0→3.0] ✓ Migration complete');
+  }
+};
+```
+
+### 6. Register Local Migration
+
+Add your migration to `db/migrations/index.ts`:
+
+```typescript
+import { migration_2_0_to_2_1 } from './2.0-to-2.1';
+
+export const migrations: Migration[] = [
+  migration_0_0_to_1_0,
+  migration_1_0_to_2_0,
+  migration_2_0_to_2_1 // NEW MIGRATION
+  // Future migrations go here...
+];
+```
+
+## Critical Rules
+
+### ✅ DO
+
+- **Always update both schemas**: Local (SQLite) and Cloud (Postgres)
+- **Update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts` to ensure local tables match
+- **Test with real data** before deploying migrations
+- **Write data transformation code** for destructive changes
+- **Only migrate `*_local` tables** in client-side migrations (synced tables handled server-side)
+- **Keep migrations idempotent** - safe to run multiple times
+- **Use version format `MAJOR.MINOR`** (e.g., `2.0`, `2.1`, `3.0`)
+- **Bump minor version** for additive changes (`2.0` → `2.1`)
+- **Bump major version** for destructive changes (`2.0` → `3.0`)
+- **Provide progress updates** for long-running migrations
+- **Document why** the migration exists (link to PR/ticket)
+
+### ❌ DON'T
+
+- **Never delete user data** - transform in-place instead
+- **Don't skip version testing** - test migration chains (2.0→2.1→2.2)
+- **Don't migrate synced tables** in client-side migrations - server handles those via RPC
+- **Don't make breaking changes** without a migration path
+- **Don't deploy untested migrations** - always test on real data first
+- **Don't forget to update `APP_SCHEMA_VERSION`** in `db/constants.ts`
+- **Don't forget to update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts`
+
+## Data Transformation Guidelines
+
+### For Additive Changes (Minor Version)
+
+- Add columns with `DEFAULT NULL` or appropriate defaults
+- Populate existing records with sensible defaults
+- Use `WHERE` clauses to avoid re-processing data
+
+### For Destructive Changes (Major Version)
+
+**Always provide a migration path:**
+
+1. **Copy data** to new location before dropping
+2. **Transform data** to new format if needed
+3. **Verify data integrity** before dropping old columns
+4. **Log operations** for debugging
+5. **Handle edge cases** (NULL values, missing references, etc.)
+
+**Example pattern for column rename:**
+
+```typescript
+// Step 1: Add new column
+await addColumn(db, 'table_local', 'new_name TEXT');
+
+// Step 2: Copy data
+await copyColumn(db, 'table_local', 'old_name', 'new_name');
+
+// Step 3: Update Drizzle schema to use new_name
+// (Already done in drizzleSchemaColumns.ts)
+
+// Step 4: Drop old column in future migration (if SQLite supports it)
+```
+
+## Migration Utilities
+
+Use helper functions from `db/migrations/utils.ts`:
+
+- `addColumn(db, table, definition)` - Add column to table
+- `renameColumn(db, table, oldName, newName)` - Rename column (SQLite way)
+- `dropColumn(db, table, column)` - Drop column (SQLite 3.35.0+)
+- `copyColumn(db, table, sourceCol, destCol)` - Copy data between columns
+- `transformColumn(db, table, column, expression, where?)` - Transform with SQL expression
+- `updateInBatches(db, table, query, where, batchSize, progress?)` - Batch updates for large datasets
+- `updateMetadataVersion(db, version)` - Update `_metadata.schema_version` (called automatically)
+
+## Testing Checklist
+
+Before deploying a migration:
+
+- [ ] Test with real production-like data
+- [ ] Test migration chain (e.g., 1.0→1.1→1.2, and 1.0→1.2 directly)
+- [ ] Verify `_metadata.schema_version` is updated correctly
+- [ ] Verify only `*_local` tables were migrated (not synced tables)
+- [ ] Test rollback scenario (if applicable)
+- [ ] Check for performance issues with large datasets
+- [ ] Verify data integrity after migration
+- [ ] Test on both iOS and Android (if applicable)
+
+## Server-Side Migration Functions (RPC Transforms)
+
+**When to create server-side migration functions:**
+
+Server-side migration functions (also called "transform functions") are needed when:
+
+- **Synced tables** need data transformation during upload from older client versions
+- **Schema changes** require enriching records with new fields (e.g., adding `languoid_id` to records that only have `language_id`)
+- **Legacy data** from older app versions needs to be transformed before insertion
+- **Cross-table transformations** are needed (e.g., splitting one table into multiple)
+
+**Important**: Client-side migrations only handle `*_local` tables. Synced tables are transformed server-side via RPC functions when data is uploaded from PowerSync.
+
+### Transform Function Pattern
+
+Transform functions follow this pattern:
+
+```sql
+-- Migration: Add vX_to_vY transform for [description]
+-- Purpose: [What this transform does]
+--
+-- Transform chain:
+--   vX.x data → vX_to_vY → vY.x data
+--   vY.x+ data → passthrough
+
+CREATE OR REPLACE FUNCTION public.vX_to_vY(
+  p_ops public.mutation_op[],
+  p_meta jsonb
+)
+RETURNS public.mutation_op[]
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  out_ops public.mutation_op[] := '{}';
+  op public.mutation_op;
+  v_meta text := coalesce(p_meta->>'schema_version', '');
+  v_record jsonb;
+BEGIN
+  raise log '[vX_to_vY] start meta=% ops_count=%',
+    v_meta,
+    coalesce(array_length(p_ops,1),0);
+
+  FOREACH op IN ARRAY p_ops LOOP
+    raise log '[vX_to_vY] inbound op: table=% op=% record=%',
+      op.table_name, op.op, op.record::text;
+
+    -- Transform specific tables
+    IF lower(op.table_name) = 'table_name' THEN
+      v_record := op.record;
+
+      -- Only transform if needed (e.g., missing field)
+      IF (v_record->>'new_field') IS NULL AND (v_record->>'old_field') IS NOT NULL THEN
+        -- Add new_field based on old_field
+        v_record := v_record || jsonb_build_object('new_field', derive_value_from_old_field(v_record));
+        raise log '[vX_to_vY] table_name: added new_field';
+      END IF;
+
+      out_ops := out_ops || (row(op.table_name, op.op, v_record))::public.mutation_op;
+    ELSE
+      -- Passthrough for all other tables
+      out_ops := out_ops || op;
+    END IF;
+  END LOOP;
+
+  raise log '[vX_to_vY] end out_ops_count=%', coalesce(array_length(out_ops,1),0);
+
+  RETURN out_ops;
+END;
+$$;
+```
+
+### Helper Functions and Lookup Tables
+
+For complex transformations, create helper functions and lookup tables:
+
+```sql
+-- Example: Create lookup table for fast transformations
+CREATE TABLE IF NOT EXISTS public.language_languoid_map (
+  language_id uuid PRIMARY KEY,
+  languoid_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Example: Helper function for transformations
+CREATE OR REPLACE FUNCTION public.get_or_create_languoid_for_language(p_language_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_languoid_id uuid;
+BEGIN
+  -- Check cache first
+  SELECT languoid_id INTO v_languoid_id
+  FROM public.language_languoid_map
+  WHERE language_id = p_language_id;
+
+  IF v_languoid_id IS NOT NULL THEN
+    RETURN v_languoid_id;
+  END IF;
+
+  -- Lookup logic here...
+  -- Cache result in mapping table
+
+  RETURN v_languoid_id;
+END;
+$$;
+```
+
+### Chaining Transforms
+
+Transform functions are chained based on the client's schema version:
+
+**Transform chain pattern:**
+
+- `v0.x` data → `v0_to_v1()` → `v1_to_v2()` → v2.0 data
+- `v1.x` data → `v1_to_v2()` → v2.0 data
+- `v2.0+` data → passthrough (no transform)
+
+**Updating mutation handlers:**
+
+Update `apply_table_mutation` and `apply_table_mutation_transaction` to chain transforms:
+
+```sql
+CREATE OR REPLACE FUNCTION public.apply_table_mutation(
+  p_op text,
+  p_table_name text,
+  p_record jsonb,
+  p_client_meta jsonb DEFAULT '{}'::jsonb
+)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_meta text := coalesce(p_client_meta->>'schema_version', '0');
+  v_version_is_v0 boolean := (v_meta = '0') OR (v_meta LIKE '0.%');
+  v_version_is_v1 boolean := (v_meta = '1') OR (v_meta LIKE '1.%');
+  ops public.mutation_op[] := ARRAY[(row(p_table_name, lower(p_op), p_record))::public.mutation_op];
+BEGIN
+  -- Versioned transform chain
+  IF v_version_is_v0 THEN
+    -- v0 → v0_to_v1 → v1_to_v2
+    ops := public.v0_to_v1(ops, p_client_meta);
+    ops := public.v1_to_v2(ops, p_client_meta);
+  ELSIF v_version_is_v1 THEN
+    -- v1 → v1_to_v2
+    ops := public.v1_to_v2(ops, p_client_meta);
+  END IF;
+  -- v2+ data passes through unchanged
+
+  -- Execute transformed ops...
+END;
+$$;
+```
+
+### Key Principles
+
+**✅ DO:**
+
+- **Check schema version** from `p_meta->>'schema_version'` to determine if transform is needed
+- **Only transform when needed** - check if fields are missing before adding them
+- **Passthrough unchanged ops** - only transform tables that need it
+- **Log transformations** - use `raise log` for debugging
+- **Handle errors gracefully** - wrap transformations in exception handlers
+- **Cache lookups** - use lookup tables for expensive operations
+- **Chain transforms** - update mutation handlers to call transforms in order
+- **Test with real data** - verify transforms work with actual legacy data
+
+**❌ DON'T:**
+
+- **Don't transform current version data** - only transform older versions
+- **Don't modify ops in place** - create new `mutation_op` records
+- **Don't skip version checks** - always check `schema_version` before transforming
+- **Don't forget to update mutation handlers** - transforms won't run unless chained
+- **Don't create transforms for local-only changes** - those are handled client-side
+
+### Example: Adding New Required Field
+
+When adding a new required field (e.g., `languoid_id`) to synced tables:
+
+1. **Create lookup table** (if needed for fast lookups):
+
+```sql
+CREATE TABLE IF NOT EXISTS public.language_languoid_map (
+  language_id uuid PRIMARY KEY,
+  languoid_id uuid NOT NULL
+);
+```
+
+2. **Create helper function** (if needed):
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_or_create_languoid_for_language(p_language_id uuid)
+RETURNS uuid
+-- ... implementation
+```
+
+3. **Create transform function**:
+
+```sql
+CREATE OR REPLACE FUNCTION public.v1_to_v2(
+  p_ops public.mutation_op[],
+  p_meta jsonb
+)
+RETURNS public.mutation_op[]
+-- ... adds languoid_id to records that have language_id but not languoid_id
+```
+
+4. **Update mutation handlers** to chain the transform:
+
+```sql
+-- In apply_table_mutation and apply_table_mutation_transaction
+IF v_version_is_v1 THEN
+  ops := public.v1_to_v2(ops, p_client_meta);
+END IF;
+```
+
+### Metadata Handling
+
+Transform functions receive metadata via `p_meta jsonb`:
+
+- **Schema version**: `p_meta->>'schema_version'` (e.g., `'1.0'`, `'2.0'`)
+- **Legacy format**: Older clients may send `p_meta->>'metadata'` instead
+- **Default**: Treat missing metadata as `'0'` (legacy v0 data)
+
+**Example metadata extraction:**
+
+```sql
+DECLARE
+  v_meta text := coalesce(
+    p_meta->>'schema_version',  -- New format
+    p_meta->>'metadata',        -- Legacy format
+    '0'                         -- Default to v0
+  );
+  v_version_is_v1 boolean := (v_meta = '1') OR (v_meta LIKE '1.%');
+```
+
+### References
+
+- Example transform: `supabase/migrations/20251128120000_add_v1_to_v2_transform.sql`
+- Mutation handlers: `apply_table_mutation`, `apply_table_mutation_transaction`
+- Mutation op type: `public.mutation_op` (table_name, op, record)
+- Local migration README: `db/migrations/README.md`
+- Example migration: `db/migrations/EXAMPLE_1.0-to-1.1.ts`
+- Supabase migration rules: `.cursor/rules/supabase/create-migration.mdc`
+- Migration utilities: `db/migrations/utils.ts`
+- Schema version constant: `db/constants.ts` (`APP_SCHEMA_VERSION`)

@@ -3,6 +3,7 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useColorScheme } from 'nativewind';
 import React, { useEffect } from 'react';
+import type { ImageSourcePropType } from 'react-native';
 import { Image, View } from 'react-native';
 import Animated, {
   Easing,
@@ -17,6 +18,11 @@ import Animated, {
 import { AnimatedStepContent } from './AnimatedStepContent';
 import { VisionFlowAnimation } from './VisionFlowAnimation';
 
+// Icon sources - using require for React Native image assets
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
+const iconDark: ImageSourcePropType = require('@/assets/icons/icon_dark.png');
+const iconLight: ImageSourcePropType = require('@/assets/icons/icon_light.png');
+
 export function VisionScreen() {
   const { t } = useLocalization();
   const { colorScheme } = useColorScheme();
@@ -25,11 +31,7 @@ export function VisionScreen() {
   const logoRotation = useSharedValue(0);
 
   // Determine which icon to use based on color scheme
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-  const iconSource =
-    colorScheme === 'dark'
-      ? require('@/assets/icons/icon_dark.png')
-      : require('@/assets/icons/icon_light.png');
+  const iconSource = colorScheme === 'dark' ? iconDark : iconLight;
 
   useEffect(() => {
     // Fade in and scale up logo

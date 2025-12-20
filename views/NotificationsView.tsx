@@ -24,6 +24,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray, or } from 'drizzle-orm';
@@ -37,12 +38,7 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert as RNAlert,
-  ScrollView,
-  View
-} from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 interface NotificationItem {
   id: string;
@@ -400,6 +396,7 @@ export default function NotificationsView() {
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
             active: true
+            // download_profiles will be set by database trigger when synced to server
           });
           console.log(
             '[handleAccept] Profile project link created via synced table'
@@ -508,6 +505,7 @@ export default function NotificationsView() {
               project_id: projectId,
               membership: asOwner ? 'owner' : 'member',
               active: true
+              // download_profiles will be set by database trigger when synced to server
             });
             console.log(
               '[handleAccept] Requester profile project link created via synced table'
