@@ -225,9 +225,12 @@ const FormSubmit = ({
   disabled,
   ...props
 }: React.ComponentProps<typeof Button>) => {
-  const { control } = useFormContext();
+  const {
+    control,
+    formState: { disabled: formDisabled }
+  } = useFormContext();
   const { isValid, isSubmitting } = useFormState({ control });
-  const isDisabled = !isValid || isSubmitting || !!disabled;
+  const isDisabled = !isValid || isSubmitting || !!formDisabled || !!disabled;
 
   return (
     <Button {...props} disabled={isDisabled} loading={isSubmitting}>

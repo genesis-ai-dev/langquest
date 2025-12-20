@@ -5,6 +5,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -44,7 +45,7 @@ export default function ForgotPasswordView({
       .trim()
   });
 
-  const { mutateAsync: resetPassword, isPending } = useMutation({
+  const { mutateAsync: resetPassword } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -74,7 +75,7 @@ export default function ForgotPasswordView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
+    disabled: !isOnline,
     defaultValues: {
       email: sharedAuthInfo?.email || ''
     }
@@ -126,12 +127,12 @@ export default function ForgotPasswordView({
           )}
 
           <View className="flex w-full flex-col">
-            <Button
+            <FormSubmit
               onPress={form.handleSubmit((data) => resetPassword(data))}
-              disabled={!isOnline || isPending}
+              disabled={!isOnline}
             >
               <Text>{t('sendResetEmail')}</Text>
-            </Button>
+            </FormSubmit>
 
             <Button
               onPress={() =>
@@ -139,7 +140,7 @@ export default function ForgotPasswordView({
                   onNavigate('sign-in', { email: form.watch('email') })
                 )
               }
-              disabled={isPending || !isOnline}
+              disabled={!isOnline}
               variant="link"
             >
               <Text>{t('backToLogin')}</Text>

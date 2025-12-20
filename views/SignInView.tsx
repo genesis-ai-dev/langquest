@@ -6,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -49,10 +50,11 @@ export default function SignInView({
       .nonempty(t('emailRequired'))
       .toLowerCase()
       .trim(),
-    password: z.string(t('passwordRequired')).min(6, t('passwordMinLength'))
+    // No password min length for sign in
+    password: z.string(t('passwordRequired')).nonempty(t('passwordRequired'))
   });
 
-  const { mutateAsync: login, isPending } = useMutation({
+  const { mutateAsync: login } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -87,7 +89,8 @@ export default function SignInView({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: sharedAuthInfo?.email
-    }
+    },
+    disabled: !isOnline
   });
 
   const handleFormSubmit = form.handleSubmit((data) => login(data));
@@ -180,13 +183,9 @@ export default function SignInView({
             </View>
           )}
           <View className="flex flex-col gap-2">
-            <Button
-              onPress={handleFormSubmit}
-              loading={isPending}
-              disabled={!isOnline || isPending}
-            >
+            <FormSubmit onPress={handleFormSubmit}>
               <Text>{t('signIn')}</Text>
-            </Button>
+            </FormSubmit>
             <Button
               onPress={() =>
                 safeNavigate(() =>
@@ -195,7 +194,6 @@ export default function SignInView({
               }
               variant="outline"
               className="border-border bg-input"
-              disabled={isPending || !isOnline}
             >
               <Text>
                 {t('newUser')} {t('register')}

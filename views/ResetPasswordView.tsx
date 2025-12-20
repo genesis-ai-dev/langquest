@@ -5,6 +5,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -13,6 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +30,7 @@ export default function ResetPasswordView() {
   const { signOut } = useAuth();
   const { t } = useLocalization();
   const router = useRouter();
+  const isOnline = useNetworkStatus();
 
   const formSchema = z
     .object({
@@ -43,10 +46,11 @@ export default function ResetPasswordView() {
     });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema)
+    resolver: zodResolver(formSchema),
+    disabled: !isOnline
   });
 
-  const { mutateAsync: updatePassword, isPending } = useMutation({
+  const { mutateAsync: updatePassword } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       const { error } = await system.supabaseConnector.client.auth.updateUser({
         password: data.password.trim()
@@ -141,12 +145,11 @@ export default function ResetPasswordView() {
           />
 
           <View className="flex w-full flex-col">
-            <Button
+            <FormSubmit
               onPress={form.handleSubmit((data) => updatePassword(data))}
-              disabled={isPending}
             >
               <Text>{t('updatePassword')}</Text>
-            </Button>
+            </FormSubmit>
 
             <Button
               onPress={() => {
@@ -157,7 +160,6 @@ export default function ResetPasswordView() {
                   });
                 });
               }}
-              disabled={isPending}
               variant="link"
             >
               <Text>{t('cancel')}</Text>

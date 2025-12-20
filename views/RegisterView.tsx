@@ -8,6 +8,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -19,13 +20,13 @@ import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, UserIcon, WifiOffIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -67,7 +68,7 @@ export default function RegisterView({
       path: ['confirmPassword']
     });
 
-  const { mutateAsync: register, isPending } = useMutation({
+  const { mutateAsync: register } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
@@ -118,7 +119,7 @@ export default function RegisterView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    disabled: isPending,
+    disabled: !isOnline,
     defaultValues: {
       email: sharedAuthInfo?.email || '',
       password: '',
@@ -286,13 +287,9 @@ export default function RegisterView({
             </Alert>
           )}
           <View className="flex flex-col gap-2">
-            <Button
-              onPress={handleFormSubmit}
-              loading={isPending}
-              disabled={!isOnline || isPending}
-            >
+            <FormSubmit onPress={handleFormSubmit}>
               <Text>{t('register')}</Text>
-            </Button>
+            </FormSubmit>
             <Button
               onPress={() =>
                 safeNavigate(() =>
@@ -301,7 +298,6 @@ export default function RegisterView({
               }
               variant="outline"
               className="border-border bg-input"
-              disabled={isPending || !isOnline}
             >
               <Text>{t('returningHero')}</Text>
             </Button>
