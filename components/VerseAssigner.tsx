@@ -5,7 +5,12 @@ import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
-interface VerseRangeSelectorProps {
+export interface ExistingLabel {
+  from: number;
+  to: number;
+}
+
+interface VerseAssignerProps {
   // Either provide availableVerses array OR from/to range (for backward compatibility)
   availableVerses?: number[];
   from?: number;
@@ -14,14 +19,18 @@ interface VerseRangeSelectorProps {
   selectedTo?: number;
   onApply: (from: number, to: number) => void;
   onCancel: () => void;
+  onRemove?: () => void; // Optional callback to remove labels from selected assets
+  hasSelectedAssetsWithLabels?: boolean; // Whether selected assets have labels to remove
   className?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ScrollViewComponent?: React.ComponentType<any>;
   // Optional function to limit the maximum "to" value based on selected "from"
   getMaxToForFrom?: (selectedFrom: number) => number;
+  // Existing verse labels to display for quick selection
+  existingLabels?: ExistingLabel[];
 }
 
-export function VerseRangeSelector({
+export function VerseAssigner({
   availableVerses,
   from,
   to,
@@ -29,10 +38,13 @@ export function VerseRangeSelector({
   selectedTo: initialTo,
   onApply,
   onCancel,
+  onRemove,
+  hasSelectedAssetsWithLabels = false,
   className = '',
   ScrollViewComponent = ScrollView,
-  getMaxToForFrom
-}: VerseRangeSelectorProps) {
+  getMaxToForFrom,
+  existingLabels = []
+}: VerseAssignerProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<number | undefined>(
     initialFrom
   );
@@ -106,13 +118,35 @@ export function VerseRangeSelector({
     }
   };
 
+  // Check if current selection matches an existing label
+  const isExistingLabelSelected = React.useMemo(() => {
+    if (selectedFrom === undefined || selectedTo === undefined) {
+      return false;
+    }
+    return existingLabels.some(
+      (label) => label.from === selectedFrom && label.to === selectedTo
+    );
+  }, [selectedFrom, selectedTo, existingLabels]);
+
   const handleClearFrom = () => {
-    setSelectedFrom(undefined);
-    setSelectedTo(undefined); // Clear both since "to" depends on "from"
+    // If this was an existing label selection, clear both
+    if (isExistingLabelSelected) {
+      setSelectedFrom(undefined);
+      setSelectedTo(undefined);
+    } else {
+      setSelectedFrom(undefined);
+      setSelectedTo(undefined); // Clear both since "to" depends on "from"
+    }
   };
 
   const handleClearTo = () => {
-    setSelectedTo(undefined);
+    // If this was an existing label selection, clear both
+    if (isExistingLabelSelected) {
+      setSelectedFrom(undefined);
+      setSelectedTo(undefined);
+    } else {
+      setSelectedTo(undefined);
+    }
   };
 
   const handleApply = () => {
@@ -126,10 +160,59 @@ export function VerseRangeSelector({
 
   const canApply = selectedFrom !== undefined;
 
+  const handleExistingLabelPress = (label: ExistingLabel) => {
+    setSelectedFrom(label.from);
+    setSelectedTo(label.to);
+  };
+
   return (
     <View
       className={`rounded-xl border border-border bg-card p-4 ${className}`}
     >
+      {/* Existing labels section */}
+      {existingLabels.length > 0 && (
+        <View className="mb-4">
+          {/* <Text className="mb-2 text-sm font-medium text-muted-foreground">
+            Existing Labels
+          </Text> */}
+          <ScrollViewComponent
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mb-2"
+            contentContainerClassName="gap-2 px-1"
+          >
+            {existingLabels.map((label, index) => {
+              const isSelected =
+                selectedFrom === label.from && selectedTo === label.to;
+              const labelText =
+                label.from === label.to
+                  ? `Verse ${label.from}`
+                  : `Verse ${label.from}-${label.to}`;
+
+              return (
+                <Pressable
+                  key={`existing-${label.from}-${label.to}-${index}`}
+                  onPress={() => handleExistingLabelPress(label)}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    isSelected
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-muted/30'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-medium ${
+                      isSelected ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {labelText}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollViewComponent>
+        </View>
+      )}
+
       {/* Number scroll */}
       <ScrollViewComponent
         horizontal
@@ -227,14 +310,25 @@ export function VerseRangeSelector({
         <Button variant="outline" className="flex-1" onPress={onCancel}>
           <Text>Cancel</Text>
         </Button>
-        <Button
-          variant="default"
-          className="flex-1"
-          onPress={handleApply}
-          disabled={!canApply}
-        >
-          <Text className="text-primary-foreground">Apply</Text>
-        </Button>
+        {selectedFrom !== undefined ? (
+          // Show Apply when verse is selected
+          <Button
+            variant="default"
+            className="flex-1"
+            onPress={handleApply}
+            disabled={!canApply}
+          >
+            <Text className="text-primary-foreground">Apply</Text>
+          </Button>
+        ) : (
+          // Show Remove when no selection but assets have labels
+          onRemove &&
+          hasSelectedAssetsWithLabels && (
+            <Button variant="destructive" className="flex-1" onPress={onRemove}>
+              <Text className="text-destructive-foreground">Remove Label</Text>
+            </Button>
+          )
+        )}
       </View>
     </View>
   );

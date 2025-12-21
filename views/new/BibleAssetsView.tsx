@@ -91,7 +91,7 @@ import { eq } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
-import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
+import RecordingViewSimplified from './recording/components/NewRecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
 
@@ -168,6 +168,14 @@ export default function BibleAssetsView() {
     from?: number;
     to?: number;
   }>({ isOpen: false, assetId: null });
+
+  // State for editing an existing separator
+  const [editSeparatorState, setEditSeparatorState] = React.useState<{
+    isOpen: boolean;
+    separatorKey: string | null;
+    from?: number;
+    to?: number;
+  }>({ isOpen: false, separatorKey: null });
 
   // Manual verse separators created by the user
   const [manualSeparators, setManualSeparators] = React.useState<
@@ -265,6 +273,56 @@ export default function BibleAssetsView() {
           : undefined;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
+
+  // Store book name and chapter number for VerseSeparator label
+  const bookChapterLabelRef = React.useRef<string>('Verse');
+
+  // Calculate book chapter label
+  const bookChapterLabel = React.useMemo(() => {
+    if (!selectedQuest || !currentBookId) {
+      return 'Verse';
+    }
+
+    // Extract chapter number from metadata.bible.chapter
+    let chapterNum: number | undefined;
+    if (selectedQuest.metadata) {
+      try {
+        const metadata: unknown =
+          typeof selectedQuest.metadata === 'string'
+            ? JSON.parse(selectedQuest.metadata)
+            : selectedQuest.metadata;
+        if (
+          metadata &&
+          typeof metadata === 'object' &&
+          'bible' in metadata &&
+          metadata.bible &&
+          typeof metadata.bible === 'object' &&
+          'chapter' in metadata.bible
+        ) {
+          chapterNum =
+            typeof metadata.bible.chapter === 'number'
+              ? metadata.bible.chapter
+              : undefined;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    if (typeof chapterNum !== 'number') return 'Verse';
+    const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
+
+    if (book?.name && chapterNum) {
+      return `${book.shortName} ${chapterNum}`;
+    }
+
+    return 'Verse';
+  }, [selectedQuest, currentBookId]);
+
+  // Update ref when label changes
+  React.useEffect(() => {
+    bookChapterLabelRef.current = bookChapterLabel;
+  }, [bookChapterLabel]);
 
   // Get verse count for current chapter
   // Use selectedQuest instead of currentQuestData to ensure we have the metadata from the database
@@ -533,16 +591,42 @@ export default function BibleAssetsView() {
     // Final assembly: result (with manual seps inserted) + unassigned block
     const combined: ListItem[] = [...result, ...unassignedBlock];
 
-    // Deduplicate separators with the same range to avoid duplicates after drag/drop
-    const seenSeparators = new Set<string>();
+    // Build a set of manual separator ranges to check against
+    const manualSeparatorRanges = new Set<string>();
+    for (const sep of manualSeparators) {
+      const range = `${sep.from ?? 'none'}-${sep.to ?? 'none'}`;
+      manualSeparatorRanges.add(range);
+    }
+
+    // Deduplicate separators with the same range to avoid duplicates
+    // Prefer manual separators over auto-generated ones
+    const seenSeparatorRanges = new Set<string>();
     const deduped: ListItem[] = [];
+    const manualSeparatorKeys = new Set(manualSeparators.map((sep) => sep.key));
+
     for (const item of combined) {
       if (item.type === 'separator') {
-        const sepKey = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
-        if (seenSeparators.has(sepKey)) {
+        const sepRange = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
+        const isManualSeparator = manualSeparatorKeys.has(item.key);
+        const hasManualSeparatorForRange = manualSeparatorRanges.has(sepRange);
+
+        // If we've seen this range before, skip duplicates
+        if (seenSeparatorRanges.has(sepRange)) {
+          // Always skip auto-generated separators if we've seen the range
+          // (either from a manual separator or another auto one)
+          if (!isManualSeparator) {
+            continue;
+          }
+          // If this is a manual separator and we already added one, skip
           continue;
         }
-        seenSeparators.add(sepKey);
+
+        // Skip auto-generated separators if there's a manual separator for this range
+        if (!isManualSeparator && hasManualSeparatorForRange) {
+          continue;
+        }
+
+        seenSeparatorRanges.add(sepRange);
       }
       deduped.push(item);
     }
@@ -695,6 +779,83 @@ export default function BibleAssetsView() {
 
     void processNewSeparators();
   }, [manualSeparators, listItems, assets, queryClient, refetch]);
+
+  // Function to update an existing separator and all assets below it (until next separator)
+  const updateVerseSeparator = React.useCallback(
+    async (
+      separatorKey: string,
+      oldFrom: number | undefined,
+      oldTo: number | undefined,
+      newFrom: number,
+      newTo: number
+    ) => {
+      // Update the separator in state
+      setManualSeparators((prev) =>
+        prev.map((sep) =>
+          sep.key === separatorKey ? { ...sep, from: newFrom, to: newTo } : sep
+        )
+      );
+
+      // Find the separator in the listItems to get its position
+      const separatorIndex = listItems.findIndex(
+        (item) => item.type === 'separator' && item.key === separatorKey
+      );
+
+      if (separatorIndex === -1) {
+        console.warn(
+          `⚠️ Separator ${separatorKey} not found in listItems, skipping asset update`
+        );
+        return;
+      }
+
+      // Find all assets below this separator until we hit another separator
+      const assetsToUpdate: { assetId: string; metadata: AssetMetadata }[] = [];
+
+      for (let i = separatorIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (!item) continue;
+
+        // Stop if we encounter another separator
+        if (item.type === 'separator') {
+          break;
+        }
+
+        // If it's an asset, add it to the update list
+        if (item.type === 'asset') {
+          assetsToUpdate.push({
+            assetId: item.content.id,
+            metadata: {
+              verse: {
+                from: newFrom,
+                to: newTo
+              }
+            }
+          });
+        }
+      }
+
+      // Batch update all affected assets
+      if (assetsToUpdate.length > 0) {
+        try {
+          await batchUpdateAssetMetadata(assetsToUpdate);
+          console.log(
+            `✅ Updated ${assetsToUpdate.length} asset(s) below separator with new verse range ${newFrom}-${newTo}`
+          );
+
+          // Invalidate queries to refresh the UI
+          void queryClient.invalidateQueries({ queryKey: ['assets'] });
+          void refetch();
+        } catch (err: unknown) {
+          console.error('Failed to update asset metadata:', err);
+        }
+      } else {
+        console.warn(
+          `⚠️ No assets found below separator ${separatorKey} to update`
+        );
+      }
+    },
+    [listItems, queryClient, refetch]
+  );
 
   // Compute the allowed range for a new separator based on existing separators
   // The AddVerseLabelButton is above the current separator, so:
@@ -982,6 +1143,118 @@ export default function BibleAssetsView() {
     [listItems, verseCount]
   );
 
+  // Get available verses for editing a separator (between previous and next separators)
+  const getRangeForSeparator = React.useCallback(
+    (separatorKey: string) => {
+      const separatorIndex = listItems.findIndex(
+        (item) => item.type === 'separator' && item.key === separatorKey
+      );
+
+      if (separatorIndex === -1) {
+        return { from: 1, to: verseCount || 1, availableVerses: [] };
+      }
+
+      // Find previous separator (looking backward)
+      let prevTo: number | undefined;
+      for (let i = separatorIndex - 1; i >= 0; i--) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.to !== undefined) {
+          prevTo = item.to;
+          break;
+        }
+      }
+
+      // Find next separator (looking forward)
+      let nextFrom: number | undefined;
+      for (let i = separatorIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.from !== undefined) {
+          nextFrom = item.from;
+          break;
+        }
+      }
+
+      // Calculate range - only between prevTo and nextFrom
+      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
+
+      // Ensure valid range
+      const finalFrom = Math.max(1, rangeFrom);
+      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+
+      // Generate array of available verses only in this range
+      const availableVerses: number[] = [];
+      for (
+        let verse = finalFrom;
+        verse <= finalTo && verse <= (verseCount || 1);
+        verse++
+      ) {
+        availableVerses.push(verse);
+      }
+
+      return {
+        from: finalFrom,
+        to: finalTo,
+        availableVerses
+      };
+    },
+    [listItems, verseCount]
+  );
+
+  // Get max 'to' value for editing a separator (limited to available range)
+  const getMaxToForFromSeparator = React.useCallback(
+    (separatorKey: string, selectedFrom: number): number => {
+      const range = getRangeForSeparator(separatorKey);
+      const availableVerses = range.availableVerses;
+
+      // Find the index of selectedFrom in available verses
+      const fromIndex = availableVerses.indexOf(selectedFrom);
+      if (fromIndex === -1) {
+        // If selectedFrom is not available, return selectedFrom
+        return selectedFrom;
+      }
+
+      // Find the next occupied verse after selectedFrom
+      // Look for the next separator's 'from' value
+      const separatorIndex = listItems.findIndex(
+        (item) => item.type === 'separator' && item.key === separatorKey
+      );
+
+      let nextFrom: number | undefined;
+      for (let i = separatorIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.from !== undefined) {
+          nextFrom = item.from;
+          break;
+        }
+      }
+
+      // The maximum 'to' is the verse before the next separator's 'from', or the last available verse
+      const maxTo = nextFrom !== undefined ? nextFrom - 1 : range.to;
+
+      // Find the index of maxTo in available verses, or use the last available verse
+      const maxToIndex = availableVerses.indexOf(maxTo);
+      if (maxToIndex !== -1 && maxToIndex >= fromIndex) {
+        const result = availableVerses[maxToIndex];
+        if (result !== undefined) {
+          return result;
+        }
+      }
+
+      // If maxTo is not in available verses, return the last available verse from selectedFrom onwards
+      const remainingVerses = availableVerses.slice(fromIndex);
+      if (remainingVerses.length > 0) {
+        const lastVerse = remainingVerses[remainingVerses.length - 1];
+        if (lastVerse !== undefined) {
+          return lastVerse;
+        }
+      }
+
+      return selectedFrom;
+    },
+    [listItems, getRangeForSeparator]
+  );
+
   const renderItem = React.useCallback(
     ({
       item,
@@ -998,7 +1271,19 @@ export default function BibleAssetsView() {
             editable={!isPublished}
             from={item.from}
             to={item.to}
-            label="Verse"
+            label={bookChapterLabelRef.current}
+            onPress={
+              !isPublished
+                ? () => {
+                    setEditSeparatorState({
+                      isOpen: true,
+                      separatorKey: item.key,
+                      from: item.from,
+                      to: item.to
+                    });
+                  }
+                : undefined
+            }
             dragHandleComponent={!isPublished ? Sortable.Handle : undefined}
             dragHandleProps={
               !isPublished
@@ -1059,7 +1344,7 @@ export default function BibleAssetsView() {
             >
               <Icon
                 as={BookmarkIcon}
-                size={10}
+                size={12}
                 className="text-primary-foreground"
               />
             </Pressable>
@@ -1085,6 +1370,7 @@ export default function BibleAssetsView() {
       currentlyPlayingAssetId,
       handleAssetUpdate,
       getRangeForAsset
+      // fixedItemsIndexesRef.current.length
       //isPublished
     ]
   );
@@ -1770,6 +2056,8 @@ export default function BibleAssetsView() {
     indexToKey: string[];
     data: ListItem[];
   }) {
+    fixedItemsIndexesRef.current = [0];
+
     // Build a map of key -> item for quick lookup
     const keyToItem = new Map(params.data.map((item) => [item.key, item]));
 
@@ -2062,6 +2350,7 @@ export default function BibleAssetsView() {
           ref={scrollableRef}
         >
           <Sortable.Grid
+            dragActivationDelay={100}
             autoScrollEnabled={true}
             columnGap={1}
             columns={1}
@@ -2072,9 +2361,6 @@ export default function BibleAssetsView() {
             rowGap={3}
             scrollableRef={scrollableRef} // required for auto scroll
             overDrag="vertical"
-            // onDragStart={(params) => {
-            //   console.log('🔄 Drag start:', params);
-            // }}
             onDragEnd={(params) => void _handleSorting(params)}
             customHandle
             // autoScrollActivationOffset={75}
@@ -2316,6 +2602,58 @@ export default function BibleAssetsView() {
                 setAssetVerseSelectorState({ isOpen: false, assetId: null })
               }
             />
+          </View>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Verse Range Selector Drawer for editing separator */}
+      <Drawer
+        open={editSeparatorState.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditSeparatorState({ isOpen: false, separatorKey: null });
+          }
+        }}
+        snapPoints={['40%']}
+        enableDynamicSizing={false}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Edit Verse Label</DrawerTitle>
+          </DrawerHeader>
+          <View className="p-4">
+            {editSeparatorState.separatorKey && (
+              <VerseRangeSelector
+                availableVerses={
+                  getRangeForSeparator(editSeparatorState.separatorKey)
+                    .availableVerses
+                }
+                from={editSeparatorState.from}
+                to={editSeparatorState.to}
+                ScrollViewComponent={GHScrollView}
+                getMaxToForFrom={(selectedFrom) =>
+                  getMaxToForFromSeparator(
+                    editSeparatorState.separatorKey!,
+                    selectedFrom
+                  )
+                }
+                onApply={async (from, to) => {
+                  if (editSeparatorState.separatorKey) {
+                    await updateVerseSeparator(
+                      editSeparatorState.separatorKey,
+                      editSeparatorState.from,
+                      editSeparatorState.to,
+                      from,
+                      to
+                    );
+                  }
+                  setEditSeparatorState({ isOpen: false, separatorKey: null });
+                }}
+                onCancel={() =>
+                  setEditSeparatorState({ isOpen: false, separatorKey: null })
+                }
+              />
+            )}
           </View>
         </DrawerContent>
       </Drawer>
