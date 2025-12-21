@@ -780,6 +780,51 @@ export default function BibleAssetsView() {
     void processNewSeparators();
   }, [manualSeparators, listItems, assets, queryClient, refetch]);
 
+  // Clean up manual separators that have been persisted to asset metadata
+  // This ensures the UI correctly reflects which verses are available after metadata updates
+  React.useEffect(() => {
+    // Find manual separators that have been processed and can be removed
+    // A separator can be removed if:
+    // 1. It has been processed (metadata was updated for assets below it), OR
+    // 2. Its range is already covered by auto-generated separators from asset metadata
+    const separatorsToRemove: string[] = [];
+
+    for (const sep of manualSeparators) {
+      // If this separator was already processed, it can be removed
+      // The auto-generated separators from asset metadata will take over
+      if (processedSeparatorsRef.current.has(sep.key)) {
+        separatorsToRemove.push(sep.key);
+        continue;
+      }
+
+      // Also check if any asset already has metadata with this exact verse range
+      // This handles cases where metadata was updated outside of the normal flow
+      // (e.g., via _handleSorting)
+      const hasMatchingAsset = assets.some((asset) => {
+        const metadata = asset.metadata;
+        if (!metadata?.verse) return false;
+        return metadata.verse.from === sep.from && metadata.verse.to === sep.to;
+      });
+
+      if (hasMatchingAsset) {
+        separatorsToRemove.push(sep.key);
+      }
+    }
+
+    if (separatorsToRemove.length > 0) {
+      console.log(
+        `🧹 Cleaning up ${separatorsToRemove.length} manual separator(s) that are now persisted in asset metadata`
+      );
+      setManualSeparators((prev) =>
+        prev.filter((sep) => !separatorsToRemove.includes(sep.key))
+      );
+      // Also clean up the processed refs
+      for (const key of separatorsToRemove) {
+        processedSeparatorsRef.current.delete(key);
+      }
+    }
+  }, [assets, manualSeparators]);
+
   // Function to update an existing separator and all assets below it (until next separator)
   const updateVerseSeparator = React.useCallback(
     async (
@@ -2056,8 +2101,7 @@ export default function BibleAssetsView() {
     indexToKey: string[];
     data: ListItem[];
   }) {
-    fixedItemsIndexesRef.current = [0];
-
+    console.log('🔄 Sorting:');
     // Build a map of key -> item for quick lookup
     const keyToItem = new Map(params.data.map((item) => [item.key, item]));
 
