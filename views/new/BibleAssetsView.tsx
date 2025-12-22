@@ -213,6 +213,12 @@ export default function BibleAssetsView() {
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
   const fixedItemsIndexesRef = React.useRef<number[]>([0]);
+  // Ref to allow handlePlayAsset to be used in renderItem before it's defined
+  const handlePlayAssetRef = React.useRef<
+    (assetId: string) => void | Promise<void>
+  >((_assetId: string) => {
+    // No-op: will be replaced by handlePlayAsset when defined
+  });
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
@@ -1401,6 +1407,7 @@ export default function BibleAssetsView() {
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
             onUpdate={handleAssetUpdate}
+            onPlay={(assetId) => handlePlayAssetRef.current(assetId)}
             isPublished={isPublished}
             dragHandle={dragHandle}
           />
@@ -1742,15 +1749,21 @@ export default function BibleAssetsView() {
 
   // Track currently playing asset based on audio position
   React.useEffect(() => {
-    if (
-      !audioContext.isPlaying ||
-      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
-    ) {
+    // If not playing at all, clear the highlight
+    if (!audioContext.isPlaying) {
       setCurrentlyPlayingAssetId(null);
       return;
     }
 
-    // Calculate which asset is playing based on cumulative position
+    // If playing a single asset (not play-all mode), the currentAudioId IS the assetId
+    // Just keep the highlight for that asset (handlePlayAsset already sets it)
+    if (audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID) {
+      // The currentAudioId is the assetId, ensure it's highlighted
+      setCurrentlyPlayingAssetId(audioContext.currentAudioId);
+      return;
+    }
+
+    // Calculate which asset is playing based on cumulative position (play-all mode)
     const checkCurrentAsset = () => {
       const uris = uriOrderRef.current;
       const durations = segmentDurationsRef.current;
@@ -1903,6 +1916,48 @@ export default function BibleAssetsView() {
       segmentDurationsRef.current = [];
     }
   }, [audioContext, getAssetAudioUris, assets]);
+
+  // Handle play individual asset
+  const handlePlayAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        const isThisAssetPlaying =
+          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+
+        if (isThisAssetPlaying) {
+          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
+          await audioContext.stopCurrentSound();
+          setCurrentlyPlayingAssetId(null);
+        } else {
+          console.log('▶️ Playing asset:', assetId.slice(0, 8));
+          const uris = await getAssetAudioUris(assetId);
+
+          if (uris.length === 0) {
+            console.warn('⚠️ No audio URIs found for asset:', assetId);
+            return;
+          }
+
+          // Set the asset as currently playing immediately for visual feedback
+          setCurrentlyPlayingAssetId(assetId);
+
+          if (uris.length === 1 && uris[0]) {
+            console.log('▶️ Playing single segment');
+            await audioContext.playSound(uris[0], assetId);
+          } else if (uris.length > 1) {
+            console.log(`▶️ Playing ${uris.length} segments in sequence`);
+            await audioContext.playSoundSequence(uris, assetId);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to play audio:', error);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [audioContext, getAssetAudioUris]
+  );
+
+  // Update ref so renderItem can use it
+  handlePlayAssetRef.current = handlePlayAsset;
 
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({

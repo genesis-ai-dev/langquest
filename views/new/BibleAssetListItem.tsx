@@ -21,6 +21,7 @@ import {
   EyeOffIcon,
   HardDriveIcon,
   PauseIcon,
+  PlayIcon,
   Plus,
   TagIcon
 } from 'lucide-react-native';
@@ -43,6 +44,7 @@ export interface BibleAssetListItemProps {
   isPublished: boolean;
   questId: string;
   onUpdate?: () => void;
+  onPlay?: (assetId: string) => void | Promise<void>;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   dragHandle?: React.ReactNode;
@@ -54,6 +56,7 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   isCurrentlyPlaying = false,
   isPublished,
   onUpdate,
+  onPlay,
   attachmentState: _attachmentState,
   dragHandle
 }) => {
@@ -127,6 +130,7 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   );
 
   const handlePress = () => {
+    if (!isPublished) return;
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -196,6 +200,27 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                 <View className="flex flex-row items-center gap-1.5">
                   {asset.source === 'local' && (
                     <Icon as={HardDriveIcon} size={14} />
+                  )}
+                  {/* Play button - only show if onPlay is provided */}
+                  {onPlay && (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        void onPlay(asset.id);
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon
+                        as={isCurrentlyPlaying ? PauseIcon : PlayIcon}
+                        size={14}
+                        className={
+                          isCurrentlyPlaying
+                            ? 'text-primary'
+                            : 'text-primary/80'
+                        }
+                      />
+                    </Pressable>
                   )}
                   <CardTitle
                     numberOfLines={2}
