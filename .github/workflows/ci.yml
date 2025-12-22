@@ -36,6 +36,7 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
+    if: github.event.action != 'reopened'
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +52,7 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    if: github.event.action != 'reopened'
     steps:
       - uses: actions/checkout@v4
 
