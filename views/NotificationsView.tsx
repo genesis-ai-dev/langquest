@@ -103,8 +103,9 @@ function LanguoidLinkSuggestionItem({
           </Text>
         </View>
         <Text className="text-xs text-muted-foreground">
-          {getMatchBadgeText(suggestion.match_rank, suggestion.matched_on)} (
-          {suggestion.suggested_iso_code})
+          {getMatchBadgeText(suggestion.match_rank, suggestion.matched_on)}
+          {suggestion.matched_on === 'iso_code' &&
+            ` (${suggestion.suggested_iso_code})`}
         </Text>
       </View>
     </RadioGroupItem>
@@ -130,11 +131,13 @@ function LanguoidLinkSuggestionGroup({
   onKeepCustom,
   getMatchBadgeText
 }: LanguoidLinkSuggestionGroupProps) {
+  const defaultSuggestion =
+    group.suggestions.length === 1 ? group.suggestions[0]?.id : undefined;
   const { t } = useLocalization();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedSuggestionId, setSelectedSuggestionId] = useState<
     string | undefined
-  >(undefined);
+  >(defaultSuggestion);
 
   const selectedSuggestion = group.suggestions.find(
     (s) => s.id === selectedSuggestionId
@@ -144,7 +147,7 @@ function LanguoidLinkSuggestionGroup({
     if (selectedSuggestion) {
       onAccept(selectedSuggestion);
       setDrawerOpen(false);
-      setSelectedSuggestionId(undefined);
+      setSelectedSuggestionId(defaultSuggestion);
     }
   };
 
@@ -157,7 +160,7 @@ function LanguoidLinkSuggestionGroup({
             <View className="flex gap-4">
               <View className="flex-col gap-1">
                 <View className="flex flex-row items-center gap-2">
-                  <Icon as={LinkIcon} size={18} className="text-primary" />
+                  <Icon as={LinkIcon} size={20} className="text-primary" />
                   <Text className="font-semibold text-foreground" variant="h4">
                     {t('languoidLinkSuggestionTitle')}
                   </Text>
@@ -195,7 +198,7 @@ function LanguoidLinkSuggestionGroup({
                 onPress={() => setDrawerOpen(true)}
                 disabled={isGroupProcessing}
               >
-                <Text className="text-sm">{t('seeMySuggestions')}</Text>
+                <Text className="text-sm">{t('seeLanguageSuggestions')}</Text>
               </Button>
 
               <Button
@@ -216,7 +219,7 @@ function LanguoidLinkSuggestionGroup({
         onOpenChange={(open) => {
           setDrawerOpen(open);
           if (!open) {
-            setSelectedSuggestionId(undefined);
+            setSelectedSuggestionId(defaultSuggestion);
           }
         }}
         snapPoints={['50%', '90%']}
@@ -1093,9 +1096,9 @@ export default function NotificationsView() {
     }
   }, [queryClient]);
 
-  // Check if there are any notifications (including languoid suggestions)
+  // Check if there are any notifications (including languoid suggestions when online)
   const hasAnyNotifications =
-    allNotifications.length > 0 || uniqueLanguoidCount > 0;
+    allNotifications.length > 0 || (isOnline && uniqueLanguoidCount > 0);
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1144,8 +1147,8 @@ export default function NotificationsView() {
             </View>
           ) : (
             <View className="flex-col gap-4 pb-4">
-              {/* Languoid link suggestions section */}
-              {groupedSuggestions.length > 0 && (
+              {/* Languoid link suggestions section - only show when online */}
+              {isOnline && groupedSuggestions.length > 0 && (
                 <View className="flex-col gap-4">
                   {groupedSuggestions.map((group) => (
                     <LanguoidLinkSuggestionGroup

@@ -5968,12 +5968,12 @@ export const localizations = {
     tok_pisin: 'Tok ples bilong yu',
     indonesian: 'Bahasa Anda'
   },
-  seeMySuggestions: {
-    english: 'See my suggestions',
-    spanish: 'Ver mis sugerencias',
-    brazilian_portuguese: 'Ver minhas sugestões',
-    tok_pisin: 'Lukim tok ples bilong mi',
-    indonesian: 'Lihat sugesti Anda'
+  seeLanguageSuggestions: {
+    english: 'See language suggestions',
+    spanish: 'Ver sugerencias de idioma',
+    brazilian_portuguese: 'Ver sugestões de idioma',
+    tok_pisin: 'Lukim ol tok ples bilong en',
+    indonesian: 'Lihat sugesti bahasa'
   },
   keepMyLanguage: {
     english: 'Keep my language',
