@@ -153,10 +153,7 @@ export const useNotifications = () => {
       .from(languoid_link_suggestion)
       .where(
         and(
-          eq(
-            languoid_link_suggestion.profile_id,
-            userId || 'nonexistent-id'
-          ),
+          eq(languoid_link_suggestion.profile_id, userId || 'nonexistent-id'),
           eq(languoid_link_suggestion.status, 'pending'),
           eq(languoid_link_suggestion.active, true)
         )
@@ -185,9 +182,7 @@ export const useNotifications = () => {
       if (error) throw error;
 
       // Get unique languoid_ids
-      const uniqueIds = [
-        ...new Set(data.map((d) => d.languoid_id as string))
-      ];
+      const uniqueIds = [...new Set(data.map((d) => d.languoid_id as string))];
       return uniqueIds.map((id) => ({ languoid_id: id }));
     },
 
