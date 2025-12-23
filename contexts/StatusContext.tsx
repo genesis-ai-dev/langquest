@@ -164,17 +164,10 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     let activeParent = true;
     let visibleParent = true;
 
-    let activeCurrent = true;
-    let visibleCurrent = true;
-
-    for (let i = 0; i <= Number(layerType); i++) {
+    for (let i = 0; i < Number(layerType); i++) {
       if (navLayersStatus.current[i] !== undefined) {
-        if (i < Number(layerType)) {
-          activeParent = activeParent && navLayersStatus.current[i]!.active;
-          visibleParent = visibleParent && navLayersStatus.current[i]!.visible;
-        }
-        activeCurrent = activeCurrent && navLayersStatus.current[i]!.active;
-        visibleCurrent = visibleCurrent && navLayersStatus.current[i]!.visible;
+        activeParent = activeParent && navLayersStatus.current[i]!.active;
+        visibleParent = visibleParent && navLayersStatus.current[i]!.visible;
       }
     }
 
@@ -183,6 +176,9 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
       visible: currentLayer.visible,
       source: currentLayer.source
     };
+
+    let activeCurrent = currentLayer.active;
+    let visibleCurrent = currentLayer.visible;
 
     if (id && layerIds.current[layerType].has(id)) {
       const auxLayer = layerIds.current[layerType].get(id) ?? {
