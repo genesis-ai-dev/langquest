@@ -11,6 +11,7 @@ import {
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
+  createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
   createLanguoidRegionTable,
   createLanguoidSourceTable,
@@ -535,6 +536,36 @@ export const notificationRelations = relations(notification, ({ one }) => ({
     references: [profile.id]
   })
 }));
+
+// Languoid link suggestion table - for linking user-created languoids to existing ones
+export const languoid_link_suggestion = createLanguoidLinkSuggestionTable(
+  'merged',
+  {
+    languoid,
+    profile
+  }
+);
+
+export const languoid_link_suggestionRelations = relations(
+  languoid_link_suggestion,
+  ({ one }) => ({
+    user_languoid: one(languoid, {
+      fields: [languoid_link_suggestion.user_languoid_id],
+      references: [languoid.id],
+      relationName: 'user_languoid'
+    }),
+    suggested_languoid: one(languoid, {
+      fields: [languoid_link_suggestion.suggested_languoid_id],
+      references: [languoid.id],
+      relationName: 'suggested_languoid'
+    }),
+    creator: one(profile, {
+      fields: [languoid_link_suggestion.creator_profile_id],
+      references: [profile.id],
+      relationName: 'suggestion_creator'
+    })
+  })
+);
 
 export const profile_project_link = createProfileProjectLinkTable('merged', {
   profile,

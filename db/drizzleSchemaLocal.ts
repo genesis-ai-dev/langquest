@@ -13,6 +13,7 @@ import {
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
+  createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
   createLanguoidRegionTable,
   createLanguoidSourceTable,
@@ -597,6 +598,36 @@ export const notification_localRelations = relations(
     profile: one(profile_local, {
       fields: [notification_local.profile_id],
       references: [profile_local.id]
+    })
+  })
+);
+
+// Languoid link suggestion table - for linking user-created languoids to existing ones
+export const languoid_link_suggestion_local = createLanguoidLinkSuggestionTable(
+  'local',
+  {
+    languoid: languoid_local,
+    profile: profile_local
+  }
+);
+
+export const languoid_link_suggestion_localRelations = relations(
+  languoid_link_suggestion_local,
+  ({ one }) => ({
+    user_languoid: one(languoid_local, {
+      fields: [languoid_link_suggestion_local.user_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'user_languoid'
+    }),
+    suggested_languoid: one(languoid_local, {
+      fields: [languoid_link_suggestion_local.suggested_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'suggested_languoid'
+    }),
+    creator: one(profile_local, {
+      fields: [languoid_link_suggestion_local.creator_profile_id],
+      references: [profile_local.id],
+      relationName: 'suggestion_creator'
     })
   })
 );

@@ -1,5 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { invite, profile_project_link, request } from '@/db/drizzleSchema';
+import {
+  invite,
+  languoid_link_suggestion,
+  profile_project_link,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -8,6 +13,8 @@ import React from 'react';
 
 export const useNotifications = () => {
   const { currentUser, isAuthenticated } = useAuth();
+  const userId = currentUser?.id;
+  const shouldQueryOwnerProjects = !!userId && isAuthenticated;
 
   // Get all pending invites for the user's email or profile_id
   const { data: inviteRequests = [] } = useHybridData<
@@ -41,9 +48,6 @@ export const useNotifications = () => {
   });
 
   // Get all projects where the user is an owner
-  // Only query if user is authenticated and has an ID
-  const userId = currentUser?.id;
-  const shouldQueryOwnerProjects = !!userId && isAuthenticated;
 
   const { data: ownerProjects } = useHybridData<{ project_id: string }>({
     dataType: 'owner-projects-count',
@@ -139,12 +143,65 @@ export const useNotifications = () => {
     [allRequestNotifications, ownerProjectIds]
   );
 
+  // Get pending languoid link suggestions count
+  // Query returns distinct user_languoid_id to count unique languoids needing linking
+  const languoidSuggestionsQuery = toCompilableQuery(
+    system.db
+      .selectDistinct({
+        user_languoid_id: languoid_link_suggestion.user_languoid_id
+      })
+      .from(languoid_link_suggestion)
+      .where(
+        and(
+          eq(
+            languoid_link_suggestion.creator_profile_id,
+            userId || 'nonexistent-id'
+          ),
+          eq(languoid_link_suggestion.status, 'pending'),
+          eq(languoid_link_suggestion.active, true)
+        )
+      )
+  );
+
+  const { data: languoidSuggestions = [] } = useHybridData<{
+    user_languoid_id: string;
+  }>({
+    dataType: 'languoid-suggestions-count',
+    queryKeyParams: [userId || 'anonymous'],
+    enabled: !!userId && isAuthenticated,
+
+    offlineQuery: languoidSuggestionsQuery,
+
+    cloudQueryFn: async () => {
+      if (!userId) return [];
+
+      const { data, error } = await system.supabaseConnector.client
+        .from('languoid_link_suggestion')
+        .select('user_languoid_id')
+        .eq('creator_profile_id', userId)
+        .eq('status', 'pending')
+        .eq('active', true);
+
+      if (error) throw error;
+
+      // Get unique user_languoid_ids
+      const uniqueIds = [
+        ...new Set(data.map((d) => d.user_languoid_id as string))
+      ];
+      return uniqueIds.map((id) => ({ user_languoid_id: id }));
+    },
+
+    enableOfflineQuery: !!userId && isAuthenticated
+  });
+
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.length;
+  const languoidLinkCount = languoidSuggestions.length;
 
   return {
     inviteCount,
     requestCount,
-    totalCount: inviteCount + requestCount
+    languoidLinkCount,
+    totalCount: inviteCount + requestCount + languoidLinkCount
   };
 };

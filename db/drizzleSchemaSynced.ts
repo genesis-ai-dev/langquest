@@ -10,6 +10,7 @@ import {
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
+  createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
   createLanguoidRegionTable,
   createLanguoidSourceTable,
@@ -597,6 +598,34 @@ export const notification_syncedRelations = relations(
     profile: one(profile_synced, {
       fields: [notification_synced.profile_id],
       references: [profile_synced.id]
+    })
+  })
+);
+
+// Languoid link suggestion table - for linking user-created languoids to existing ones
+export const languoid_link_suggestion_synced =
+  createLanguoidLinkSuggestionTable('synced', {
+    languoid: languoid_synced,
+    profile: profile_synced
+  });
+
+export const languoid_link_suggestion_syncedRelations = relations(
+  languoid_link_suggestion_synced,
+  ({ one }) => ({
+    user_languoid: one(languoid_synced, {
+      fields: [languoid_link_suggestion_synced.user_languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'user_languoid'
+    }),
+    suggested_languoid: one(languoid_synced, {
+      fields: [languoid_link_suggestion_synced.suggested_languoid_id],
+      references: [languoid_synced.id],
+      relationName: 'suggested_languoid'
+    }),
+    creator: one(profile_synced, {
+      fields: [languoid_link_suggestion_synced.creator_profile_id],
+      references: [profile_synced.id],
+      relationName: 'suggestion_creator'
     })
   })
 );
