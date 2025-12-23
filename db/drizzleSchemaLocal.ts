@@ -614,10 +614,10 @@ export const languoid_link_suggestion_local = createLanguoidLinkSuggestionTable(
 export const languoid_link_suggestion_localRelations = relations(
   languoid_link_suggestion_local,
   ({ one }) => ({
-    user_languoid: one(languoid_local, {
-      fields: [languoid_link_suggestion_local.user_languoid_id],
+    languoid: one(languoid_local, {
+      fields: [languoid_link_suggestion_local.languoid_id],
       references: [languoid_local.id],
-      relationName: 'user_languoid'
+      relationName: 'languoid'
     }),
     suggested_languoid: one(languoid_local, {
       fields: [languoid_link_suggestion_local.suggested_languoid_id],
@@ -625,7 +625,7 @@ export const languoid_link_suggestion_localRelations = relations(
       relationName: 'suggested_languoid'
     }),
     creator: one(profile_local, {
-      fields: [languoid_link_suggestion_local.creator_profile_id],
+      fields: [languoid_link_suggestion_local.profile_id],
       references: [profile_local.id],
       relationName: 'suggestion_creator'
     })

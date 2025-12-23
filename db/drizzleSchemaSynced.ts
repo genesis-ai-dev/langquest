@@ -612,10 +612,10 @@ export const languoid_link_suggestion_synced =
 export const languoid_link_suggestion_syncedRelations = relations(
   languoid_link_suggestion_synced,
   ({ one }) => ({
-    user_languoid: one(languoid_synced, {
-      fields: [languoid_link_suggestion_synced.user_languoid_id],
+    languoid: one(languoid_synced, {
+      fields: [languoid_link_suggestion_synced.languoid_id],
       references: [languoid_synced.id],
-      relationName: 'user_languoid'
+      relationName: 'languoid'
     }),
     suggested_languoid: one(languoid_synced, {
       fields: [languoid_link_suggestion_synced.suggested_languoid_id],
@@ -623,7 +623,7 @@ export const languoid_link_suggestion_syncedRelations = relations(
       relationName: 'suggested_languoid'
     }),
     creator: one(profile_synced, {
-      fields: [languoid_link_suggestion_synced.creator_profile_id],
+      fields: [languoid_link_suggestion_synced.profile_id],
       references: [profile_synced.id],
       relationName: 'suggestion_creator'
     })

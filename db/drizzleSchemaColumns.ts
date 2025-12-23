@@ -1514,7 +1514,7 @@ export function createLanguoidLinkSuggestionTable<
     {
       ...getTableColumns(source),
       // The user-created languoid that needs linking
-      user_languoid_id: text()
+      languoid_id: text()
         .notNull()
         .references(() => languoid.id),
       // The suggested existing languoid to link to
@@ -1522,7 +1522,7 @@ export function createLanguoidLinkSuggestionTable<
         .notNull()
         .references(() => languoid.id),
       // The user who created the custom languoid (receives the notification)
-      creator_profile_id: text()
+      profile_id: text()
         .notNull()
         .references(() => profile.id),
       // Match quality: 1=exact, 2=starts-with, 3=contains
@@ -1535,12 +1535,8 @@ export function createLanguoidLinkSuggestionTable<
       ...extraColumns
     },
     (table) => [
-      index('languoid_link_suggestion_user_languoid_idx').on(
-        table.user_languoid_id
-      ),
-      index('languoid_link_suggestion_creator_idx').on(
-        table.creator_profile_id
-      ),
+      index('languoid_link_suggestion_user_languoid_idx').on(table.languoid_id),
+      index('languoid_link_suggestion_creator_idx').on(table.profile_id),
       index('languoid_link_suggestion_status_idx').on(table.status),
       ...normalizeParams(extraConfig, table)
     ]

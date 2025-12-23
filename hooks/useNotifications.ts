@@ -144,17 +144,17 @@ export const useNotifications = () => {
   );
 
   // Get pending languoid link suggestions count
-  // Query returns distinct user_languoid_id to count unique languoids needing linking
+  // Query returns distinct languoid_id to count unique languoids needing linking
   const languoidSuggestionsQuery = toCompilableQuery(
     system.db
       .selectDistinct({
-        user_languoid_id: languoid_link_suggestion.user_languoid_id
+        languoid_id: languoid_link_suggestion.languoid_id
       })
       .from(languoid_link_suggestion)
       .where(
         and(
           eq(
-            languoid_link_suggestion.creator_profile_id,
+            languoid_link_suggestion.profile_id,
             userId || 'nonexistent-id'
           ),
           eq(languoid_link_suggestion.status, 'pending'),
@@ -164,7 +164,7 @@ export const useNotifications = () => {
   );
 
   const { data: languoidSuggestions = [] } = useHybridData<{
-    user_languoid_id: string;
+    languoid_id: string;
   }>({
     dataType: 'languoid-suggestions-count',
     queryKeyParams: [userId || 'anonymous'],
@@ -177,18 +177,18 @@ export const useNotifications = () => {
 
       const { data, error } = await system.supabaseConnector.client
         .from('languoid_link_suggestion')
-        .select('user_languoid_id')
-        .eq('creator_profile_id', userId)
+        .select('languoid_id')
+        .eq('profile_id', userId)
         .eq('status', 'pending')
         .eq('active', true);
 
       if (error) throw error;
 
-      // Get unique user_languoid_ids
+      // Get unique languoid_ids
       const uniqueIds = [
-        ...new Set(data.map((d) => d.user_languoid_id as string))
+        ...new Set(data.map((d) => d.languoid_id as string))
       ];
-      return uniqueIds.map((id) => ({ user_languoid_id: id }));
+      return uniqueIds.map((id) => ({ languoid_id: id }));
     },
 
     enableOfflineQuery: !!userId && isAuthenticated

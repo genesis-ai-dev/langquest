@@ -115,7 +115,7 @@ function LanguoidLinkSuggestionItem({
 interface LanguoidLinkSuggestionGroupProps {
   group: {
     userLanguoidId: string;
-    userLanguoidName: string;
+    languoidName: string;
     suggestions: LanguoidLinkSuggestionWithDetails[];
   };
   isGroupProcessing: boolean;
@@ -184,7 +184,7 @@ function LanguoidLinkSuggestionGroup({
                     </View>
                     <View className="flex-row items-center gap-2">
                       <Text className="text-lg font-semibold text-foreground">
-                        {group.userLanguoidName}
+                        {group.languoidName}
                       </Text>
                     </View>
                   </View>

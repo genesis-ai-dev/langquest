@@ -89,7 +89,7 @@ bucket_definitions:
 
       # Sync languoid link suggestions for the user
       - SELECT * FROM languoid_link_suggestion
-        WHERE creator_profile_id = bucket.profile_id
+        WHERE profile_id = bucket.profile_id
         AND active = true
 
       - SELECT * FROM subscription

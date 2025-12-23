@@ -27,7 +27,7 @@ interface LanguoidDetail {
 
 export interface LanguoidLinkSuggestionWithDetails
   extends LanguoidLinkSuggestion {
-  user_languoid_name: string | null;
+  languoid_name: string | null;
   suggested_languoid_name: string | null;
   suggested_languoid_level: string | null;
   suggested_languoid_ui_ready: boolean | null;
@@ -61,13 +61,13 @@ export function useLanguoidLinkSuggestions() {
         .from(languoid_link_suggestion)
         .where(
           and(
-            eq(languoid_link_suggestion.creator_profile_id, userId!),
+            eq(languoid_link_suggestion.profile_id, userId!),
             eq(languoid_link_suggestion.status, 'pending'),
             eq(languoid_link_suggestion.active, true)
           )
         )
         .orderBy(
-          languoid_link_suggestion.user_languoid_id,
+          languoid_link_suggestion.languoid_id,
           languoid_link_suggestion.match_rank
         )
     ),
@@ -77,10 +77,10 @@ export function useLanguoidLinkSuggestions() {
       const { data, error } = await supabaseConnector.client
         .from('languoid_link_suggestion')
         .select('*')
-        .eq('creator_profile_id', userId!)
+        .eq('profile_id', userId!)
         .eq('status', 'pending')
         .eq('active', true)
-        .order('user_languoid_id')
+        .order('languoid_id')
         .order('match_rank')
         .overrideTypes<LanguoidLinkSuggestion[]>();
 
@@ -93,7 +93,7 @@ export function useLanguoidLinkSuggestions() {
   const languoidIds = useMemo(() => {
     const ids = new Set<string>();
     for (const suggestion of rawSuggestions) {
-      ids.add(suggestion.user_languoid_id);
+      ids.add(suggestion.languoid_id);
       ids.add(suggestion.suggested_languoid_id);
     }
     return Array.from(ids);
@@ -163,12 +163,12 @@ export function useLanguoidLinkSuggestions() {
   // Combine suggestions with languoid details
   const suggestions = useMemo<LanguoidLinkSuggestionWithDetails[]>(() => {
     return rawSuggestions.map((suggestion) => {
-      const userLang = languoidMap.get(suggestion.user_languoid_id);
+      const userLang = languoidMap.get(suggestion.languoid_id);
       const suggestedLang = languoidMap.get(suggestion.suggested_languoid_id);
 
       return {
         ...suggestion,
-        user_languoid_name: userLang?.name ?? null,
+        languoid_name: userLang?.name ?? null,
         suggested_languoid_name: suggestedLang?.name ?? null,
         suggested_languoid_level: suggestedLang?.level ?? null,
         suggested_languoid_ui_ready: suggestedLang?.ui_ready ?? null,
@@ -184,7 +184,7 @@ export function useLanguoidLinkSuggestions() {
     const groups = new Map<string, LanguoidLinkSuggestionWithDetails[]>();
 
     for (const suggestion of suggestions) {
-      const key = suggestion.user_languoid_id;
+      const key = suggestion.languoid_id;
       if (!groups.has(key)) {
         groups.set(key, []);
       }
@@ -193,7 +193,7 @@ export function useLanguoidLinkSuggestions() {
 
     return Array.from(groups.entries()).map(([userLanguoidId, items]) => ({
       userLanguoidId,
-      userLanguoidName: items[0]?.user_languoid_name ?? 'Unknown',
+      languoidName: items[0]?.languoid_name ?? 'Unknown',
       suggestions: items
     }));
   }, [suggestions]);
@@ -276,7 +276,7 @@ export function useKeepCustomLanguoid() {
     mutationFn: async (userLanguoidId: string) => {
       const { error } = await supabaseConnector.client.rpc(
         'keep_custom_languoid',
-        { p_user_languoid_id: userLanguoidId }
+        { p_languoid_id: userLanguoidId }
       );
 
       if (error) throw error;

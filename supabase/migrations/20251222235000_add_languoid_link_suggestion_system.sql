@@ -30,13 +30,13 @@ create table if not exists public.languoid_link_suggestion (
   id uuid primary key default gen_random_uuid(),
   
   -- The user-created languoid that needs linking
-  user_languoid_id uuid not null references public.languoid(id) on delete cascade,
+  languoid_id uuid not null references public.languoid(id) on delete cascade,
   
   -- The suggested existing languoid to link to
   suggested_languoid_id uuid not null references public.languoid(id) on delete cascade,
   
   -- The user who created the custom languoid (receives the notification)
-  creator_profile_id uuid not null references public.profile(id) on delete cascade,
+  profile_id uuid not null references public.profile(id) on delete cascade,
   
   -- Match quality: 1=exact, 2=starts-with, 3=contains
   match_rank integer not null default 3,
@@ -56,7 +56,7 @@ create table if not exists public.languoid_link_suggestion (
   last_updated timestamptz not null default now(),
   
   -- Ensure we don't create duplicate suggestions
-  constraint unique_languoid_suggestion unique (user_languoid_id, suggested_languoid_id)
+  constraint unique_languoid_suggestion unique (languoid_id, suggested_languoid_id)
 );
 
 -- Add comment describing the table
@@ -74,12 +74,12 @@ alter table public.languoid_link_suggestion enable row level security;
 
 -- Index for finding suggestions by user languoid
 create index if not exists idx_languoid_link_suggestion_user_languoid 
-  on public.languoid_link_suggestion(user_languoid_id) 
+  on public.languoid_link_suggestion(languoid_id) 
   where active = true;
 
 -- Index for finding suggestions by creator profile (for notifications)
 create index if not exists idx_languoid_link_suggestion_creator 
-  on public.languoid_link_suggestion(creator_profile_id) 
+  on public.languoid_link_suggestion(profile_id) 
   where active = true and status = 'pending';
 
 -- Index for finding suggestions by status
@@ -106,15 +106,15 @@ create policy "Users can view their own languoid link suggestions"
   on public.languoid_link_suggestion
   for select
   to authenticated
-  using (creator_profile_id = auth.uid());
+  using (profile_id = auth.uid());
 
 -- Policy: Users can update their own suggestions (to accept/reject)
 create policy "Users can update their own languoid link suggestions"
   on public.languoid_link_suggestion
   for update
   to authenticated
-  using (creator_profile_id = auth.uid())
-  with check (creator_profile_id = auth.uid());
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
 
 -- Policy: System can insert suggestions (via trigger/function)
 -- Using security definer functions for inserts
@@ -129,15 +129,15 @@ create policy "Users can insert their own languoid link suggestions"
   on public.languoid_link_suggestion
   for insert
   to authenticated
-  with check (creator_profile_id = auth.uid());
+  with check (profile_id = auth.uid());
 
 -- ============================================================================
 -- 4. Create function to find and create languoid link suggestions
 -- ============================================================================
 
 create or replace function public.create_languoid_link_suggestions(
-  p_user_languoid_id uuid,
-  p_creator_profile_id uuid,
+  p_languoid_id uuid,
+  p_profile_id uuid,
   p_max_suggestions integer default 5
 )
 returns integer
@@ -153,7 +153,7 @@ begin
   -- Get the user-created languoid name
   select name into v_languoid_name
   from public.languoid
-  where id = p_user_languoid_id
+  where id = p_languoid_id
     and active = true;
   
   -- If languoid not found or has no name, return
@@ -174,17 +174,17 @@ begin
         s.iso_code,
         s.search_rank
       from public.search_languoids(v_languoid_name, p_max_suggestions * 2, false) s
-      where s.id != p_user_languoid_id
+      where s.id != p_languoid_id
         -- Exclude languoids also created by this user
         and s.id not in (
           select l.id from public.languoid l 
-          where l.creator_id = p_creator_profile_id
+          where l.creator_id = p_profile_id
         )
         -- Exclude already suggested matches
         and s.id not in (
           select suggested_languoid_id 
           from public.languoid_link_suggestion 
-          where user_languoid_id = p_user_languoid_id
+          where languoid_id = p_languoid_id
         )
     )
     union
@@ -209,16 +209,16 @@ begin
         and lower(ls.name) = 'iso639-3'
         and ls.active = true
       where l.active = true
-        and l.id != p_user_languoid_id
+        and l.id != p_languoid_id
         -- Exclude languoids created by this user
-        and (l.creator_id is null or l.creator_id != p_creator_profile_id)
+        and (l.creator_id is null or l.creator_id != p_profile_id)
         -- Only include fuzzy matches with reasonable similarity (>= 0.3)
         and similarity(lower(l.name), lower(v_languoid_name)) >= 0.3
         -- Exclude already suggested matches
         and l.id not in (
           select suggested_languoid_id
           from public.languoid_link_suggestion 
-          where user_languoid_id = p_user_languoid_id
+          where languoid_id = p_languoid_id
         )
         -- Exclude matches already found by search_languoids
         and l.id not in (
@@ -232,18 +232,18 @@ begin
   loop
     -- Insert the suggestion
     insert into public.languoid_link_suggestion (
-      user_languoid_id,
+      languoid_id,
       suggested_languoid_id,
-      creator_profile_id,
+      profile_id,
       match_rank,
       matched_on,
       matched_value,
       status,
       active
     ) values (
-      p_user_languoid_id,
+      p_languoid_id,
       v_match.suggested_id::uuid,
-      p_creator_profile_id,
+      p_profile_id,
       v_match.search_rank,
       case 
         when v_match.matched_alias_name is not null then 'alias'
@@ -254,7 +254,7 @@ begin
       'pending',
       true
     )
-    on conflict (user_languoid_id, suggested_languoid_id) do nothing;
+    on conflict (languoid_id, suggested_languoid_id) do nothing;
     
     v_suggestion_count := v_suggestion_count + 1;
   end loop;
@@ -311,7 +311,7 @@ create trigger suggest_languoid_links_trigger
 -- 6. Create function to accept a languoid link suggestion
 -- ============================================================================
 -- When a user accepts a suggestion, this function:
--- 1. Updates all references from user_languoid to suggested_languoid
+-- 1. Updates all references from languoid to suggested_languoid
 -- 2. Marks the user languoid as inactive
 -- 3. Updates the suggestion status
 
@@ -334,7 +334,7 @@ begin
   select * into v_suggestion
   from public.languoid_link_suggestion
   where id = p_suggestion_id
-    and creator_profile_id = v_user_id
+    and profile_id = v_user_id
     and status = 'pending'
     and active = true;
   
@@ -346,19 +346,19 @@ begin
   update public.project_language_link
   set languoid_id = v_suggestion.suggested_languoid_id,
       last_updated = now()
-  where languoid_id = v_suggestion.user_languoid_id;
+  where languoid_id = v_suggestion.languoid_id;
   
   -- Update profile ui_languoid_id if it references the user languoid
   update public.profile
   set ui_languoid_id = v_suggestion.suggested_languoid_id,
       last_updated = now()
-  where ui_languoid_id = v_suggestion.user_languoid_id;
+  where ui_languoid_id = v_suggestion.languoid_id;
   
   -- Mark the user-created languoid as inactive
   update public.languoid
   set active = false,
       last_updated = now()
-  where id = v_suggestion.user_languoid_id
+  where id = v_suggestion.languoid_id
     and creator_id = v_user_id;
   
   -- Update the suggestion status
@@ -371,7 +371,7 @@ begin
   update public.languoid_link_suggestion
   set status = 'withdrawn',
       last_updated = now()
-  where user_languoid_id = v_suggestion.user_languoid_id
+  where languoid_id = v_suggestion.languoid_id
     and id != p_suggestion_id
     and status = 'pending';
   
@@ -406,7 +406,7 @@ begin
   set status = 'declined',
       last_updated = now()
   where id = p_suggestion_id
-    and creator_profile_id = v_user_id
+    and profile_id = v_user_id
     and status = 'pending'
     and active = true;
   
@@ -428,7 +428,7 @@ grant execute on function public.reject_languoid_link_suggestion(uuid)
 -- Called when user decides to keep their custom languoid
 
 create or replace function public.keep_custom_languoid(
-  p_user_languoid_id uuid
+  p_languoid_id uuid
 )
 returns boolean
 language plpgsql
@@ -444,7 +444,7 @@ begin
   -- Verify the user owns this languoid
   if not exists (
     select 1 from public.languoid 
-    where id = p_user_languoid_id 
+    where id = p_languoid_id 
       and creator_id = v_user_id
       and active = true
   ) then
@@ -455,8 +455,8 @@ begin
   update public.languoid_link_suggestion
   set status = 'withdrawn',
       last_updated = now()
-  where user_languoid_id = p_user_languoid_id
-    and creator_profile_id = v_user_id
+  where languoid_id = p_languoid_id
+    and profile_id = v_user_id
     and status = 'pending';
   
   return true;
@@ -471,7 +471,7 @@ grant execute on function public.keep_custom_languoid(uuid)
 -- 9. Add sync rule for languoid_link_suggestion
 -- ============================================================================
 -- Note: This needs to be added to sync-rules.yml manually
--- The table will be synced via the user_profile bucket based on creator_profile_id
+-- The table will be synced via the user_profile bucket based on profile_id
 
 -- ============================================================================
 -- 10. Create helper view for pending suggestions with languoid details
@@ -480,8 +480,8 @@ grant execute on function public.keep_custom_languoid(uuid)
 create or replace view public.pending_languoid_link_suggestions as
 select 
   lls.id as suggestion_id,
-  lls.user_languoid_id,
-  ul.name as user_languoid_name,
+  lls.languoid_id,
+  ul.name as languoid_name,
   lls.suggested_languoid_id,
   sl.name as suggested_languoid_name,
   sl.level as suggested_languoid_level,
@@ -489,7 +489,7 @@ select
   lls.match_rank,
   lls.matched_on,
   lls.matched_value,
-  lls.creator_profile_id,
+  lls.profile_id,
   lls.created_at,
   -- Get ISO code for suggested languoid
   (
@@ -501,7 +501,7 @@ select
     limit 1
   ) as suggested_iso_code
 from public.languoid_link_suggestion lls
-inner join public.languoid ul on ul.id = lls.user_languoid_id
+inner join public.languoid ul on ul.id = lls.languoid_id
 inner join public.languoid sl on sl.id = lls.suggested_languoid_id
 where lls.status = 'pending'
   and lls.active = true
