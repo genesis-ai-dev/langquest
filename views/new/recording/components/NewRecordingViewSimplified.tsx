@@ -62,7 +62,7 @@ import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { LabeledAssetCard } from './LabeledAssetCard';
-import { RecordingControls } from './RecordingControls';
+import { RecordingControls } from './NewRecordingControls';
 import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
@@ -148,6 +148,12 @@ const RecordingViewSimplified = ({
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVADLocked, setIsVADLocked] = React.useState(false);
+
+  // Active verse state - when set, this verse will be applied to new recordings
+  const [activeVerse, setActiveVerse] = React.useState<{
+    from: number;
+    to: number;
+  } | null>(null);
 
   // VAD settings - persisted in local store for consistent UX
   // These settings are automatically saved to AsyncStorage and restored on app restart
@@ -1642,8 +1648,22 @@ const RecordingViewSimplified = ({
 
         await dbWriteQueueRef.current;
 
-        // If sorting by verse, automatically apply verse metadata to the new asset
-        if (sortOrder === 'verse' && newAssetId) {
+        // Apply verse metadata to the new asset if an active verse is set
+        // The active verse remains the same for all recordings until user clicks button again
+        if (activeVerse && newAssetId) {
+          try {
+            const verseMetadata = { verse: activeVerse };
+            await updateAssetMetadata(newAssetId, verseMetadata);
+            debugLog(
+              `✅ Applied active verse metadata to new asset: ${JSON.stringify(verseMetadata)}`
+            );
+            // NOTE: Active verse remains the same - user clicks button to advance to next verse
+          } catch (error) {
+            console.error('❌ Failed to apply verse metadata:', error);
+            // Don't throw - asset was created successfully, metadata is optional
+          }
+        } else if (sortOrder === 'verse' && newAssetId) {
+          // Fallback: use insertion index logic if no active verse
           try {
             const verseMetadata = getVerseAtInsertionIndex();
             if (verseMetadata) {
@@ -1683,7 +1703,8 @@ const RecordingViewSimplified = ({
       assets,
       targetLanguoidId,
       sortOrder,
-      getVerseAtInsertionIndex
+      getVerseAtInsertionIndex,
+      activeVerse
     ]
   );
 
@@ -2331,6 +2352,37 @@ const RecordingViewSimplified = ({
     return available;
   }, [existingLabels, verseCount]);
 
+  // Calculate the next available verse for the bookmark button
+  // Based on the current position in the wheel - shows the IMMEDIATELY next verse
+  // only if it's available (not occupied). If the next verse is occupied, hide button.
+  const nextAvailableVerse = React.useMemo(() => {
+    if (verseCount === 0) return null;
+
+    // Get the verse at the current insertion position
+    const verseAtPosition = getVerseAtInsertionIndex();
+    const currentVerseNumber = verseAtPosition?.verse?.to ?? 0;
+
+    // The next verse is current + 1
+    const nextVerseNumber = currentVerseNumber + 1;
+
+    // Check if next verse is within valid range
+    if (nextVerseNumber > verseCount) return null;
+
+    // Check if the immediately next verse is available (not occupied)
+    // If it's occupied, return null (button will be hidden)
+    if (!availableVerses.includes(nextVerseNumber)) return null;
+
+    return nextVerseNumber;
+  }, [availableVerses, verseCount, getVerseAtInsertionIndex]);
+
+  // Callback to apply a verse (set it as active)
+  const handleApplyVerse = React.useCallback(
+    (verse: { from: number; to: number }) => {
+      setActiveVerse(verse);
+    },
+    []
+  );
+
   // Given a selected 'from' value, find the maximum 'to' value allowed
   // This prevents overlapping ranges by limiting to the next occupied verse
   const getMaxToForFrom = React.useCallback(
@@ -2449,7 +2501,7 @@ const RecordingViewSimplified = ({
 
               if (existingMetadata && typeof existingMetadata === 'object') {
                 // Create new metadata object without the verse property
-                const { verse, ...rest } = existingMetadata as {
+                const { verse: _verse, ...rest } = existingMetadata as {
                   verse?: unknown;
                   [key: string]: unknown;
                 };
@@ -2928,6 +2980,11 @@ const RecordingViewSimplified = ({
             energyShared={energyShared}
             isRecordingShared={isRecordingShared}
             displayMode={vadDisplayMode}
+            // Verse bookmark props
+            nextAvailableVerse={nextAvailableVerse}
+            activeVerse={activeVerse}
+            bookChapterLabel={bookChapterLabel}
+            onApplyVerse={handleApplyVerse}
           />
         )}
       </View>
