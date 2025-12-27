@@ -5,7 +5,6 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { languoid, languoid_link_suggestion } from '@/db/drizzleSchema';
-import { languoid_link_suggestion_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -234,31 +233,6 @@ export function useAcceptLanguoidLinkSuggestion() {
 }
 
 /**
- * Mutation hook to reject a languoid link suggestion.
- */
-export function useRejectLanguoidLinkSuggestion() {
-  const queryClient = useQueryClient();
-  const { supabaseConnector } = system;
-
-  return useMutation({
-    mutationFn: async (suggestionId: string) => {
-      const { error } = await supabaseConnector.client.rpc(
-        'reject_languoid_link_suggestion',
-        { p_suggestion_id: suggestionId }
-      );
-
-      if (error) throw error;
-      return true;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-link-suggestions']
-      });
-    }
-  });
-}
-
-/**
  * Mutation hook to dismiss all suggestions for a languoid (keep custom languoid).
  */
 export function useKeepCustomLanguoid() {
@@ -274,40 +248,6 @@ export function useKeepCustomLanguoid() {
 
       if (error) throw error;
       return true;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-link-suggestions']
-      });
-    }
-  });
-}
-
-/**
- * Hook to update a suggestion status locally (for offline support).
- * Used when updating via synced table directly.
- */
-export function useUpdateSuggestionStatus() {
-  const queryClient = useQueryClient();
-  const { db } = system;
-
-  return useMutation({
-    mutationFn: async ({
-      suggestionId,
-      status
-    }: {
-      suggestionId: string;
-      status: 'accepted' | 'declined' | 'withdrawn';
-    }) => {
-      await db
-        .update(languoid_link_suggestion_synced)
-        .set({
-          status,
-          last_updated: new Date().toISOString()
-        })
-        .where(eq(languoid_link_suggestion_synced.id, suggestionId));
-
-      return { suggestionId, status };
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

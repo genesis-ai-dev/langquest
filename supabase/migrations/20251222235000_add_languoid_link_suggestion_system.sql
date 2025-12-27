@@ -108,7 +108,7 @@ create policy "Users can view their own languoid link suggestions"
   to authenticated
   using (profile_id = auth.uid());
 
--- Policy: Users can update their own suggestions (to accept/reject)
+-- Policy: Users can update their own suggestions (to accept or keep custom)
 create policy "Users can update their own languoid link suggestions"
   on public.languoid_link_suggestion
   for update
@@ -378,46 +378,7 @@ grant execute on function public.accept_languoid_link_suggestion(uuid)
   to authenticated;
 
 -- ============================================================================
--- 7. Create function to reject/dismiss a suggestion
--- ============================================================================
-
-create or replace function public.reject_languoid_link_suggestion(
-  p_suggestion_id uuid
-)
-returns boolean
-language plpgsql
-security invoker
-set search_path = ''
-as $$
-declare
-  v_user_id uuid;
-begin
-  -- Get current user
-  v_user_id := auth.uid();
-  
-  -- Update the suggestion status to 'declined' (matches constants.ts)
-  update public.languoid_link_suggestion
-  set status = 'declined',
-      last_updated = now()
-  where id = p_suggestion_id
-    and profile_id = v_user_id
-    and status = 'pending'
-    and active = true;
-  
-  if not found then
-    raise exception 'Suggestion not found or not authorized';
-  end if;
-  
-  return true;
-end;
-$$;
-
--- Grant execute permission
-grant execute on function public.reject_languoid_link_suggestion(uuid) 
-  to authenticated;
-
--- ============================================================================
--- 8. Create function to dismiss all suggestions for a languoid
+-- 7. Create function to dismiss all suggestions for a languoid
 -- ============================================================================
 -- Called when user decides to keep their custom languoid
 
@@ -462,13 +423,13 @@ grant execute on function public.keep_custom_languoid(uuid)
   to authenticated;
 
 -- ============================================================================
--- 9. Add sync rule for languoid_link_suggestion
+-- 8. Add sync rule for languoid_link_suggestion
 -- ============================================================================
 -- Note: This needs to be added to sync-rules.yml manually
 -- The table will be synced via the user_profile bucket based on profile_id
 
 -- ============================================================================
--- 10. Create helper view for pending suggestions with languoid details
+-- 9. Create helper view for pending suggestions with languoid details
 -- ============================================================================
 
 create or replace view public.pending_languoid_link_suggestions as
