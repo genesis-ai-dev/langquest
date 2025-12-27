@@ -109,10 +109,7 @@ export function useLanguoidLinkSuggestions() {
     for (const suggestionRow of rawSuggestions) {
       ids.add(suggestionRow.languoid_id);
       // Extract suggested_languoid_ids from the JSONB array
-      if (
-        suggestionRow.suggestions &&
-        Array.isArray(suggestionRow.suggestions)
-      ) {
+      if (Array.isArray(suggestionRow.suggestions)) {
         for (const item of suggestionRow.suggestions) {
           if (item.suggested_languoid_id) {
             ids.add(item.suggested_languoid_id);

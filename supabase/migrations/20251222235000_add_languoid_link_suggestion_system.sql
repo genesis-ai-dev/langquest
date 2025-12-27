@@ -110,21 +110,6 @@ create policy "Users can update their own languoid link suggestions"
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
--- Policy: System can insert suggestions (via trigger/function)
--- Using security definer functions for inserts
-create policy "Service role can insert languoid link suggestions"
-  on public.languoid_link_suggestion
-  for insert
-  to service_role
-  with check (true);
-
--- Policy: Authenticated users can insert their own suggestions
-create policy "Users can insert their own languoid link suggestions"
-  on public.languoid_link_suggestion
-  for insert
-  to authenticated
-  with check (profile_id = auth.uid());
-
 -- ============================================================================
 -- 4. Create function to find and create languoid link suggestions
 -- ============================================================================
