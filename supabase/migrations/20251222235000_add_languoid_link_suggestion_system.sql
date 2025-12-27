@@ -32,18 +32,12 @@ create table if not exists public.languoid_link_suggestion (
   -- The user-created languoid that needs linking
   languoid_id uuid not null references public.languoid(id) on delete cascade,
   
-  -- The suggested existing languoid to link to
-  suggested_languoid_id uuid not null references public.languoid(id) on delete cascade,
-  
   -- The user who created the custom languoid (receives the notification)
   profile_id uuid not null references public.profile(id) on delete cascade,
   
-  -- Match quality: 1=exact, 2=starts-with, 3=contains
-  match_rank integer not null default 3,
-  
-  -- Additional context about the match
-  matched_on text, -- 'name', 'alias', 'iso_code'
-  matched_value text, -- The actual value that matched
+  -- Array of suggestions, each containing:
+  -- { suggested_languoid_id, match_rank, matched_on, matched_value }
+  suggestions jsonb not null default '[]'::jsonb,
   
   -- Status: pending, accepted, declined, withdrawn, expired (matches constants.ts statusOptions)
   status text not null default 'pending',
@@ -55,8 +49,8 @@ create table if not exists public.languoid_link_suggestion (
   created_at timestamptz not null default now(),
   last_updated timestamptz not null default now(),
   
-  -- Ensure we don't create duplicate suggestions
-  constraint unique_languoid_suggestion unique (languoid_id, suggested_languoid_id)
+  -- Ensure we don't create duplicate suggestion rows for the same languoid
+  constraint unique_languoid_suggestion unique (languoid_id)
 );
 
 -- Add comment describing the table
@@ -147,8 +141,11 @@ set search_path = public, pg_trgm
 as $$
 declare
   v_languoid_name text;
-  v_suggestion_count integer := 0;
+  v_suggestions jsonb := '[]'::jsonb;
   v_match record;
+  v_suggestion_obj jsonb;
+  v_existing_suggestion_ids uuid[];
+  v_suggestion_id_text text;
 begin
   -- Get the user-created languoid name
   select name into v_languoid_name
@@ -160,6 +157,25 @@ begin
   if v_languoid_name is null or trim(v_languoid_name) = '' then
     return 0;
   end if;
+  
+  -- Get existing suggested IDs to exclude duplicates
+  -- Handle case where table might not exist or have no rows
+  begin
+    select array_agg((s->>'suggested_languoid_id')::uuid)
+    into v_existing_suggestion_ids
+    from public.languoid_link_suggestion,
+         jsonb_array_elements(suggestions) s
+    where languoid_id = p_languoid_id
+      and active = true
+      and jsonb_typeof(suggestions) = 'array'
+      and jsonb_array_length(suggestions) > 0
+      and s->>'suggested_languoid_id' is not null
+      and (s->>'suggested_languoid_id')::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  exception
+    when others then
+      -- If query fails (e.g., table doesn't exist or wrong structure), start with empty array
+      v_existing_suggestion_ids := null;
+  end;
   
   -- Find matching languoids using both search_languoids (exact/substring) and trigram similarity (fuzzy)
   -- Combine results from both methods, prioritizing exact matches, then fuzzy matches
@@ -181,11 +197,7 @@ begin
           where l.creator_id = p_profile_id
         )
         -- Exclude already suggested matches
-        and s.id not in (
-          select suggested_languoid_id 
-          from public.languoid_link_suggestion 
-          where languoid_id = p_languoid_id
-        )
+        and (v_existing_suggestion_ids is null or s.id != all(v_existing_suggestion_ids))
     )
     union
     (
@@ -215,11 +227,7 @@ begin
         -- Only include fuzzy matches with reasonable similarity (>= 0.3)
         and similarity(lower(l.name), lower(v_languoid_name)) >= 0.3
         -- Exclude already suggested matches
-        and l.id not in (
-          select suggested_languoid_id
-          from public.languoid_link_suggestion 
-          where languoid_id = p_languoid_id
-        )
+        and (v_existing_suggestion_ids is null or l.id != all(v_existing_suggestion_ids))
         -- Exclude matches already found by search_languoids
         and l.id not in (
           select s.id
@@ -230,36 +238,47 @@ begin
     order by search_rank, suggested_name
     limit p_max_suggestions
   loop
-    -- Insert the suggestion
-    insert into public.languoid_link_suggestion (
-      languoid_id,
-      suggested_languoid_id,
-      profile_id,
-      match_rank,
-      matched_on,
-      matched_value,
-      status,
-      active
-    ) values (
-      p_languoid_id,
-      v_match.suggested_id::uuid,
-      p_profile_id,
-      v_match.search_rank,
-      case 
+    -- Build suggestion object
+    v_suggestion_obj := jsonb_build_object(
+      'suggested_languoid_id', v_match.suggested_id::text,
+      'match_rank', v_match.search_rank,
+      'matched_on', case 
         when v_match.matched_alias_name is not null then 'alias'
         when v_match.iso_code is not null then 'iso_code'
         else 'name'
       end,
-      coalesce(v_match.matched_alias_name, v_match.iso_code, v_match.suggested_name),
+      'matched_value', coalesce(v_match.matched_alias_name, v_match.iso_code, v_match.suggested_name)
+    );
+    
+    -- Add to suggestions array
+    v_suggestions := v_suggestions || v_suggestion_obj;
+  end loop;
+  
+  -- Only insert or update if we have suggestions
+  if jsonb_array_length(v_suggestions) > 0 then
+    -- Insert or update the suggestion row with all suggestions
+    insert into public.languoid_link_suggestion (
+      languoid_id,
+      profile_id,
+      suggestions,
+      status,
+      active
+    ) values (
+      p_languoid_id,
+      p_profile_id,
+      v_suggestions,
       'pending',
       true
     )
-    on conflict (languoid_id, suggested_languoid_id) do nothing;
-    
-    v_suggestion_count := v_suggestion_count + 1;
-  end loop;
+    on conflict (languoid_id) 
+    do update set
+      suggestions = v_suggestions,
+      status = 'pending',
+      last_updated = now(),
+      active = true;
+  end if;
   
-  return v_suggestion_count;
+  return jsonb_array_length(v_suggestions);
 end;
 $$;
 
@@ -316,7 +335,8 @@ create trigger suggest_languoid_links_trigger
 -- 3. Updates the suggestion status
 
 create or replace function public.accept_languoid_link_suggestion(
-  p_suggestion_id uuid
+  p_suggestion_id uuid,
+  p_suggested_languoid_id uuid
 )
 returns boolean
 language plpgsql
@@ -330,7 +350,7 @@ begin
   -- Get current user
   v_user_id := auth.uid();
   
-  -- Get the suggestion
+  -- Get the suggestion row
   select * into v_suggestion
   from public.languoid_link_suggestion
   where id = p_suggestion_id
@@ -342,15 +362,24 @@ begin
     raise exception 'Suggestion not found or not authorized';
   end if;
   
+  -- Verify the suggested_languoid_id exists in the suggestions array
+  if not exists (
+    select 1 
+    from jsonb_array_elements(v_suggestion.suggestions) s
+    where (s->>'suggested_languoid_id')::uuid = p_suggested_languoid_id
+  ) then
+    raise exception 'Suggested languoid not found in suggestions';
+  end if;
+  
   -- Update project_language_link references
   update public.project_language_link
-  set languoid_id = v_suggestion.suggested_languoid_id,
+  set languoid_id = p_suggested_languoid_id,
       last_updated = now()
   where languoid_id = v_suggestion.languoid_id;
   
   -- Update profile ui_languoid_id if it references the user languoid
   update public.profile
-  set ui_languoid_id = v_suggestion.suggested_languoid_id,
+  set ui_languoid_id = p_suggested_languoid_id,
       last_updated = now()
   where ui_languoid_id = v_suggestion.languoid_id;
   
@@ -367,20 +396,12 @@ begin
       last_updated = now()
   where id = p_suggestion_id;
   
-  -- Withdraw all other pending suggestions for this user languoid
-  update public.languoid_link_suggestion
-  set status = 'withdrawn',
-      last_updated = now()
-  where languoid_id = v_suggestion.languoid_id
-    and id != p_suggestion_id
-    and status = 'pending';
-  
   return true;
 end;
 $$;
 
 -- Grant execute permission
-grant execute on function public.accept_languoid_link_suggestion(uuid) 
+grant execute on function public.accept_languoid_link_suggestion(uuid, uuid) 
   to authenticated;
 
 -- ============================================================================
@@ -482,13 +503,13 @@ select
   lls.id as suggestion_id,
   lls.languoid_id,
   ul.name as languoid_name,
-  lls.suggested_languoid_id,
+  (s->>'suggested_languoid_id')::uuid as suggested_languoid_id,
   sl.name as suggested_languoid_name,
   sl.level as suggested_languoid_level,
   sl.ui_ready as suggested_languoid_ui_ready,
-  lls.match_rank,
-  lls.matched_on,
-  lls.matched_value,
+  (s->>'match_rank')::integer as match_rank,
+  s->>'matched_on' as matched_on,
+  s->>'matched_value' as matched_value,
   lls.profile_id,
   lls.created_at,
   -- Get ISO code for suggested languoid
@@ -502,7 +523,8 @@ select
   ) as suggested_iso_code
 from public.languoid_link_suggestion lls
 inner join public.languoid ul on ul.id = lls.languoid_id
-inner join public.languoid sl on sl.id = lls.suggested_languoid_id
+cross join lateral jsonb_array_elements(lls.suggestions) s
+inner join public.languoid sl on sl.id = (s->>'suggested_languoid_id')::uuid
 where lls.status = 'pending'
   and lls.active = true
   and ul.active = true

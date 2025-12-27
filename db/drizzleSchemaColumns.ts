@@ -17,7 +17,6 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import uuid from 'react-native-uuid';
 import {
-  matchedOnOptions,
   membershipOptions,
   reasonOptions,
   sourceOptions,
@@ -1517,20 +1516,23 @@ export function createLanguoidLinkSuggestionTable<
       languoid_id: text()
         .notNull()
         .references(() => languoid.id),
-      // The suggested existing languoid to link to
-      suggested_languoid_id: text()
-        .notNull()
-        .references(() => languoid.id),
       // The user who created the custom languoid (receives the notification)
       profile_id: text()
         .notNull()
         .references(() => profile.id),
-      // Match quality: 1=exact, 2=starts-with, 3=contains
-      match_rank: int().notNull().default(3),
-      // What the match was based on: name, alias, or iso_code
-      matched_on: text({ enum: matchedOnOptions }),
-      // The actual value that matched
-      matched_value: text(),
+      // Array of suggestions, each containing:
+      // { suggested_languoid_id, match_rank, matched_on, matched_value }
+      suggestions: text({ mode: 'json' })
+        .$type<
+          {
+            suggested_languoid_id: string;
+            match_rank: number;
+            matched_on: string | null;
+            matched_value: string | null;
+          }[]
+        >()
+        .notNull()
+        .default([]),
       status: text({ enum: statusOptions }).notNull().default('pending'),
       ...extraColumns
     },

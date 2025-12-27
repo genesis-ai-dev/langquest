@@ -619,11 +619,6 @@ export const languoid_link_suggestion_localRelations = relations(
       references: [languoid_local.id],
       relationName: 'languoid'
     }),
-    suggested_languoid: one(languoid_local, {
-      fields: [languoid_link_suggestion_local.suggested_languoid_id],
-      references: [languoid_local.id],
-      relationName: 'suggested_languoid'
-    }),
     creator: one(profile_local, {
       fields: [languoid_link_suggestion_local.profile_id],
       references: [profile_local.id],

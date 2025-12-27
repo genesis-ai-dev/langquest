@@ -95,7 +95,7 @@ function LanguoidLinkSuggestionItem({
   getMatchBadgeText
 }: LanguoidLinkSuggestionItemProps) {
   return (
-    <RadioGroupItem value={suggestion.id}>
+    <RadioGroupItem value={suggestion.suggested_languoid_id}>
       <View className="flex-1 gap-1">
         <View className="flex-row items-center gap-1.5">
           <Text className="font-medium text-foreground">
@@ -132,7 +132,9 @@ function LanguoidLinkSuggestionGroup({
   getMatchBadgeText
 }: LanguoidLinkSuggestionGroupProps) {
   const defaultSuggestion =
-    group.suggestions.length === 1 ? group.suggestions[0]?.id : undefined;
+    group.suggestions.length === 1
+      ? group.suggestions[0]?.suggested_languoid_id
+      : undefined;
   const { t } = useLocalization();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedSuggestionId, setSelectedSuggestionId] = useState<
@@ -140,7 +142,7 @@ function LanguoidLinkSuggestionGroup({
   >(defaultSuggestion);
 
   const selectedSuggestion = group.suggestions.find(
-    (s) => s.id === selectedSuggestionId
+    (s) => s.suggested_languoid_id === selectedSuggestionId
   );
 
   const handleChooseLanguage = () => {
@@ -242,7 +244,7 @@ function LanguoidLinkSuggestionGroup({
               >
                 {group.suggestions.map((suggestion) => (
                   <LanguoidLinkSuggestionItem
-                    key={suggestion.id}
+                    key={suggestion.suggested_languoid_id}
                     suggestion={suggestion}
                     getMatchBadgeText={getMatchBadgeText}
                   />
@@ -1008,7 +1010,10 @@ export default function NotificationsView() {
     setProcessingLanguoidIds((prev) => new Set(prev).add(suggestion.id));
 
     try {
-      await acceptSuggestion.mutateAsync(suggestion.id);
+      await acceptSuggestion.mutateAsync({
+        suggestionId: suggestion.id,
+        suggestedLanguoidId: suggestion.suggested_languoid_id
+      });
       RNAlert.alert(t('success'), t('languageLinkSuccess'));
     } catch (error) {
       console.error('Error accepting languoid link:', error);

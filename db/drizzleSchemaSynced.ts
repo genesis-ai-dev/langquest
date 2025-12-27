@@ -617,11 +617,6 @@ export const languoid_link_suggestion_syncedRelations = relations(
       references: [languoid_synced.id],
       relationName: 'languoid'
     }),
-    suggested_languoid: one(languoid_synced, {
-      fields: [languoid_link_suggestion_synced.suggested_languoid_id],
-      references: [languoid_synced.id],
-      relationName: 'suggested_languoid'
-    }),
     creator: one(profile_synced, {
       fields: [languoid_link_suggestion_synced.profile_id],
       references: [profile_synced.id],
