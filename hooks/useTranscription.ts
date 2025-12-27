@@ -31,13 +31,25 @@ export function useTranscription() {
         name: `recording.${mimeType.split('/')[1] || 'wav'}`
       } as unknown as Blob);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/transcribe`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: formData
-      });
+      const transcribeUrl = `${supabaseUrl}/functions/v1/transcribe`;
+      console.log('[Transcription] Calling:', transcribeUrl);
+
+      let response: Response;
+      try {
+        response = await fetch(transcribeUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: formData
+        });
+      } catch (networkError) {
+        console.error('[Transcription] Network error:', networkError);
+        throw new Error(
+          `Network error: Unable to reach transcription service at ${transcribeUrl}. ` +
+            'Make sure the edge function is running (npm run supabase:serve-functions).'
+        );
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));

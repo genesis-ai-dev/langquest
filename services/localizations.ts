@@ -5873,6 +5873,28 @@ export const localizations = {
     indonesian:
       'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan'
   },
+  transcription: {
+    english: 'Transcription',
+    spanish: 'Transcripción',
+    brazilian_portuguese: 'Transcrição',
+    tok_pisin: 'Transcription',
+    indonesian: 'Transkripsi'
+  },
+  transcriptionDescription: {
+    english: 'Enable automatic transcription of audio recordings',
+    spanish: 'Habilitar transcripción automática de grabaciones de audio',
+    brazilian_portuguese:
+      'Habilitar transcrição automática de gravações de áudio',
+    tok_pisin: 'Enablem automatic transcription bilong audio recordings',
+    indonesian: 'Aktifkan transkripsi otomatis rekaman audio'
+  },
+  transcriptionComplete: {
+    english: 'Transcription Complete',
+    spanish: 'Transcripción completada',
+    brazilian_portuguese: 'Transcrição concluída',
+    tok_pisin: 'Transcription i pinis',
+    indonesian: 'Transkripsi selesai'
+  },
   copyFeedbackLink: {
     english: 'Copy Feedback Link',
     spanish: 'Copiar enlace de feedback',

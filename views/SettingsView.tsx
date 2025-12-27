@@ -53,6 +53,9 @@ export default function SettingsView() {
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  const enableTranscription = useLocalStore(
+    (state) => state.enableTranscription
+  );
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -71,6 +74,9 @@ export default function SettingsView() {
   const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
+  );
+  const setEnableTranscription = useLocalStore(
+    (state) => state.setEnableTranscription
   );
 
   // Settings are loaded from the centralized store
@@ -113,6 +119,10 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
+  };
+
+  const handleTranscriptionToggle = (value: boolean) => {
+    setEnableTranscription(value);
   };
 
   const handleClearCache = () => {
@@ -262,6 +272,16 @@ export default function SettingsView() {
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
           disabled: !isOnline
+        },
+        {
+          id: 'transcription',
+          title: t('transcription') || 'Transcription',
+          description:
+            t('transcriptionDescription') ||
+            'Enable automatic transcription of audio recordings',
+          type: 'toggle',
+          value: enableTranscription,
+          onPress: () => handleTranscriptionToggle(!enableTranscription)
         }
       ]
     },

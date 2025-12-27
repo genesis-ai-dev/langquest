@@ -24,9 +24,10 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useTranscription } from '@/hooks/useTranscription';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
+import { fileExists, getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -44,6 +45,7 @@ import {
   Volume2Icon,
   VolumeXIcon
 } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -174,6 +176,13 @@ export default function NextGenAssetDetailView() {
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
+
+  // Transcription feature
+  const enableTranscription = useLocalStore(
+    (state) => state.enableTranscription
+  );
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
 
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -527,6 +536,53 @@ export default function NextGenAssetDetailView() {
     setTranslationsRefreshKey((prev) => prev + 1);
   };
 
+  // Transcription handler for source audio
+  const handleTranscribe = async (uri: string) => {
+    if (!isAuthenticated) {
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio');
+      return;
+    }
+
+    // Validate the audio file exists before attempting transcription
+    if (!uri) {
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    const exists = await fileExists(uri);
+    if (!exists) {
+      console.log('[Transcription] Audio file not found at URI:', uri);
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    console.log('[Transcription] Starting transcription for URI:', uri);
+
+    try {
+      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
+      if (result.text) {
+        RNAlert.alert(
+          t('transcriptionComplete') || 'Transcription Complete',
+          result.text
+        );
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      RNAlert.alert(
+        t('error'),
+        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+      );
+    }
+  };
+
   const handleNewTranslationPress = () => {
     if (!canTranslate) {
       // If no access, PrivateAccessGate will handle showing the modal
@@ -646,6 +702,12 @@ export default function NextGenAssetDetailView() {
                       })()}
                       audioSegments={resolvedAudioUris}
                       isLoading={isLoadingAttachments}
+                      onTranscribe={
+                        enableTranscription && isAuthenticated
+                          ? handleTranscribe
+                          : undefined
+                      }
+                      isTranscribing={isTranscribing}
                     />
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}

@@ -107,12 +107,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               disabled={isTranscribing}
             >
               {isTranscribing ? (
-                <ActivityIndicator size={mini ? 16 : 24} color={colors.text} />
+                <ActivityIndicator
+                  size={mini ? 16 : 24}
+                  color={colors.background}
+                />
               ) : (
                 <Ionicons
                   name="text-outline"
                   size={mini ? 18 : 28}
-                  color={colors.text}
+                  color={colors.background}
                 />
               )}
             </TouchableOpacity>
@@ -191,12 +194,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.inputBackground
+    backgroundColor: colors.primary
   },
   miniTranscribeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16
+    width: 36,
+    height: 36,
+    borderRadius: 18
   },
   audioFileName: {
     color: colors.text,
