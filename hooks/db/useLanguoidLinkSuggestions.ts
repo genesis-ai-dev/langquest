@@ -51,7 +51,7 @@ export function useLanguoidLinkSuggestions() {
     ...rest
   } = useHybridData<LanguoidLinkSuggestion>({
     dataType: 'languoid-link-suggestions',
-    queryKeyParams: [userId || 'anonymous'],
+    queryKeyParams: [userId],
     enabled: !!userId,
 
     // PowerSync query using Drizzle
