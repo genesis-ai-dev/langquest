@@ -554,6 +554,11 @@ export const languoid_link_suggestionRelations = relations(
       references: [languoid.id],
       relationName: 'languoid'
     }),
+    suggested_languoid: one(languoid, {
+      fields: [languoid_link_suggestion.suggested_languoid_id],
+      references: [languoid.id],
+      relationName: 'suggested_languoid'
+    }),
     creator: one(profile, {
       fields: [languoid_link_suggestion.profile_id],
       references: [profile.id],

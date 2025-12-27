@@ -25,31 +25,13 @@ interface LanguoidDetail {
   ui_ready: boolean | null;
 }
 
-export interface SuggestionItem {
-  suggested_languoid_id: string;
-  match_rank: number;
-  matched_on: string | null;
-  matched_value: string | null;
-}
-
-// Flattened suggestion item with all details for display
-export interface LanguoidLinkSuggestionWithDetails {
-  id: string; // Row ID
-  languoid_id: string;
-  profile_id: string;
-  suggested_languoid_id: string;
-  match_rank: number;
-  matched_on: string | null;
-  matched_value: string | null;
+export interface LanguoidLinkSuggestionWithDetails
+  extends LanguoidLinkSuggestion {
+  languoid_name: string | null;
   suggested_languoid_name: string | null;
   suggested_languoid_level: string | null;
   suggested_languoid_ui_ready: boolean | null;
   suggested_iso_code: string | null;
-  languoid_name: string | null;
-  status: string;
-  active: boolean;
-  created_at: string;
-  last_updated: string;
 }
 
 /**
@@ -69,7 +51,7 @@ export function useLanguoidLinkSuggestions() {
     ...rest
   } = useHybridData<LanguoidLinkSuggestion>({
     dataType: 'languoid-link-suggestions',
-    queryKeyParams: [userId],
+    queryKeyParams: [userId || 'anonymous'],
     enabled: !!userId,
 
     // PowerSync query using Drizzle
@@ -84,7 +66,10 @@ export function useLanguoidLinkSuggestions() {
             eq(languoid_link_suggestion.active, true)
           )
         )
-        .orderBy(languoid_link_suggestion.languoid_id)
+        .orderBy(
+          languoid_link_suggestion.languoid_id,
+          languoid_link_suggestion.match_rank
+        )
     ),
 
     // Cloud query
@@ -96,6 +81,7 @@ export function useLanguoidLinkSuggestions() {
         .eq('status', 'pending')
         .eq('active', true)
         .order('languoid_id')
+        .order('match_rank')
         .overrideTypes<LanguoidLinkSuggestion[]>();
 
       if (error) throw error;
@@ -106,19 +92,29 @@ export function useLanguoidLinkSuggestions() {
   // Get unique languoid IDs from suggestions
   const languoidIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const suggestionRow of rawSuggestions) {
-      ids.add(suggestionRow.languoid_id);
-      // Extract suggested_languoid_ids from the JSONB array
-      if (Array.isArray(suggestionRow.suggestions)) {
-        for (const item of suggestionRow.suggestions) {
-          if (item.suggested_languoid_id) {
-            ids.add(item.suggested_languoid_id);
-          }
-        }
-      }
+    for (const suggestion of rawSuggestions) {
+      ids.add(suggestion.languoid_id);
+      ids.add(suggestion.suggested_languoid_id);
     }
     return Array.from(ids);
   }, [rawSuggestions]);
+
+  // Fetch languoid details - use a valid but empty query when no IDs
+  const languoidDetailsQuery = toCompilableQuery(
+    db
+      .select({
+        id: languoid.id,
+        name: languoid.name,
+        level: languoid.level,
+        ui_ready: languoid.ui_ready
+      })
+      .from(languoid)
+      .where(
+        languoidIds.length > 0
+          ? inArray(languoid.id, languoidIds)
+          : eq(languoid.id, 'nonexistent-id')
+      )
+  );
 
   // Fetch languoid details
   const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
@@ -126,17 +122,7 @@ export function useLanguoidLinkSuggestions() {
     queryKeyParams: [languoidIds.join(',')],
     enabled: languoidIds.length > 0,
 
-    offlineQuery: toCompilableQuery(
-      db
-        .select({
-          id: languoid.id,
-          name: languoid.name,
-          level: languoid.level,
-          ui_ready: languoid.ui_ready
-        })
-        .from(languoid)
-        .where(inArray(languoid.id, languoidIds))
-    ),
+    offlineQuery: languoidDetailsQuery,
 
     cloudQueryFn: async () => {
       if (languoidIds.length === 0) return [];
@@ -174,44 +160,23 @@ export function useLanguoidLinkSuggestions() {
     return map;
   }, [languoidDetails]);
 
-  // Flatten suggestions - expand each suggestion row into individual suggestion items
+  // Combine suggestions with languoid details
   const suggestions = useMemo<LanguoidLinkSuggestionWithDetails[]>(() => {
-    const flattened: LanguoidLinkSuggestionWithDetails[] = [];
+    return rawSuggestions.map((suggestion) => {
+      const userLang = languoidMap.get(suggestion.languoid_id);
+      const suggestedLang = languoidMap.get(suggestion.suggested_languoid_id);
 
-    for (const suggestionRow of rawSuggestions) {
-      const userLang = languoidMap.get(suggestionRow.languoid_id);
-      const suggestionItems: SuggestionItem[] = Array.isArray(
-        suggestionRow.suggestions
-      )
-        ? suggestionRow.suggestions
-        : [];
-
-      // Expand each suggestion item with languoid details
-      for (const item of suggestionItems) {
-        const suggestedLang = languoidMap.get(item.suggested_languoid_id);
-        flattened.push({
-          id: suggestionRow.id, // Row ID
-          languoid_id: suggestionRow.languoid_id,
-          profile_id: suggestionRow.profile_id,
-          suggested_languoid_id: item.suggested_languoid_id,
-          match_rank: item.match_rank,
-          matched_on: item.matched_on,
-          matched_value: item.matched_value,
-          suggested_languoid_name: suggestedLang?.name ?? null,
-          suggested_languoid_level: suggestedLang?.level ?? null,
-          suggested_languoid_ui_ready: suggestedLang?.ui_ready ?? null,
-          suggested_iso_code:
-            item.matched_on === 'iso_code' ? item.matched_value : null,
-          languoid_name: userLang?.name ?? null,
-          status: suggestionRow.status,
-          active: suggestionRow.active,
-          created_at: suggestionRow.created_at,
-          last_updated: suggestionRow.last_updated
-        });
-      }
-    }
-
-    return flattened;
+      return {
+        ...suggestion,
+        languoid_name: userLang?.name ?? null,
+        suggested_languoid_name: suggestedLang?.name ?? null,
+        suggested_languoid_level: suggestedLang?.level ?? null,
+        suggested_languoid_ui_ready: suggestedLang?.ui_ready ?? null,
+        // ISO code from matched_value when matched_on is 'iso_code'
+        suggested_iso_code:
+          suggestion.matched_on === 'iso_code' ? suggestion.matched_value : null
+      };
+    });
   }, [rawSuggestions, languoidMap]);
 
   // Group suggestions by user languoid
@@ -252,19 +217,10 @@ export function useAcceptLanguoidLinkSuggestion() {
   const { supabaseConnector } = system;
 
   return useMutation({
-    mutationFn: async ({
-      suggestionId,
-      suggestedLanguoidId
-    }: {
-      suggestionId: string;
-      suggestedLanguoidId: string;
-    }) => {
+    mutationFn: async (suggestionId: string) => {
       const { error } = await supabaseConnector.client.rpc(
         'accept_languoid_link_suggestion',
-        {
-          p_suggestion_id: suggestionId,
-          p_suggested_languoid_id: suggestedLanguoidId
-        }
+        { p_suggestion_id: suggestionId }
       );
 
       if (error) throw error;
@@ -279,16 +235,6 @@ export function useAcceptLanguoidLinkSuggestion() {
       await queryClient.invalidateQueries({ queryKey: ['my-projects'] });
       await queryClient.invalidateQueries({
         queryKey: ['project-language-link']
-      });
-      // Invalidate notification count queries used in AppHeader
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-suggestions-count']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['invite-notifications-count']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['request-notifications-count']
       });
     }
   });
@@ -315,10 +261,6 @@ export function useRejectLanguoidLinkSuggestion() {
       await queryClient.invalidateQueries({
         queryKey: ['languoid-link-suggestions']
       });
-      // Invalidate notification count queries used in AppHeader
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-suggestions-count']
-      });
     }
   });
 }
@@ -343,10 +285,6 @@ export function useKeepCustomLanguoid() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['languoid-link-suggestions']
-      });
-      // Invalidate notification count queries used in AppHeader
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-suggestions-count']
       });
     }
   });
