@@ -1,5 +1,5 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -141,6 +141,7 @@ export default function NextGenProjectsView() {
               project_id: newProject.id,
               profile_id: currentUser.id,
               membership: 'owner'
+              // download_profiles will be set by database trigger
             });
 
           // Create project_language_link with languoid_id
@@ -157,7 +158,7 @@ export default function NextGenProjectsView() {
             languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,
-            download_profiles: [currentUser!.id]
+            download_profiles: [currentUser.id]
           });
         });
       },
@@ -729,6 +730,8 @@ export default function NextGenProjectsView() {
           resetForm();
         }}
         dismissible={!isCreatingProject}
+        snapPoints={[700]}
+        enableDynamicSizing={false}
       >
         <View className="flex flex-1 flex-col gap-6 p-6">
           <View className="flex flex-col gap-4">
@@ -832,9 +835,7 @@ export default function NextGenProjectsView() {
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   />
                   {currentUser && (
-                    <DrawerTrigger
-                      className={buttonVariants({ size: 'icon-lg' })}
-                    >
+                    <DrawerTrigger size="icon-lg">
                       <Icon as={PlusIcon} className="text-primary-foreground" />
                     </DrawerTrigger>
                   )}
@@ -929,7 +930,7 @@ export default function NextGenProjectsView() {
             <DrawerHeader>
               <DrawerTitle>{t('newProject')}</DrawerTitle>
             </DrawerHeader>
-            <View className="flex flex-col gap-4 px-4">
+            <View className="flex flex-col gap-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -1020,21 +1021,21 @@ export default function NextGenProjectsView() {
                   </FormItem>
                 )}
               />
-              <View className="flex-row items-center justify-between">
-                <Text>{t('private')}</Text>
-                <FormField
-                  control={form.control}
-                  name="private"
-                  render={({ field }) => (
-                    <FormItem>
+              <FormField
+                control={form.control}
+                name="private"
+                render={({ field }) => (
+                  <FormItem>
+                    <View className="flex-row items-center justify-between">
+                      <FormLabel>{t('private')}</FormLabel>
                       <FormControl>
                         <Switch {...transformSwitchProps(field)} />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </View>
+                    </View>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </View>
             <DrawerFooter>
               <FormSubmit

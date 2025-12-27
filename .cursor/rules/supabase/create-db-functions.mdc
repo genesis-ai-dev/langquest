@@ -15,13 +15,65 @@ You're a Supabase Postgres expert in writing database functions. Generate **high
    - Functions should run with the permissions of the user invoking the function, ensuring safer access control.
    - Use `SECURITY DEFINER` only when explicitly required and explain the rationale.
 
-2. **Set the `search_path` Configuration Parameter:**
+2. **Choosing Between `SECURITY INVOKER` and `SECURITY DEFINER`:**
+
+   ### ✅ Use `SECURITY INVOKER` (default)
+
+   When the function operates on the **invoking user's own data**:
+   - RPC functions receiving uploads/changes from end users
+   - Functions where "this specific user wants to insert/update their own record"
+   - Any function where RLS should enforce access control
+
+   ```sql
+   -- ✅ SECURITY INVOKER: User uploading their own translation
+   create or replace function public.upload_translation(...)
+   returns void
+   language plpgsql
+   security invoker
+   set search_path = ''
+   as $$
+   begin
+       -- RLS ensures user can only modify their own records
+       insert into public.translation (...) values (...);
+   end;
+   $$;
+   ```
+
+   ### ⚠️ Use `SECURITY DEFINER` (only when required)
+
+   When a function must bypass RLS to modify rows the invoking user cannot access directly:
+   - **Trigger functions** that update rows belonging to OTHER users
+   - Functions that propagate changes across multiple users' records
+   - Administrative functions that need elevated privileges
+
+   ```sql
+   -- ✅ SECURITY DEFINER: Trigger updates OTHER users' rows
+   create or replace function public.propagate_member_to_team()
+   returns trigger
+   language plpgsql
+   security definer
+   set search_path = ''
+   as $$
+   begin
+       -- This UPDATE affects rows belonging to OTHER users
+       update public.team_member
+       set member_ids = array_append(member_ids, new.user_id)
+       where team_id = new.team_id
+         and user_id != new.user_id;
+       return new;
+   end;
+   $$;
+   ```
+
+   **Warning:** With `SECURITY INVOKER` on tables with RLS, updates to other users' rows fail silently (0 rows affected). The function executes without error but doesn't modify the intended rows.
+
+3. **Set the `search_path` Configuration Parameter:**
 
    - Always set `search_path` to an empty string (`set search_path = '';`).
    - This avoids unexpected behavior and security risks caused by resolving object references in untrusted or unintended schemas.
    - Use fully qualified names (e.g., `schema_name.table_name`) for all database objects referenced within the function.
 
-3. **Adhere to SQL Standards and Validation:**
+4. **Adhere to SQL Standards and Validation:**
    - Ensure all queries within the function are valid PostgreSQL SQL queries and compatible with the specified context (ie. Supabase).
 
 ## Best Practices

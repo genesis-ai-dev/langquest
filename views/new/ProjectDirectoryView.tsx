@@ -59,6 +59,7 @@ import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -78,7 +79,6 @@ import {
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ActivityIndicator, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -1090,7 +1090,7 @@ export default function ProjectDirectoryView() {
               <DrawerHeader>
                 <DrawerTitle>{t('newQuest')}</DrawerTitle>
               </DrawerHeader>
-              <View className="flex-1 flex-col gap-4 p-4">
+              <View className="flex flex-col gap-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -1102,7 +1102,8 @@ export default function ProjectDirectoryView() {
                           placeholder={t('questName')}
                           size="sm"
                           prefix={FolderPenIcon}
-                          drawerInput
+                          // drawerInput
+                          type="next"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1119,7 +1120,7 @@ export default function ProjectDirectoryView() {
                           {...transformInputProps(field)}
                           placeholder={t('description')}
                           size="sm"
-                          drawerInput
+                          // drawerInput
                         />
                       </FormControl>
                       <FormMessage />
