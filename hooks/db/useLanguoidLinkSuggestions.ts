@@ -127,9 +127,7 @@ export function useLanguoidLinkSuggestions() {
 
       if (error) throw error;
       return data;
-    },
-
-    enableOfflineQuery: languoidIds.length > 0
+    }
   });
 
   // Create lookup map for languoid details

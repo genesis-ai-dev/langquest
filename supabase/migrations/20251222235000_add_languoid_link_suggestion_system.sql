@@ -116,14 +116,8 @@ create policy "Users can update their own languoid link suggestions"
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
--- Policy: System can insert suggestions (via trigger/function)
--- Using security definer functions for inserts
--- All inserts go through create_languoid_link_suggestions() which is security definer
-create policy "Service role can insert languoid link suggestions"
-  on public.languoid_link_suggestion
-  for insert
-  to service_role
-  with check (true);
+-- Note: No INSERT policy needed - all inserts go through create_languoid_link_suggestions()
+-- which is security definer and runs as postgres superuser, bypassing RLS
 
 -- ============================================================================
 -- 4. Create function to find and create languoid link suggestions
