@@ -52,22 +52,19 @@ export const useNotifications = () => {
   const { data: ownerProjects } = useHybridData<{ project_id: string }>({
     dataType: 'owner-projects-count',
     queryKeyParams: [userId || 'anonymous'],
-    enabled: shouldQueryOwnerProjects, // Only query if user ID exists and user is authenticated
+    enabled: shouldQueryOwnerProjects && !!userId, // Only query if user ID exists and user is authenticated
 
     // PowerSync query using Drizzle - only create if we have a valid user ID
-    offlineQuery:
-      shouldQueryOwnerProjects && userId
-        ? toCompilableQuery(
-            system.db.query.profile_project_link.findMany({
-              where: and(
-                eq(profile_project_link.profile_id, userId),
-                eq(profile_project_link.membership, 'owner'),
-                eq(profile_project_link.active, true)
-              ),
-              columns: { project_id: true }
-            })
-          )
-        : ('SELECT * FROM profile_project_link WHERE 1=0' as any), // Placeholder query when disabled
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile_project_link.findMany({
+        where: and(
+          eq(profile_project_link.profile_id, userId!),
+          eq(profile_project_link.membership, 'owner'),
+          eq(profile_project_link.active, true)
+        ),
+        columns: { project_id: true }
+      })
+    ),
 
     // Cloud query
     cloudQueryFn: async () => {
@@ -144,49 +141,41 @@ export const useNotifications = () => {
   );
 
   // Get pending languoid link suggestions count
-  // Query returns distinct languoid_id to count unique languoids needing linking
-  const languoidSuggestionsQuery = toCompilableQuery(
-    system.db
-      .selectDistinct({
-        languoid_id: languoid_link_suggestion.languoid_id
-      })
-      .from(languoid_link_suggestion)
-      .where(
-        and(
-          eq(languoid_link_suggestion.profile_id, userId || 'nonexistent-id'),
-          eq(languoid_link_suggestion.status, 'pending'),
-          eq(languoid_link_suggestion.active, true)
-        )
-      )
-  );
-
-  const { data: languoidSuggestions = [] } = useHybridData<{
+  const { data: languoidSuggestions } = useHybridData<{
     languoid_id: string;
   }>({
     dataType: 'languoid-suggestions-count',
-    queryKeyParams: [userId || 'anonymous'],
+    queryKeyParams: [userId],
     enabled: !!userId && isAuthenticated,
 
-    offlineQuery: languoidSuggestionsQuery,
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({
+          languoid_id: languoid_link_suggestion.languoid_id
+        })
+        .from(languoid_link_suggestion)
+        .where(
+          and(
+            eq(languoid_link_suggestion.profile_id, userId!),
+            eq(languoid_link_suggestion.status, 'pending'),
+            eq(languoid_link_suggestion.active, true)
+          )
+        )
+    )
 
-    cloudQueryFn: async () => {
-      if (!userId) return [];
+    // cloudQueryFn: async () => {
+    //   if (!userId) return [];
 
-      const { data, error } = await system.supabaseConnector.client
-        .from('languoid_link_suggestion')
-        .select('languoid_id')
-        .eq('profile_id', userId)
-        .eq('status', 'pending')
-        .eq('active', true);
+    //   const { data, error } = await system.supabaseConnector.client
+    //     .from('languoid_link_suggestion')
+    //     .select('languoid_id')
+    //     .eq('profile_id', userId)
+    //     .eq('status', 'pending')
+    //     .eq('active', true);
 
-      if (error) throw error;
-
-      // Get unique languoid_ids
-      const uniqueIds = [...new Set(data.map((d) => d.languoid_id as string))];
-      return uniqueIds.map((id) => ({ languoid_id: id }));
-    },
-
-    enableOfflineQuery: !!userId && isAuthenticated
+    //   if (error) throw error;
+    //   return data;
+    // }
   });
 
   const inviteCount = inviteRequests.length;
