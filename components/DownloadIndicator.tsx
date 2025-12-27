@@ -46,6 +46,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   const isDisabled = !isConnected && !isFlaggedForDownload;
   const [showWarning, setShowWarning] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const primaryColor = useThemeColor('primary');
 
   // Hide download indicator for anonymous users (they can't download)
   if (!isAuthenticated) {
@@ -113,14 +114,12 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
 
   const { Icon: IconComponent, className: iconClassName } = getIconAndColor();
 
-  const primaryColor = useThemeColor('primary');
-
   return (
     <>
       <TouchableOpacity
         onPress={handlePress}
         className={cn(isDisabled && 'opacity-50', className)}
-        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        hitSlop={10}
         disabled={isDisabled || isLoading}
       >
         {isLoading ? (
