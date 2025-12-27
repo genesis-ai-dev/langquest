@@ -69,7 +69,7 @@ export function useLanguoidLinkSuggestions() {
     ...rest
   } = useHybridData<LanguoidLinkSuggestion>({
     dataType: 'languoid-link-suggestions',
-    queryKeyParams: [userId || 'anonymous'],
+    queryKeyParams: [userId],
     enabled: !!userId,
 
     // PowerSync query using Drizzle
@@ -109,7 +109,10 @@ export function useLanguoidLinkSuggestions() {
     for (const suggestionRow of rawSuggestions) {
       ids.add(suggestionRow.languoid_id);
       // Extract suggested_languoid_ids from the JSONB array
-      if (suggestionRow.suggestions && Array.isArray(suggestionRow.suggestions)) {
+      if (
+        suggestionRow.suggestions &&
+        Array.isArray(suggestionRow.suggestions)
+      ) {
         for (const item of suggestionRow.suggestions) {
           if (item.suggested_languoid_id) {
             ids.add(item.suggested_languoid_id);
@@ -120,30 +123,23 @@ export function useLanguoidLinkSuggestions() {
     return Array.from(ids);
   }, [rawSuggestions]);
 
-  // Fetch languoid details - use a valid but empty query when no IDs
-  const languoidDetailsQuery = toCompilableQuery(
-    db
-      .select({
-        id: languoid.id,
-        name: languoid.name,
-        level: languoid.level,
-        ui_ready: languoid.ui_ready
-      })
-      .from(languoid)
-      .where(
-        languoidIds.length > 0
-          ? inArray(languoid.id, languoidIds)
-          : eq(languoid.id, 'nonexistent-id')
-      )
-  );
-
   // Fetch languoid details
   const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
     dataType: 'languoid-link-suggestion-details',
     queryKeyParams: [languoidIds.join(',')],
     enabled: languoidIds.length > 0,
 
-    offlineQuery: languoidDetailsQuery,
+    offlineQuery: toCompilableQuery(
+      db
+        .select({
+          id: languoid.id,
+          name: languoid.name,
+          level: languoid.level,
+          ui_ready: languoid.ui_ready
+        })
+        .from(languoid)
+        .where(inArray(languoid.id, languoidIds))
+    ),
 
     cloudQueryFn: async () => {
       if (languoidIds.length === 0) return [];
@@ -184,13 +180,14 @@ export function useLanguoidLinkSuggestions() {
   // Flatten suggestions - expand each suggestion row into individual suggestion items
   const suggestions = useMemo<LanguoidLinkSuggestionWithDetails[]>(() => {
     const flattened: LanguoidLinkSuggestionWithDetails[] = [];
-    
+
     for (const suggestionRow of rawSuggestions) {
       const userLang = languoidMap.get(suggestionRow.languoid_id);
-      const suggestionItems: SuggestionItem[] = 
-        Array.isArray(suggestionRow.suggestions) 
-          ? suggestionRow.suggestions 
-          : [];
+      const suggestionItems: SuggestionItem[] = Array.isArray(
+        suggestionRow.suggestions
+      )
+        ? suggestionRow.suggestions
+        : [];
 
       // Expand each suggestion item with languoid details
       for (const item of suggestionItems) {
@@ -216,7 +213,7 @@ export function useLanguoidLinkSuggestions() {
         });
       }
     }
-    
+
     return flattened;
   }, [rawSuggestions, languoidMap]);
 
