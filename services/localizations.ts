@@ -5932,6 +5932,137 @@ export const localizations = {
     brazilian_portuguese: 'Link copiado para a área de transferência!',
     tok_pisin: 'Link kopim igo long clipboard!',
     indonesian: 'Tautan disalin ke clipboard!'
+  },
+
+  // Languoid Link Suggestion strings
+  languoidLinkSuggestionTitle: {
+    english: 'Link your language?',
+    spanish: '¿Vincular tu idioma?',
+    brazilian_portuguese: '¿Vincular seu idioma?',
+    tok_pisin: 'Joinim tok ples bilong yu?',
+    indonesian: 'Apakah Anda ingin menghubungkan bahasa Anda?'
+  },
+  languoidLinkSuggestionDrawerTitle: {
+    english: 'Link to existing language',
+    spanish: 'Vincular a un idioma existente',
+    brazilian_portuguese: 'Vincular a um idioma existente',
+    tok_pisin: 'Joinim wanpela tok ples',
+    indonesian: 'Hubungkan ke bahasa yang ada'
+  },
+  languoidLinkSuggestionDescription: {
+    english:
+      'We found existing languages that may match the one you created. Would you like to link to an existing language?',
+    spanish:
+      'Encontramos idiomas existentes que pueden coincidir con el que creaste. ¿Te gustaría vincular a un idioma existente?',
+    brazilian_portuguese:
+      'Encontramos idiomas existentes que podem corresponder ao que você criou. Gostaria de vincular a um idioma existente?',
+    tok_pisin:
+      'Mipela painim tok ples i stap pinis we inap wankain long tok ples yu bin mekim. Yu laik joinim wanpela tok ples i stap pinis?',
+    indonesian:
+      'Kami menemukan bahasa yang ada yang mungkin cocok dengan yang Anda buat. Apakah Anda ingin menghubungkan ke bahasa yang ada?'
+  },
+  yourLanguage: {
+    english: 'Your language',
+    spanish: 'Tu idioma',
+    brazilian_portuguese: 'Seu idioma',
+    tok_pisin: 'Tok ples bilong yu',
+    indonesian: 'Bahasa Anda'
+  },
+  seeLanguageSuggestions: {
+    english: 'See language suggestions',
+    spanish: 'Ver sugerencias de idioma',
+    brazilian_portuguese: 'Ver sugestões de idioma',
+    tok_pisin: 'Lukim ol tok ples bilong en',
+    indonesian: 'Lihat sugesti bahasa'
+  },
+  keepMyLanguage: {
+    english: 'Keep my language',
+    spanish: 'Mantener mi idioma',
+    brazilian_portuguese: 'Manter meu idioma',
+    tok_pisin: 'Holim tok ples bilong mi',
+    indonesian: 'Simpan bahasa saya'
+  },
+  chooseThisLanguage: {
+    english: 'Choose this language',
+    spanish: 'Elegir este idioma',
+    brazilian_portuguese: 'Escolher este idioma',
+    tok_pisin: 'Pilim dispela tok ples',
+    indonesian: 'Pilih bahasa ini'
+  },
+  exactMatch: {
+    english: 'Exact match',
+    spanish: 'Coincidencia exacta',
+    brazilian_portuguese: 'Correspondência exata',
+    tok_pisin: 'Sem tru',
+    indonesian: 'Kecocokan persis'
+  },
+  partialMatch: {
+    english: 'Partial match',
+    spanish: 'Coincidencia parcial',
+    brazilian_portuguese: 'Correspondência parcial',
+    tok_pisin: 'Luk olsem',
+    indonesian: 'Kecocokan sebagian'
+  },
+  matchedByName: {
+    english: 'Matched by name',
+    spanish: 'Coincide por nombre',
+    brazilian_portuguese: 'Correspondido por nome',
+    tok_pisin: 'Painim long nem',
+    indonesian: 'Cocok berdasarkan nama'
+  },
+  matchedByAlias: {
+    english: 'Matched by alias',
+    spanish: 'Coincide por alias',
+    brazilian_portuguese: 'Correspondido por alias',
+    tok_pisin: 'Painim long narapela nem',
+    indonesian: 'Cocok berdasarkan alias'
+  },
+  matchedByIsoCode: {
+    english: 'Matched by ISO code',
+    spanish: 'Coincide por código ISO',
+    brazilian_portuguese: 'Correspondido por código ISO',
+    tok_pisin: 'Painim long ISO kod',
+    indonesian: 'Cocok berdasarkan kode ISO'
+  },
+  languageLinkSuccess: {
+    english: 'Language linked successfully',
+    spanish: 'Idioma vinculado con éxito',
+    brazilian_portuguese: 'Idioma vinculado com sucesso',
+    tok_pisin: 'Tok ples joinim gut',
+    indonesian: 'Bahasa berhasil dihubungkan'
+  },
+  languageLinkError: {
+    english: 'Failed to link language',
+    spanish: 'Error al vincular idioma',
+    brazilian_portuguese: 'Falha ao vincular idioma',
+    tok_pisin: 'No inap joinim tok ples',
+    indonesian: 'Gagal menghubungkan bahasa'
+  },
+  keepLanguageSuccess: {
+    english: 'Your custom language has been kept',
+    spanish: 'Tu idioma personalizado ha sido conservado',
+    brazilian_portuguese: 'Seu idioma personalizado foi mantido',
+    tok_pisin: 'Tok ples bilong yu i stap yet',
+    indonesian: 'Bahasa kustom Anda telah disimpan'
+  },
+  enableLanguoidLinkSuggestions: {
+    english: 'Language link suggestions',
+    spanish: 'Sugerencias de vinculación de idioma',
+    brazilian_portuguese: 'Sugestões de vinculação de idioma',
+    tok_pisin: 'Ol tok ples bilong joinim',
+    indonesian: 'Saran tautan bahasa'
+  },
+  enableLanguoidLinkSuggestionsDescription: {
+    english:
+      'Get suggestions to link your custom-created languages to existing ones in the database',
+    spanish:
+      'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
+    brazilian_portuguese:
+      'Receba sugestões para vincular seus idiomas personalizados aos existentes no banco de dados',
+    tok_pisin:
+      'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
+    indonesian:
+      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database'
   }
 } as const;
 

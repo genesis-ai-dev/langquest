@@ -104,6 +104,8 @@ export interface LocalState {
   setEnablePlayAll: (enabled: boolean) => void;
   enableQuestExport: boolean;
   setEnableQuestExport: (enabled: boolean) => void;
+  enableLanguoidLinkSuggestions: boolean;
+  setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
@@ -232,6 +234,7 @@ export const useLocalStore = create<LocalState>()(
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
+      enableLanguoidLinkSuggestions: false,
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
@@ -333,6 +336,8 @@ export const useLocalStore = create<LocalState>()(
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
       setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
+      setEnableLanguoidLinkSuggestions: (enabled) =>
+        set({ enableLanguoidLinkSuggestions: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
