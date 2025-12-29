@@ -87,6 +87,11 @@ bucket_definitions:
       - SELECT * FROM notification
         WHERE profile_id = bucket.profile_id
 
+      # Sync languoid link suggestions for the user
+      - SELECT * FROM languoid_link_suggestion
+        WHERE profile_id = bucket.profile_id
+        AND active = true
+
       - SELECT * FROM subscription
         WHERE profile_id = bucket.profile_id
 

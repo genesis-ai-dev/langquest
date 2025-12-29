@@ -193,6 +193,13 @@ export const localizations = {
     tok_pisin: 'Download project',
     indonesian: 'Unduh Proyek'
   },
+  downloadQuest: {
+    english: 'Download Quest',
+    spanish: 'Descargar Quest',
+    brazilian_portuguese: 'Descarregar Quest',
+    tok_pisin: 'Download quest',
+    indonesian: 'Unduh Quest'
+  },
   downloadProjectOfflineWarning: {
     english:
       "If you don't download the project, you won't be able to contribute to it offline. You can download it later by pressing the project card's download button.",
@@ -2144,15 +2151,15 @@ export const localizations = {
   },
   privateProjectDescription: {
     english:
-      'This is a private project. Only members and owners can contribute translations and votes.',
+      'The project is open for viewing by anyone, but only members can contribute.',
     spanish:
-      'Este es un proyecto privado. Solo los miembros y propietarios pueden contribuir con traducciones y votos.',
+      'El proyecto está abierto para visualización por cualquiera, pero solo los miembros pueden contribuir.',
     brazilian_portuguese:
-      'Este é um projeto privado. Apenas membros e proprietários podem contribuir com traduções e votos.',
+      'O projeto está aberto para visualização por qualquer pessoa, mas apenas os membros podem contribuir.',
     tok_pisin:
-      'Dispela i private project. Ol member na owner tasol ken contributim translation na vote.',
+      'Dispela project i open long olgeta man long lukim, tasol ol member tasol ken contributim.',
     indonesian:
-      'Ini adalah proyek pribadi. Hanya anggota dan pemilik yang dapat berkontribusi terjemahan dan suara.'
+      'Proyek terbuka untuk dilihat oleh siapa saja, tetapi hanya anggota yang dapat berkontribusi.'
   },
   privateProjectInfo: {
     english:
@@ -3295,29 +3302,40 @@ export const localizations = {
     indonesian:
       'Asset dinonaktifkan di semua quest dan tidak dapat digunakan di mana pun.'
   },
+  assetGeneralSettingsDescription: {
+    english: 'These settings affect how the asset behaves across all quests.',
+    spanish:
+      'Estos ajustes afectan cómo se comporta el asset en todas las quests.',
+    brazilian_portuguese:
+      'Essas configurações afetam como o asset se comporta em todas as quests.',
+    tok_pisin:
+      'Ol dispela setting i senisim how asset i wok long olgeta quest.',
+    indonesian:
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di semua quest.'
+  },
   questSpecificSettingsDescription: {
     english:
-      'These settings affect how the asset behaves in this specific quest',
+      'These settings affect how the asset behaves in this specific quest.',
     spanish:
-      'Estos ajustes afectan cómo se comporta el asset en esta quest específica',
+      'Estos ajustes afectan cómo se comporta el asset en esta quest específica.',
     brazilian_portuguese:
-      'Essas configurações afetam como o asset se comporta nesta quest específica',
+      'Essas configurações afetam como o asset se comporta nesta quest específica.',
     tok_pisin:
-      'Ol dispela setting i senisim how asset i wok long dispela quest',
+      'Ol dispela setting i senisim how asset i wok long dispela quest.',
     indonesian:
-      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini'
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini.'
   },
   assetDisabledWarning: {
     english:
-      "⚠️ This asset is disabled across all quests. You can't change its settings for this quest.",
+      'This asset is disabled globally. You cannot change its settings for this quest.',
     spanish:
-      '⚠️ Este asset está deshabilitado en todas las quests. No puedes cambiar sus ajustes para esta quest.',
+      'Este asset está deshabilitado globalmente. No puedes cambiar sus ajustes para esta quest.',
     brazilian_portuguese:
-      '⚠️ Este asset está desabilitado em todas as quests. Você não pode alterar suas configurações para esta quest.',
+      'Este asset está desabilitado globalmente. Você não pode alterar suas configurações para esta quest.',
     tok_pisin:
-      '⚠️ Dispela asset i stop long olgeta quest. Yu no ken senisim setting bilong em long dispela quest.',
+      'Dispela asset i stop olgeta ples. Yu no inap senisim setting bilong em long dispela quest.',
     indonesian:
-      '⚠️ Asset ini dinonaktifkan di semua quest. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
+      'Asset ini dinonaktifkan secara global. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
   },
   assetVisibleThisQuest: {
     english: 'The asset is shown in this quest. Unless hidden globally.',
@@ -3525,39 +3543,55 @@ export const localizations = {
     indonesian: 'Pengaturan Proyek'
   },
   publicProjectDescription: {
-    english: 'Anyone can access this project',
-    spanish: 'Cualquiera puede acceder a este proyecto',
-    brazilian_portuguese: 'Qualquer pessoa pode acessar este projeto',
-    tok_pisin: 'Olgeta man i ken kam long dispela project',
-    indonesian: 'Siapa saja dapat mengakses proyek ini'
+    english: 'Anyone can view and contribute to this project',
+    spanish: 'Cualquiera puede ver y contribuir a este proyecto',
+    brazilian_portuguese:
+      'Qualquer pessoa pode ver e contribuir para este projeto',
+    tok_pisin: 'Olgeta man i ken lukim na contributim long dispela project',
+    indonesian: 'Siapa saja dapat melihat dan berkontribusi pada proyek ini'
   },
   visibleProjectDescription: {
-    english: 'This project appears in public listings',
-    spanish: 'Este proyecto aparece en listados públicos',
-    brazilian_portuguese: 'Este projeto aparece em listagens públicas',
-    tok_pisin: 'Dispela project i save long public list',
-    indonesian: 'Proyek ini muncul di daftar publik'
+    english:
+      'This project appears in public listings and can be discovered by all users.',
+    spanish:
+      'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios.',
+    brazilian_portuguese:
+      'Este projeto aparece em listagens públicas e pode ser descoberto por todos os usuários.',
+    tok_pisin:
+      'Dispela project i save long public list na olgeta user i ken painim.',
+    indonesian:
+      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna.'
   },
   invisibleProjectDescription: {
-    english: 'This project is hidden from public listings',
-    spanish: 'Este proyecto está oculto de los listados públicos',
-    brazilian_portuguese: 'Este projeto está oculto das listagens públicas',
-    tok_pisin: 'Dispela project i hait long public list',
-    indonesian: 'Proyek ini disembunyikan dari daftar publik'
+    english:
+      'This project is not displayed in project directories or search results.',
+    spanish:
+      'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda.',
+    brazilian_portuguese:
+      'Este projeto não é exibido em diretórios de projetos ou resultados de pesquisa.',
+    tok_pisin:
+      'Dispela project i no save long project directory olsem search result.',
+    indonesian:
+      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian.'
   },
   activeProjectDescription: {
-    english: 'This project is available for use',
-    spanish: 'Este proyecto está disponible para usar',
-    brazilian_portuguese: 'Este projeto está disponível para uso',
-    tok_pisin: 'Dispela project i redi long usim',
-    indonesian: 'Proyek ini tersedia untuk digunakan'
+    english: 'The project is currently open for viewing and contributions.',
+    spanish:
+      'El proyecto está actualmente abierto para visualización y contribuciones.',
+    brazilian_portuguese:
+      'O projeto está atualmente aberto para visualização e contribuições.',
+    tok_pisin: 'Dispela project i open nau long lukim na contributim.',
+    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi.'
   },
   inactiveProjectDescription: {
-    english: 'This project is temporarily disabled',
-    spanish: 'Este proyecto está temporalmente deshabilitado',
-    brazilian_portuguese: 'Este projeto está temporariamente desabilitado',
-    tok_pisin: 'Dispela project i stop liklik taim',
-    indonesian: 'Proyek ini sementara dinonaktifkan'
+    english:
+      'This project is currently inactive and not accepting contributions.',
+    spanish:
+      'Este proyecto está actualmente inactivo y no acepta contribuciones.',
+    brazilian_portuguese:
+      'Este projeto está atualmente inativo e não está aceitando contribuições.',
+    tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim.',
+    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi.'
   },
   loadingOptions: {
     english: 'Loading options...',
@@ -4640,6 +4674,13 @@ export const localizations = {
     brazilian_portuguese: 'Aguardando',
     tok_pisin: 'Wetim',
     indonesian: 'Menunggu'
+  },
+  vadPaused: {
+    english: 'Paused',
+    spanish: 'Pausado',
+    brazilian_portuguese: 'Pausado',
+    tok_pisin: 'I stop liklik',
+    indonesian: 'Dijeda'
   },
   vadThreshold: {
     english: 'Sensitivity',
@@ -5891,6 +5932,137 @@ export const localizations = {
     brazilian_portuguese: 'Link copiado para a área de transferência!',
     tok_pisin: 'Link kopim igo long clipboard!',
     indonesian: 'Tautan disalin ke clipboard!'
+  },
+
+  // Languoid Link Suggestion strings
+  languoidLinkSuggestionTitle: {
+    english: 'Link your language?',
+    spanish: '¿Vincular tu idioma?',
+    brazilian_portuguese: '¿Vincular seu idioma?',
+    tok_pisin: 'Joinim tok ples bilong yu?',
+    indonesian: 'Apakah Anda ingin menghubungkan bahasa Anda?'
+  },
+  languoidLinkSuggestionDrawerTitle: {
+    english: 'Link to existing language',
+    spanish: 'Vincular a un idioma existente',
+    brazilian_portuguese: 'Vincular a um idioma existente',
+    tok_pisin: 'Joinim wanpela tok ples',
+    indonesian: 'Hubungkan ke bahasa yang ada'
+  },
+  languoidLinkSuggestionDescription: {
+    english:
+      'We found existing languages that may match the one you created. Would you like to link to an existing language?',
+    spanish:
+      'Encontramos idiomas existentes que pueden coincidir con el que creaste. ¿Te gustaría vincular a un idioma existente?',
+    brazilian_portuguese:
+      'Encontramos idiomas existentes que podem corresponder ao que você criou. Gostaria de vincular a um idioma existente?',
+    tok_pisin:
+      'Mipela painim tok ples i stap pinis we inap wankain long tok ples yu bin mekim. Yu laik joinim wanpela tok ples i stap pinis?',
+    indonesian:
+      'Kami menemukan bahasa yang ada yang mungkin cocok dengan yang Anda buat. Apakah Anda ingin menghubungkan ke bahasa yang ada?'
+  },
+  yourLanguage: {
+    english: 'Your language',
+    spanish: 'Tu idioma',
+    brazilian_portuguese: 'Seu idioma',
+    tok_pisin: 'Tok ples bilong yu',
+    indonesian: 'Bahasa Anda'
+  },
+  seeLanguageSuggestions: {
+    english: 'See language suggestions',
+    spanish: 'Ver sugerencias de idioma',
+    brazilian_portuguese: 'Ver sugestões de idioma',
+    tok_pisin: 'Lukim ol tok ples bilong en',
+    indonesian: 'Lihat sugesti bahasa'
+  },
+  keepMyLanguage: {
+    english: 'Keep my language',
+    spanish: 'Mantener mi idioma',
+    brazilian_portuguese: 'Manter meu idioma',
+    tok_pisin: 'Holim tok ples bilong mi',
+    indonesian: 'Simpan bahasa saya'
+  },
+  chooseThisLanguage: {
+    english: 'Choose this language',
+    spanish: 'Elegir este idioma',
+    brazilian_portuguese: 'Escolher este idioma',
+    tok_pisin: 'Pilim dispela tok ples',
+    indonesian: 'Pilih bahasa ini'
+  },
+  exactMatch: {
+    english: 'Exact match',
+    spanish: 'Coincidencia exacta',
+    brazilian_portuguese: 'Correspondência exata',
+    tok_pisin: 'Sem tru',
+    indonesian: 'Kecocokan persis'
+  },
+  partialMatch: {
+    english: 'Partial match',
+    spanish: 'Coincidencia parcial',
+    brazilian_portuguese: 'Correspondência parcial',
+    tok_pisin: 'Luk olsem',
+    indonesian: 'Kecocokan sebagian'
+  },
+  matchedByName: {
+    english: 'Matched by name',
+    spanish: 'Coincide por nombre',
+    brazilian_portuguese: 'Correspondido por nome',
+    tok_pisin: 'Painim long nem',
+    indonesian: 'Cocok berdasarkan nama'
+  },
+  matchedByAlias: {
+    english: 'Matched by alias',
+    spanish: 'Coincide por alias',
+    brazilian_portuguese: 'Correspondido por alias',
+    tok_pisin: 'Painim long narapela nem',
+    indonesian: 'Cocok berdasarkan alias'
+  },
+  matchedByIsoCode: {
+    english: 'Matched by ISO code',
+    spanish: 'Coincide por código ISO',
+    brazilian_portuguese: 'Correspondido por código ISO',
+    tok_pisin: 'Painim long ISO kod',
+    indonesian: 'Cocok berdasarkan kode ISO'
+  },
+  languageLinkSuccess: {
+    english: 'Language linked successfully',
+    spanish: 'Idioma vinculado con éxito',
+    brazilian_portuguese: 'Idioma vinculado com sucesso',
+    tok_pisin: 'Tok ples joinim gut',
+    indonesian: 'Bahasa berhasil dihubungkan'
+  },
+  languageLinkError: {
+    english: 'Failed to link language',
+    spanish: 'Error al vincular idioma',
+    brazilian_portuguese: 'Falha ao vincular idioma',
+    tok_pisin: 'No inap joinim tok ples',
+    indonesian: 'Gagal menghubungkan bahasa'
+  },
+  keepLanguageSuccess: {
+    english: 'Your custom language has been kept',
+    spanish: 'Tu idioma personalizado ha sido conservado',
+    brazilian_portuguese: 'Seu idioma personalizado foi mantido',
+    tok_pisin: 'Tok ples bilong yu i stap yet',
+    indonesian: 'Bahasa kustom Anda telah disimpan'
+  },
+  enableLanguoidLinkSuggestions: {
+    english: 'Language link suggestions',
+    spanish: 'Sugerencias de vinculación de idioma',
+    brazilian_portuguese: 'Sugestões de vinculação de idioma',
+    tok_pisin: 'Ol tok ples bilong joinim',
+    indonesian: 'Saran tautan bahasa'
+  },
+  enableLanguoidLinkSuggestionsDescription: {
+    english:
+      'Get suggestions to link your custom-created languages to existing ones in the database',
+    spanish:
+      'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
+    brazilian_portuguese:
+      'Receba sugestões para vincular seus idiomas personalizados aos existentes no banco de dados',
+    tok_pisin:
+      'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
+    indonesian:
+      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database'
   }
 } as const;
 

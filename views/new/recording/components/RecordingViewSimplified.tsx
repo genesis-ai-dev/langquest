@@ -43,7 +43,7 @@ import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
-import { RenameAssetModal } from './RenameAssetModal';
+import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
@@ -138,6 +138,7 @@ const RecordingViewSimplified = ({
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -161,6 +162,14 @@ const RecordingViewSimplified = ({
   >(new Map());
   // Track last scrolled asset to avoid scrolling to the same asset multiple times
   const lastScrolledAssetIdRef = React.useRef<string | null>(null);
+
+  // Track setTimeout IDs for cleanup
+  const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set()
+  );
+
+  // Track AbortController for batch loading cleanup
+  const batchLoadingControllerRef = React.useRef<AbortController | null>(null);
 
   // Create SharedValues for each asset's progress (0-100 percentage)
   // We need to create them at the top level, so we'll create a pool and map them
@@ -212,8 +221,8 @@ const RecordingViewSimplified = ({
     cancelSelection
   } = useSelectionMode();
 
-  // Rename modal state
-  const [showRenameModal, setShowRenameModal] = React.useState(false);
+  // Rename drawer state
+  const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
 
@@ -399,7 +408,7 @@ const RecordingViewSimplified = ({
       debugLog('📜 Auto-scrolling to new asset');
 
       // Small delay to ensure the new item is rendered before scrolling
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         try {
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (USE_INSERTION_WHEEL) {
@@ -414,7 +423,9 @@ const RecordingViewSimplified = ({
         } catch (error) {
           console.error('Failed to scroll:', error);
         }
+        timeoutIdsRef.current.delete(timeoutId);
       }, 100);
+      timeoutIdsRef.current.add(timeoutId);
     }
 
     previousAssetCountRef.current = currentCount;
@@ -887,6 +898,7 @@ const RecordingViewSimplified = ({
     // and we don't want to re-run the effect that often. The interval handles the updates.
     // assetProgressSharedMap is a ref, so we access it directly in the callback.
     // assets is included to find the asset index for scrolling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioContext.isPlaying, audioContext.currentAudioId, assets]);
 
   // Handle play all assets
@@ -1415,6 +1427,7 @@ const RecordingViewSimplified = ({
     // Defer until animations complete
     const interactionHandle = InteractionManager.runAfterInteractions(() => {
       const controller = new AbortController();
+      batchLoadingControllerRef.current = controller;
 
       // Process assets in batches to prevent blocking
       const processBatch = async (startIdx: number) => {
@@ -1609,9 +1622,11 @@ const RecordingViewSimplified = ({
             }
 
             // Schedule next batch with a frame delay to keep UI responsive
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
+              timeoutIdsRef.current.delete(timeoutId);
               void processBatch(startIdx + BATCH_SIZE);
             }, 16); // One frame delay (60fps)
+            timeoutIdsRef.current.add(timeoutId);
           }
         } catch (error) {
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1637,11 +1652,21 @@ const RecordingViewSimplified = ({
 
     return () => {
       interactionHandle.cancel();
+      // Abort controller if it exists
+      if (batchLoadingControllerRef.current) {
+        batchLoadingControllerRef.current.abort();
+        batchLoadingControllerRef.current = null;
+      }
+      // Clear any pending timeouts
+      const timeoutIds = timeoutIdsRef.current;
+      timeoutIds.forEach((id) => clearTimeout(id));
+      timeoutIds.clear();
     };
-    // Depend on assetIds, assetMetadata, and state maps
-    // State maps are included so we detect when durations are missing (e.g., after remount)
-    // The effect safely handles updates by only loading missing assets
-  }, [assetIds, assetMetadata, assetSegmentCounts, assetDurations]);
+    // Only depend on assetIds and assetMetadata - NOT on the state Maps
+    // The Maps are checked inside the effect with .has(), so we don't need them as dependencies
+    // Including them causes the effect to re-run every time durations are updated, which
+    // triggers unnecessary re-checks even though loadedAssetIdsRef prevents actual re-loading
+  }, [assetIds, assetMetadata]);
 
   // ============================================================================
   // ASSET OPERATIONS (Delete, Merge)
@@ -1868,7 +1893,7 @@ const RecordingViewSimplified = ({
     (assetId: string, currentName: string | null) => {
       setRenameAssetId(assetId);
       setRenameAssetName(currentName ?? '');
-      setShowRenameModal(true);
+      setShowRenameDrawer(true);
     },
     []
   );
@@ -1899,6 +1924,61 @@ const RecordingViewSimplified = ({
     },
     [renameAssetId, queryClient, currentQuestId]
   );
+
+  // ============================================================================
+  // CLEANUP ON UNMOUNT
+  // ============================================================================
+
+  // Cleanup effect: Clear all refs and stop audio when component unmounts
+  // This prevents memory leaks when navigating away from the recording view
+  React.useEffect(() => {
+    // Capture refs in variables to avoid stale closure warnings
+    const assetUriMap = assetUriMapRef.current;
+    const segmentDurations = segmentDurationsRef.current;
+    const assetSegmentRanges = assetSegmentRangesRef.current;
+    const assetProgressSharedMap = assetProgressSharedMapRef.current;
+    const pendingAssetNames = pendingAssetNamesRef.current;
+    const loadedAssetIds = loadedAssetIdsRef.current;
+    const timeoutIds = timeoutIdsRef.current;
+    // Store reference to audioContext - access current value in cleanup
+    const audioContextRef = audioContext;
+
+    return () => {
+      // Stop audio playback if playing (check current state, not captured state)
+      if (audioContextRef.isPlaying) {
+        void audioContextRef.stopCurrentSound();
+      }
+
+      // Clear all refs to free memory
+      assetUriMap.clear();
+      segmentDurations.length = 0;
+      assetSegmentRanges.clear();
+      assetProgressSharedMap.clear();
+      lastScrolledAssetIdRef.current = null;
+      pendingAssetNames.clear();
+      loadedAssetIds.clear();
+
+      // Abort any ongoing batch loading
+      if (batchLoadingControllerRef.current) {
+        batchLoadingControllerRef.current.abort();
+        batchLoadingControllerRef.current = null;
+      }
+
+      // Clear all pending timeouts
+      timeoutIds.forEach((id) => clearTimeout(id));
+      timeoutIds.clear();
+
+      // Reset state maps (they'll be recreated on remount)
+      setAssetSegmentCounts(new Map());
+      setAssetDurations(new Map());
+      setCurrentlyPlayingAssetId(null);
+
+      debugLog('🧹 Cleaned up RecordingViewSimplified on unmount');
+    };
+    // Empty dependency array - this effect should only run on mount/unmount
+    // We access audioContext directly in cleanup to get the latest state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================================
   // RENDER HELPERS
@@ -2132,7 +2212,7 @@ const RecordingViewSimplified = ({
             {t('assets')} ({assets.length})
           </Text>
         </View>
-        {assets.length > 0 && (
+        {assets.length > 0 && enablePlayAll && (
           <Button
             variant="ghost"
             size="icon"
@@ -2222,11 +2302,16 @@ const RecordingViewSimplified = ({
         )}
       </View>
 
-      {/* Rename modal */}
-      <RenameAssetModal
-        isVisible={showRenameModal}
+      {/* Rename drawer */}
+      <RenameAssetDrawer
+        isOpen={showRenameDrawer}
         currentName={renameAssetName}
-        onClose={() => setShowRenameModal(false)}
+        onOpenChange={(open) => {
+          setShowRenameDrawer(open);
+          if (!open) {
+            setRenameAssetId(null);
+          }
+        }}
         onSave={handleSaveRename}
       />
 
@@ -2248,6 +2333,7 @@ const RecordingViewSimplified = ({
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
         autoCalibrateOnOpen={autoCalibrateOnOpen}
+        energyShared={energyShared}
       />
     </View>
   );

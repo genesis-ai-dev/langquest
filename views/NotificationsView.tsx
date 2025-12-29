@@ -1,7 +1,19 @@
 import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerScrollView,
+  DrawerTitle,
+  DrawerView
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -17,10 +29,17 @@ import {
   request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
+import type { LanguoidLinkSuggestionWithDetails } from '@/hooks/db/useLanguoidLinkSuggestions';
+import {
+  useAcceptLanguoidLinkSuggestion,
+  useKeepCustomLanguoid,
+  useLanguoidLinkSuggestions
+} from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -32,13 +51,19 @@ import {
   BellIcon,
   CheckIcon,
   HomeIcon,
+  LinkIcon,
   MailIcon,
   UserPlusIcon,
   WifiIcon,
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View
+} from 'react-native';
 
 interface NotificationItem {
   id: string;
@@ -61,14 +86,213 @@ interface SenderProfile {
   email: string | null;
 }
 
+interface LanguoidLinkSuggestionItemProps {
+  suggestion: LanguoidLinkSuggestionWithDetails;
+  getMatchBadgeText: (matchRank: number, matchedOn: string | null) => string;
+}
+
+function LanguoidLinkSuggestionItem({
+  suggestion,
+  getMatchBadgeText
+}: LanguoidLinkSuggestionItemProps) {
+  return (
+    <RadioGroupItem value={suggestion.id}>
+      <View className="flex-1 gap-1">
+        <View className="flex-row items-center gap-1.5">
+          <Text className="font-medium text-foreground">
+            {suggestion.suggested_languoid_name}
+          </Text>
+        </View>
+        <Text className="text-xs text-muted-foreground">
+          {getMatchBadgeText(suggestion.match_rank, suggestion.matched_on)}
+          {suggestion.matched_on === 'iso_code' &&
+            ` (${suggestion.suggested_iso_code})`}
+        </Text>
+      </View>
+    </RadioGroupItem>
+  );
+}
+
+interface LanguoidLinkSuggestionGroupProps {
+  group: {
+    userLanguoidId: string;
+    languoidName: string;
+    suggestions: LanguoidLinkSuggestionWithDetails[];
+  };
+  isGroupProcessing: boolean;
+  onAccept: (suggestion: LanguoidLinkSuggestionWithDetails) => void;
+  onKeepCustom: (userLanguoidId: string) => void;
+  getMatchBadgeText: (matchRank: number, matchedOn: string | null) => string;
+}
+
+function LanguoidLinkSuggestionGroup({
+  group,
+  isGroupProcessing,
+  onAccept,
+  onKeepCustom,
+  getMatchBadgeText
+}: LanguoidLinkSuggestionGroupProps) {
+  const defaultSuggestion =
+    group.suggestions.length === 1 ? group.suggestions[0]?.id : undefined;
+  const { t } = useLocalization();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState<
+    string | undefined
+  >(defaultSuggestion);
+
+  const selectedSuggestion = group.suggestions.find(
+    (s) => s.id === selectedSuggestionId
+  );
+
+  const handleChooseLanguage = () => {
+    if (selectedSuggestion) {
+      onAccept(selectedSuggestion);
+      setDrawerOpen(false);
+      setSelectedSuggestionId(defaultSuggestion);
+    }
+  };
+
+  return (
+    <>
+      <Card key={group.userLanguoidId}>
+        <CardContent className="p-4">
+          <View className="flex gap-3">
+            {/* Header with custom language */}
+            <View className="flex gap-4">
+              <View className="flex-col gap-1">
+                <View className="flex flex-row items-center gap-2">
+                  <Icon as={LinkIcon} size={20} className="text-primary" />
+                  <Text className="font-semibold text-foreground" variant="h4">
+                    {t('languoidLinkSuggestionTitle')}
+                  </Text>
+                </View>
+                <Text className="text-sm text-muted-foreground">
+                  {t('languoidLinkSuggestionDescription')}
+                </Text>
+              </View>
+
+              {/* Language display card */}
+              <Card className="bg-muted/25">
+                <CardContent className="p-3">
+                  <View className="flex gap-2">
+                    <View className="flex flex-row items-center gap-2">
+                      <Text className="text-sm text-muted-foreground">
+                        {t('yourLanguage')}
+                      </Text>
+                      <Badge variant="secondary">
+                        <Text>New</Text>
+                      </Badge>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      <Text className="text-lg font-semibold text-foreground">
+                        {group.languoidName}
+                      </Text>
+                    </View>
+                  </View>
+                </CardContent>
+              </Card>
+            </View>
+
+            {/* Action buttons */}
+            <View className="flex gap-2">
+              <Button
+                onPress={() => setDrawerOpen(true)}
+                disabled={isGroupProcessing}
+              >
+                <Text className="text-sm">{t('seeLanguageSuggestions')}</Text>
+              </Button>
+
+              <Button
+                variant="ghost"
+                onPress={() => onKeepCustom(group.userLanguoidId)}
+                loading={isGroupProcessing}
+              >
+                <Text className="text-sm">{t('keepMyLanguage')}</Text>
+              </Button>
+            </View>
+          </View>
+        </CardContent>
+      </Card>
+
+      {/* Drawer with suggestions */}
+      <Drawer
+        open={drawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) {
+            setSelectedSuggestionId(defaultSuggestion);
+          }
+        }}
+        snapPoints={['50%', '90%']}
+        enableDynamicSizing={false}
+      >
+        <DrawerContent className="pb-safe" asChild>
+          <DrawerView>
+            <DrawerHeader>
+              <DrawerTitle>
+                {t('languoidLinkSuggestionDrawerTitle')}
+              </DrawerTitle>
+            </DrawerHeader>
+
+            <DrawerScrollView className="h-40 flex-1">
+              <RadioGroup
+                value={selectedSuggestionId}
+                onValueChange={setSelectedSuggestionId}
+                disabled={isGroupProcessing}
+                className="flex flex-col gap-2"
+              >
+                {group.suggestions.map((suggestion) => (
+                  <LanguoidLinkSuggestionItem
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    getMatchBadgeText={getMatchBadgeText}
+                  />
+                ))}
+              </RadioGroup>
+            </DrawerScrollView>
+
+            <DrawerFooter>
+              <Button
+                variant="default"
+                onPress={handleChooseLanguage}
+                disabled={!selectedSuggestionId}
+                loading={isGroupProcessing}
+              >
+                <Text className="text-sm font-medium">
+                  {t('chooseThisLanguage')}
+                </Text>
+              </Button>
+              <DrawerClose>
+                <Text>{t('cancel')}</Text>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerView>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { goToProjects } = useAppNavigation();
   const queryClient = useQueryClient();
-  const isConnected = useNetworkStatus();
+  const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  // const [refreshKey, setRefreshKey] = useState(0);
+  const [processingLanguoidIds, setProcessingLanguoidIds] = useState<
+    Set<string>
+  >(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Languoid link suggestions (only if feature flag is enabled)
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
+  const { groupedSuggestions, uniqueLanguoidCount } =
+    useLanguoidLinkSuggestions();
+  const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
+  const keepCustomLanguoid = useKeepCustomLanguoid();
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -767,19 +991,10 @@ export default function NotificationsView() {
                 size="sm"
                 className="flex-1 flex-row items-center gap-2"
                 onPress={() => handleDecline(item.id, item.type)}
-                disabled={isProcessing}
+                loading={isProcessing}
               >
-                {isProcessing ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('foreground')}
-                  />
-                ) : (
-                  <>
-                    <Icon as={XIcon} />
-                    <Text>{t('decline')}</Text>
-                  </>
-                )}
+                <Icon as={XIcon} />
+                <Text>{t('decline')}</Text>
               </Button>
             </View>
           </View>
@@ -788,11 +1003,113 @@ export default function NotificationsView() {
     );
   };
 
+  // Handle accepting a languoid link suggestion
+  const handleAcceptLanguoidLink = async (
+    suggestion: LanguoidLinkSuggestionWithDetails
+  ) => {
+    if (processingLanguoidIds.has(suggestion.id)) return;
+
+    setProcessingLanguoidIds((prev) => new Set(prev).add(suggestion.id));
+
+    try {
+      await acceptSuggestion.mutateAsync(suggestion.id);
+      RNAlert.alert(t('success'), t('languageLinkSuccess'));
+    } catch (error) {
+      console.error('Error accepting languoid link:', error);
+      RNAlert.alert(t('error'), t('languageLinkError'));
+    } finally {
+      setProcessingLanguoidIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(suggestion.id);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle keeping custom languoid (dismiss all suggestions)
+  const handleKeepCustomLanguoid = async (userLanguoidId: string) => {
+    if (processingLanguoidIds.has(userLanguoidId)) return;
+
+    setProcessingLanguoidIds((prev) => new Set(prev).add(userLanguoidId));
+
+    try {
+      await keepCustomLanguoid.mutateAsync(userLanguoidId);
+      RNAlert.alert(t('success'), t('keepLanguageSuccess'));
+    } catch (error) {
+      console.error('Error keeping custom languoid:', error);
+    } finally {
+      setProcessingLanguoidIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(userLanguoidId);
+        return newSet;
+      });
+    }
+  };
+
+  // Get match badge text
+  const getMatchBadgeText = (
+    matchRank: number,
+    matchedOn: string | null
+  ): string => {
+    if (matchRank === 1) return t('exactMatch');
+    if (matchedOn === 'name') return t('matchedByName');
+    if (matchedOn === 'alias') return t('matchedByAlias');
+    if (matchedOn === 'iso_code') return t('matchedByIsoCode');
+    return t('partialMatch');
+  };
+
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Invalidate all notification-related queries
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invite-notifications'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['request-notifications'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['notification-projects'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['sender-profiles'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['languoid-link-suggestions'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['languoid-link-suggestion-details'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['user-memberships'],
+          exact: false
+        })
+      ]);
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
+
+  // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
+  const hasAnyNotifications =
+    allNotifications.length > 0 ||
+    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0);
+
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
       <Text className="text-2xl font-bold">{t('notifications')}</Text>
 
-      {!isConnected && (
+      {!isOnline && (
         <Alert icon={WifiIcon}>
           <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
         </Alert>
@@ -803,16 +1120,23 @@ export default function NotificationsView() {
           className="flex-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
-          {allNotifications.length === 0 ? (
+          {!hasAnyNotifications ? (
             <View className="flex-1 items-center justify-center py-14">
               <View className="flex-col items-center gap-4">
-                <Icon as={BellIcon} size={64} color={colors.textSecondary} />
+                <Icon
+                  as={BellIcon}
+                  size={48}
+                  className="text-muted-foreground"
+                />
                 <View className="flex-col items-center gap-2">
                   <Text className="text-base font-semibold text-foreground">
                     {t('noNotificationsTitle')}
                   </Text>
-                  <Text className="px-6 text-center text-sm text-muted-foreground">
+                  <Text className="max-w-sm px-6 text-center text-sm text-muted-foreground">
                     {t('noNotificationsMessage')}
                   </Text>
                   <Button
@@ -828,6 +1152,27 @@ export default function NotificationsView() {
             </View>
           ) : (
             <View className="flex-col gap-4 pb-4">
+              {/* Languoid link suggestions section - only show when online and feature flag enabled */}
+              {enableLanguoidLinkSuggestions &&
+                isOnline &&
+                groupedSuggestions.length > 0 && (
+                  <View className="flex-col gap-4">
+                    {groupedSuggestions.map((group) => (
+                      <LanguoidLinkSuggestionGroup
+                        key={group.userLanguoidId}
+                        group={group}
+                        isGroupProcessing={processingLanguoidIds.has(
+                          group.userLanguoidId
+                        )}
+                        onAccept={handleAcceptLanguoidLink}
+                        onKeepCustom={handleKeepCustomLanguoid}
+                        getMatchBadgeText={getMatchBadgeText}
+                      />
+                    ))}
+                  </View>
+                )}
+
+              {/* Project invites and requests */}
               {allNotifications.map(renderNotificationItem)}
             </View>
           )}

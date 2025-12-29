@@ -6,9 +6,12 @@ on:
     branches: [dev]
   pull_request:
     types: [opened, synchronize]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   fingerprint:
+    if: github.event_name != 'pull_request_review'
     runs-on: ubuntu-latest
     # REQUIRED: limit concurrency when pushing dev branch to prevent conflict for this action to update its fingerprint database
     concurrency:
@@ -186,3 +189,38 @@ jobs:
         with:
           comment-tag: fingerprint-check
           mode: delete
+
+  dismiss-bot-review-on-approval:
+    if: github.event_name == 'pull_request_review' && github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Dismiss bot review after approval
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const botReview = reviews.find(
+              review => review.user.login === 'github-actions[bot]' && review.state === 'CHANGES_REQUESTED'
+            );
+
+            if (!botReview) {
+              core.info('No bot review to dismiss.');
+              return;
+            }
+
+            await github.rest.pulls.dismissReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              review_id: botReview.id,
+              message: 'PR approved - dismissing native build requirement review.'
+            });
+            core.info('Dismissed github-actions review after approval event.');

@@ -1,12 +1,17 @@
 import { LanguageCombobox } from '@/components/language-combobox';
-import { LanguageSelect } from '@/components/language-select';
-import { Button, buttonTextVariants } from '@/components/ui/button';
+import { OfflineAlert } from '@/components/offline-alert';
+import {
+  Button,
+  ButtonPressableOpacity,
+  buttonTextVariants
+} from '@/components/ui/button';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -17,14 +22,14 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { LockIcon, MailIcon, WifiOffIcon } from 'lucide-react-native';
+import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
+import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -49,7 +54,8 @@ export default function SignInView({
       .nonempty(t('emailRequired'))
       .toLowerCase()
       .trim(),
-    password: z.string(t('passwordRequired')).min(6, t('passwordMinLength'))
+    // No password min length for sign in
+    password: z.string(t('passwordRequired')).nonempty(t('passwordRequired'))
   });
 
   const { mutateAsync: login, isPending } = useMutation({
@@ -138,9 +144,7 @@ export default function SignInView({
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
-                    onSubmitEditing={() => {
-                      void handleFormSubmit();
-                    }}
+                    onSubmitEditing={handleFormSubmit}
                     returnKeyType="done"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -155,7 +159,7 @@ export default function SignInView({
               </FormItem>
             )}
           />
-          <Pressable
+          <ButtonPressableOpacity
             onPress={() =>
               safeNavigate(() =>
                 onNavigate('forgot-password', { email: form.watch('email') })
@@ -170,23 +174,12 @@ export default function SignInView({
             >
               {t('forgotPassword')}
             </Text>
-          </Pressable>
-          {!isOnline && (
-            <View className="flex flex-row items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <WifiOffIcon size={20} className="text-destructive" />
-              <Text className="flex-1 text-sm text-destructive">
-                {t('internetConnectionRequired')}
-              </Text>
-            </View>
-          )}
+          </ButtonPressableOpacity>
+          <OfflineAlert />
           <View className="flex flex-col gap-2">
-            <Button
-              onPress={handleFormSubmit}
-              loading={isPending}
-              disabled={!isOnline || isPending}
-            >
+            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('signIn')}</Text>
-            </Button>
+            </FormSubmit>
             <Button
               onPress={() =>
                 safeNavigate(() =>
@@ -195,7 +188,7 @@ export default function SignInView({
               }
               variant="outline"
               className="border-border bg-input"
-              disabled={isPending || !isOnline}
+              disabled={isPending}
             >
               <Text>
                 {t('newUser')} {t('register')}

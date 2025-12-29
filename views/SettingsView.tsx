@@ -13,11 +13,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
 import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 interface SettingsSection {
   title: string;
@@ -53,6 +53,9 @@ export default function SettingsView() {
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -71,6 +74,9 @@ export default function SettingsView() {
   const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
+  );
+  const setEnableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.setEnableLanguoidLinkSuggestions
   );
 
   // Settings are loaded from the centralized store
@@ -113,6 +119,10 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
+  };
+
+  const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
+    setEnableLanguoidLinkSuggestions(value);
   };
 
   const handleClearCache = () => {
@@ -261,6 +271,16 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
+          disabled: !isOnline
+        },
+        {
+          id: 'languoidLinkSuggestions',
+          title: t('enableLanguoidLinkSuggestions'),
+          description: t('enableLanguoidLinkSuggestionsDescription'),
+          type: 'toggle',
+          value: enableLanguoidLinkSuggestions,
+          onPress: () =>
+            handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
           disabled: !isOnline
         }
       ]

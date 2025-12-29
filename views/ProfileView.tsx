@@ -31,6 +31,7 @@ import {
   getLocalFilePathSuffix,
   getLocalUri
 } from '@/utils/fileUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AttachmentState } from '@powersync/attachments';
 import { useMutation } from '@tanstack/react-query';
@@ -47,7 +48,6 @@ import {
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -300,11 +300,11 @@ export default function ProfileView() {
         )}
         {/* User Profile Information */}
         {currentUser && (
-          <View className="flex flex-col rounded-lg bg-card p-4">
+          <View className="flex flex-col rounded-lg bg-card p-4" ph-no-capture>
             <View className="flex flex-row items-center gap-2">
               <Icon as={MailIcon} className="text-muted-foreground" />
               <Text className="flex-1 text-foreground" ph-no-capture>
-                {currentUser.email || 'No email provided'}
+                {currentUser.email}
               </Text>
             </View>
             {currentUser.user_metadata.username && (
@@ -388,9 +388,7 @@ export default function ProfileView() {
                   <FormControl>
                     <Input
                       {...transformInputProps(field)}
-                      onSubmitEditing={() => {
-                        void handleFormSubmit();
-                      }}
+                      onSubmitEditing={handleFormSubmit}
                       returnKeyType="done"
                       placeholder={t('confirmPassword')}
                       placeholderTextColor={colors.textSecondary}
@@ -408,7 +406,7 @@ export default function ProfileView() {
           </Alert>
         )}
         {/* Save Button */}
-        <FormSubmit onPress={handleFormSubmit}>
+        <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
           <Text>{t('submit')}</Text>
         </FormSubmit>
 

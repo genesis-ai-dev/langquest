@@ -13,6 +13,7 @@ import {
   asset_content_link_synced,
   asset_synced,
   asset_tag_link_synced,
+  languoid_synced,
   profile_project_link_synced,
   project_language_link_synced,
   project_synced,
@@ -214,9 +215,25 @@ export async function publishQuest(questId: string, projectId: string) {
       });
     const profileProjectLinkIds = profileProjectLinks.map((link) => link.id);
 
+    const projectLanguageLinks =
+      await system.db.query.project_language_link.findMany({
+        where: and(
+          eq(project_language_link.project_id, projectId),
+          isNotNull(project_language_link.languoid_id),
+          eq(project_language_link.source, 'local')
+        ),
+        columns: {
+          languoid_id: true
+        }
+      });
+
+    const languoidIds = Array.from(
+      new Set(projectLanguageLinks.map((link) => link.languoid_id))
+    );
+
     // IMPORTANT: Insert ALL data in a SINGLE transaction to maintain ordering
     // PowerSync preserves the order of operations within a transaction
-    // Order: project → profile_project_link → project_language_link → parent quests → child quests → assets → links
+    // Order: project → profile_project_link → languoids → project_language_link → parent quests → child quests → assets → links
     const audioUploadResults = await system.db.transaction(async (tx) => {
       // Step 1: Insert project FIRST (required for foreign keys)
       // IDEMPOTENT: Use INSERT OR IGNORE to allow re-publishing
@@ -240,7 +257,15 @@ export async function publishQuest(questId: string, projectId: string) {
         );
       }
 
-      // Step 2b: Insert project_language_link (depends on project)
+      // Step 2b: Insert languoids FIRST (required for foreign key in project_language_link)
+      if (languoidIds.length > 0) {
+        const languoidColumns = getTableColumns(languoid_synced);
+        const languoidQuery = `INSERT OR IGNORE INTO languoid_synced(${languoidColumns}) SELECT ${languoidColumns} FROM languoid_local WHERE id IN (${toColumns(languoidIds)}) AND source = 'local'`;
+        console.log('languoidQuery', languoidQuery);
+        await tx.run(sql.raw(languoidQuery));
+      }
+
+      // Step 2c: Insert project_language_link (depends on project and languoid)
       // PK is now (project_id, languoid_id, language_type) - languoid_id is required
       const projectLanguageLinkColumns = getTableColumns(
         project_language_link_synced

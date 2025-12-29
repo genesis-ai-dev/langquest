@@ -34,6 +34,7 @@ import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { PressablesConfig } from 'pressto';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import {
   configureReanimatedLogger,
@@ -62,6 +63,7 @@ export const NAV_THEME = {
 export default function RootLayout() {
   if (Platform.OS === 'web') {
     // @ts-expect-error - globalThis._frameTimestamp is not defined
+    // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler
     global._frameTimestamp = null;
   }
   const hasMounted = useRef(false);
@@ -148,7 +150,14 @@ export default function RootLayout() {
                     <UpdateBanner />
                     <BottomSheetModalProvider>
                       <ThemeProvider value={NAV_THEME[scheme]}>
-                        <Stack screenOptions={{ headerShown: false }} />
+                        <PressablesConfig
+                          animationConfig={{
+                            duration: 100
+                            // easing: Easing.out(Easing.ease)
+                          }}
+                        >
+                          <Stack screenOptions={{ headerShown: false }} />
+                        </PressablesConfig>
                         <PortalHost />
                       </ThemeProvider>
                     </BottomSheetModalProvider>
