@@ -13,12 +13,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
-import {
-  BookmarkPlusIcon,
-  MicOffIcon,
-  Settings,
-  Sparkles
-} from 'lucide-react-native';
+import { MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -53,11 +48,6 @@ interface RecordingControlsProps {
   energyShared?: SharedValue<number>; // For UI performance
   isRecordingShared?: SharedValue<boolean>; // NEW: For instant waveform updates
   displayMode?: 'fullscreen' | 'footer'; // Display mode preference
-  // Verse bookmark props
-  nextAvailableVerse?: number | null; // Next verse number available to apply
-  activeVerse?: { from: number; to: number } | null; // Currently active verse being applied
-  bookChapterLabel?: string; // e.g., "Exod 7"
-  onApplyVerse?: (verse: { from: number; to: number }) => void; // Callback to set active verse
 }
 
 export const RecordingControls = React.memo(
@@ -76,11 +66,7 @@ export const RecordingControls = React.memo(
     vadThreshold,
     energyShared,
     isRecordingShared,
-    displayMode: _displayMode = 'footer',
-    nextAvailableVerse,
-    activeVerse,
-    bookChapterLabel,
-    onApplyVerse
+    displayMode: _displayMode = 'footer'
   }: RecordingControlsProps) {
     const { t } = useLocalization();
     const insets = useSafeAreaInsets();
@@ -403,28 +389,6 @@ export const RecordingControls = React.memo(
           />
 
           {/* Controls row */}
-          {nextAvailableVerse != null && !isRecording && !isVADLocked && (
-            <View className="items-center justify-center py-0.5">
-              <Button
-                variant={activeVerse ? 'default' : 'secondary'}
-                size="sm"
-                onPress={() => {
-                  if (onApplyVerse) {
-                    onApplyVerse({
-                      from: nextAvailableVerse,
-                      to: nextAvailableVerse
-                    });
-                  }
-                }}
-                className="flex-row items-center gap-1 rounded-full px-4 py-1.5"
-              >
-                <Icon as={BookmarkPlusIcon} size={16} />
-                <Text className="whitespace-nowrap text-[10px]">
-                  {`${bookChapterLabel ?? 'V'}:${nextAvailableVerse}`}
-                </Text>
-              </Button>
-            </View>
-          )}
           <View className="flex-row items-center justify-between px-4 py-2">
             {/* Settings button on the left */}
             <Button
@@ -485,12 +449,7 @@ export const RecordingControls = React.memo(
       prevProps.onRecordingComplete === nextProps.onRecordingComplete &&
       prevProps.onRecordingDiscarded === nextProps.onRecordingDiscarded &&
       prevProps.onVADLockChange === nextProps.onVADLockChange &&
-      prevProps.onSettingsPress === nextProps.onSettingsPress &&
-      // Verse bookmark props
-      prevProps.nextAvailableVerse === nextProps.nextAvailableVerse &&
-      prevProps.activeVerse?.from === nextProps.activeVerse?.from &&
-      prevProps.activeVerse?.to === nextProps.activeVerse?.to &&
-      prevProps.bookChapterLabel === nextProps.bookChapterLabel
+      prevProps.onSettingsPress === nextProps.onSettingsPress
       // Still ignoring currentEnergy, vadThreshold, and recordingDuration changes to prevent cascade
     );
   }

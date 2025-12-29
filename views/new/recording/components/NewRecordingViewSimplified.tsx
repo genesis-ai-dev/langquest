@@ -1,5 +1,5 @@
 import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
-import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
+import ArrayInsertionWheel from '@/components/NewArrayInsertionWheel';
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ import { Audio } from 'expo-av';
 import {
   ArrowLeft,
   ArrowUpDown,
+  BookmarkPlusIcon,
   PauseIcon,
   PlayIcon
 } from 'lucide-react-native';
@@ -86,6 +87,7 @@ interface UIAsset {
   segmentCount: number;
   duration?: number; // Total duration in milliseconds
   metadata?: string | { verse?: { from: number; to: number } } | null;
+  labelId?: number; // ID of the verse label this asset belongs to
 }
 
 interface RecordingViewSimplifiedProps {
@@ -225,7 +227,25 @@ const RecordingViewSimplified = ({
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
+  // Real-time index updated during scroll (for button label calculation)
+  const [realTimeIndex, setRealTimeIndex] = React.useState(0);
+  // Track if wheel is currently scrolling to hide button during scroll
+  const [isWheelScrolling, setIsWheelScrolling] = React.useState(false);
+  // Debounce ref for wheel scrolling - button reappears after delay
+  const wheelScrollDebounceRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const WHEEL_SCROLL_DEBOUNCE_MS = 300; // ms before button reappears
   const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
+
+  // Cleanup debounce timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (wheelScrollDebounceRef.current) {
+        clearTimeout(wheelScrollDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Sort order state: 'original' = by recording order, 'verse' = by verse metadata
   const [sortOrder, setSortOrder] = React.useState<'original' | 'verse'>(
@@ -638,41 +658,75 @@ const RecordingViewSimplified = ({
     []
   );
 
-  // Calculate total number of elements in the wheel (including separators)
-  // This needs to match the logic in wheelChildren to ensure correct clamping
-  const totalWheelItems = React.useMemo(() => {
-    let separatorCount = 0;
+  // Data structure to track exactly what is at each position of the wheel
+  // This allows O(1) lookup of what is at a specific insertionIndex
+  type WheelItem =
+    | { type: 'separator'; verse: { from: number; to: number } | null }
+    | {
+        type: 'asset';
+        asset: UIAsset;
+        verse: { from: number; to: number } | null;
+      };
 
-    if (sortOrder === 'verse') {
-      assetsForLegendList.forEach((item, index) => {
-        const currentVerse = getVerseFromMetadata(item.metadata);
-        const prevItem = index > 0 ? assetsForLegendList[index - 1] : null;
-        const prevVerse = prevItem
-          ? getVerseFromMetadata(prevItem.metadata)
-          : null;
+  const wheelStructureMap = React.useMemo((): WheelItem[] => {
+    const structure: WheelItem[] = [];
 
-        // Check if this is the start of a new verse group
+    assetsForLegendList.forEach((item, index) => {
+      const currentVerse = getVerseFromMetadata(item.metadata);
+      const prevItem = index > 0 ? assetsForLegendList[index - 1] : null;
+      const prevVerse = prevItem
+        ? getVerseFromMetadata(prevItem.metadata)
+        : null;
+
+      // Determine if we need a separator before this asset
+      let shouldShowVerseSeparator = false;
+      if (sortOrder === 'verse') {
         if (index === 0) {
-          separatorCount++;
+          shouldShowVerseSeparator = true;
         } else if (!currentVerse && prevVerse) {
-          separatorCount++;
+          shouldShowVerseSeparator = true;
         } else if (currentVerse && !prevVerse) {
-          separatorCount++;
+          shouldShowVerseSeparator = true;
         } else if (currentVerse && prevVerse) {
-          if (
+          shouldShowVerseSeparator =
             currentVerse.from !== prevVerse.from ||
             (currentVerse.to ?? currentVerse.from) !==
-              (prevVerse.to ?? prevVerse.from)
-          ) {
-            separatorCount++;
-          }
+              (prevVerse.to ?? prevVerse.from);
         }
-      });
-    }
+      }
 
-    // Total = assets + separators
-    return assetsForLegendList.length + separatorCount;
+      if (shouldShowVerseSeparator) {
+        structure.push({
+          type: 'separator',
+          verse: currentVerse
+            ? {
+                from: currentVerse.from!,
+                to: currentVerse.to ?? currentVerse.from!
+              }
+            : null
+        });
+      }
+
+      structure.push({
+        type: 'asset',
+        asset: item,
+        verse: currentVerse
+          ? {
+              from: currentVerse.from!,
+              to: currentVerse.to ?? currentVerse.from!
+            }
+          : null
+      });
+    });
+
+    return structure;
   }, [assetsForLegendList, sortOrder, getVerseFromMetadata]);
+
+  // Calculate total number of elements in the wheel (including separators)
+  // O(1) access via the pre-computed structure
+  const totalWheelItems = React.useMemo(() => {
+    return wheelStructureMap.length;
+  }, [wheelStructureMap]);
 
   // Clamp insertion index when wheel items count changes
   // Note: insertionIndex represents insertion boundaries, so maxIndex = totalWheelItems
@@ -1481,87 +1535,26 @@ const RecordingViewSimplified = ({
   }, []);
 
   // Helper function to determine verse at insertion position when sorting by verse
+  // O(1) lookup using the pre-computed wheelStructureMap
   const getVerseAtInsertionIndex =
     React.useCallback((): AssetMetadata | null => {
-      if (sortOrder !== 'verse' || assetsForLegendList.length === 0) {
+      if (sortOrder !== 'verse' || wheelStructureMap.length === 0) {
         return null;
       }
 
-      // insertionIndex represents the insertion point in the wheelChildren array
-      // We need to find which verse group this insertion point belongs to
-      let wheelPosition = 0;
+      // Clamp index to valid range
+      const clampedIndex = Math.min(
+        insertionIndex,
+        wheelStructureMap.length - 1
+      );
+      const itemAtPosition = wheelStructureMap[clampedIndex];
 
-      for (let i = 0; i < assetsForLegendList.length; i++) {
-        const item = assetsForLegendList[i];
-        if (!item) continue;
-
-        // Check if we need a separator before this item
-        const currentVerse = getVerseFromMetadata(item.metadata);
-        const prevItem = i > 0 ? assetsForLegendList[i - 1] : null;
-        const prevVerse = prevItem
-          ? getVerseFromMetadata(prevItem.metadata)
-          : null;
-
-        let shouldShowVerseSeparator = false;
-        if (i === 0) {
-          shouldShowVerseSeparator = true;
-        } else if (!currentVerse && prevVerse) {
-          shouldShowVerseSeparator = true;
-        } else if (currentVerse && !prevVerse) {
-          shouldShowVerseSeparator = true;
-        } else if (currentVerse && prevVerse) {
-          shouldShowVerseSeparator =
-            currentVerse.from !== prevVerse.from ||
-            (currentVerse.to ?? currentVerse.from) !==
-              (prevVerse.to ?? prevVerse.from);
-        }
-
-        // If insertionIndex is at or before this separator, return the verse
-        if (shouldShowVerseSeparator) {
-          if (insertionIndex <= wheelPosition) {
-            if (currentVerse?.from !== undefined) {
-              return {
-                verse: {
-                  from: currentVerse.from,
-                  to: currentVerse.to ?? currentVerse.from
-                }
-              };
-            }
-            return null;
-          }
-          wheelPosition++; // Separator takes one position
-        }
-
-        // Check if insertionIndex is at or before this asset
-        if (insertionIndex <= wheelPosition) {
-          const verse = getVerseFromMetadata(item.metadata);
-          if (verse?.from !== undefined) {
-            return {
-              verse: {
-                from: verse.from,
-                to: verse.to ?? verse.from
-              }
-            };
-          }
-          return null;
-        }
-        wheelPosition++; // Asset takes one position
-      }
-
-      // If insertionIndex is after all items, use the verse of the last item
-      const lastItem = assetsForLegendList[assetsForLegendList.length - 1];
-      const verse = lastItem ? getVerseFromMetadata(lastItem.metadata) : null;
-      if (verse?.from !== undefined) {
-        return {
-          verse: {
-            from: verse.from,
-            to: verse.to ?? verse.from
-          }
-        };
+      if (itemAtPosition?.verse) {
+        return { verse: itemAtPosition.verse };
       }
 
       return null;
-    }, [sortOrder, assetsForLegendList, insertionIndex, getVerseFromMetadata]);
+    }, [sortOrder, wheelStructureMap, insertionIndex]);
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
@@ -2330,6 +2323,176 @@ const RecordingViewSimplified = ({
     });
   }, [assets]);
 
+  // Array of booleans tracking which verses are occupied (1-indexed, so index 0 is unused)
+  // Size = verseCount + 1 to allow direct indexing by verse number
+  const verseOccupiedRef = React.useRef<boolean[]>([]);
+
+  // Structured verse labels with unique numeric IDs, sorted by 'from', with index map
+  // Also maps each asset to its corresponding labelId
+  const { sortedLabels, labelIndexMap, assetLabelMap, verseOccupied } =
+    React.useMemo(() => {
+      // 1. Create array with all unique labels (deduplicated by from-to range)
+      const labelsMap = new Map<string, { from: number; to: number }>();
+
+      for (const asset of assets) {
+        if (!asset.metadata) continue;
+
+        try {
+          const metadata: unknown =
+            typeof asset.metadata === 'string'
+              ? JSON.parse(asset.metadata)
+              : asset.metadata;
+
+          if (metadata && typeof metadata === 'object' && 'verse' in metadata) {
+            const verseObj = (metadata as { verse?: unknown }).verse;
+            if (
+              verseObj &&
+              typeof verseObj === 'object' &&
+              'from' in verseObj &&
+              'to' in verseObj
+            ) {
+              const verse = verseObj as { from: unknown; to: unknown };
+              if (
+                typeof verse.from === 'number' &&
+                typeof verse.to === 'number'
+              ) {
+                // Use from-to as key to deduplicate
+                const key = `${verse.from}-${verse.to}`;
+                if (!labelsMap.has(key)) {
+                  labelsMap.set(key, { from: verse.from, to: verse.to });
+                }
+              }
+            }
+          }
+        } catch {
+          // Skip invalid metadata
+        }
+      }
+
+      // 2. Convert to array with numeric IDs and sort by 'from' (and 'to' as secondary)
+      const sorted = Array.from(labelsMap.entries())
+        .map(([key, label]) => ({
+          key, // Keep the "from-to" key for mapping
+          id: 0, // Will be reassigned after sorting
+          from: label.from,
+          to: label.to
+        }))
+        .sort((a, b) => {
+          if (a.from !== b.from) return a.from - b.from;
+          return a.to - b.to;
+        });
+
+      // 3. Reassign IDs based on sorted order (so ID matches index)
+      // Also create a Map: "from-to" key -> labelId
+      const keyToLabelId = new Map<string, number>();
+      sorted.forEach((label, index) => {
+        label.id = index;
+        keyToLabelId.set(label.key, index);
+      });
+
+      // 4. Create Map: labelId -> index in sorted array
+      const indexMap = new Map<number, number>();
+      sorted.forEach((label, index) => {
+        indexMap.set(label.id, index);
+      });
+
+      // 5. Create Map: assetId -> labelId
+      const assetToLabel = new Map<string, number>();
+      for (const asset of assets) {
+        if (!asset.metadata) continue;
+
+        try {
+          const metadata: unknown =
+            typeof asset.metadata === 'string'
+              ? JSON.parse(asset.metadata)
+              : asset.metadata;
+
+          if (metadata && typeof metadata === 'object' && 'verse' in metadata) {
+            const verseObj = (metadata as { verse?: unknown }).verse;
+            if (
+              verseObj &&
+              typeof verseObj === 'object' &&
+              'from' in verseObj &&
+              'to' in verseObj
+            ) {
+              const verse = verseObj as { from: unknown; to: unknown };
+              if (
+                typeof verse.from === 'number' &&
+                typeof verse.to === 'number'
+              ) {
+                const key = `${verse.from}-${verse.to}`;
+                const labelId = keyToLabelId.get(key);
+                if (labelId !== undefined) {
+                  assetToLabel.set(asset.id, labelId);
+                }
+              }
+            }
+          }
+        } catch {
+          // Skip invalid metadata
+        }
+      }
+
+      // 6. Create boolean array for verse occupation (1-indexed)
+      // Index 0 is unused, verse 1 is at index 1, etc.
+      const occupied: boolean[] = Array.from<boolean>({
+        length: verseCount + 1
+      }).fill(false);
+      for (const label of sorted) {
+        for (let v = label.from; v <= label.to; v++) {
+          if (v >= 1 && v <= verseCount) {
+            occupied[v] = true;
+          }
+        }
+      }
+
+      // Update ref for external access
+      verseOccupiedRef.current = occupied;
+
+      // Remove the temporary 'key' property from sorted labels before returning
+      const cleanedSorted = sorted.map(({ id, from, to }) => ({
+        id,
+        from,
+        to
+      }));
+
+      return {
+        sortedLabels: cleanedSorted,
+        labelIndexMap: indexMap,
+        assetLabelMap: assetToLabel,
+        verseOccupied: occupied
+      };
+    }, [assets, verseCount]);
+
+  // Enrich assets with labelId property
+  const assetsWithLabelId = React.useMemo(() => {
+    return assets.map((asset) => ({
+      ...asset,
+      labelId: assetLabelMap.get(asset.id)
+    }));
+  }, [assets, assetLabelMap]);
+
+  // Create a stable key for logging - only changes when label count changes
+  const labelsKey = `${sortedLabels.length}-${assets.length}`;
+
+  // Log enriched assets (only when labels or assets actually change)
+  React.useEffect(() => {
+    console.log('📋 === ASSETS WITH LABEL ID ===');
+    for (const asset of assetsWithLabelId) {
+      const metadataStr =
+        typeof asset.metadata === 'string'
+          ? asset.metadata
+          : JSON.stringify(asset.metadata);
+      console.log(
+        `  📌 name: ${asset.name}, metadata: ${metadataStr}, id: ${asset.id}, labelId: ${asset.labelId ?? 'none'}`
+      );
+    }
+    console.log('📋 Sorted Labels:', sortedLabels);
+    console.log('📋 Label Index Map:', labelIndexMap);
+    console.log('📋 Verse Occupied:', verseOccupied);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labelsKey]); // Only re-run when the key changes
+
   // Calculate available verses (excluding occupied ones)
   const availableVerses = React.useMemo(() => {
     if (verseCount === 0) return [];
@@ -2356,12 +2519,28 @@ const RecordingViewSimplified = ({
   // Calculate the next available verse for the bookmark button
   // Based on the current position in the wheel - shows the next verse available
   // after the verse at the current insertion position
+  // Uses O(1) lookup via wheelStructureMap
+  // Uses realTimeIndex for responsive updates during scroll
   const nextAvailableVerse = React.useMemo(() => {
-    if (verseCount === 0 || sortOrder !== 'verse') return null;
+    if (
+      verseCount === 0 ||
+      sortOrder !== 'verse' ||
+      wheelStructureMap.length === 0
+    ) {
+      return null;
+    }
 
-    // Get the verse at the current insertion position
-    const verseAtPosition = getVerseAtInsertionIndex();
-    const currentVerseNumber = verseAtPosition?.verse?.to ?? 0;
+    // Use realTimeIndex for responsive updates during scroll
+    const clampedIndex = Math.min(realTimeIndex, wheelStructureMap.length - 1);
+    const itemAtPosition = wheelStructureMap[clampedIndex];
+
+    // Don't show button when positioned on a separator
+    if (itemAtPosition?.type === 'separator') {
+      return null;
+    }
+
+    // Get the verse at the current position
+    const currentVerseNumber = itemAtPosition?.verse?.to ?? 0;
 
     // The next verse is current + 1
     const nextVerseNumber = currentVerseNumber + 1;
@@ -2374,7 +2553,13 @@ const RecordingViewSimplified = ({
     if (!availableVerses.includes(nextVerseNumber)) return null;
 
     return nextVerseNumber;
-  }, [availableVerses, verseCount, getVerseAtInsertionIndex, sortOrder]);
+  }, [
+    availableVerses,
+    verseCount,
+    sortOrder,
+    realTimeIndex,
+    wheelStructureMap
+  ]);
 
   // Callback to apply a verse (set it as active)
   const handleApplyVerse = React.useCallback(
@@ -2930,10 +3115,30 @@ const RecordingViewSimplified = ({
           <ArrayInsertionWheel
             ref={wheelRef}
             value={insertionIndex}
-            onChange={setInsertionIndex}
+            onChange={(index) => {
+              setInsertionIndex(index);
+              setRealTimeIndex(index); // Sync when scroll ends
+            }}
             rowHeight={ROW_HEIGHT}
             className="h-full flex-1"
             bottomInset={footerHeight}
+            onIndexChanging={(_previousIndex, currentIndex) => {
+              // Update index in real-time for button calculation
+              setRealTimeIndex(currentIndex);
+
+              // Hide button immediately when scrolling starts
+              setIsWheelScrolling(true);
+
+              // Cancel any previous timeout
+              if (wheelScrollDebounceRef.current) {
+                clearTimeout(wheelScrollDebounceRef.current);
+              }
+
+              // Start debounce - button reappears after delay if scrolling stops
+              wheelScrollDebounceRef.current = setTimeout(() => {
+                setIsWheelScrolling(false);
+              }, WHEEL_SCROLL_DEBOUNCE_MS);
+            }}
           >
             {wheelChildren}
           </ArrayInsertionWheel>
@@ -2962,31 +3167,55 @@ const RecordingViewSimplified = ({
             />
           </View>
         ) : (
-          <RecordingControls
-            isRecording={isRecording || isVADRecording}
-            onRecordingStart={handleRecordingStart}
-            onRecordingStop={handleRecordingStop}
-            onRecordingComplete={handleRecordingComplete}
-            onRecordingDiscarded={handleRecordingDiscarded}
-            onLayout={setFooterHeight}
-            isVADLocked={isVADLocked}
-            onVADLockChange={setIsVADLocked}
-            onSettingsPress={() => setShowVADSettings(true)}
-            onAutoCalibratePress={() => {
-              setAutoCalibrateOnOpen(true);
-              setShowVADSettings(true);
-            }}
-            currentEnergy={currentEnergy}
-            vadThreshold={vadThreshold}
-            energyShared={energyShared}
-            isRecordingShared={isRecordingShared}
-            displayMode={vadDisplayMode}
-            // Verse bookmark props
-            nextAvailableVerse={nextAvailableVerse}
-            activeVerse={activeVerse}
-            bookChapterLabel={bookChapterLabel}
-            onApplyVerse={handleApplyVerse}
-          />
+          <>
+            {/* Floating bookmark button - positioned above RecordingControls */}
+            {nextAvailableVerse != null &&
+              !isRecording &&
+              !isVADLocked &&
+              !isWheelScrolling && (
+                <View
+                  className="absolute left-0 right-0 items-center justify-center"
+                  style={{ bottom: footerHeight + insets.bottom + 4 }}
+                >
+                  <Button
+                    variant={activeVerse ? 'default' : 'secondary'}
+                    size="sm"
+                    onPress={() => {
+                      handleApplyVerse({
+                        from: nextAvailableVerse,
+                        to: nextAvailableVerse
+                      });
+                    }}
+                    className="flex-row items-center gap-1 rounded-full px-4 py-1"
+                  >
+                    <Icon as={BookmarkPlusIcon} size={16} />
+                    <Text className="whitespace-nowrap text-[10px]">
+                      {`${bookChapterLabel}:${nextAvailableVerse}`}
+                    </Text>
+                  </Button>
+                </View>
+              )}
+            <RecordingControls
+              isRecording={isRecording || isVADRecording}
+              onRecordingStart={handleRecordingStart}
+              onRecordingStop={handleRecordingStop}
+              onRecordingComplete={handleRecordingComplete}
+              onRecordingDiscarded={handleRecordingDiscarded}
+              onLayout={setFooterHeight}
+              isVADLocked={isVADLocked}
+              onVADLockChange={setIsVADLocked}
+              onSettingsPress={() => setShowVADSettings(true)}
+              onAutoCalibratePress={() => {
+                setAutoCalibrateOnOpen(true);
+                setShowVADSettings(true);
+              }}
+              currentEnergy={currentEnergy}
+              vadThreshold={vadThreshold}
+              energyShared={energyShared}
+              isRecordingShared={isRecordingShared}
+              displayMode={vadDisplayMode}
+            />
+          </>
         )}
       </View>
 
