@@ -6,6 +6,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { languoid, languoid_link_suggestion } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS } from '@/utils/featureFlags';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -51,7 +52,7 @@ export function useLanguoidLinkSuggestions() {
   } = useHybridData<LanguoidLinkSuggestion>({
     dataType: 'languoid-link-suggestions',
     queryKeyParams: [userId],
-    enabled: !!userId,
+    enabled: FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS && !!userId,
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -102,7 +103,8 @@ export function useLanguoidLinkSuggestions() {
   const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
     dataType: 'languoid-link-suggestion-details',
     queryKeyParams: [languoidIds.join(',')],
-    enabled: languoidIds.length > 0,
+    enabled:
+      FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS && languoidIds.length > 0,
 
     offlineQuery: toCompilableQuery(
       db

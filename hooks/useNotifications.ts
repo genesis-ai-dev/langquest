@@ -6,6 +6,7 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS } from '@/utils/featureFlags';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray, or } from 'drizzle-orm';
@@ -145,7 +146,8 @@ export const useNotifications = () => {
   }>({
     dataType: 'languoid-suggestions-count',
     queryKeyParams: [userId || 'anonymous'],
-    enabled: !!userId && isAuthenticated,
+    enabled:
+      FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS && !!userId && isAuthenticated,
 
     // Get pending languoid link suggestions count
     // Query returns distinct languoid_id to count unique languoids needing linking

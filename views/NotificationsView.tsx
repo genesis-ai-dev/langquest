@@ -40,6 +40,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/styles/theme';
+import { FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS } from '@/utils/featureFlags';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -284,7 +285,7 @@ export default function NotificationsView() {
   >(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
-  // Languoid link suggestions
+  // Languoid link suggestions (only if feature flag is enabled)
   const { groupedSuggestions, uniqueLanguoidCount } =
     useLanguoidLinkSuggestions();
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
@@ -1096,9 +1097,12 @@ export default function NotificationsView() {
     }
   }, [queryClient]);
 
-  // Check if there are any notifications (including languoid suggestions when online)
+  // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
-    allNotifications.length > 0 || (isOnline && uniqueLanguoidCount > 0);
+    allNotifications.length > 0 ||
+    (FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS &&
+      isOnline &&
+      uniqueLanguoidCount > 0);
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1147,23 +1151,25 @@ export default function NotificationsView() {
             </View>
           ) : (
             <View className="flex-col gap-4 pb-4">
-              {/* Languoid link suggestions section - only show when online */}
-              {isOnline && groupedSuggestions.length > 0 && (
-                <View className="flex-col gap-4">
-                  {groupedSuggestions.map((group) => (
-                    <LanguoidLinkSuggestionGroup
-                      key={group.userLanguoidId}
-                      group={group}
-                      isGroupProcessing={processingLanguoidIds.has(
-                        group.userLanguoidId
-                      )}
-                      onAccept={handleAcceptLanguoidLink}
-                      onKeepCustom={handleKeepCustomLanguoid}
-                      getMatchBadgeText={getMatchBadgeText}
-                    />
-                  ))}
-                </View>
-              )}
+              {/* Languoid link suggestions section - only show when online and feature flag enabled */}
+              {FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS &&
+                isOnline &&
+                groupedSuggestions.length > 0 && (
+                  <View className="flex-col gap-4">
+                    {groupedSuggestions.map((group) => (
+                      <LanguoidLinkSuggestionGroup
+                        key={group.userLanguoidId}
+                        group={group}
+                        isGroupProcessing={processingLanguoidIds.has(
+                          group.userLanguoidId
+                        )}
+                        onAccept={handleAcceptLanguoidLink}
+                        onKeepCustom={handleKeepCustomLanguoid}
+                        getMatchBadgeText={getMatchBadgeText}
+                      />
+                    ))}
+                  </View>
+                )}
 
               {/* Project invites and requests */}
               {allNotifications.map(renderNotificationItem)}
