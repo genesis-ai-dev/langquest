@@ -106,8 +106,7 @@ export function useLanguoidLinkSuggestions() {
   const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
     dataType: 'languoid-link-suggestion-details',
     queryKeyParams: [languoidIds.join(',')],
-    enabled:
-      enableLanguoidLinkSuggestions && languoidIds.length > 0,
+    enabled: enableLanguoidLinkSuggestions && languoidIds.length > 0,
 
     offlineQuery: toCompilableQuery(
       db

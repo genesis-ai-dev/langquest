@@ -149,8 +149,7 @@ export const useNotifications = () => {
   }>({
     dataType: 'languoid-suggestions-count',
     queryKeyParams: [userId || 'anonymous'],
-    enabled:
-      enableLanguoidLinkSuggestions && !!userId && isAuthenticated,
+    enabled: enableLanguoidLinkSuggestions && !!userId && isAuthenticated,
 
     // Get pending languoid link suggestions count
     // Query returns distinct languoid_id to count unique languoids needing linking

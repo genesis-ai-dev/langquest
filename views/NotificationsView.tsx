@@ -1103,9 +1103,7 @@ export default function NotificationsView() {
   // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
     allNotifications.length > 0 ||
-    (enableLanguoidLinkSuggestions &&
-      isOnline &&
-      uniqueLanguoidCount > 0);
+    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0);
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
