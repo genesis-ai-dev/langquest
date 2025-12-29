@@ -6,7 +6,7 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS } from '@/utils/featureFlags';
+import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray, or } from 'drizzle-orm';
@@ -16,6 +16,9 @@ export const useNotifications = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const userId = currentUser?.id;
   const shouldQueryOwnerProjects = !!userId && isAuthenticated;
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
 
   // Get all pending invites for the user's email or profile_id
   const { data: inviteRequests = [] } = useHybridData<
@@ -147,7 +150,7 @@ export const useNotifications = () => {
     dataType: 'languoid-suggestions-count',
     queryKeyParams: [userId || 'anonymous'],
     enabled:
-      FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS && !!userId && isAuthenticated,
+      enableLanguoidLinkSuggestions && !!userId && isAuthenticated,
 
     // Get pending languoid link suggestions count
     // Query returns distinct languoid_id to count unique languoids needing linking

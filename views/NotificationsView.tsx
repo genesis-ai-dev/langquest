@@ -39,8 +39,8 @@ import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
-import { FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS } from '@/utils/featureFlags';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -286,6 +286,9 @@ export default function NotificationsView() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Languoid link suggestions (only if feature flag is enabled)
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
   const { groupedSuggestions, uniqueLanguoidCount } =
     useLanguoidLinkSuggestions();
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
@@ -1100,7 +1103,7 @@ export default function NotificationsView() {
   // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
     allNotifications.length > 0 ||
-    (FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS &&
+    (enableLanguoidLinkSuggestions &&
       isOnline &&
       uniqueLanguoidCount > 0);
 
@@ -1152,7 +1155,7 @@ export default function NotificationsView() {
           ) : (
             <View className="flex-col gap-4 pb-4">
               {/* Languoid link suggestions section - only show when online and feature flag enabled */}
-              {FEATURE_FLAG_LANGUOID_LINK_SUGGESTIONS &&
+              {enableLanguoidLinkSuggestions &&
                 isOnline &&
                 groupedSuggestions.length > 0 && (
                   <View className="flex-col gap-4">

@@ -6044,6 +6044,25 @@ export const localizations = {
     brazilian_portuguese: 'Seu idioma personalizado foi mantido',
     tok_pisin: 'Tok ples bilong yu i stap yet',
     indonesian: 'Bahasa kustom Anda telah disimpan'
+  },
+  enableLanguoidLinkSuggestions: {
+    english: 'Language link suggestions',
+    spanish: 'Sugerencias de vinculación de idioma',
+    brazilian_portuguese: 'Sugestões de vinculação de idioma',
+    tok_pisin: 'Ol tok ples bilong joinim',
+    indonesian: 'Saran tautan bahasa'
+  },
+  enableLanguoidLinkSuggestionsDescription: {
+    english:
+      'Get suggestions to link your custom-created languages to existing ones in the database',
+    spanish:
+      'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
+    brazilian_portuguese:
+      'Receba sugestões para vincular seus idiomas personalizados aos existentes no banco de dados',
+    tok_pisin:
+      'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
+    indonesian:
+      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database'
   }
 } as const;
 
