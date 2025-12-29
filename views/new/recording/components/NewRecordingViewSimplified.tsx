@@ -1556,6 +1556,115 @@ const RecordingViewSimplified = ({
       return null;
     }, [sortOrder, wheelStructureMap, insertionIndex]);
 
+  // Helper function to add a new verse label to the local structures (real-time update)
+  // This is called immediately after DB write to enable fast subsequent operations
+  const addVerseToLocalStructures = React.useCallback(
+    (verse: { from: number; to: number }, assetId: string) => {
+      // Check if this verse range already exists
+      const existingLabel = sortedLabelsRef.current.find(
+        (l) => l.from === verse.from && l.to === verse.to
+      );
+
+      let labelId: number;
+
+      if (existingLabel) {
+        // Use existing label ID
+        labelId = existingLabel.id;
+      } else {
+        // Create new label with next available ID
+        labelId = nextLabelIdRef.current;
+        nextLabelIdRef.current += 1;
+
+        const newLabel = { id: labelId, from: verse.from, to: verse.to };
+
+        // Insert in sorted order
+        const insertIndex = sortedLabelsRef.current.findIndex(
+          (l) =>
+            l.from > verse.from || (l.from === verse.from && l.to > verse.to)
+        );
+
+        if (insertIndex === -1) {
+          sortedLabelsRef.current.push(newLabel);
+        } else {
+          sortedLabelsRef.current.splice(insertIndex, 0, newLabel);
+        }
+
+        // Update label index map (rebuild to maintain correct indices)
+        labelIndexMapRef.current.clear();
+        sortedLabelsRef.current.forEach((label, index) => {
+          labelIndexMapRef.current.set(label.id, index);
+        });
+      }
+
+      // Map asset to label
+      assetLabelMapRef.current.set(assetId, labelId);
+
+      // Mark verses as occupied
+      for (let v = verse.from; v <= verse.to; v++) {
+        if (v >= 1 && v < verseOccupiedRef.current.length) {
+          verseOccupiedRef.current[v] = true;
+        }
+      }
+
+      console.log(
+        `🏷️ Added verse ${verse.from}-${verse.to} to local structures (labelId: ${labelId})`
+      );
+    },
+    []
+  );
+
+  // Helper function to remove a verse label from local structures (real-time update)
+  const removeVerseFromLocalStructures = React.useCallback(
+    (assetId: string) => {
+      const labelId = assetLabelMapRef.current.get(assetId);
+      if (labelId === undefined) return;
+
+      // Remove asset from label map
+      assetLabelMapRef.current.delete(assetId);
+
+      // Check if any other assets still use this label
+      const labelStillUsed = Array.from(
+        assetLabelMapRef.current.values()
+      ).includes(labelId);
+
+      if (!labelStillUsed) {
+        // Find and remove the label
+        const label = sortedLabelsRef.current.find((l) => l.id === labelId);
+        if (label) {
+          // Mark verses as unoccupied
+          for (let v = label.from; v <= label.to; v++) {
+            if (v >= 1 && v < verseOccupiedRef.current.length) {
+              verseOccupiedRef.current[v] = false;
+            }
+          }
+
+          // Remove label from sorted array
+          const labelIndex = sortedLabelsRef.current.findIndex(
+            (l) => l.id === labelId
+          );
+          if (labelIndex !== -1) {
+            sortedLabelsRef.current.splice(labelIndex, 1);
+          }
+
+          // Update label index map
+          labelIndexMapRef.current.clear();
+          sortedLabelsRef.current.forEach((l, index) => {
+            labelIndexMapRef.current.set(l.id, index);
+          });
+
+          console.log(
+            `🏷️ Removed verse ${label.from}-${label.to} from local structures (labelId: ${labelId})`
+          );
+        }
+      } else {
+        console.log(
+          `🏷️ Removed asset ${assetId} from label ${labelId} (label still in use)`
+        );
+      }
+    },
+    []
+  );
+
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
       const targetOrder = currentRecordingOrderRef.current;
@@ -1665,6 +1774,10 @@ const RecordingViewSimplified = ({
 
             if (verseMetadata) {
               await updateAssetMetadata(newAssetId, verseMetadata);
+              // Update local structures immediately for fast subsequent operations
+              if (verseMetadata.verse) {
+                addVerseToLocalStructures(verseMetadata.verse, newAssetId);
+              }
             }
           } catch (error) {
             console.error('❌ Failed to apply verse metadata:', error);
@@ -1698,7 +1811,8 @@ const RecordingViewSimplified = ({
       targetLanguoidId,
       sortOrder,
       getVerseAtInsertionIndex,
-      activeVerse
+      activeVerse,
+      addVerseToLocalStructures
     ]
   );
 
@@ -2279,53 +2393,15 @@ const RecordingViewSimplified = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
-  // Collect existing verse labels from all assets
-  const existingLabels = React.useMemo(() => {
-    const labelsMap = new Map<string, { from: number; to: number }>();
-
-    for (const asset of assets) {
-      if (!asset.metadata) continue;
-
-      try {
-        const metadata: unknown =
-          typeof asset.metadata === 'string'
-            ? JSON.parse(asset.metadata)
-            : asset.metadata;
-
-        if (metadata && typeof metadata === 'object' && 'verse' in metadata) {
-          const verseObj = (metadata as { verse?: unknown }).verse;
-          if (
-            verseObj &&
-            typeof verseObj === 'object' &&
-            'from' in verseObj &&
-            'to' in verseObj
-          ) {
-            const verse = verseObj as { from: unknown; to: unknown };
-            if (
-              typeof verse.from === 'number' &&
-              typeof verse.to === 'number'
-            ) {
-              const key = `${verse.from}-${verse.to}`;
-              if (!labelsMap.has(key)) {
-                labelsMap.set(key, { from: verse.from, to: verse.to });
-              }
-            }
-          }
-        }
-      } catch {
-        // Skip invalid metadata
-      }
-    }
-
-    return Array.from(labelsMap.values()).sort((a, b) => {
-      if (a.from !== b.from) return a.from - b.from;
-      return a.to - b.to;
-    });
-  }, [assets]);
-
-  // Array of booleans tracking which verses are occupied (1-indexed, so index 0 is unused)
-  // Size = verseCount + 1 to allow direct indexing by verse number
+  // Mutable refs for real-time updates (avoid re-renders during operations)
+  // These are updated immediately when verses change, before DB write completes
   const verseOccupiedRef = React.useRef<boolean[]>([]);
+  const sortedLabelsRef = React.useRef<
+    { id: number; from: number; to: number }[]
+  >([]);
+  const labelIndexMapRef = React.useRef<Map<number, number>>(new Map());
+  const assetLabelMapRef = React.useRef<Map<string, number>>(new Map());
+  const nextLabelIdRef = React.useRef<number>(1);
 
   // Structured verse labels with unique numeric IDs, sorted by 'from', with index map
   // Also maps each asset to its corresponding labelId
@@ -2446,15 +2522,19 @@ const RecordingViewSimplified = ({
         }
       }
 
-      // Update ref for external access
-      verseOccupiedRef.current = occupied;
-
       // Remove the temporary 'key' property from sorted labels before returning
       const cleanedSorted = sorted.map(({ id, from, to }) => ({
         id,
         from,
         to
       }));
+
+      // Update all refs for external access and real-time operations
+      verseOccupiedRef.current = occupied;
+      sortedLabelsRef.current = cleanedSorted;
+      labelIndexMapRef.current = indexMap;
+      assetLabelMapRef.current = assetToLabel;
+      nextLabelIdRef.current = cleanedSorted.length; // Next ID is the current length
 
       return {
         sortedLabels: cleanedSorted,
@@ -2493,28 +2573,20 @@ const RecordingViewSimplified = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labelsKey]); // Only re-run when the key changes
 
-  // Calculate available verses (excluding occupied ones)
+  // Calculate available verses using verseOccupied array (O(1) lookup per verse)
   const availableVerses = React.useMemo(() => {
     if (verseCount === 0) return [];
 
-    // Create a set of occupied verses
-    const occupiedVerses = new Set<number>();
-    for (const label of existingLabels) {
-      for (let verse = label.from; verse <= label.to; verse++) {
-        occupiedVerses.add(verse);
-      }
-    }
-
-    // Return array of available verses (1 to verseCount, excluding occupied)
+    // Use verseOccupied for O(1) lookup instead of iterating existingLabels
     const available: number[] = [];
     for (let verse = 1; verse <= verseCount; verse++) {
-      if (!occupiedVerses.has(verse)) {
+      if (!verseOccupied[verse]) {
         available.push(verse);
       }
     }
 
     return available;
-  }, [existingLabels, verseCount]);
+  }, [verseOccupied, verseCount]);
 
   // Calculate the next available verse for the bookmark button
   // Based on the current position in the wheel - shows the next verse available
@@ -2549,17 +2621,11 @@ const RecordingViewSimplified = ({
     if (nextVerseNumber > verseCount) return null;
 
     // Check if the immediately next verse is available (not occupied)
-    // If it's occupied, return null (button will be hidden)
-    if (!availableVerses.includes(nextVerseNumber)) return null;
+    // Using O(1) lookup via verseOccupied array instead of availableVerses.includes()
+    if (verseOccupied[nextVerseNumber]) return null;
 
     return nextVerseNumber;
-  }, [
-    availableVerses,
-    verseCount,
-    sortOrder,
-    realTimeIndex,
-    wheelStructureMap
-  ]);
+  }, [verseOccupied, verseCount, sortOrder, realTimeIndex, wheelStructureMap]);
 
   // Callback to apply a verse (set it as active)
   const handleApplyVerse = React.useCallback(
@@ -2571,17 +2637,17 @@ const RecordingViewSimplified = ({
 
   // Given a selected 'from' value, find the maximum 'to' value allowed
   // This prevents overlapping ranges by limiting to the next occupied verse
+  // Uses sortedLabels (already sorted by 'from') for O(n) lookup
   const getMaxToForFrom = React.useCallback(
     (selectedFrom: number) => {
-      // Find the index of selectedFrom in available verses
-      const fromIndex = availableVerses.indexOf(selectedFrom);
-      if (fromIndex === -1) {
-        // If selectedFrom is not available, return selectedFrom
+      // Check if selectedFrom is available using verseOccupied O(1) lookup
+      if (verseOccupied[selectedFrom]) {
+        // If selectedFrom is occupied, return selectedFrom
         return selectedFrom;
       }
 
-      // Find the first existing label that starts after selectedFrom
-      const sortedLabels = [...existingLabels].sort((a, b) => a.from - b.from);
+      // Find the first label that starts after selectedFrom
+      // sortedLabels is already sorted by 'from', so first match is the nearest
       const nextLabel = sortedLabels.find((label) => label.from > selectedFrom);
 
       if (nextLabel) {
@@ -2592,7 +2658,7 @@ const RecordingViewSimplified = ({
       // No label after selectedFrom, can go to the end
       return verseCount || 1;
     },
-    [existingLabels, verseCount, availableVerses]
+    [sortedLabels, verseCount, verseOccupied]
   );
 
   // Check if selected assets have verse labels
@@ -2642,6 +2708,15 @@ const RecordingViewSimplified = ({
 
           await batchUpdateAssetMetadata(updates);
 
+          // Update local structures immediately for fast subsequent operations
+          const verse = { from, to };
+          for (const asset of selectedOrdered) {
+            // First remove any existing verse assignment
+            removeVerseFromLocalStructures(asset.id);
+            // Then add the new verse
+            addVerseToLocalStructures(verse, asset.id);
+          }
+
           cancelSelection();
           setShowVerseAssignerModal(false);
           await queryClient.invalidateQueries({
@@ -2661,7 +2736,15 @@ const RecordingViewSimplified = ({
         }
       })();
     },
-    [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]
+    [
+      assets,
+      selectedAssetIds,
+      cancelSelection,
+      queryClient,
+      currentQuestId,
+      addVerseToLocalStructures,
+      removeVerseFromLocalStructures
+    ]
   );
 
   // Handle verse label removal from selected assets
@@ -2709,6 +2792,11 @@ const RecordingViewSimplified = ({
 
         await batchUpdateAssetMetadata(updates);
 
+        // Update local structures immediately for fast subsequent operations
+        for (const asset of selectedOrdered) {
+          removeVerseFromLocalStructures(asset.id);
+        }
+
         cancelSelection();
         setShowVerseAssignerModal(false);
         await queryClient.invalidateQueries({
@@ -2727,7 +2815,14 @@ const RecordingViewSimplified = ({
         );
       }
     })();
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    queryClient,
+    currentQuestId,
+    removeVerseFromLocalStructures
+  ]);
 
   // ============================================================================
   // RENAME ASSET
@@ -3244,7 +3339,7 @@ const RecordingViewSimplified = ({
           </DrawerHeader>
           <View className="p-4">
             <VerseAssigner
-              existingLabels={existingLabels}
+              existingLabels={sortedLabels}
               availableVerses={availableVerses}
               getMaxToForFrom={getMaxToForFrom}
               ScrollViewComponent={GHScrollView}
