@@ -196,7 +196,7 @@ export default function AppHeader({
                           disabled={isNavigating}
                           // onPressIn={() => setPressedIndex(index)}
                           // onPressOut={() => setPressedIndex(null)}
-                          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                          hitSlop={5}
                           className={`flex-shrink rounded p-1 ${
                             isNavigating ? 'opacity-50' : ''
                           }`}
@@ -268,10 +268,7 @@ export default function AppHeader({
                 <Icon as={CloudOff} size={10} className="text-white" />
               </View>
             ) : hasSyncError ? (
-              <Pressable
-                onPress={handleSyncErrorTap}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+              <Pressable onPress={handleSyncErrorTap} hitSlop={10}>
                 <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
                   <Icon as={AlertTriangle} size={10} className="text-white" />
                 </View>

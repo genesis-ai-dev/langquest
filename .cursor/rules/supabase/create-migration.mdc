@@ -51,6 +51,62 @@ Write Postgres-compatible SQL code for Supabase migration files that:
 
 The generated SQL code should be production-ready, well-documented, and aligned with Supabase's best practices.
 
+## PowerSync Publication
+
+When creating a new table that is referenced in `supabase/config/sync-rules.yml`, you MUST add it to the PowerSync publication so it can be synced to client devices.
+
+**Required for all tables with sync rules:**
+
+After creating a table that appears in `sync-rules.yml`, add the following idempotent statement:
+
+```sql
+-- Add table to PowerSync publication
+-- This table is synced via [bucket_name] bucket based on [key_field]
+-- (as defined in sync-rules.yml)
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'powersync' AND tablename = 'table_name'
+  ) THEN
+    ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."table_name";
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- Publication might not exist yet, ignore
+  NULL;
+END $$;
+```
+
+**Important:**
+
+- Replace `table_name` with the actual table name
+- Use the format: `ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."table_name"`
+- Always use idempotent checks to avoid errors if the table is already in the publication
+- Include a comment explaining which bucket syncs this table (from sync-rules.yml)
+- Check `supabase/config/sync-rules.yml` to verify if a table needs to be added to the publication
+
+**Example:**
+
+```sql
+-- Add languoid_link_suggestion to PowerSync publication
+-- This table is synced via the user_profile bucket based on profile_id
+-- (as defined in sync-rules.yml)
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'powersync' AND tablename = 'languoid_link_suggestion'
+  ) THEN
+    ALTER PUBLICATION "powersync" ADD TABLE ONLY "public"."languoid_link_suggestion";
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  -- Publication might not exist yet, ignore
+  NULL;
+END $$;
+```
+
 ## Idempotency
 
 All migrations must be idempotent - safe to run multiple times without errors.

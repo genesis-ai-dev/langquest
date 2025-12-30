@@ -182,6 +182,7 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
   } = useHybridData({
     dataType: 'languoid-endonyms',
     queryKeyParams: [languoidIds.sort().join(',')],
+    enabled: languoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       db.query.languoid_alias.findMany({
         columns: {
@@ -216,9 +217,7 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
         >();
       if (error) throw error;
       return data;
-    },
-    enableCloudQuery: languoidIds.length > 0,
-    enableOfflineQuery: languoidIds.length > 0
+    }
   });
 
   // Create a map: prefer self-referential endonyms (label_languoid_id = subject_languoid_id)

@@ -106,7 +106,7 @@ function NativeThumb({ percent }: NativeIndicatorProps) {
       <Animated.View
         style={animatedStyle}
         // Larger touch area for better UX (44x44 is iOS recommended minimum)
-        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        hitSlop={20}
         className={cn(
           'focus-visible:outline-hidden native:absolute size-6 shrink-0 -translate-x-3 rounded-full border-2 border-primary bg-background shadow-md ring-ring/50',
           'transition-colors hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none'

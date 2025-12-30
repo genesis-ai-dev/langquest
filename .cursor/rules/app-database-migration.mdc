@@ -108,6 +108,53 @@ export const APP_SCHEMA_VERSION = '2.1'; // Changed from '2.0'
 - **Minor version** (2.0 → 2.1): Additive changes only (new columns, new tables, new indexes)
 - **Major version** (2.0 → 3.0): Destructive changes (removed columns, renamed columns, changed types, dropped tables)
 
+### 2.5. Update Minimum Required Schema Version (Server)
+
+**Important**: When deploying DB migrations before app updates are approved, update the `min_required_schema_version` in `get_schema_info()` RPC to prevent race conditions.
+
+The system uses **minimum version requirement** instead of exact matching:
+
+- Apps with `schema_version >= min_required_schema_version` can sync
+- Apps below minimum are blocked from syncing (prevents corruption)
+- Allows DB migrations to be deployed first, then app updates can follow
+
+**When deploying a DB migration:**
+
+1. **Deploy DB migration** that bumps `schema_version` (e.g., `2.1` → `2.2`)
+2. **Set `min_required_schema_version`** to the previous version (e.g., `2.1`) to allow existing apps to continue working
+3. **Release app update** with new schema version (`2.2`) to app stores
+4. **After app approval**, optionally raise `min_required_schema_version` to `2.2` to phase out older versions
+
+**Example migration:**
+
+```sql
+-- Migration: Update schema version and minimum required version
+-- Purpose: Deploy DB changes before app update is approved
+--          Allow apps with schema 2.1+ to continue syncing
+
+create or replace function public.get_schema_info()
+returns jsonb
+language sql
+security invoker
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'schema_version', '2.2',  -- Current server schema version
+    'min_required_schema_version', '2.1',  -- Minimum client version required
+    'notes', 'Clients must be at least version 2.1 to sync. Minor updates maintain backwards compatibility.'
+  );
+$$;
+```
+
+**Key points:**
+
+- **Minor updates maintain backwards compatibility** - old apps can work with newer DB schemas up to the minimum version
+- **No race condition** - DB can be updated first, app updates can follow
+- **Gradual rollout** - raise minimum version gradually as adoption increases
+- **If `min_required_schema_version` is not set**, falls back to exact match behavior (backwards compatible)
+
+See `db/schemaVersionService.ts` for client-side implementation.
+
 ### 3. Update Local Schema
 
 Update `db/drizzleSchemaLocal.ts` to match changes in `drizzleSchemaColumns.ts`.

@@ -2,12 +2,19 @@
  * Schema Version Service
  *
  * Handles schema version comparison between client and server.
- * Forces app upgrades when there's a mismatch to prevent data corruption.
+ * Forces app upgrades when client version is below minimum required version.
  *
  * Key Features:
- * - Fetches server schema version via RPC
- * - Compares with local schema version
- * - Throws AppUpgradeNeededError if mismatch detected
+ * - Fetches server schema info via RPC (includes min_required_schema_version)
+ * - Compares local schema version with minimum required version
+ * - Throws AppUpgradeNeededError if local version is below minimum
+ * - Maintains backwards compatibility: minor updates don't require immediate upgrades
+ *
+ * Migration Strategy:
+ * - DB migrations can be deployed first (set min_required_schema_version)
+ * - Old apps below minimum are blocked from syncing
+ * - App updates can be released later without blocking all users
+ * - Minimum version can be raised gradually as adoption increases
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -26,11 +33,11 @@ export class AppUpgradeNeededError extends Error {
   constructor(
     public readonly reason: 'server_ahead' | 'server_behind',
     public readonly localVersion: string,
-    public readonly serverVersion: string
+    public readonly serverVersion: string // Now represents min_required_schema_version
   ) {
     const message =
       reason === 'server_ahead'
-        ? `Server schema (${serverVersion}) is newer than local schema (${localVersion}). Please upgrade the app.`
+        ? `App schema version (${localVersion}) is below minimum required version (${serverVersion}). Please upgrade the app.`
         : `Server schema (${serverVersion}) is older than local schema (${localVersion}). Server needs upgrade.`;
 
     super(message);
@@ -44,6 +51,7 @@ export class AppUpgradeNeededError extends Error {
 
 interface ServerSchemaInfo {
   schema_version: string;
+  min_required_schema_version?: string; // Minimum client version required
   notes?: string | null;
 }
 
@@ -72,22 +80,22 @@ function compareVersions(a: string, b: string): number {
 }
 
 /**
- * Fetch server schema version from Supabase RPC
+ * Fetch server schema info from Supabase RPC
  * @param supabaseClient - Supabase client instance
- * @returns Server schema version string
+ * @returns Server schema info including minimum required version
  * @throws Error if RPC call fails
  */
-export async function fetchServerSchemaVersion(
+export async function fetchServerSchemaInfo(
   supabaseClient: SupabaseClient
-): Promise<string> {
-  console.log('[SchemaVersionService] Fetching server schema version...');
+): Promise<ServerSchemaInfo> {
+  console.log('[SchemaVersionService] Fetching server schema info...');
 
   try {
     // Add timeout to prevent infinite hanging
     const rpcPromise = supabaseClient.rpc('get_schema_info');
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Schema version check timed out after 5 seconds'));
+        reject(new Error('Schema info check timed out after 5 seconds'));
       }, 5000);
     });
 
@@ -96,7 +104,7 @@ export async function fetchServerSchemaVersion(
 
     if (error) {
       console.error(
-        '[SchemaVersionService] Failed to fetch server schema:',
+        '[SchemaVersionService] Failed to fetch server schema info:',
         error
       );
       let errorMessage: string;
@@ -109,7 +117,7 @@ export async function fetchServerSchemaVersion(
           errorMessage = 'Unknown error occurred';
         }
       }
-      throw new Error(`Failed to fetch server schema: ${errorMessage}`);
+      throw new Error(`Failed to fetch server schema info: ${errorMessage}`);
     }
 
     if (!data || typeof data !== 'object' || !('schema_version' in data)) {
@@ -117,19 +125,30 @@ export async function fetchServerSchemaVersion(
     }
 
     const schemaInfo = data as ServerSchemaInfo;
-    console.log(
-      '[SchemaVersionService] Server schema version:',
-      schemaInfo.schema_version
-    );
+    console.log('[SchemaVersionService] Server schema info:', schemaInfo);
 
-    return schemaInfo.schema_version;
+    return schemaInfo;
   } catch (error) {
     console.error(
-      '[SchemaVersionService] Error fetching server schema:',
+      '[SchemaVersionService] Error fetching server schema info:',
       error
     );
     throw error;
   }
+}
+
+/**
+ * Fetch server schema version from Supabase RPC (backwards compatibility)
+ * @deprecated Use fetchServerSchemaInfo instead
+ * @param supabaseClient - Supabase client instance
+ * @returns Server schema version string
+ * @throws Error if RPC call fails
+ */
+export async function fetchServerSchemaVersion(
+  supabaseClient: SupabaseClient
+): Promise<string> {
+  const schemaInfo = await fetchServerSchemaInfo(supabaseClient);
+  return schemaInfo.schema_version;
 }
 
 /**
@@ -164,11 +183,17 @@ export function getLocalSchemaVersion(_db: DrizzleDB): Promise<string> {
 }
 
 /**
- * Check if app upgrade is needed by comparing local and server schema versions
+ * Check if app upgrade is needed by comparing local version with server's minimum required version
+ *
+ * Uses minimum version requirement instead of exact match:
+ * - If min_required_schema_version is set, checks if localVersion >= min_required_schema_version
+ * - If min_required_schema_version is not set, falls back to exact match (backwards compatibility)
+ * - Allows DB migrations to be deployed before app updates are approved
+ * - Maintains backwards compatibility for minor schema updates
  *
  * @param db - Drizzle database instance
  * @param supabaseClient - Supabase client instance
- * @throws AppUpgradeNeededError if versions don't match
+ * @throws AppUpgradeNeededError if local version is below minimum required
  */
 export async function checkAppUpgradeNeeded(
   db: DrizzleDB,
@@ -177,45 +202,40 @@ export async function checkAppUpgradeNeeded(
   console.log('[SchemaVersionService] Checking if app upgrade is needed...');
 
   try {
-    // Fetch both versions
-    const [localVersion, serverVersion] = await Promise.all([
-      getLocalSchemaVersion(db),
-      fetchServerSchemaVersion(supabaseClient)
-    ]);
+    // Fetch server schema info (includes min_required_schema_version)
+    const schemaInfo = await fetchServerSchemaInfo(supabaseClient);
+    const localVersion = await getLocalSchemaVersion(db);
+
+    // Use min_required_schema_version if available, otherwise fall back to exact match
+    const requiredVersion =
+      schemaInfo.min_required_schema_version || schemaInfo.schema_version;
 
     console.log('[SchemaVersionService] Local version:', localVersion);
-    console.log('[SchemaVersionService] Server version:', serverVersion);
+    console.log('[SchemaVersionService] Required version:', requiredVersion);
+    console.log(
+      '[SchemaVersionService] Server schema version:',
+      schemaInfo.schema_version
+    );
 
-    // Compare versions
-    const comparison = compareVersions(localVersion, serverVersion);
+    // Compare local version with minimum required version
+    const comparison = compareVersions(localVersion, requiredVersion);
 
-    if (comparison === 0) {
+    if (comparison >= 0) {
+      // Local version meets or exceeds minimum requirement
       console.log(
-        '[SchemaVersionService] ✓ Schema versions match - no upgrade needed'
+        '[SchemaVersionService] ✓ Schema version meets minimum requirement'
       );
       return;
     }
 
-    if (comparison < 0) {
-      // Local version is older than server - app upgrade needed
-      console.error(
-        `[SchemaVersionService] ⚠️  Server schema is newer (${serverVersion}) than local (${localVersion}) - app upgrade required`
-      );
-      throw new AppUpgradeNeededError(
-        'server_ahead',
-        localVersion,
-        serverVersion
-      );
-    }
-
-    // Local version is newer than server - server needs upgrade (shouldn't happen in normal flow)
+    // Local version is below minimum required - app upgrade needed
     console.error(
-      `[SchemaVersionService] ⚠️  Local schema is newer (${localVersion}) than server (${serverVersion}) - server upgrade required`
+      `[SchemaVersionService] ⚠️  Local version (${localVersion}) is below minimum required (${requiredVersion}) - app upgrade required`
     );
     throw new AppUpgradeNeededError(
-      'server_behind',
+      'server_ahead',
       localVersion,
-      serverVersion
+      requiredVersion
     );
   } catch (error) {
     // Re-throw AppUpgradeNeededError as-is
