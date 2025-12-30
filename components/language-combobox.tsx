@@ -400,7 +400,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           overflow: 'hidden'
         }}
         // activeColor={getThemeColor('primary')}
-        activeColor={getThemeColor('primary')}
+        activeColor={primaryColor}
         data={sortedData}
         search
         maxHeight={400}

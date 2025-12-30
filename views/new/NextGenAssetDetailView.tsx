@@ -325,14 +325,7 @@ export default function NextGenAssetDetailView() {
     }
   }, [activeAsset]);
 
-  useEffect(() => {
-    if (__DEV__ && projectData && !projectData.target_language_id) {
-      console.warn(
-        '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
-        projectData
-      );
-    }
-  }, [projectData]);
+  // Removed check for target_language_id - now using project_language_link
 
   const currentStatus = useStatusContext();
 
@@ -356,12 +349,11 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  // Collect content-level languoid IDs for this asset (prefer languoid_id, fallback to source_language_id)
+  // Collect content-level languoid IDs for this asset
   const contentLanguoidIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
-      const languoidId = c.languoid_id || c.source_language_id;
-      if (languoidId) ids.add(languoidId);
+      if (c.languoid_id) ids.add(c.languoid_id);
     });
     return Array.from(ids);
   }, [activeAsset?.content]);
@@ -635,8 +627,7 @@ export default function NextGenAssetDetailView() {
                         const content =
                           activeAsset.content[currentContentIndex];
                         if (!content) return null;
-                        const languoidId =
-                          content.languoid_id || content.source_language_id;
+                        const languoidId = content.languoid_id;
                         const languoid = languoidId
                           ? (languoidById.get(languoidId) ?? null)
                           : null;

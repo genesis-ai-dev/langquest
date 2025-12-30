@@ -60,7 +60,6 @@ export class ProfileService {
       email: string;
       password: string;
     };
-    ui_language_id?: string; // Deprecated, use ui_languoid_id
     ui_languoid_id?: string;
     terms_accepted?: boolean;
     terms_version?: string;
@@ -75,7 +74,7 @@ export class ProfileService {
 
       if (updateError) throw updateError;
 
-      // Update profile with username and ui_languoid_id (prefer ui_languoid_id over ui_language_id)
+      // Update profile with username and ui_languoid_id
       const profileUpdate: Record<string, unknown> = {
         username: input.credentials.username,
         terms_accepted: input.terms_accepted ?? false,
@@ -84,9 +83,6 @@ export class ProfileService {
 
       if (input.ui_languoid_id) {
         profileUpdate.ui_languoid_id = input.ui_languoid_id;
-      } else if (input.ui_language_id) {
-        // Backward compatibility: still accept ui_language_id
-        profileUpdate.ui_language_id = input.ui_language_id;
       }
 
       const { error: profileError } = await supabaseConnector.client
@@ -124,7 +120,6 @@ export class ProfileService {
 
   async updateProfile(data: {
     id: string;
-    ui_language_id?: string; // Deprecated, use ui_languoid_id
     ui_languoid_id?: string;
     // avatar?: string;
     password?: string;
@@ -141,7 +136,7 @@ export class ProfileService {
         if (updateError) throw updateError;
       }
 
-      // Update profile data - prefer ui_languoid_id over ui_language_id
+      // Update profile data
       const updateData: Partial<Profile> = {
         // ...(data.avatar && { avatar: data.avatar }),
         ...(data.terms_accepted !== undefined && {
@@ -152,12 +147,8 @@ export class ProfileService {
         })
       };
 
-      // Prefer ui_languoid_id over ui_language_id
       if (data.ui_languoid_id) {
         updateData.ui_languoid_id = data.ui_languoid_id;
-      } else if (data.ui_language_id) {
-        // Backward compatibility: still accept ui_language_id
-        updateData.ui_language_id = data.ui_language_id;
       }
 
       console.log('Updating profile with data:', updateData);
@@ -171,18 +162,11 @@ export class ProfileService {
           .select()
           .single<Profile>();
 
-      // Update auth metadata with ui_languoid_id (prefer over ui_language_id)
+      // Update auth metadata with ui_languoid_id
       if (data.ui_languoid_id) {
         await supabaseConnector.client.auth.updateUser({
           data: {
             ui_languoid_id: data.ui_languoid_id
-          }
-        });
-      } else if (data.ui_language_id) {
-        // Backward compatibility
-        await supabaseConnector.client.auth.updateUser({
-          data: {
-            ui_language_id: data.ui_language_id
           }
         });
       }

@@ -72,7 +72,7 @@ export class TranslationService {
 
   async createTranslation(data: {
     text: string | null;
-    source_language_id: string;
+    languoid_id: string;
     asset_id: string;
     audio: string[] | null;
   }) {
@@ -82,7 +82,7 @@ export class TranslationService {
         text: data.text,
         audio: data.audio,
         asset_id: data.asset_id,
-        source_language_id: data.source_language_id,
+        languoid_id: data.languoid_id,
         download_profiles: null
       })
       .returning();

@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
@@ -254,16 +254,7 @@ export default function NextGenNewTranslationModal({
     return text.split(/\s+/).filter((word) => word.length > 0);
   };
 
-  // Get source language ID from asset content or prop
-  const sourceLanguageId =
-    assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
-
-  // Query language names (source language is optional, target is required)
-  // Only query when modal is visible to avoid unnecessary queries
-  const { language: sourceLanguageData } = useLanguageById(
-    visible ? sourceLanguageId || undefined : undefined
-  );
-  const { language: targetLanguageData } = useLanguageById(
+  const { languoid: targetLanguoidData } = useLanguoidById(
     visible ? translationLanguageId : ''
   );
 
@@ -356,7 +347,6 @@ export default function NextGenNewTranslationModal({
           .insert(resolveTable('asset'))
           .values({
             source_asset_id: assetId,
-            source_language_id: translationLanguageId,
             project_id: currentProjectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]
@@ -369,13 +359,13 @@ export default function NextGenNewTranslationModal({
 
         const contentValues: {
           asset_id: string;
-          source_language_id: string;
+          languoid_id: string;
           download_profiles: string[];
           text?: string;
           audio?: string[];
         } = {
           asset_id: newAsset.id,
-          source_language_id: translationLanguageId,
+          languoid_id: translationLanguageId,
           download_profiles: [currentUser.id]
         };
 
@@ -440,9 +430,9 @@ export default function NextGenNewTranslationModal({
       return;
     }
 
-    if (!targetLanguageData) {
+    if (!targetLanguoidData) {
       RNAlert.alert(
-        'Missing Language Info',
+        'Missing Languoid Info',
         'Target language information is not available. Please select a target language.',
         [{ text: 'OK' }]
       );
@@ -456,16 +446,8 @@ export default function NextGenNewTranslationModal({
 
     try {
       // Source language is optional - use "Unknown" if not available
-      const sourceLanguageName =
-        sourceLanguageData?.native_name ||
-        sourceLanguageData?.english_name ||
-        sourceLanguage?.native_name ||
-        sourceLanguage?.english_name ||
-        'Unknown';
-      const targetLanguageName =
-        targetLanguageData.native_name ||
-        targetLanguageData.english_name ||
-        'Unknown';
+      const sourceLanguageName = 'Unknown';
+      const targetLanguageName = targetLanguoidData.name || 'Unknown';
 
       const result = await predictTranslation({
         sourceText,
@@ -925,8 +907,7 @@ export default function NextGenNewTranslationModal({
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
                               • No translations exist yet in{' '}
-                              {targetLanguageData?.native_name ||
-                                targetLanguageData?.english_name ||
+                              {targetLanguoidData?.name ||
                                 'the target language'}{' '}
                               for assets in this quest
                             </Text>

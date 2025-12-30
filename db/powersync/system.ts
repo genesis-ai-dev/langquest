@@ -975,7 +975,6 @@ export class System {
             name: `Asset ${i + 1}`,
             images: [],
             download_profiles: [PROFILE_ID],
-            source_language_id: ENGLISH_LANGUAGE_ID,
             project_id: project.id,
             source_asset_id: null
           };
@@ -989,7 +988,6 @@ export class System {
           const translationAsset: InsertAsset = {
             id: uuid.v4(),
             source_asset_id: asset.id,
-            source_language_id: ENGLISH_LANGUAGE_ID,
             name: 'Test',
             download_profiles: [PROFILE_ID],
             creator_id: PROFILE_ID,
@@ -1020,7 +1018,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: asset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUAGE_ID,
             text: 'Source text',
             download_profiles: [PROFILE_ID],
             created_at: contentCreatedAt.toISOString()
@@ -1029,7 +1027,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: asset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUAGE_ID,
             text: 'Second source text',
             download_profiles: [PROFILE_ID],
             // audio: [uuid.v4()],
@@ -1046,7 +1044,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: translationAsset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUAGE_ID,
             text: 'Translation text',
             download_profiles: [PROFILE_ID]
             // audio: [uuid.v4()]
@@ -1054,7 +1052,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: translationAsset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUAGE_ID,
             text: 'Second translation text',
             download_profiles: [PROFILE_ID]
           });

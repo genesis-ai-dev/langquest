@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
+import { project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -20,8 +21,11 @@ import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
+import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { and, eq } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
@@ -198,6 +202,42 @@ export function BibleChapterList({
   // Check user permissions for creating chapters
   const { membership } = useUserPermissions(projectId, 'open_project');
   const canCreateNew = membership === 'member' || membership === 'owner';
+
+  // Get target languoid_id from project_language_link
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [projectId],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, projectId),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', projectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
+  });
+
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id || '';
 
   // Query existing chapters using parent-child relationship
   const {
@@ -557,7 +597,7 @@ export function BibleChapterList({
                 projectId,
                 bookId,
                 chapter: chapterNum,
-                targetLanguageId: project?.target_language_id || ''
+                targetLanguageId: targetLanguoidId
               });
 
               console.log(

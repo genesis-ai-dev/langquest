@@ -90,8 +90,7 @@ export default function RegisterView({
             terms_accepted: data.termsAccepted,
             terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
             ui_language: languoidName.toLowerCase(),
-            ui_languoid_id: currentLanguage?.id, // New languoid reference
-            ui_language_id: currentLanguage?.id, // Keep for backward compatibility
+            ui_languoid_id: currentLanguage?.id,
             email_verified: false
           },
           emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
