@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "2.0.7",
   "scripts": {
+    "prebuild:clean": "npx expo prebuild",
     "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
