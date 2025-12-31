@@ -18,17 +18,26 @@
  * 4. System automatically detects and runs on next app start
  */
 
-import { sql } from 'drizzle-orm';
 import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
-import { updateMetadataVersion } from './utils';
+import { rawTableExists, updateMetadataVersion } from './utils';
 
-// Type alias for database with common query methods
-// Works with both raw PowerSync and Drizzle-wrapped instances
-// Using 'any' for flexibility since we're duck-typing the database interface
-export type DrizzleDB = any;
+// Type for database instance used in migrations
+// Includes PowerSyncSQLiteDatabase methods plus rawPowerSync access
+// export type DrizzleDB = PowerSyncSQLiteDatabase<typeof drizzleSchema> & {
+//   rawPowerSync?: PowerSyncDatabase | PowerSyncDatabaseWeb;
+//   // Ensure these methods exist with proper types
+//   run: (
+//     query: ReturnType<typeof sql>
+//   ) => Promise<{ changes: number; lastInsertRowid: bigint }>;
+//   get: <T = unknown>(query: ReturnType<typeof sql>) => Promise<T | undefined>;
+// };
 
+export type DrizzleDB = {
+  getAll: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+  execute: (sql: string) => Promise<unknown>;
+};
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -114,14 +123,16 @@ function compareVersions(a: string, b: string): number {
  * - Synced tables are migrated server-side via RPC
  * - Local tables contain data that has never been uploaded
  * - This is the only data that needs client-side migration
+ *
+ * JSON-FIRST: Always queries raw PowerSync tables directly, never views
  */
 export async function getMinimumSchemaVersion(
   db: DrizzleDB
 ): Promise<string | null> {
   try {
-    // Query through union VIEWS (not raw PowerSync tables)
-    // Views expose _metadata column from Drizzle schema
-    // The views filter to show only local (non-synced) records
+    const { getRawTableName } = await import('./utils');
+
+    // Always query raw PowerSync tables directly, never views
     const tables = [
       'profile_local',
       'language_local',
@@ -160,62 +171,77 @@ export async function getMinimumSchemaVersion(
 
     for (const table of tables) {
       try {
-        // Check if view exists first (views are created before migration check)
-        const viewExists = (await db.get(
-          sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='view' AND name=${table}`
-        )) as { count: number } | undefined;
+        const rawTableName = getRawTableName(table, 'local');
 
-        if (!viewExists || viewExists.count === 0) {
-          console.log(`[Migration] View ${table} does not exist, skipping`);
+        // Check if raw table exists
+        const result = await db.getAll(
+          `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?`,
+          [rawTableName]
+        );
+        const rawTableExists = (result[0] as { count?: number }) || null;
+
+        if (!rawTableExists || rawTableExists.count === 0) {
+          console.log(
+            `[Migration] Raw table ${rawTableName} does not exist, skipping`
+          );
           continue;
         }
 
-        // Check if this view has any data at all
-        const rowCount = (await db.get(
-          sql`SELECT COUNT(*) as count FROM ${sql.raw(table)}`
-        )) as { count: number } | undefined;
+        // Check if raw table has any data
+        const rowCountResult = await db.getAll(
+          `SELECT COUNT(*) as count FROM ${rawTableName}`,
+          []
+        );
+        const rowCount = (rowCountResult[0] as { count?: number }) || null;
 
         console.log(
-          `[Migration] View ${table}: ${rowCount?.count || 0} records`
+          `[Migration] Raw table ${rawTableName}: ${rowCount?.count ?? 0} records`
         );
 
         if (!rowCount || rowCount.count === 0) {
           continue;
         }
 
-        foundAnyData = true; // We found at least some data
+        foundAnyData = true;
 
-        // CRITICAL: First check if ANY records lack a schema_version
-        // These records are from version 0.0 and MUST be migrated
-        const unversionedCount = (await db.get(
-          sql`SELECT COUNT(*) as count 
-              FROM ${sql.raw(table)} 
-              WHERE _metadata IS NULL 
-                 OR json_extract(_metadata, '$.schema_version') IS NULL`
-        )) as { count: number } | undefined;
+        // Check for unversioned records in raw JSON
+        const unversionedResult = await db.getAll(
+          `SELECT COUNT(*) as count 
+           FROM ${rawTableName} 
+           WHERE json_extract(data, '$._metadata') IS NULL 
+              OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') IS NULL`,
+          []
+        );
+        const unversionedCount =
+          (unversionedResult[0] as { count?: number }) || null;
 
-        if (unversionedCount && unversionedCount.count > 0) {
+        const unversionedCountValue = unversionedCount?.count ?? 0;
+        if (unversionedCountValue > 0) {
           console.log(
-            `[Migration] Found ${unversionedCount.count} records without schema_version in ${table} - needs migration from 0.0`
+            `[Migration] Found ${unversionedCountValue} unversioned records in ${rawTableName} - needs migration from 0.0`
           );
           minVersion = '0.0';
           // Don't break - we want to log all tables with unversioned data
           continue;
         }
 
-        // Only if all records have versions, find the minimum version
-        const result = (await db.get(
-          sql`SELECT MIN(json_extract(_metadata, '$.schema_version')) as min_version 
-              FROM ${sql.raw(table)} 
-              WHERE _metadata IS NOT NULL 
-                AND json_extract(_metadata, '$.schema_version') IS NOT NULL`
-        )) as { min_version: string | null } | undefined;
+        // Find minimum version from raw JSON
+        const versionResult = await db.getAll(
+          `SELECT MIN(json_extract(json(json_extract(data, '$._metadata')), '$.schema_version')) as min_version 
+           FROM ${rawTableName} 
+           WHERE json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') IS NOT NULL`,
+          []
+        );
+        const versionData =
+          (versionResult[0] as { min_version: string | null }) || null;
 
-        if (result?.min_version) {
-          const version = result.min_version;
+        if (versionData?.min_version) {
+          const version = versionData.min_version;
           if (!minVersion || compareVersions(version, minVersion) < 0) {
             minVersion = version;
-            console.log(`[Migration] Found version ${version} in ${table}`);
+            console.log(
+              `[Migration] Found version ${version} in ${rawTableName}`
+            );
           }
         }
       } catch (err) {
@@ -345,6 +371,61 @@ function findMigrationPath(
 }
 
 /**
+ * Preflight checks for migration execution
+ * Verifies raw PowerSync access and required raw tables exist
+ *
+ * @param db - Drizzle database instance
+ * @param migrationPath - Array of migrations to run
+ * @returns true if preflight passes, false otherwise
+ */
+async function runMigrationPreflight(
+  db: DrizzleDB,
+  _migrationPath: Migration[]
+): Promise<boolean> {
+  console.log('[Migration] Running preflight checks...');
+
+  if (typeof db.getAll !== 'function' || typeof db.execute !== 'function') {
+    console.error(
+      '[Migration] ✗ Preflight failed: db missing required methods (getAll, execute)'
+    );
+    return false;
+  }
+
+  console.log('[Migration] ✓ Raw database access verified');
+
+  // Check for required raw tables based on migrations
+  // For JSON-first migrations, we need raw tables to exist
+  // Extract tables that migrations might need
+  // This is a conservative check - migrations will handle missing tables gracefully
+  const commonTables = [
+    'project_local',
+    'project',
+    'asset_content_link_local',
+    'language_local',
+    'language',
+    'project_language_link_local'
+  ];
+
+  for (const table of commonTables) {
+    const scope = table.endsWith('_local') ? 'local' : 'synced';
+    const viewName = table;
+    const exists = await rawTableExists(db, viewName, scope);
+
+    if (!exists) {
+      console.warn(
+        `[Migration] ⚠️  Raw table for ${viewName} (${scope}) does not exist - migration may skip this table`
+      );
+      // Don't fail preflight - migrations handle missing tables gracefully
+    } else {
+      console.log(`[Migration] ✓ Raw table for ${viewName} (${scope}) exists`);
+    }
+  }
+
+  console.log('[Migration] ✓ Preflight checks complete');
+  return true;
+}
+
+/**
  * Run all necessary migrations from current version to target version
  *
  * @param db - Drizzle database instance
@@ -389,6 +470,22 @@ export async function runMigrations(
       );
     });
 
+    // Run preflight checks
+    const preflightPassed = await runMigrationPreflight(db, migrationPath);
+    if (!preflightPassed) {
+      const errorMsg =
+        'Migration preflight checks failed - raw PowerSync access required';
+      console.error(`[Migration] ✗ ${errorMsg}`);
+      errors.push(errorMsg);
+      return {
+        success: false,
+        migratedFrom: currentVersion,
+        migratedTo: currentVersion,
+        migrationsRun: 0,
+        errors
+      };
+    }
+
     // Run migrations sequentially
     for (let i = 0; i < migrationPath.length; i++) {
       const migration = migrationPath[i]!;
@@ -425,7 +522,7 @@ export async function runMigrations(
           `[Migration] ✓ Completed migration to ${migration.toVersion}`
         );
       } catch (error) {
-        const errorMsg = `Failed to migrate from ${migration.fromVersion} to ${migration.toVersion}: ${error}`;
+        const errorMsg = `Failed to migrate from ${migration.fromVersion} to ${migration.toVersion}: ${String(error)}`;
         console.error(`[Migration] ✗ ${errorMsg}`);
         errors.push(errorMsg);
         throw error; // Stop on first error

@@ -82,6 +82,10 @@ export class System {
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
   // tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  migrationDb: {
+    getAll: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+    execute: (sql: string) => Promise<unknown>;
+  } | null = null;
 
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
@@ -513,6 +517,54 @@ export class System {
       // First initialize the database if not already done
       console.log('PowerSync initialized:', this.initialized);
       if (!this.initialized) {
+        // CRITICAL: Run migrations BEFORE PowerSync init
+        // This allows migrations to access raw PowerSync tables that may be removed after init
+        console.log('[System] Running pre-init migrations...');
+        const {
+          checkNeedsMigration,
+          getMinimumSchemaVersion,
+          MigrationNeededError
+        } = await import('../migrations/index');
+        const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+        // Open direct SQLite handle for pre-init migrations
+        const rawDb = this.factory.openDB();
+        // Create raw database adapter for migrations
+        // This provides getAll/execute methods before PowerSync.init() is called
+        this.migrationDb = {
+          getAll: async (sql: string, params?: unknown[]) => {
+            const result = await rawDb.execute(sql, params);
+            // Convert DBAdapter result format to array
+            if (result.rows && '_array' in result.rows) {
+              return result.rows._array;
+            }
+            return Array.isArray(result.rows) ? result.rows : [];
+          },
+          execute: async (sql: string) => {
+            await rawDb.execute(sql);
+          }
+        };
+        // const migrationDb = createRawSQLiteAdapter(rawDb);
+
+        // Check if migration is needed
+        const needsMigration = await checkNeedsMigration(
+          this.migrationDb,
+          APP_SCHEMA_VERSION
+        );
+
+        if (needsMigration) {
+          console.log('[System] ⚠️  Pre-init migration needed');
+          this.migrationNeeded = true;
+
+          const currentVersion =
+            (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+
+          // Throw to trigger MigrationScreen. Migrations will run before re-init.
+          throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+        }
+
+        console.log('[System] ✓ Pre-init migrations check passed');
+
         console.log('Initializing PowerSync...');
         await this.powersync.init();
 
@@ -527,7 +579,20 @@ export class System {
         const { checkAppUpgradeNeeded } = await import(
           '../schemaVersionService'
         );
-        await checkAppUpgradeNeeded(this.db, this.supabaseConnector.client);
+        // Create raw database wrapper from PowerSync for schema version check
+        const dbForSchemaCheck = {
+          getAll: async (sql: string, params?: unknown[]) => {
+            const result = await this.powersync.getAll(sql, params);
+            return Array.isArray(result) ? result : [];
+          },
+          execute: async (sql: string) => {
+            await this.powersync.execute(sql);
+          }
+        };
+        await checkAppUpgradeNeeded(
+          dbForSchemaCheck,
+          this.supabaseConnector.client
+        );
         console.log('[System] ✓ Server schema version is compatible');
 
         // CRITICAL: Check if migrations are needed AFTER creating union views
@@ -541,25 +606,25 @@ export class System {
         // await resetMetadataVersionForTesting(this.db, '1.0');
         // console.log('[System] ✓ Metadata reset complete');
 
-        const { checkNeedsMigration, MigrationNeededError } = await import(
-          '../migrations/index'
-        );
-        const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+        // const { checkNeedsMigration, MigrationNeededError } = await import(
+        //   '../migrations/index'
+        // );
+        // const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
-        // Use Drizzle-wrapped db to query through views (not raw PowerSync)
-        const needsMigration = await checkNeedsMigration(
-          this.db,
-          APP_SCHEMA_VERSION
-        );
+        // // Use Drizzle-wrapped db to query through views (not raw PowerSync)
+        // const needsMigration = await checkNeedsMigration(
+        //   this.db,
+        //   APP_SCHEMA_VERSION
+        // );
 
-        if (needsMigration) {
-          console.log(
-            '[System] ⚠️  Migration needed - blocking initialization'
-          );
-          this.migrationNeeded = true;
-          // Throw specific error to signal UI needs to show migration screen
-          throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
-        }
+        // if (needsMigration) {
+        //   console.log(
+        //     '[System] ⚠️  Migration needed - blocking initialization'
+        //   );
+        //   this.migrationNeeded = true;
+        //   // Throw specific error to signal UI needs to show migration screen
+        //   throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
+        // }
 
         console.log('[System] ✓ Schema is up to date');
       }
@@ -1333,35 +1398,26 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, checkNeedsMigration, getMinimumSchemaVersion } =
-        await import('../migrations/index');
+      const { runMigrations, getMinimumSchemaVersion } = await import(
+        '../migrations/index'
+      );
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
-      // Double-check that migration is still needed
-      // Use Drizzle-wrapped db to query through views
-      const stillNeeded = await checkNeedsMigration(
-        this.db,
-        APP_SCHEMA_VERSION
-      );
-
-      if (!stillNeeded) {
-        console.log(
-          '[System] No migration needed (already at current version)'
-        );
-        this.migrationNeeded = false;
-        return;
+      if (!this.migrationDb) {
+        throw new Error('Migration database not initialized');
       }
 
       // Get the actual current version from database
       // This will return '0.0' for unversioned data, or the actual minimum version found
-      const currentVersion = (await getMinimumSchemaVersion(this.db)) || '0.0';
+      const currentVersion =
+        (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
       console.log(
         `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
       );
 
-      // Use Drizzle-wrapped db for migration operations (queries through views)
+      // Use raw database for migration operations
       const result = await runMigrations(
-        this.db,
+        this.migrationDb,
         currentVersion, // Start from actual current version
         APP_SCHEMA_VERSION,
         onProgress

@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import type { Migration } from './index';
 
 /**
@@ -21,7 +20,7 @@ export const migration_2_0_to_2_1: Migration = {
     if (onProgress)
       onProgress(1, 1, 'Backfilling versification_template on project_local');
 
-    await db.run(sql`
+    await db.execute(`
       UPDATE project_local
       SET versification_template = 'protestant'
       WHERE versification_template IS NULL

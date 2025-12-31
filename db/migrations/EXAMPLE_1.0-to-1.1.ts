@@ -57,12 +57,12 @@ export const migration_1_0_to_1_1: Migration = {
 
     console.log('[Migration 1.0→1.1] Setting default notes...');
     // Query through the view - it exposes all columns including new 'notes'
-    await db.run(
-      sql.raw(`
+    await db.execute(
+      `
             UPDATE asset_local
             SET notes = 'Migration test: Added in schema v1.1'
             WHERE notes IS NULL AND active = 1
-        `)
+        `);
     );
     console.log('[Migration 1.0→1.1] ✓ Default notes set');
 
@@ -180,7 +180,7 @@ export const migration_1_0_to_1_1: Migration = {
  *   await addColumn(db, 'table_name', 'new_field TEXT DEFAULT NULL');
  *
  *   // 2. Fill in values for all existing records
- *   await db.execute(sql`
+ *   await db.execute(`
  *     UPDATE table_name
  *     SET new_field = 'default_value'
  *     WHERE new_field IS NULL
@@ -200,7 +200,7 @@ export const migration_1_0_to_1_1: Migration = {
  *   await addColumn(db, 'child_table', 'parent_id TEXT');
  *
  *   // 2. Populate relationships based on existing data
- *   await db.execute(sql`
+ *   await db.execute(`
  *     UPDATE child_table
  *     SET parent_id = (
  *       SELECT p.id FROM parent_table p
