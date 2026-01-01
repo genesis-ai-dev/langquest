@@ -2627,12 +2627,132 @@ const RecordingViewSimplified = ({
     return nextVerseNumber;
   }, [verseOccupied, verseCount, sortOrder, realTimeIndex, wheelStructureMap]);
 
-  // Callback to apply a verse (set it as active)
-  const handleApplyVerse = React.useCallback(
+  // Callback to apply a verse label to the current asset and all following assets
+  // until an asset with a different label is found
+  const handleApplyLabel = React.useCallback(
     (verse: { from: number; to: number }) => {
-      setActiveVerse(verse);
+      // Don't apply if recording
+      if (isRecording || isVADLocked) {
+        console.log('⚠️ Cannot apply label while recording');
+        return;
+      }
+
+      // Find the current asset based on realTimeIndex
+      const clampedIndex = Math.min(
+        realTimeIndex,
+        wheelStructureMap.length - 1
+      );
+      const itemAtPosition = wheelStructureMap[clampedIndex];
+
+      if (!itemAtPosition || itemAtPosition.type !== 'asset') {
+        console.log('⚠️ No asset at current position');
+        return;
+      }
+
+      const currentAsset = itemAtPosition.asset;
+      const currentAssetIndex = assetsForLegendList.findIndex(
+        (a) => a.id === currentAsset.id
+      );
+
+      if (currentAssetIndex === -1) {
+        console.log('⚠️ Current asset not found in list');
+        return;
+      }
+
+      // Find all assets to update (current + following until different label)
+      const assetsToUpdate: UIAsset[] = [];
+      const currentLabel = itemAtPosition.verse;
+
+      for (let i = currentAssetIndex; i < assetsForLegendList.length; i++) {
+        const asset = assetsForLegendList[i];
+        if (!asset) continue;
+
+        const assetVerse = getVerseFromMetadata(asset.metadata);
+
+        // First asset (current) - always include
+        if (i === currentAssetIndex) {
+          assetsToUpdate.push(asset);
+          continue;
+        }
+
+        // Stop if this asset has a different label than the current one
+        if (currentLabel && assetVerse) {
+          // Both have labels - check if different
+          if (
+            assetVerse.from !== currentLabel.from ||
+            assetVerse.to !== currentLabel.to
+          ) {
+            break;
+          }
+        } else if (!currentLabel && assetVerse) {
+          // Current has no label but this one has - stop
+          break;
+        } else if (currentLabel && !assetVerse) {
+          // Current has label but this one doesn't - include (will get new label)
+          assetsToUpdate.push(asset);
+          continue;
+        }
+
+        // Same label or both have no label - include
+        assetsToUpdate.push(asset);
+      }
+
+      if (assetsToUpdate.length === 0) {
+        console.log('⚠️ No assets to update');
+        return;
+      }
+
+      console.log(
+        `🏷️ Applying label ${verse.from}-${verse.to} to ${assetsToUpdate.length} assets`
+      );
+
+      // Update database and local structures
+      void (async () => {
+        try {
+          const updates = assetsToUpdate.map((asset) => ({
+            assetId: asset.id,
+            metadata: { verse } as AssetMetadata
+          }));
+
+          await batchUpdateAssetMetadata(updates);
+
+          // Update local structures for fast subsequent operations
+          for (const asset of assetsToUpdate) {
+            // First remove any existing verse assignment
+            removeVerseFromLocalStructures(asset.id);
+            // Then add the new verse
+            addVerseToLocalStructures(verse, asset.id);
+          }
+
+          // Invalidate queries to refresh UI
+          await queryClient.invalidateQueries({
+            queryKey: ['assets', 'by-quest', currentQuestId],
+            exact: false
+          });
+
+          console.log(
+            `✅ Label applied successfully to ${assetsToUpdate.length} assets`
+          );
+
+          // Set active verse to show it's been applied
+          setActiveVerse(verse);
+        } catch (error) {
+          console.error('❌ Failed to apply label:', error);
+        }
+      })();
     },
-    []
+    [
+      isRecording,
+      isVADLocked,
+      realTimeIndex,
+      wheelStructureMap,
+      assetsForLegendList,
+      getVerseFromMetadata,
+      addVerseToLocalStructures,
+      removeVerseFromLocalStructures,
+      queryClient,
+      currentQuestId
+    ]
   );
 
   // Given a selected 'from' value, find the maximum 'to' value allowed
@@ -3276,7 +3396,7 @@ const RecordingViewSimplified = ({
                     variant={activeVerse ? 'default' : 'secondary'}
                     size="sm"
                     onPress={() => {
-                      handleApplyVerse({
+                      handleApplyLabel({
                         from: nextAvailableVerse,
                         to: nextAvailableVerse
                       });
