@@ -64,7 +64,8 @@ import { useLocalStore } from '@/store/localStore';
 // import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
 
 function AppViewContent() {
-  const { currentView, canGoBack, goBack, goToProjects } = useAppNavigation();
+  const { currentView, canGoBack, goBack, goToProjects, goBackToView } =
+    useAppNavigation();
   const { isAuthenticated } = useAuth();
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
@@ -77,6 +78,7 @@ function AppViewContent() {
   const setOnboardingIsOpen = useLocalStore(
     (state) => state.setOnboardingIsOpen
   );
+  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
@@ -162,6 +164,20 @@ function AppViewContent() {
       }
     }
   }, [currentView, isAuthenticated, goToProjects]);
+
+  // Block bible-assets view if enableVerseMarkers is disabled
+  // Redirect to previous view if user tries to access bible-assets without the feature enabled
+  useEffect(() => {
+    if (currentView === 'bible-assets' && !enableVerseMarkers) {
+      // Redirect to previous view (usually quests or assets)
+      if (canGoBack) {
+        goBack();
+      } else {
+        // Fallback to projects if no navigation history
+        goToProjects();
+      }
+    }
+  }, [currentView, enableVerseMarkers, canGoBack, goBack, goToProjects]);
 
   // Track if navigation is in progress
   const isNavigating = currentView !== deferredView;

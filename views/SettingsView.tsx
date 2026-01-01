@@ -13,11 +13,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
 import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 interface SettingsSection {
   title: string;
@@ -53,6 +53,7 @@ export default function SettingsView() {
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -71,6 +72,9 @@ export default function SettingsView() {
   const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
+  );
+  const setEnableVerseMarkers = useLocalStore(
+    (state) => state.setEnableVerseMarkers
   );
 
   // Settings are loaded from the centralized store
@@ -113,6 +117,10 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
+  };
+
+  const handleVerseMarkersToggle = (value: boolean) => {
+    setEnableVerseMarkers(value);
   };
 
   const handleClearCache = () => {
@@ -262,6 +270,16 @@ export default function SettingsView() {
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
           disabled: !isOnline
+        },
+        {
+          id: 'verseMarkers',
+          title: t('verseMarkers') || 'Verse Markers',
+          description:
+            t('verseMarkersDescription') ||
+            'Enable verse markers to help organize Bible resources',
+          type: 'toggle',
+          value: enableVerseMarkers,
+          onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
         }
       ]
     },

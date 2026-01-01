@@ -5891,6 +5891,23 @@ export const localizations = {
     brazilian_portuguese: 'Link copiado para a área de transferência!',
     tok_pisin: 'Link kopim igo long clipboard!',
     indonesian: 'Tautan disalin ke clipboard!'
+  },
+  verseMarkers: {
+    english: 'Verse Markers',
+    spanish: 'Marcadores de Versículos',
+    brazilian_portuguese: 'Marcadores de Versículos',
+    tok_pisin: 'Verse Markers',
+    indonesian: 'Marker Versi'
+  },
+  verseMarkersDescription: {
+    english: 'Enable verse markers to help organize Bible resources',
+    spanish:
+      'Habilitar marcadores de versículos para ayudar a organizar recursos de la Biblia',
+    brazilian_portuguese:
+      'Habilitar marcadores de versículos para ajudar a organizar recursos da Bíblia',
+    tok_pisin: 'Enable verse markers to help organize Bible resources',
+    indonesian:
+      'Aktifkan marker versi untuk membantu mengorganisir sumber daya Alkitab'
   }
 } as const;
 

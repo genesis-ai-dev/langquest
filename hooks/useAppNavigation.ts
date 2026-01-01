@@ -31,7 +31,8 @@ export function useAppNavigation() {
     navigationStack,
     setNavigationStack,
     addRecentQuest,
-    addRecentAsset
+    addRecentAsset,
+    enableVerseMarkers
   } = useLocalStore();
 
   // Ensure navigationStack is always an array - safe access pattern
@@ -170,7 +171,9 @@ export function useAppNavigation() {
       projectData?: Record<string, unknown>;
     }) => {
       const assetView =
-        questData.projectData?.template === 'bible' ? 'bible-assets' : 'assets';
+        questData.projectData?.template === 'bible' && enableVerseMarkers
+          ? 'bible-assets'
+          : 'assets';
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -207,7 +210,7 @@ export function useAppNavigation() {
         });
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView]
+    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
   );
 
   const goToAsset = useCallback(
