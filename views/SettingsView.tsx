@@ -56,6 +56,9 @@ export default function SettingsView() {
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -77,6 +80,9 @@ export default function SettingsView() {
   );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
+  );
+  const setEnableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.setEnableLanguoidLinkSuggestions
   );
 
   // Settings are loaded from the centralized store
@@ -123,6 +129,10 @@ export default function SettingsView() {
 
   const handleTranscriptionToggle = (value: boolean) => {
     setEnableTranscription(value);
+  };
+
+  const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
+    setEnableLanguoidLinkSuggestions(value);
   };
 
   const handleClearCache = () => {
@@ -282,6 +292,16 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableTranscription,
           onPress: () => handleTranscriptionToggle(!enableTranscription)
+        },
+        {
+          id: 'languoidLinkSuggestions',
+          title: t('enableLanguoidLinkSuggestions'),
+          description: t('enableLanguoidLinkSuggestionsDescription'),
+          type: 'toggle',
+          value: enableLanguoidLinkSuggestions,
+          onPress: () =>
+            handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
+          disabled: !isOnline
         }
       ]
     },

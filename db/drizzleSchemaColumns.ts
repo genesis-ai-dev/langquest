@@ -18,6 +18,7 @@ import {
 import uuid from 'react-native-uuid';
 import {
   contentTypeOptions,
+  matchedOnOptions,
   membershipOptions,
   reasonOptions,
   sourceOptions,
@@ -1479,6 +1480,66 @@ export function createLanguoidRegionTable<
     (table) => [
       index('languoid_region_languoid_id_idx').on(table.languoid_id),
       index('languoid_region_region_id_idx').on(table.region_id),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+// Note: statusOptions and matchedOnOptions are imported from constants.ts at the top of the file
+
+export function createLanguoidLinkSuggestionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    languoid,
+    profile
+  }: {
+    languoid: { id: AnySQLiteColumn };
+    profile: typeof profile_synced | typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<
+      'languoid_link_suggestion',
+      TColumnsMap,
+      'sqlite'
+    >
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'languoid_link_suggestion',
+    {
+      ...getTableColumns(source),
+      // The user-created languoid that needs linking
+      languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      // The suggested existing languoid to link to
+      suggested_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      // The user who created the custom languoid (receives the notification)
+      profile_id: text()
+        .notNull()
+        .references(() => profile.id),
+      // Match quality: 1=exact, 2=starts-with, 3=contains
+      match_rank: int().notNull().default(3),
+      // What the match was based on: name, alias, or iso_code
+      matched_on: text({ enum: matchedOnOptions }),
+      // The actual value that matched
+      matched_value: text(),
+      status: text({ enum: statusOptions }).notNull().default('pending'),
+      ...extraColumns
+    },
+    (table) => [
+      index('languoid_link_suggestion_user_languoid_idx').on(table.languoid_id),
+      index('languoid_link_suggestion_creator_idx').on(table.profile_id),
+      index('languoid_link_suggestion_status_idx').on(table.status),
       ...normalizeParams(extraConfig, table)
     ]
   );

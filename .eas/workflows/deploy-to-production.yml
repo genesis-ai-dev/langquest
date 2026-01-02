@@ -68,6 +68,7 @@ jobs:
     environment: production
     params:
       build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
   submit_ios_build:
     name: Submit iOS Build
     needs: [build_ios]
@@ -75,6 +76,7 @@ jobs:
     environment: production
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
   publish_android_update:
     name: Publish Android update
     needs: [get_android_build]

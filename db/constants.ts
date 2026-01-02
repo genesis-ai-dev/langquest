@@ -12,8 +12,8 @@ export const statusOptions = [
   'pending',
   'accepted',
   'declined',
-  'withdrawn'
-  // 'expired'
+  'withdrawn',
+  'expired'
 ] as const;
 
 export const templateOptions = ['unstructured', 'bible'] as const;
@@ -24,3 +24,5 @@ export const sourceOptions = ['local', 'synced', 'cloud'] as const;
 export const membershipOptions = ['owner', 'member'] as const;
 
 export const contentTypeOptions = ['source', 'translation', 'transcription'] as const;
+
+export const matchedOnOptions = ['name', 'alias', 'iso_code'] as const;
