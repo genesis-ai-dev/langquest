@@ -34,13 +34,15 @@ jobs:
     environment: preview
     params:
       fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: preview
   get_ios_build:
     name: Check for existing ios build
     needs: [fingerprint]
     type: get-build
     environment: preview
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }
+      profile: preview
   build_android:
     name: Build Android
     needs: [get_android_build]
@@ -49,6 +51,7 @@ jobs:
     environment: preview
     params:
       platform: android
+      profile: preview
   build_ios:
     name: Build iOS
     needs: [get_ios_build]
@@ -57,6 +60,7 @@ jobs:
     environment: preview
     params:
       platform: ios
+      profile: preview
   # submit_android_build:
   #   name: Submit Android Build
   #   needs: [build_android]
@@ -71,6 +75,7 @@ jobs:
     environment: preview
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: preview
   publish_android_update:
     name: Publish Android update
     needs: [get_android_build]
