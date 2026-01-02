@@ -357,6 +357,7 @@ export default function NextGenNewTranslationModal({
           .values({
             source_asset_id: assetId,
             source_language_id: translationLanguageId,
+            content_type: 'translation',
             project_id: currentProjectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]

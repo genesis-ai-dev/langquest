@@ -335,6 +335,7 @@ export default function NextGenTranslationModal({
               name: asset.name,
               source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
               source_asset_id: originalSourceAssetId, // Point to the original asset being translated
+              content_type: 'translation',
               creator_id: currentUser.id,
               project_id: project.id,
               download_profiles: [currentUser.id]
@@ -596,19 +597,13 @@ export default function NextGenTranslationModal({
                       </Text>
                     )}
 
-                    {/* Audio Player */}
+                    {/* Audio Player - no transcription for translation audio */}
                     {audioSegments.length > 0 && !isEditing && (
                       <View>
                         <AudioPlayer
                           audioSegments={audioSegments}
                           useCarousel={false}
                           mini={false}
-                          onTranscribe={
-                            isAuthenticated && allowEditing
-                              ? handleTranscribe
-                              : undefined
-                          }
-                          isTranscribing={isTranscribing}
                         />
                       </View>
                     )}

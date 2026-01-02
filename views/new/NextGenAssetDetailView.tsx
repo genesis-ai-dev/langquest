@@ -49,6 +49,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
+import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -183,6 +184,8 @@ export default function NextGenAssetDetailView() {
   );
   const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
     useTranscription();
+  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
+  const [transcriptionText, setTranscriptionText] = useState('');
 
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -567,9 +570,13 @@ export default function NextGenAssetDetailView() {
     try {
       const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
       if (result.text) {
+        // Open modal with transcription result for editing
+        setTranscriptionText(result.text);
+        setShowTranscriptionModal(true);
+      } else {
         RNAlert.alert(
-          t('transcriptionComplete') || 'Transcription Complete',
-          result.text
+          t('error'),
+          'Transcription returned no text'
         );
       }
     } catch (error) {
@@ -952,6 +959,23 @@ export default function NextGenAssetDetailView() {
               goBack();
             }
           }}
+        />
+      )}
+
+      {/* Transcription Edit Modal */}
+      {isAuthenticated && currentProjectId && (
+        <TranscriptionEditModal
+          visible={showTranscriptionModal}
+          onClose={() => setShowTranscriptionModal(false)}
+          onSuccess={() => setTranslationsRefreshKey((prev) => prev + 1)}
+          initialText={transcriptionText}
+          sourceAssetId={activeAsset.id}
+          projectId={currentProjectId}
+          languoidId={
+            activeAsset.content?.[currentContentIndex]?.languoid_id ||
+            activeAsset.content?.[currentContentIndex]?.source_language_id ||
+            ''
+          }
         />
       )}
     </View>

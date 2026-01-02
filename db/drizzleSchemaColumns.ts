@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import uuid from 'react-native-uuid';
 import {
+  contentTypeOptions,
   membershipOptions,
   reasonOptions,
   sourceOptions,
@@ -354,6 +355,7 @@ export function createAssetTable<
       source_language_id: text(), // FK to language dropped - migrating to languoid
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
+      content_type: text({ enum: contentTypeOptions }).default('source'),
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       ...extraColumns
