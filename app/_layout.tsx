@@ -13,6 +13,7 @@ import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useExpoDb } from '@/hooks/useExpoDb';
 import {
   NotoSans_400Regular,
   NotoSans_500Medium,
@@ -69,6 +70,9 @@ export default function RootLayout() {
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
+
+  // Initialize dev tools plugin for database MCP access
+  useExpoDb();
 
   // Load Noto Sans fonts
   const [fontsLoaded] = useFonts({

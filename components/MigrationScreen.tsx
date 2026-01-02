@@ -69,7 +69,7 @@ export function MigrationScreen() {
         console.log('[MigrationScreen] Reloading app...');
 
         // On web, reload the page
-        if (typeof window !== 'undefined' && window.location) {
+        if (typeof window !== 'undefined') {
           window.location.reload();
         } else {
           // On native, we need to reset the system state and reinitialize
@@ -235,7 +235,7 @@ export function MigrationScreenMinimal() {
         setStatus('Migration complete! Restarting...');
 
         setTimeout(() => {
-          if (typeof window !== 'undefined' && window.location) {
+          if (typeof window !== 'undefined') {
             window.location.reload();
           } else {
             system.resetForMigration();

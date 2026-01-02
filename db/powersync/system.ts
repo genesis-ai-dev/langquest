@@ -536,7 +536,7 @@ export class System {
             const result = await rawDb.execute(sql, params);
             // Convert DBAdapter result format to array
             if (result.rows && '_array' in result.rows) {
-              return result.rows._array;
+              return result.rows._array as unknown[];
             }
             return Array.isArray(result.rows) ? result.rows : [];
           },

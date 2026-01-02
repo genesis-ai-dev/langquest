@@ -45,3 +45,4 @@ langquest types.xlsx
 llm_supp_files
 /docs
 /.venv
+migration-databases/
