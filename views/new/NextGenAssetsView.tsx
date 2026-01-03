@@ -66,6 +66,8 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { getMaxVersesInChapter } from '@/constants/bibleStructure';
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -80,7 +82,10 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
+import type { MilestoneValue } from './MilestoneMarker';
+import { MilestoneMarker } from './MilestoneMarker';
 import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
+import { VerseRangeDialog } from './VerseRangeDialog';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -117,13 +122,18 @@ export default function NextGenAssetsView() {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
+
+  // Milestone state for verse markers between assets
+  const [milestones, setMilestones] = React.useState<
+    Map<number, MilestoneValue>
+  >(() => new Map());
+  const [verseDialogOpen, setVerseDialogOpen] = React.useState(false);
+  const [verseDialogPosition, setVerseDialogPosition] =
+    React.useState<number>(0);
   const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
   const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
-  const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
-    new Set()
-  );
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -182,6 +192,114 @@ export default function NextGenAssetsView() {
           : undefined;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
+
+  // Parse Bible metadata from quest to get available verses for milestones
+  const bibleChapterInfo = React.useMemo(() => {
+    if (!selectedQuest?.metadata) return null;
+
+    try {
+      const metadata =
+        typeof selectedQuest.metadata === 'string'
+          ? (JSON.parse(selectedQuest.metadata) as QuestMetadata)
+          : selectedQuest.metadata;
+
+      if (!metadata.bible?.book || metadata.bible.chapter === undefined) {
+        return null;
+      }
+
+      const totalVerses = getMaxVersesInChapter(
+        metadata.bible.book,
+        metadata.bible.chapter
+      );
+
+      return {
+        bookId: metadata.bible.book,
+        chapter: metadata.bible.chapter,
+        totalVerses
+      };
+    } catch {
+      return null;
+    }
+  }, [selectedQuest?.metadata]);
+
+  // Calculate the starting verse for a position based on previous milestones
+  const getStartingVerseForPosition = React.useCallback(
+    (
+      positionIndex: number,
+      milestonesMap: Map<number, MilestoneValue>
+    ): number => {
+      if (positionIndex === 0) return 1;
+
+      // Find the last milestone before this position
+      let lastEndVerse = 0;
+      for (let i = positionIndex - 1; i >= 0; i--) {
+        const milestone = milestonesMap.get(i);
+        if (milestone !== null && milestone !== undefined) {
+          if (typeof milestone === 'number') {
+            lastEndVerse = milestone;
+          } else {
+            // Range: [start, end]
+            lastEndVerse = milestone[1];
+          }
+          break;
+        }
+      }
+
+      return lastEndVerse + 1;
+    },
+    []
+  );
+
+  // Cascade all subsequent milestones after a change at positionIndex
+  const cascadeSubsequentMilestones = React.useCallback(
+    (
+      milestonesMap: Map<number, MilestoneValue>,
+      startPosition: number,
+      maxPosition: number,
+      totalVerses: number
+    ): Map<number, MilestoneValue> => {
+      const result = new Map(milestonesMap);
+
+      // Recalculate all subsequent milestones
+      for (let i = startPosition + 1; i <= maxPosition; i++) {
+        const currentValue = result.get(i);
+        if (currentValue !== null && currentValue !== undefined) {
+          const expectedStart = getStartingVerseForPosition(i, result);
+
+          if (typeof currentValue === 'number') {
+            // Single verse: adjust to expected start if different
+            if (currentValue !== expectedStart) {
+              if (expectedStart <= totalVerses) {
+                result.set(i, expectedStart);
+              } else {
+                result.delete(i);
+              }
+            }
+          } else {
+            // Range: adjust start to expected, maintain range size
+            const [start, end] = currentValue;
+            const rangeSize = end - start;
+            if (start !== expectedStart) {
+              const newEnd = expectedStart + rangeSize;
+              if (newEnd <= totalVerses) {
+                result.set(i, [expectedStart, newEnd]);
+              } else {
+                // Range doesn't fit, convert to single verse or remove
+                if (expectedStart <= totalVerses) {
+                  result.set(i, expectedStart);
+                } else {
+                  result.delete(i);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return result;
+    },
+    [getStartingVerseForPosition]
+  );
 
   // Query project data to get privacy status if not passed
   const { data: queriedProjectData } = useHybridData({
@@ -287,6 +405,111 @@ export default function NextGenAssetsView() {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
 
+  // Milestone handlers with cascading logic (defined after assets)
+  const handleMilestoneTap = React.useCallback(
+    (positionIndex: number) => {
+      if (!bibleChapterInfo) return;
+
+      setMilestones((prev) => {
+        const next = new Map(prev);
+        const currentValue = next.get(positionIndex);
+        const startingVerse = getStartingVerseForPosition(positionIndex, prev);
+
+        if (currentValue === null || currentValue === undefined) {
+          // Set to the calculated starting verse
+          next.set(positionIndex, startingVerse);
+        } else {
+          // Remove existing milestone - subsequent ones will cascade down
+          next.delete(positionIndex);
+        }
+
+        // Always cascade subsequent milestones after any change
+        return cascadeSubsequentMilestones(
+          next,
+          positionIndex,
+          assets.length,
+          bibleChapterInfo.totalVerses
+        );
+      });
+    },
+    [
+      bibleChapterInfo,
+      assets.length,
+      getStartingVerseForPosition,
+      cascadeSubsequentMilestones
+    ]
+  );
+
+  const handleMilestoneLongPress = React.useCallback(
+    (positionIndex: number) => {
+      setVerseDialogPosition(positionIndex);
+      setVerseDialogOpen(true);
+    },
+    []
+  );
+
+  const handleVerseDialogConfirm = React.useCallback(
+    (positionIndex: number, value: MilestoneValue) => {
+      if (!bibleChapterInfo) return;
+
+      setMilestones((prev) => {
+        const next = new Map(prev);
+        const startingVerse = getStartingVerseForPosition(positionIndex, prev);
+
+        if (value === null) {
+          // Remove milestone
+          next.delete(positionIndex);
+        } else {
+          // Validate that the value starts at or after the expected starting verse
+          let validatedValue: MilestoneValue = value;
+          if (typeof value === 'number') {
+            if (value < startingVerse) {
+              validatedValue = startingVerse;
+            } else if (value > bibleChapterInfo.totalVerses) {
+              validatedValue = null;
+            }
+          } else {
+            // Range: [start, end]
+            const [start, end] = value;
+            if (start < startingVerse) {
+              const adjustedEnd = end + (startingVerse - start);
+              if (adjustedEnd <= bibleChapterInfo.totalVerses) {
+                validatedValue = [startingVerse, adjustedEnd];
+              } else {
+                validatedValue =
+                  startingVerse <= bibleChapterInfo.totalVerses
+                    ? startingVerse
+                    : null;
+              }
+            } else if (end > bibleChapterInfo.totalVerses) {
+              validatedValue = null;
+            }
+          }
+
+          if (validatedValue === null) {
+            next.delete(positionIndex);
+          } else {
+            next.set(positionIndex, validatedValue);
+          }
+        }
+
+        // Always cascade subsequent milestones after any change
+        return cascadeSubsequentMilestones(
+          next,
+          positionIndex,
+          assets.length,
+          bibleChapterInfo.totalVerses
+        );
+      });
+    },
+    [
+      bibleChapterInfo,
+      assets.length,
+      getStartingVerseForPosition,
+      cascadeSubsequentMilestones
+    ]
+  );
+
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
     useAttachmentStates(assetIds);
 
@@ -312,7 +535,13 @@ export default function NextGenAssetsView() {
   }, [safeAttachmentStates]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => {
+    ({
+      item,
+      index
+    }: {
+      item: AssetQuestLink & { source?: HybridDataSource };
+      index: number;
+    }) => {
       const isPlaying =
         audioContext.isPlaying &&
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
@@ -323,14 +552,33 @@ export default function NextGenAssetsView() {
         console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
       }
 
+      // Milestones are enabled when we have Bible chapter info
+      const milestonesEnabled = !!bibleChapterInfo;
+
+      // Get the milestone value for this position
+      const milestoneValue = milestones.get(index);
+
       return (
-        <AssetListItem
-          key={item.id}
-          asset={item}
-          attachmentState={safeAttachmentStates.get(item.id)}
-          questId={currentQuestId || ''}
-          isCurrentlyPlaying={isPlaying}
-        />
+        <View className="flex-row items-stretch gap-2">
+          {/* Milestone marker on the left side */}
+          <MilestoneMarker
+            positionIndex={index}
+            value={milestoneValue ?? null}
+            onTap={handleMilestoneTap}
+            onLongPress={handleMilestoneLongPress}
+            enabled={milestonesEnabled}
+          />
+          {/* Asset card on the right side */}
+          <View className="flex-1">
+            <AssetListItem
+              key={item.id}
+              asset={item}
+              attachmentState={safeAttachmentStates.get(item.id)}
+              questId={currentQuestId || ''}
+              isCurrentlyPlaying={isPlaying}
+            />
+          </View>
+        </View>
       );
     },
     // Use stable memo key instead of Map reference to prevent hook dependency issues
@@ -340,7 +588,11 @@ export default function NextGenAssetsView() {
       safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
-      currentlyPlayingAssetId
+      currentlyPlayingAssetId,
+      bibleChapterInfo,
+      milestones,
+      handleMilestoneTap,
+      handleMilestoneLongPress
     ]
   );
 
@@ -991,44 +1243,6 @@ export default function NextGenAssetsView() {
     }
   };
 
-  // Cleanup effect: Clear all refs and stop audio when component unmounts
-  // This prevents memory leaks when navigating away from the assets view
-  React.useEffect(() => {
-    // Capture refs in variables to avoid stale closure warnings
-    const assetUriMap = assetUriMapRef.current;
-    const assetOrder = assetOrderRef.current;
-    const uriOrder = uriOrderRef.current;
-    const segmentDurations = segmentDurationsRef.current;
-    const timeoutIds = timeoutIdsRef.current;
-    // Store reference to audioContext methods - access current value in cleanup
-    const audioContextRef = audioContext;
-
-    return () => {
-      // Stop audio playback if playing (check current state, not captured state)
-      if (audioContextRef.isPlaying) {
-        void audioContextRef.stopCurrentSound();
-      }
-
-      // Clear all refs to free memory
-      assetUriMap.clear();
-      assetOrder.length = 0;
-      uriOrder.length = 0;
-      segmentDurations.length = 0;
-
-      // Clear all pending timeouts
-      timeoutIds.forEach((id) => clearTimeout(id));
-      timeoutIds.clear();
-
-      // Reset state
-      setCurrentlyPlayingAssetId(null);
-
-      console.log('🧹 Cleaned up NextGenAssetsView on unmount');
-    };
-    // Empty dependency array - this effect should only run on mount/unmount
-    // We access audioContext directly in cleanup to get the latest state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   if (!currentQuestId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -1077,11 +1291,9 @@ export default function NextGenAssetsView() {
               void refetch();
               console.log('🔄 Assets queries invalidated');
               // Stop animation after a brief delay
-              const timeoutId = setTimeout(() => {
-                timeoutIdsRef.current.delete(timeoutId);
+              setTimeout(() => {
                 setIsRefreshing(false);
               }, 500);
-              timeoutIdsRef.current.add(timeoutId);
             }}
           >
             <Animated.View style={spinStyle}>
@@ -1242,7 +1454,7 @@ export default function NextGenAssetsView() {
           ) : undefined
         }
         suffixStyling={false}
-        hitSlop={12}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       />
 
       {SHOW_DEV_ELEMENTS && (
@@ -1275,8 +1487,8 @@ export default function NextGenAssetsView() {
         <LegendList
           data={assets}
           keyExtractor={(item) => item.id}
-          extraData={currentlyPlayingAssetId}
-          renderItem={({ item }) => renderItem({ item })}
+          extraData={[currentlyPlayingAssetId, milestones]}
+          renderItem={({ item, index }) => renderItem({ item, index })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           estimatedItemSize={120}
@@ -1361,7 +1573,7 @@ export default function NextGenAssetsView() {
           bottom: insets.bottom + 24,
           right: 24
         }}
-        className="absolute z-[100]"
+        className="absolute z-50"
       >
         <SpeedDial>
           <SpeedDialItems>
@@ -1460,6 +1672,18 @@ export default function NextGenAssetsView() {
           modal={true}
           isVisible={showPrivateAccessModal}
           onClose={() => setShowPrivateAccessModal(false)}
+        />
+      )}
+
+      {/* Verse Range Dialog for milestone selection */}
+      {bibleChapterInfo && (
+        <VerseRangeDialog
+          isOpen={verseDialogOpen}
+          onOpenChange={setVerseDialogOpen}
+          totalVerses={bibleChapterInfo.totalVerses}
+          currentValue={milestones.get(verseDialogPosition) ?? null}
+          positionIndex={verseDialogPosition}
+          onConfirm={handleVerseDialogConfirm}
         />
       )}
     </View>
