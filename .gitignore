@@ -45,4 +45,14 @@ langquest types.xlsx
 llm_supp_files
 /docs
 /.venv
-migration-databases/
+
+# include all version db files (1.0.db, 2.0.db, etc.)
+!migration-databases/*.db
+# dont commit test cases db files
+migration-databases/*-test-cases.db
+# exclude all scripts
+migration-databases/*.sh
+# commit these scripts only
+!migration-databases/consolidate-db.sh
+!migration-databases/replace-ios-sim-db.sh
+!migration-databases/restart-ios-sim-app.sh
