@@ -105,9 +105,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     cumulativePositionSharedRef.current.value = 0;
 
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+      try {
+        // Check if sound is still valid before attempting to stop
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded) {
+          await soundRef.current.stopAsync();
+        }
+        await soundRef.current.unloadAsync();
+      } catch (error) {
+        // Sound may have been unloaded already or doesn't exist
+        console.warn(
+          '⚠️ Error stopping sound (may already be stopped):',
+          error
+        );
+      } finally {
+        soundRef.current = null;
+      }
     }
 
     // Always reset state, even if soundRef.current is null
@@ -166,18 +179,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (soundRef.current) {
       clearPositionInterval();
 
-      // Store the duration of the previous segment if part of a sequence
-      if (isSequencePart && currentSequenceIndex.current > 0) {
-        const prevStatus = await soundRef.current.getStatusAsync();
-        if (prevStatus.isLoaded) {
-          segmentDurations.current[currentSequenceIndex.current - 1] =
-            prevStatus.durationMillis ?? 0;
+      try {
+        // Store the duration of the previous segment if part of a sequence
+        if (isSequencePart && currentSequenceIndex.current > 0) {
+          const prevStatus = await soundRef.current.getStatusAsync();
+          if (prevStatus.isLoaded) {
+            segmentDurations.current[currentSequenceIndex.current - 1] =
+              prevStatus.durationMillis ?? 0;
+          }
         }
-      }
 
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+        // Check if sound is still valid before attempting to stop
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded) {
+          await soundRef.current.stopAsync();
+        }
+        await soundRef.current.unloadAsync();
+      } catch (error) {
+        // Sound may have been unloaded already or doesn't exist
+        console.warn(
+          '⚠️ Error stopping previous sound (may already be stopped):',
+          error
+        );
+      } finally {
+        soundRef.current = null;
+      }
     }
 
     // Set up audio mode
@@ -193,6 +219,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         { uri },
         { shouldPlay: true }
       );
+
+      // Verify sound was created successfully
+      if (!sound) {
+        throw new Error('Failed to create sound player');
+      }
 
       soundRef.current = sound;
       setIsPlaying(true);
@@ -216,6 +247,19 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         );
         setDuration(totalDuration);
         durationSharedRef.current.value = totalDuration; // Update SharedValue
+      } else {
+        // Sound failed to load - log error and cleanup
+        console.error(
+          '❌ Sound failed to load:',
+          status.error || 'Unknown error'
+        );
+        await sound.unloadAsync();
+        soundRef.current = null;
+        setIsPlaying(false);
+        setCurrentAudioId(null);
+        throw new Error(
+          `Sound failed to load: ${status.error || 'Unknown error'}`
+        );
       }
 
       // Start tracking position
@@ -246,9 +290,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }
         }
       });
-    } catch {
+    } catch (error) {
+      console.error('❌ Failed to play sound:', error);
+      console.error('  URI:', uri);
       setIsPlaying(false);
       setCurrentAudioId(null);
+      // Ensure soundRef is cleared on error
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+        } catch (unloadError) {
+          console.error('❌ Failed to unload sound on error:', unloadError);
+        }
+        soundRef.current = null;
+      }
+      throw error; // Re-throw to allow caller to handle
     }
   };
 

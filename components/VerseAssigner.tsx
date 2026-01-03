@@ -172,9 +172,9 @@ export function VerseAssigner({
       {/* Existing labels section */}
       {existingLabels.length > 0 && (
         <View className="mb-4">
-          {/* <Text className="mb-2 text-sm font-medium text-muted-foreground">
-            Existing Labels
-          </Text> */}
+          <Text className="mb-2 text-sm font-medium text-muted-foreground">
+            Current Verse Labels
+          </Text>
           <ScrollViewComponent
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -214,46 +214,51 @@ export function VerseAssigner({
       )}
 
       {/* Number scroll */}
-      <ScrollViewComponent
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mb-4"
-        contentContainerClassName="gap-2 px-1"
-      >
-        {allNumbers.map((num) => {
-          const isSelectedFrom = num === selectedFrom;
-          const isSelectedTo = num === selectedTo;
-          const isSelected = isSelectedFrom || isSelectedTo;
-          const selectable = isNumberSelectable(num);
+      <View className="mb-2">
+        <Text className="mb-2 text-sm font-medium text-muted-foreground">
+          New Verse Label
+        </Text>
+        <ScrollViewComponent
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-4"
+          contentContainerClassName="gap-2 px-1"
+        >
+          {allNumbers.map((num) => {
+            const isSelectedFrom = num === selectedFrom;
+            const isSelectedTo = num === selectedTo;
+            const isSelected = isSelectedFrom || isSelectedTo;
+            const selectable = isNumberSelectable(num);
 
-          return (
-            <Pressable
-              key={num}
-              onPress={() => handleNumberPress(num)}
-              disabled={!selectable}
-              className={`h-10 w-10 items-center justify-center rounded-full ${
-                isSelected
-                  ? 'bg-primary'
-                  : selectable
-                    ? 'border border-primary/30 bg-primary/5'
-                    : 'bg-muted/30'
-              } ${selectable ? 'active:scale-95' : ''}`}
-            >
-              <Text
-                className={`text-sm font-medium ${
+            return (
+              <Pressable
+                key={num}
+                onPress={() => handleNumberPress(num)}
+                disabled={!selectable}
+                className={`h-10 w-10 items-center justify-center rounded-full ${
                   isSelected
-                    ? 'text-primary-foreground'
+                    ? 'bg-primary'
                     : selectable
-                      ? 'text-primary'
-                      : 'text-muted-foreground/40'
-                }`}
+                      ? 'border border-primary/30 bg-primary/5'
+                      : 'bg-muted/30'
+                } ${selectable ? 'active:scale-95' : ''}`}
               >
-                {num}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollViewComponent>
+                <Text
+                  className={`text-sm font-medium ${
+                    isSelected
+                      ? 'text-primary-foreground'
+                      : selectable
+                        ? 'text-primary'
+                        : 'text-muted-foreground/40'
+                  }`}
+                >
+                  {num}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollViewComponent>
+      </View>
 
       {/* Selected inputs */}
       <View className="mb-4 flex-row items-center justify-center gap-3">

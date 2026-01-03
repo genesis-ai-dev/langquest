@@ -24,7 +24,12 @@ import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
+import {
+  CheckCircleIcon,
+  CircleIcon,
+  PauseIcon,
+  PlayIcon
+} from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -39,6 +44,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+
 interface AssetCardProps {
   asset: Pick<Asset, 'id' | 'name'> & {
     source: HybridDataSource | 'optimistic';
@@ -48,6 +56,7 @@ interface AssetCardProps {
   };
   index: number;
   isSelected: boolean;
+  isFocused?: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
   // progress removed - now calculated from SharedValues for 0 re-renders!
@@ -67,6 +76,7 @@ interface AssetCardProps {
   canMergeDown?: boolean;
   showVerseLabel?: boolean; // Whether to show the verse label on the card
   bookChapterLabel?: string; // Book name and chapter (e.g., "Gen 1") for Bible verse format
+  dragHandle?: React.ReactNode; // Drag handle component for Sortable
 }
 
 // Format duration in milliseconds to MM:SS
@@ -98,6 +108,7 @@ function AssetCardInternal({
   asset,
   index,
   isSelected,
+  isFocused = false,
   isSelectionMode,
   isPlaying,
   duration,
@@ -108,9 +119,28 @@ function AssetCardInternal({
   onPlay,
   onRename,
   showVerseLabel = true,
-  bookChapterLabel
+  bookChapterLabel,
+  dragHandle
 }: AssetCardProps) {
   const audioContext = useAudio();
+
+  // Animation for border highlight when clicked (focused, selected or playing)
+  const isActive = isFocused || isSelected || isPlaying;
+  const borderWidth = useSharedValue(isActive ? 2.5 : 1);
+
+  React.useEffect(() => {
+    borderWidth.value = withTiming(isActive ? 2.5 : 1, {
+      duration: 200,
+      easing: Easing.out(Easing.ease)
+    });
+  }, [isActive, borderWidth]);
+
+  const animatedCardStyle = useAnimatedStyle(() => {
+    return {
+      borderWidth: borderWidth.value,
+      zIndex: isActive ? 10 : 1
+    };
+  });
 
   // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
   const isLocal = asset.source === 'local';
@@ -131,6 +161,16 @@ function AssetCardInternal({
   // NEW: Calculate progress from SharedValues (no re-renders!)
   // This runs entirely on the UI thread at 60fps
   // If customProgress is provided (for play-all mode), use that instead
+  // Store SharedValues in refs for worklet access (prevents serialization warnings)
+  const positionSharedRef = React.useRef(audioContext.positionShared);
+  const durationSharedRef = React.useRef(audioContext.durationShared);
+
+  // Keep refs updated
+  React.useEffect(() => {
+    positionSharedRef.current = audioContext.positionShared;
+    durationSharedRef.current = audioContext.durationShared;
+  }, [audioContext.positionShared, audioContext.durationShared]);
+
   const animatedProgress = useDerivedValue(() => {
     'worklet';
     if (!isPlaying) return 0;
@@ -141,8 +181,8 @@ function AssetCardInternal({
     }
 
     // Otherwise, use global progress calculation
-    const pos = audioContext.positionShared.value;
-    const dur = audioContext.durationShared.value;
+    const pos = positionSharedRef.current.value;
+    const dur = durationSharedRef.current.value;
 
     if (dur <= 0) return 0;
 
@@ -214,14 +254,10 @@ function AssetCardInternal({
     };
   });
 
-  // Handle card press: play/pause in normal mode, toggle selection in selection mode
+  // Handle card press: always handle selection/press logic from parent
   const handleCardPress = React.useCallback(() => {
-    if (isSelectionMode) {
-      onPress(); // Toggle selection
-    } else {
-      onPlay(asset.id); // Play/pause audio
-    }
-  }, [isSelectionMode, onPress, onPlay, asset.id]);
+    onPress();
+  }, [onPress]);
 
   const { t } = useLocalization();
 
@@ -296,11 +332,14 @@ function AssetCardInternal({
         </View>
       )}
 
-      <TouchableOpacity
+      <AnimatedTouchableOpacity
         className={cn(
           'relative overflow-hidden rounded-lg border p-3',
-          isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
+          isFocused || isSelected || isPlaying
+            ? 'border-primary bg-primary/10'
+            : 'border-border bg-card'
         )}
+        style={animatedCardStyle}
         onPress={handleCardPress}
         onLongPress={onLongPress}
         activeOpacity={0.7}
@@ -335,11 +374,52 @@ function AssetCardInternal({
           className="flex-row items-center justify-center gap-3"
           style={{ zIndex: 1 }}
         >
+          {/* Drag Handle or Selection Checkbox - positioned before the number */}
+          {/* Show dragHandle when NOT in selection mode, checkbox when IN selection mode */}
+          {/* Only show for local assets */}
+          {isLocal && (
+            <>
+              {isSelectionMode ? (
+                <View className="pl-2" style={{ zIndex: 1 }}>
+                  <Icon
+                    as={isSelected ? CheckCircleIcon : CircleIcon}
+                    size={20}
+                    className={
+                      isSelected ? 'text-primary' : 'text-muted-foreground'
+                    }
+                  />
+                </View>
+              ) : (
+                dragHandle && <View className="mr-1">{dragHandle}</View>
+              )}
+            </>
+          )}
+
           <View className="min-w-[28px] items-center justify-center self-center rounded border border-border bg-muted px-2 py-0.5">
             <Text className="text-xs font-semibold text-muted-foreground">
               {index + 1}
             </Text>
           </View>
+
+          {/* Dedicated Play/Pause Button */}
+          {!isSelectionMode && (
+            <TouchableOpacity
+              onPress={() => onPlay(asset.id)}
+              className={cn(
+                'h-10 w-10 items-center justify-center rounded-full',
+                isPlaying ? 'bg-primary' : 'border border-border bg-muted'
+              )}
+            >
+              <Icon
+                as={isPlaying ? PauseIcon : PlayIcon}
+                size={18}
+                className={
+                  isPlaying ? 'text-primary-foreground' : 'text-foreground'
+                }
+              />
+            </TouchableOpacity>
+          )}
+
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
               {/* Label with rename functionality - prevents card play when tapped */}
@@ -381,21 +461,8 @@ function AssetCardInternal({
               {formatDuration(duration)}
             </Text>
           )}
-
-          {/* Selection checkbox - only show for local assets in selection mode */}
-          {isSelectionMode && isLocal && (
-            <View className="pl-2" style={{ zIndex: 1 }}>
-              <Icon
-                as={isSelected ? CheckCircleIcon : CircleIcon}
-                size={20}
-                className={
-                  isSelected ? 'text-primary' : 'text-muted-foreground'
-                }
-              />
-            </View>
-          )}
         </View>
-      </TouchableOpacity>
+      </AnimatedTouchableOpacity>
     </View>
   );
 }
@@ -416,6 +483,7 @@ export const LabeledAssetCard = React.memo(AssetCardInternal, (prev, next) => {
     prev.asset.metadata === next.asset.metadata &&
     prev.index === next.index &&
     prev.isSelected === next.isSelected &&
+    prev.isFocused === next.isFocused &&
     prev.isSelectionMode === next.isSelectionMode &&
     prev.isPlaying === next.isPlaying &&
     // prev.progress removed - uses SharedValues now!

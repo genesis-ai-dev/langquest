@@ -1,5 +1,3 @@
-import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
-import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { Button } from '@/components/ui/button';
@@ -39,7 +37,6 @@ import {
   saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
@@ -67,8 +64,6 @@ import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
-// Feature flag: true = use ArrayInsertionWheel, false = use LegendList
-const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -87,6 +82,22 @@ interface UIAsset {
   duration?: number; // Total duration in milliseconds
   metadata?: string | { verse?: { from: number; to: number } } | null;
 }
+
+// List item types for Sortable rendering
+interface ListItemAsset {
+  type: 'asset';
+  content: UIAsset;
+  key: string;
+}
+
+interface ListItemSeparator {
+  type: 'separator';
+  from?: number;
+  to?: number;
+  key: string;
+}
+
+type ListItem = ListItemAsset | ListItemSeparator;
 
 interface RecordingViewSimplifiedProps {
   onBack: () => void;
@@ -217,9 +228,8 @@ const RecordingViewSimplified = ({
     progressPool9
   ]).current;
 
-  // Insertion wheel state
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
+  // Scroll ref (no longer needed for Sortable, but keeping for potential future use)
+  // const scrollableRef = useAnimatedRef<ScrollView>();
 
   // Sort order state: 'original' = by recording order, 'verse' = by verse metadata
   const [sortOrder, setSortOrder] = React.useState<'original' | 'verse'>(
@@ -228,7 +238,6 @@ const RecordingViewSimplified = ({
 
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
-  const ROW_HEIGHT = 80;
 
   // Selection mode for batch operations (merge, delete)
   const {
@@ -241,6 +250,7 @@ const RecordingViewSimplified = ({
 
   // Rename modal state
   const [showRenameModal, setShowRenameModal] = React.useState(false);
+  const [activeAssetId, setActiveAssetId] = React.useState<string | null>(null);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
 
@@ -632,65 +642,10 @@ const RecordingViewSimplified = ({
     []
   );
 
-  // Calculate total number of elements in the wheel (including separators)
-  // This needs to match the logic in wheelChildren to ensure correct clamping
-  const totalWheelItems = React.useMemo(() => {
-    let separatorCount = 0;
-
-    if (sortOrder === 'verse') {
-      assetsForLegendList.forEach((item, index) => {
-        const currentVerse = getVerseFromMetadata(item.metadata);
-        const prevItem = index > 0 ? assetsForLegendList[index - 1] : null;
-        const prevVerse = prevItem
-          ? getVerseFromMetadata(prevItem.metadata)
-          : null;
-
-        // Check if this is the start of a new verse group
-        if (index === 0) {
-          separatorCount++;
-        } else if (!currentVerse && prevVerse) {
-          separatorCount++;
-        } else if (currentVerse && !prevVerse) {
-          separatorCount++;
-        } else if (currentVerse && prevVerse) {
-          if (
-            currentVerse.from !== prevVerse.from ||
-            (currentVerse.to ?? currentVerse.from) !==
-              (prevVerse.to ?? prevVerse.from)
-          ) {
-            separatorCount++;
-          }
-        }
-      });
-    }
-
-    // Total = assets + separators
-    return assetsForLegendList.length + separatorCount;
-  }, [assetsForLegendList, sortOrder, getVerseFromMetadata]);
-
-  // Clamp insertion index when wheel items count changes
-  // Note: insertionIndex represents insertion boundaries, so maxIndex = totalWheelItems
-  // (can insert at 0..N boundaries, where N is the number of items)
-  React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (USE_INSERTION_WHEEL) {
-      const maxIndex = totalWheelItems; // Can insert at 0..N (after last item)
-      if (insertionIndex > maxIndex) {
-        debugLog(
-          `📍 Clamping insertion index from ${insertionIndex} to ${maxIndex} (total wheel items: ${totalWheelItems})`
-        );
-        setInsertionIndex(maxIndex);
-      }
-    }
-  }, [totalWheelItems, insertionIndex]);
-
-  // Ref for LegendList to enable scrolling
-  const listRef = React.useRef<LegendListRef>(null);
-
   // Track asset count to detect new insertions
   const previousAssetCountRef = React.useRef(assets.length);
 
-  // Auto-scroll behavior differs between list and wheel
+  // Auto-scroll to end when new asset is added
   React.useEffect(() => {
     const currentCount = assets.length;
     const previousCount = previousAssetCountRef.current;
@@ -700,26 +655,18 @@ const RecordingViewSimplified = ({
       debugLog('📜 Auto-scrolling to new asset');
 
       // Small delay to ensure the new item is rendered before scrolling
-      setTimeout(() => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (USE_INSERTION_WHEEL) {
-            // For wheel: scroll to the newly inserted item's position
-            // After insertion at index N, the new item is at position N
-            const newItemIndex = Math.min(insertionIndex, currentCount - 1);
-            wheelRef.current?.scrollToInsertionIndex(newItemIndex + 1, true);
-          } else {
-            // For list: scroll to end
-            listRef.current?.scrollToEnd({ animated: true });
-          }
-        } catch (error) {
-          console.error('Failed to scroll:', error);
-        }
-      }, 100);
+      // NOTE: LegendList doesn't expose scroll ref directly, so auto-scroll is disabled for now
+      // setTimeout(() => {
+      //   try {
+      //     scrollableRef.current?.scrollToEnd({ animated: true });
+      //   } catch (error) {
+      //     console.error('Failed to scroll:', error);
+      //   }
+      // }, 100);
     }
 
     previousAssetCountRef.current = currentCount;
-  }, [assets.length, insertionIndex]);
+  }, [assets.length]);
 
   // ============================================================================
   // AUDIO PLAYBACK
@@ -1025,19 +972,34 @@ const RecordingViewSimplified = ({
 
           if (uris.length === 0) {
             console.error('❌ No audio URIs found for asset:', assetId);
+            console.error(
+              '  This may happen if the audio was just recorded and is still being saved.'
+            );
+            console.error('  Please wait a moment and try again.');
             return;
           }
 
-          if (uris.length === 1 && uris[0]) {
-            debugLog('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            debugLog(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
+          // Validate URIs before attempting to play
+          const validUris = uris.filter((uri) => uri && uri.trim() !== '');
+          if (validUris.length === 0) {
+            console.error('❌ No valid audio URIs found for asset:', assetId);
+            return;
+          }
+
+          if (validUris.length === 1 && validUris[0]) {
+            debugLog('▶️ Playing single segment:', validUris[0].slice(0, 60));
+            await audioContext.playSound(validUris[0], assetId);
+          } else if (validUris.length > 1) {
+            debugLog(`▶️ Playing ${validUris.length} segments in sequence`);
+            await audioContext.playSoundSequence(validUris, assetId);
           }
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
+        if (error instanceof Error) {
+          console.error('  Error message:', error.message);
+          console.error('  Asset ID:', assetId);
+        }
       }
     },
     [audioContext, getAssetAudioUris]
@@ -1140,38 +1102,14 @@ const RecordingViewSimplified = ({
         }
       }
 
-      // Update currently playing asset ID and scroll to it
+      // Update currently playing asset ID
       if (newPlayingAssetId) {
         setCurrentlyPlayingAssetId((prev) => {
           if (newPlayingAssetId !== prev) {
             debugLog(
               `🎵 Highlighting asset ${newPlayingAssetId.slice(0, 8)} (was: ${prev?.slice(0, 8) ?? 'none'})`
             );
-
-            // Scroll to the currently playing asset (only if it changed)
-            if (
-              wheelRef.current &&
-              newPlayingAssetId !== lastScrolledAssetIdRef.current
-            ) {
-              // Find the index of the asset in the assets array
-              const assetIndex = assets.findIndex(
-                (a) => a.id === newPlayingAssetId
-              );
-              if (assetIndex >= 0) {
-                debugLog(
-                  `📜 Scrolling to asset at index ${assetIndex} (asset ${newPlayingAssetId.slice(0, 8)})`
-                );
-                // Scroll the item to the top of the wheel
-                // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
-                wheelRef.current.scrollItemToTop(assetIndex - 1, true);
-                lastScrolledAssetIdRef.current = newPlayingAssetId;
-              } else {
-                debugLog(
-                  `⚠️ Could not find asset ${newPlayingAssetId.slice(0, 8)} in assets array`
-                );
-              }
-            }
-
+            lastScrolledAssetIdRef.current = newPlayingAssetId;
             return newPlayingAssetId;
           }
           return prev;
@@ -1325,17 +1263,7 @@ const RecordingViewSimplified = ({
         if (assets.length > 0 && assets[0]) {
           const firstAssetId = assets[0].id;
           setCurrentlyPlayingAssetId(firstAssetId);
-          lastScrolledAssetIdRef.current = null; // Reset to allow immediate scroll
-
-          // Scroll to first asset immediately
-          if (wheelRef.current) {
-            debugLog(
-              `📜 Scrolling to first asset at index 0 (asset ${firstAssetId.slice(0, 8)})`
-            );
-            // scrollItemToTop adds 1 internally, so subtract 1 to get correct position (0 -> -1 -> 0)
-            wheelRef.current.scrollItemToTop(-1, true);
-            lastScrolledAssetIdRef.current = firstAssetId;
-          }
+          lastScrolledAssetIdRef.current = firstAssetId;
         }
 
         await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
@@ -1358,78 +1286,23 @@ const RecordingViewSimplified = ({
   // RECORDING HANDLERS
   // ============================================================================
 
-  // Store insertion index in ref to prevent stale closure issues
-  const insertionIndexRef = React.useRef(insertionIndex);
-  React.useEffect(() => {
-    insertionIndexRef.current = insertionIndex;
-  }, [insertionIndex]);
-
   // Initialize VAD counter when VAD mode activates
   React.useEffect(() => {
     if (isVADLocked && vadCounterRef.current === null) {
-      // CRITICAL: Use ref to get the LATEST insertionIndex value
-      // This prevents issues when fullscreen overlay blocks the wheel and causes
-      // insertionIndex state updates to be delayed or missed
-      const currentInsertionIndex = insertionIndexRef.current;
       const currentAssets = assets;
 
-      debugLog(
-        `🎯 VAD initializing | insertionIndex (ref): ${currentInsertionIndex} | insertionIndex (state): ${insertionIndex} | assets.length: ${currentAssets.length}`
-      );
+      debugLog(`🎯 VAD initializing | assets.length: ${currentAssets.length}`);
 
       void (async () => {
-        let targetOrder: number;
-
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (USE_INSERTION_WHEEL) {
-          // Respect insertion wheel position (same logic as manual recordings)
-          // insertionIndex is the boundary BEFORE an item
-          // When at bottom (insertionIndex === assets.length), append to end
-          // When in middle, insert after the currently viewed item
-
-          if (currentInsertionIndex >= currentAssets.length) {
-            // At or past the end - append
-            targetOrder =
-              currentAssets.length > 0
-                ? (currentAssets[currentAssets.length - 1]?.order_index ??
-                    currentAssets.length - 1) + 1
-                : 0;
-            debugLog(
-              `🎯 VAD: At bottom, appending with order_index: ${targetOrder}`
-            );
-          } else {
-            // In the middle - insert after current item
-            const actualInsertionIndex = currentInsertionIndex + 1;
-            if (actualInsertionIndex < currentAssets.length) {
-              targetOrder =
-                currentAssets[actualInsertionIndex]?.order_index ??
-                actualInsertionIndex;
-            } else {
-              targetOrder =
-                currentAssets.length > 0
-                  ? (currentAssets[currentAssets.length - 1]?.order_index ??
-                      currentAssets.length - 1) + 1
-                  : 0;
-            }
-            debugLog(
-              `🎯 VAD: In middle at visual index ${currentInsertionIndex}, inserting at order_index: ${targetOrder}`
-            );
-          }
-        } else {
-          // Legacy: append to end
-          targetOrder = await getNextOrderIndex(currentQuestId!);
-          debugLog(`🎯 VAD counter initialized to end: ${targetOrder}`);
-        }
-
+        // Append to end
+        const targetOrder = await getNextOrderIndex(currentQuestId!);
+        debugLog(`🎯 VAD counter initialized to end: ${targetOrder}`);
         vadCounterRef.current = targetOrder;
       })();
     } else if (!isVADLocked) {
       vadCounterRef.current = null;
     }
-    // IMPORTANT: Only depend on isVADLocked and currentQuestId
-    // insertionIndex is read from ref to avoid stale closure issues
-    // assets is captured from closure (intentional - we want the state at activation time)
-  }, [isVADLocked, currentQuestId, assets, insertionIndex]);
+  }, [isVADLocked, currentQuestId, assets]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
@@ -1437,32 +1310,11 @@ const RecordingViewSimplified = ({
     debugLog('🎬 Manual recording start');
     setIsRecording(true);
 
-    // Set order index for manual recording
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (USE_INSERTION_WHEEL) {
-      // IMPORTANT: insertionIndex is the boundary BEFORE an item
-      // When user sees item 0 centered, insertionIndex = 0 (before item 0)
-      // But they want to insert AFTER the item they're viewing
-      // So we use insertionIndex + 1 for the actual insertion position
-      const actualInsertionIndex = insertionIndex + 1;
-
-      const targetOrder =
-        actualInsertionIndex < assets.length
-          ? (assets[actualInsertionIndex]?.order_index ?? actualInsertionIndex)
-          : (assets[assets.length - 1]?.order_index ?? assets.length - 1) + 1;
-      currentRecordingOrderRef.current = targetOrder;
-      debugLog(
-        `🎯 Recording will insert AFTER item at visual index ${insertionIndex} (boundary ${actualInsertionIndex}) with order_index ${targetOrder}`
-      );
-    } else {
-      // Legacy: append to end
-      const targetOrder =
-        assets.length > 0
-          ? (assets[assets.length - 1]?.order_index ?? 0) + 1
-          : 0;
-      currentRecordingOrderRef.current = targetOrder;
-    }
-  }, [isRecording, assets, insertionIndex]);
+    // Set order index for manual recording - append to end
+    const targetOrder =
+      assets.length > 0 ? (assets[assets.length - 1]?.order_index ?? 0) + 1 : 0;
+    currentRecordingOrderRef.current = targetOrder;
+  }, [isRecording, assets]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -1474,75 +1326,14 @@ const RecordingViewSimplified = ({
     setIsRecording(false);
   }, []);
 
-  // Helper function to determine verse at insertion position when sorting by verse
-  const getVerseAtInsertionIndex =
+  // Helper function to determine verse for new recordings (uses last item's verse)
+  const getVerseForNewRecording =
     React.useCallback((): AssetMetadata | null => {
       if (sortOrder !== 'verse' || assetsForLegendList.length === 0) {
         return null;
       }
 
-      // insertionIndex represents the insertion point in the wheelChildren array
-      // We need to find which verse group this insertion point belongs to
-      let wheelPosition = 0;
-
-      for (let i = 0; i < assetsForLegendList.length; i++) {
-        const item = assetsForLegendList[i];
-        if (!item) continue;
-
-        // Check if we need a separator before this item
-        const currentVerse = getVerseFromMetadata(item.metadata);
-        const prevItem = i > 0 ? assetsForLegendList[i - 1] : null;
-        const prevVerse = prevItem
-          ? getVerseFromMetadata(prevItem.metadata)
-          : null;
-
-        let shouldShowVerseSeparator = false;
-        if (i === 0) {
-          shouldShowVerseSeparator = true;
-        } else if (!currentVerse && prevVerse) {
-          shouldShowVerseSeparator = true;
-        } else if (currentVerse && !prevVerse) {
-          shouldShowVerseSeparator = true;
-        } else if (currentVerse && prevVerse) {
-          shouldShowVerseSeparator =
-            currentVerse.from !== prevVerse.from ||
-            (currentVerse.to ?? currentVerse.from) !==
-              (prevVerse.to ?? prevVerse.from);
-        }
-
-        // If insertionIndex is at or before this separator, return the verse
-        if (shouldShowVerseSeparator) {
-          if (insertionIndex <= wheelPosition) {
-            if (currentVerse?.from !== undefined) {
-              return {
-                verse: {
-                  from: currentVerse.from,
-                  to: currentVerse.to ?? currentVerse.from
-                }
-              };
-            }
-            return null;
-          }
-          wheelPosition++; // Separator takes one position
-        }
-
-        // Check if insertionIndex is at or before this asset
-        if (insertionIndex <= wheelPosition) {
-          const verse = getVerseFromMetadata(item.metadata);
-          if (verse?.from !== undefined) {
-            return {
-              verse: {
-                from: verse.from,
-                to: verse.to ?? verse.from
-              }
-            };
-          }
-          return null;
-        }
-        wheelPosition++; // Asset takes one position
-      }
-
-      // If insertionIndex is after all items, use the verse of the last item
+      // New recordings are always added at the end, so use the verse of the last item
       const lastItem = assetsForLegendList[assetsForLegendList.length - 1];
       const verse = lastItem ? getVerseFromMetadata(lastItem.metadata) : null;
       if (verse?.from !== undefined) {
@@ -1555,7 +1346,7 @@ const RecordingViewSimplified = ({
       }
 
       return null;
-    }, [sortOrder, assetsForLegendList, insertionIndex, getVerseFromMetadata]);
+    }, [sortOrder, assetsForLegendList, getVerseFromMetadata]);
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
@@ -1645,7 +1436,7 @@ const RecordingViewSimplified = ({
         // If sorting by verse, automatically apply verse metadata to the new asset
         if (sortOrder === 'verse' && newAssetId) {
           try {
-            const verseMetadata = getVerseAtInsertionIndex();
+            const verseMetadata = getVerseForNewRecording();
             if (verseMetadata) {
               await updateAssetMetadata(newAssetId, verseMetadata);
               debugLog(
@@ -1683,7 +1474,7 @@ const RecordingViewSimplified = ({
       assets,
       targetLanguoidId,
       sortOrder,
-      getVerseAtInsertionIndex
+      getVerseForNewRecording
     ]
   );
 
@@ -2449,7 +2240,7 @@ const RecordingViewSimplified = ({
 
               if (existingMetadata && typeof existingMetadata === 'object') {
                 // Create new metadata object without the verse property
-                const { verse, ...rest } = existingMetadata as {
+                const { verse: _verse, ...rest } = existingMetadata as {
                   verse?: unknown;
                   [key: string]: unknown;
                 };
@@ -2554,59 +2345,128 @@ const RecordingViewSimplified = ({
     handleRenameAsset
   ]);
 
-  // Memoized render function for LegendList
-  // OPTIMIZED: No audioContext.position dependency - progress now uses SharedValues!
-  // This eliminates 10 re-renders/second during audio playback
-  const renderAssetItem = React.useCallback(
-    ({ item, index }: { item: UIAsset; index: number }) => {
+  // Build list items with separators for Sortable
+  const listItems = React.useMemo((): ListItem[] => {
+    const result: ListItem[] = [];
+    let currentFrom: number | undefined;
+    let currentTo: number | undefined;
+
+    for (const item of assetsForLegendList) {
+      // Check if we need to show VerseSeparator (when sorting by verse)
+      if (sortOrder === 'verse') {
+        const currentVerse = getVerseFromMetadata(item.metadata);
+        const from = currentVerse?.from;
+        const to = currentVerse?.to ?? from;
+
+        // If different from current group, add separator
+        if (from !== currentFrom || to !== currentTo) {
+          result.push({
+            type: 'separator',
+            from,
+            to,
+            key: `sep-${from ?? 'unassigned'}-${to ?? 'unassigned'}`
+          });
+          currentFrom = from;
+          currentTo = to;
+        }
+      }
+
+      result.push({
+        type: 'asset',
+        content: item,
+        key: item.id
+      });
+    }
+
+    return result;
+  }, [assetsForLegendList, sortOrder, getVerseFromMetadata]);
+
+  // Render function for LegendList items
+  const renderListItem = React.useCallback(
+    ({ item }: { item: ListItem }) => {
+      if (item.type === 'separator') {
+        return (
+          <VerseSeparator
+            from={item.from}
+            to={item.to}
+            label={bookChapterLabelRef.current}
+            largeText={true}
+          />
+        );
+      }
+
+      // Handle asset items
+      const asset = item.content;
+      const assetIndex = assetsForLegendList.findIndex(
+        (a) => a.id === asset.id
+      );
+
       // Check if this asset is playing individually OR if it's the currently playing asset during play-all
       const isThisAssetPlayingIndividually =
-        audioContext.isPlaying && audioContext.currentAudioId === item.id;
+        audioContext.isPlaying && audioContext.currentAudioId === asset.id;
       const isThisAssetPlayingInPlayAll =
         audioContext.isPlaying &&
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
+        currentlyPlayingAssetId === asset.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      const isSelected = selectedAssetIds.has(item.id);
-      const canMergeDown =
-        index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
-      // Duration from lazy-loaded metadata
-      const duration = item.duration;
+      const isSelected = selectedAssetIds.has(asset.id);
+      const canMergeDown =
+        assetIndex < assetsForLegendList.length - 1 &&
+        assetsForLegendList[assetIndex + 1]?.source !== 'cloud';
 
       // Get custom progress for play-all mode
       const customProgress =
         audioContext.isPlaying &&
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-          ? assetProgressSharedMapRef.current.get(item.id)
+          ? assetProgressSharedMapRef.current.get(asset.id)
           : undefined;
+
+      // Create drag handle for Sortable
+      // const dragHandle = (
+      //   <Sortable.Handle mode="draggable">
+      //     <Pressable
+      //       className="h-8 w-8 items-center justify-center"
+      //       style={({ pressed }: { pressed: boolean }) => ({
+      //         opacity: pressed ? 0.6 : 1
+      //       })}
+      //     >
+      //       <Icon
+      //         as={GripVerticalIcon}
+      //         size={20}
+      //         className="text-muted-foreground"
+      //       />
+      //     </Pressable>
+      //   </Sortable.Handle>
+      // );
 
       return (
         <LabeledAssetCard
-          asset={item}
-          index={index}
+          asset={asset}
+          index={assetIndex}
           isSelected={isSelected}
+          isFocused={activeAssetId === asset.id}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
-          duration={duration}
+          duration={asset.duration}
           canMergeDown={canMergeDown}
-          segmentCount={item.segmentCount}
+          segmentCount={asset.segmentCount}
           customProgress={customProgress}
           showVerseLabel={sortOrder !== 'verse'}
           bookChapterLabel={bookChapterLabelRef.current}
           onPress={() => {
             if (isSelectionMode) {
-              stableToggleSelect(item.id);
+              stableToggleSelect(asset.id);
             } else {
-              void stableHandlePlayAsset(item.id);
+              setActiveAssetId((prev) => (prev === asset.id ? null : asset.id));
             }
           }}
           onLongPress={() => {
-            stableEnterSelection(item.id);
+            stableEnterSelection(asset.id);
           }}
           onPlay={() => {
-            void stableHandlePlayAsset(item.id);
+            void stableHandlePlayAsset(asset.id);
           }}
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
@@ -2615,15 +2475,14 @@ const RecordingViewSimplified = ({
       );
     },
     [
+      assetsForLegendList,
+      sortOrder,
       audioContext.isPlaying,
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
-      // audioContext.position REMOVED - uses SharedValues now!
-      // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
+      activeAssetId,
       isSelectionMode,
-      assets,
-      sortOrder,
       stableHandlePlayAsset,
       stableToggleSelect,
       stableEnterSelection,
@@ -2632,140 +2491,6 @@ const RecordingViewSimplified = ({
       stableHandleRenameAsset
     ]
   );
-
-  // Memoized children for ArrayInsertionWheel
-  // OPTIMIZED: No audioContext.position/duration dependencies - progress now uses SharedValues!
-  // This eliminates re-creating all children 10+ times per second during audio playback
-  const wheelChildren = React.useMemo(() => {
-    // Map assets to wheel items
-    return assetsForLegendList
-      .map((item, index) => {
-        // Check if this asset is playing individually OR if it's the currently playing asset during play-all
-        const isThisAssetPlayingIndividually =
-          audioContext.isPlaying && audioContext.currentAudioId === item.id;
-        const isThisAssetPlayingInPlayAll =
-          audioContext.isPlaying &&
-          audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-          currentlyPlayingAssetId === item.id;
-        const isThisAssetPlaying =
-          isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-        const isSelected = selectedAssetIds.has(item.id);
-        const canMergeDown =
-          index < assetsForLegendList.length - 1 &&
-          assetsForLegendList[index + 1]?.source !== 'cloud';
-
-        // Duration from lazy-loaded metadata
-        const duration = item.duration;
-
-        // Get custom progress for play-all mode
-        const customProgress =
-          audioContext.isPlaying &&
-          audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-            ? assetProgressSharedMapRef.current.get(item.id)
-            : undefined;
-
-        // Check if we need to show VerseSeparator (when sorting by verse)
-        let shouldShowVerseSeparator = false;
-        let currentVerse: { from?: number; to?: number } | null = null;
-
-        if (sortOrder === 'verse') {
-          currentVerse = getVerseFromMetadata(item.metadata);
-          const prevItem = index > 0 ? assetsForLegendList[index - 1] : null;
-          const prevVerse = prevItem
-            ? getVerseFromMetadata(prevItem.metadata)
-            : null;
-
-          // Check if this is the start of a new verse group
-          if (index === 0) {
-            // First item - always show separator
-            shouldShowVerseSeparator = true;
-          } else if (!currentVerse && prevVerse) {
-            // Transition from verse to no verse
-            shouldShowVerseSeparator = true;
-          } else if (currentVerse && !prevVerse) {
-            // Transition from no verse to verse
-            shouldShowVerseSeparator = true;
-          } else if (currentVerse && prevVerse) {
-            // Both have verses - check if they're different
-            shouldShowVerseSeparator =
-              currentVerse.from !== prevVerse.from ||
-              (currentVerse.to ?? currentVerse.from) !==
-                (prevVerse.to ?? prevVerse.from);
-          }
-        }
-
-        // Return array with separator (if needed) and card as separate items
-        const items: React.ReactNode[] = [];
-
-        // Add separator as a separate list item if needed
-        if (shouldShowVerseSeparator) {
-          items.push(
-            <VerseSeparator
-              key={`verse-sep-${item.id}`}
-              from={currentVerse?.from}
-              to={currentVerse?.to}
-              label={bookChapterLabelRef.current}
-              largeText={true}
-            />
-          );
-        }
-
-        // Add asset card as a separate list item
-        items.push(
-          <LabeledAssetCard
-            key={item.id}
-            asset={item}
-            index={index}
-            isSelected={isSelected}
-            isSelectionMode={isSelectionMode}
-            isPlaying={isThisAssetPlaying}
-            duration={duration}
-            canMergeDown={canMergeDown}
-            segmentCount={item.segmentCount}
-            customProgress={customProgress}
-            showVerseLabel={sortOrder !== 'verse'}
-            bookChapterLabel={bookChapterLabelRef.current}
-            onPress={() => {
-              if (isSelectionMode) {
-                stableToggleSelect(item.id);
-              } else {
-                void stableHandlePlayAsset(item.id);
-              }
-            }}
-            onLongPress={() => {
-              stableEnterSelection(item.id);
-            }}
-            onPlay={() => {
-              void stableHandlePlayAsset(item.id);
-            }}
-            onDelete={stableHandleDeleteLocalAsset}
-            onMerge={stableHandleMergeDownLocal}
-            onRename={stableHandleRenameAsset}
-          />
-        );
-
-        return items;
-      })
-      .flat();
-  }, [
-    assetsForLegendList,
-    sortOrder,
-    getVerseFromMetadata,
-    audioContext.isPlaying,
-    audioContext.currentAudioId,
-    currentlyPlayingAssetId,
-    // assetProgressSharedMap REMOVED - it's a ref, accessed directly in render
-    // audioContext.position REMOVED - uses SharedValues now!
-    // audioContext.duration REMOVED - not needed for render
-    selectedAssetIds,
-    isSelectionMode,
-    stableHandlePlayAsset,
-    stableToggleSelect,
-    stableEnterSelection,
-    stableHandleDeleteLocalAsset,
-    stableHandleMergeDownLocal,
-    stableHandleRenameAsset
-  ]);
 
   // Render loading state
   if (isOfflineLoading) {
@@ -2871,29 +2596,15 @@ const RecordingViewSimplified = ({
           </View>
         )}
 
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {USE_INSERTION_WHEEL ? (
-          // ArrayInsertionWheel mode - always show wheel, even when empty
-          <ArrayInsertionWheel
-            ref={wheelRef}
-            value={insertionIndex}
-            onChange={setInsertionIndex}
-            rowHeight={ROW_HEIGHT}
-            className="h-full flex-1"
-            bottomInset={footerHeight}
-          >
-            {wheelChildren}
-          </ArrayInsertionWheel>
-        ) : (
-          // LegendList mode (legacy)
-          assetsForLegendList.length > 0 && (
-            <LegendList
-              ref={listRef}
-              data={assetsForLegendList}
-              renderItem={renderAssetItem}
-            />
-          )
-        )}
+        {/* LegendList for performance testing */}
+        <LegendList
+          data={listItems}
+          keyExtractor={(item) => item.key}
+          estimatedItemSize={100}
+          contentContainerStyle={{ paddingBottom: footerHeight }}
+          renderItem={renderListItem}
+          recycleItems
+        />
       </View>
 
       {/* Bottom controls - absolutely positioned */}
