@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to close and optionally restart an app in iOS Simulator
-# Usage: ./migration-databases/restart-ios-sim-app.sh [action]
+# Usage: ./testing/client-migrations/restart-ios-sim-app.sh [action]
 #   action: "close" (default) or "restart"
 
 set -e

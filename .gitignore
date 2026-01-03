@@ -47,12 +47,16 @@ llm_supp_files
 /.venv
 
 # include all version db files (1.0.db, 2.0.db, etc.)
-!migration-databases/*.db
+!testing/client-migrations/*.db
 # dont commit test cases db files
-migration-databases/*-test-cases.db
+testing/client-migrations/*-test-cases.db
 # exclude all scripts
-migration-databases/*.sh
-# commit these scripts only
-!migration-databases/consolidate-db.sh
-!migration-databases/replace-ios-sim-db.sh
-!migration-databases/restart-ios-sim-app.sh
+testing/client-migrations/*.sh
+# include these scripts only
+!testing/client-migrations/consolidate-db.sh
+!testing/client-migrations/replace-ios-sim-db.sh
+!testing/client-migrations/restart-ios-sim-app.sh
+# exclude analysis files
+*.md
+# include readme only
+!testing/client-migrations/README.md

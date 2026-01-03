@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to find and replace the SQLite database in iOS Simulator
-# Usage: ./migration-databases/replace-ios-sim-db.sh [test-db-file]
+# Usage: ./testing/client-migrations/replace-ios-sim-db.sh [test-db-file]
 
 set -e
 
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default test database
-TEST_DB="${1:-migration-databases/1.0-test.db}"
+TEST_DB="${1:-testing/client-migrations/1.0-test.db}"
 BASE_BUNDLE_ID="com.etengenesis.langquest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

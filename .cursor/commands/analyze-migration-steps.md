@@ -6,19 +6,19 @@ Analyze migration steps and verify migration status:
    - **Ask the user**: "Which version do you want to test migrations from? (e.g., '1.0', '2.0')" 
    - Store the user's response as `@version` variable
    - Read `db/migrations/index.ts` to identify registered migrations and verify that a migration exists starting from `@version`
-   - Check for database files in `migration-databases/` directory matching `{@version}.db`
+   - Check for database files in `testing/client-migrations/` directory matching `{@version}.db`
    - If no matching database found, inform the user and ask if they want to create one or use a different version
    - **CRITICAL: Copy database BEFORE querying content** - Create a fresh test copy directly from `{@version}.db` to `{@version}-test-cases.db`:
      ```bash
-     cp migration-databases/{@version}.db migration-databases/{@version}-test-cases.db
+     cp testing/client-migrations/{@version}.db testing/client-migrations/{@version}-test-cases.db
      ```
    - **CRITICAL: Consolidate source database** - Consolidate the source database into a single file (no WAL/SHM):
      ```bash
-     ./migration-databases/consolidate-db.sh migration-databases/{@version}.db
+     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}.db
      ```
    - Consolidate the test database copy into a single file (no WAL/SHM):
      ```bash
-     ./migration-databases/consolidate-db.sh migration-databases/{@version}-test-cases.db
+     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}-test-cases.db
      ```
    - **Insert test data for migration testing** - Insert test data directly into the test database file using SQLite commands that represents the pre-migration state (version `@version`). The test data should match what the migration expects to find:
      - Read the migration file (e.g., `db/migrations/1.0-to-2.0.ts`) to understand what pre-migration data structure it expects
@@ -34,7 +34,7 @@ Analyze migration steps and verify migration status:
      - Use PowerSync raw table names (e.g., `ps_data_local__project_local`) and insert into the `data` column as JSON
      - Insert test data directly into the SQLite file using `sqlite3` command:
        ```bash
-       sqlite3 migration-databases/{@version}-test-cases.db <<EOF
+       sqlite3 testing/client-migrations/{@version}-test-cases.db <<EOF
        INSERT INTO ps_data_local__project_local (id, data) VALUES (
          'test-project-id',
          json_object(
@@ -50,11 +50,11 @@ Analyze migration steps and verify migration status:
      - Insert test data that covers all migration scenarios described in the migration file comments (e.g., local languages, synced languages, missing languoids, etc.)
    - Run the replacement script:
      ```bash
-     ./migration-databases/replace-ios-sim-db.sh migration-databases/{@version}-test-cases.db
+     ./testing/client-migrations/replace-ios-sim-db.sh testing/client-migrations/{@version}-test-cases.db
      ```
    - After the script completes, restart the app manually:
      ```bash
-     ./migration-databases/restart-ios-sim-app.sh restart
+     ./testing/client-migrations/restart-ios-sim-app.sh restart
      ```
    - **IMPORTANT**: After restarting the app:
      - **Use MCP local-db tools** to query the database directly after the app reopens to verify migration status
@@ -112,11 +112,22 @@ Analyze migration steps and verify migration status:
    - Example: Check for `project_language_link_local` records with NULL `languoid_id` when `language_id` exists
 
 7. **Generate Report**
+   - **CRITICAL: Save report in testing/client-migrations directory** - Create the analysis report file in `testing/client-migrations/` directory:
+     - File path: `testing/client-migrations/migration-analysis-{@version}-to-{target-version}.md`
+     - Example: For version 1.0 to 2.0, save as `testing/client-migrations/migration-analysis-1.0-to-2.0.md`
+     - The report should be saved alongside the test databases and migration scripts
    - Summary of current state vs target state
    - Migration execution status based on database state
    - List any issues or warnings found in database
    - Provide recommendations for fixing any data inconsistencies if needed
    - Note any migrations that may need to be re-run or fixed
+
+8. **Cleanup Test Database**
+   - **CRITICAL: Delete test cases database** - After completing the migration analysis, delete the test cases database file:
+     ```bash
+     rm testing/client-migrations/{@version}-test-cases.db
+     ```
+   - This ensures the test database doesn't accumulate and clutter the testing/client-migrations directory
 
 **IMPORTANT**: 
 - **Always ask the user for `@version` first** - the version they want to test migrations from (e.g., "1.0", "2.0")
