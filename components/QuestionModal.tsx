@@ -1,7 +1,15 @@
 import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Text } from '@/components/ui/text';
 import React from 'react';
-import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
+import { View } from 'react-native';
 
 interface QuestionModalProps {
   visible: boolean;
@@ -20,56 +28,51 @@ export function QuestionModal({
   onNo,
   onClose
 }: QuestionModalProps) {
-  const handleClose = () => {
+  const [isOpen, setIsOpen] = React.useState(visible);
+
+  // Sync internal state with prop
+  React.useEffect(() => {
+    setIsOpen(visible);
+  }, [visible]);
+
+  const handleYes = () => {
+    onYes();
+    setIsOpen(false);
     onClose?.();
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
-    >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Pressable className="flex-1 items-center justify-center bg-black/50">
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
-              <View className="mb-4">
-                <Text variant="h3" className="mb-2">
-                  {title}
-                </Text>
-                <Text variant="p" className="text-muted-foreground">
-                  {description}
-                </Text>
-              </View>
+  const handleNo = () => {
+    onNo();
+    setIsOpen(false);
+    onClose?.();
+  };
 
-              <View className="flex-row gap-3">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onPress={() => {
-                    onNo();
-                    handleClose();
-                  }}
-                >
-                  <Text>No</Text>
-                </Button>
-                <Button
-                  variant="default"
-                  className="flex-1"
-                  onPress={() => {
-                    onYes();
-                    handleClose();
-                  }}
-                >
-                  <Text>Yes</Text>
-                </Button>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Pressable>
-      </TouchableWithoutFeedback>
-    </Modal>
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      onClose?.();
+    }
+  };
+
+  return (
+    <Drawer open={isOpen} onOpenChange={handleOpenChange}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader>
+          <DrawerTitle>{title}</DrawerTitle>
+          <DrawerDescription>{description}</DrawerDescription>
+        </DrawerHeader>
+
+        <DrawerFooter>
+          <View className="flex-row gap-3">
+            <Button variant="secondary" className="flex-1" onPress={handleNo}>
+              <Text>No</Text>
+            </Button>
+            <Button variant="default" className="flex-1" onPress={handleYes}>
+              <Text>Yes</Text>
+            </Button>
+          </View>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }

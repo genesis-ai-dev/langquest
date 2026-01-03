@@ -273,10 +273,10 @@ export default function SettingsView() {
         },
         {
           id: 'verseMarkers',
-          title: t('verseMarkers') || 'Verse Markers',
+          title: t('verseMarkers') || 'Verse Labels',
           description:
             t('verseMarkersDescription') ||
-            'Enable verse markers to help organize Bible resources',
+            'Enable verse labels to help organize Bible resources',
           type: 'toggle',
           value: enableVerseMarkers,
           onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)

@@ -138,8 +138,8 @@ export function BibleBookList({
     <View className="mb-safe flex-1 gap-6">
       <QuestionModal
         visible={showPromptModal}
-        title="Enable Verse Markers?"
-        description="This experimental feature helps organize Bible resources using verse markers. You can enable / disable it anytime at the Settings menu."
+        title="Enable Verse Labels?"
+        description="This experimental feature helps organize Bible resources using verse labels. You can enable / disable it anytime at the Settings menu."
         onYes={handleYes}
         onNo={handleNo}
       />

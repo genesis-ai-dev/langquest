@@ -5893,21 +5893,21 @@ export const localizations = {
     indonesian: 'Tautan disalin ke clipboard!'
   },
   verseMarkers: {
-    english: 'Verse Markers',
-    spanish: 'Marcadores de Versículos',
-    brazilian_portuguese: 'Marcadores de Versículos',
-    tok_pisin: 'Verse Markers',
-    indonesian: 'Marker Versi'
+    english: 'Verse Labels',
+    spanish: 'Etiquetas de Versículos',
+    brazilian_portuguese: 'Etiquetas de Versículos',
+    tok_pisin: 'Verse Labels',
+    indonesian: 'Label Versi'
   },
   verseMarkersDescription: {
-    english: 'Enable verse markers to help organize Bible resources',
+    english: 'Enable verse labels to help organize Bible resources',
     spanish:
-      'Habilitar marcadores de versículos para ayudar a organizar recursos de la Biblia',
+      'Habilitar etiquetas de versículos para ayudar a organizar recursos de la Biblia',
     brazilian_portuguese:
-      'Habilitar marcadores de versículos para ajudar a organizar recursos da Bíblia',
-    tok_pisin: 'Enable verse markers to help organize Bible resources',
+      'Habilitar etiquetas de versículos para ajudar a organizar recursos da Bíblia',
+    tok_pisin: 'Enable verse labels to help organize Bible resources',
     indonesian:
-      'Aktifkan marker versi untuk membantu mengorganisir sumber daya Alkitab'
+      'Aktifkan label versi untuk membantu mengorganisir sumber daya Alkitab'
   }
 } as const;
 
