@@ -48,13 +48,13 @@ Analyze migration steps and verify migration status:
        EOF
        ```
      - Insert test data that covers all migration scenarios described in the migration file comments (e.g., local languages, synced languages, missing languoids, etc.)
-   - Run the replacement script:
+   - Run the replacement script (auto-detects iOS/Android):
      ```bash
-     ./testing/client-migrations/replace-ios-sim-db.sh testing/client-migrations/{@version}-test-cases.db
+     ./testing/client-migrations/replace-device-db.sh testing/client-migrations/{@version}-test-cases.db
      ```
-   - After the script completes, restart the app manually:
+   - After the script completes, restart the app manually (auto-detects iOS/Android):
      ```bash
-     ./testing/client-migrations/restart-ios-sim-app.sh restart
+     ./testing/client-migrations/restart-device-app.sh restart
      ```
    - **IMPORTANT**: After restarting the app:
      - **Use MCP local-db tools** to query the database directly after the app reopens to verify migration status
@@ -135,7 +135,7 @@ Analyze migration steps and verify migration status:
 - **CRITICAL: After reopening the app, use MCP local-db tools** (`mcp_local-db_execute_query`) to query the database directly
 - The MCP local-db connection queries the iOS simulator's database, which will reflect the migrated state
 - All database queries in steps 1-6 should use MCP local-db `execute_query` tool, not direct SQLite commands
-- The replacement script terminates the app and replaces the database, then you manually restart it using `restart-ios-sim-app.sh restart`
+- The replacement script terminates the app and replaces the database, then you manually restart it using `restart-device-app.sh restart` (auto-detects iOS/Android)
 - Use `@version` consistently throughout the analysis to reference the test version
 - Use PowerSync raw table names (e.g., `ps_data_local__project_local`) when querying via MCP local-db
 
