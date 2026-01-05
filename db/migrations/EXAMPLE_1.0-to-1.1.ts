@@ -62,7 +62,7 @@ export const migration_1_0_to_1_1: Migration = {
             UPDATE asset_local
             SET notes = 'Migration test: Added in schema v1.1'
             WHERE notes IS NULL AND active = 1
-        `);
+        `
     );
     console.log('[Migration 1.0→1.1] ✓ Default notes set');
 
