@@ -50,6 +50,11 @@ jobs:
       - name: Format
         run: npm run format
 
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: "Vercel - langquest: format"
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -64,3 +69,8 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: "Vercel - langquest: typecheck"
