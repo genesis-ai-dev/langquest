@@ -2,7 +2,6 @@ import { TextClassContext } from '@/components/ui/text';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import type { BaseSyntheticEvent } from 'react';
 import * as React from 'react';
 import { ActivityIndicator, Pressable, TouchableOpacity } from 'react-native';
 import * as Slot from './slot';
@@ -74,14 +73,9 @@ const ButtonPressable = Pressable;
 
 const ButtonPressableOpacity = TouchableOpacity;
 
-type ButtonPressableProps = Omit<
-  React.ComponentPropsWithoutRef<typeof Pressable>,
-  'onPress'
-> & {
-  ref?: React.ComponentRef<typeof Pressable>;
+type ButtonPressableProps = React.ComponentPropsWithoutRef<typeof Pressable> & {
   role?: string;
   disabled?: boolean;
-  onPress?: (e?: BaseSyntheticEvent) => void | Promise<void>;
 };
 
 type ButtonProps = ButtonPressableProps &
@@ -124,6 +118,8 @@ const Button = React.forwardRef<
 
     const isDisabled = disabled || loading;
 
+    const Component = asChild ? Slot.Pressable : Pressable;
+
     // When asChild, pass children directly to allow Slot to merge props onto the child element.
     // Otherwise, wrap with Fragment to support the loading indicator.
     const content = asChild ? (
@@ -140,17 +136,6 @@ const Button = React.forwardRef<
       </>
     );
 
-    const commonProps = {
-      className: cn(
-        'flex flex-row items-center gap-2',
-        isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
-        buttonVariants({ variant, size, className })
-      ),
-      role: 'button' as const,
-      disabled: isDisabled,
-      ...props
-    };
-
     return (
       <TextClassContext.Provider
         value={buttonTextVariants({
@@ -159,15 +144,20 @@ const Button = React.forwardRef<
           className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
         })}
       >
-        {asChild ? (
-          <Slot.Pressable {...commonProps} ref={ref}>
-            {content}
-          </Slot.Pressable>
-        ) : (
-          <Pressable {...commonProps} ref={ref}>
-            {content}
-          </Pressable>
-        )}
+        <Component
+          className={cn(
+            'flex flex-row items-center gap-2',
+            isDisabled &&
+              'opacity-50 web:pointer-events-none web:cursor-default',
+            buttonVariants({ variant, size, className })
+          )}
+          role="button"
+          disabled={isDisabled}
+          ref={ref}
+          {...props}
+        >
+          {content}
+        </Component>
       </TextClassContext.Provider>
     );
   }
