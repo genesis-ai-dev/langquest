@@ -56,9 +56,6 @@ testing/client-migrations/*.sh
 !testing/client-migrations/consolidate-db.sh
 !testing/client-migrations/replace-device-db.sh
 !testing/client-migrations/restart-device-app.sh
-# Legacy iOS-only scripts (kept for backwards compatibility)
-!testing/client-migrations/replace-ios-sim-db.sh
-!testing/client-migrations/restart-ios-sim-app.sh
 # exclude analysis files
 *.md
 # include readme only
