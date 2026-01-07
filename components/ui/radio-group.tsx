@@ -76,7 +76,7 @@ const RadioGroupItem = ({
 
   return (
     <ButtonPressable
-      enabled={!isDisabled}
+      disabled={isDisabled}
       onPress={() => !isDisabled && onValueChange(value)}
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-input bg-background px-4 py-3 active:bg-accent web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',

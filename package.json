@@ -125,7 +125,6 @@
     "posthog-js": "^1.265.1",
     "posthog-react-native": "^4.3.0",
     "posthog-react-native-session-replay": "^1.1.1",
-    "pressto": "^0.6.0",
     "react": "19.0.0",
     "react-compiler-runtime": "^19.0.0-beta-af1b7da-20250417",
     "react-dom": "19.0.0",
