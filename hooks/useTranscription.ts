@@ -11,14 +11,20 @@ export interface TranscriptionResponse {
  * Hook for transcribing audio via the Modal ASR Edge Function
  */
 export function useTranscription() {
-  return useMutation<TranscriptionResponse, Error, { uri: string; mimeType?: string }>({
+  return useMutation<
+    TranscriptionResponse,
+    Error,
+    { uri: string; mimeType?: string }
+  >({
     mutationFn: async ({ uri, mimeType = 'audio/wav' }) => {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       if (!supabaseUrl) {
         throw new Error('Supabase URL not configured');
       }
 
-      const { data: { session } } = await system.supabaseConnector.client.auth.getSession();
+      const {
+        data: { session }
+      } = await system.supabaseConnector.client.auth.getSession();
       if (!session) {
         throw new Error('Not authenticated');
       }
@@ -52,12 +58,15 @@ export function useTranscription() {
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `Transcription failed: ${response.statusText}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        throw new Error(
+          errorData.error || `Transcription failed: ${response.statusText}`
+        );
       }
 
       return await response.json();
     }
   });
 }
-

@@ -423,7 +423,10 @@ export default function NextGenTranslationModal({
 
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio');
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
       return;
     }
 
@@ -431,7 +434,8 @@ export default function NextGenTranslationModal({
     if (!uri) {
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
       );
       return;
     }
@@ -441,7 +445,8 @@ export default function NextGenTranslationModal({
       console.log('[Transcription] Audio file not found at URI:', uri);
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
       );
       return;
     }

@@ -4360,7 +4360,8 @@ export const localizations = {
   transcriptionFailed: {
     english: 'Failed to transcribe audio. Please try again.',
     spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
-    brazilian_portuguese: 'Falha ao transcrever áudio. Por favor, tente novamente.',
+    brazilian_portuguese:
+      'Falha ao transcrever áudio. Por favor, tente novamente.',
     tok_pisin: 'I no inap transcribe audio. Plis traim gen.',
     indonesian: 'Gagal mentranskripsi audio. Silakan coba lagi.'
   },

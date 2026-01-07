@@ -85,17 +85,26 @@ export default function TranscriptionEditModal({
           download_profiles: [currentUser.id]
         });
 
-        console.log('[SAVE TRANSCRIPTION] Created transcription asset:', newAsset.id);
+        console.log(
+          '[SAVE TRANSCRIPTION] Created transcription asset:',
+          newAsset.id
+        );
       });
     },
     onSuccess: () => {
-      RNAlert.alert(t('success') || 'Success', 'Transcription saved successfully');
+      RNAlert.alert(
+        t('success') || 'Success',
+        'Transcription saved successfully'
+      );
       onSuccess?.();
       onClose();
     },
     onError: (error: Error) => {
       console.error('[SAVE TRANSCRIPTION] Error:', error);
-      RNAlert.alert(t('error') || 'Error', error.message || 'Failed to save transcription');
+      RNAlert.alert(
+        t('error') || 'Error',
+        error.message || 'Failed to save transcription'
+      );
     }
   });
 
@@ -144,7 +153,9 @@ export default function TranscriptionEditModal({
 
             <TouchableOpacity
               onPress={handleSave}
-              disabled={saveTranscriptionMutation.isPending || !editedText.trim()}
+              disabled={
+                saveTranscriptionMutation.isPending || !editedText.trim()
+              }
               className="p-2"
             >
               {saveTranscriptionMutation.isPending ? (
@@ -152,7 +163,9 @@ export default function TranscriptionEditModal({
               ) : (
                 <CheckIcon
                   size={24}
-                  className={editedText.trim() ? 'text-primary' : 'text-muted-foreground'}
+                  className={
+                    editedText.trim() ? 'text-primary' : 'text-muted-foreground'
+                  }
                 />
               )}
             </TouchableOpacity>

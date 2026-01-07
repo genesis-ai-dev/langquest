@@ -339,7 +339,8 @@ export const useLocalStore = create<LocalState>()(
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
       setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
-      setEnableTranscription: (enabled) => set({ enableTranscription: enabled }),
+      setEnableTranscription: (enabled) =>
+        set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
 

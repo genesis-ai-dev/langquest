@@ -27,7 +27,11 @@ import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { fileExists, getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
+import {
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  getLocalUri
+} from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -542,7 +546,10 @@ export default function NextGenAssetDetailView() {
   // Transcription handler for source audio
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio');
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
       return;
     }
 
@@ -550,7 +557,8 @@ export default function NextGenAssetDetailView() {
     if (!uri) {
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
       );
       return;
     }
@@ -560,7 +568,8 @@ export default function NextGenAssetDetailView() {
       console.log('[Transcription] Audio file not found at URI:', uri);
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') || 'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
       );
       return;
     }
@@ -574,10 +583,7 @@ export default function NextGenAssetDetailView() {
         setTranscriptionText(result.text);
         setShowTranscriptionModal(true);
       } else {
-        RNAlert.alert(
-          t('error'),
-          'Transcription returned no text'
-        );
+        RNAlert.alert(t('error'), 'Transcription returned no text');
       }
     } catch (error) {
       console.error('Transcription error:', error);
