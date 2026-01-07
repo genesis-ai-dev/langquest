@@ -42,7 +42,11 @@ export default function MiniAudioPlayer({
 
   return (
     <View style={styles.container}>
-      <Button variant="plain" onPress={handlePlayPause} style={styles.playButton}>
+      <Button
+        variant="plain"
+        onPress={handlePlayPause}
+        style={styles.playButton}
+      >
         <Ionicons
           name={isThisAudioPlaying ? 'pause' : 'play'}
           size={24}

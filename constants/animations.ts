@@ -14,5 +14,3 @@ export const easeSnappy = Easing.bezier(0.2, 0, 0, 1);
 
 // Spring-like bounce
 export const easeSpring = Easing.bezier(0.34, 1.56, 0.64, 1);
-
-

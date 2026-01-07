@@ -162,7 +162,7 @@ export default function SignInView({
               )
             }
             size="auto"
-            className='self-start'
+            className="self-start"
             // className="native:px-0 native:py-0 h-auto self-start px-0 py-0"
           >
             <Text className="text-left">{t('forgotPassword')}</Text>
