@@ -816,6 +816,13 @@ export const localizations = {
     tok_pisin: 'Recording',
     indonesian: 'Merekam'
   },
+  startRecording: {
+    english: 'Start recording to create assets for this verse',
+    spanish: 'Comience a grabar para crear recursos para este versículo',
+    brazilian_portuguese: 'Inicie a gravação para criar recursos para este versículo',
+    tok_pisin: 'Start recording to create assets for this verse',
+    indonesian: 'Mulai merekam untuk membuat aset untuk ayat ini'
+  },
   register: {
     english: 'Register',
     spanish: 'Registrarse',

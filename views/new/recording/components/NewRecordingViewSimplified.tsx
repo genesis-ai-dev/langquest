@@ -45,6 +45,7 @@ import { Audio } from 'expo-av';
 import {
   ArrowLeft,
   ArrowUpDown,
+  MicIcon,
   PauseIcon,
   PlayIcon
 } from 'lucide-react-native';
@@ -59,7 +60,7 @@ import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { LabeledAssetCard } from './LabeledAssetCard';
-import { RecordingControls } from './RecordingControls';
+import { NewRecordingView } from './NewRecordingView';
 import { RenameAssetModal } from './RenameAssetModal';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
@@ -257,6 +258,11 @@ const RecordingViewSimplified = ({
   // Verse assigner modal state
   const [showVerseAssignerModal, setShowVerseAssignerModal] =
     React.useState(false);
+
+  // Focused recording view state
+  const [showFocusedRecording, setShowFocusedRecording] = React.useState(false);
+  const [focusedRecordingVerseLabel, setFocusedRecordingVerseLabel] =
+    React.useState<{ from: number; to: number } | undefined>(undefined);
 
   // Track segment counts for each asset (loaded lazily)
   const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
@@ -593,6 +599,42 @@ const RecordingViewSimplified = ({
 
     return sorted;
   }, [assets, sortOrder]);
+
+  // Calculate used verses from existing assets
+  const usedVerses = React.useMemo(() => {
+    const used = new Set<number>();
+    for (const a of assets) {
+      if (a.metadata) {
+        try {
+          const parsed: unknown =
+            typeof a.metadata === 'string'
+              ? JSON.parse(a.metadata)
+              : a.metadata;
+          if (
+            parsed &&
+            typeof parsed === 'object' &&
+            'verse' in parsed &&
+            parsed.verse &&
+            typeof parsed.verse === 'object' &&
+            'from' in parsed.verse
+          ) {
+            const verse = parsed.verse as { from: unknown; to?: unknown };
+            const from =
+              typeof verse.from === 'number' ? verse.from : undefined;
+            const to = typeof verse.to === 'number' ? verse.to : from;
+            if (from !== undefined && to !== undefined) {
+              for (let v = from; v <= to; v++) {
+                used.add(v);
+              }
+            }
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+      }
+    }
+    return used;
+  }, [assets]);
 
   // Helper function to extract verse from metadata
   const getVerseFromMetadata = React.useCallback(
@@ -1304,8 +1346,8 @@ const RecordingViewSimplified = ({
     }
   }, [isVADLocked, currentQuestId, assets]);
 
-  // Manual recording handlers
-  const handleRecordingStart = React.useCallback(() => {
+  // Manual recording handlers (kept for future use, prefixed with _ to avoid lint)
+  const _handleRecordingStart = React.useCallback(() => {
     if (isRecording) return;
     debugLog('🎬 Manual recording start');
     setIsRecording(true);
@@ -1316,12 +1358,12 @@ const RecordingViewSimplified = ({
     currentRecordingOrderRef.current = targetOrder;
   }, [isRecording, assets]);
 
-  const handleRecordingStop = React.useCallback(() => {
+  const _handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
     setIsRecording(false);
   }, []);
 
-  const handleRecordingDiscarded = React.useCallback(() => {
+  const _handleRecordingDiscarded = React.useCallback(() => {
     debugLog('🗑️ Recording discarded');
     setIsRecording(false);
   }, []);
@@ -1505,10 +1547,10 @@ const RecordingViewSimplified = ({
     [handleRecordingComplete]
   );
 
-  // Hook up native VAD recording
+  // Hook up native VAD recording (kept for fullscreen overlay mode)
   const {
-    currentEnergy,
-    isRecording: isVADRecording,
+    currentEnergy: _currentEnergy,
+    isRecording: _isVADRecording,
     energyShared,
     isRecordingShared
   } = useVADRecording({
@@ -2492,6 +2534,37 @@ const RecordingViewSimplified = ({
     ]
   );
 
+  // Show full-screen overlay when VAD is locked and display mode is fullscreen
+  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+
+  // Handler to open focused recording view
+  const handleOpenFocusedRecording = React.useCallback(() => {
+    // Get verse label from active/selected card if any
+    let verseLabel: { from: number; to: number } | undefined;
+    if (activeAssetId) {
+      const activeAsset = assets.find((a) => a.id === activeAssetId);
+      if (activeAsset?.metadata) {
+        const verse = getVerseFromMetadata(activeAsset.metadata);
+        if (verse?.from !== undefined) {
+          verseLabel = { from: verse.from, to: verse.to ?? verse.from };
+        }
+      }
+    }
+    setFocusedRecordingVerseLabel(verseLabel);
+    setShowFocusedRecording(true);
+  }, [activeAssetId, assets, getVerseFromMetadata]);
+
+  // Handle returning from focused recording view
+  const handleCloseFocusedRecording = React.useCallback(() => {
+    setShowFocusedRecording(false);
+    setFocusedRecordingVerseLabel(undefined);
+    // Refresh assets to show new recordings
+    void queryClient.invalidateQueries({
+      queryKey: ['assets', 'by-quest', currentQuestId],
+      exact: false
+    });
+  }, [queryClient, currentQuestId]);
+
   // Render loading state
   if (isOfflineLoading) {
     return (
@@ -2515,8 +2588,18 @@ const RecordingViewSimplified = ({
     );
   }
 
-  // Show full-screen overlay when VAD is locked and display mode is fullscreen
-  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+  // Render focused recording view if active
+  if (showFocusedRecording) {
+    return (
+      <NewRecordingView
+        onBack={handleCloseFocusedRecording}
+        initialVerseLabel={focusedRecordingVerseLabel}
+        maxVerseInChapter={verseCount}
+        usedVerses={usedVerses}
+        bookChapterLabel={bookChapterLabel}
+      />
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -2620,26 +2703,43 @@ const RecordingViewSimplified = ({
             />
           </View>
         ) : (
-          <RecordingControls
-            isRecording={isRecording || isVADRecording}
-            onRecordingStart={handleRecordingStart}
-            onRecordingStop={handleRecordingStop}
-            onRecordingComplete={handleRecordingComplete}
-            onRecordingDiscarded={handleRecordingDiscarded}
-            onLayout={setFooterHeight}
-            isVADLocked={isVADLocked}
-            onVADLockChange={setIsVADLocked}
-            onSettingsPress={() => setShowVADSettings(true)}
-            onAutoCalibratePress={() => {
-              setAutoCalibrateOnOpen(true);
-              setShowVADSettings(true);
-            }}
-            currentEnergy={currentEnergy}
-            vadThreshold={vadThreshold}
-            energyShared={energyShared}
-            isRecordingShared={isRecordingShared}
-            displayMode={vadDisplayMode}
-          />
+          <View
+            className="border-t border-border bg-background px-4 py-3"
+            style={{ paddingBottom: insets.bottom + 8 }}
+            onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+          >
+            <Button
+              size="lg"
+              className="w-full flex-row items-center gap-2"
+              onPress={handleOpenFocusedRecording}
+            >
+              <Icon
+                as={MicIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+              <Text className="font-semibold text-primary-foreground">
+                {activeAssetId
+                  ? `Record for ${bookChapterLabel}:${(() => {
+                      const activeAsset = assets.find(
+                        (a) => a.id === activeAssetId
+                      );
+                      if (activeAsset?.metadata) {
+                        const verse = getVerseFromMetadata(
+                          activeAsset.metadata
+                        );
+                        if (verse?.from !== undefined) {
+                          return verse.to && verse.to !== verse.from
+                            ? `${verse.from}-${verse.to}`
+                            : verse.from;
+                        }
+                      }
+                      return 'new';
+                    })()}`
+                  : 'Start Recording'}
+              </Text>
+            </Button>
+          </View>
         )}
       </View>
 
