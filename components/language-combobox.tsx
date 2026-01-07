@@ -506,7 +506,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                   ? t('searching') || 'Searching...'
                   : debouncedSearchQuery.length >= 2
                     ? t('noLanguagesFound') || 'No languages found'
-                    : t('typeToSearch') ||
+                    : t('typeToSearch', { min: 2 }) ||
                       'Type at least 2 characters to search'}
               </Text>
             </View>
