@@ -159,14 +159,12 @@ export async function findOrCreateLanguoidByName(
  * @param languoid_id - The languoid ID (required - part of PK)
  * @param language_type - 'source' or 'target'
  * @param creator_id - The user creating the link
- * @param language_id - Optional language_id for backward compatibility
  */
 export async function createProjectLanguageLinkWithLanguoid(
   project_id: string,
   languoid_id: string,
   language_type: 'source' | 'target',
-  creator_id: string,
-  language_id?: string // Optional for backward compatibility
+  creator_id: string
 ): Promise<void> {
   const projectLanguageLinkLocal = resolveTable('project_language_link', {
     localOverride: true
@@ -190,10 +188,9 @@ export async function createProjectLanguageLinkWithLanguoid(
     return;
   }
 
-  // Create new link - languoid_id is required (part of PK), language_id is optional
+  // Create new link - languoid_id is required (part of PK)
   await system.db.insert(projectLanguageLinkLocal).values({
     project_id,
-    language_id: language_id || null, // Optional - for backward compatibility
     languoid_id,
     language_type,
     active: true,
@@ -207,7 +204,6 @@ export async function createProjectLanguageLinkWithLanguoid(
  *
  * @param asset_id - The asset ID
  * @param languoid_id - The languoid ID
- * @param language_id - Optional language_id for backward compatibility
  * @param creator_id - The user creating the link
  * @param text - Optional text content
  * @param audio - Optional audio file IDs
@@ -216,7 +212,6 @@ export async function createAssetContentLinkWithLanguoid(
   asset_id: string,
   languoid_id: string,
   creator_id: string,
-  language_id?: string, // Optional for backward compatibility
   text?: string,
   audio?: string[]
 ): Promise<string> {
@@ -229,7 +224,6 @@ export async function createAssetContentLinkWithLanguoid(
   await system.db.insert(assetContentLinkLocal).values({
     id: contentLinkId,
     asset_id,
-    source_language_id: language_id || null, // Keep for backward compatibility
     languoid_id,
     text,
     audio,

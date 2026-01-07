@@ -117,14 +117,13 @@ export default function NextGenProjectsView() {
 
         // insert into local storage
         await db.transaction(async (tx) => {
-          // Create project (target_language_id is deprecated but still required by schema)
+          // Create project
           const { target_languoid_id, ...projectValues } = values;
           const [newProject] = await tx
             .insert(resolveTable('project', { localOverride: true }))
             .values({
               ...projectValues,
               template: projectValues.template,
-              target_language_id: target_languoid_id, // Deprecated field, kept for backward compatibility
               creator_id: currentUser.id,
               download_profiles: [currentUser.id]
             })
@@ -154,7 +153,6 @@ export default function NextGenProjectsView() {
           );
           await tx.insert(projectLanguageLinkLocal).values({
             project_id: newProject.id,
-            language_id: null, // Optional - for backward compatibility
             languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,

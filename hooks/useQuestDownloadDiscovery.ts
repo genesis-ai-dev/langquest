@@ -348,7 +348,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 if (signal.aborted) return null;
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset')
-                  .select('id, source_language_id')
+                  .select('id')
                   .in('id', assetIds)
                   .eq('active', true);
 
@@ -382,7 +382,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 if (signal.aborted) return null;
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset_content_link')
-                  .select('id, source_language_id')
+                  .select('id, languoid_id')
                   .in('asset_id', assetIds)
                   .eq('active', true);
 
@@ -466,49 +466,44 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
           return;
         }
 
-        // Collect language IDs from assets, translations, and project
-        const languageIds = new Set<string>();
+        // Collect languoid IDs from asset content links and project
+        const languoidIds = new Set<string>();
         if (questResult?.project_id) {
-          // Get project languages
+          // Get project languoids from project_language_link
           try {
-            const { data: projectData, error } =
+            const { data: projectLanguageLinks, error } =
               await system.supabaseConnector.client
-                .from('project')
-                .select('source_language_id, target_language_id')
-                .eq('id', questResult.project_id)
-                .single();
+                .from('project_language_link')
+                .select('languoid_id')
+                .eq('project_id', questResult.project_id)
+                .not('languoid_id', 'is', null);
 
-            if (!error && projectData) {
-              if (projectData.source_language_id)
-                languageIds.add(projectData.source_language_id);
-              if (projectData.target_language_id)
-                languageIds.add(projectData.target_language_id);
+            if (!error && projectLanguageLinks) {
+              projectLanguageLinks.forEach((link) => {
+                if (link.languoid_id) languoidIds.add(link.languoid_id);
+              });
             }
           } catch (error) {
             console.error(
-              '🔍 [Discovery] Error fetching project languages:',
+              '🔍 [Discovery] Error fetching project languoids:',
               error
             );
           }
         }
 
-        assetsResult?.forEach((asset) => {
-          if (asset.source_language_id)
-            languageIds.add(asset.source_language_id);
-        });
         assetContentLinksResult?.forEach((link) => {
-          if (link.source_language_id) languageIds.add(link.source_language_id);
+          if (link.languoid_id) languoidIds.add(link.languoid_id);
         });
 
-        ids.languageIds = Array.from(languageIds);
+        ids.languageIds = Array.from(languoidIds);
         languagesProgress.value = {
           count: ids.languageIds.length,
           isLoading: false,
           hasError: false
         };
 
-        // Discover languoid IDs from project_language_link and asset_content_link
-        const languoidIds = new Set<string>();
+        // Discover languoid IDs from project_language_link and asset_content_link (for all projects)
+        const allLanguoidIds = new Set<string>();
         try {
           if (signal.aborted) return;
 
@@ -524,7 +519,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
 
             if (!pllError && projectLanguageLinks) {
               projectLanguageLinks.forEach((link) => {
-                if (link.languoid_id) languoidIds.add(link.languoid_id);
+                if (link.languoid_id) allLanguoidIds.add(link.languoid_id);
               });
             }
           }
@@ -541,12 +536,12 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
 
             if (!aclError && assetContentLinks) {
               assetContentLinks.forEach((link) => {
-                if (link.languoid_id) languoidIds.add(link.languoid_id);
+                if (link.languoid_id) allLanguoidIds.add(link.languoid_id);
               });
             }
           }
 
-          ids.languoidIds = Array.from(languoidIds);
+          ids.languoidIds = Array.from(allLanguoidIds);
 
           // If we found languoids, discover related records
           if (ids.languoidIds.length > 0) {

@@ -298,18 +298,12 @@ export const languoid_region_localRelations = relations(
 );
 
 export const project_local = createProjectTable('local', {
-  language: language_local,
   profile: profile_local
 });
 
 export const project_localRelations = relations(
   project_local,
-  ({ one, many }) => ({
-    target_language: one(language_local, {
-      fields: [project_local.target_language_id],
-      references: [language_local.id],
-      relationName: 'targetLanguage'
-    }),
+  ({ many }) => ({
     quests: many(quest_local),
     profile_project_links: many(profile_project_link_local),
     source_languages: many(project_language_link_local),
@@ -366,16 +360,11 @@ export const quest_tag_link_localRelations = relations(
 );
 
 export const asset_local = createAssetTable('local', {
-  language: language_local,
   project: project_local,
   profile: profile_local
 });
 
 export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
-  source_language: one(language_local, {
-    fields: [asset_local.source_language_id],
-    references: [language_local.id]
-  }),
   project: one(project_local, {
     fields: [asset_local.project_id],
     references: [project_local.id]
@@ -434,8 +423,7 @@ export const quest_asset_link_localRelations = relations(
 export const project_language_link_local = createProjectLanguageLinkTable(
   'local',
   {
-    project: project_local,
-    language: language_local
+    project: project_local
   }
 );
 
@@ -445,10 +433,6 @@ export const project_language_link_localRelations = relations(
     project: one(project_local, {
       fields: [project_language_link_local.project_id],
       references: [project_local.id]
-    }),
-    language: one(language_local, {
-      fields: [project_language_link_local.language_id],
-      references: [language_local.id]
     }),
     languoid: one(languoid_local, {
       fields: [project_language_link_local.languoid_id],
@@ -525,8 +509,7 @@ export const vote_localRelations = relations(vote_local, ({ one }) => ({
 }));
 
 export const asset_content_link_local = createAssetContentLinkTable('local', {
-  asset: asset_local,
-  language: language_local
+  asset: asset_local
 });
 
 export const asset_content_link_localRelations = relations(
@@ -535,10 +518,6 @@ export const asset_content_link_localRelations = relations(
     asset: one(asset_local, {
       fields: [asset_content_link_local.asset_id],
       references: [asset_local.id]
-    }),
-    source_language: one(language_local, {
-      fields: [asset_content_link_local.source_language_id],
-      references: [language_local.id]
     }),
     languoid: one(languoid_local, {
       fields: [asset_content_link_local.languoid_id],

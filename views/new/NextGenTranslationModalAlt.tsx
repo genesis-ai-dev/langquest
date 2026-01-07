@@ -307,12 +307,9 @@ export default function NextGenTranslationModal({
         // Get the original source asset ID (the asset being translated, not the translation itself)
         const originalSourceAssetId = asset.source_asset_id || asset.id;
 
-        // Get languoid_id from asset_content_link (prefer languoid_id, fallback to source_language_id)
+        // Get languoid_id from asset_content_link
         const firstContent = asset.content?.[0];
-        const sourceLanguoidId =
-          firstContent?.languoid_id ||
-          firstContent?.source_language_id ||
-          asset.source_language_id;
+        const sourceLanguoidId = firstContent?.languoid_id;
 
         if (!sourceLanguoidId) {
           throw new Error(
@@ -329,7 +326,6 @@ export default function NextGenTranslationModal({
             .insert(resolveTable('asset')) // Use synced table like the working version
             .values({
               name: asset.name,
-              source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
               source_asset_id: originalSourceAssetId, // Point to the original asset being translated
               creator_id: currentUser.id,
               project_id: project.id,
@@ -344,15 +340,13 @@ export default function NextGenTranslationModal({
           // Create asset_content_link with the transcribed text and audio
           const contentValues: {
             asset_id: string;
-            source_language_id: string | null; // Deprecated field, kept for backward compatibility
-            languoid_id: string; // New languoid reference
+            languoid_id: string;
             download_profiles: string[];
             text?: string;
             audio?: string[];
           } = {
             asset_id: newAsset.id,
-            source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
-            languoid_id: sourceLanguoidId, // New languoid reference
+            languoid_id: sourceLanguoidId,
             download_profiles: [currentUser.id],
             text: editedText.trim()
           };

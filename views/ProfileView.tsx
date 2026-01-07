@@ -120,11 +120,7 @@ export default function ProfileView() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      // Prefer ui_languoid_id, fallback to ui_language_id for backward compatibility
-      selectedLanguoidId:
-        currentUser?.user_metadata.ui_languoid_id ??
-        currentUser?.user_metadata.ui_language_id ??
-        '',
+      selectedLanguoidId: currentUser?.user_metadata.ui_languoid_id ?? '',
       termsAccepted: !!currentUser?.user_metadata.terms_accepted
     }
   });

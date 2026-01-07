@@ -1707,8 +1707,7 @@ const RecordingViewSimplified = ({
           if (!c.audio) continue;
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
+            languoid_id: c.languoid_id,
             text: c.text || '',
             audio: c.audio,
             download_profiles: [currentUser.id]
@@ -1782,9 +1781,7 @@ const RecordingViewSimplified = ({
                     if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
+                      languoid_id: c.languoid_id,
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]

@@ -539,12 +539,10 @@ export function useQuestOffloadVerification(
 
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset')
-                  .select('id, source_language_id')
+                  .select('id')
                   .in('id', assetIds)
                   .eq('active', true)
-                  .overrideTypes<
-                    { id: string; source_language_id: string }[]
-                  >();
+                  .overrideTypes<{ id: string }[]>();
 
                 if (error) throw error;
 
@@ -592,7 +590,7 @@ export function useQuestOffloadVerification(
                   await system.db.query.asset_content_link.findMany({
                     columns: {
                       id: true,
-                      source_language_id: true,
+                      languoid_id: true,
                       audio: true
                     },
                     where: (link, { inArray }) =>
@@ -619,13 +617,13 @@ export function useQuestOffloadVerification(
 
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset_content_link')
-                  .select('id, source_language_id, audio')
+                  .select('id, languoid_id, audio')
                   .in('asset_id', assetIds)
                   .eq('active', true)
                   .overrideTypes<
                     {
                       id: string;
-                      source_language_id: string;
+                      languoid_id: string;
                       audio: string[] | null;
                     }[]
                   >();
@@ -754,33 +752,29 @@ export function useQuestOffloadVerification(
         const languageIds = new Set<string>();
         if (questResult?.project_id) {
           try {
-            const { data: projectData, error } =
+            // Get languoids from project_language_link
+            const { data: projectLanguageLinks, error } =
               await system.supabaseConnector.client
-                .from('project')
-                .select('source_language_id, target_language_id')
-                .eq('id', questResult.project_id)
-                .single();
+                .from('project_language_link')
+                .select('languoid_id')
+                .eq('project_id', questResult.project_id)
+                .not('languoid_id', 'is', null);
 
-            if (!error && projectData) {
-              if (projectData.source_language_id)
-                languageIds.add(projectData.source_language_id);
-              if (projectData.target_language_id)
-                languageIds.add(projectData.target_language_id);
+            if (!error && projectLanguageLinks) {
+              projectLanguageLinks.forEach((link) => {
+                if (link.languoid_id) languageIds.add(link.languoid_id);
+              });
             }
           } catch (error) {
             console.error(
-              '🔍 [Offload Verification] Error fetching project languages:',
+              '🔍 [Offload Verification] Error fetching project languoids:',
               error
             );
           }
         }
 
-        assetsResult?.forEach((asset) => {
-          if (asset.source_language_id)
-            languageIds.add(asset.source_language_id);
-        });
         assetContentLinksResult?.forEach((link) => {
-          if (link.source_language_id) languageIds.add(link.source_language_id);
+          if (link.languoid_id) languageIds.add(link.languoid_id);
         });
 
         ids.languageIds = Array.from(languageIds);
