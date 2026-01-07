@@ -1,6 +1,6 @@
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
-import { Button } from '@/components/ui/button';
+import { Button, buttonTextVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
@@ -26,13 +26,38 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
+
+function AgreeToTermsText({ className }: { className?: string }) {
+  const { t } = useLocalization();
+  const handleLinkPress = useCallback(() => {
+    void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`);
+  }, []);
+
+  const baseText = t('agreeToTerms');
+  const linkText = t('termsAndPrivacyLink');
+  const textParts = baseText.split('{link}');
+
+  return (
+    <Text className={className}>
+      {textParts[0]}
+      <Text
+        className={buttonTextVariants({ variant: 'link' })}
+        style={{ fontSize: undefined }}
+        onPress={handleLinkPress}
+      >
+        {linkText}
+      </Text>
+      {textParts[1]}
+    </Text>
+  );
+}
 
 export default function RegisterView({
   onNavigate,
@@ -269,12 +294,9 @@ export default function RegisterView({
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
-                      <Text
+                      <AgreeToTermsText
                         className={cn('text-sm', error && 'text-destructive')}
-                      >
-                        {t('agreeToTerms') ||
-                          'I accept the terms and conditions'}
-                      </Text>
+                      />
                     </Pressable>
                   </FormControl>
                   <FormMessage />

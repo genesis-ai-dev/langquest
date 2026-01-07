@@ -1,10 +1,6 @@
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
-import {
-  Button,
-  ButtonPressableOpacity,
-  buttonTextVariants
-} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -21,7 +17,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import { safeNavigate } from '@/utils/sharedUtils';
-import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -159,22 +154,19 @@ export default function SignInView({
               </FormItem>
             )}
           />
-          <ButtonPressableOpacity
+          <Button
+            variant="plain"
             onPress={() =>
               safeNavigate(() =>
                 onNavigate('forgot-password', { email: form.watch('email') })
               )
             }
+            size="auto"
+            className='self-start'
+            // className="native:px-0 native:py-0 h-auto self-start px-0 py-0"
           >
-            <Text
-              className={cn(
-                buttonTextVariants({ variant: 'link' }),
-                'text-left'
-              )}
-            >
-              {t('forgotPassword')}
-            </Text>
-          </ButtonPressableOpacity>
+            <Text className="text-left">{t('forgotPassword')}</Text>
+          </Button>
           <OfflineAlert />
           <View className="flex flex-col gap-2">
             <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>

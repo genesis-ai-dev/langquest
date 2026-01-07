@@ -1356,11 +1356,18 @@ export const localizations = {
     indonesian: 'Verifikasi Diperlukan'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the Terms & Privacy',
-    spanish: 'He leído y acepto los Términos y Privacidad',
-    brazilian_portuguese: 'Eu li e concordo com os Termos e Privacidade',
-    tok_pisin: 'Mi ridim na agri long Terms na Privacy',
-    indonesian: 'Saya telah membaca dan menyetujui Syarat & Privasi'
+    english: 'I have read and agree to the {link}',
+    spanish: 'He leído y acepto los {link}',
+    brazilian_portuguese: 'Eu li e concordo com os {link}',
+    tok_pisin: 'Mi ridim na agri long {link}',
+    indonesian: 'Saya telah membaca dan menyetujui {link}'
+  },
+  termsAndPrivacyLink: {
+    english: 'Terms & Privacy',
+    spanish: 'Términos y Privacidad',
+    brazilian_portuguese: 'Termos e Privacidade',
+    tok_pisin: 'Terms na Privacy',
+    indonesian: 'Syarat & Privasi'
   },
   viewTerms: {
     english: 'View Terms and Privacy',

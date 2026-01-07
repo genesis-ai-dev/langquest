@@ -1,8 +1,9 @@
+import { Button } from '@/components/ui/button';
 import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 interface MiniAudioPlayerProps {
   id: string;
@@ -41,13 +42,13 @@ export default function MiniAudioPlayer({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
+      <Button variant="plain" onPress={handlePlayPause} style={styles.playButton}>
         <Ionicons
           name={isThisAudioPlaying ? 'pause' : 'play'}
           size={24}
           color={colors.text}
         />
-      </TouchableOpacity>
+      </Button>
     </View>
   );
 }

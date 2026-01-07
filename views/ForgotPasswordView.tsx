@@ -134,7 +134,7 @@ export default function ForgotPasswordView({
                 )
               }
               disabled={isPending}
-              variant="link"
+              variant="plain"
             >
               <Text>{t('backToLogin')}</Text>
             </Button>
