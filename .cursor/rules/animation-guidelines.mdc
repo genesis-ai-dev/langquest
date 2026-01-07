@@ -259,7 +259,7 @@ Delightful moments are not just entertainment—they:
 - **Consider Ease-In-Out:** Appropriate for elements that move and scale but stay on the screen.
 - **Avoid Linear:** Linear animations feel unnatural and lack energy; avoid them in 99% of cases.
 
-Use these Custom easing curves for a polished feel exported from `tailwind.config.ts` - import `easeOut`, `easeInOut`, `easeSnappy`, or `easeSpring` for use with React Native Reanimated animations.
+Use these Custom easing curves for a polished feel exported from `@constants/animations.ts` - import `easeOut`, `easeInOut`, `easeSnappy`, or `easeSpring` for use with React Native Reanimated animations.
 
 ### Button Press Feedback
 
