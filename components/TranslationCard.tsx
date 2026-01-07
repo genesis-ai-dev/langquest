@@ -9,7 +9,8 @@ import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
-import { TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
+import { Button } from './ui/button';
 import AudioPlayer from './AudioPlayer';
 
 interface TranslationCardProps {
@@ -42,7 +43,7 @@ export const TranslationCard = ({
   };
 
   return (
-    <TouchableOpacity activeOpacity={0.7} onPress={handleCardPress}>
+    <Button variant="plain" onPress={handleCardPress}>
       <Card
         className={cn(
           'transition-opacity',
@@ -132,6 +133,6 @@ export const TranslationCard = ({
           </View>
         </CardHeader>
       </Card>
-    </TouchableOpacity>
+    </Button>
   );
 };

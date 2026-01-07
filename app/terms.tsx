@@ -1,9 +1,5 @@
 import { LanguageSelect } from '@/components/language-select';
-import {
-  Button,
-  ButtonPressableOpacity,
-  buttonTextVariants
-} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
@@ -17,6 +13,27 @@ import { ArrowLeftIcon, XIcon } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+
+function AgreeToTermsText({ className }: { className?: string }) {
+  const { t } = useLocalization();
+  const handleLinkPress = useCallback(() => {
+    void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`);
+  }, []);
+
+  const baseText = t('agreeToTerms');
+  const linkText = t('termsAndPrivacyLink');
+  const textParts = baseText.split('{link}');
+
+  return (
+    <Text className={className}>
+      {textParts[0]}
+      <Button variant="link" onPress={handleLinkPress}>
+        {linkText}
+      </Button>
+      {textParts[1]}
+    </Text>
+  );
+}
 
 function Terms() {
   const router = useRouter();
@@ -94,16 +111,12 @@ function Terms() {
         <Text variant="p">{t('termsDataInfo')}</Text>
         <Text variant="p">{t('analyticsInfo')}</Text>
         <View className="flex flex-col gap-2">
-          <ButtonPressableOpacity onPress={handleViewTerms}>
-            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
-              {t('viewFullTerms')}
-            </Text>
-          </ButtonPressableOpacity>
-          <ButtonPressableOpacity onPress={handleViewPrivacy}>
-            <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
-              {t('viewFullPrivacy')}
-            </Text>
-          </ButtonPressableOpacity>
+          <Button variant="link" onPress={handleViewTerms}>
+            <Text>{t('viewFullTerms')}</Text>
+          </Button>
+          <Button variant="link" onPress={handleViewPrivacy}>
+            <Text>{t('viewFullPrivacy')}</Text>
+          </Button>
         </View>
       </ScrollView>
 
@@ -117,7 +130,7 @@ function Terms() {
             onPress={handleToggleTerms}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: termsAccepted }}
-            accessibilityLabel={t('agreeToTerms')}
+            accessibilityLabel={`${t('agreeToTerms').replace('{link}', t('termsAndPrivacyLink'))}`}
           >
             <Checkbox
               checked={termsAccepted}
@@ -133,7 +146,7 @@ function Terms() {
                   termsAccepted ? 'text-primary' : 'text-foreground'
                 )}
               >
-                {t('agreeToTerms')}
+                <AgreeToTermsText />
               </Label>
             </View>
           </Pressable>

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -5,7 +6,7 @@ import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Carousel from './Carousel';
 
 interface AudioFile {
@@ -76,7 +77,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     return (
       <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
-        <TouchableOpacity
+        <Button
+          variant="plain"
           style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
           onPress={() => handlePlayPause(item.uri, item.id)}
         >
@@ -85,7 +87,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             size={mini ? 24 : 48}
             color={colors.text}
           />
-        </TouchableOpacity>
+        </Button>
         {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
         <View
           style={[

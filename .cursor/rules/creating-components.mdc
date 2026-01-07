@@ -188,6 +188,25 @@ While React Compiler can automatically memoize components, it has limitations an
 
 - **ESLint Disable Comments**: Never use `// eslint-disable-next-line` or similar ESLint disable comments in your code. These comments prevent React Compiler from properly analyzing and optimizing your code. If ESLint flags an issue, fix the underlying problem rather than suppressing the warning. For legitimate cases where a dependency should be excluded (like stable functions or refs), refactor the code to make the stability explicit rather than disabling the exhaustive-deps rule.
 
+- **React Native Reanimated Shared Values**: When working with React Native Reanimated's `useSharedValue`, use the `.get()` and `.set()` methods instead of accessing `.value` directly. This is the React Compiler-compliant API that avoids the need for refs or workarounds. Example:
+
+```tsx
+function App() {
+  const sv = useSharedValue(100);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { width: sv.get() * 100 };
+  });
+
+  const handlePress = () => {
+    sv.set(withTiming(200, { duration: 300 }));
+  };
+}
+```
+
+This eliminates the need for refs (`useRef`) and `useEffect` when modifying shared values in inline handlers, as React Compiler treats direct `.value` access as immutable mutations.
+
 ### Types and Props API
 
 - **TypeScript**: Ship with comprehensive types for maximum safety and autocomplete
