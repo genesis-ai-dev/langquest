@@ -292,12 +292,17 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     // - allowCreate is true
     // - User is authenticated
     // - There's a search query with >= 2 chars
-    // - Either no results found, or explicitly showing create option
+    // - No matching results found (excluding the currently selected item)
     const trimmedQuery = debouncedSearchQuery.trim();
     const hasSearchQuery = trimmedQuery.length >= 2;
-    const hasNoResults = sorted.length === 0;
+    // Count results excluding the currently selected languoid
+    // (selectedLanguoid is always added to dropdownData to preserve it after search clears)
+    const resultsExcludingSelected = sorted.filter(
+      (item) => item.value !== selectedLanguoid?.id
+    );
+    const hasNoMatchingResults = resultsExcludingSelected.length === 0;
     const shouldShowCreate =
-      allowCreate && isAuthenticated && hasSearchQuery && hasNoResults;
+      allowCreate && isAuthenticated && hasSearchQuery && hasNoMatchingResults;
 
     if (shouldShowCreate) {
       sorted.unshift({
@@ -311,7 +316,14 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     }
 
     return sorted;
-  }, [dropdownData, debouncedSearchQuery, allowCreate, isAuthenticated, t]);
+  }, [
+    dropdownData,
+    debouncedSearchQuery,
+    allowCreate,
+    isAuthenticated,
+    t,
+    selectedLanguoid
+  ]);
 
   // Use controlled value if provided, otherwise fall back to UI language from store
   const effectiveValue = useMemo(() => {
