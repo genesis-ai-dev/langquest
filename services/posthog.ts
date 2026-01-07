@@ -11,7 +11,7 @@ const createPostHogInstance = (optIn = false) => {
     enableSessionReplay: true,
     sessionReplayConfig: {
       maskAllImages: false,
-      maskAllTextInputs: false
+      maskAllTextInputs: true
     },
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,

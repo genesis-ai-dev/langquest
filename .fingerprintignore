@@ -1,0 +1,3 @@
+# Exclude .cursor directory from fingerprint
+# These are IDE configuration files that don't affect native builds
+.cursor/

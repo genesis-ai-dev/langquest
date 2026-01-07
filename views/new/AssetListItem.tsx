@@ -107,7 +107,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             <View className="flex flex-row items-center">
               <View className="flex flex-1 flex-row gap-2">
                 {(!allowEditing || invisible) && (
-                  <View className="flex flex-row gap-1.5">
+                  <View className="flex flex-row items-center gap-1.5">
                     {invisible && (
                       <Icon
                         as={EyeOffIcon}

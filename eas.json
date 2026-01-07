@@ -10,10 +10,6 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-        "EXPO_PUBLIC_APP_VARIANT": "development"
-      },
       "developmentClient": true,
       "ios": {
         "simulator": true,
@@ -27,10 +23,6 @@
       "distribution": "internal",
       "ios": {
         "distribution": "store"
-      },
-      "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-        "EXPO_PUBLIC_APP_VARIANT": "preview"
       }
     },
     "preview-simulator": {
@@ -43,11 +35,7 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "environment": "production",
-      "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://langquest.org",
-        "EXPO_PUBLIC_APP_VARIANT": "production"
-      }
+      "environment": "production"
     },
     "production-simulator": {
       "extends": "production",

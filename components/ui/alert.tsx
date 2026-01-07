@@ -30,22 +30,15 @@ function Alert({
       <View
         role="alert"
         className={cn(
-          'relative w-full rounded-lg border border-border bg-card px-4 pb-2 pt-3.5',
+          'relative flex w-full flex-row items-start gap-3 rounded-lg border border-border bg-card px-4 py-3',
+          variant === 'destructive' &&
+            'border-destructive/30 bg-destructive/10',
           className
         )}
         {...props}
       >
-        <View className="absolute left-3.5 top-3">
-          <Icon
-            as={icon}
-            className={cn(
-              'size-4',
-              variant === 'destructive' && 'text-destructive',
-              iconClassName
-            )}
-          />
-        </View>
-        {children}
+        <Icon as={icon} className={iconClassName} />
+        <View className="flex flex-1 flex-col">{children}</View>
       </View>
     </TextClassContext.Provider>
   );
@@ -57,10 +50,7 @@ function AlertTitle({
 }: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
   return (
     <Text
-      className={cn(
-        'mb-1 ml-0.5 min-h-4 pl-6 font-medium leading-none tracking-tight',
-        className
-      )}
+      className={cn('font-medium leading-[1.3] tracking-tight', className)}
       {...props}
     />
   );
@@ -74,7 +64,7 @@ function AlertDescription({
   return (
     <Text
       className={cn(
-        'ml-0.5 pb-1.5 pl-6 text-sm leading-relaxed text-muted-foreground',
+        'text-sm leading-relaxed text-muted-foreground',
         textClass?.includes('text-destructive') && 'text-destructive/90',
         className
       )}

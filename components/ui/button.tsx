@@ -2,12 +2,9 @@ import { TextClassContext } from '@/components/ui/text';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import { cssInterop } from 'nativewind';
-import type { AnimatedPressableOptions, PressableOpacity } from 'pressto';
-import { PressableScale } from 'pressto';
 import type { BaseSyntheticEvent } from 'react';
 import * as React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Pressable, TouchableOpacity } from 'react-native';
 import * as Slot from './slot';
 
 const buttonVariants = cva(
@@ -25,7 +22,7 @@ const buttonVariants = cva(
         link: 'active:scale-100 web:underline-offset-4 web:hover:underline web:focus:underline'
       },
       size: {
-        sm: 'h-9 rounded-md px-3',
+        sm: 'h-10 rounded-md px-3',
         default: 'native:px-5 native:py-3 h-12 px-4 py-2',
         lg: 'h-14 rounded-md px-8',
         'icon-sm': 'size-8',
@@ -57,7 +54,7 @@ const buttonTextVariants = cva(
       },
       size: {
         default: '',
-        sm: '',
+        sm: 'native:text-sm',
         lg: 'native:text-lg',
         'icon-sm': '',
         icon: '',
@@ -73,20 +70,18 @@ const buttonTextVariants = cva(
   }
 );
 
-const ButtonPressable = cssInterop(PressableScale, {
-  className: 'style'
-});
+const ButtonPressable = Pressable;
+
+const ButtonPressableOpacity = TouchableOpacity;
 
 type ButtonPressableProps = Omit<
-  React.ComponentPropsWithoutRef<typeof PressableScale>,
+  React.ComponentPropsWithoutRef<typeof Pressable>,
   'onPress'
 > & {
-  ref?: React.ComponentRef<typeof PressableScale>;
+  ref?: React.ComponentRef<typeof Pressable>;
   role?: string;
   disabled?: boolean;
-  onPress?:
-    | ((options: AnimatedPressableOptions) => void)
-    | ((e?: BaseSyntheticEvent) => void | Promise<void>);
+  onPress?: (e?: BaseSyntheticEvent) => void | Promise<void>;
 };
 
 type ButtonProps = ButtonPressableProps &
@@ -97,7 +92,7 @@ type ButtonProps = ButtonPressableProps &
   };
 
 const Button = React.forwardRef<
-  React.ComponentRef<typeof ButtonPressable>,
+  React.ComponentRef<typeof Pressable>,
   ButtonProps
 >(
   (
@@ -109,7 +104,6 @@ const Button = React.forwardRef<
       loading,
       disabled,
       asChild,
-      onPress,
       ...props
     }: ButtonProps,
     ref
@@ -130,34 +124,6 @@ const Button = React.forwardRef<
 
     const isDisabled = disabled || loading;
 
-    const Component = asChild
-      ? Slot.Generic<
-          React.ComponentProps<typeof PressableOpacity | typeof PressableScale>
-        >
-      : ButtonPressable;
-
-    // Convert react-hook-form handlers (that expect BaseSyntheticEvent) to work with AnimatedPressableOptions
-    const handlePress = React.useCallback(
-      (options: AnimatedPressableOptions) => {
-        if (onPress) {
-          // Check function arity to determine handler type
-          // AnimatedPressableOptions handlers expect exactly 1 required parameter
-          // react-hook-form handlers expect 0 or 1 optional parameter
-          // Function.length returns the number of required (non-optional) parameters
-          if (onPress.length === 1) {
-            // Handler expects exactly one required parameter - call with AnimatedPressableOptions
-            (onPress as (options: AnimatedPressableOptions) => void)(options);
-          } else {
-            // Handler expects 0 required parameters (optional params don't count) - call without args (react-hook-form)
-            void (
-              onPress as (e?: BaseSyntheticEvent) => void | Promise<void>
-            )();
-          }
-        }
-      },
-      [onPress]
-    );
-
     // When asChild, pass children directly to allow Slot to merge props onto the child element.
     // Otherwise, wrap with Fragment to support the loading indicator.
     const content = asChild ? (
@@ -174,6 +140,17 @@ const Button = React.forwardRef<
       </>
     );
 
+    const commonProps = {
+      className: cn(
+        'flex flex-row items-center gap-2',
+        isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
+        buttonVariants({ variant, size, className })
+      ),
+      role: 'button' as const,
+      disabled: isDisabled,
+      ...props
+    };
+
     return (
       <TextClassContext.Provider
         value={buttonTextVariants({
@@ -182,21 +159,15 @@ const Button = React.forwardRef<
           className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
         })}
       >
-        <Component
-          className={cn(
-            'flex flex-row items-center gap-2',
-            isDisabled &&
-              'opacity-50 web:pointer-events-none web:cursor-default',
-            buttonVariants({ variant, size, className })
-          )}
-          ref={ref}
-          role="button"
-          enabled={!isDisabled}
-          {...props}
-          onPress={onPress ? handlePress : undefined}
-        >
-          {content}
-        </Component>
+        {asChild ? (
+          <Slot.Pressable {...commonProps} ref={ref}>
+            {content}
+          </Slot.Pressable>
+        ) : (
+          <Pressable {...commonProps} ref={ref}>
+            {content}
+          </Pressable>
+        )}
       </TextClassContext.Provider>
     );
   }
@@ -204,5 +175,11 @@ const Button = React.forwardRef<
 
 Button.displayName = 'Button';
 
-export { Button, ButtonPressable, buttonTextVariants, buttonVariants };
+export {
+  Button,
+  ButtonPressable,
+  ButtonPressableOpacity,
+  buttonTextVariants,
+  buttonVariants
+};
 export type { ButtonProps };
