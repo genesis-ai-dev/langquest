@@ -50,7 +50,9 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  runOnJS,
   useAnimatedRef,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -280,6 +282,9 @@ export default function BibleAssetsView() {
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
 
+  // Check if quest is published (source is 'synced')
+  const isPublished = selectedQuest?.source === 'synced';
+
   // Store book name and chapter number for VerseSeparator label
   const bookChapterLabelRef = React.useRef<string>('Verse');
 
@@ -428,6 +433,19 @@ export default function BibleAssetsView() {
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
 
+  // Call both hooks unconditionally to comply with React Hooks rules
+  const publishedAssets = useAssetsByQuest(
+    currentQuestId || '',
+    debouncedSearchQuery,
+    showInvisibleContent
+  );
+  // const _localAssets = useLocalAssetsByQuest(
+  //   currentQuestId || '',
+  //   debouncedSearchQuery,
+  //   showInvisibleContent
+  // );
+
+  // Use the appropriate hook result based on isPublished condition
   const {
     data,
     fetchNextPage,
@@ -437,11 +455,8 @@ export default function BibleAssetsView() {
     isOnline,
     isFetching,
     refetch
-  } = useAssetsByQuest(
-    currentQuestId || '',
-    debouncedSearchQuery,
-    showInvisibleContent
-  );
+  } = publishedAssets;
+  // } = isPublished ? publishedAssets : localAssets;
 
   // Flatten all pages into a single array and deduplicate
   // Prefer synced over local when the same asset ID appears in both
@@ -464,6 +479,29 @@ export default function BibleAssetsView() {
 
     return Array.from(assetMap.values());
   }, [data.pages]);
+
+  // Infinite scroll - load more when reaching end of list
+  const loadMoreAssets = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      const { layoutMeasurement, contentOffset, contentSize } = event;
+      const paddingToBottom = 200; // pixels before end to trigger loading
+
+      const isCloseToBottom =
+        layoutMeasurement.height + contentOffset.y >=
+        contentSize.height - paddingToBottom;
+
+      if (isCloseToBottom) {
+        runOnJS(loadMoreAssets)();
+      }
+    }
+  });
 
   const listItems = React.useMemo((): ListItem[] => {
     // Separate assets with and without metadata
@@ -2146,7 +2184,7 @@ export default function BibleAssetsView() {
   }
 
   // Check if quest is published (source is 'synced')
-  const isPublished = selectedQuest?.source === 'synced';
+  // const isPublished = selectedQuest?.source === 'synced';
 
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
@@ -2447,6 +2485,8 @@ export default function BibleAssetsView() {
         <Animated.ScrollView
           // contentContainerStyle={styles.contentContainer}
           ref={scrollableRef}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
         >
           <Sortable.Grid
             dragActivationDelay={100}
@@ -2466,6 +2506,24 @@ export default function BibleAssetsView() {
             // autoScrollSpeed={1}
             // autoScrollEnabled={true}
           />
+          {/* Loading indicator for infinite scroll */}
+          {isFetchingNextPage && (
+            <View className="items-center justify-center py-4">
+              <ActivityIndicator
+                size="small"
+                color={getThemeColor('primary')}
+              />
+              <Text className="mt-2 text-sm text-muted-foreground">
+                {t('loading')}...
+              </Text>
+            </View>
+          )}
+          {/* End of list indicator */}
+          {!hasNextPage && assets.length > 0 && (
+            <View className="items-center justify-center py-4">
+              <Text className="text-sm text-muted-foreground">•••</Text>
+            </View>
+          )}
         </Animated.ScrollView>
       )}
 
