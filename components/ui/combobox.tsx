@@ -126,7 +126,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
         >
           <ButtonPressable
             onPress={handleOpen}
-            enabled={!disabled}
+            disabled={disabled}
             className="flex h-full flex-1 flex-row items-center justify-between px-3 py-2"
           >
             <View className="flex flex-1 flex-row items-center gap-2">
