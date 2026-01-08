@@ -190,10 +190,8 @@ export default function NextGenAssetDetailView() {
   );
   const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
     useTranscription();
-  const {
-    mutateAsync: localizeTranscription,
-    isPending: isLocalizing
-  } = useTranscriptionLocalization();
+  const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
+    useTranscriptionLocalization();
   const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const [transcriptionText, setTranscriptionText] = useState('');
 
