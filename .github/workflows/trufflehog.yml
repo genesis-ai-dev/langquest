@@ -1,3 +1,5 @@
+name: TruffleHog - secrets scanning
+
 on:
   push:
     branches: ["dev", "main", "ci"]
