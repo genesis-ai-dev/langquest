@@ -2,7 +2,7 @@ name: TruffleHog - secrets scanning
 
 on:
   push:
-    branches: ["dev", "main", "ci"]
+    branches: ["dev", "ci"]
   pull_request:
     types: [opened, synchronize]
 
