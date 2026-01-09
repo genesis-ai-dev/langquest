@@ -104,6 +104,8 @@ export interface LocalState {
   setEnablePlayAll: (enabled: boolean) => void;
   enableQuestExport: boolean;
   setEnableQuestExport: (enabled: boolean) => void;
+  enableTranscription: boolean;
+  setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
 
@@ -234,6 +236,7 @@ export const useLocalStore = create<LocalState>()(
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
+      enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
 
       // VAD settings (defaults)
@@ -336,6 +339,8 @@ export const useLocalStore = create<LocalState>()(
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
       setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
+      setEnableTranscription: (enabled) =>
+        set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
 
