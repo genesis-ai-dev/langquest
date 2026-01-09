@@ -232,7 +232,7 @@ export const migration_1_0_to_2_0: Migration = {
     // exist after data is synced). languoid_local should exist after PowerSync.init(),
     // but we check anyway to be safe.
     const languoidSyncedExists = await rawTableExists(db, 'languoid', 'synced');
-    const languoidLocalExists = await rawTableExists(db, 'languoid', 'local');
+    const languoidLocalExists = await rawTableExists(db, 'languoid');
 
     // Build conditional EXISTS clauses that safely handle missing tables
     // Use the same pattern as Step 4 to avoid "no such table" errors
