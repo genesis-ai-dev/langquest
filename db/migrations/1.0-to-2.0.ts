@@ -36,6 +36,7 @@
 
 import type { Migration } from './index';
 import {
+  ensureTableExists,
   getRawTableName,
   jsonExtractColumns,
   rawJsonKeyExists,
@@ -377,9 +378,9 @@ export const migration_1_0_to_2_0: Migration = {
 
     // Create from LOCAL language table first
     // CRITICAL: PowerSync stores data as JSON in 'data' column, not individual columns
-    // Ensure languoid_local table exists (PowerSync should create it, but we check anyway)
-    const languoidLocalTableName =
-      languoidLocalTable || getRawTableName('languoid_local');
+    // Ensure languoid_local table exists - create it if PowerSync hasn't created it yet
+    await ensureTableExists(db, 'languoid_local', 'local');
+    const languoidLocalTableName = getRawTableName('languoid_local');
     await db.execute(
       `
       WITH language_data AS (

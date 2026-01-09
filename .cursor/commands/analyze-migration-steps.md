@@ -62,6 +62,12 @@ Analyze migration steps and verify migration status:
        - New records/tables are created when needed
        - Fields are populated correctly
        - Edge cases are handled properly
+   - **CRITICAL: Consolidate test database after test data insertion** - After inserting test data, consolidate the test database again to ensure all changes are checkpointed and WAL/SHM files are removed:
+     ```bash
+     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}-test-cases.db
+     ```
+     - This ensures the database is a clean single file before copying to the device
+     - SQLite operations during test data insertion may create WAL/SHM files that need to be consolidated
    - Run the replacement script (auto-detects iOS/Android):
      ```bash
      ./testing/client-migrations/replace-device-db.sh testing/client-migrations/{@version}-test-cases.db

@@ -436,6 +436,51 @@ export function getRawTableName(
   return `ps_data__${viewName}`;
 }
 
+// ============================================================================
+// TABLE CREATION
+// ============================================================================
+
+/**
+ * Ensure a PowerSync raw table exists, creating it if necessary
+ * PowerSync tables have a simple structure: id (TEXT PRIMARY KEY) and data (TEXT)
+ * This is useful when migrations need to insert data into tables that PowerSync
+ * hasn't created yet (e.g., when migrations run before PowerSync.init() completes)
+ *
+ * @param db - Drizzle database instance
+ * @param viewName - View name (e.g., 'languoid_local')
+ * @param scope - 'local' or 'synced' (default: 'local')
+ */
+export async function ensureTableExists(
+  db: DrizzleDB,
+  viewName: string,
+  scope: RawPowerSyncScope = 'local'
+): Promise<void> {
+  const rawTableName = getRawTableName(viewName, scope);
+
+  // Check if table already exists
+  const exists = await rawTableExists(db, viewName, scope);
+  if (exists) {
+    console.log(`[Migration] Table ${rawTableName} already exists`);
+    return;
+  }
+
+  console.log(`[Migration] Creating PowerSync table ${rawTableName}...`);
+
+  try {
+    // PowerSync tables have a simple structure: id (PRIMARY KEY) and data (TEXT JSON)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS ${rawTableName} (
+        id TEXT PRIMARY KEY,
+        data TEXT
+      )
+    `);
+    console.log(`[Migration] ✓ Created table ${rawTableName}`);
+  } catch (error) {
+    console.error(`[Migration] Failed to create table ${rawTableName}:`, error);
+    throw error;
+  }
+}
+
 /**
  * Generate JSON extract SELECT clause for columns from raw PowerSync JSON data
  * Converts column names to json_extract(data, '$.column_name') as column_name
