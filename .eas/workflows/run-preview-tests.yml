@@ -1,9 +1,9 @@
-name: Run production tests
+name: Run preview tests
 
 on:
   pull_request:
     types: [opened, synchronize]
-    branches: ['main']
+    branches: ['dev']
 
     paths:
       - '**'
@@ -28,16 +28,16 @@ jobs:
   fingerprint:
     name: Fingerprint
     type: fingerprint
-    environment: production
+    environment: preview
 
   android_get_build:
     name: Check for existing android build
     needs: [fingerprint]
     type: get-build
-    environment: production
+    environment: preview
     params:
       fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
-      profile: production-simulator
+      profile: preview-simulator
       platform: android
 
   android_repack:
@@ -45,7 +45,7 @@ jobs:
     needs: [android_get_build]
     if: ${{ needs.android_get_build.outputs.build_id }}
     type: repack
-    environment: production
+    environment: preview
     params:
       build_id: ${{ needs.android_get_build.outputs.build_id }}
 
@@ -54,16 +54,16 @@ jobs:
     needs: [android_get_build]
     if: ${{ !needs.android_get_build.outputs.build_id }}
     type: build
-    environment: production
+    environment: preview
     params:
       platform: android
-      profile: production-simulator
+      profile: preview-simulator
 
   android_maestro:
     name: Run Android Maestro Tests
     after: [android_repack, android_build]
     type: maestro
-    environment: production
+    environment: preview
     image: latest
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
@@ -77,17 +77,17 @@ jobs:
   #   name: Check for existing ios build
   #   needs: [fingerprint]
   #   type: get-build
-  #   environment: production
+  #   environment: preview
   #   params:
   #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-  #     profile: production-simulator
+  #     profile: preview-simulator
 
   # ios_repack:
   #   name: Repack iOS
   #   needs: [ios_get_build]
   #   if: ${{ needs.ios_get_build.outputs.build_id }}
   #   type: repack
-  #   environment: production
+  #   environment: preview
   #   params:
   #     build_id: ${{ needs.ios_get_build.outputs.build_id }}
 
@@ -96,16 +96,16 @@ jobs:
   #   needs: [ios_get_build]
   #   if: ${{ !needs.ios_get_build.outputs.build_id }}
   #   type: build
-  #   environment: production
+  #   environment: preview
   #   params:
   #     platform: ios
-  #     profile: production-simulator
+  #     profile: preview-simulator
 
   # ios_maestro:
   #   name: Run iOS Maestro Tests
   #   after: [ios_repack, ios_build]
   #   type: maestro
-  #   environment: production
+  #   environment: preview
   #   image: latest
   #   params:
   #     build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
