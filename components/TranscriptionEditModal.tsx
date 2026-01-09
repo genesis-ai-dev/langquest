@@ -1,3 +1,4 @@
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
@@ -146,7 +147,7 @@ export default function TranscriptionEditModal({
           {/* Header with X and Check buttons */}
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
             <TouchableOpacity onPress={handleClose} className="p-2">
-              <XIcon size={24} className="text-foreground" />
+              <Icon as={XIcon} size={24} className="text-foreground" />
             </TouchableOpacity>
 
             <Text className="text-lg font-semibold">Edit Transcription</Text>
@@ -161,7 +162,8 @@ export default function TranscriptionEditModal({
               {saveTranscriptionMutation.isPending ? (
                 <ActivityIndicator size="small" />
               ) : (
-                <CheckIcon
+                <Icon
+                  as={CheckIcon}
                   size={24}
                   className={
                     editedText.trim() ? 'text-primary' : 'text-muted-foreground'
