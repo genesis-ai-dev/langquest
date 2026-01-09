@@ -2,8 +2,10 @@
 
 # Script to close and optionally restart an app in iOS Simulator or Android Emulator
 # Auto-detects platform and uses appropriate commands
-# Usage: ./testing/client-migrations/restart-device-app.sh [action]
+# Usage: ./testing/client-migrations/restart-device-app.sh [action] [platform]
 #   action: "close" (default) or "restart"
+#   platform: Optional override ("ios" or "android"). If not provided, auto-detects.
+#             iOS is checked first, then Android if iOS not available.
 
 set -e
 
@@ -13,8 +15,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default action
+# Parse arguments
 ACTION="${1:-close}"
+PLATFORM_OVERRIDE="${2:-}"  # Optional platform override
 BASE_BUNDLE_ID="com.etengenesis.langquest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Go up two levels: testing/client-migrations -> testing -> project root
@@ -49,19 +52,48 @@ esac
 
 APP_BUNDLE_ID="${BASE_BUNDLE_ID}${BUNDLE_ID_SUFFIX}"
 
-# Detect platform
+# Detect platform (iOS checked first, then Android)
 PLATFORM=""
-if command -v adb &> /dev/null && adb devices | grep -q "device$"; then
-    PLATFORM="android"
+if [ -n "$PLATFORM_OVERRIDE" ]; then
+    # Use override if provided
+    PLATFORM="$PLATFORM_OVERRIDE"
+    echo -e "${YELLOW}Using platform override: ${PLATFORM}${NC}"
 elif command -v xcrun &> /dev/null && xcrun simctl list devices | grep -qi "booted"; then
+    # Check iOS first (more common for development)
     PLATFORM="ios"
+elif command -v adb &> /dev/null && adb devices | grep -q "device$"; then
+    # Fallback to Android if iOS not available
+    PLATFORM="android"
 else
     echo -e "${RED}Error: No booted iOS simulator or Android emulator found${NC}"
     echo "Please start an iOS simulator or Android emulator first"
     exit 1
 fi
 
+# Validate platform override
+if [ -n "$PLATFORM_OVERRIDE" ] && [ "$PLATFORM_OVERRIDE" != "ios" ] && [ "$PLATFORM_OVERRIDE" != "android" ]; then
+    echo -e "${RED}Error: Invalid platform override: ${PLATFORM_OVERRIDE}${NC}"
+    echo "Platform must be 'ios' or 'android'"
+    exit 1
+fi
+
 echo -e "${GREEN}Detected platform: ${PLATFORM}${NC}"
+
+# Warn if both platforms are available but override wasn't used
+if [ -z "$PLATFORM_OVERRIDE" ]; then
+    IOS_AVAILABLE=false
+    ANDROID_AVAILABLE=false
+    if command -v xcrun &> /dev/null && xcrun simctl list devices | grep -qi "booted"; then
+        IOS_AVAILABLE=true
+    fi
+    if command -v adb &> /dev/null && adb devices | grep -q "device$"; then
+        ANDROID_AVAILABLE=true
+    fi
+    if [ "$IOS_AVAILABLE" = true ] && [ "$ANDROID_AVAILABLE" = true ]; then
+        echo -e "${YELLOW}⚠️  Both iOS and Android devices detected. Using ${PLATFORM}.${NC}"
+        echo -e "${YELLOW}   To override, specify platform as second argument: $0 [action] [ios|android]${NC}"
+    fi
+fi
 
 if [ "$PLATFORM" = "ios" ]; then
     # iOS Simulator

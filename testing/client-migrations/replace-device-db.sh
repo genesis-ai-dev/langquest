@@ -2,7 +2,9 @@
 
 # Script to find and replace the SQLite database in iOS Simulator or Android Emulator
 # Auto-detects platform and uses appropriate commands
-# Usage: ./testing/client-migrations/replace-device-db.sh [test-db-file]
+# Usage: ./testing/client-migrations/replace-device-db.sh [test-db-file] [platform]
+#   platform: Optional override ("ios" or "android"). If not provided, auto-detects.
+#             iOS is checked first, then Android if iOS not available.
 
 set -e
 
@@ -12,8 +14,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default test database
+# Parse arguments
 TEST_DB="${1:-testing/client-migrations/1.0-test.db}"
+PLATFORM_OVERRIDE="${2:-}"  # Optional platform override
 BASE_BUNDLE_ID="com.etengenesis.langquest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Go up two levels: testing/client-migrations -> testing -> project root
@@ -43,19 +46,48 @@ esac
 
 APP_BUNDLE_ID="${BASE_BUNDLE_ID}${BUNDLE_ID_SUFFIX}"
 
-# Detect platform
+# Detect platform (iOS checked first, then Android)
 PLATFORM=""
-if command -v adb &> /dev/null && adb devices | grep -q "device$"; then
-    PLATFORM="android"
+if [ -n "$PLATFORM_OVERRIDE" ]; then
+    # Use override if provided
+    PLATFORM="$PLATFORM_OVERRIDE"
+    echo -e "${YELLOW}Using platform override: ${PLATFORM}${NC}"
 elif command -v xcrun &> /dev/null && xcrun simctl list devices | grep -qi "booted"; then
+    # Check iOS first (more common for development)
     PLATFORM="ios"
+elif command -v adb &> /dev/null && adb devices | grep -q "device$"; then
+    # Fallback to Android if iOS not available
+    PLATFORM="android"
 else
     echo -e "${RED}Error: No booted iOS simulator or Android emulator found${NC}"
     echo "Please start an iOS simulator or Android emulator first"
     exit 1
 fi
 
+# Validate platform override
+if [ -n "$PLATFORM_OVERRIDE" ] && [ "$PLATFORM_OVERRIDE" != "ios" ] && [ "$PLATFORM_OVERRIDE" != "android" ]; then
+    echo -e "${RED}Error: Invalid platform override: ${PLATFORM_OVERRIDE}${NC}"
+    echo "Platform must be 'ios' or 'android'"
+    exit 1
+fi
+
 echo -e "${GREEN}Detected platform: ${PLATFORM}${NC}"
+
+# Warn if both platforms are available but override wasn't used
+if [ -z "$PLATFORM_OVERRIDE" ]; then
+    IOS_AVAILABLE=false
+    ANDROID_AVAILABLE=false
+    if command -v xcrun &> /dev/null && xcrun simctl list devices | grep -qi "booted"; then
+        IOS_AVAILABLE=true
+    fi
+    if command -v adb &> /dev/null && adb devices | grep -q "device$"; then
+        ANDROID_AVAILABLE=true
+    fi
+    if [ "$IOS_AVAILABLE" = true ] && [ "$ANDROID_AVAILABLE" = true ]; then
+        echo -e "${YELLOW}⚠️  Both iOS and Android devices detected. Using ${PLATFORM}.${NC}"
+        echo -e "${YELLOW}   To override, specify platform as second argument: $0 [test-db-file] [ios|android]${NC}"
+    fi
+fi
 
 # Check if test database exists
 if [ ! -f "$TEST_DB" ]; then
@@ -133,32 +165,31 @@ if [ "$PLATFORM" = "ios" ]; then
     echo -e "${GREEN}Database directory: $DB_DIR${NC}"
     echo -e "${GREEN}Target database: $DB_PATH${NC}"
     
+    # CRITICAL: Remove existing WAL/SHM files BEFORE copying new database
+    # This ensures a clean state and prevents SQLite from trying to use old WAL files with new database
+    echo -e "${YELLOW}Removing existing WAL/SHM files...${NC}"
+    rm -f "$DB_SHM" "$DB_WAL"
+    
     # Copy test database
     echo -e "${YELLOW}Replacing database...${NC}"
     cp "$TEST_DB" "$DB_PATH"
     
-    # Handle WAL/SHM files - always remove if they don't exist in source
+    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
     TEST_DB_SHM="${TEST_DB}-shm"
     TEST_DB_WAL="${TEST_DB}-wal"
     
     if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file...${NC}"
+        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
         cp "$TEST_DB_SHM" "$DB_SHM"
     else
-        if [ -f "$DB_SHM" ]; then
-            echo -e "${YELLOW}Removing existing WAL shared memory file (not in source)...${NC}"
-        fi
-        rm -f "$DB_SHM"
+        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
     fi
     
     if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file...${NC}"
+        echo -e "${YELLOW}Copying WAL file from source...${NC}"
         cp "$TEST_DB_WAL" "$DB_WAL"
     else
-        if [ -f "$DB_WAL" ]; then
-            echo -e "${YELLOW}Removing existing WAL file (not in source)...${NC}"
-        fi
-        rm -f "$DB_WAL"
+        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
@@ -223,6 +254,13 @@ elif [ "$PLATFORM" = "android" ]; then
     
     echo -e "${GREEN}Target database: $DB_PATH${NC}"
     
+    # CRITICAL: Remove existing WAL/SHM files BEFORE copying new database
+    # This ensures a clean state and prevents SQLite from trying to use old WAL files with new database
+    DB_SHM="${DB_PATH}-shm"
+    DB_WAL="${DB_PATH}-wal"
+    echo -e "${YELLOW}Removing existing WAL/SHM files...${NC}"
+    adb shell "run-as $APP_BUNDLE_ID rm -f $DB_SHM $DB_WAL" 2>/dev/null || adb shell "rm -f $DB_SHM $DB_WAL" 2>/dev/null || true
+    
     # Copy test database to device
     echo -e "${YELLOW}Replacing database...${NC}"
     
@@ -264,14 +302,12 @@ elif [ "$PLATFORM" = "android" ]; then
     # Set proper permissions using run-as
     adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_PATH" 2>/dev/null || adb shell "chmod 664 $DB_PATH" 2>/dev/null || true
     
-    # Handle WAL/SHM files
+    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
     TEST_DB_SHM="${TEST_DB}-shm"
     TEST_DB_WAL="${TEST_DB}-wal"
-    DB_SHM="${DB_PATH}-shm"
-    DB_WAL="${DB_PATH}-wal"
     
     if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file...${NC}"
+        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
         TEMP_SHM="/data/local/tmp/temp_sqlite.db-shm"
         adb push "$TEST_DB_SHM" "$TEMP_SHM" 2>/dev/null && \
         adb shell "run-as $APP_BUNDLE_ID cp $TEMP_SHM $DB_SHM" 2>/dev/null || \
@@ -279,11 +315,11 @@ elif [ "$PLATFORM" = "android" ]; then
         adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_SHM" 2>/dev/null || adb shell "chmod 664 $DB_SHM" 2>/dev/null || true
         adb shell "rm -f $TEMP_SHM" 2>/dev/null || true
     else
-        adb shell "run-as $APP_BUNDLE_ID rm -f $DB_SHM" 2>/dev/null || adb shell "rm -f $DB_SHM" 2>/dev/null || true
+        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
     fi
     
     if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file...${NC}"
+        echo -e "${YELLOW}Copying WAL file from source...${NC}"
         TEMP_WAL="/data/local/tmp/temp_sqlite.db-wal"
         adb push "$TEST_DB_WAL" "$TEMP_WAL" 2>/dev/null && \
         adb shell "run-as $APP_BUNDLE_ID cp $TEMP_WAL $DB_WAL" 2>/dev/null || \
@@ -291,7 +327,7 @@ elif [ "$PLATFORM" = "android" ]; then
         adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_WAL" 2>/dev/null || adb shell "chmod 664 $DB_WAL" 2>/dev/null || true
         adb shell "rm -f $TEMP_WAL" 2>/dev/null || true
     else
-        adb shell "run-as $APP_BUNDLE_ID rm -f $DB_WAL" 2>/dev/null || adb shell "rm -f $DB_WAL" 2>/dev/null || true
+        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"

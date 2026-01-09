@@ -56,7 +56,12 @@ Analyze migration steps and verify migration status:
      ```bash
      ./testing/client-migrations/restart-device-app.sh restart
      ```
-   - **IMPORTANT**: After restarting the app:
+   - **CRITICAL: Wait for app initialization** - After restarting the app, wait 8 seconds for the app to fully initialize and potentially run migrations:
+     ```bash
+     sleep 8
+   - **IMPORTANT**: After waiting for app initialization:
+     ```
+   - **IMPORTANT**: After waiting for app initialization:
      - **Use MCP local-db tools** to query the database directly after the app reopens to verify migration status
      - The MCP local-db connection will reflect the migrated database state in the iOS simulator
 
@@ -136,6 +141,10 @@ Analyze migration steps and verify migration status:
 - The MCP local-db connection queries the iOS simulator's database, which will reflect the migrated state
 - All database queries in steps 1-6 should use MCP local-db `execute_query` tool, not direct SQLite commands
 - The replacement script terminates the app and replaces the database, then you manually restart it using `restart-device-app.sh restart` (auto-detects iOS/Android)
+   - **CRITICAL: Wait for app initialization** - After restarting the app, wait 8 seconds for the app to fully initialize and potentially run migrations:
+     ```bash
+     sleep 8
+     ```
 - Use `@version` consistently throughout the analysis to reference the test version
 - Use PowerSync raw table names (e.g., `ps_data_local__project_local`) when querying via MCP local-db
 
