@@ -122,6 +122,9 @@ export default function NextGenAssetsView() {
   const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set()
+  );
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -242,6 +245,7 @@ export default function NextGenAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   const {
     data,
@@ -1010,6 +1014,44 @@ export default function NextGenAssetsView() {
     }
   };
 
+  // Cleanup effect: Clear all refs and stop audio when component unmounts
+  // This prevents memory leaks when navigating away from the assets view
+  React.useEffect(() => {
+    // Capture refs in variables to avoid stale closure warnings
+    const assetUriMap = assetUriMapRef.current;
+    const assetOrder = assetOrderRef.current;
+    const uriOrder = uriOrderRef.current;
+    const segmentDurations = segmentDurationsRef.current;
+    const timeoutIds = timeoutIdsRef.current;
+    // Store reference to audioContext methods - access current value in cleanup
+    const audioContextRef = audioContext;
+
+    return () => {
+      // Stop audio playback if playing (check current state, not captured state)
+      if (audioContextRef.isPlaying) {
+        void audioContextRef.stopCurrentSound();
+      }
+
+      // Clear all refs to free memory
+      assetUriMap.clear();
+      assetOrder.length = 0;
+      uriOrder.length = 0;
+      segmentDurations.length = 0;
+
+      // Clear all pending timeouts
+      timeoutIds.forEach((id) => clearTimeout(id));
+      timeoutIds.clear();
+
+      // Reset state
+      setCurrentlyPlayingAssetId(null);
+
+      console.log('🧹 Cleaned up NextGenAssetsView on unmount');
+    };
+    // Empty dependency array - this effect should only run on mount/unmount
+    // We access audioContext directly in cleanup to get the latest state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!currentQuestId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -1058,16 +1100,18 @@ export default function NextGenAssetsView() {
               void refetch();
               console.log('🔄 Assets queries invalidated');
               // Stop animation after a brief delay
-              setTimeout(() => {
+              const timeoutId = setTimeout(() => {
+                timeoutIdsRef.current.delete(timeoutId);
                 setIsRefreshing(false);
               }, 500);
+              timeoutIdsRef.current.add(timeoutId);
             }}
           >
             <Animated.View style={spinStyle}>
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && (
+          {assets.length > 0 && enablePlayAll && (
             <Button
               variant="ghost"
               size="icon"
@@ -1221,7 +1265,7 @@ export default function NextGenAssetsView() {
           ) : undefined
         }
         suffixStyling={false}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        hitSlop={12}
       />
 
       {SHOW_DEV_ELEMENTS && (
@@ -1340,7 +1384,7 @@ export default function NextGenAssetsView() {
           bottom: insets.bottom + 24,
           right: 24
         }}
-        className="absolute z-50"
+        className="absolute z-[100]"
       >
         <SpeedDial>
           <SpeedDialItems>

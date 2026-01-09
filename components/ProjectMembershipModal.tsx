@@ -2,11 +2,24 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerView
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile, request } from '@/db/drizzleSchema';
 import { invite, project as projectTable } from '@/db/drizzleSchema';
@@ -18,9 +31,11 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { cn } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { PortalHost } from '@rn-primitives/portal';
 import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
@@ -30,12 +45,10 @@ import {
   LogOutIcon,
   RefreshCcwIcon,
   Trash2Icon,
-  UserIcon,
-  XIcon
+  UserIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 
 const MAX_INVITE_ATTEMPTS = 3;
 
@@ -105,7 +118,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   >('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // All operations on invites, requests, and notifications go through synced tables or Supabase
@@ -413,7 +425,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
 
     if (!currentUser) {
-      return null;
+      return;
     }
 
     RNAlert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
@@ -633,7 +645,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const handleSendInvitation = async () => {
     // Guard clause: Don't render if currentUser is null
     if (!currentUser) {
-      return null;
+      return;
     }
 
     if (!isValidEmail(inviteEmail)) {
@@ -766,7 +778,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return (
       <View
         key={member.id}
-        className="flex-row items-center justify-between border-b border-border py-3"
+        className="flex-row items-center justify-between py-3"
       >
         <View className="flex-1 flex-row items-center">
           <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
@@ -991,198 +1003,205 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const isInviteButtonEnabled = inviteEmail.trim() && isValidEmail(inviteEmail);
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <Drawer
+      open={isVisible}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      snapPoints={['70%']}
+      enableDynamicSizing={false}
     >
-      <KeyboardAwareScrollView
-        className="flex-1"
-        contentContainerClassName="flex-1 items-center justify-center bg-black/50"
-        bottomOffset={96}
-        extraKeyboardSpace={20}
-      >
-        <View className="h-[70%] max-h-[600px] w-[95%] rounded-lg bg-background px-4 py-6">
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text variant="h3">{t('projectMembers')}</Text>
-            <Pressable className="p-1" onPress={onClose}>
-              <Icon as={XIcon} size={24} className="text-foreground" />
-            </Pressable>
-          </View>
+      <DrawerContent asChild>
+        <DrawerView>
+          {/* PortalHost for tooltips inside this drawer */}
+          <PortalHost name="membership-modal" />
 
-          <View className="flex-1 overflow-hidden">
-            {projectLoading ? (
-              <View className="flex-1 items-center justify-center">
-                <Text>{t('loadingProjectDetails')}</Text>
-              </View>
-            ) : (
-              <PrivateAccessGate
-                projectId={projectId}
-                projectName={project?.name || ''}
-                isPrivate={project?.private || false}
-                action="view_membership"
-                inline={true}
+          <DrawerHeader className="flex-row items-center justify-between">
+            <DrawerTitle>{t('projectMembers')}</DrawerTitle>
+          </DrawerHeader>
+
+          {projectLoading ? (
+            <View className="flex-1 items-center justify-center py-12">
+              <Text>{t('loadingProjectDetails')}</Text>
+            </View>
+          ) : (
+            <PrivateAccessGate
+              projectId={projectId}
+              projectName={project?.name || ''}
+              isPrivate={project?.private || false}
+              action="view_membership"
+              inline={true}
+            >
+              {/* Tabs */}
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) =>
+                  setActiveTab(value as 'members' | 'invited' | 'requests')
+                }
+                className="flex-1"
               >
-                {/* Tabs */}
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(value) =>
-                    setActiveTab(value as 'members' | 'invited' | 'requests')
-                  }
-                  className="flex-1"
-                >
-                  <TabsList className="mb-2 w-full">
-                    <TabsTrigger value="members" className="min-w-0 flex-1">
+                <TabsList className="mb-4 w-full">
+                  <TabsTrigger value="members" className="min-w-0 flex-1">
+                    <Text
+                      variant="small"
+                      numberOfLines={1}
+                      className="truncate"
+                    >
+                      {t('members')} ({sortedMembers.length})
+                    </Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="invited" className="min-w-0 flex-1">
+                    <Text
+                      variant="small"
+                      numberOfLines={1}
+                      className="truncate"
+                    >
+                      {t('invited')} ({invitations.length})
+                    </Text>
+                  </TabsTrigger>
+                  {sendInvitePermissions.hasAccess && (
+                    <TabsTrigger value="requests" className="min-w-0 flex-1">
                       <Text
                         variant="small"
                         numberOfLines={1}
                         className="truncate"
                       >
-                        {t('members')} ({sortedMembers.length})
+                        {t('requests')} ({requestsData.length})
                       </Text>
                     </TabsTrigger>
-                    <TabsTrigger value="invited" className="min-w-0 flex-1">
-                      <Text
-                        variant="small"
-                        numberOfLines={1}
-                        className="truncate"
-                      >
-                        {t('invited')} ({invitations.length})
-                      </Text>
-                    </TabsTrigger>
-                    {sendInvitePermissions.hasAccess && (
-                      <TabsTrigger value="requests" className="min-w-0 flex-1">
-                        <Text
-                          variant="small"
-                          numberOfLines={1}
-                          className="truncate"
-                        >
-                          {t('requests')} ({requestsData.length})
-                        </Text>
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
+                  )}
+                </TabsList>
 
+                <TabsContent value="members">
                   <ScrollView
-                    className="flex-1"
-                    contentContainerStyle={{
-                      paddingBottom: 16,
-                      paddingHorizontal: 8
-                    }}
-                    showsVerticalScrollIndicator={true}
-                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 180 }}
+                    contentContainerStyle={{ paddingBottom: 16 }}
                   >
-                    <TabsContent value="members" className="min-h-0">
-                      {sortedMembers.length > 0 ? (
-                        sortedMembers.map(renderMember)
-                      ) : (
-                        <Text className="py-6 text-center text-muted-foreground">
-                          {t('noMembers')}
-                        </Text>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="invited" className="min-h-0">
-                      {invitations.length > 0 ? (
-                        invitations.map(renderInvitation)
-                      ) : (
-                        <Text className="py-6 text-center text-muted-foreground">
-                          {t('noInvitations')}
-                        </Text>
-                      )}
-                    </TabsContent>
-
-                    {sendInvitePermissions.hasAccess && (
-                      <TabsContent value="requests" className="min-h-0">
-                        {requestsData.length > 0 ? (
-                          requestsData.map(renderRequest)
-                        ) : (
-                          <Text className="py-6 text-center text-muted-foreground">
-                            {t('noPendingRequests')}
-                          </Text>
-                        )}
-                      </TabsContent>
+                    {sortedMembers.length > 0 ? (
+                      sortedMembers.map((member) => renderMember(member))
+                    ) : (
+                      <Text className="py-6 text-center text-muted-foreground">
+                        {t('noMembers')}
+                      </Text>
                     )}
                   </ScrollView>
-                </Tabs>
+                </TabsContent>
 
-                {/* Invite Section */}
-                <View className="border-t border-border px-4 py-4">
-                  {sendInvitePermissions.hasAccess ? (
-                    <>
-                      <Text variant="large" className="mb-2">
-                        {t('inviteMembers')}
+                <TabsContent value="invited">
+                  <ScrollView
+                    style={{ maxHeight: 180 }}
+                    contentContainerStyle={{ paddingBottom: 16 }}
+                  >
+                    {invitations.length > 0 ? (
+                      invitations.map((invitation) =>
+                        renderInvitation(invitation)
+                      )
+                    ) : (
+                      <Text className="py-6 text-center text-muted-foreground">
+                        {t('noInvitations')}
                       </Text>
-                      <Input
-                        placeholder={t('email')}
-                        value={inviteEmail}
-                        onChangeText={setInviteEmail}
-                        onSubmitEditing={() => {
-                          if (isInviteButtonEnabled && !isSubmitting) {
-                            void handleSendInvitation();
-                          }
-                        }}
-                        returnKeyType="done"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        className="mb-2"
-                      />
-                      <View className="mb-2 flex-row items-center justify-between">
-                        <Pressable
-                          className="flex-row items-center"
-                          onPress={() => setInviteAsOwner(!inviteAsOwner)}
-                        >
-                          <Checkbox
-                            checked={inviteAsOwner}
-                            onCheckedChange={setInviteAsOwner}
-                          />
-                          <Label className="ml-2">{t('inviteAsOwner')}</Label>
-                        </Pressable>
-                        <Pressable
-                          className="p-1"
-                          onPress={() => setShowTooltip(!showTooltip)}
-                        >
+                    )}
+                  </ScrollView>
+                </TabsContent>
+
+                {sendInvitePermissions.hasAccess && (
+                  <TabsContent value="requests">
+                    <ScrollView
+                      style={{ maxHeight: 180 }}
+                      contentContainerStyle={{ paddingBottom: 16 }}
+                    >
+                      {requestsData.length > 0 ? (
+                        requestsData.map((req) => renderRequest(req))
+                      ) : (
+                        <Text className="py-6 text-center text-muted-foreground">
+                          {t('noPendingRequests')}
+                        </Text>
+                      )}
+                    </ScrollView>
+                  </TabsContent>
+                )}
+              </Tabs>
+              {/* Invite Section */}
+              <DrawerFooter>
+                {sendInvitePermissions.hasAccess ? (
+                  <>
+                    <Text variant="large" className="mb-2">
+                      {t('inviteMembers')}
+                    </Text>
+                    <Input
+                      drawerInput
+                      placeholder={t('email')}
+                      value={inviteEmail}
+                      onChangeText={setInviteEmail}
+                      onSubmitEditing={() => {
+                        if (isInviteButtonEnabled && !isSubmitting) {
+                          void handleSendInvitation();
+                        }
+                      }}
+                      returnKeyType="done"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="mb-2"
+                    />
+                    <View className="mb-2 flex-row items-center justify-between">
+                      <Pressable
+                        className="flex-row items-center"
+                        onPress={() => setInviteAsOwner(!inviteAsOwner)}
+                      >
+                        <Checkbox
+                          checked={inviteAsOwner}
+                          onCheckedChange={setInviteAsOwner}
+                        />
+                        <Label className="ml-2">{t('inviteAsOwner')}</Label>
+                      </Pressable>
+                      <Tooltip>
+                        <TooltipTrigger hitSlop={10}>
                           <Icon
                             as={InfoIcon}
                             size={20}
                             className="text-primary"
                           />
-                        </Pressable>
-                      </View>
-                      {showTooltip && (
-                        <View className="mb-2 rounded-md bg-muted p-2">
+                        </TooltipTrigger>
+                        <TooltipContent
+                          className={cn(
+                            'w-60',
+                            Platform.OS === 'web' && 'z-[7000]'
+                          )}
+                          side="top"
+                          align="end"
+                          portalHost="membership-modal"
+                        >
                           <Text variant="small">{t('ownerTooltip')}</Text>
-                        </View>
-                      )}
-                      <Button
-                        onPress={handleSendInvitation}
-                        disabled={!isInviteButtonEnabled || isSubmitting}
-                        loading={isSubmitting}
-                      >
-                        <Text>
-                          {isSubmitting ? t('sending') : t('sendInvitation')}
-                        </Text>
-                      </Button>
-                    </>
-                  ) : (
-                    <View className="items-center justify-center gap-2 py-6">
-                      <Icon
-                        as={CrownIcon}
-                        size={24}
-                        className="text-muted-foreground"
-                      />
-                      <Text className="text-center leading-5 text-muted-foreground">
-                        {t('onlyOwnersCanInvite')}
-                      </Text>
+                        </TooltipContent>
+                      </Tooltip>
                     </View>
-                  )}
-                </View>
-              </PrivateAccessGate>
-            )}
-          </View>
-        </View>
-      </KeyboardAwareScrollView>
-    </Modal>
+                    <Button
+                      onPress={handleSendInvitation}
+                      disabled={!isInviteButtonEnabled || isSubmitting}
+                      loading={isSubmitting}
+                    >
+                      <Text>
+                        {isSubmitting ? t('sending') : t('sendInvitation')}
+                      </Text>
+                    </Button>
+                  </>
+                ) : (
+                  <View className="items-center justify-center gap-2 py-6">
+                    <Icon
+                      as={CrownIcon}
+                      size={24}
+                      className="text-muted-foreground"
+                    />
+                    <Text className="text-center leading-5 text-muted-foreground">
+                      {t('onlyOwnersCanInvite')}
+                    </Text>
+                  </View>
+                )}
+              </DrawerFooter>
+            </PrivateAccessGate>
+          )}
+        </DrawerView>
+      </DrawerContent>
+    </Drawer>
   );
 };

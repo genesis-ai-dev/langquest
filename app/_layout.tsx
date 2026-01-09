@@ -62,6 +62,7 @@ export const NAV_THEME = {
 export default function RootLayout() {
   if (Platform.OS === 'web') {
     // @ts-expect-error - globalThis._frameTimestamp is not defined
+    // eslint-disable-next-line react-hooks/immutability, react-compiler/react-compiler
     global._frameTimestamp = null;
   }
   const hasMounted = useRef(false);

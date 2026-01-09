@@ -1,12 +1,14 @@
 import { TextClassContext } from '@/components/ui/text';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
+import type { BaseSyntheticEvent } from 'react';
 import * as React from 'react';
-import { ActivityIndicator, Pressable } from 'react-native';
+import { ActivityIndicator, Pressable, TouchableOpacity } from 'react-native';
+import * as Slot from './slot';
 
 const buttonVariants = cva(
-  'group flex items-center justify-center rounded-md active:scale-95 web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+  'group flex items-center justify-center rounded-md web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
   {
     variants: {
       variant: {
@@ -20,7 +22,7 @@ const buttonVariants = cva(
         link: 'active:scale-100 web:underline-offset-4 web:hover:underline web:focus:underline'
       },
       size: {
-        sm: 'h-9 rounded-md px-3',
+        sm: 'h-10 rounded-md px-3',
         default: 'native:px-5 native:py-3 h-12 px-4 py-2',
         lg: 'h-14 rounded-md px-8',
         'icon-sm': 'size-8',
@@ -52,7 +54,7 @@ const buttonTextVariants = cva(
       },
       size: {
         default: '',
-        sm: '',
+        sm: 'native:text-sm',
         lg: 'native:text-lg',
         'icon-sm': '',
         icon: '',
@@ -68,64 +70,116 @@ const buttonTextVariants = cva(
   }
 );
 
-const activityIndicatorColorVariants = cva('', {
-  variants: {
-    variant: {
-      default: getThemeColor('primary-foreground'),
-      destructive: getThemeColor('destructive-foreground'),
-      outline: getThemeColor('accent-foreground'),
-      secondary: getThemeColor('secondary-foreground'),
-      ghost: getThemeColor('accent-foreground'),
-      link: getThemeColor('primary-foreground')
-    }
-  },
-  defaultVariants: {
-    variant: 'default'
-  }
-});
+const ButtonPressable = Pressable;
 
-type ButtonProps = React.ComponentPropsWithoutRef<typeof Pressable> &
+const ButtonPressableOpacity = TouchableOpacity;
+
+type ButtonPressableProps = Omit<
+  React.ComponentPropsWithoutRef<typeof Pressable>,
+  'onPress'
+> & {
+  ref?: React.ComponentRef<typeof Pressable>;
+  role?: string;
+  disabled?: boolean;
+  onPress?: (e?: BaseSyntheticEvent) => void | Promise<void>;
+};
+
+type ButtonProps = ButtonPressableProps &
   VariantProps<typeof buttonVariants> & {
     loading?: boolean;
+    className?: string;
+    asChild?: boolean;
   };
 
 const Button = React.forwardRef<
   React.ComponentRef<typeof Pressable>,
   ButtonProps
->(({ children, className, variant, size, ...props }, ref) => {
-  const isDisabled = props.disabled || props.loading;
-  return (
-    <TextClassContext.Provider
-      value={buttonTextVariants({
-        variant,
-        size,
-        className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
-      })}
-    >
-      <Pressable
-        className={cn(
-          'flex flex-row items-center gap-2',
-          isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
-          buttonVariants({ variant, size, className })
+>(
+  (
+    {
+      children,
+      className,
+      variant,
+      size,
+      loading,
+      disabled,
+      asChild,
+      ...props
+    }: ButtonProps,
+    ref
+  ) => {
+    const primaryForeground = useThemeColor('primary-foreground');
+    const destructiveForeground = useThemeColor('destructive-foreground');
+    const accentForeground = useThemeColor('accent-foreground');
+    const secondaryForeground = useThemeColor('secondary-foreground');
+
+    const activityIndicatorColors = {
+      default: primaryForeground,
+      destructive: destructiveForeground,
+      secondary: secondaryForeground,
+      outline: accentForeground,
+      ghost: accentForeground,
+      link: primaryForeground
+    } as const;
+
+    const isDisabled = disabled || loading;
+
+    // When asChild, pass children directly to allow Slot to merge props onto the child element.
+    // Otherwise, wrap with Fragment to support the loading indicator.
+    const content = asChild ? (
+      (children as React.ReactElement)
+    ) : (
+      <>
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color={activityIndicatorColors[variant ?? 'default']}
+          />
         )}
-        ref={ref}
-        role="button"
-        {...props}
+        {children}
+      </>
+    );
+
+    const commonProps = {
+      className: cn(
+        'flex flex-row items-center gap-2',
+        isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
+        buttonVariants({ variant, size, className })
+      ),
+      role: 'button' as const,
+      disabled: isDisabled,
+      ...props
+    };
+
+    return (
+      <TextClassContext.Provider
+        value={buttonTextVariants({
+          variant,
+          size,
+          className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
+        })}
       >
-        <>
-          {props.loading && (
-            <ActivityIndicator
-              size="small"
-              color={activityIndicatorColorVariants({ variant })}
-            />
-          )}
-          {children}
-        </>
-      </Pressable>
-    </TextClassContext.Provider>
-  );
-});
+        {asChild ? (
+          <Slot.Pressable {...commonProps} ref={ref}>
+            {content}
+          </Slot.Pressable>
+        ) : (
+          <Pressable {...commonProps} ref={ref}>
+            {content}
+          </Pressable>
+        )}
+      </TextClassContext.Provider>
+    );
+  }
+);
+
 Button.displayName = 'Button';
 
-export { Button, buttonTextVariants, buttonVariants };
+export {
+  Button,
+  ButtonPressable,
+  ButtonPressableOpacity,
+  buttonTextVariants,
+  buttonVariants
+};
 export type { ButtonProps };

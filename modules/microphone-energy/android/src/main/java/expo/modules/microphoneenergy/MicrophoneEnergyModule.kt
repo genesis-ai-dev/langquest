@@ -18,9 +18,14 @@ class MicrophoneEnergyModule : Module() {
   private var isActive = false
   private var recordingScope: CoroutineScope? = null
   
-  // Ring buffer for capturing speech onset (1000ms for better onset capture)
-  private val ringBuffer = ArrayDeque<ShortArray>()
-  private val ringBufferMaxSize = 32 // ~1000ms at typical buffer sizes
+  // Ring buffer for capturing speech onset (200ms preroll)
+  // Store tuples of (buffer, timestamp) to enable time-based clearing
+  private data class RingBufferEntry(
+    val buffer: ShortArray,
+    val timestamp: Long
+  )
+  private val ringBuffer = ArrayDeque<RingBufferEntry>()
+  private val ringBufferMaxSize = 7 // ~200ms at typical buffer sizes
   private var isRecordingSegment = false
   private var segmentFile: java.io.File? = null
   private var segmentStartTime: Long = 0
@@ -244,7 +249,7 @@ class MicrophoneEnergyModule : Module() {
     // Manage ring buffer (always buffer when not recording segment)
     if (!isRecordingSegment) {
       synchronized(ringBuffer) {
-        ringBuffer.addLast(dataCopy)
+        ringBuffer.addLast(RingBufferEntry(buffer = dataCopy, timestamp = timestamp.toLong()))
         if (ringBuffer.size > ringBufferMaxSize) {
           ringBuffer.removeFirst()
         }
@@ -318,7 +323,7 @@ class MicrophoneEnergyModule : Module() {
             println("⚠️ Native VAD: Failed to start segment: $message")
           }
         }
-        startSegment(mapOf("prerollMs" to 1000), promise)
+        startSegment(mapOf("prerollMs" to 200), promise)
       } else if (timeSinceOnset > 300) {
         // Timeout - false alarm
         println("⚠️ Native VAD: Onset timeout - false alarm")
@@ -383,8 +388,8 @@ class MicrophoneEnergyModule : Module() {
     }
 
     try {
-      // Get preroll duration (default 500ms)
-      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 500
+      // Get preroll duration (default 200ms)
+      val prerollMs = (options?.get("prerollMs") as? Number)?.toInt() ?: 200
 
       // Create temp file for segment (WAV format for compatibility)
       val context = appContext.reactContext ?: throw Exception("Context not available")
@@ -403,8 +408,12 @@ class MicrophoneEnergyModule : Module() {
         val buffersToWrite = minOf(ringBuffer.size, maxPrerollBuffers)
         
         segmentBuffers.clear()
-        segmentBuffers.addAll(ringBuffer.takeLast(buffersToWrite))
+        // Copy buffers (not entries) from ring buffer
+        for (entry in ringBuffer.takeLast(buffersToWrite)) {
+          segmentBuffers.add(entry.buffer)
+        }
         
+        // Don't clear ring buffer here - it will be cleared on segment end up to that point
         println("📼 Preroll: $buffersToWrite chunks (~${prerollMs}ms)")
       }
 
@@ -492,11 +501,30 @@ class MicrophoneEnergyModule : Module() {
 
       segmentFile = null
       segmentBuffers.clear()
+      
+      // Clear ring buffer only up to segment end time (+ small margin)
+      // This preserves audio that came after segment end (start of next segment)
+      val clearUpToTime = endTime + 50 // Clear up to 50ms after segment end
+      synchronized(ringBuffer) {
+        val initialCount = ringBuffer.size
+        ringBuffer.removeAll { entry ->
+          entry.timestamp <= clearUpToTime
+        }
+        val clearedCount = initialCount - ringBuffer.size
+        println("🗑️ Ring buffer: cleared $clearedCount entries up to segment end, preserved ${ringBuffer.size} entries")
+      }
 
     } catch (e: Exception) {
       promise.reject("STOP_SEGMENT_ERROR", "Failed to stop segment: ${e.message}", e)
       segmentFile = null
       segmentBuffers.clear()
+      // Clear ring buffer up to segment end time
+      val clearUpToTime = lastSegmentEndTime + 50 // Clear up to 50ms after segment end
+      synchronized(ringBuffer) {
+        ringBuffer.removeAll { entry ->
+          entry.timestamp <= clearUpToTime
+        }
+      }
     }
   }
 }

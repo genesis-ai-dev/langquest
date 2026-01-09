@@ -1,12 +1,13 @@
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { languoid } from '@/db/drizzleSchema';
+import type { languoid } from '@/db/drizzleSchema';
+import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
-  type LanguoidSearchResult,
+  useLanguoidById,
   useLanguoidEndonyms,
   useLanguoidSearch,
-  useLanguoids,
   useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
@@ -14,11 +15,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
-import { cn, getThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon, PlusCircleIcon } from 'lucide-react-native';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
   useAnimatedStyle,
@@ -27,6 +28,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { ButtonPressable } from './ui/button';
 
 type Languoid = typeof languoid.$inferSelect;
 
@@ -111,6 +113,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   allowCreate = false,
   onCreateNew
 }) => {
+  const primaryColor = useThemeColor('primary');
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
   const setUILanguage = useLocalStore((state) => state.setUILanguage);
   const uiLanguage = useLocalStore((state) => state.uiLanguage);
@@ -121,13 +124,17 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   // State for creation flow
   const [isCreating, setIsCreating] = useState(false);
 
+  // Store the currently selected languoid to preserve it in dropdown data
+  const [selectedLanguoid, setSelectedLanguoid] = useState<
+    Languoid | LanguoidSearchResult | null
+  >(null);
+
   // Search state with debouncing (300ms delay)
   const [debouncedSearchQuery, immediateSearchQuery, setSearchQuery] =
     useDebouncedState('', 300);
 
-  // Use server-side search when online and searching (for non-uiReadyOnly mode)
-  const shouldUseServerSearch =
-    isOnline && !uiReadyOnly && debouncedSearchQuery.length >= 2;
+  // Use server-side search when online and searching
+  const shouldUseServerSearch = isOnline && debouncedSearchQuery.length >= 2;
 
   // Server-side search results
   const {
@@ -140,15 +147,27 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     enabled: shouldUseServerSearch
   });
 
-  // Local languoids for fallback/initial display
+  // Only fetch local languoids for uiReadyOnly mode (small dataset for UI language selection)
+  // For general language selection, rely on server search to avoid loading 300k+ records
   const { languoids: uiReadyLanguoids, isLanguoidsLoading: isLoadingUIReady } =
     useUIReadyLanguoids();
-  const { languoids: allLanguoids, isLanguoidsLoading: isLoadingAll } =
-    useLanguoids();
 
-  // Choose which languoids to use based on mode
-  const localLanguoids = uiReadyOnly ? uiReadyLanguoids : allLanguoids;
-  const isLocalLoading = uiReadyOnly ? isLoadingUIReady : isLoadingAll;
+  // For non-uiReadyOnly mode, don't fetch all languoids - use search instead
+  const localLanguoids = uiReadyOnly ? uiReadyLanguoids : [];
+  const isLocalLoading = uiReadyOnly ? isLoadingUIReady : false;
+
+  // Fetch the languoid by ID if a value is passed but we don't have it yet
+  const shouldFetchById = !!value && selectedLanguoid?.id !== value;
+  const { languoid: fetchedLanguoid } = useLanguoidById(
+    shouldFetchById ? value : undefined
+  );
+
+  // Populate selectedLanguoid when fetched or when value changes
+  useEffect(() => {
+    if (fetchedLanguoid && fetchedLanguoid.id === value) {
+      setSelectedLanguoid(fetchedLanguoid);
+    }
+  }, [fetchedLanguoid, value]);
 
   // Determine which data source to use
   const useServerResults = shouldUseServerSearch && isQueryValid;
@@ -180,19 +199,42 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   }, [localLanguoids, debouncedSearchQuery, endonymMap, useServerResults]);
 
   // Notify parent when languages are loaded
+  // For uiReadyOnly mode, wait for local data. For general mode, ready immediately.
   useEffect(() => {
-    if (localLanguoids.length > 0) {
+    if (uiReadyOnly) {
+      if (localLanguoids.length > 0) {
+        setLanguagesLoaded?.(true);
+      }
+    } else {
+      // For general mode, we use server search, so it's ready immediately
       setLanguagesLoaded?.(true);
     }
-  }, [localLanguoids, setLanguagesLoaded]);
+  }, [localLanguoids, setLanguagesLoaded, uiReadyOnly]);
 
   // Build dropdown data from the appropriate source
   const dropdownData = useMemo(() => {
     const items: DropdownItem[] = [];
+    const addedIds = new Set<string>();
+
+    // Always include the currently selected languoid first
+    // This ensures it remains visible after search is cleared
+    if (selectedLanguoid && selectedLanguoid.id) {
+      const displayName = selectedLanguoid.name ?? '';
+      items.push({
+        value: selectedLanguoid.id,
+        label: displayName,
+        displayLabel: displayName,
+        languoid: selectedLanguoid,
+        isoCode:
+          'iso_code' in selectedLanguoid ? selectedLanguoid.iso_code : null
+      });
+      addedIds.add(selectedLanguoid.id);
+    }
 
     if (useServerResults) {
       // Use server search results
       searchResults.forEach((result) => {
+        if (addedIds.has(result.id)) return;
         // Always use the canonical languoid name as primary display
         const canonicalName = result.name ?? '';
         // Only show matched alias if it's different from the canonical name
@@ -211,12 +253,14 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           isoCode: result.iso_code,
           matchedAlias: matchedAlias
         });
+        addedIds.add(result.id);
       });
     } else {
       // Use local languoids with client-side filtering
       filteredLocalLanguoids
         .filter((l) => l.name)
         .forEach((lang) => {
+          if (addedIds.has(lang.id)) return;
           const endonym = endonymMap.get(lang.id);
           const displayName = endonym ?? lang.name ?? '';
           items.push({
@@ -225,11 +269,18 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             displayLabel: displayName,
             languoid: lang
           });
+          addedIds.add(lang.id);
         });
     }
 
     return items;
-  }, [useServerResults, searchResults, filteredLocalLanguoids, endonymMap]);
+  }, [
+    useServerResults,
+    searchResults,
+    filteredLocalLanguoids,
+    endonymMap,
+    selectedLanguoid
+  ]);
 
   // Sort and optionally add "Create new" option
   const sortedData = useMemo(() => {
@@ -241,12 +292,17 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     // - allowCreate is true
     // - User is authenticated
     // - There's a search query with >= 2 chars
-    // - Either no results found, or explicitly showing create option
+    // - No matching results found (excluding the currently selected item)
     const trimmedQuery = debouncedSearchQuery.trim();
     const hasSearchQuery = trimmedQuery.length >= 2;
-    const hasNoResults = sorted.length === 0;
+    // Count results excluding the currently selected languoid
+    // (selectedLanguoid is always added to dropdownData to preserve it after search clears)
+    const resultsExcludingSelected = sorted.filter(
+      (item) => item.value !== selectedLanguoid?.id
+    );
+    const hasNoMatchingResults = resultsExcludingSelected.length === 0;
     const shouldShowCreate =
-      allowCreate && isAuthenticated && hasSearchQuery && hasNoResults;
+      allowCreate && isAuthenticated && hasSearchQuery && hasNoMatchingResults;
 
     if (shouldShowCreate) {
       sorted.unshift({
@@ -260,7 +316,14 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     }
 
     return sorted;
-  }, [dropdownData, debouncedSearchQuery, allowCreate, isAuthenticated, t]);
+  }, [
+    dropdownData,
+    debouncedSearchQuery,
+    allowCreate,
+    isAuthenticated,
+    t,
+    selectedLanguoid
+  ]);
 
   // Use controlled value if provided, otherwise fall back to UI language from store
   const effectiveValue = useMemo(() => {
@@ -297,7 +360,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           search_rank: 1
         };
 
-        // Store and call onChange
+        // Store the selected languoid to keep it in dropdown data
+        setSelectedLanguoid(newLanguoid);
         setSavedLanguage(newLanguoid as any);
         onChange?.(newLanguoid);
 
@@ -322,6 +386,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
       // Normal selection
       if (item.languoid) {
+        // Store the selected languoid to keep it in dropdown data
+        setSelectedLanguoid(item.languoid);
         setSavedLanguage(item.languoid as any);
         if (toggleUILocalization) {
           setUILanguage(item.languoid as any);
@@ -346,15 +412,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   const isLoading =
     isLocalLoading || (shouldUseServerSearch && isSearchLoading) || isCreating;
 
-  // Show loading state while fetching initial data
-  if (isLocalLoading && localLanguoids.length === 0) {
+  // Show loading state while fetching initial data (only for uiReadyOnly mode)
+  if (uiReadyOnly && isLocalLoading && localLanguoids.length === 0) {
     return (
-      <View
-        className={cn(
-          'h-12 rounded-md border border-input bg-card px-3',
-          className
-        )}
-      >
+      <View className={cn('h-12 border border-border bg-card px-3', className)}>
         <LoadingState />
       </View>
     );
@@ -369,14 +430,15 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           borderRadius: 8,
           paddingHorizontal: 12,
           backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('input')
+          borderColor: getThemeColor('border')
         }}
         placeholderStyle={{
-          fontSize: 16,
+          fontSize: 14,
           color: getThemeColor('muted-foreground')
         }}
         selectedTextStyle={{
-          fontSize: 16,
+          fontSize: 14,
+          lineHeight: 48,
           color: getThemeColor('foreground')
         }}
         iconStyle={{
@@ -385,16 +447,22 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         }}
         containerStyle={{
           borderRadius: 8,
+          overflow: 'hidden',
           borderWidth: 1,
-          marginTop: 4,
+          marginTop: 8,
           backgroundColor: getThemeColor('card'),
           borderColor: getThemeColor('border')
         }}
         dropdownPosition="auto"
         itemTextStyle={{
-          fontSize: 16,
+          fontSize: 14,
           color: getThemeColor('foreground')
         }}
+        itemContainerStyle={{
+          borderRadius: 8,
+          overflow: 'hidden'
+        }}
+        // activeColor={getThemeColor('primary')}
         activeColor={getThemeColor('primary')}
         data={sortedData}
         search
@@ -405,33 +473,25 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         value={effectiveValue}
         onChange={handleValueChange}
         renderInputSearch={() => (
-          <View className="border-b border-input p-2">
-            <View className="flex flex-row items-center gap-2">
-              <TextInput
-                value={immediateSearchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t('searchLanguages') || 'Search languages...'}
-                placeholderTextColor={getThemeColor('muted-foreground')}
-                className="h-10 flex-1 rounded-md bg-card px-3 text-base text-foreground"
-                selectionColor={getThemeColor('primary')}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {(isSearchLoading || isCreating) && (
-                <ActivityIndicator
-                  size="small"
-                  color={getThemeColor('primary')}
-                />
-              )}
-            </View>
-            {/* Show hint when server search is active */}
-            {shouldUseServerSearch && isQueryValid && (
-              <Text className="mt-1 px-1 text-xs text-muted-foreground">
-                {isOnline
-                  ? t('searching') || 'Searching...'
-                  : t('searching') || 'Searching...'}
-              </Text>
-            )}
+          <View className="overflow-hidden border-b border-border">
+            <Input
+              value={immediateSearchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('searchLanguages') || 'Search languages...'}
+              prefix={SearchIcon}
+              size="sm"
+              className="border-0"
+              autoCapitalize="none"
+              autoCorrect={false}
+              suffix={
+                (isSearchLoading || isCreating) && immediateSearchQuery ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                ) : undefined
+              }
+            />
           </View>
         )}
         flatListProps={{
@@ -442,9 +502,12 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           ListEmptyComponent: () => (
             <View className="px-3 py-4">
               <Text className="text-center text-sm text-muted-foreground">
-                {debouncedSearchQuery.length >= 2
-                  ? t('noLanguagesFound') || 'No languages found'
-                  : t('typeToSearch') || 'Type at least 2 characters to search'}
+                {isSearchLoading
+                  ? t('searching') || 'Searching...'
+                  : debouncedSearchQuery.length >= 2
+                    ? t('noLanguagesFound') || 'No languages found'
+                    : t('typeToSearch') ||
+                      'Type at least 2 characters to search'}
               </Text>
             </View>
           )
@@ -460,8 +523,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           // Special rendering for "Create new" option
           if (item.isCreateOption) {
             return (
-              <Pressable
-                className="flex flex-row items-center bg-primary/10 px-3 py-3"
+              <ButtonPressable
+                className="flex flex-row items-center bg-primary/10 p-3"
                 onPress={() => handleValueChange(item)}
               >
                 <Icon
@@ -478,7 +541,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     Add this as a new language
                   </Text>
                 </View>
-              </Pressable>
+              </ButtonPressable>
             );
           }
 

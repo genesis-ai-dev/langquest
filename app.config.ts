@@ -8,7 +8,7 @@ const iconLight = './assets/icons/icon_light.png';
 // const iconMono = './assets/icons/icon_mono.png';
 
 const siteHost = 'langquest.org';
-export const uniqueIdentifier = 'com.etengenesis.langquest';
+const uniqueIdentifier = 'com.etengenesis.langquest';
 
 const appVariant =
   process.env.EXPO_PUBLIC_APP_VARIANT ||
@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.0.6',
+    version: '2.0.8',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),

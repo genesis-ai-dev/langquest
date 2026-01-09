@@ -11,8 +11,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FullScreenVADOverlayProps {
@@ -41,7 +41,7 @@ export function FullScreenVADOverlay({
     <Animated.View
       entering={FadeIn.duration(250)}
       exiting={FadeOut.duration(200)}
-      className="absolute inset-0 z-50 flex items-center justify-center bg-background"
+      className="absolute inset-0 z-[100] flex items-center justify-center bg-background"
     >
       <View className="w-full flex-1 items-center justify-center px-8">
         {/* Large waveform visualization */}

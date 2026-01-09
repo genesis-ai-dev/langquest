@@ -14,7 +14,7 @@ import {
   getLocalAttachmentUriWithOPFS,
   normalizeFileUri
 } from '@/utils/fileUtils';
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
@@ -62,11 +62,17 @@ function getNativePath(uri: string): string {
  * - This handles edge case where server records were removed but local records remain
  */
 async function getQuestAudioUris(questId: string): Promise<string[]> {
-  // Get all asset IDs for this quest
+  // Get all asset IDs for this quest, excluding translations (where source_asset_id is not null)
   const questAssetLinks = await system.db
     .select({ asset_id: quest_asset_link.asset_id })
     .from(quest_asset_link)
-    .where(eq(quest_asset_link.quest_id, questId));
+    .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
+    .where(
+      and(
+        eq(quest_asset_link.quest_id, questId),
+        isNull(asset.source_asset_id) // Exclude translations
+      )
+    );
 
   const assetIds = questAssetLinks.map((link) => link.asset_id);
 
@@ -119,6 +125,7 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
 
   // Get assets with order_index to maintain proper sequence
   // Join with asset table to get order_index
+  // Exclude translations (where source_asset_id is not null)
   const assetsWithOrder = await system.db
     .select({
       asset_id: quest_asset_link.asset_id,
@@ -126,7 +133,12 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
     })
     .from(quest_asset_link)
     .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
-    .where(eq(quest_asset_link.quest_id, questId))
+    .where(
+      and(
+        eq(quest_asset_link.quest_id, questId),
+        isNull(asset.source_asset_id) // Exclude translations
+      )
+    )
     .orderBy(asc(asset.order_index), asc(asset.created_at));
 
   // Process assets in order
@@ -150,13 +162,25 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
       return aTime - bTime;
     });
 
-    // Deduplicate by ID (prefer synced over local)
+    // Deduplicate by ID first (prefer synced over local)
     const seenIds = new Set<string>();
-    const uniqueLinks = allLinks.filter((link) => {
+    const linksById = allLinks.filter((link) => {
       if (seenIds.has(link.id)) {
         return false;
       }
       seenIds.add(link.id);
+      return true;
+    });
+
+    // Also deduplicate by asset_id + created_at to catch cases where
+    // synced and local links have different IDs but represent the same content
+    const seenByContent = new Set<string>();
+    const uniqueLinks = linksById.filter((link) => {
+      const contentKey = `${link.asset_id}-${link.created_at || ''}`;
+      if (seenByContent.has(contentKey)) {
+        return false;
+      }
+      seenByContent.add(contentKey);
       return true;
     });
 
@@ -450,7 +474,18 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
 
         // Verify file exists before adding
         if (localUri && (await fileExists(localUri))) {
-          audioUris.push(localUri);
+          // Normalize URI for comparison to avoid duplicates
+          const normalizedUri = normalizeFileUri(localUri);
+          // Check if this URI is already in the array to prevent duplicates
+          if (
+            !audioUris.some((uri) => normalizeFileUri(uri) === normalizedUri)
+          ) {
+            audioUris.push(localUri);
+          } else {
+            console.log(
+              `Skipping duplicate audio URI: ${normalizedUri.slice(0, 50)}...`
+            );
+          }
         } else if (localUri) {
           console.warn(`Audio file not found: ${localUri}`);
         }

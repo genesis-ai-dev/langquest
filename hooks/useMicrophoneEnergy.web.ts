@@ -20,6 +20,7 @@ export interface UseMicrophoneEnergyReturn {
   startEnergyDetection: () => Promise<void>;
   stopEnergyDetection: () => Promise<void>;
   clearError: () => void;
+  resetEnergy: () => void;
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
@@ -34,6 +35,8 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const smoothedEnergyRef = useRef<number>(0);
+  // Use ref to track active state to avoid stale closures in monitorEnergy
+  const isActiveRef = useRef<boolean>(false);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -59,15 +62,23 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
 
     analyserRef.current = null;
     smoothedEnergyRef.current = 0;
+    isActiveRef.current = false;
     setIsActive(false);
     setEnergyResult(null);
   }, []);
 
   const startEnergyDetection = useCallback(async () => {
+    // Prevent starting if already active (handles rapid start/stop scenarios)
+    if (isActiveRef.current) {
+      console.log('⚠️ Web energy detection already active, skipping start');
+      return;
+    }
+
     try {
       console.log('🎤 Starting web energy detection...');
 
-      // Clean up any existing context
+      // Clean up any existing context first
+      // This ensures we start fresh and prevents stuck states
       cleanup();
 
       // Request microphone access
@@ -105,7 +116,14 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
       const SMOOTHING_FACTOR = 0.3; // EMA smoothing (match native implementation)
 
       const monitorEnergy = () => {
-        if (!analyserRef.current || !isActive) {
+        // Use ref to check active state to avoid stale closure issues
+        // This handles rapid start/stop scenarios correctly
+        if (!analyserRef.current || !isActiveRef.current) {
+          // Clean up animation frame if we're stopping
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
           return;
         }
 
@@ -137,6 +155,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
         animationFrameRef.current = requestAnimationFrame(monitorEnergy);
       };
 
+      isActiveRef.current = true;
       setIsActive(true);
       setError(null);
       monitorEnergy();
@@ -152,11 +171,18 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
 
   const stopEnergyDetection = useCallback(async () => {
     console.log('🛑 Stopping web energy detection...');
+    // Reset energy result immediately before cleanup to prevent stuck values
+    setEnergyResult(null);
     cleanup();
   }, [cleanup]);
 
   const clearError = useCallback(() => {
     setError(null);
+  }, []);
+
+  const resetEnergy = useCallback(() => {
+    setEnergyResult(null);
+    smoothedEnergyRef.current = 0;
   }, []);
 
   // Cleanup on unmount
@@ -172,6 +198,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
     error,
     startEnergyDetection,
     stopEnergyDetection,
-    clearError
+    clearError,
+    resetEnergy
   };
 }

@@ -18,6 +18,7 @@ function Switch({
         props.disabled && 'opacity-50',
         className
       )}
+      hitSlop={10}
       {...props}
     >
       <MotiView>

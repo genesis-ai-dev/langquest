@@ -21,11 +21,13 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useTranscription } from '@/hooks/useTranscription';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,7 +50,6 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar
@@ -186,6 +187,9 @@ export default function NextGenTranslationModal({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
+
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
   const audioIds = React.useMemo(() => {
@@ -283,7 +287,7 @@ export default function NextGenTranslationModal({
     }
   }, [assetText]);
 
-  const { mutate: createTranscription, isPending: isTranscribing } =
+  const { mutate: createTranscription, isPending: isCreatingTranscription } =
     useMutation({
       mutationFn: async () => {
         if (!currentUser || !asset) {
@@ -331,6 +335,7 @@ export default function NextGenTranslationModal({
               name: asset.name,
               source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
               source_asset_id: originalSourceAssetId, // Point to the original asset being translated
+              content_type: 'translation',
               creator_id: currentUser.id,
               project_id: project.id,
               download_profiles: [currentUser.id]
@@ -415,6 +420,55 @@ export default function NextGenTranslationModal({
   );
 
   const { stopCurrentSound, isPlaying } = useAudio();
+
+  const handleTranscribe = async (uri: string) => {
+    if (!isAuthenticated) {
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
+      return;
+    }
+
+    // Validate the audio file exists before attempting transcription
+    if (!uri) {
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    const exists = await fileExists(uri);
+    if (!exists) {
+      console.log('[Transcription] Audio file not found at URI:', uri);
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    console.log('[Transcription] Starting transcription for URI:', uri);
+
+    try {
+      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
+      if (result.text) {
+        setEditedText(result.text);
+        setIsEditing(true);
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      RNAlert.alert(
+        t('error'),
+        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+      );
+    }
+  };
 
   const handleClose = async () => {
     onOpenChange(false);
@@ -548,7 +602,7 @@ export default function NextGenTranslationModal({
                       </Text>
                     )}
 
-                    {/* Audio Player */}
+                    {/* Audio Player - no transcription for translation audio */}
                     {audioSegments.length > 0 && !isEditing && (
                       <View>
                         <AudioPlayer
@@ -564,8 +618,8 @@ export default function NextGenTranslationModal({
                       <Button
                         variant="default"
                         onPress={handleSubmitTranscription}
-                        disabled={!editedText.trim() || isTranscribing}
-                        loading={isTranscribing}
+                        disabled={!editedText.trim() || isCreatingTranscription}
+                        loading={isCreatingTranscription}
                       >
                         <Text>{t('submitTranscription')}</Text>
                       </Button>

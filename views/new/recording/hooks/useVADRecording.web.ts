@@ -13,6 +13,7 @@
  */
 
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
+import { VAD_SILENCE_DURATION_MIN } from '@/store/localStore';
 import React from 'react';
 
 interface UseVADRecordingProps {
@@ -90,7 +91,7 @@ export function useVADRecording({
     silenceDuration,
     onsetMultiplier: 0.25,
     confirmMultiplier: 0.5,
-    minSegmentDuration: 500
+    minSegmentDuration: VAD_SILENCE_DURATION_MIN // Use minimum silence duration instead of hardcoded 500ms
   });
 
   // Update config when props change
@@ -100,7 +101,7 @@ export function useVADRecording({
       silenceDuration,
       onsetMultiplier: 0.25,
       confirmMultiplier: 0.5,
-      minSegmentDuration: 500
+      minSegmentDuration: VAD_SILENCE_DURATION_MIN // Use minimum silence duration instead of hardcoded 500ms
     };
   }, [threshold, silenceDuration]);
 

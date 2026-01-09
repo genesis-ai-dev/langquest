@@ -17,11 +17,13 @@
 # Link to dev project
 npx supabase link --project-ref yjgdgsycxmlvaiuynlbv
 
-# Set API key secret
+# Set API key secrets
 npx supabase secrets set OPENROUTER_API_KEY=your_key_here --project-ref yjgdgsycxmlvaiuynlbv
+npx supabase secrets set MODAL_ASR_ENDPOINT=https://your-modal-app.modal.run --project-ref yjgdgsycxmlvaiuynlbv
 
-# Deploy edge function
+# Deploy edge functions
 npx supabase functions deploy predict-translation --project-ref yjgdgsycxmlvaiuynlbv
+npx supabase functions deploy transcribe --project-ref yjgdgsycxmlvaiuynlbv
 
 # Test the deployment
 curl -X POST 'https://yjgdgsycxmlvaiuynlbv.supabase.co/functions/v1/predict-translation' \
@@ -36,11 +38,13 @@ curl -X POST 'https://yjgdgsycxmlvaiuynlbv.supabase.co/functions/v1/predict-tran
 # Link to prod project
 npx supabase link --project-ref unsxkmlcyxgtgmtzfonb
 
-# Set API key secret
+# Set API key secrets
 npx supabase secrets set OPENROUTER_API_KEY=your_key_here --project-ref unsxkmlcyxgtgmtzfonb
+npx supabase secrets set MODAL_ASR_ENDPOINT=https://your-modal-app.modal.run --project-ref unsxkmlcyxgtgmtzfonb
 
-# Deploy edge function
+# Deploy edge functions
 npx supabase functions deploy predict-translation --project-ref unsxkmlcyxgtgmtzfonb
+npx supabase functions deploy transcribe --project-ref unsxkmlcyxgtgmtzfonb
 
 # Test the deployment
 curl -X POST 'https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/predict-translation' \
@@ -150,6 +154,13 @@ eas update --branch <channel> --message "Rollback AI translation changes"
 - OpenRouter API key must be configured as a Supabase secret
 - Word tapping feature requires no additional backend changes
 - UI changes (lightbulb icon, eye icon, word tapping) are frontend-only
+
+### Audio Transcription (ASR)
+
+- The `transcribe` Edge Function proxies requests to Modal's MMS Zero-Shot ASR
+- `MODAL_ASR_ENDPOINT` secret must be set (e.g., `https://your-org--mms-zeroshot-asr-serve.modal.run`)
+- Outputs uroman transcriptions for any language
+- 50MB max file size, supports wav/mp3/webm/ogg/flac
 
 ## Support
 
