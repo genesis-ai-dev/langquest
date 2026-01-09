@@ -14,10 +14,12 @@
 
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
+import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
 interface MigrationProgress {
@@ -67,7 +69,7 @@ export function MigrationScreen() {
         console.log('[MigrationScreen] Reloading app...');
 
         // On web, reload the page
-        if (typeof window !== 'undefined' && window.location) {
+        if (typeof window !== 'undefined') {
           window.location.reload();
         } else {
           // On native, we need to reset the system state and reinitialize
@@ -118,7 +120,7 @@ export function MigrationScreen() {
             {error ? (
               <Text className="text-4xl">⚠️</Text>
             ) : isComplete ? (
-              <Text className="text-4xl">✓</Text>
+              <Icon as={CheckIcon} size={40} />
             ) : (
               <ActivityIndicator size="large" />
             )}
@@ -233,7 +235,7 @@ export function MigrationScreenMinimal() {
         setStatus('Migration complete! Restarting...');
 
         setTimeout(() => {
-          if (typeof window !== 'undefined' && window.location) {
+          if (typeof window !== 'undefined') {
             window.location.reload();
           } else {
             system.resetForMigration();
