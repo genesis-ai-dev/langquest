@@ -10,13 +10,17 @@ interface SourceContentProps {
   sourceLanguage: typeof language.$inferSelect | null;
   audioSegments?: string[] | null;
   isLoading?: boolean;
+  onTranscribe?: (uri: string) => void;
+  isTranscribing?: boolean;
 }
 
 export const SourceContent: React.FC<SourceContentProps> = ({
   content,
   sourceLanguage,
   audioSegments,
-  isLoading = false
+  isLoading = false,
+  onTranscribe,
+  isTranscribing = false
 }) => {
   const { t } = useLocalization();
 
@@ -38,6 +42,8 @@ export const SourceContent: React.FC<SourceContentProps> = ({
             audioSegments={audioSegments}
             id={content.id}
             title={content.text ?? ''}
+            onTranscribe={onTranscribe}
+            isTranscribing={isTranscribing}
           />
         ) : content.audio && isLoading ? (
           <View className="flex flex-row items-center justify-center gap-2">
