@@ -5,6 +5,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  FormSubmit,
   transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
@@ -13,6 +14,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +30,7 @@ export default function ResetPasswordView() {
   const { signOut } = useAuth();
   const { t } = useLocalization();
   const router = useRouter();
+  const isOnline = useNetworkStatus();
 
   const formSchema = z
     .object({
@@ -77,6 +80,8 @@ export default function ResetPasswordView() {
     }
   });
 
+  const handleSubmit = form.handleSubmit((data) => updatePassword(data));
+
   return (
     <Form {...form}>
       <KeyboardAwareScrollView
@@ -109,6 +114,7 @@ export default function ResetPasswordView() {
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('newPassword')}
+                    type="next"
                     secureTextEntry
                   />
                 </FormControl>
@@ -132,6 +138,8 @@ export default function ResetPasswordView() {
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
                     secureTextEntry
                   />
                 </FormControl>
@@ -141,12 +149,9 @@ export default function ResetPasswordView() {
           />
 
           <View className="flex w-full flex-col">
-            <Button
-              onPress={form.handleSubmit((data) => updatePassword(data))}
-              disabled={isPending}
-            >
+            <FormSubmit onPress={handleSubmit} disabled={!isOnline}>
               <Text>{t('updatePassword')}</Text>
-            </Button>
+            </FormSubmit>
 
             <Button
               onPress={() => {
@@ -157,8 +162,8 @@ export default function ResetPasswordView() {
                   });
                 });
               }}
-              disabled={isPending}
               variant="link"
+              disabled={isPending}
             >
               <Text>{t('cancel')}</Text>
             </Button>

@@ -137,6 +137,18 @@ interface ChapterData {
     last_updated: string;
     active: boolean;
   }[];
+  languoids?: {
+    id: string;
+    name: string | null;
+    level: 'dialect' | 'family' | 'language';
+    parent_id: string | null;
+    ui_ready: boolean;
+    creator_id: string | null;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
   projectLanguageLinks?: {
     id: string;
     project_id: string;
@@ -326,6 +338,7 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
 
   // 4b. Get project_language_link records if project exists
   let projectLanguageLinks: ChapterData['projectLanguageLinks'] = undefined;
+  let languoids: ChapterData['languoids'] = undefined;
   if (project) {
     const projectLanguageLinkLocal = resolveTable('project_language_link', {
       localOverride: true
@@ -338,6 +351,27 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     if (links.length > 0) {
       projectLanguageLinks = links;
       console.log(`🔗 Found ${links.length} project language links`);
+
+      // 4c. Get languoid records that are referenced by project_language_links
+      // CRITICAL: These must be published BEFORE project_language_link records
+      const languoidIds = links
+        .map((link) => link.languoid_id)
+        .filter((id): id is string => id !== null);
+
+      if (languoidIds.length > 0) {
+        const languoidLocal = resolveTable('languoid', { localOverride: true });
+        const fetchedLanguoids = await system.db
+          .select()
+          .from(languoidLocal)
+          .where(inArray(languoidLocal.id, languoidIds));
+
+        if (fetchedLanguoids.length > 0) {
+          languoids = fetchedLanguoids;
+          console.log(
+            `🌐 Found ${fetchedLanguoids.length} languoids to publish`
+          );
+        }
+      }
     }
   }
 
@@ -384,6 +418,7 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     tags,
     questTagLinks,
     assetTagLinks,
+    languoids,
     projectLanguageLinks
   };
 }
@@ -943,7 +978,47 @@ async function executePublishTransaction(
         console.log(`⏭️  Project already exists in synced table, skipping`);
       }
 
-      // 1b. Publish project_language_link records if they exist
+      // 1b. Publish languoid records FIRST (required for foreign key in project_language_link)
+      // CRITICAL: Languoids must be in the upload queue BEFORE project_language_links
+      if (data.languoids && data.languoids.length > 0) {
+        const languoidTable = resolveTable('languoid', {
+          localOverride: false
+        });
+
+        console.log(`🌐 Publishing ${data.languoids.length} languoids...`);
+        let languoidsSkipped = 0;
+        for (const lang of data.languoids) {
+          const [existing] = await tx
+            .select()
+            .from(languoidTable)
+            .where(eq(languoidTable.id, lang.id))
+            .limit(1);
+
+          if (!existing) {
+            await tx.insert(languoidTable).values({
+              id: lang.id,
+              name: lang.name,
+              level: lang.level,
+              parent_id: lang.parent_id,
+              ui_ready: lang.ui_ready,
+              creator_id: lang.creator_id,
+              download_profiles: lang.download_profiles,
+              created_at: lang.created_at,
+              last_updated: lang.last_updated,
+              active: lang.active
+            });
+          } else {
+            languoidsSkipped++;
+          }
+        }
+        if (languoidsSkipped > 0) {
+          console.log(
+            `⏭️  Skipped ${languoidsSkipped} languoids (already exist in synced table)`
+          );
+        }
+      }
+
+      // 1c. Publish project_language_link records if they exist
       // PK is now (project_id, languoid_id, language_type) - languoid_id is required
       if (data.projectLanguageLinks && data.projectLanguageLinks.length > 0) {
         const projectLanguageLinkTable = resolveTable('project_language_link', {

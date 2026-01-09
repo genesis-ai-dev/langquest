@@ -168,6 +168,7 @@ function DrawerTrigger({
 // DrawerClose - button that closes the drawer
 function DrawerClose({
   children,
+  variant,
   ...props
 }: {
   children: React.ReactNode;
@@ -176,7 +177,7 @@ function DrawerClose({
 
   return (
     <Button
-      variant="outline"
+      variant={variant ?? 'outline'}
       onPress={() => context?.setOpen(false)}
       {...props}
     >

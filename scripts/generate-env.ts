@@ -177,6 +177,9 @@ function generateEnvFile() {
   // Write the new .env.local file
   fs.writeFileSync(targetPath, envContent);
   console.log(`Generated .env.local with IP: ${localIP}`);
+  console.log(
+    'All glory to God, the Father of our Lord Jesus Christ, and the Holy Spirit!'
+  );
 }
 
 generateEnvFile();

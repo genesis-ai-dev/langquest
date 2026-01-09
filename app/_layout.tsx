@@ -34,7 +34,6 @@ import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { PressablesConfig } from 'pressto';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import {
   configureReanimatedLogger,
@@ -145,14 +144,7 @@ export default function RootLayout() {
                     <UpdateBanner />
                     <BottomSheetModalProvider>
                       <ThemeProvider value={NAV_THEME[scheme]}>
-                        <PressablesConfig
-                          animationConfig={{
-                            duration: 100
-                            // easing: Easing.out(Easing.ease)
-                          }}
-                        >
-                          <Stack screenOptions={{ headerShown: false }} />
-                        </PressablesConfig>
+                        <Stack screenOptions={{ headerShown: false }} />
                         <PortalHost />
                       </ThemeProvider>
                     </BottomSheetModalProvider>

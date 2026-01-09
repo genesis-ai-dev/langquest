@@ -12,7 +12,7 @@ import {
   CheckCircleIcon,
   EyeIcon,
   EyeOffIcon,
-  XCircleIcon
+  PauseIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
@@ -204,7 +204,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
             value={assetData?.active ?? false}
             onChange={() => handleToggleStatusGeneral('active')}
             disabled={isLoading || !isOwner}
-            icon={assetData?.active ? CheckCircleIcon : XCircleIcon}
+            icon={assetData?.active ? CheckCircleIcon : PauseIcon}
           />
 
           <View className="h-6" />
@@ -242,7 +242,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
             value={assetQuestData?.active ?? false}
             onChange={() => handleToggleStatusQuest('active')}
             disabled={isLoading || !isOwner || !assetData?.active}
-            icon={assetQuestData?.active ? CheckCircleIcon : XCircleIcon}
+            icon={assetQuestData?.active ? CheckCircleIcon : PauseIcon}
           />
         </View>
       </DrawerContent>

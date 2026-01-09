@@ -1,5 +1,9 @@
 import { LanguageSelect } from '@/components/language-select';
-import { Button, buttonTextVariants } from '@/components/ui/button';
+import {
+  Button,
+  ButtonPressableOpacity,
+  buttonTextVariants
+} from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Icon } from '@/components/ui/icon';
 import { Label } from '@/components/ui/label';
@@ -9,7 +13,7 @@ import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { XIcon } from 'lucide-react-native';
+import { ArrowLeftIcon, XIcon } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -64,11 +68,18 @@ function Terms() {
       className="py-safe flex flex-1 flex-col gap-4 bg-background px-4"
       onLayout={onLayoutView}
     >
-      <View className="w-full flex-row items-center justify-between bg-background">
-        <Text variant="h4">{t('termsAndPrivacyTitle')}</Text>
-        {!canAcceptTerms && (
+      <View className="w-full flex-row items-center justify-between gap-2 bg-background">
+        {router.canGoBack() && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
-            <Icon as={XIcon} />
+            <Icon as={ArrowLeftIcon} className="size-6" />
+          </Button>
+        )}
+        <Text variant="h4" className="flex-1">
+          {t('termsAndPrivacyTitle')}
+        </Text>
+        {!router.canGoBack() && (
+          <Button size="icon" variant="ghost" onPress={handleClosePress}>
+            <Icon as={XIcon} className="size-6" />
           </Button>
         )}
       </View>
@@ -83,16 +94,16 @@ function Terms() {
         <Text variant="p">{t('termsDataInfo')}</Text>
         <Text variant="p">{t('analyticsInfo')}</Text>
         <View className="flex flex-col gap-2">
-          <Pressable onPress={handleViewTerms}>
+          <ButtonPressableOpacity onPress={handleViewTerms}>
             <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
               {t('viewFullTerms')}
             </Text>
-          </Pressable>
-          <Pressable onPress={handleViewPrivacy}>
+          </ButtonPressableOpacity>
+          <ButtonPressableOpacity onPress={handleViewPrivacy}>
             <Text className={cn(buttonTextVariants({ variant: 'link' }))}>
               {t('viewFullPrivacy')}
             </Text>
-          </Pressable>
+          </ButtonPressableOpacity>
         </View>
       </ScrollView>
 

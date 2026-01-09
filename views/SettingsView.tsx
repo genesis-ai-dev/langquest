@@ -53,6 +53,12 @@ export default function SettingsView() {
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  const enableTranscription = useLocalStore(
+    (state) => state.enableTranscription
+  );
+  const enableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.enableLanguoidLinkSuggestions
+  );
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -71,6 +77,12 @@ export default function SettingsView() {
   const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
+  );
+  const setEnableTranscription = useLocalStore(
+    (state) => state.setEnableTranscription
+  );
+  const setEnableLanguoidLinkSuggestions = useLocalStore(
+    (state) => state.setEnableLanguoidLinkSuggestions
   );
 
   // Settings are loaded from the centralized store
@@ -113,6 +125,14 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
+  };
+
+  const handleTranscriptionToggle = (value: boolean) => {
+    setEnableTranscription(value);
+  };
+
+  const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
+    setEnableLanguoidLinkSuggestions(value);
   };
 
   const handleClearCache = () => {
@@ -261,6 +281,26 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
+          disabled: !isOnline
+        },
+        {
+          id: 'transcription',
+          title: t('transcription') || 'Transcription',
+          description:
+            t('transcriptionDescription') ||
+            'Enable automatic transcription of audio recordings',
+          type: 'toggle',
+          value: enableTranscription,
+          onPress: () => handleTranscriptionToggle(!enableTranscription)
+        },
+        {
+          id: 'languoidLinkSuggestions',
+          title: t('enableLanguoidLinkSuggestions'),
+          description: t('enableLanguoidLinkSuggestionsDescription'),
+          type: 'toggle',
+          value: enableLanguoidLinkSuggestions,
+          onPress: () =>
+            handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
           disabled: !isOnline
         }
       ]

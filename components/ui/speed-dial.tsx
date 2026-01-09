@@ -60,7 +60,7 @@ function SpeedDial({
 }
 SpeedDial.displayName = 'SpeedDial';
 
-interface TriggerProps extends ButtonProps {
+interface TriggerProps extends Omit<ButtonProps, 'ref'> {
   iconClosed?: LucideIcon;
   iconOpen?: LucideIcon;
 }
