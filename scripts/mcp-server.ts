@@ -614,8 +614,7 @@ function main() {
       // Extract error message safely
       let errorMessage = 'Unknown error';
       try {
-        errorMessage =
-          error instanceof Error ? error.message : String(error);
+        errorMessage = error instanceof Error ? error.message : String(error);
       } catch {
         // If we can't stringify the error, use a generic message
         errorMessage = 'Connection failed';

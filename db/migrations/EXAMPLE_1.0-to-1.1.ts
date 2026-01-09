@@ -80,8 +80,10 @@ export const migration_1_0_to_1_1: Migration = {
     // ========================================================================
     if (onProgress) onProgress(2, 2, 'Initializing notes for existing assets');
 
-    console.log('[Migration 1.0→1.1] Setting default notes using JSON-first approach...');
-    
+    console.log(
+      '[Migration 1.0→1.1] Setting default notes using JSON-first approach...'
+    );
+
     // CRITICAL: Update raw PowerSync table directly using json_set()
     // PowerSync stores data as JSON in 'data' column, not individual columns
     const assetLocalTable = getRawTableName('asset_local');
