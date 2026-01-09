@@ -21,6 +21,7 @@
 import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
+import { migration_2_1_to_2_2 } from './2.1-to-2.2';
 import { rawTableExists, updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
@@ -34,10 +35,10 @@ import { rawTableExists, updateMetadataVersion } from './utils';
 //   get: <T = unknown>(query: ReturnType<typeof sql>) => Promise<T | undefined>;
 // };
 
-export type DrizzleDB = {
+export interface DrizzleDB {
   getAll: (sql: string, params?: unknown[]) => Promise<unknown[]>;
   execute: (sql: string) => Promise<unknown>;
-};
+}
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -78,9 +79,10 @@ export const migrations: Migration[] = [
   migration_0_0_to_1_0,
   // Breaking change: Add languoid support for offline projects
   migration_1_0_to_2_0,
-  migration_2_0_to_2_1
+  migration_2_0_to_2_1,
+  // Add content_type column to asset table
+  migration_2_1_to_2_2
   // Add future migrations here:
-  // migration_2_0_to_2_1,
 ];
 
 // ============================================================================
