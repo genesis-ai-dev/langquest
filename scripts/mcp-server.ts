@@ -403,6 +403,78 @@ function main() {
 
   // Create a placeholder - will be initialized when connection is established
   let dbAdapter: ReturnType<typeof createDevToolsDbAdapter> | null = null;
+  let devToolsClient: DevToolsPluginClient | null = null;
+  let reconnectTimeout: NodeJS.Timeout | null = null;
+  let isConnecting = false;
+  let retryCount = 0;
+  const MAX_RETRIES = 50; // Limit retries to prevent infinite loops
+  const INITIAL_RETRY_DELAY = 5000; // Start with 5 seconds
+  const MAX_RETRY_DELAY = 30000; // Cap at 30 seconds
+
+  // Cleanup function to properly close connections
+  const cleanup = () => {
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    // Note: DevToolsPluginClient doesn't expose a close method, but we can clear the reference
+    devToolsClient = null;
+    dbAdapter = null;
+    isConnecting = false;
+  };
+
+  // Handle unhandled promise rejections (from WebSocket errors)
+  process.on('unhandledRejection', (reason) => {
+    const errorMessage =
+      reason instanceof Error ? reason.message : String(reason);
+    // Suppress WebSocket retry errors that cause stack overflow
+    if (
+      errorMessage.includes('Maximum call stack size exceeded') ||
+      errorMessage.includes('Exceeded max retries') ||
+      errorMessage.includes('WebSocket')
+    ) {
+      // These are expected when Expo isn't running - just log and continue
+      console.error(
+        '⚠️  WebSocket connection error (Expo app may not be running)'
+      );
+      return;
+    }
+    // Log other unhandled rejections
+    console.error('⚠️  Unhandled promise rejection:', errorMessage);
+  });
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    const errorMessage = error.message || String(error);
+    // Suppress stack overflow errors from WebSocket retry logic
+    if (
+      errorMessage.includes('Maximum call stack size exceeded') ||
+      errorMessage.includes('Exceeded max retries')
+    ) {
+      console.error(
+        '⚠️  WebSocket retry error (Expo app may not be running). MCP server will continue.'
+      );
+      // Don't exit - let the server continue running
+      return;
+    }
+    // For other errors, log and exit
+    console.error('❌ Uncaught exception:', error);
+    cleanup();
+    process.exit(1);
+  });
+
+  // Handle process termination signals
+  process.on('SIGTERM', () => {
+    console.error('📴 Received SIGTERM, cleaning up...');
+    cleanup();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    console.error('📴 Received SIGINT, cleaning up...');
+    cleanup();
+    process.exit(0);
+  });
 
   // Getter function to access the current adapter (allows updates)
   const getDbAdapter = () => {
@@ -414,9 +486,88 @@ function main() {
     return dbAdapter;
   };
 
+  // Check if Expo dev server is accessible before attempting WebSocket connection
+  const checkExpoServer = async (): Promise<boolean> => {
+    try {
+      const http = await import('http');
+      return new Promise((resolve) => {
+        const req = http.request(
+          {
+            hostname: EXPO_HOST,
+            port: EXPO_PORT,
+            path: '/',
+            method: 'GET',
+            timeout: 2000
+          },
+          (res) => {
+            resolve(res.statusCode !== undefined);
+          }
+        );
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => {
+          req.destroy();
+          resolve(false);
+        });
+        req.end();
+      });
+    } catch {
+      return false;
+    }
+  };
+
   // Function to connect to Expo devtools (can be called multiple times for reconnection)
   const connectToExpoDevtools = async () => {
+    // Prevent multiple simultaneous connection attempts
+    if (isConnecting) {
+      return;
+    }
+
+    // Stop retrying if we've exceeded max retries
+    if (retryCount >= MAX_RETRIES) {
+      console.error(
+        `⚠️  Maximum retry limit (${MAX_RETRIES}) reached. Stopping reconnection attempts.`
+      );
+      console.error(
+        '💡 Please restart the MCP server or ensure your Expo app is running.'
+      );
+      return;
+    }
+
+    isConnecting = true;
     console.error('🔌 Attempting to connect to Expo devtools...');
+
+    // First check if Expo dev server is accessible
+    const serverAvailable = await checkExpoServer();
+    if (!serverAvailable) {
+      isConnecting = false;
+      retryCount++;
+      console.error(
+        `⚠️  Expo dev server not accessible at ${EXPO_HOST}:${EXPO_PORT} (attempt ${retryCount}/${MAX_RETRIES})`
+      );
+
+      if (retryCount < MAX_RETRIES) {
+        const baseDelay = Math.min(
+          INITIAL_RETRY_DELAY * Math.pow(1.5, retryCount - 1),
+          MAX_RETRY_DELAY
+        );
+        const jitter = Math.random() * 1000;
+        const delay = Math.floor(baseDelay + jitter);
+
+        console.error(
+          `💡 Retrying in ${Math.round(delay / 1000)}s... (Start your Expo app to enable database queries)`
+        );
+
+        reconnectTimeout = setTimeout(() => {
+          reconnectTimeout = null;
+          void connectToExpoDevtools();
+        }, delay);
+      } else {
+        console.error(
+          '💡 The MCP server will continue running. Start your Expo app to enable database queries.'
+        );
+      }
+      return;
+    }
 
     // Try using getDevToolsPluginClientAsync
     // Note: getDevToolsPluginClientAsync calls getConnectionInfo() which expects window.location
@@ -438,21 +589,89 @@ function main() {
         globalThis.window = mockWindow;
       }
 
-      const client = await getDevToolsPluginClientAsync('local-db-mcp');
+      // Wrap in a try-catch to handle WebSocket errors gracefully
+      // Use a shorter timeout to fail fast before WebSocket retry logic kicks in
+      const client = await Promise.race([
+        getDevToolsPluginClientAsync('local-db-mcp'),
+        // Shorter timeout to prevent WebSocket from starting aggressive retries
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Connection timeout after 3 seconds')),
+            3000
+          )
+        )
+      ]);
+
       console.error('✅ Connected to Expo devtools');
+      devToolsClient = client;
       dbAdapter = createDevToolsDbAdapter(client);
+      retryCount = 0; // Reset retry count on successful connection
+      isConnecting = false;
     } catch (error) {
-      console.error(
-        '⚠️  Failed to connect via getDevToolsPluginClientAsync:',
-        error
-      );
-      console.error(
-        '💡 The MCP server will continue running. Start your Expo app to enable database queries.'
-      );
-      // Attempt to reconnect after 5 seconds
-      setTimeout(() => {
-        void connectToExpoDevtools();
-      }, 5000);
+      isConnecting = false;
+      retryCount++;
+
+      // Extract error message safely
+      let errorMessage = 'Unknown error';
+      try {
+        errorMessage =
+          error instanceof Error ? error.message : String(error);
+      } catch {
+        // If we can't stringify the error, use a generic message
+        errorMessage = 'Connection failed';
+      }
+
+      // Check if this is a connection-related error
+      const isConnectionError =
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('WebSocket') ||
+        errorMessage.includes('Exceeded max retries') ||
+        errorMessage.includes('ECONNRESET') ||
+        errorMessage.includes('ENOTFOUND');
+
+      // Suppress detailed error logging for connection errors to avoid noise
+      if (!isConnectionError) {
+        console.error(
+          '⚠️  Failed to connect via getDevToolsPluginClientAsync:',
+          errorMessage
+        );
+      } else {
+        console.error(
+          `⚠️  Connection failed (attempt ${retryCount}/${MAX_RETRIES})`
+        );
+      }
+
+      // Clean up any partial connection state
+      if (devToolsClient) {
+        devToolsClient = null;
+      }
+      if (dbAdapter) {
+        dbAdapter = null;
+      }
+
+      if (retryCount < MAX_RETRIES) {
+        // Exponential backoff with jitter
+        const baseDelay = Math.min(
+          INITIAL_RETRY_DELAY * Math.pow(1.5, retryCount - 1),
+          MAX_RETRY_DELAY
+        );
+        const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+        const delay = Math.floor(baseDelay + jitter);
+
+        console.error(
+          `💡 Retrying in ${Math.round(delay / 1000)}s... (Start your Expo app to enable database queries)`
+        );
+
+        reconnectTimeout = setTimeout(() => {
+          reconnectTimeout = null;
+          void connectToExpoDevtools();
+        }, delay);
+      } else {
+        console.error(
+          '💡 The MCP server will continue running. Start your Expo app to enable database queries.'
+        );
+      }
     }
   };
 
@@ -460,22 +679,40 @@ function main() {
   void (async () => {
     console.error('🚀 Setting up MCP server...');
 
-    // Create MCP server and connect to stdio transport
-    const server = createMcpServer(getDbAdapter);
-    const transport = new StdioServerTransport();
+    try {
+      // Create MCP server and connect to stdio transport
+      const server = createMcpServer(getDbAdapter);
+      const transport = new StdioServerTransport();
 
-    await server.connect(transport);
+      await server.connect(transport);
 
-    console.error('✨ MCP Server is running!');
-    console.error(
-      '📝 Using stdio transport - Cursor will launch this as a subprocess'
-    );
+      console.error('✨ MCP Server is running!');
+      console.error(
+        '📝 Using stdio transport - Cursor will launch this as a subprocess'
+      );
 
-    // Attempt to connect to Expo devtools (non-blocking)
-    // This will retry automatically if the connection fails
-    connectToExpoDevtools().catch((error) => {
-      console.error('Failed to connect to Expo devtools:', error);
-    });
+      // Attempt to connect to Expo devtools (non-blocking)
+      // This will retry automatically if the connection fails
+      // Errors are handled inside connectToExpoDevtools, so we just need to catch any unexpected errors
+      connectToExpoDevtools().catch((error) => {
+        // Only log if it's not a connection error (those are handled inside the function)
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        if (
+          !errorMessage.includes('timeout') &&
+          !errorMessage.includes('ECONNREFUSED') &&
+          !errorMessage.includes('WebSocket') &&
+          !errorMessage.includes('Exceeded max retries')
+        ) {
+          console.error('Unexpected error connecting to Expo devtools:', error);
+        }
+        // Don't retry here - connectToExpoDevtools handles its own retries
+      });
+    } catch (error) {
+      console.error('❌ Failed to start MCP server:', error);
+      cleanup();
+      process.exit(1);
+    }
   })();
 }
 
