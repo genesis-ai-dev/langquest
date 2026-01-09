@@ -1,5 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
-import { Badge } from '@/components/ui/badge';
+// import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardDescription,
@@ -9,25 +9,27 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import type { Tag } from '@/database_services/tagCache';
-import { tagService } from '@/database_services/tagService';
+// import type { Tag } from '@/database_services/tagCache';
+// import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useTagStore } from '@/hooks/useTagStore';
+// import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
+  CheckSquareIcon,
   EyeOffIcon,
   HardDriveIcon,
   PauseIcon,
   PlayIcon,
-  Plus,
-  TagIcon
+  // Plus,
+  SquareIcon
+  // TagIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { TagModal } from '../../components/TagModal';
+// import { TagModal } from '../../components/TagModal';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -48,6 +50,11 @@ export interface BibleAssetListItemProps {
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   dragHandle?: React.ReactNode;
+  // Selection mode props
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (assetId: string) => void;
+  onEnterSelection?: (assetId: string) => void;
 }
 
 export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
@@ -55,10 +62,14 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   questId,
   isCurrentlyPlaying = false,
   isPublished,
-  onUpdate,
+  onUpdate: _onUpdate,
   onPlay,
   attachmentState: _attachmentState,
-  dragHandle
+  dragHandle,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onEnterSelection
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -67,20 +78,21 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
 
-  const fetchManyTags = useTagStore((s) => s.fetchManyTags);
-  const [tags, setTags] = React.useState<
-    { id: string; key: string; value?: string }[]
-  >([]);
+  // Tags functionality commented out
+  // const fetchManyTags = useTagStore((s) => s.fetchManyTags);
+  // const [tags, setTags] = React.useState<
+  //   { id: string; key: string; value?: string }[]
+  // >([]);
 
-  React.useEffect(() => {
-    const loadTags = async () => {
-      if (asset.tag_ids && asset.tag_ids.length > 0) {
-        const fetchedTags = await fetchManyTags(asset.tag_ids);
-        setTags(fetchedTags);
-      }
-    };
-    void loadTags();
-  }, [asset.tag_ids, fetchManyTags]);
+  // React.useEffect(() => {
+  //   const loadTags = async () => {
+  //     if (asset.tag_ids && asset.tag_ids.length > 0) {
+  //       const fetchedTags = await fetchManyTags(asset.tag_ids);
+  //       setTags(fetchedTags);
+  //     }
+  //   };
+  //   void loadTags();
+  // }, [asset.tag_ids, fetchManyTags]);
 
   // Download mutation
   const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
@@ -88,34 +100,34 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
     asset.id
   );
 
-  // Tag modal state
-  const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
+  // Tag modal state - commented out
+  // const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
 
-  const handleOpenTagModal = () => {
-    console.log('Opening tag modal for asset:', asset.id);
-    setIsTagModalVisible(true);
-  };
+  // const handleOpenTagModal = () => {
+  //   console.log('Opening tag modal for asset:', asset.id);
+  //   setIsTagModalVisible(true);
+  // };
 
-  const handleAssignTags = async (tags: Tag[]) => {
-    try {
-      // Extract tag IDs from the tags array
-      const tagIds = tags.map((tag) => tag.id);
+  // const handleAssignTags = async (tags: Tag[]) => {
+  //   try {
+  //     // Extract tag IDs from the tags array
+  //     const tagIds = tags.map((tag) => tag.id);
 
-      // Use the tagService to assign tags to the asset
-      await tagService.assignTagsToAssetLocal(asset.id, tagIds);
+  //     // Use the tagService to assign tags to the asset
+  //     await tagService.assignTagsToAssetLocal(asset.id, tagIds);
 
-      onUpdate?.();
+  //     onUpdate?.();
 
-      console.log(
-        `Successfully assigned ${tagIds.length} tags to asset ${asset.id}`
-      );
-    } catch (error) {
-      console.error('Failed to assign tags to asset:', error);
-      // TODO: Show error toast/alert to user
-    } finally {
-      setIsTagModalVisible(false);
-    }
-  };
+  //     console.log(
+  //       `Successfully assigned ${tagIds.length} tags to asset ${asset.id}`
+  //     );
+  //   } catch (error) {
+  //     console.error('Failed to assign tags to asset:', error);
+  //     // TODO: Show error toast/alert to user
+  //   } finally {
+  //     setIsTagModalVisible(false);
+  //   }
+  // };
 
   const layerStatus = useStatusContext();
   const { allowEditing, invisible } = layerStatus.getStatusParams(
@@ -130,6 +142,12 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   );
 
   const handlePress = () => {
+    // If in selection mode, toggle selection instead of navigating
+    if (isSelectionMode) {
+      onToggleSelect?.(asset.id);
+      return;
+    }
+
     if (!isPublished) return;
     layerStatus.setLayerStatus(
       LayerType.ASSET,
@@ -156,6 +174,13 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
     });
   };
 
+  const handleLongPress = () => {
+    // Enter selection mode on long press
+    if (!isSelectionMode && onEnterSelection) {
+      onEnterSelection(asset.id);
+    }
+  };
+
   const handleDownloadToggle = () => {
     if (!currentUser?.id) return;
 
@@ -163,16 +188,34 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
     downloadAsset({ userId: currentUser.id, download: !isDownloaded });
   };
 
-  const tag = tags.length > 0 ? tags[0] : null;
+  // Tags display - commented out
+  // const tag = tags.length > 0 ? tags[0] : null;
+
+  // Render selection checkbox or drag handle
+  const selectionOrDragElement = isSelectionMode ? (
+    <Pressable
+      onPress={() => onToggleSelect?.(asset.id)}
+      className="mr-1 flex h-7 w-7 items-center justify-center"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Icon
+        as={isSelected ? CheckSquareIcon : SquareIcon}
+        size={22}
+        className={isSelected ? 'text-primary' : 'text-muted-foreground'}
+      />
+    </Pressable>
+  ) : (
+    dragHandle
+  );
 
   return (
-    <Pressable onPress={handlePress}>
+    <Pressable onPress={handlePress} onLongPress={handleLongPress}>
       <Card
         className={`${
           !allowEditing ? 'opacity-50' : ''
         } ${invisible ? 'opacity-30' : ''} ${
           isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
-        } p-3`}
+        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} p-3`}
       >
         <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
@@ -196,7 +239,7 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                     )}
                   </View>
                 )}
-                {dragHandle}
+                {selectionOrDragElement}
                 <View className="flex flex-row items-center gap-1.5">
                   {asset.source === 'local' && (
                     <Icon as={HardDriveIcon} size={14} />
@@ -230,7 +273,8 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                   </CardTitle>
                 </View>
               </View>
-              <View className="flex flex-row items-center justify-center gap-1.5">
+              {/* Tags UI - commented out */}
+              {/* <View className="flex flex-row items-center justify-center gap-1.5">
                 <Pressable
                   onPress={isPublished ? undefined : handleOpenTagModal}
                 >
@@ -255,7 +299,7 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                     </View>
                   )}
                 </Pressable>
-              </View>
+              </View> */}
               <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}
                 isLoading={isDownloading}
@@ -276,14 +320,15 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
         </CardContent> */}
       </Card>
 
-      <TagModal
+      {/* TagModal - commented out */}
+      {/* <TagModal
         isVisible={isTagModalVisible}
         searchTerm=""
         limit={200}
         initialSelectedTags={tags}
         onClose={() => setIsTagModalVisible(false)}
         onAssignTags={handleAssignTags}
-      />
+      /> */}
     </Pressable>
   );
 };

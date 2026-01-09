@@ -94,6 +94,9 @@ import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import RecordingViewSimplified from './recording/components/NewRecordingViewSimplified';
+import { SelectionControls } from './recording/components/SelectionControls';
+import { useSelectionMode } from './recording/hooks/useSelectionMode';
+// import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
 
@@ -127,6 +130,157 @@ interface ListItemSeparator {
 
 type ListItem = ListItemAsset | ListItemSeparator;
 
+// Manual separator type used for verse grouping
+interface ManualSeparator {
+  from: number;
+  to: number;
+  key: string;
+  assetId?: string;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS (moved outside component for better performance)
+// ============================================================================
+
+/**
+ * Builds the final list of items (assets + separators) for rendering.
+ * This is extracted as a pure function to avoid recreation on each render.
+ */
+function buildFinalList(
+  assetsWithMeta: AssetQuestLink[],
+  assetsWithoutMeta: AssetQuestLink[],
+  separatorsWithAssetId: ManualSeparator[],
+  sortedSeparatorsWithoutAssetId: ManualSeparator[],
+  allManualSeparators: ManualSeparator[]
+): ListItem[] {
+  // Build list with auto-generated separators + assets with metadata
+  const result: ListItem[] = [];
+  let currentFrom: number | undefined;
+  let currentTo: number | undefined;
+
+  for (const asset of assetsWithMeta) {
+    const from = asset.metadata?.verse?.from;
+    const to = asset.metadata?.verse?.to;
+
+    // Add separator when verse range changes
+    if (from !== currentFrom || to !== currentTo) {
+      result.push({
+        type: 'separator',
+        from,
+        to,
+        key: `sep-${from}-${to}`
+      });
+      currentFrom = from;
+      currentTo = to;
+    }
+
+    result.push({
+      type: 'asset',
+      content: asset,
+      key: asset.id
+    });
+  }
+
+  // Build unassigned block (assets without verse metadata)
+  const unassignedBlock: ListItem[] = [];
+  if (assetsWithoutMeta.length > 0) {
+    unassignedBlock.push({
+      type: 'separator',
+      key: 'sep-unassigned'
+    });
+
+    for (const asset of assetsWithoutMeta) {
+      unassignedBlock.push({
+        type: 'asset',
+        content: asset,
+        key: asset.id
+      });
+    }
+  }
+
+  // Insert separators that target a specific asset
+  for (const sep of separatorsWithAssetId) {
+    if (!sep.assetId) continue;
+
+    const assetIndex = result.findIndex(
+      (item) => item.type === 'asset' && item.content.id === sep.assetId
+    );
+
+    const sepItem: ListItemSeparator = {
+      type: 'separator',
+      from: sep.from,
+      to: sep.to,
+      key: sep.key
+    };
+
+    if (assetIndex !== -1) {
+      result.splice(assetIndex, 0, sepItem);
+    } else {
+      // Asset is in unassignedBlock, insert at end of result
+      result.push(sepItem);
+    }
+  }
+
+  // Insert separators without assetId by verse order
+  for (const sep of sortedSeparatorsWithoutAssetId) {
+    const sepItem: ListItemSeparator = {
+      type: 'separator',
+      from: sep.from,
+      to: sep.to,
+      key: sep.key
+    };
+
+    let insertIdx = result.findIndex(
+      (item) =>
+        item.type === 'separator' &&
+        item.from !== undefined &&
+        sep.from < item.from
+    );
+    if (insertIdx === -1) {
+      insertIdx = result.length;
+    }
+    result.splice(insertIdx, 0, sepItem);
+  }
+
+  // Combine: result + unassigned block
+  const combined: ListItem[] = [...result, ...unassignedBlock];
+
+  // Build set of manual separator ranges for deduplication
+  const manualSeparatorRanges = new Set<string>();
+  const manualSeparatorKeys = new Set<string>();
+  for (const sep of allManualSeparators) {
+    manualSeparatorRanges.add(`${sep.from ?? 'none'}-${sep.to ?? 'none'}`);
+    manualSeparatorKeys.add(sep.key);
+  }
+
+  // Deduplicate separators (prefer manual over auto-generated)
+  const seenSeparatorRanges = new Set<string>();
+  const deduped: ListItem[] = [];
+
+  for (const item of combined) {
+    if (item.type === 'separator') {
+      const sepRange = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
+      const isManualSeparator = manualSeparatorKeys.has(item.key);
+      const hasManualSeparatorForRange = manualSeparatorRanges.has(sepRange);
+
+      // Skip if we've already seen this range
+      if (seenSeparatorRanges.has(sepRange)) {
+        continue;
+      }
+
+      // Skip auto-generated if manual exists for this range
+      if (!isManualSeparator && hasManualSeparatorForRange) {
+        continue;
+      }
+
+      seenSeparatorRanges.add(sepRange);
+    }
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
 export default function BibleAssetsView() {
   const {
     currentQuestId,
@@ -140,6 +294,15 @@ export default function BibleAssetsView() {
   const audioContext = useAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+
+  // Selection mode for batch operations
+  const {
+    isSelectionMode,
+    selectedAssetIds,
+    enterSelection,
+    toggleSelect,
+    cancelSelection
+  } = useSelectionMode();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -503,180 +666,53 @@ export default function BibleAssetsView() {
     }
   });
 
-  const listItems = React.useMemo((): ListItem[] => {
-    // Separate assets with and without metadata
-    const assetsWithMeta = assets.filter(
-      (a) => a.metadata?.verse?.from != null
-    );
-    const assetsWithoutMeta = assets.filter(
-      (a) => a.metadata?.verse?.from == null
-    );
+  // ============================================================================
+  // OPTIMIZED LIST BUILDING - Split into smaller memoized steps
+  // ============================================================================
 
-    // Sort assets with metadata by verse.from
-    assetsWithMeta.sort((a, b) => {
+  // Step 1: Separate and sort assets with metadata (only recomputes when assets change)
+  const assetsWithMeta = React.useMemo(() => {
+    const filtered = assets.filter((a) => a.metadata?.verse?.from != null);
+    // Sort by verse.from
+    return [...filtered].sort((a, b) => {
       const aFrom = a.metadata?.verse?.from ?? 0;
       const bFrom = b.metadata?.verse?.from ?? 0;
       return aFrom - bFrom;
     });
+  }, [assets]);
 
-    // First build the list with auto separators + assets
-    const result: ListItem[] = [];
-    let currentFrom: number | undefined;
-    let currentTo: number | undefined;
+  // Step 2: Get assets without metadata (only recomputes when assets change)
+  const assetsWithoutMeta = React.useMemo(() => {
+    return assets.filter((a) => a.metadata?.verse?.from == null);
+  }, [assets]);
 
-    // Process assets with metadata
-    for (const asset of assetsWithMeta) {
-      const from = asset.metadata?.verse?.from;
-      const to = asset.metadata?.verse?.to;
+  // Step 3: Split manual separators by type (only recomputes when separators change)
+  const separatorsWithAssetId = React.useMemo(() => {
+    return manualSeparators.filter((sep) => sep.assetId);
+  }, [manualSeparators]);
 
-      // If different from current group, add separator
-      if (from !== currentFrom || to !== currentTo) {
-        result.push({
-          type: 'separator',
-          from,
-          to,
-          key: `sep-${from}-${to}`
-        });
-        currentFrom = from;
-        currentTo = to;
-      }
+  const sortedSeparatorsWithoutAssetId = React.useMemo(() => {
+    return manualSeparators
+      .filter((sep) => !sep.assetId)
+      .sort((a, b) => a.from - b.from);
+  }, [manualSeparators]);
 
-      result.push({
-        type: 'asset',
-        content: asset,
-        key: asset.id
-      });
-    }
-
-    // Prepare unassigned block (append later)
-    const unassignedBlock: ListItem[] = [];
-    if (assetsWithoutMeta.length > 0) {
-      unassignedBlock.push({
-        type: 'separator',
-        key: 'sep-unassigned'
-      });
-
-      for (const asset of assetsWithoutMeta) {
-        unassignedBlock.push({
-          type: 'asset',
-          content: asset,
-          key: asset.id
-        });
-      }
-    }
-
-    // Insert manual separators
-    // If separator has assetId, insert it right above that asset
-    // Otherwise, insert by verse order
-    const separatorsWithAssetId = manualSeparators.filter((sep) => sep.assetId);
-    const separatorsWithoutAssetId = manualSeparators.filter(
-      (sep) => !sep.assetId
+  // Step 4: Build final list using pure function (recomputes only when dependencies change)
+  const listItems = React.useMemo((): ListItem[] => {
+    return buildFinalList(
+      assetsWithMeta,
+      assetsWithoutMeta,
+      separatorsWithAssetId,
+      sortedSeparatorsWithoutAssetId,
+      manualSeparators
     );
-
-    // Insert separators with assetId right above their assets
-    for (const sep of separatorsWithAssetId) {
-      if (!sep.assetId) continue;
-
-      // First try to find the asset in the result (assets with metadata)
-      const assetIndex = result.findIndex(
-        (item) => item.type === 'asset' && item.content.id === sep.assetId
-      );
-
-      if (assetIndex !== -1) {
-        // Found in result, insert separator above it
-        const sepItem: ListItemSeparator = {
-          type: 'separator',
-          from: sep.from,
-          to: sep.to,
-          key: sep.key
-        };
-        result.splice(assetIndex, 0, sepItem);
-      } else {
-        // Asset is in unassignedBlock (or not found yet)
-        // Insert separator BEFORE the unassignedBlock so assets with labels
-        // will appear above "No Verse Assigned" once they receive metadata
-        const sepItem: ListItemSeparator = {
-          type: 'separator',
-          from: sep.from,
-          to: sep.to,
-          key: sep.key
-        };
-        // Insert at the end of result, before unassignedBlock
-        result.push(sepItem);
-      }
-    }
-
-    // Insert separators without assetId by verse order
-    const sortedManualSeps = [...separatorsWithoutAssetId].sort(
-      (a, b) => a.from - b.from
-    );
-
-    for (const sep of sortedManualSeps) {
-      const sepItem: ListItemSeparator = {
-        type: 'separator',
-        from: sep.from,
-        to: sep.to,
-        key: sep.key
-      };
-
-      // Find the first separator with 'from' greater than this sep.from
-      let insertIdx = result.findIndex(
-        (item) =>
-          item.type === 'separator' &&
-          item.from !== undefined &&
-          sep.from < item.from
-      );
-      if (insertIdx === -1) {
-        insertIdx = result.length;
-      }
-      result.splice(insertIdx, 0, sepItem);
-    }
-
-    // Final assembly: result (with manual seps inserted) + unassigned block
-    const combined: ListItem[] = [...result, ...unassignedBlock];
-
-    // Build a set of manual separator ranges to check against
-    const manualSeparatorRanges = new Set<string>();
-    for (const sep of manualSeparators) {
-      const range = `${sep.from ?? 'none'}-${sep.to ?? 'none'}`;
-      manualSeparatorRanges.add(range);
-    }
-
-    // Deduplicate separators with the same range to avoid duplicates
-    // Prefer manual separators over auto-generated ones
-    const seenSeparatorRanges = new Set<string>();
-    const deduped: ListItem[] = [];
-    const manualSeparatorKeys = new Set(manualSeparators.map((sep) => sep.key));
-
-    for (const item of combined) {
-      if (item.type === 'separator') {
-        const sepRange = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
-        const isManualSeparator = manualSeparatorKeys.has(item.key);
-        const hasManualSeparatorForRange = manualSeparatorRanges.has(sepRange);
-
-        // If we've seen this range before, skip duplicates
-        if (seenSeparatorRanges.has(sepRange)) {
-          // Always skip auto-generated separators if we've seen the range
-          // (either from a manual separator or another auto one)
-          if (!isManualSeparator) {
-            continue;
-          }
-          // If this is a manual separator and we already added one, skip
-          continue;
-        }
-
-        // Skip auto-generated separators if there's a manual separator for this range
-        if (!isManualSeparator && hasManualSeparatorForRange) {
-          continue;
-        }
-
-        seenSeparatorRanges.add(sepRange);
-      }
-      deduped.push(item);
-    }
-
-    return deduped;
-  }, [assets, manualSeparators]);
+  }, [
+    assetsWithMeta,
+    assetsWithoutMeta,
+    separatorsWithAssetId,
+    sortedSeparatorsWithoutAssetId,
+    manualSeparators
+  ]);
 
   // Auto-assign labels to assets when a separator is created with assetId
   React.useEffect(() => {
@@ -1394,31 +1430,34 @@ export default function BibleAssetsView() {
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
         currentlyPlayingAssetId === asset.id;
 
-      const dragHandle = !isPublished ? (
-        <Sortable.Handle
-          mode={
-            fixedItemsIndexesRef.current.includes(index)
-              ? 'fixed-order'
-              : 'draggable'
-          }
-        >
-          <Icon
-            as={GripVerticalIcon}
-            size={24}
-            className="text-muted-foreground"
-          />
-        </Sortable.Handle>
-      ) : null;
+      // Only show drag handle when NOT in selection mode
+      const dragHandle =
+        !isPublished && !isSelectionMode ? (
+          <Sortable.Handle
+            mode={
+              fixedItemsIndexesRef.current.includes(index)
+                ? 'fixed-order'
+                : 'draggable'
+            }
+          >
+            <Icon
+              as={GripVerticalIcon}
+              size={24}
+              className="text-muted-foreground"
+            />
+          </Sortable.Handle>
+        ) : null;
 
       // Check if there are available verses for this asset
       const assetRange = getRangeForAsset(asset.id);
       const hasAvailableVerses = assetRange.availableVerses.length > 0;
+      const isSelected = selectedAssetIds.has(asset.id);
 
       return (
         <View className="relative">
           {/* Add verse button - positioned above and to the right */}
-          {/* Only show if there are available verses */}
-          {!isPublished && hasAvailableVerses && (
+          {/* Only show if there are available verses and NOT in selection mode */}
+          {!isPublished && hasAvailableVerses && !isSelectionMode && (
             <Pressable
               onPress={() => {
                 const range = getRangeForAsset(asset.id);
@@ -1448,6 +1487,11 @@ export default function BibleAssetsView() {
             onPlay={(assetId) => handlePlayAssetRef.current(assetId)}
             isPublished={isPublished}
             dragHandle={dragHandle}
+            // Selection mode only works when NOT published
+            isSelectionMode={!isPublished && isSelectionMode}
+            isSelected={!isPublished && isSelected}
+            onToggleSelect={!isPublished ? toggleSelect : undefined}
+            onEnterSelection={!isPublished ? enterSelection : undefined}
           />
         </View>
       );
@@ -1459,9 +1503,11 @@ export default function BibleAssetsView() {
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
       handleAssetUpdate,
-      getRangeForAsset
-      // fixedItemsIndexesRef.current.length
-      //isPublished
+      getRangeForAsset,
+      isSelectionMode,
+      selectedAssetIds,
+      toggleSelect,
+      enterSelection
     ]
   );
 
@@ -2502,6 +2548,7 @@ export default function BibleAssetsView() {
             overDrag="vertical"
             onDragEnd={(params) => void _handleSorting(params)}
             customHandle
+            sortEnabled={!isSelectionMode} // Disable sorting in selection mode
             // autoScrollActivationOffset={75}
             // autoScrollSpeed={1}
             // autoScrollEnabled={true}
@@ -2532,75 +2579,98 @@ export default function BibleAssetsView() {
         <View
           style={{
             paddingBottom: insets.bottom,
-            paddingRight: 75 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+            paddingRight: isSelectionMode ? 0 : 75 // Leave space for SpeedDial when not in selection mode
           }}
+          className="px-2"
         >
-          <Button
-            variant="destructive"
-            size="lg"
-            className="w-full"
-            onPress={() => setShowRecording(true)}
-          >
-            <Icon
-              as={MicIcon}
-              size={24}
-              className="text-destructive-foreground"
+          {isSelectionMode ? (
+            <SelectionControls
+              selectedCount={selectedAssetIds.size}
+              onCancel={cancelSelection}
+              onMerge={() => {
+                // TODO: Implement batch merge for BibleAssetsView
+                console.log('Batch merge not yet implemented');
+              }}
+              onDelete={() => {
+                // TODO: Implement batch delete for BibleAssetsView
+                console.log('Batch delete not yet implemented');
+              }}
+              onAssignVerse={() => {
+                // TODO: Implement batch verse assignment for BibleAssetsView
+                console.log('Batch assign verse not yet implemented');
+              }}
             />
-            <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-              {t('doRecord')}
-            </Text>
-          </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              size="lg"
+              className="w-full"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon
+                as={MicIcon}
+                size={24}
+                className="text-destructive-foreground"
+              />
+              <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
+                {t('doRecord')}
+              </Text>
+            </Button>
+          )}
         </View>
       )}
 
-      <View
-        style={{
-          bottom: insets.bottom + 24,
-          right: 24
-        }}
-        className="absolute z-50"
-      >
-        <SpeedDial>
-          <SpeedDialItems>
-            {/* For anonymous users, only show info button */}
-            {currentUser ? (
-              <>
-                {allowSettings && isOwner ? (
-                  <SpeedDialItem
-                    icon={SettingsIcon}
-                    variant="outline"
-                    onPress={() => setShowSettingsModal(true)}
-                  />
-                ) : !hasReported ? (
-                  <SpeedDialItem
-                    icon={FlagIcon}
-                    variant="outline"
-                    onPress={() => setShowReportModal(true)}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            {/* Info button always visible */}
-            <SpeedDialItem
-              icon={InfoIcon}
-              variant="outline"
-              onPress={() => {
-                console.log('📋 [Info] Opening details modal', {
-                  selectedQuest: selectedQuest?.id,
-                  isDownloaded: isQuestDownloaded,
-                  storageBytes: verificationState.estimatedStorageBytes
-                });
-                setShowDetailsModal(true);
-                // Start verification to get storage estimate if quest is downloaded
-                if (isQuestDownloaded && !verificationState.isVerifying) {
-                  verificationState.startVerification();
-                }
-              }}
-            />
-          </SpeedDialItems>
-          <SpeedDialTrigger />
-        </SpeedDial>
-      </View>
+      {/* Hide SpeedDial in selection mode */}
+      {!isSelectionMode && (
+        <View
+          style={{
+            bottom: insets.bottom + 24,
+            right: 24
+          }}
+          className="absolute z-50"
+        >
+          <SpeedDial>
+            <SpeedDialItems>
+              {/* For anonymous users, only show info button */}
+              {currentUser ? (
+                <>
+                  {allowSettings && isOwner ? (
+                    <SpeedDialItem
+                      icon={SettingsIcon}
+                      variant="outline"
+                      onPress={() => setShowSettingsModal(true)}
+                    />
+                  ) : !hasReported ? (
+                    <SpeedDialItem
+                      icon={FlagIcon}
+                      variant="outline"
+                      onPress={() => setShowReportModal(true)}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {/* Info button always visible */}
+              <SpeedDialItem
+                icon={InfoIcon}
+                variant="outline"
+                onPress={() => {
+                  console.log('📋 [Info] Opening details modal', {
+                    selectedQuest: selectedQuest?.id,
+                    isDownloaded: isQuestDownloaded,
+                    storageBytes: verificationState.estimatedStorageBytes
+                  });
+                  setShowDetailsModal(true);
+                  // Start verification to get storage estimate if quest is downloaded
+                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                    verificationState.startVerification();
+                  }
+                }}
+              />
+            </SpeedDialItems>
+            <SpeedDialTrigger />
+          </SpeedDial>
+        </View>
+      )}
 
       {allowSettings && isOwner && (
         <QuestSettingsModal
