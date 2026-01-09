@@ -1865,6 +1865,13 @@ export const localizations = {
     tok_pisin: 'I no inap updateim profile',
     indonesian: 'Gagal memperbarui profil'
   },
+  passwordMustBeDifferent: {
+    english: 'New password should be different from the old password',
+    spanish: 'La nueva contraseña debe ser diferente de la contraseña anterior',
+    brazilian_portuguese: 'A nova senha deve ser diferente da senha antiga',
+    tok_pisin: 'Nupela password i mas narakain long ol password bilong bipo',
+    indonesian: 'Kata sandi baru harus berbeda dari kata sandi lama'
+  },
   assetNotFound: {
     english: 'Asset not found',
     spanish: 'Recurso no encontrado',
