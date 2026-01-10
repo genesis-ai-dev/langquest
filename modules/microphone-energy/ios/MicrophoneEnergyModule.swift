@@ -42,6 +42,7 @@ public class MicrophoneEnergyModule: Module {
     private var vadSilenceDuration: Int = 300
     private var vadMinSegmentDuration: Int = 500
     private var vadRewindHalfPause = true
+    private var vadMinActiveAudioDuration: Int = 250  // Discard clips with less active audio than this
     
     // VAD state machine
     private var vadState = "IDLE"
@@ -49,6 +50,8 @@ public class MicrophoneEnergyModule: Module {
     private var lockedOnsetTime: TimeInterval = 0
     private var lastAboveThresholdTime: TimeInterval = 0
     private var recordingStartTime: TimeInterval = 0
+    private var activeAudioTime: TimeInterval = 0  // Cumulative time above threshold during recording
+    private var lastFrameTime: TimeInterval = 0    // For calculating delta time
     
     public func definition() -> ModuleDefinition {
         Name("MicrophoneEnergy")
@@ -154,6 +157,7 @@ public class MicrophoneEnergyModule: Module {
         if let preOnsetMultiplier = config["preOnsetMultiplier"] as? NSNumber { vadPreOnsetMultiplier = preOnsetMultiplier.floatValue }
         if let maxOnsetDuration = config["maxOnsetDuration"] as? NSNumber { vadMaxOnsetDuration = maxOnsetDuration.intValue }
         if let rewindHalfPause = config["rewindHalfPause"] as? Bool { vadRewindHalfPause = rewindHalfPause }
+        if let minActiveAudioDuration = config["minActiveAudioDuration"] as? NSNumber { vadMinActiveAudioDuration = minActiveAudioDuration.intValue }
     }
     
     private func enableVAD() {
@@ -230,6 +234,13 @@ public class MicrophoneEnergyModule: Module {
             if rawPeak > vadThreshold { confirmAndStartRecording(now: now) }
             else if rawPeak <= onsetThreshold { vadState = "IDLE" }
         case "RECORDING":
+            // Track cumulative time above threshold
+            let deltaMs = now - lastFrameTime
+            if rawPeak > vadThreshold {
+                activeAudioTime += deltaMs
+            }
+            lastFrameTime = now
+            
             let silenceMs = now - lastAboveThresholdTime
             let durationMs = now - recordingStartTime
             if silenceMs >= TimeInterval(vadSilenceDuration) && durationMs >= TimeInterval(vadMinSegmentDuration) {
@@ -243,6 +254,8 @@ public class MicrophoneEnergyModule: Module {
         vadState = "RECORDING"
         lastAboveThresholdTime = now
         recordingStartTime = now
+        activeAudioTime = 0  // Reset active audio tracking
+        lastFrameTime = now
         sendEvent("onSegmentStart", [:])
         let prerollMs = Int(now - lockedOnsetTime)
         Task { do { try await startSegment(options: ["prerollMs": prerollMs]) } catch {} }
@@ -252,6 +265,17 @@ public class MicrophoneEnergyModule: Module {
         guard isRecordingSegment else { return }
         isRecordingSegment = false
         vadState = "IDLE"
+        
+        // Check if enough active audio - discard transients/short sounds
+        if activeAudioTime < TimeInterval(vadMinActiveAudioDuration) {
+            print("VAD: Discarding segment - only \(Int(activeAudioTime))ms of active audio (min: \(vadMinActiveAudioDuration)ms)")
+            segmentBuffers.removeAll()
+            if let fileURL = segmentFile {
+                try? FileManager.default.removeItem(at: fileURL)  // Clean up temp file
+            }
+            segmentFile = nil
+            return  // Don't save or emit event
+        }
         
         let buffersToWrite = segmentBuffers
         let fileToWrite = segmentFile

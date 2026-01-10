@@ -136,6 +136,12 @@ const RecordingViewSimplified = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
+  const vadMinActiveAudioDuration = useLocalStore(
+    (state) => state.vadMinActiveAudioDuration
+  );
+  const setVadMinActiveAudioDuration = useLocalStore(
+    (state) => state.setVadMinActiveAudioDuration
+  );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
@@ -2329,6 +2335,8 @@ const RecordingViewSimplified = ({
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
+        minActiveAudioDuration={vadMinActiveAudioDuration}
+        onMinActiveAudioDurationChange={setVadMinActiveAudioDuration}
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}

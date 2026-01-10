@@ -107,6 +107,9 @@ export function useVADRecording({
   const vadPreOnsetMultiplier = useLocalStore((s) => s.vadPreOnsetMultiplier);
   const vadMaxOnsetDuration = useLocalStore((s) => s.vadMaxOnsetDuration);
   const vadRewindHalfPause = useLocalStore((s) => s.vadRewindHalfPause);
+  const vadMinActiveAudioDuration = useLocalStore(
+    (s) => s.vadMinActiveAudioDuration
+  );
 
   // Configure native VAD and manage activation/deactivation
   // NEW ALGORITHM: Uses threshold directly without Schmitt trigger scaling
@@ -125,7 +128,9 @@ export function useVADRecording({
         '| maxOnsetDuration:',
         vadMaxOnsetDuration,
         '| rewindHalfPause:',
-        vadRewindHalfPause
+        vadRewindHalfPause,
+        '| minActiveAudio:',
+        vadMinActiveAudioDuration
       );
 
       await MicrophoneEnergyModule.configureVAD({
@@ -136,7 +141,8 @@ export function useVADRecording({
         onsetMultiplier: vadOnsetMultiplier,
         preOnsetMultiplier: vadPreOnsetMultiplier,
         maxOnsetDuration: vadMaxOnsetDuration,
-        rewindHalfPause: vadRewindHalfPause
+        rewindHalfPause: vadRewindHalfPause,
+        minActiveAudioDuration: vadMinActiveAudioDuration
       });
     };
 
@@ -224,6 +230,7 @@ export function useVADRecording({
     vadPreOnsetMultiplier,
     vadMaxOnsetDuration,
     vadRewindHalfPause,
+    vadMinActiveAudioDuration,
     startEnergyDetection,
     stopEnergyDetection
   ]);

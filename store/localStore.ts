@@ -66,6 +66,11 @@ export const VAD_MAX_ONSET_DURATION_DEFAULT = 250;
 
 export const VAD_REWIND_HALF_PAUSE_DEFAULT = true;
 
+// Min active audio duration - discard clips with less than this much active audio (in ms)
+export const VAD_MIN_ACTIVE_AUDIO_DURATION_MIN = 0;
+export const VAD_MIN_ACTIVE_AUDIO_DURATION_MAX = 1000;
+export const VAD_MIN_ACTIVE_AUDIO_DURATION_DEFAULT = 200;
+
 // Recently visited item types
 export interface RecentProject {
   id: string;
@@ -143,6 +148,8 @@ export interface LocalState {
   setVadMaxOnsetDuration: (duration: number) => void;
   vadRewindHalfPause: boolean;
   setVadRewindHalfPause: (enabled: boolean) => void;
+  vadMinActiveAudioDuration: number;
+  setVadMinActiveAudioDuration: (duration: number) => void;
 
   // Authentication view state
   authView:
@@ -272,6 +279,7 @@ export const useLocalStore = create<LocalState>()(
       vadPreOnsetMultiplier: VAD_PRE_ONSET_MULTIPLIER_DEFAULT,
       vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
       vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
+      vadMinActiveAudioDuration: VAD_MIN_ACTIVE_AUDIO_DURATION_DEFAULT,
 
       // Authentication view state
       authView: null,
@@ -406,6 +414,13 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
       setVadRewindHalfPause: (enabled) => set({ vadRewindHalfPause: enabled }),
+      setVadMinActiveAudioDuration: (duration) =>
+        set({
+          vadMinActiveAudioDuration: Math.max(
+            VAD_MIN_ACTIVE_AUDIO_DURATION_MIN,
+            Math.min(VAD_MIN_ACTIVE_AUDIO_DURATION_MAX, duration)
+          )
+        }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>

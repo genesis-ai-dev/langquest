@@ -4718,6 +4718,48 @@ export const localizations = {
     tok_pisin: 'Hamas taim bipo em i stop',
     indonesian: 'Berapa lama menunggu sebelum berhenti'
   },
+  vadMinActiveAudio: {
+    english: 'Min Active Audio',
+    spanish: 'Audio Activo Mínimo',
+    brazilian_portuguese: 'Áudio Ativo Mínimo',
+    tok_pisin: 'Liklik taim bilong toktok',
+    indonesian: 'Audio Aktif Minimum'
+  },
+  vadMinActiveAudioDescription: {
+    english: 'Discard clips with less active sound (filters transients like claps)',
+    spanish: 'Descartar clips con menos sonido activo (filtra transitorios como aplausos)',
+    brazilian_portuguese: 'Descartar clipes com menos som ativo (filtra transientes como palmas)',
+    tok_pisin: 'Rausim sot rekoding (olsem pairap)',
+    indonesian: 'Buang klip dengan suara aktif kurang (filter transien seperti tepukan)'
+  },
+  vadNoFilter: {
+    english: 'No filter',
+    spanish: 'Sin filtro',
+    brazilian_portuguese: 'Sem filtro',
+    tok_pisin: 'No filta',
+    indonesian: 'Tanpa filter'
+  },
+  vadLightFilter: {
+    english: 'Light filter',
+    spanish: 'Filtro ligero',
+    brazilian_portuguese: 'Filtro leve',
+    tok_pisin: 'Liklik filta',
+    indonesian: 'Filter ringan'
+  },
+  vadMediumFilter: {
+    english: 'Medium filter',
+    spanish: 'Filtro medio',
+    brazilian_portuguese: 'Filtro médio',
+    tok_pisin: 'Namel filta',
+    indonesian: 'Filter sedang'
+  },
+  vadStrongFilter: {
+    english: 'Strong filter',
+    spanish: 'Filtro fuerte',
+    brazilian_portuguese: 'Filtro forte',
+    tok_pisin: 'Strongpela filta',
+    indonesian: 'Filter kuat'
+  },
   vadSensitive: {
     english: 'Sensitive',
     spanish: 'Sensible',

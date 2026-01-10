@@ -23,6 +23,9 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
+  VAD_MIN_ACTIVE_AUDIO_DURATION_DEFAULT,
+  VAD_MIN_ACTIVE_AUDIO_DURATION_MAX,
+  VAD_MIN_ACTIVE_AUDIO_DURATION_MIN,
   VAD_SILENCE_DURATION_MAX,
   VAD_SILENCE_DURATION_MIN,
   VAD_THRESHOLD_DEFAULT,
@@ -166,6 +169,8 @@ interface VADSettingsDrawerProps {
   onThresholdChange: (threshold: number) => void;
   silenceDuration: number;
   onSilenceDurationChange: (duration: number) => void;
+  minActiveAudioDuration: number;
+  onMinActiveAudioDurationChange: (duration: number) => void;
   isVADLocked?: boolean; // Don't stop detection if VAD is locked
   displayMode: 'fullscreen' | 'footer';
   onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
@@ -180,6 +185,8 @@ function VADSettingsDrawerInternal({
   onThresholdChange,
   silenceDuration,
   onSilenceDurationChange,
+  minActiveAudioDuration,
+  onMinActiveAudioDurationChange,
   isVADLocked = false,
   displayMode,
   onDisplayModeChange,
@@ -570,6 +577,23 @@ function VADSettingsDrawerInternal({
   const decrementSilence = () => {
     const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
     onSilenceDurationChange(newValue);
+  };
+
+  // Increment/decrement handlers for min active audio duration (50ms steps)
+  const incrementMinActiveAudio = () => {
+    const newValue = Math.min(
+      VAD_MIN_ACTIVE_AUDIO_DURATION_MAX,
+      minActiveAudioDuration + 50
+    );
+    onMinActiveAudioDurationChange(newValue);
+  };
+
+  const decrementMinActiveAudio = () => {
+    const newValue = Math.max(
+      VAD_MIN_ACTIVE_AUDIO_DURATION_MIN,
+      minActiveAudioDuration - 50
+    );
+    onMinActiveAudioDurationChange(newValue);
   };
 
   // Energy level as pixel width for SVG (with frame skipping to match native ~21fps)
@@ -1117,6 +1141,56 @@ function VADSettingsDrawerInternal({
               {t('vadSilenceDescription')}
             </Text>
           </View>
+
+          {/* Min Active Audio Duration - filters out transients */}
+          <View className="gap-3">
+            <Text className="text-sm font-medium text-foreground">
+              {t('vadMinActiveAudio')}
+            </Text>
+
+            <View className="flex-row items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon-xl"
+                onPress={decrementMinActiveAudio}
+                disabled={
+                  minActiveAudioDuration <= VAD_MIN_ACTIVE_AUDIO_DURATION_MIN
+                }
+              >
+                <Icon as={Minus} size={24} />
+              </Button>
+
+              <View className="flex-1 items-center rounded-lg border border-border bg-muted p-3">
+                <Text className="text-2xl font-bold text-foreground">
+                  {minActiveAudioDuration}ms
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {minActiveAudioDuration === 0
+                    ? t('vadNoFilter')
+                    : minActiveAudioDuration <= 150
+                      ? t('vadLightFilter')
+                      : minActiveAudioDuration <= 300
+                        ? t('vadMediumFilter')
+                        : t('vadStrongFilter')}
+                </Text>
+              </View>
+
+              <Button
+                variant="outline"
+                size="icon-xl"
+                onPress={incrementMinActiveAudio}
+                disabled={
+                  minActiveAudioDuration >= VAD_MIN_ACTIVE_AUDIO_DURATION_MAX
+                }
+              >
+                <Icon as={Plus} size={24} />
+              </Button>
+            </View>
+
+            <Text className="text-xs text-muted-foreground">
+              {t('vadMinActiveAudioDescription')}
+            </Text>
+          </View>
         </View>
 
         <DrawerFooter>
@@ -1145,6 +1219,7 @@ export const VADSettingsDrawer = React.memo(
     const primitivePropsEqual =
       prevProps.threshold === nextProps.threshold &&
       prevProps.silenceDuration === nextProps.silenceDuration &&
+      prevProps.minActiveAudioDuration === nextProps.minActiveAudioDuration &&
       prevProps.isVADLocked === nextProps.isVADLocked &&
       prevProps.displayMode === nextProps.displayMode &&
       prevProps.autoCalibrateOnOpen === nextProps.autoCalibrateOnOpen &&

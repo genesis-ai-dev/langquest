@@ -35,12 +35,15 @@ class MicrophoneEnergyModule : Module() {
   private var vadSilenceDuration = 300
   private var vadMinSegmentDuration = 500
   private var vadRewindHalfPause = true
+  private var vadMinActiveAudioDuration = 250  // Discard clips with less active audio than this
   
   private var vadState = "IDLE"
   private var preOnsetCutPoint: Long = 0
   private var lockedOnsetTime: Long = 0
   private var lastAboveThresholdTime: Long = 0
   private var recordingStartTime: Long = 0
+  private var activeAudioTime: Long = 0  // Cumulative time above threshold during recording
+  private var lastFrameTime: Long = 0    // For calculating delta time
 
   override fun definition() = ModuleDefinition {
     Name("MicrophoneEnergy")
@@ -115,6 +118,7 @@ class MicrophoneEnergyModule : Module() {
     (config["preOnsetMultiplier"] as? Number)?.let { vadPreOnsetMultiplier = it.toFloat() }
     (config["maxOnsetDuration"] as? Number)?.let { vadMaxOnsetDuration = it.toInt() }
     (config["rewindHalfPause"] as? Boolean)?.let { vadRewindHalfPause = it }
+    (config["minActiveAudioDuration"] as? Number)?.let { vadMinActiveAudioDuration = it.toInt() }
   }
   
   private fun enableVAD() {
@@ -165,6 +169,13 @@ class MicrophoneEnergyModule : Module() {
         when { rawPeak > vadThreshold -> confirmAndStartRecording(now); rawPeak <= onsetThreshold -> vadState = "IDLE" }
       }
       "RECORDING" -> {
+        // Track cumulative time above threshold
+        val deltaMs = now - lastFrameTime
+        if (rawPeak > vadThreshold) {
+          activeAudioTime += deltaMs
+        }
+        lastFrameTime = now
+        
         val silenceMs = now - lastAboveThresholdTime
         val durationMs = now - recordingStartTime
         if (silenceMs >= vadSilenceDuration && durationMs >= vadMinSegmentDuration) stopRecordingAsync()
@@ -174,6 +185,7 @@ class MicrophoneEnergyModule : Module() {
   
   private fun confirmAndStartRecording(now: Long) {
     vadState = "RECORDING"; lastAboveThresholdTime = now; recordingStartTime = now
+    activeAudioTime = 0; lastFrameTime = now  // Reset active audio tracking
     sendEvent("onSegmentStart", emptyMap<String, Any>())
     val prerollMs = (now - lockedOnsetTime).toInt()
     val p = object : Promise { override fun resolve(value: Any?) {}; override fun reject(code: String, message: String?, cause: Throwable?) {} }
@@ -183,6 +195,16 @@ class MicrophoneEnergyModule : Module() {
   private fun stopRecordingAsync() {
     if (!isRecordingSegment) return
     isRecordingSegment = false; vadState = "IDLE"
+    
+    // Check if enough active audio - discard transients/short sounds
+    if (activeAudioTime < vadMinActiveAudioDuration) {
+      println("VAD: Discarding segment - only ${activeAudioTime}ms of active audio (min: ${vadMinActiveAudioDuration}ms)")
+      segmentBuffers.clear()
+      segmentFile?.delete()  // Clean up temp file
+      segmentFile = null
+      return  // Don't save or emit event
+    }
+    
     val buffersToWrite = ArrayList(segmentBuffers)
     val fileToWrite = segmentFile
     val startTime = segmentStartTime
