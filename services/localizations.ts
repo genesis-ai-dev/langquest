@@ -4718,14 +4718,14 @@ export const localizations = {
     tok_pisin: 'Hamas taim bipo em i stop',
     indonesian: 'Berapa lama menunggu sebelum berhenti'
   },
-  vadMinActiveAudio: {
-    english: 'Min Active Audio',
-    spanish: 'Audio Activo Mínimo',
-    brazilian_portuguese: 'Áudio Ativo Mínimo',
+  vadMinSegmentLength: {
+    english: 'Min segment length',
+    spanish: 'Longitud mínima de segmento',
+    brazilian_portuguese: 'Comprimento mínimo do segmento',
     tok_pisin: 'Liklik taim bilong toktok',
-    indonesian: 'Audio Aktif Minimum'
+    indonesian: 'Panjang segmen minimum'
   },
-  vadMinActiveAudioDescription: {
+  vadMinSegmentLengthDescription: {
     english: 'Discard clips with less active sound (filters transients like claps)',
     spanish: 'Descartar clips con menos sonido activo (filtra transitorios como aplausos)',
     brazilian_portuguese: 'Descartar clipes com menos som ativo (filtra transientes como palmas)',

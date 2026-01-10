@@ -66,10 +66,10 @@ export const VAD_MAX_ONSET_DURATION_DEFAULT = 250;
 
 export const VAD_REWIND_HALF_PAUSE_DEFAULT = true;
 
-// Min active audio duration - discard clips with less than this much active audio (in ms)
-export const VAD_MIN_ACTIVE_AUDIO_DURATION_MIN = 0;
-export const VAD_MIN_ACTIVE_AUDIO_DURATION_MAX = 1000;
-export const VAD_MIN_ACTIVE_AUDIO_DURATION_DEFAULT = 200;
+// Min segment length - discard clips with less than this much active audio (in ms)
+export const VAD_MIN_SEGMENT_LENGTH_MIN = 0;
+export const VAD_MIN_SEGMENT_LENGTH_MAX = 1000;
+export const VAD_MIN_SEGMENT_LENGTH_DEFAULT = 200;
 
 // Recently visited item types
 export interface RecentProject {
@@ -148,8 +148,8 @@ export interface LocalState {
   setVadMaxOnsetDuration: (duration: number) => void;
   vadRewindHalfPause: boolean;
   setVadRewindHalfPause: (enabled: boolean) => void;
-  vadMinActiveAudioDuration: number;
-  setVadMinActiveAudioDuration: (duration: number) => void;
+  vadMinSegmentLength: number;
+  setVadMinSegmentLength: (duration: number) => void;
 
   // Authentication view state
   authView:
@@ -279,7 +279,7 @@ export const useLocalStore = create<LocalState>()(
       vadPreOnsetMultiplier: VAD_PRE_ONSET_MULTIPLIER_DEFAULT,
       vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
       vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
-      vadMinActiveAudioDuration: VAD_MIN_ACTIVE_AUDIO_DURATION_DEFAULT,
+      vadMinSegmentLength: VAD_MIN_SEGMENT_LENGTH_DEFAULT,
 
       // Authentication view state
       authView: null,
@@ -414,11 +414,11 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
       setVadRewindHalfPause: (enabled) => set({ vadRewindHalfPause: enabled }),
-      setVadMinActiveAudioDuration: (duration) =>
+      setVadMinSegmentLength: (duration) =>
         set({
-          vadMinActiveAudioDuration: Math.max(
-            VAD_MIN_ACTIVE_AUDIO_DURATION_MIN,
-            Math.min(VAD_MIN_ACTIVE_AUDIO_DURATION_MAX, duration)
+          vadMinSegmentLength: Math.max(
+            VAD_MIN_SEGMENT_LENGTH_MIN,
+            Math.min(VAD_MIN_SEGMENT_LENGTH_MAX, duration)
           )
         }),
 
