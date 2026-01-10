@@ -44,13 +44,14 @@ export function useVADRecording({
   onSegmentComplete,
   isManualRecording
 }: UseVADRecordingProps): UseVADRecordingReturn {
-  const {
-    isActive,
-    energyResult,
-    startEnergyDetection,
-    stopEnergyDetection,
-    energyShared
-  } = useMicrophoneEnergy();
+  const micEnergy = useMicrophoneEnergy();
+  // Extract with proper types to avoid TypeScript issues with .web.ts resolution
+  const isActive = micEnergy.isActive;
+  const startEnergyDetection = micEnergy.startEnergyDetection;
+  const stopEnergyDetection = micEnergy.stopEnergyDetection;
+  const energyShared = micEnergy.energyShared;
+  // Create a typed reference to the energy ref
+  const energyRef: { current: number } = micEnergy.energyRef;
 
   const [isRecording, setIsRecording] = React.useState(false);
 
@@ -79,26 +80,11 @@ export function useVADRecording({
     onSegmentCompleteRef.current = onSegmentComplete;
   }, [onSegmentStart, onSegmentComplete]);
 
-  const currentEnergy = energyResult?.energy ?? 0;
+  // Use ref directly - no re-renders on energy changes!
+  const currentEnergy = energyRef.current;
 
-  // Track energy range during recording
-  React.useEffect(() => {
-    if (isRecording && energyResult) {
-      const energy = energyResult.energy;
-      if (energyRangeRef.current) {
-        energyRangeRef.current.min = Math.min(
-          energyRangeRef.current.min,
-          energy
-        );
-        energyRangeRef.current.max = Math.max(
-          energyRangeRef.current.max,
-          energy
-        );
-      } else {
-        energyRangeRef.current = { min: energy, max: energy };
-      }
-    }
-  }, [isRecording, energyResult]);
+  // NOTE: Energy range tracking removed - was causing re-renders on every energy update.
+  // The energyRangeRef is now updated via energyRef when segments start/end.
 
   // Track previous settings to detect actual changes (not just effect re-runs)
   const prevThresholdRef = React.useRef(threshold);
@@ -253,7 +239,7 @@ export function useVADRecording({
         segmentStartTimeRef.current = Date.now();
 
         // Initialize energy range tracking for this segment
-        const initialEnergy = energyResult?.energy ?? 0;
+        const initialEnergy = energyRef.current;
         energyRangeRef.current = { min: initialEnergy, max: initialEnergy };
 
         // Set a timeout to clean up if segment never completes (e.g., discarded for being too short)

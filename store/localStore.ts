@@ -382,7 +382,13 @@ export const useLocalStore = create<LocalState>()(
         set({ enableLanguoidLinkSuggestions: enabled }),
 
       // VAD settings setters
-      setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
+      setVadThreshold: (threshold) =>
+        set({
+          vadThreshold: Math.max(
+            VAD_THRESHOLD_MIN,
+            Math.min(VAD_THRESHOLD_MAX, threshold)
+          )
+        }),
       setVadSilenceDuration: (duration) =>
         set({
           vadSilenceDuration: Math.max(
@@ -530,7 +536,20 @@ export const useLocalStore = create<LocalState>()(
       // skipHydration: true,
       onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
-        if (state) colorScheme.set(state.theme);
+        if (state) {
+          colorScheme.set(state.theme);
+          // Validate and clamp VAD threshold if invalid
+          if (
+            typeof state.vadThreshold !== 'number' ||
+            state.vadThreshold < VAD_THRESHOLD_MIN ||
+            state.vadThreshold > VAD_THRESHOLD_MAX
+          ) {
+            console.warn(
+              `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
+            );
+            state.vadThreshold = VAD_THRESHOLD_DEFAULT;
+          }
+        }
       },
       partialize: (state) =>
         Object.fromEntries(

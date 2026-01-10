@@ -62,12 +62,16 @@ import React from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
+  cancelAnimation,
+  useAnimatedProps,
   useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
-  useSharedValue
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import Svg, {
+  Circle,
   Defs,
   Mask,
   Rect,
@@ -93,9 +97,12 @@ const ENERGY_BAR_RADIUS = 4; // Pill corner radius in px
 // Total horizontal padding: DrawerContent px-6 (24px × 2) + BottomSheetScrollView paddingHorizontal (16px × 2)
 const ENERGY_BAR_HORIZONTAL_PADDING = 48;
 
+// Animated circle for Reanimated
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 const SHOULD_SHOW_DISPLAY_MODE_SELECTION = false;
 
-// Threshold constants
+// Calibration constants
 const CALIBRATION_DURATION_MS = 3000; // 3 seconds
 const CALIBRATION_SAMPLE_INTERVAL_MS = 50; // Sample every 50ms
 const CALIBRATION_MULTIPLIER = 4.0; // 12 dB = ~4x multiplier
@@ -107,7 +114,7 @@ const DB_MAX = 0; // Maximum dB (maximum level)
 // Pure helper functions (no component dependencies)
 // CRITICAL: Native module sends energy as normalized amplitude (0-1 range)
 // NOT raw RMS energy, so normalizeEnergy should only clamp, not divide
-const normalizeEnergy = (energy: number): number => {
+const _normalizeEnergy = (energy: number): number => {
   // Energy from native is already normalized amplitude (0-1)
   // Only clamp to ensure it's in valid range
   return Math.min(1.0, Math.max(0, energy));
@@ -204,7 +211,6 @@ function VADSettingsDrawerInternal({
 }: VADSettingsDrawerProps) {
   const {
     isActive,
-    energyResult: _energyResult,
     startEnergyDetection,
     stopEnergyDetection,
     resetEnergy,
@@ -216,6 +222,9 @@ function VADSettingsDrawerInternal({
     isVADLocked && externalEnergyShared
       ? externalEnergyShared
       : internalEnergyShared;
+
+  // Ref to store latest energy value for calibration (updated via worklet bridge)
+  const latestEnergyRef = React.useRef(0);
   const { t } = useLocalization();
   const { width: screenWidth } = useWindowDimensions();
   const accentColor = useThemeColor('accent');
@@ -240,6 +249,82 @@ function VADSettingsDrawerInternal({
     return { energyBarSegments: segments, energyBarTotalWidth: totalWidth };
   }, [screenWidth]);
 
+  // Local state for immediate UI updates (bypasses store persistence delay)
+  const [localThreshold, setLocalThreshold] = React.useState(threshold);
+  const [localSilenceDuration, setLocalSilenceDuration] =
+    React.useState(silenceDuration);
+  const storeUpdateTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const silenceStoreUpdateTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  // Sync local threshold with prop when it changes externally
+  React.useEffect(() => {
+    setLocalThreshold(threshold);
+  }, [threshold]);
+
+  // Sync local silence duration with prop when it changes externally
+  React.useEffect(() => {
+    setLocalSilenceDuration(silenceDuration);
+  }, [silenceDuration]);
+
+  // Immediate UI update function - updates local state instantly
+  const updateThresholdImmediate = React.useCallback(
+    (newThreshold: number) => {
+      // Update local state immediately - instant UI feedback, NO DELAYS
+      setLocalThreshold(newThreshold);
+
+      // Clear any pending store update
+      if (storeUpdateTimeoutRef.current) {
+        clearTimeout(storeUpdateTimeoutRef.current);
+      }
+
+      // Save to store in background (don't block UI thread)
+      storeUpdateTimeoutRef.current = setTimeout(() => {
+        onThresholdChange(newThreshold);
+        storeUpdateTimeoutRef.current = null;
+      }, 500);
+    },
+    [onThresholdChange]
+  );
+
+  // Save settings when drawer closes (flush immediately)
+  React.useEffect(() => {
+    if (!isOpen) {
+      // Flush any pending threshold update
+      if (storeUpdateTimeoutRef.current) {
+        clearTimeout(storeUpdateTimeoutRef.current);
+        storeUpdateTimeoutRef.current = null;
+      }
+      if (localThreshold !== threshold) {
+        onThresholdChange(localThreshold);
+      }
+
+      // Flush any pending silence duration update
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
+        silenceStoreUpdateTimeoutRef.current = null;
+      }
+      if (localSilenceDuration !== silenceDuration) {
+        onSilenceDurationChange(localSilenceDuration);
+      }
+    }
+  }, [isOpen]); // Only depend on isOpen to avoid unnecessary runs
+
+  // Cleanup timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      if (storeUpdateTimeoutRef.current) {
+        clearTimeout(storeUpdateTimeoutRef.current);
+      }
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Calibration state
   const [isCalibrating, setIsCalibrating] = React.useState(false);
   const [calibrationProgress, setCalibrationProgress] = React.useState(0);
@@ -254,9 +339,6 @@ function VADSettingsDrawerInternal({
   const calibrationTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  // Ref to track latest energy value for calibration sampling
-  const latestEnergyRef = React.useRef<number>(0);
-
   // Sync threshold to SharedValue for UI thread access
   const thresholdShared = useSharedValue(threshold);
   const prevThresholdRef = React.useRef(threshold);
@@ -337,6 +419,37 @@ function VADSettingsDrawerInternal({
     setCalibrationProgress(0);
   }, []);
 
+  // Button handlers for threshold adjustment
+  const handleDecreaseThreshold = React.useCallback(() => {
+    const currentPos = thresholdPosition;
+    const stepPercent = 2;
+    const newPos = Math.max(0, currentPos - stepPercent);
+    const newDb = visualPositionToDb(newPos);
+    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
+    const newEnergy =
+      clampedDb <= DB_MIN ? VAD_THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
+    const newThreshold = Math.max(
+      VAD_THRESHOLD_MIN,
+      Math.min(VAD_THRESHOLD_MAX, newEnergy)
+    );
+    updateThresholdImmediate(Number(newThreshold.toFixed(4)));
+  }, [thresholdPosition, updateThresholdImmediate]);
+
+  const handleIncreaseThreshold = React.useCallback(() => {
+    const currentPos = thresholdPosition;
+    const stepPercent = 2;
+    const newPos = Math.min(100, currentPos + stepPercent);
+    const newDb = visualPositionToDb(newPos);
+    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
+    const newEnergy =
+      clampedDb <= DB_MIN ? VAD_THRESHOLD_MIN : Math.pow(10, clampedDb / 20);
+    const newThreshold = Math.max(
+      VAD_THRESHOLD_MIN,
+      Math.min(VAD_THRESHOLD_MAX, newEnergy)
+    );
+    updateThresholdImmediate(Number(newThreshold.toFixed(4)));
+  }, [thresholdPosition, updateThresholdImmediate]);
+
   // Start monitoring when drawer opens, stop when it closes (unless VAD is locked)
   // Use refs to track previous state and avoid infinite loops from isActive dependency
   const prevIsOpenRef = React.useRef(isOpen);
@@ -345,9 +458,11 @@ function VADSettingsDrawerInternal({
   const isActiveRef = React.useRef(isActive);
 
   // Keep refs updated with latest values (safe - refs don't trigger re-renders)
-  startEnergyDetectionRef.current = startEnergyDetection;
-  stopEnergyDetectionRef.current = stopEnergyDetection;
-  isActiveRef.current = isActive;
+  React.useEffect(() => {
+    startEnergyDetectionRef.current = startEnergyDetection;
+    stopEnergyDetectionRef.current = stopEnergyDetection;
+    isActiveRef.current = isActive;
+  }, [startEnergyDetection, stopEnergyDetection, isActive]);
 
   React.useEffect(() => {
     const wasOpen = prevIsOpenRef.current;
@@ -409,22 +524,19 @@ function VADSettingsDrawerInternal({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, isVADLocked, cancelCalibration, resetEnergy]);
 
-  // Logging completely disabled for performance
-  // To enable: uncomment the effects below and set ENABLE_VAD_LOGGING = true
-  // const ENABLE_VAD_LOGGING = false;
-  // Logging effects removed to prevent any potential re-render triggers
-
   // Reset to default threshold
-  const handleResetToDefault = () => {
-    onThresholdChange(VAD_THRESHOLD_DEFAULT);
-  };
+  const handleResetToDefault = React.useCallback(() => {
+    updateThresholdImmediate(VAD_THRESHOLD_DEFAULT);
+  }, [updateThresholdImmediate]);
 
   // Auto-calibrate function
   // Use refs for isCalibrating and isActive to avoid dependency loops
   const isCalibratingRefForCallback = React.useRef(isCalibrating);
   const isActiveRefForCallback = React.useRef(isActive);
-  isCalibratingRefForCallback.current = isCalibrating;
-  isActiveRefForCallback.current = isActive;
+  React.useEffect(() => {
+    isCalibratingRefForCallback.current = isCalibrating;
+    isActiveRefForCallback.current = isActive;
+  }, [isCalibrating, isActive]);
 
   const handleAutoCalibrate = React.useCallback(async () => {
     if (isCalibratingRefForCallback.current) return;
@@ -513,8 +625,8 @@ function VADSettingsDrawerInternal({
         Math.min(VAD_THRESHOLD_MAX, normalizedAverage * CALIBRATION_MULTIPLIER)
       );
 
-      // Apply threshold automatically (use ref to avoid dependency issues)
-      onThresholdChangeRef.current?.(Number(newThreshold.toFixed(4)));
+      // Apply threshold automatically
+      updateThresholdImmediate(Number(newThreshold.toFixed(4)));
 
       setIsCalibrating(false);
       setCalibrationProgress(0);
@@ -522,7 +634,7 @@ function VADSettingsDrawerInternal({
     }, totalDuration);
 
     calibrationTimeoutRef.current = timeout;
-  }, [t]); // Removed isCalibrating, isActive, startEnergyDetection from deps - using refs instead
+  }, [t, updateThresholdImmediate]); // Removed isCalibrating, isActive, startEnergyDetection from deps - using refs instead
 
   // Auto-calibrate when drawer opens with autoCalibrateOnOpen flag
   const hasAutoCalibratedRef = React.useRef(false);
@@ -577,16 +689,42 @@ function VADSettingsDrawerInternal({
     };
   }, [cancelCalibration]);
 
-  // Increment/decrement handlers for silence duration
-  const incrementSilence = () => {
-    const newValue = Math.min(VAD_SILENCE_DURATION_MAX, silenceDuration + 100);
-    onSilenceDurationChange(newValue);
-  };
+  // Immediate update function for silence duration
+  const updateSilenceDurationImmediate = React.useCallback(
+    (newDuration: number) => {
+      // Update local state immediately - instant UI feedback
+      setLocalSilenceDuration(newDuration);
 
-  const decrementSilence = () => {
-    const newValue = Math.max(VAD_SILENCE_DURATION_MIN, silenceDuration - 100);
-    onSilenceDurationChange(newValue);
-  };
+      // Clear any pending store update
+      if (silenceStoreUpdateTimeoutRef.current) {
+        clearTimeout(silenceStoreUpdateTimeoutRef.current);
+      }
+
+      // Save to store in background (don't block UI)
+      silenceStoreUpdateTimeoutRef.current = setTimeout(() => {
+        onSilenceDurationChange(newDuration);
+        silenceStoreUpdateTimeoutRef.current = null;
+      }, 300);
+    },
+    [onSilenceDurationChange]
+  );
+
+  // Increment/decrement handlers for silence duration
+  const incrementSilence = React.useCallback(() => {
+    const newValue = Math.min(
+      VAD_SILENCE_DURATION_MAX,
+      localSilenceDuration + 100
+    );
+    updateSilenceDurationImmediate(newValue);
+  }, [localSilenceDuration, updateSilenceDurationImmediate]);
+
+  const decrementSilence = React.useCallback(() => {
+    const newValue = Math.max(
+      VAD_SILENCE_DURATION_MIN,
+      localSilenceDuration - 100
+    );
+    updateSilenceDurationImmediate(newValue);
+  }, [localSilenceDuration, updateSilenceDurationImmediate]);
 
   const resetSilenceDuration = () => {
     onSilenceDurationChange(VAD_SILENCE_DURATION_DEFAULT);
@@ -718,6 +856,53 @@ function VADSettingsDrawerInternal({
     return { opacity: isDragging.value ? 1 : 0 };
   });
 
+  // Silence timer progress (1 = full/speaking, 0 = empty/will split)
+  const silenceTimerProgress = useSharedValue(0);
+  const wasAboveThreshold = useSharedValue(false);
+  const silenceDurationShared = useSharedValue(localSilenceDuration);
+
+  // Keep silence duration shared value in sync
+  React.useEffect(() => {
+    silenceDurationShared.value = localSilenceDuration;
+  }, [localSilenceDuration, silenceDurationShared]);
+
+  // Track silence timer on UI thread: fills instantly when speaking, drains when quiet
+  useAnimatedReaction(
+    () => ({
+      energyLevel: cachedEnergyLevel.value,
+      threshold: thresholdPositionShared.value
+    }),
+    (current) => {
+      'worklet';
+      const isAboveThreshold = current.energyLevel > current.threshold;
+
+      if (isAboveThreshold) {
+        // Speaking: instantly fill to 100%
+        cancelAnimation(silenceTimerProgress);
+        silenceTimerProgress.value = 1;
+        wasAboveThreshold.value = true;
+      } else if (wasAboveThreshold.value) {
+        // Just went quiet: start draining over silenceDuration
+        wasAboveThreshold.value = false;
+        silenceTimerProgress.value = withTiming(0, {
+          duration: silenceDurationShared.value
+        });
+      }
+    }
+  );
+
+  // Circular progress indicator props
+  const CIRCLE_SIZE = 40;
+  const STROKE_WIDTH = 5;
+  const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+  const animatedCircleProps = useAnimatedProps(() => {
+    const progress = silenceTimerProgress.value;
+    const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+    return { strokeDashoffset };
+  });
+
   return (
     <Drawer
       open={isOpen}
@@ -833,7 +1018,7 @@ function VADSettingsDrawerInternal({
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
               <Text className="text-sm font-medium text-foreground">
-                {t('vadCurrentLevel')}
+                {t('vadCurrentLevel')}: {localThreshold.toFixed(3)}
               </Text>
             </View>
 
@@ -1036,27 +1221,12 @@ function VADSettingsDrawerInternal({
                 </View>
               </Animated.View>
 
+              {/* Control buttons - optimized for instant response */}
               <View className="absolute inset-0 flex-row items-center justify-between px-2">
                 <Button
                   variant="secondary"
-                  onPress={() => {
-                    const currentPos = thresholdPosition;
-                    const stepPercent = 2; // 2% visual step
-                    const newPos = Math.max(0, currentPos - stepPercent);
-                    const newDb = visualPositionToDb(newPos);
-                    // Convert dB back to energy (0-1), clamp dB to valid range first
-                    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy =
-                      clampedDb <= DB_MIN
-                        ? VAD_THRESHOLD_MIN
-                        : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(
-                      VAD_THRESHOLD_MIN,
-                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
-                    );
-                    onThresholdChange(Number(newThreshold.toFixed(4)));
-                  }}
-                  disabled={threshold <= VAD_THRESHOLD_MIN}
+                  onPress={handleDecreaseThreshold}
+                  disabled={localThreshold <= VAD_THRESHOLD_MIN}
                   className="size-12"
                 >
                   <Icon as={ArrowBigLeft} size={20} />
@@ -1064,24 +1234,8 @@ function VADSettingsDrawerInternal({
 
                 <Button
                   variant="secondary"
-                  onPress={() => {
-                    const currentPos = thresholdPosition;
-                    const stepPercent = 2; // 2% visual step
-                    const newPos = Math.min(100, currentPos + stepPercent);
-                    const newDb = visualPositionToDb(newPos);
-                    // Convert dB back to energy (0-1), clamp dB to valid range first
-                    const clampedDb = Math.max(DB_MIN, Math.min(DB_MAX, newDb));
-                    const newEnergy =
-                      clampedDb <= DB_MIN
-                        ? VAD_THRESHOLD_MIN
-                        : Math.pow(10, clampedDb / 20);
-                    const newThreshold = Math.max(
-                      VAD_THRESHOLD_MIN,
-                      Math.min(VAD_THRESHOLD_MAX, newEnergy)
-                    );
-                    onThresholdChange(Number(newThreshold.toFixed(4)));
-                  }}
-                  disabled={threshold >= VAD_THRESHOLD_MAX}
+                  onPress={handleIncreaseThreshold}
+                  disabled={localThreshold >= VAD_THRESHOLD_MAX}
                   className="size-12"
                 >
                   <Icon as={ArrowBigRight} size={20} />
@@ -1159,29 +1313,67 @@ function VADSettingsDrawerInternal({
                 variant="outline"
                 size="icon-xl"
                 onPress={decrementSilence}
-                disabled={silenceDuration <= VAD_SILENCE_DURATION_MIN}
+                disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
+                className="size-14"
               >
                 <Icon as={Minus} size={24} />
               </Button>
 
-              <View className="flex-1 items-center rounded-lg border border-border bg-muted p-3">
-                <Text className="text-2xl font-bold text-foreground">
-                  {(silenceDuration / 1000).toFixed(1)}s
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {silenceDuration < 1000
-                    ? t('vadQuickSegments')
-                    : silenceDuration <= 1500
-                      ? t('vadBalanced')
-                      : t('vadCompleteThoughts')}
-                </Text>
+              <View className="flex-1 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-muted p-3">
+                {/* Duration text */}
+                <View className="items-center">
+                  <Text className="text-2xl font-bold text-foreground">
+                    {(localSilenceDuration / 1000).toFixed(1)}s
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {localSilenceDuration < 1000
+                      ? t('vadQuickSegments')
+                      : localSilenceDuration <= 1500
+                        ? t('vadBalanced')
+                        : t('vadCompleteThoughts')}
+                  </Text>
+                </View>
+
+                {/* Circular silence timer indicator */}
+                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
+                  <Svg
+                    width={CIRCLE_SIZE}
+                    height={CIRCLE_SIZE}
+                    style={{
+                      transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
+                    }}
+                  >
+                    {/* Background circle */}
+                    <Circle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke="#cccccc"
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                    />
+                    {/* Animated progress circle */}
+                    <AnimatedCircle
+                      cx={CIRCLE_SIZE / 2}
+                      cy={CIRCLE_SIZE / 2}
+                      r={RADIUS}
+                      stroke="#22c55e"
+                      strokeWidth={STROKE_WIDTH}
+                      fill="transparent"
+                      strokeDasharray={CIRCUMFERENCE}
+                      animatedProps={animatedCircleProps}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
               </View>
 
               <Button
                 variant="outline"
                 size="icon-xl"
                 onPress={incrementSilence}
-                disabled={silenceDuration >= VAD_SILENCE_DURATION_MAX}
+                disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
+                className="size-14"
               >
                 <Icon as={Plus} size={24} />
               </Button>
