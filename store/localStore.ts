@@ -49,7 +49,7 @@ export const VAD_THRESHOLD_DEFAULT = 0.05;
 // VAD silence duration constants (in milliseconds)
 export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
 export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
-export const VAD_SILENCE_DURATION_DEFAULT = 300; // 0.3 seconds
+export const VAD_SILENCE_DURATION_DEFAULT = 700; // 0.7 seconds
 
 // New VAD algorithm settings
 export const VAD_ONSET_MULTIPLIER_MIN = 0.05;
@@ -68,7 +68,7 @@ export const VAD_REWIND_HALF_PAUSE_DEFAULT = true;
 
 // Min segment length - discard clips with less than this much active audio (in ms)
 export const VAD_MIN_SEGMENT_LENGTH_MIN = 0;
-export const VAD_MIN_SEGMENT_LENGTH_MAX = 1000;
+export const VAD_MIN_SEGMENT_LENGTH_MAX = 500;
 export const VAD_MIN_SEGMENT_LENGTH_DEFAULT = 200;
 
 // Recently visited item types

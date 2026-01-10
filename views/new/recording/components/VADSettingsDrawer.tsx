@@ -1,6 +1,13 @@
 /**
  * VADSettingsDrawer - Settings drawer for voice activity detection
  * Shows live energy levels and allows threshold adjustment
+ *
+ * SECTIONS:
+ * 1. Display Mode Selection - Choose fullscreen or footer VAD display (currently hidden)
+ * 2. Input Level Visualization - Live microphone energy meter with threshold marker
+ * 3. Threshold Settings - Adjust VAD sensitivity with auto-calibration
+ * 4. Silence Duration - How long to wait before ending a segment
+ * 5. Min Segment Length - Filter out brief noises/transients
  */
 
 import { Button } from '@/components/ui/button';
@@ -23,8 +30,10 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
+  VAD_MIN_SEGMENT_LENGTH_DEFAULT,
   VAD_MIN_SEGMENT_LENGTH_MAX,
   VAD_MIN_SEGMENT_LENGTH_MIN,
+  VAD_SILENCE_DURATION_DEFAULT,
   VAD_SILENCE_DURATION_MAX,
   VAD_SILENCE_DURATION_MIN,
   VAD_THRESHOLD_DEFAULT,
@@ -33,6 +42,7 @@ import {
 } from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
 import { useGestureEventsHandlersDefault } from '@gorhom/bottom-sheet';
+import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowBigLeft,
@@ -49,7 +59,6 @@ import {
   Volume1
 } from 'lucide-react-native';
 import React from 'react';
-import Slider from '@react-native-community/slider';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
@@ -579,6 +588,10 @@ function VADSettingsDrawerInternal({
     onSilenceDurationChange(newValue);
   };
 
+  const resetSilenceDuration = () => {
+    onSilenceDurationChange(VAD_SILENCE_DURATION_DEFAULT);
+  };
+
   // Increment/decrement handlers for min segment length (50ms steps)
   const incrementMinSegmentLength = () => {
     const newValue = Math.min(
@@ -594,6 +607,10 @@ function VADSettingsDrawerInternal({
       minSegmentLength - 50
     );
     onMinSegmentLengthChange(newValue);
+  };
+
+  const resetMinSegmentLength = () => {
+    onMinSegmentLengthChange(VAD_MIN_SEGMENT_LENGTH_DEFAULT);
   };
 
   // Energy level as pixel width for SVG (with frame skipping to match native ~21fps)
@@ -736,7 +753,10 @@ function VADSettingsDrawerInternal({
         </DrawerHeader>
 
         <View className="flex flex-col gap-6">
-          {/* Display Mode Selection */}
+          {/* ═══════════════════════════════════════════════════════════════
+              SECTION 1: Display Mode Selection (currently hidden)
+              Choose between fullscreen overlay or footer-based VAD display
+              ═══════════════════════════════════════════════════════════════ */}
           {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
           {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
             <View className="gap-3">
@@ -804,8 +824,12 @@ function VADSettingsDrawerInternal({
               </View>
             </View>
           )}
-          {/* Input Level Visualization */}
-          <View className="gap-3">
+          {/* ═══════════════════════════════════════════════════════════════
+              SECTION 2: Input Level Visualization
+              Live microphone energy meter showing current audio level
+              Red threshold marker shows where VAD will trigger
+              ═══════════════════════════════════════════════════════════════ */}
+          <View className="gap-1">
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
               <Text className="text-sm font-medium text-foreground">
@@ -964,6 +988,11 @@ function VADSettingsDrawerInternal({
             </View>
           </View>
 
+          {/* ═══════════════════════════════════════════════════════════════
+              SECTION 3: Threshold Settings
+              Adjust VAD sensitivity - lower = more sensitive, higher = less
+              Includes auto-calibration button that samples background noise
+              ═══════════════════════════════════════════════════════════════ */}
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -1099,10 +1128,31 @@ function VADSettingsDrawerInternal({
             </View>
           </View>
 
+          {/* ═══════════════════════════════════════════════════════════════
+              SECTION 4: Silence Duration (Pause Length)
+              How long to wait after audio drops below threshold before
+              ending the current segment. Longer = complete thoughts,
+              shorter = quick segments.
+              ═══════════════════════════════════════════════════════════════ */}
           <View className="gap-3">
-            <Text className="text-sm font-medium text-foreground">
-              {t('vadSilenceDuration')}
-            </Text>
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-sm font-medium text-foreground">
+                  {t('vadSilenceDuration')}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {t('vadSilenceDescription')}
+                </Text>
+              </View>
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={resetSilenceDuration}
+                className="h-8"
+              >
+                <Icon as={RotateCcw} size={16} />
+              </Button>
+            </View>
 
             <View className="flex-row items-center gap-3">
               <Button
@@ -1136,70 +1186,104 @@ function VADSettingsDrawerInternal({
                 <Icon as={Plus} size={24} />
               </Button>
             </View>
-
-            <Text className="text-xs text-muted-foreground">
-              {t('vadSilenceDescription')}
-            </Text>
           </View>
 
-          {/* Min segment length - filters out transients */}
-          <View className="gap-3">
-            <Text className="text-sm font-medium text-foreground">
-              {t('vadMinSegmentLength')}
-            </Text>
-
-            <View className="flex-row items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon-xl"
-                onPress={decrementMinSegmentLength}
-                disabled={minSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN}
-              >
-                <Icon as={Minus} size={24} />
-              </Button>
-
-              <View className="flex-1 items-center gap-2">
-                <View className="w-full items-center rounded-lg border border-border bg-muted p-2">
-                  <Text className="text-2xl font-bold text-foreground">
-                    {minSegmentLength}ms
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {minSegmentLength === 0
-                      ? t('vadNoFilter')
-                      : minSegmentLength <= 150
-                        ? t('vadLightFilter')
-                        : minSegmentLength <= 300
-                          ? t('vadMediumFilter')
-                          : t('vadStrongFilter')}
-                  </Text>
-                </View>
-
-                <Slider
-                  style={{ width: '100%', height: 40 }}
-                  minimumValue={VAD_MIN_SEGMENT_LENGTH_MIN}
-                  maximumValue={VAD_MIN_SEGMENT_LENGTH_MAX}
-                  step={50}
-                  value={minSegmentLength}
-                  onValueChange={onMinSegmentLengthChange}
-                  minimumTrackTintColor={useThemeColor('primary')}
-                  maximumTrackTintColor={useThemeColor('border')}
-                  thumbTintColor={useThemeColor('primary')}
-                />
+          {/* ═══════════════════════════════════════════════════════════════
+              SECTION 5: Min Segment Length (Transient Filter)
+              Discard segments shorter than this duration to filter out
+              brief noises like claps, coughs, and other transients.
+              NOTE: Slider dragging has known issues with bottom sheet
+              gesture handling - use +/- buttons or tap on slider track.
+              ═══════════════════════════════════════════════════════════════ */}
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-sm font-medium text-foreground">
+                  {t('vadMinSegmentLength')}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {t('vadMinSegmentLengthDescription')}
+                </Text>
               </View>
-
               <Button
-                variant="outline"
-                size="icon-xl"
-                onPress={incrementMinSegmentLength}
-                disabled={minSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX}
+                variant="ghost"
+                size="sm"
+                onPress={resetMinSegmentLength}
+                className="h-8"
               >
-                <Icon as={Plus} size={24} />
+                <Icon as={RotateCcw} size={16} />
               </Button>
             </View>
 
-            <Text className="text-xs text-muted-foreground">
-              {t('vadMinSegmentLengthDescription')}
-            </Text>
+            <View className="mt-1 flex-row items-center justify-center gap-1">
+              <Text className="text-base font-semibold text-foreground">
+                {minSegmentLength}ms
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                (
+                {minSegmentLength === 0
+                  ? t('vadNoFilter')
+                  : minSegmentLength <= 150
+                    ? t('vadLightFilter')
+                    : minSegmentLength <= 300
+                      ? t('vadMediumFilter')
+                      : t('vadStrongFilter')}
+                )
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onPress={decrementMinSegmentLength}
+                disabled={minSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN}
+              >
+                <Icon as={Minus} size={16} />
+              </Button>
+
+              {/*
+                TODO: Slider dragging does not work inside @gorhom/bottom-sheet.
+                The BottomSheet's gesture handler intercepts all pan gestures before
+                they reach the native slider component.
+
+                Attempted solutions that did NOT work:
+                1. NativeViewGestureHandler with disallowInterruption={true}
+                2. Wrapping in horizontal ScrollView with scrollEnabled={false}
+                3. Conditional gestureEventsHandlersHook (returning null/undefined)
+                4. PanGestureHandler wrapper around the slider
+                5. onStartShouldSetResponder/onMoveShouldSetResponder on parent View
+
+                Root cause: The native @react-native-community/slider component's
+                touch handling conflicts with react-native-gesture-handler at the
+                native level. The BottomSheet captures the pan gesture before the
+                slider can respond, so onSlidingStart only fires on touch release.
+
+                Workaround: Use the +/- buttons or tap on the slider track to set values.
+                A custom JS-based slider using Reanimated/PanGestureHandler would work,
+                but is out of scope for now.
+              */}
+              <Slider
+                style={{ width: '100%', height: 40, flex: 1 }}
+                minimumValue={VAD_MIN_SEGMENT_LENGTH_MIN}
+                maximumValue={VAD_MIN_SEGMENT_LENGTH_MAX}
+                step={50}
+                value={minSegmentLength}
+                onValueChange={onMinSegmentLengthChange}
+                minimumTrackTintColor={useThemeColor('primary')}
+                maximumTrackTintColor={useThemeColor('border')}
+                thumbTintColor={useThemeColor('primary')}
+              />
+
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onPress={incrementMinSegmentLength}
+                disabled={minSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX}
+              >
+                <Icon as={Plus} size={16} />
+              </Button>
+            </View>
           </View>
         </View>
 

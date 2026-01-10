@@ -4712,25 +4712,30 @@ export const localizations = {
     indonesian: 'Durasi Jeda'
   },
   vadSilenceDescription: {
-    english: 'How long to wait before stopping',
-    spanish: 'Tiempo de espera antes de detener',
-    brazilian_portuguese: 'Quanto tempo esperar antes de parar',
-    tok_pisin: 'Hamas taim bipo em i stop',
-    indonesian: 'Berapa lama menunggu sebelum berhenti'
+    english: 'How much silence is needed to determine segment boundaries.',
+    spanish:
+      'Cuánto silencio se necesita para determinar los límites del segmento.',
+    brazilian_portuguese:
+      'Quanto silêncio é necessário para determinar os limites do segmento.',
+    tok_pisin: 'Hamas taim i no gat nois bilong katim toktok.',
+    indonesian:
+      'Berapa lama keheningan yang diperlukan untuk menentukan batas segmen.'
   },
   vadMinSegmentLength: {
     english: 'Min segment length',
     spanish: 'Longitud mínima de segmento',
     brazilian_portuguese: 'Comprimento mínimo do segmento',
-    tok_pisin: 'Liklik taim bilong toktok',
+    tok_pisin: 'Liklik taim inap bilong toktok',
     indonesian: 'Panjang segmen minimum'
   },
   vadMinSegmentLengthDescription: {
-    english: 'Discard clips with less active sound (filters transients like claps)',
-    spanish: 'Descartar clips con menos sonido activo (filtra transitorios como aplausos)',
-    brazilian_portuguese: 'Descartar clipes com menos som ativo (filtra transientes como palmas)',
-    tok_pisin: 'Rausim sot rekoding (olsem pairap)',
-    indonesian: 'Buang klip dengan suara aktif kurang (filter transien seperti tepukan)'
+    english: 'Discard segments below this duration (filter brief noises)',
+    spanish:
+      'Descartar segmentos por debajo de esta duración (filtrar ruidos breves)',
+    brazilian_portuguese:
+      'Descartar segmentos abaixo desta duração (filtrar ruídos breves)',
+    tok_pisin: 'Rausim sotpela rekoding (filta liklik pairap)',
+    indonesian: 'Buang segmen di bawah durasi ini (filter suara singkat)'
   },
   vadNoFilter: {
     english: 'No filter',
