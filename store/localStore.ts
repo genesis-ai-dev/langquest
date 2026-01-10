@@ -51,6 +51,21 @@ export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
 export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
 export const VAD_SILENCE_DURATION_DEFAULT = 300; // 0.3 seconds
 
+// New VAD algorithm settings
+export const VAD_ONSET_MULTIPLIER_MIN = 0.05;
+export const VAD_ONSET_MULTIPLIER_MAX = 0.5;
+export const VAD_ONSET_MULTIPLIER_DEFAULT = 0.1;
+
+export const VAD_PRE_ONSET_MULTIPLIER_MIN = 0;
+export const VAD_PRE_ONSET_MULTIPLIER_MAX = 1.0;
+export const VAD_PRE_ONSET_MULTIPLIER_DEFAULT = 0.75;
+
+export const VAD_MAX_ONSET_DURATION_MIN = 50;
+export const VAD_MAX_ONSET_DURATION_MAX = 500;
+export const VAD_MAX_ONSET_DURATION_DEFAULT = 250;
+
+export const VAD_REWIND_HALF_PAUSE_DEFAULT = true;
+
 // Recently visited item types
 export interface RecentProject {
   id: string;
@@ -119,6 +134,15 @@ export interface LocalState {
   setVadSilenceDuration: (duration: number) => void;
   vadDisplayMode: 'fullscreen' | 'footer';
   setVadDisplayMode: (mode: 'fullscreen' | 'footer') => void;
+  // New VAD algorithm settings
+  vadOnsetMultiplier: number;
+  setVadOnsetMultiplier: (multiplier: number) => void;
+  vadPreOnsetMultiplier: number;
+  setVadPreOnsetMultiplier: (multiplier: number) => void;
+  vadMaxOnsetDuration: number;
+  setVadMaxOnsetDuration: (duration: number) => void;
+  vadRewindHalfPause: boolean;
+  setVadRewindHalfPause: (enabled: boolean) => void;
 
   // Authentication view state
   authView:
@@ -243,6 +267,11 @@ export const useLocalStore = create<LocalState>()(
       vadThreshold: VAD_THRESHOLD_DEFAULT,
       vadSilenceDuration: VAD_SILENCE_DURATION_DEFAULT,
       vadDisplayMode: 'footer', // Default to footer mode
+      // New VAD algorithm settings (defaults)
+      vadOnsetMultiplier: VAD_ONSET_MULTIPLIER_DEFAULT,
+      vadPreOnsetMultiplier: VAD_PRE_ONSET_MULTIPLIER_DEFAULT,
+      vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
+      vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
 
       // Authentication view state
       authView: null,
@@ -354,6 +383,29 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
       setVadDisplayMode: (mode) => set({ vadDisplayMode: mode }),
+      // New VAD algorithm setters
+      setVadOnsetMultiplier: (multiplier) =>
+        set({
+          vadOnsetMultiplier: Math.max(
+            VAD_ONSET_MULTIPLIER_MIN,
+            Math.min(VAD_ONSET_MULTIPLIER_MAX, multiplier)
+          )
+        }),
+      setVadPreOnsetMultiplier: (multiplier) =>
+        set({
+          vadPreOnsetMultiplier: Math.max(
+            VAD_PRE_ONSET_MULTIPLIER_MIN,
+            Math.min(VAD_PRE_ONSET_MULTIPLIER_MAX, multiplier)
+          )
+        }),
+      setVadMaxOnsetDuration: (duration) =>
+        set({
+          vadMaxOnsetDuration: Math.max(
+            VAD_MAX_ONSET_DURATION_MIN,
+            Math.min(VAD_MAX_ONSET_DURATION_MAX, duration)
+          )
+        }),
+      setVadRewindHalfPause: (enabled) => set({ vadRewindHalfPause: enabled }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>

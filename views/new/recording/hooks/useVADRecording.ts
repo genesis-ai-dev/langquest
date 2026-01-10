@@ -11,7 +11,10 @@
 
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import MicrophoneEnergyModule from '@/modules/microphone-energy';
-import { VAD_SILENCE_DURATION_MIN } from '@/store/localStore';
+import {
+  VAD_SILENCE_DURATION_MIN,
+  useLocalStore
+} from '@/store/localStore';
 import React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
@@ -99,39 +102,41 @@ export function useVADRecording({
   const prevThresholdRef = React.useRef(threshold);
   const prevSilenceDurationRef = React.useRef(silenceDuration);
 
+  // Get new VAD algorithm settings from store
+  const vadOnsetMultiplier = useLocalStore((s) => s.vadOnsetMultiplier);
+  const vadPreOnsetMultiplier = useLocalStore((s) => s.vadPreOnsetMultiplier);
+  const vadMaxOnsetDuration = useLocalStore((s) => s.vadMaxOnsetDuration);
+  const vadRewindHalfPause = useLocalStore((s) => s.vadRewindHalfPause);
+
   // Configure native VAD and manage activation/deactivation
-  // CRITICAL: configureVAD() must complete BEFORE enableVAD() to ensure correct threshold
-  // This fixes the race condition where VAD starts with default (more sensitive) threshold
+  // NEW ALGORITHM: Uses threshold directly without Schmitt trigger scaling
   React.useEffect(() => {
     // Configure VAD whenever settings change (even if already active)
-    // This ensures settings are always up-to-date before VAD is enabled
     const configureVAD = async () => {
-      // CRITICAL: Pass threshold directly without scaling
-      // The native module now uses 0-1 peak amplitude, same as our normalized threshold
-      const rawThreshold = threshold;
-
-      // CRITICAL: The native module multiplies threshold by onsetMultiplier (0.25) for onset detection
-      // So if user wants final threshold of X, we need to send X / 0.25 = 4X
-      // This ensures: (4X) * 0.25 = X (the desired threshold)
-      // The threshold value represents the FINAL effective threshold, not the base
-      const ONSET_MULTIPLIER = 0.25;
-      const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
-
+      // NEW ALGORITHM: Pass threshold directly - no more multiplier scaling
+      // The new native module uses raw peak amplitude with pre-onset buffer
       console.log(
-        '🔧 Configuring VAD | normalized:',
-        threshold,
-        '→ raw:',
-        rawThreshold.toFixed(4),
-        '→ base (accounting for onsetMultiplier):',
-        baseThreshold.toFixed(4)
+        '🔧 Configuring VAD | threshold:',
+        threshold.toFixed(4),
+        '| onsetMultiplier:',
+        vadOnsetMultiplier,
+        '| preOnsetMultiplier:',
+        vadPreOnsetMultiplier,
+        '| maxOnsetDuration:',
+        vadMaxOnsetDuration,
+        '| rewindHalfPause:',
+        vadRewindHalfPause
       );
 
       await MicrophoneEnergyModule.configureVAD({
-        threshold: baseThreshold,
+        threshold, // Direct threshold - what you see is what you get
         silenceDuration,
-        onsetMultiplier: 0.25,
-        confirmMultiplier: 0.5,
-        minSegmentDuration: VAD_SILENCE_DURATION_MIN // Use minimum silence duration instead of hardcoded 500ms
+        minSegmentDuration: VAD_SILENCE_DURATION_MIN,
+        // New algorithm settings
+        onsetMultiplier: vadOnsetMultiplier,
+        preOnsetMultiplier: vadPreOnsetMultiplier,
+        maxOnsetDuration: vadMaxOnsetDuration,
+        rewindHalfPause: vadRewindHalfPause
       });
     };
 
@@ -169,20 +174,12 @@ export function useVADRecording({
             console.log('✅ Energy detection started, enabling VAD...');
 
             await MicrophoneEnergyModule.enableVAD();
-            // Log threshold values for debugging
-            const ONSET_MULTIPLIER = 0.25;
-            const rawThreshold = threshold;
-            const baseThreshold = rawThreshold / ONSET_MULTIPLIER;
-            const effectiveOnsetThreshold = baseThreshold * ONSET_MULTIPLIER;
+            // Log threshold values for debugging (new algorithm uses threshold directly)
             console.log(
-              '✅ VAD enabled | normalized:',
-              threshold,
-              '| raw (effective):',
-              rawThreshold.toFixed(4),
-              '| base (sent to native):',
-              baseThreshold.toFixed(4),
-              '| effective onset:',
-              effectiveOnsetThreshold.toFixed(4)
+              '✅ VAD enabled | threshold:',
+              threshold.toFixed(4),
+              '| onset:',
+              (threshold * vadOnsetMultiplier).toFixed(4)
             );
 
             // Update refs after successful activation
@@ -223,6 +220,10 @@ export function useVADRecording({
     isManualRecording,
     threshold,
     silenceDuration,
+    vadOnsetMultiplier,
+    vadPreOnsetMultiplier,
+    vadMaxOnsetDuration,
+    vadRewindHalfPause,
     startEnergyDetection,
     stopEnergyDetection
   ]);
