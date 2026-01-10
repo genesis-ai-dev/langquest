@@ -1,4 +1,8 @@
-import { AlertCircleIcon, MoveVerticalIcon } from 'lucide-react-native';
+import {
+  AlertCircleIcon,
+  MoveVerticalIcon,
+  PencilIcon
+} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -86,6 +90,16 @@ export function VerseSeparator({
       >
         {getText()}
       </Text>
+      {/* Edit icon - only shown when editable and onPress is provided */}
+      {editable && onPress && (
+        <Pressable
+          onPress={onPress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          className="ml-1"
+        >
+          <Icon as={PencilIcon} size={12} className="text-primary/70" />
+        </Pressable>
+      )}
     </View>
   );
 
@@ -94,14 +108,8 @@ export function VerseSeparator({
       <View className="h-px flex-1 bg-primary/20" />
       {DragHandleComponent && editable ? (
         <DragHandleComponent {...dragHandleProps}>
-          {onPress ? (
-            <Pressable onPress={onPress}>{pillContent}</Pressable>
-          ) : (
-            pillContent
-          )}
+          {pillContent}
         </DragHandleComponent>
-      ) : onPress && editable ? (
-        <Pressable onPress={onPress}>{pillContent}</Pressable>
       ) : (
         pillContent
       )}

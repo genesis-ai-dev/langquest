@@ -198,11 +198,20 @@ export async function updateAssetMetadata(
 }
 
 /**
- * Batch update asset metadata for multiple assets
- * @param updates - Array of { assetId, metadata } objects
+ * Asset update payload for batch operations
+ */
+export interface AssetUpdatePayload {
+  assetId: string;
+  metadata?: AssetMetadata | null;
+  order_index?: number;
+}
+
+/**
+ * Batch update asset metadata and/or order_index for multiple assets
+ * @param updates - Array of { assetId, metadata?, order_index? } objects
  */
 export async function batchUpdateAssetMetadata(
-  updates: { assetId: string; metadata: AssetMetadata | null }[]
+  updates: AssetUpdatePayload[]
 ): Promise<void> {
   if (updates.length === 0) return;
 
@@ -229,18 +238,33 @@ export async function batchUpdateAssetMetadata(
     }
 
     // Update each local asset
-    for (const { assetId, metadata } of localUpdates) {
-      const metadataStr = metadata ? JSON.stringify(metadata) : null;
-      console.log(metadataStr);
+    for (const update of localUpdates) {
+      const setPayload: { metadata?: string | null; order_index?: number } = {};
+
+      // Only include metadata if explicitly provided
+      if (update.metadata !== undefined) {
+        setPayload.metadata = update.metadata
+          ? JSON.stringify(update.metadata)
+          : null;
+      }
+
+      // Only include order_index if explicitly provided
+      if (update.order_index !== undefined) {
+        setPayload.order_index = update.order_index;
+      }
+
+      // Skip if nothing to update
+      if (Object.keys(setPayload).length === 0) continue;
+
       await system.db
         .update(assetLocalTable)
-        .set({ metadata: metadataStr })
-        .where(eq(assetLocalTable.id, assetId));
+        .set(setPayload)
+        .where(eq(assetLocalTable.id, update.assetId));
     }
 
-    console.log(`✅ Updated metadata for ${localUpdates.length} assets`);
+    console.log(`✅ Updated ${localUpdates.length} assets`);
   } catch (error) {
-    console.error('Failed to batch update asset metadata:', error);
+    console.error('Failed to batch update assets:', error);
     throw error;
   }
 }

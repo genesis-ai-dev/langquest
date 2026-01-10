@@ -50,11 +50,14 @@ export interface BibleAssetListItemProps {
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   dragHandle?: React.ReactNode;
-  // Selection mode props
+  // Selection mode props (batch operations like merge/delete)
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (assetId: string) => void;
   onEnterSelection?: (assetId: string) => void;
+  // Recording insertion point selection
+  isSelectedForRecording?: boolean;
+  onSelectForRecording?: (assetId: string) => void;
 }
 
 export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
@@ -69,7 +72,9 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   isSelectionMode = false,
   isSelected = false,
   onToggleSelect,
-  onEnterSelection
+  onEnterSelection,
+  isSelectedForRecording = false,
+  onSelectForRecording
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -148,7 +153,12 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
       return;
     }
 
-    if (!isPublished) return;
+    // If not published, select for recording (toggle)
+    if (!isPublished) {
+      onSelectForRecording?.(asset.id);
+      return;
+    }
+
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -215,7 +225,9 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
           !allowEditing ? 'opacity-50' : ''
         } ${invisible ? 'opacity-30' : ''} ${
           isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
-        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} p-3`}
+        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} ${
+          isSelectedForRecording ? 'border-2 border-primary bg-primary/15' : ''
+        } p-3`}
       >
         <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
