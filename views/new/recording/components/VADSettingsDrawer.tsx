@@ -2,12 +2,6 @@
  * VADSettingsDrawer - Settings drawer for voice activity detection
  * Shows live energy levels and allows threshold adjustment
  *
- * SECTIONS:
- * 1. Display Mode Selection - Choose fullscreen or footer VAD display (currently hidden)
- * 2. Input Level Visualization - Live microphone energy meter with threshold marker
- * 3. Threshold Settings - Adjust VAD sensitivity with auto-calibration
- * 4. Silence Duration - How long to wait before ending a segment
- * 5. Min Segment Length - Filter out brief noises/transients
  */
 
 import { Button } from '@/components/ui/button';
@@ -43,11 +37,7 @@ import {
 import { useThemeColor } from '@/utils/styleUtils';
 import { useGestureEventsHandlersDefault } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ArrowBigLeft,
-  ArrowBigRight,
-  ChevronUp,
   HelpCircle,
   Maximize2,
   Mic,
@@ -55,8 +45,7 @@ import {
   Plus,
   RectangleHorizontal,
   RotateCcw,
-  Sparkles,
-  Volume1
+  Sparkles
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
@@ -79,15 +68,6 @@ import Svg, {
   LinearGradient as SvgLinearGradient
 } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
-
-// Dimmed gradient for sensitivity bar background
-const ENERGY_GRADIENT_COLORS_DIMMED = [
-  '#22c55e40',
-  '#84cc1640',
-  '#eab30840',
-  '#f9731640',
-  '#ef444440'
-] as const;
 
 // Segmented energy bar constants
 const ENERGY_BAR_PILL_WIDTH = 18; // Individual pill width in px
@@ -230,6 +210,7 @@ function VADSettingsDrawerInternal({
   const accentColor = useThemeColor('accent');
   const mutedForegroundColor = useThemeColor('muted-foreground');
   const primaryForegroundColor = useThemeColor('primary-foreground');
+  const borderColor = useThemeColor('border');
 
   // Track dragging state on JS thread for SVG color changes
   const [isDraggingJS, setIsDraggingJS] = React.useState(false);
@@ -253,10 +234,15 @@ function VADSettingsDrawerInternal({
   const [localThreshold, setLocalThreshold] = React.useState(threshold);
   const [localSilenceDuration, setLocalSilenceDuration] =
     React.useState(silenceDuration);
+  const [localMinSegmentLength, setLocalMinSegmentLength] =
+    React.useState(minSegmentLength);
   const storeUpdateTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
   const silenceStoreUpdateTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const minSegmentStoreUpdateTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
 
@@ -269,6 +255,11 @@ function VADSettingsDrawerInternal({
   React.useEffect(() => {
     setLocalSilenceDuration(silenceDuration);
   }, [silenceDuration]);
+
+  // Sync local min segment length with prop when it changes externally
+  React.useEffect(() => {
+    setLocalMinSegmentLength(minSegmentLength);
+  }, [minSegmentLength]);
 
   // Immediate UI update function - updates local state instantly
   const updateThresholdImmediate = React.useCallback(
@@ -310,6 +301,15 @@ function VADSettingsDrawerInternal({
       if (localSilenceDuration !== silenceDuration) {
         onSilenceDurationChange(localSilenceDuration);
       }
+
+      // Flush any pending min segment length update
+      if (minSegmentStoreUpdateTimeoutRef.current) {
+        clearTimeout(minSegmentStoreUpdateTimeoutRef.current);
+        minSegmentStoreUpdateTimeoutRef.current = null;
+      }
+      if (localMinSegmentLength !== minSegmentLength) {
+        onMinSegmentLengthChange(localMinSegmentLength);
+      }
     }
   }, [isOpen]); // Only depend on isOpen to avoid unnecessary runs
 
@@ -321,6 +321,9 @@ function VADSettingsDrawerInternal({
       }
       if (silenceStoreUpdateTimeoutRef.current) {
         clearTimeout(silenceStoreUpdateTimeoutRef.current);
+      }
+      if (minSegmentStoreUpdateTimeoutRef.current) {
+        clearTimeout(minSegmentStoreUpdateTimeoutRef.current);
       }
     };
   }, []);
@@ -398,11 +401,11 @@ function VADSettingsDrawerInternal({
     thresholdPositionShared.value = dbToVisualPosition(thresholdDb);
   }, [threshold, thresholdPositionShared]);
 
-  // JS thread version for button handlers (only recalculates when threshold prop changes)
+  // JS thread version for button handlers (uses localThreshold for instant UI response)
   const thresholdPosition = React.useMemo(() => {
-    const thresholdDb = energyToDb(threshold);
+    const thresholdDb = energyToDb(localThreshold);
     return dbToVisualPosition(thresholdDb);
-  }, [threshold]);
+  }, [localThreshold]);
 
   // Cancel any in-progress calibration
   const cancelCalibration = React.useCallback(() => {
@@ -726,30 +729,50 @@ function VADSettingsDrawerInternal({
     updateSilenceDurationImmediate(newValue);
   }, [localSilenceDuration, updateSilenceDurationImmediate]);
 
-  const resetSilenceDuration = () => {
-    onSilenceDurationChange(VAD_SILENCE_DURATION_DEFAULT);
-  };
+  const resetSilenceDuration = React.useCallback(() => {
+    updateSilenceDurationImmediate(VAD_SILENCE_DURATION_DEFAULT);
+  }, [updateSilenceDurationImmediate]);
+
+  // Immediate update function for min segment length
+  const updateMinSegmentLengthImmediate = React.useCallback(
+    (newLength: number) => {
+      // Update local state immediately - instant UI feedback
+      setLocalMinSegmentLength(newLength);
+
+      // Clear any pending store update
+      if (minSegmentStoreUpdateTimeoutRef.current) {
+        clearTimeout(minSegmentStoreUpdateTimeoutRef.current);
+      }
+
+      // Save to store in background (don't block UI)
+      minSegmentStoreUpdateTimeoutRef.current = setTimeout(() => {
+        onMinSegmentLengthChange(newLength);
+        minSegmentStoreUpdateTimeoutRef.current = null;
+      }, 300);
+    },
+    [onMinSegmentLengthChange]
+  );
 
   // Increment/decrement handlers for min segment length (50ms steps)
-  const incrementMinSegmentLength = () => {
+  const incrementMinSegmentLength = React.useCallback(() => {
     const newValue = Math.min(
       VAD_MIN_SEGMENT_LENGTH_MAX,
-      minSegmentLength + 50
+      localMinSegmentLength + 50
     );
-    onMinSegmentLengthChange(newValue);
-  };
+    updateMinSegmentLengthImmediate(newValue);
+  }, [localMinSegmentLength, updateMinSegmentLengthImmediate]);
 
-  const decrementMinSegmentLength = () => {
+  const decrementMinSegmentLength = React.useCallback(() => {
     const newValue = Math.max(
       VAD_MIN_SEGMENT_LENGTH_MIN,
-      minSegmentLength - 50
+      localMinSegmentLength - 50
     );
-    onMinSegmentLengthChange(newValue);
-  };
+    updateMinSegmentLengthImmediate(newValue);
+  }, [localMinSegmentLength, updateMinSegmentLengthImmediate]);
 
-  const resetMinSegmentLength = () => {
-    onMinSegmentLengthChange(VAD_MIN_SEGMENT_LENGTH_DEFAULT);
-  };
+  const resetMinSegmentLength = React.useCallback(() => {
+    updateMinSegmentLengthImmediate(VAD_MIN_SEGMENT_LENGTH_DEFAULT);
+  }, [updateMinSegmentLengthImmediate]);
 
   // Energy level as pixel width for SVG (with frame skipping to match native ~21fps)
   const frameCounter = useSharedValue(0);
@@ -827,13 +850,6 @@ function VADSettingsDrawerInternal({
     // Convert percentage to pixels for the SVG energy bar
     const posPixels = (posPercent / 100) * energyBarWidthShared.value;
     return { left: posPixels };
-  });
-
-  // Animated styles for threshold marker on sensitivity bar (percentage)
-  const thresholdMarkerPercentStyle = useAnimatedStyle(() => {
-    'worklet';
-    const pos = Math.min(100, Math.max(0, thresholdPositionShared.value));
-    return { left: `${pos}%` };
   });
 
   // Animated styles for status indicator (runs entirely on UI thread, instant - no animation)
@@ -1018,7 +1034,7 @@ function VADSettingsDrawerInternal({
             <View className="flex-row items-center gap-2">
               <Icon as={Mic} size={18} className="text-foreground" />
               <Text className="text-sm font-medium text-foreground">
-                {t('vadCurrentLevel')}: {localThreshold.toFixed(3)}
+                {t('vadCurrentLevel')}
               </Text>
             </View>
 
@@ -1178,12 +1194,14 @@ function VADSettingsDrawerInternal({
               Adjust VAD sensitivity - lower = more sensitive, higher = less
               Includes auto-calibration button that samples background noise
               ═══════════════════════════════════════════════════════════════ */}
-          <View className="gap-3">
+          <View className="gap-2">
             <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Icon as={Volume1} size={18} className="text-foreground" />
+              <View className="flex-1">
                 <Text className="text-sm font-medium text-foreground">
                   {t('vadThreshold')}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  Lower = more sensitive, higher = less sensitive
                 </Text>
               </View>
               <Button
@@ -1196,51 +1214,69 @@ function VADSettingsDrawerInternal({
               </Button>
             </View>
 
-            <View className="relative h-16 w-full overflow-hidden rounded-lg">
-              <LinearGradient
-                colors={ENERGY_GRADIENT_COLORS_DIMMED}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ position: 'absolute', width: '100%', height: '100%' }}
-              />
-              <Animated.View
-                style={[
-                  {
-                    position: 'absolute',
-                    top: 0,
-                    height: '100%',
-                    width: 4,
-                    marginLeft: -2
-                  },
-                  thresholdMarkerPercentStyle
-                ]}
-                className="bg-destructive shadow-lg"
+            <View className="mt-1 flex-row items-center justify-center gap-1">
+              <Text className="text-base font-semibold text-foreground">
+                {localThreshold.toFixed(3)}
+              </Text>
+              <Text className="text-sm text-muted-foreground">
+                (
+                {localThreshold <= 0.02
+                  ? 'very sensitive'
+                  : localThreshold <= 0.05
+                    ? 'sensitive'
+                    : localThreshold <= 0.1
+                      ? 'balanced'
+                      : localThreshold <= 0.2
+                        ? 'less sensitive'
+                        : 'not sensitive'}
+                )
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onPress={handleDecreaseThreshold}
+                disabled={localThreshold <= VAD_THRESHOLD_MIN}
               >
-                <View className="absolute -top-2 left-1/2 -translate-x-1/2">
-                  <Icon as={ChevronUp} size={16} className="text-destructive" />
-                </View>
-              </Animated.View>
+                <Icon as={Minus} size={16} />
+              </Button>
 
-              {/* Control buttons - optimized for instant response */}
-              <View className="absolute inset-0 flex-row items-center justify-between px-2">
-                <Button
-                  variant="secondary"
-                  onPress={handleDecreaseThreshold}
-                  disabled={localThreshold <= VAD_THRESHOLD_MIN}
-                  className="size-12"
-                >
-                  <Icon as={ArrowBigLeft} size={20} />
-                </Button>
+              {/* TODO: Slider dragging has issues in BottomSheet - use +/- buttons or tap */}
+              {/* Slider uses dB scale (-60 to 0 dB) to match the visual meter exactly */}
+              {/* This creates a logarithmic feel: left side covers quiet levels, right side loud */}
+              <Slider
+                style={{ width: '100%', height: 40, flex: 1 }}
+                minimumValue={DB_MIN}
+                maximumValue={DB_MAX}
+                step={1}
+                value={energyToDb(localThreshold)}
+                onValueChange={(dbValue: number) => {
+                  // Convert dB back to linear energy
+                  const newEnergy =
+                    dbValue <= DB_MIN
+                      ? VAD_THRESHOLD_MIN
+                      : Math.pow(10, dbValue / 20);
+                  const clampedEnergy = Math.max(
+                    VAD_THRESHOLD_MIN,
+                    Math.min(VAD_THRESHOLD_MAX, newEnergy)
+                  );
+                  updateThresholdImmediate(Number(clampedEnergy.toFixed(4)));
+                }}
+                minimumTrackTintColor={useThemeColor('primary')}
+                maximumTrackTintColor={borderColor}
+                thumbTintColor={useThemeColor('primary')}
+              />
 
-                <Button
-                  variant="secondary"
-                  onPress={handleIncreaseThreshold}
-                  disabled={localThreshold >= VAD_THRESHOLD_MAX}
-                  className="size-12"
-                >
-                  <Icon as={ArrowBigRight} size={20} />
-                </Button>
-              </View>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onPress={handleIncreaseThreshold}
+                disabled={localThreshold >= VAD_THRESHOLD_MAX}
+              >
+                <Icon as={Plus} size={16} />
+              </Button>
             </View>
 
             <View className="gap-2">
@@ -1409,15 +1445,15 @@ function VADSettingsDrawerInternal({
 
             <View className="mt-1 flex-row items-center justify-center gap-1">
               <Text className="text-base font-semibold text-foreground">
-                {minSegmentLength}ms
+                {localMinSegmentLength}ms
               </Text>
               <Text className="text-sm text-muted-foreground">
                 (
-                {minSegmentLength === 0
+                {localMinSegmentLength === 0
                   ? t('vadNoFilter')
-                  : minSegmentLength <= 150
+                  : localMinSegmentLength <= 150
                     ? t('vadLightFilter')
-                    : minSegmentLength <= 300
+                    : localMinSegmentLength <= 300
                       ? t('vadMediumFilter')
                       : t('vadStrongFilter')}
                 )
@@ -1429,7 +1465,7 @@ function VADSettingsDrawerInternal({
                 variant="outline"
                 size="icon-sm"
                 onPress={decrementMinSegmentLength}
-                disabled={minSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN}
+                disabled={localMinSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN}
               >
                 <Icon as={Minus} size={16} />
               </Button>
@@ -1460,10 +1496,10 @@ function VADSettingsDrawerInternal({
                 minimumValue={VAD_MIN_SEGMENT_LENGTH_MIN}
                 maximumValue={VAD_MIN_SEGMENT_LENGTH_MAX}
                 step={50}
-                value={minSegmentLength}
-                onValueChange={onMinSegmentLengthChange}
+                value={localMinSegmentLength}
+                onValueChange={updateMinSegmentLengthImmediate}
                 minimumTrackTintColor={useThemeColor('primary')}
-                maximumTrackTintColor={useThemeColor('border')}
+                maximumTrackTintColor={borderColor}
                 thumbTintColor={useThemeColor('primary')}
               />
 
@@ -1471,7 +1507,7 @@ function VADSettingsDrawerInternal({
                 variant="outline"
                 size="icon-sm"
                 onPress={incrementMinSegmentLength}
-                disabled={minSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX}
+                disabled={localMinSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX}
               >
                 <Icon as={Plus} size={16} />
               </Button>

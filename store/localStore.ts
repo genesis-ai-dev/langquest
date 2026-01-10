@@ -44,7 +44,7 @@ export type Theme = 'light' | 'dark' | 'system';
 // VAD (Voice Activity Detection) constants - single source of truth
 export const VAD_THRESHOLD_MIN = 0.001;
 export const VAD_THRESHOLD_MAX = 1.0;
-export const VAD_THRESHOLD_DEFAULT = 0.05;
+export const VAD_THRESHOLD_DEFAULT = 0.1;
 
 // VAD silence duration constants (in milliseconds)
 export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
