@@ -47,6 +47,7 @@ interface RecordingControlsProps {
   vadThreshold?: number;
   energyShared?: SharedValue<number>; // For UI performance
   isRecordingShared?: SharedValue<boolean>; // NEW: For instant waveform updates
+  isDiscardedShared?: SharedValue<number>; // NEW: For retroactive blue effect
   displayMode?: 'fullscreen' | 'footer'; // Display mode preference
 }
 
@@ -66,6 +67,7 @@ export const RecordingControls = React.memo(
     vadThreshold,
     energyShared,
     isRecordingShared,
+    isDiscardedShared,
     displayMode: _displayMode = 'footer'
   }: RecordingControlsProps) {
     const { t } = useLocalization();
@@ -375,7 +377,7 @@ export const RecordingControls = React.memo(
                   ? walkieTalkieEnergyShared
                   : (energyShared ?? fallbackEnergyShared)
             }
-            vadThreshold={vadThreshold ?? 0.085}
+            vadThreshold={vadThreshold ?? 0.05}
             isRecordingShared={
               // Use VAD recording state during VAD lock, walkie-talkie state during walkie-talkie recording
               isVADLocked
@@ -384,6 +386,7 @@ export const RecordingControls = React.memo(
                   ? walkieTalkieIsRecordingShared
                   : (isRecordingShared ?? fallbackIsRecordingShared)
             }
+            isDiscardedShared={isDiscardedShared}
             barCount={60}
             maxHeight={24}
           />

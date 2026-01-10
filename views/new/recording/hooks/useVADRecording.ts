@@ -33,6 +33,7 @@ interface UseVADRecordingReturn {
   isRecording: boolean; // Keep for React components
   energyShared: SharedValue<number>; // For UI performance
   isRecordingShared: SharedValue<boolean>; // NEW: For instant UI updates
+  isDiscardedShared: SharedValue<number>; // NEW: Increments when a segment is discarded
 }
 
 export function useVADRecording({
@@ -56,6 +57,7 @@ export function useVADRecording({
   // NEW: SharedValue for INSTANT UI updates (bypasses React render cycle)
   // This updates synchronously when native VAD fires events - NO LAG!
   const isRecordingShared = useSharedValue(false);
+  const isDiscardedShared = useSharedValue(0);
 
   // Stable refs for callbacks
   const onSegmentStartRef = React.useRef(onSegmentStart);
@@ -107,8 +109,8 @@ export function useVADRecording({
   const vadPreOnsetMultiplier = useLocalStore((s) => s.vadPreOnsetMultiplier);
   const vadMaxOnsetDuration = useLocalStore((s) => s.vadMaxOnsetDuration);
   const vadRewindHalfPause = useLocalStore((s) => s.vadRewindHalfPause);
-  const vadMinActiveAudioDuration = useLocalStore(
-    (s) => s.vadMinActiveAudioDuration
+  const vadMinSegmentLength = useLocalStore(
+    (s) => s.vadMinSegmentLength
   );
 
   // Configure native VAD and manage activation/deactivation
@@ -129,8 +131,8 @@ export function useVADRecording({
         vadMaxOnsetDuration,
         '| rewindHalfPause:',
         vadRewindHalfPause,
-        '| minActiveAudio:',
-        vadMinActiveAudioDuration
+        '| minSegmentLength:',
+        vadMinSegmentLength
       );
 
       await MicrophoneEnergyModule.configureVAD({
@@ -142,7 +144,7 @@ export function useVADRecording({
         preOnsetMultiplier: vadPreOnsetMultiplier,
         maxOnsetDuration: vadMaxOnsetDuration,
         rewindHalfPause: vadRewindHalfPause,
-        minActiveAudioDuration: vadMinActiveAudioDuration
+        minActiveAudioDuration: vadMinSegmentLength
       });
     };
 
@@ -230,7 +232,7 @@ export function useVADRecording({
     vadPreOnsetMultiplier,
     vadMaxOnsetDuration,
     vadRewindHalfPause,
-    vadMinActiveAudioDuration,
+    vadMinSegmentLength,
     startEnergyDetection,
     stopEnergyDetection
   ]);
@@ -284,9 +286,14 @@ export function useVADRecording({
       (payload: { uri: string; duration: number }) => {
         console.log(
           '📼 Native VAD: Segment complete:',
-          payload.uri,
+          payload.uri || 'DISCARDED',
           `(${payload.duration}ms)`
         );
+
+        // If discarded, trigger retroactive UI update
+        if (!payload.uri || payload.uri === '') {
+          isDiscardedShared.value += 1;
+        }
 
         // Log energy range for VAD recording
         if (energyRangeRef.current) {
@@ -325,6 +332,7 @@ export function useVADRecording({
     currentEnergy,
     isRecording,
     energyShared,
-    isRecordingShared // NEW: For instant waveform updates
+    isRecordingShared, // NEW: For instant waveform updates
+    isDiscardedShared
   };
 }

@@ -71,15 +71,17 @@ interface WaveformVisualizationProps {
   energyShared: SharedValue<number>; // OPTIMIZED: SharedValue instead of number
   vadThreshold: number;
   isRecordingShared: SharedValue<boolean>; // OPTIMIZED: SharedValue for instant updates
+  isDiscardedShared?: SharedValue<number>; // Trigger to revert recent red bars
   barCount?: number;
   maxHeight?: number;
 }
 
-export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
+  export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
   isVisible,
   energyShared,
   vadThreshold,
   isRecordingShared, // Now a SharedValue - NO SYNC NEEDED!
+  isDiscardedShared,
   barCount = 60,
   maxHeight = 24
 }) => {
@@ -150,28 +152,24 @@ export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
     // isRecording removed from deps - we use SharedValue now which updates without recreation
   );
 
-  // TEMPORARILY DISABLED: React to recording state changes to update recent bars
-  // DISABLED FOR TESTING: This reaction might be causing issues if it fires too frequently
-  // The main reaction already sets the last bar's recording state on line 117,
-  // so this retroactive update might be redundant and could cause conflicts.
-  // TODO: Re-enable and optimize if needed, or remove if not necessary
-  /*
+  // Retroactive update: if a segment is discarded, turn all current red bars back to blue
   useAnimatedReaction(
-    () => isRecordingShared.value,
-    (isRecording, previousIsRecording) => {
+    () => isDiscardedShared?.value ?? 0,
+    (discardCount, previousDiscardCount) => {
       'worklet';
-      if (!isVisible || previousIsRecording === isRecording) return;
+      if (!isVisible || discardCount === 0 || discardCount === previousDiscardCount)
+        return;
 
-      // Update the most recent 5 bars to match the new recording state
-      // This ensures smooth color transitions when recording state changes
-      const barsToUpdate = Math.min(5, barCount);
-      for (let i = barCount - barsToUpdate; i < barCount; i++) {
-        waveformRecordingState[i]!.value = isRecording;
+      // When a discard happens, revert all red bars in the current view to blue
+      // This creates the "retroactive blue" effect
+      for (let i = 0; i < barCount; i++) {
+        if (waveformRecordingState[i]!.value) {
+          waveformRecordingState[i]!.value = false;
+        }
       }
     },
-    [isVisible, barCount]
+    [isVisible, barCount, isDiscardedShared]
   );
-  */
 
   // Reset when hidden
   useEffect(() => {
