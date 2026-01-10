@@ -136,11 +136,11 @@ const RecordingViewSimplified = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
-  const vadMinActiveAudioDuration = useLocalStore(
-    (state) => state.vadMinActiveAudioDuration
+  const vadMinSegmentLength = useLocalStore(
+    (state) => state.vadMinSegmentLength
   );
-  const setVadMinActiveAudioDuration = useLocalStore(
-    (state) => state.setVadMinActiveAudioDuration
+  const setVadMinSegmentLength = useLocalStore(
+    (state) => state.setVadMinSegmentLength
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
@@ -1312,17 +1312,22 @@ const RecordingViewSimplified = ({
     debugLog('🎬 VAD: Segment starting | order_index:', targetOrder);
 
     currentRecordingOrderRef.current = targetOrder;
-    vadCounterRef.current = targetOrder + 1; // Increment for next segment
+    // Don't increment yet - wait until it's confirmed not to be a transient
   }, []);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
       if (!uri || uri === '') {
         debugLog('🗑️ VAD: Segment discarded');
+        // Do NOT increment counter - the next segment will reuse currentRecordingOrderRef.current
         return;
       }
 
       debugLog('📼 VAD: Segment complete');
+      // Increment counter only for valid segments
+      if (vadCounterRef.current !== null) {
+        vadCounterRef.current += 1;
+      }
       void handleRecordingComplete(uri, 0, []);
     },
     [handleRecordingComplete]
@@ -1331,9 +1336,10 @@ const RecordingViewSimplified = ({
   // Hook up native VAD recording
   const {
     currentEnergy,
-    isRecording: isVADRecording,
+    isRecording:     isVADRecording,
     energyShared,
-    isRecordingShared
+    isRecordingShared,
+    isDiscardedShared
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
@@ -2198,6 +2204,7 @@ const RecordingViewSimplified = ({
           energyShared={energyShared}
           vadThreshold={vadThreshold}
           isRecordingShared={isRecordingShared}
+          isDiscardedShared={isDiscardedShared}
           onCancel={() => {
             // Cancel VAD mode
             setIsVADLocked(false);
@@ -2300,11 +2307,12 @@ const RecordingViewSimplified = ({
               setShowVADSettings(true);
             }}
             currentEnergy={currentEnergy}
-            vadThreshold={vadThreshold}
-            energyShared={energyShared}
-            isRecordingShared={isRecordingShared}
-            displayMode={vadDisplayMode}
-          />
+        vadThreshold={vadThreshold}
+        energyShared={energyShared}
+        isRecordingShared={isRecordingShared}
+        isDiscardedShared={isDiscardedShared}
+        displayMode={vadDisplayMode}
+      />
         )}
       </View>
 
@@ -2335,8 +2343,8 @@ const RecordingViewSimplified = ({
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
-        minActiveAudioDuration={vadMinActiveAudioDuration}
-        onMinActiveAudioDurationChange={setVadMinActiveAudioDuration}
+        minSegmentLength={vadMinSegmentLength}
+        onMinSegmentLengthChange={setVadMinSegmentLength}
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}

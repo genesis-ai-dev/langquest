@@ -202,7 +202,10 @@ class MicrophoneEnergyModule : Module() {
       segmentBuffers.clear()
       segmentFile?.delete()  // Clean up temp file
       segmentFile = null
-      return  // Don't save or emit event
+      
+      // Emit empty URI to notify JS that recording stopped but was discarded
+      sendEvent("onSegmentComplete", mapOf("uri" to "", "duration" to 0.0))
+      return
     }
     
     val buffersToWrite = ArrayList(segmentBuffers)
