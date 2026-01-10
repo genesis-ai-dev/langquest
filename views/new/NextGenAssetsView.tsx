@@ -38,7 +38,6 @@ import {
   LockIcon,
   MicIcon,
   PauseIcon,
-  PencilIcon,
   PlayIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -67,6 +66,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { getMaxVersesInChapter } from '@/constants/bibleStructure';
+import { project_language_link } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
@@ -74,18 +74,31 @@ import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import {
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  saveAudioLocally
+} from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
+import type { LegendListRef } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
 import type { MilestoneValue } from './MilestoneMarker';
 import { MilestoneMarker } from './MilestoneMarker';
-import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 import { VerseRangeDialog } from './VerseRangeDialog';
+import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
+import { SelectionControls } from './recording/components/SelectionControls';
+import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
+import { useSelectionMode } from './recording/hooks/useSelectionMode';
+import { useVADRecording } from './recording/hooks/useVADRecording';
+import {
+  getNextOrderIndex,
+  saveRecording
+} from './recording/services/recordingService';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -100,11 +113,12 @@ export default function NextGenAssetsView() {
     currentProjectData,
     currentQuestData
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, goToAsset } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const layerStatus = useStatusContext();
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -122,6 +136,23 @@ export default function NextGenAssetsView() {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
+
+  // VAD recording state
+  const [isVADLocked, setIsVADLocked] = React.useState(false);
+  const [showVADSettings, setShowVADSettings] = React.useState(false);
+  const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
+  const vadCounterRef = React.useRef<number | null>(null);
+  const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
+  const listRef = React.useRef<LegendListRef>(null);
+
+  // Selection mode for batch operations
+  const {
+    isSelectionMode,
+    selectedAssetIds,
+    enterSelection,
+    toggleSelect,
+    cancelSelection
+  } = useSelectionMode();
 
   // Milestone state for verse markers between assets
   const [milestones, setMilestones] = React.useState<
@@ -337,7 +368,52 @@ export default function NextGenAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-  const [showRecording, setShowRecording] = React.useState(false);
+  // VAD settings from local store
+  const vadThreshold = useLocalStore((state) => state.vadThreshold);
+  const setVadThreshold = useLocalStore((state) => state.setVadThreshold);
+  const vadSilenceDuration = useLocalStore((state) => state.vadSilenceDuration);
+  const setVadSilenceDuration = useLocalStore(
+    (state) => state.setVadSilenceDuration
+  );
+  const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
+  const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+
+  // Get target languoid_id from project_language_link
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ languoid_id: project_language_link.languoid_id })
+        .from(project_language_link)
+        .where(
+          and(
+            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', currentProjectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId
+  });
+
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
   const { membership } = useUserPermissions(
     currentProjectId || '',
@@ -510,6 +586,175 @@ export default function NextGenAssetsView() {
     ]
   );
 
+  // Initialize VAD counter when VAD mode activates
+  React.useEffect(() => {
+    if (isVADLocked && vadCounterRef.current === null) {
+      void (async () => {
+        const targetOrder = await getNextOrderIndex(currentQuestId!);
+        vadCounterRef.current = targetOrder;
+        console.log(`🎯 VAD counter initialized to end: ${targetOrder}`);
+      })();
+    } else if (!isVADLocked) {
+      vadCounterRef.current = null;
+    }
+  }, [isVADLocked, currentQuestId]);
+
+  // VAD segment handlers
+  const handleVADSegmentStart = React.useCallback(() => {
+    if (vadCounterRef.current === null) {
+      console.error('❌ VAD counter not initialized!');
+      return;
+    }
+    const targetOrder = vadCounterRef.current;
+    console.log('🎬 VAD: Segment starting | order_index:', targetOrder);
+    vadCounterRef.current = targetOrder + 1; // Increment for next segment
+  }, []);
+
+  const handleVADSegmentComplete = React.useCallback(
+    async (uri: string) => {
+      if (!uri || uri === '') {
+        console.log('🗑️ VAD: Segment discarded');
+        return;
+      }
+
+      console.log('📼 VAD: Segment complete');
+
+      if (
+        !currentProjectId ||
+        !currentQuestId ||
+        !currentProjectData ||
+        !currentUser ||
+        !targetLanguoidId
+      ) {
+        console.error('❌ Missing required data for recording');
+        return;
+      }
+
+      try {
+        const targetOrder =
+          vadCounterRef.current !== null
+            ? vadCounterRef.current - 1 // Use previous value (already incremented)
+            : await getNextOrderIndex(currentQuestId);
+
+        // Generate name and reserve it
+        const nextNumber = targetOrder + 1;
+        const assetName = String(nextNumber).padStart(3, '0');
+        pendingAssetNamesRef.current.add(assetName);
+
+        // Save audio file locally
+        const localUri = await saveAudioLocally(uri);
+
+        // Save to database
+        await saveRecording({
+          questId: currentQuestId,
+          projectId: currentProjectId,
+          targetLanguoidId: targetLanguoidId,
+          userId: currentUser.id,
+          orderIndex: targetOrder,
+          audioUri: localUri,
+          assetName
+        });
+
+        pendingAssetNamesRef.current.delete(assetName);
+
+        // Wait a moment for PowerSync to sync the new asset
+        // This ensures the data is available before we invalidate/refetch
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Invalidate all asset queries for this quest (including all search variations)
+        // The query key structure is: ['assets', 'by-quest', questId, searchQuery]
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', currentQuestId],
+          exact: false
+        });
+
+        // Explicitly refetch to ensure we get the latest data
+        // This handles cases where the view was idle and queries might be stale
+        refetch();
+
+        // Scroll to bottom to show new asset after a brief delay
+        setTimeout(() => {
+          listRef.current?.scrollToEnd({ animated: true });
+        }, 200);
+      } catch (error) {
+        console.error('❌ Failed to save VAD recording:', error);
+      }
+    },
+    [
+      currentProjectId,
+      currentQuestId,
+      currentProjectData,
+      currentUser,
+      targetLanguoidId,
+      queryClient,
+      refetch
+    ]
+  );
+
+  // Hook up native VAD recording
+  const {
+    currentEnergy: _currentEnergy,
+    isRecording: _isVADRecording,
+    energyShared,
+    isRecordingShared
+  } = useVADRecording({
+    threshold: vadThreshold,
+    silenceDuration: vadSilenceDuration,
+    isVADActive: isVADLocked,
+    onSegmentStart: handleVADSegmentStart,
+    onSegmentComplete: (uri: string) => {
+      void handleVADSegmentComplete(uri);
+    },
+    isManualRecording: false // Always use VAD mode
+  });
+
+  // Scroll to bottom when VAD mode starts
+  React.useEffect(() => {
+    if (isVADLocked) {
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 300);
+    }
+  }, [isVADLocked]);
+
+  // Periodic refetch while VAD is active to catch segments saved during idle periods
+  // This ensures segments don't get "lost" if the view was idle when they were saved
+  React.useEffect(() => {
+    if (!isVADLocked) return;
+
+    const interval = setInterval(() => {
+      // Refetch every 2 seconds while recording to catch any segments that were saved
+      // This handles cases where segments were saved but the query didn't refresh
+      void queryClient.invalidateQueries({
+        queryKey: ['assets', 'by-quest', currentQuestId],
+        exact: false
+      });
+      refetch();
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isVADLocked, currentQuestId, queryClient, refetch]);
+
+  // Invalidate and refetch queries when VAD mode ends
+  // This ensures any segments that were saved while the view was idle are shown
+  React.useEffect(() => {
+    if (!isVADLocked) {
+      void (async () => {
+        // Wait a moment for any final PowerSync syncs to complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Invalidate all asset queries for this quest
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', currentQuestId],
+          exact: false
+        });
+
+        // Explicitly refetch to get latest data (handles stale cache from idle periods)
+        void refetch();
+      })();
+    }
+  }, [isVADLocked, currentQuestId, queryClient, refetch]);
+
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
     useAttachmentStates(assetIds);
 
@@ -533,109 +778,6 @@ export default function NextGenAssetsView() {
     return summary;
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
   }, [safeAttachmentStates]);
-
-  const renderItem = React.useCallback(
-    ({
-      item,
-      index
-    }: {
-      item: AssetQuestLink & { source?: HybridDataSource };
-      index: number;
-    }) => {
-      const isPlaying =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
-
-      // Debug logging for highlighting
-      if (isPlaying && __DEV__) {
-        console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
-      }
-
-      // Milestones are enabled when we have Bible chapter info
-      const milestonesEnabled = !!bibleChapterInfo;
-
-      // Get the milestone value for this position
-      const milestoneValue = milestones.get(index);
-
-      return (
-        <View className="flex-row items-stretch gap-2">
-          {/* Milestone marker on the left side */}
-          <MilestoneMarker
-            positionIndex={index}
-            value={milestoneValue ?? null}
-            onTap={handleMilestoneTap}
-            onLongPress={handleMilestoneLongPress}
-            enabled={milestonesEnabled}
-          />
-          {/* Asset card on the right side */}
-          <View className="flex-1">
-            <AssetListItem
-              key={item.id}
-              asset={item}
-              attachmentState={safeAttachmentStates.get(item.id)}
-              questId={currentQuestId || ''}
-              isCurrentlyPlaying={isPlaying}
-            />
-          </View>
-        </View>
-      );
-    },
-    // Use stable memo key instead of Map reference to prevent hook dependency issues
-    // Always has exactly 2 dependencies (string, string) - never changes size
-    [
-      currentQuestId,
-      safeAttachmentStates,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      currentlyPlayingAssetId,
-      bibleChapterInfo,
-      milestones,
-      handleMilestoneTap,
-      handleMilestoneLongPress
-    ]
-  );
-
-  const onEndReached = React.useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  // footer handled inline in ListFooterComponent
-
-  const statusText = React.useMemo(() => {
-    const cloudCount = assets.filter((a) => a.source === 'cloud').length;
-    const offlineCount = assets.length - cloudCount;
-    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
-  }, [isOnline, assets]);
-
-  const attachmentSummaryText = React.useMemo(() => {
-    return Object.entries(attachmentStateSummary)
-      .map(([state, count]) => {
-        const stateNames = {
-          '0': `⏳ ${t('queued')}`,
-          '1': `🔄 ${t('syncing')}`,
-          '2': `✅ ${t('synced')}`,
-          '3': `❌ ${t('failed')}`,
-          '4': `📥 ${t('downloading')}`
-        };
-        return `${stateNames[state as keyof typeof stateNames] || `${t('state')} ${state}`}: ${count}`;
-      })
-      .join(' | ');
-  }, [attachmentStateSummary, t]);
-
-  const {
-    hasReported,
-    // isLoading: isReportLoading,
-    refetch: refetchReport
-  } = useHasUserReported(currentQuestId || '', 'quests');
-
-  const statusContext = useStatusContext();
-  const { allowSettings } = statusContext.getStatusParams(
-    LayerType.QUEST,
-    currentQuestId
-  );
 
   // Special audio ID for "play all" mode
   const PLAY_ALL_AUDIO_ID = 'play-all-assets';
@@ -760,7 +902,7 @@ export default function NextGenAssetsView() {
                       `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
                     );
                   } else {
-                    console.warn(
+                    console.log(
                       `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
                     );
                   }
@@ -788,7 +930,7 @@ export default function NextGenAssetsView() {
             if (await fileExists(audioValue)) {
               uris.push(audioValue);
             } else {
-              console.warn(`File URI does not exist: ${audioValue}`);
+              console.log(`⚠️ File URI does not exist: ${audioValue}`);
               // Try to find in attachment queue by extracting filename from path
               if (system.permAttachmentQueue) {
                 const filename = audioValue.split('/').pop();
@@ -855,6 +997,7 @@ export default function NextGenAssetsView() {
               );
               if (await fileExists(localUri)) {
                 uris.push(localUri);
+                console.log('✅ Found attachment URI:', localUri.slice(0, 60));
               }
             } else {
               // Attachment ID not found in queue - try fallback to local table
@@ -914,6 +1057,195 @@ export default function NextGenAssetsView() {
       }
     },
     []
+  );
+
+  // Handle individual asset playback
+  const handlePlayAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        const isThisAssetPlaying =
+          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+
+        if (isThisAssetPlaying) {
+          await audioContext.stopCurrentSound();
+        } else {
+          const uris = await getAssetAudioUris(assetId);
+
+          if (uris.length === 0) {
+            console.error('❌ No audio URIs found for asset:', assetId);
+            return;
+          }
+
+          if (uris.length === 1 && uris[0]) {
+            await audioContext.playSound(uris[0], assetId);
+          } else if (uris.length > 1) {
+            await audioContext.playSoundSequence(uris, assetId);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to play audio:', error);
+      }
+    },
+    [audioContext, getAssetAudioUris]
+  );
+
+  // Handle navigation to asset detail
+  const handleAssetDetailPress = React.useCallback(
+    (asset: AssetQuestLink) => {
+      layerStatus.setLayerStatus(
+        LayerType.ASSET,
+        {
+          visible: asset.visible,
+          active: asset.active,
+          quest_active: asset.quest_active,
+          quest_visible: asset.quest_visible,
+          source: asset.source
+        },
+        asset.id,
+        currentQuestId || ''
+      );
+
+      goToAsset({
+        id: asset.id,
+        name: asset.name || t('unnamedAsset'),
+        questId: currentQuestId || '',
+        projectId: asset.project_id!,
+        projectData: currentProjectData,
+        questData: currentQuestData
+      });
+    },
+    [
+      layerStatus,
+      goToAsset,
+      currentQuestId,
+      currentProjectData,
+      currentQuestData,
+      t
+    ]
+  );
+
+  const renderItem = React.useCallback(
+    ({
+      item,
+      index
+    }: {
+      item: AssetQuestLink & { source?: HybridDataSource };
+      index: number;
+    }) => {
+      const isPlaying =
+        audioContext.isPlaying &&
+        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+        currentlyPlayingAssetId === item.id;
+
+      const isPlayingIndividually =
+        audioContext.isPlaying && audioContext.currentAudioId === item.id;
+
+      // Milestones are enabled when we have Bible chapter info
+      const milestonesEnabled = !!bibleChapterInfo;
+
+      // Get the milestone value for this position
+      const milestoneValue = milestones.get(index);
+
+      const isSelected = selectedAssetIds.has(item.id);
+      const isLocal = item.source === 'local';
+
+      return (
+        <View className="flex-row items-stretch gap-2">
+          {/* Milestone marker on the left side */}
+          <MilestoneMarker
+            positionIndex={index}
+            value={milestoneValue ?? null}
+            onTap={handleMilestoneTap}
+            onLongPress={handleMilestoneLongPress}
+            enabled={milestonesEnabled}
+          />
+          {/* Asset card on the right side */}
+          <View className="flex-1">
+            <AssetListItem
+              key={item.id}
+              asset={item}
+              attachmentState={safeAttachmentStates.get(item.id)}
+              questId={currentQuestId || ''}
+              isCurrentlyPlaying={isPlaying || isPlayingIndividually}
+              isSelectionMode={isSelectionMode}
+              isSelected={isSelected}
+              onLongPress={() => {
+                if (isLocal) {
+                  enterSelection(item.id);
+                }
+              }}
+              onPress={() => {
+                if (isSelectionMode) {
+                  toggleSelect(item.id);
+                }
+              }}
+              onPlay={handlePlayAsset}
+              onDetailPress={() => handleAssetDetailPress(item)}
+            />
+          </View>
+        </View>
+      );
+    },
+    // Use stable memo key instead of Map reference to prevent hook dependency issues
+    // Always has exactly 2 dependencies (string, string) - never changes size
+    [
+      currentQuestId,
+      safeAttachmentStates,
+      audioContext.isPlaying,
+      audioContext.currentAudioId,
+      currentlyPlayingAssetId,
+      bibleChapterInfo,
+      milestones,
+      handleMilestoneTap,
+      handleMilestoneLongPress,
+      isSelectionMode,
+      selectedAssetIds,
+      enterSelection,
+      toggleSelect,
+      handlePlayAsset,
+      handleAssetDetailPress
+    ]
+  );
+
+  const onEndReached = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // footer handled inline in ListFooterComponent
+
+  const statusText = React.useMemo(() => {
+    const cloudCount = assets.filter((a) => a.source === 'cloud').length;
+    const offlineCount = assets.length - cloudCount;
+    return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
+  }, [isOnline, assets]);
+
+  const attachmentSummaryText = React.useMemo(() => {
+    return Object.entries(attachmentStateSummary)
+      .map(([state, count]) => {
+        const stateNames = {
+          '0': `⏳ ${t('queued')}`,
+          '1': `🔄 ${t('syncing')}`,
+          '2': `✅ ${t('synced')}`,
+          '3': `❌ ${t('failed')}`,
+          '4': `📥 ${t('downloading')}`
+        };
+        return `${stateNames[state as keyof typeof stateNames] || `${t('state')} ${state}`}: ${count}`;
+      })
+      .join(' | ');
+  }, [attachmentStateSummary, t]);
+
+  const {
+    hasReported,
+    // isLoading: isReportLoading,
+    refetch: refetchReport
+  } = useHasUserReported(currentQuestId || '', 'quests');
+
+  const statusContext = useStatusContext();
+  const { allowSettings } = statusContext.getStatusParams(
+    LayerType.QUEST,
+    currentQuestId
   );
 
   // Track currently playing asset based on audio position
@@ -1251,21 +1583,6 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Recording mode UI
-  if (showRecording) {
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <RecordingViewSimplified
-        onBack={() => {
-          setShowRecording(false);
-          // Refetch to show newly recorded assets
-          void refetch();
-        }}
-        initialAssets={assets}
-      />
-    );
-  }
-
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
 
@@ -1417,14 +1734,6 @@ export default function NextGenAssetsView() {
                     <Icon as={CloudUpload} />
                   )}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-[1.5px] border-primary"
-                  onPress={() => setShowRecording(true)}
-                >
-                  <Icon as={PencilIcon} className="text-primary" />
-                </Button>
                 {currentQuestId && currentProjectId && (
                   <ExportButton
                     questId={currentQuestId}
@@ -1485,6 +1794,7 @@ export default function NextGenAssetsView() {
         )
       ) : (
         <LegendList
+          ref={listRef}
           data={assets}
           keyExtractor={(item) => item.id}
           extraData={[currentlyPlayingAssetId, milestones]}
@@ -1495,7 +1805,7 @@ export default function NextGenAssetsView() {
           recycleItems
           contentContainerStyle={{
             gap: 8,
-            paddingBottom: !isPublished ? 100 : 24
+            paddingBottom: !isPublished ? (isVADLocked ? 200 : 100) : 24
           }}
           maintainVisibleContentPosition
           ListFooterComponent={() => (
@@ -1542,19 +1852,65 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
+      {/* Full-screen VAD overlay - takes over entire screen when VAD is locked */}
+      {!isPublished &&
+        currentUser &&
+        isVADLocked &&
+        energyShared &&
+        isRecordingShared && (
+          <FullScreenVADOverlay
+            isVisible={true}
+            energyShared={energyShared}
+            vadThreshold={vadThreshold}
+            isRecordingShared={isRecordingShared}
+            onCancel={() => {
+              setIsVADLocked(false);
+            }}
+          />
+        )}
+
+      {/* Selection controls - show when in selection mode */}
+      {isSelectionMode && (
         <View
           style={{
             paddingBottom: insets.bottom,
-            paddingRight: 75 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+            paddingRight: 75 // Leave space for SpeedDial on the right
+          }}
+        >
+          <SelectionControls
+            selectedCount={selectedAssetIds.size}
+            onCancel={cancelSelection}
+            onMerge={() => {
+              // TODO: Implement batch merge
+              console.log('Batch merge not yet implemented');
+            }}
+            onDelete={() => {
+              // TODO: Implement batch delete
+              console.log('Batch delete not yet implemented');
+            }}
+          />
+        </View>
+      )}
+
+      {/* Simple red record button - only show when not in VAD mode and not in selection mode */}
+      {!isPublished && currentUser && !isVADLocked && !isSelectionMode && (
+        <View
+          style={{
+            paddingBottom: insets.bottom,
+            paddingRight: 75 // Leave space for SpeedDial on the right
           }}
         >
           <Button
             variant="destructive"
             size="lg"
             className="w-full"
-            onPress={() => setShowRecording(true)}
+            onPress={() => {
+              setIsVADLocked(true);
+              // Scroll to bottom when starting recording
+              setTimeout(() => {
+                listRef.current?.scrollToEnd({ animated: true });
+              }, 300);
+            }}
           >
             <Icon
               as={MicIcon}
@@ -1686,6 +2042,26 @@ export default function NextGenAssetsView() {
           onConfirm={handleVerseDialogConfirm}
         />
       )}
+
+      {/* VAD Settings Drawer */}
+      <VADSettingsDrawer
+        isOpen={showVADSettings}
+        onOpenChange={(open) => {
+          setShowVADSettings(open);
+          if (!open) {
+            setAutoCalibrateOnOpen(false);
+          }
+        }}
+        threshold={vadThreshold}
+        onThresholdChange={setVadThreshold}
+        silenceDuration={vadSilenceDuration}
+        onSilenceDurationChange={setVadSilenceDuration}
+        isVADLocked={isVADLocked}
+        displayMode={vadDisplayMode}
+        onDisplayModeChange={setVadDisplayMode}
+        autoCalibrateOnOpen={autoCalibrateOnOpen}
+        energyShared={energyShared}
+      />
     </View>
   );
 }

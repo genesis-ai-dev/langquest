@@ -1,4 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardDescription,
@@ -7,13 +8,22 @@ import {
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAudio } from '@/contexts/AudioContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
-import { EyeOffIcon, HardDriveIcon, PauseIcon } from 'lucide-react-native';
+import {
+  CheckCircleIcon,
+  ChevronRightIcon,
+  CircleIcon,
+  EyeOffIcon,
+  HardDriveIcon,
+  PauseIcon,
+  PlayIcon
+} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
@@ -31,17 +41,33 @@ export interface AssetListItemProps {
   questId: string;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
+  // Selection mode props
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
+  onPress?: () => void;
+  // Play functionality
+  onPlay?: (assetId: string) => void;
+  // Detail view navigation
+  onDetailPress?: () => void;
 }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
   questId,
   attachmentState,
-  isCurrentlyPlaying = false
+  isCurrentlyPlaying = false,
+  isSelectionMode = false,
+  isSelected = false,
+  onLongPress,
+  onPress,
+  onPlay,
+  onDetailPress
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
   const { currentUser } = useAuth();
+  const audioContext = useAudio();
   const { t } = useLocalization();
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
@@ -64,7 +90,30 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     questId
   );
 
-  const handlePress = () => {
+  // Check if this asset is playing individually (not in play-all mode)
+  const isPlayingIndividually =
+    audioContext.isPlaying && audioContext.currentAudioId === asset.id;
+
+  const handleCardPress = () => {
+    if (isSelectionMode && onPress) {
+      // In selection mode, toggle selection
+      onPress();
+    } else if (onPlay) {
+      // Normal mode with play handler - play/pause
+      onPlay(asset.id);
+    } else {
+      // Fallback: navigate to detail view
+      handleDetailPress();
+    }
+  };
+
+  const handleDetailPress = () => {
+    if (onDetailPress) {
+      onDetailPress();
+      return;
+    }
+
+    // Default behavior: navigate to asset detail
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -83,10 +132,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
       name: asset.name || t('unnamedAsset'),
       questId: questId,
       projectId: asset.project_id!,
-      projectData: currentProjectData, // Pass project data forward!
-      questData: currentQuestData // Pass quest data forward!
-      // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
-      // relationships which aren't loaded in the list view
+      projectData: currentProjectData,
+      questData: currentQuestData
     });
   };
 
@@ -97,14 +144,38 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     downloadAsset({ userId: currentUser.id, download: !isDownloaded });
   };
 
+  const handlePlayPress = () => {
+    if (onPlay) {
+      onPlay(asset.id);
+    }
+  };
+
+  const handleDetailPressButton = () => {
+    handleDetailPress();
+  };
+
   return (
-    <Pressable onPress={handlePress}>
+    <Pressable
+      onPress={handleCardPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+    >
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''}`}
+        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying || isPlayingIndividually ? 'border-2 border-primary bg-primary/5' : ''} ${isSelected ? 'border-primary bg-primary/10' : ''}`}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 gap-1">
-            <View className="flex flex-row items-center">
+            <View className="flex flex-row items-center gap-2">
+              {/* Selection checkbox - only show for local assets in selection mode */}
+              {isSelectionMode && asset.source === 'local' && (
+                <View className="mr-1">
+                  <Icon
+                    as={isSelected ? CheckCircleIcon : CircleIcon}
+                    size={20}
+                    className={isSelected ? 'text-primary' : 'text-muted-foreground'}
+                  />
+                </View>
+              )}
               <View className="flex flex-1 flex-row gap-2">
                 {(!allowEditing || invisible) && (
                   <View className="flex flex-row items-center gap-1.5">
@@ -129,12 +200,38 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   </CardTitle>
                 </View>
               </View>
-              <DownloadIndicator
-                isFlaggedForDownload={isDownloaded}
-                isLoading={isDownloading}
-                onPress={handleDownloadToggle}
-                size={20}
-              />
+              <View className="flex flex-row items-center gap-2">
+                {/* Play button */}
+                {onPlay && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onPress={handlePlayPress}
+                    className="h-8 w-8"
+                  >
+                    <Icon
+                      as={isPlayingIndividually ? PauseIcon : PlayIcon}
+                      size={18}
+                      className="text-foreground"
+                    />
+                  </Button>
+                )}
+                {/* Detail view button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onPress={handleDetailPressButton}
+                  className="h-8 w-8"
+                >
+                  <Icon as={ChevronRightIcon} size={18} className="text-muted-foreground" />
+                </Button>
+                <DownloadIndicator
+                  isFlaggedForDownload={isDownloaded}
+                  isLoading={isDownloading}
+                  onPress={handleDownloadToggle}
+                  size={20}
+                />
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
@@ -143,10 +240,6 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
             )}
           </View>
         </CardHeader>
-        {/* <CardContent>
-          <Text className="text-xs text-secondary-foreground">
-          </Text>
-        </CardContent> */}
       </Card>
     </Pressable>
   );
