@@ -80,7 +80,10 @@ import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
-import { batchUpdateAssetMetadata } from '@/database_services/assetService';
+import {
+  batchUpdateAssetMetadata,
+  renameAsset
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
@@ -100,6 +103,7 @@ import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import BibleRecordingView from './recording/components/BibleRecordingView';
 import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
+import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
@@ -346,6 +350,11 @@ export default function BibleAssetsView() {
     from?: number;
     to?: number;
   }>({ isOpen: false, separatorKey: null });
+
+  // State for renaming assets
+  const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
+  const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
+  const [renameAssetName, setRenameAssetName] = React.useState<string>('');
 
   // Manual verse separators created by the user
   const [manualSeparators, setManualSeparators] = React.useState<
@@ -980,6 +989,44 @@ export default function BibleAssetsView() {
     t,
     refetch
   ]);
+
+  // ============================================================================
+  // RENAME ASSET
+  // ============================================================================
+
+  const handleRenameAsset = React.useCallback(
+    (assetId: string, currentName: string | null) => {
+      setRenameAssetId(assetId);
+      setRenameAssetName(currentName ?? '');
+      setShowRenameDrawer(true);
+    },
+    []
+  );
+
+  const handleSaveRename = React.useCallback(
+    async (newName: string) => {
+      if (!renameAssetId) return;
+
+      try {
+        // renameAsset will validate that this is a local-only asset
+        // and throw if it's synced (immutable)
+        await renameAsset(renameAssetId, newName);
+
+        // Invalidate queries to refresh the list
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+
+        console.log('✅ Asset renamed successfully');
+      } catch (error) {
+        console.error('❌ Failed to rename asset:', error);
+        if (error instanceof Error) {
+          console.warn('⚠️ Rename blocked:', error.message);
+          RNAlert.alert(t('error'), error.message);
+        }
+      }
+    },
+    [renameAssetId, queryClient, refetch, t]
+  );
 
   // Auto-assign labels to assets when a separator is created with assetId
   React.useEffect(() => {
@@ -1913,6 +1960,7 @@ export default function BibleAssetsView() {
             onSelectForRecording={
               !isPublished ? handleSelectForRecording : undefined
             }
+            onRename={!isPublished ? handleRenameAsset : undefined}
           />
         </View>
       );
@@ -1933,7 +1981,8 @@ export default function BibleAssetsView() {
       selectedForRecording?.assetId,
       selectedForRecording?.separatorKey,
       handleSelectForRecording,
-      handleSelectSeparatorForRecording
+      handleSelectSeparatorForRecording,
+      handleRenameAsset
     ]
   );
 
@@ -3196,6 +3245,19 @@ export default function BibleAssetsView() {
         onContinue={handleOffloadConfirm}
         verificationState={verificationState}
         isOffloading={isOffloading}
+      />
+
+      {/* Rename Asset Drawer */}
+      <RenameAssetDrawer
+        isOpen={showRenameDrawer}
+        currentName={renameAssetName}
+        onOpenChange={(open) => {
+          setShowRenameDrawer(open);
+          if (!open) {
+            setRenameAssetId(null);
+          }
+        }}
+        onSave={handleSaveRename}
       />
 
       {/* Private Access Gate Modal for Membership Requests */}

@@ -22,6 +22,7 @@ import {
   EyeOffIcon,
   HardDriveIcon,
   PauseIcon,
+  PencilLineIcon,
   PlayIcon,
   // Plus,
   SquareIcon
@@ -58,6 +59,8 @@ export interface BibleAssetListItemProps {
   // Recording insertion point selection
   isSelectedForRecording?: boolean;
   onSelectForRecording?: (assetId: string) => void;
+  // Rename asset
+  onRename?: (assetId: string, currentName: string | null) => void;
 }
 
 export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
@@ -74,7 +77,8 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   onToggleSelect,
   onEnterSelection,
   isSelectedForRecording = false,
-  onSelectForRecording
+  onSelectForRecording,
+  onRename
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -312,12 +316,30 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
                   )}
                 </Pressable>
               </View> */}
-              <DownloadIndicator
-                isFlaggedForDownload={isDownloaded}
-                isLoading={isDownloading}
-                onPress={handleDownloadToggle}
-                size={16}
-              />
+              {/* Show pencil button for local assets when not published, otherwise show download indicator */}
+              {!isPublished && onRename && asset.source === 'local' ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onRename(asset.id, asset.name);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon
+                    as={PencilLineIcon}
+                    size={14}
+                    className="text-primary"
+                  />
+                </Pressable>
+              ) : (
+                <DownloadIndicator
+                  isFlaggedForDownload={isDownloaded}
+                  isLoading={isDownloading}
+                  onPress={handleDownloadToggle}
+                  size={16}
+                />
+              )}
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>

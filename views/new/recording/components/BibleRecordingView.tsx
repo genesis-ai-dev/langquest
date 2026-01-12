@@ -2020,7 +2020,15 @@ const BibleRecordingView = ({
         // and throw if it's synced (immutable)
         await renameAsset(renameAssetId, newName);
 
-        // Invalidate queries to refresh the list
+        // Update the name directly in sessionAssets to reflect in UI immediately
+        // This is safe because the database was already updated successfully
+        setSessionAssets((prev) =>
+          prev.map((asset) =>
+            asset.id === renameAssetId ? { ...asset, name: newName } : asset
+          )
+        );
+
+        // Invalidate queries to refresh the list in parent view
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'by-quest', currentQuestId],
           exact: false
