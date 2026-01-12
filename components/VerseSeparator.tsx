@@ -16,6 +16,9 @@ interface VerseSeparatorProps {
   editable?: boolean;
   largeText?: boolean;
   onPress?: () => void;
+  // Selection for recording: clicking the separator text selects it for recording
+  isSelectedForRecording?: boolean;
+  onSelectForRecording?: () => void;
   dragHandleComponent?: React.ComponentType<{
     mode?: 'fixed-order' | 'draggable';
     children?: React.ReactNode;
@@ -33,6 +36,8 @@ export function VerseSeparator({
   editable = false,
   largeText = false,
   onPress,
+  isSelectedForRecording = false,
+  onSelectForRecording,
   dragHandleComponent: DragHandleComponent,
   dragHandleProps
 }: VerseSeparatorProps) {
@@ -56,40 +61,95 @@ export function VerseSeparator({
 
   if (!hasNumbers) {
     // No assigned - warning style with amber/orange tones
+    // Background changes when selected for recording
+    const unassignedBgClass = isSelectedForRecording
+      ? 'border-primary bg-primary/20'
+      : 'border-amber-500/30 bg-amber-500/10';
+
     return (
       <View className={`w-full flex-row items-center py-1 ${className}`}>
-        <View className="h-px flex-1 bg-amber-500/20" />
-        <View className="mx-2 flex-row items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">
-          <Icon as={AlertCircleIcon} size={14} className="text-amber-600/70" />
-          <Text
-            // largeText ? 'text-[18px]' : 'text-[11px]'
-            className={`${
-              largeText ? 'text-sm' : 'text-xs'
-            } font-medium text-amber-600/80`}
-          >
-            {getText()}
-          </Text>
+        <View
+          className={`h-px flex-1 ${isSelectedForRecording ? 'bg-primary/20' : 'bg-amber-500/20'}`}
+        />
+        <View
+          className={`mx-2 flex-row items-center gap-1.5 rounded-full border px-3 py-1 ${unassignedBgClass}`}
+        >
+          <Icon
+            as={AlertCircleIcon}
+            size={14}
+            className={
+              isSelectedForRecording ? 'text-primary' : 'text-amber-600/70'
+            }
+          />
+          {/* Text is clickable for recording selection when onSelectForRecording is provided */}
+          {onSelectForRecording ? (
+            <Pressable
+              onPress={onSelectForRecording}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text
+                className={`${
+                  largeText ? 'text-sm' : 'text-xs'
+                } font-medium ${isSelectedForRecording ? 'text-primary underline' : 'text-amber-600/80'}`}
+              >
+                {getText()}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text
+              className={`${
+                largeText ? 'text-sm' : 'text-xs'
+              } font-medium text-amber-600/80`}
+            >
+              {getText()}
+            </Text>
+          )}
         </View>
-        <View className="h-px flex-1 bg-amber-500/20" />
+        <View
+          className={`h-px flex-1 ${isSelectedForRecording ? 'bg-primary/20' : 'bg-amber-500/20'}`}
+        />
       </View>
     );
   }
 
   // Has numbers - pill style
+  // Background changes when selected for recording
+  const pillBgClass = isSelectedForRecording
+    ? 'bg-primary/30 border border-primary'
+    : 'bg-primary/10';
+
   const pillContent = (
-    <View className="mx-2 flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1">
+    <View
+      className={`mx-2 flex flex-row items-center gap-1.5 rounded-full px-3 py-1 ${pillBgClass}`}
+    >
       {DragHandleComponent && editable && (
         <View className="flex size-5 items-center justify-center overflow-hidden rounded-full">
           <Icon as={MoveVerticalIcon} size={14} className="text-primary" />
         </View>
       )}
-      <Text
-        className={`${
-          largeText ? 'text-sm' : 'text-xs'
-        } font-semibold text-primary`}
-      >
-        {getText()}
-      </Text>
+      {/* Text is clickable for recording selection when onSelectForRecording is provided */}
+      {onSelectForRecording ? (
+        <Pressable
+          onPress={onSelectForRecording}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text
+            className={`${
+              largeText ? 'text-sm' : 'text-xs'
+            } font-semibold text-primary ${isSelectedForRecording ? 'underline' : ''}`}
+          >
+            {getText()}
+          </Text>
+        </Pressable>
+      ) : (
+        <Text
+          className={`${
+            largeText ? 'text-sm' : 'text-xs'
+          } font-semibold text-primary`}
+        >
+          {getText()}
+        </Text>
+      )}
       {/* Edit icon - only shown when editable and onPress is provided */}
       {editable && onPress && (
         <Pressable

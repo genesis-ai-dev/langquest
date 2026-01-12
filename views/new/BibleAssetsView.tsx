@@ -14,7 +14,11 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { project, quest as questTable } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  project,
+  quest as questTable
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -77,6 +81,7 @@ import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import { batchUpdateAssetMetadata } from '@/database_services/assetService';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -94,7 +99,7 @@ import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import BibleRecordingView from './recording/components/BibleRecordingView';
-import { SelectionControls } from './recording/components/SelectionControls';
+import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
@@ -572,10 +577,12 @@ export default function BibleAssetsView() {
 
   const [showRecording, setShowRecording] = React.useState(false);
 
-  // Track selected asset for recording insertion
-  // When an asset is selected, new recordings will be inserted after it
+  // Track selected item for recording insertion
+  // Can be an asset (insert after) or a separator (insert at beginning of verse)
   const [selectedForRecording, setSelectedForRecording] = React.useState<{
-    assetId: string;
+    type: 'asset' | 'separator';
+    assetId?: string; // Only for type === 'asset'
+    separatorKey?: string; // Only for type === 'separator'
     orderIndex: number;
     metadata: AssetMetadata | null;
     verseName: string; // e.g., "1:5" or "1:5-7"
@@ -747,7 +754,10 @@ export default function BibleAssetsView() {
   const handleSelectForRecording = React.useCallback(
     (assetId: string) => {
       // Toggle: if same asset clicked, deselect
-      if (selectedForRecording?.assetId === assetId) {
+      if (
+        selectedForRecording?.type === 'asset' &&
+        selectedForRecording?.assetId === assetId
+      ) {
         setSelectedForRecording(null);
         return;
       }
@@ -778,14 +788,198 @@ export default function BibleAssetsView() {
       }
 
       setSelectedForRecording({
+        type: 'asset',
         assetId,
         orderIndex,
         metadata,
         verseName
       });
     },
-    [selectedForRecording?.assetId, listItems]
+    [selectedForRecording?.type, selectedForRecording?.assetId, listItems]
   );
+
+  // Handler for selecting/deselecting a separator for recording insertion
+  // When a separator is selected, recordings start at the BEGINNING of that verse
+  // order_index = verse * 1000 * 1000 (e.g., verse 7 → 7000000)
+  const handleSelectSeparatorForRecording = React.useCallback(
+    (separatorKey: string, from?: number, to?: number) => {
+      // Toggle: if same separator clicked, deselect
+      if (
+        selectedForRecording?.type === 'separator' &&
+        selectedForRecording?.separatorKey === separatorKey
+      ) {
+        setSelectedForRecording(null);
+        return;
+      }
+
+      // Calculate order_index: verse * 1000 * 1000 to position BEFORE first asset
+      // For unassigned (sep-unassigned), use 999
+      const verse = from ?? 999;
+      const orderIndex = verse * 1000 * 1000;
+
+      // Build verse name
+      let verseName = '';
+      if (from !== undefined) {
+        if (from === to || to === undefined) {
+          verseName = `${from}`;
+        } else {
+          verseName = `${from}-${to}`;
+        }
+      }
+
+      // Build metadata
+      const metadata: AssetMetadata | null =
+        from !== undefined ? { verse: { from, to: to ?? from } } : null;
+
+      setSelectedForRecording({
+        type: 'separator',
+        separatorKey,
+        orderIndex,
+        metadata,
+        verseName
+      });
+
+      console.log(
+        `🎯 Selected separator for recording | verse: ${verse} | orderIndex: ${orderIndex} | verseName: "${verseName}"`
+      );
+    },
+    [selectedForRecording?.type, selectedForRecording?.separatorKey]
+  );
+
+  // Handle batch delete of selected assets
+  const handleBatchDeleteSelected = React.useCallback(() => {
+    // Filter selected assets that are local (not cloud-only)
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 1) return;
+
+    RNAlert.alert(
+      'Delete Assets',
+      `Are you sure you want to delete ${selectedAssets.length} asset${selectedAssets.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const asset of selectedAssets) {
+                  await audioSegmentService.deleteAudioSegment(asset.id);
+                }
+
+                cancelSelection();
+                setSelectedForRecording(null);
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+
+                console.log(
+                  `✅ Batch delete completed: ${selectedAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to batch delete assets', e);
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to delete assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, t, refetch]);
+
+  // Handle batch merge of selected assets
+  const handleBatchMergeSelected = React.useCallback(() => {
+    // Filter selected assets that are local (not cloud-only)
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 2) return;
+
+    RNAlert.alert(
+      'Merge Assets',
+      `Are you sure you want to merge ${selectedAssets.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Merge',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                if (!currentUser) return;
+
+                const target = selectedAssets[0]!;
+                const rest = selectedAssets.slice(1);
+                const contentLocal = resolveTable('asset_content_link', {
+                  localOverride: true
+                });
+
+                for (const src of rest) {
+                  // Find all content links for the source asset
+                  const srcContent = await system.db
+                    .select()
+                    .from(asset_content_link)
+                    .where(eq(asset_content_link.asset_id, src.id));
+
+                  // Insert them for the target asset
+                  for (const c of srcContent) {
+                    if (!c.audio) continue;
+                    await system.db.insert(contentLocal).values({
+                      asset_id: target.id,
+                      source_language_id: c.source_language_id,
+                      languoid_id:
+                        c.languoid_id ?? c.source_language_id ?? null,
+                      text: c.text || '',
+                      audio: c.audio,
+                      download_profiles: [currentUser.id]
+                    });
+                  }
+
+                  // Delete the source asset
+                  await audioSegmentService.deleteAudioSegment(src.id);
+                }
+
+                cancelSelection();
+                setSelectedForRecording(null);
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+
+                console.log(
+                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${target.id.slice(0, 8)}`
+                );
+              } catch (e) {
+                console.error('Failed to batch merge assets', e);
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to merge assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    cancelSelection,
+    queryClient,
+    t,
+    refetch
+  ]);
 
   // Auto-assign labels to assets when a separator is created with assetId
   React.useEffect(() => {
@@ -1592,6 +1786,11 @@ export default function BibleAssetsView() {
       index: number;
     }) => {
       if (item.type === 'separator') {
+        // Check if this separator is selected for recording
+        const isSeparatorSelected =
+          selectedForRecording?.type === 'separator' &&
+          selectedForRecording?.separatorKey === item.key;
+
         return (
           <VerseSeparator
             editable={!isPublished}
@@ -1608,6 +1807,18 @@ export default function BibleAssetsView() {
                       to: item.to
                     });
                   }
+                : undefined
+            }
+            // Recording selection - clicking the separator text selects it for recording
+            isSelectedForRecording={!isPublished && isSeparatorSelected}
+            onSelectForRecording={
+              !isPublished
+                ? () =>
+                    handleSelectSeparatorForRecording(
+                      item.key,
+                      item.from,
+                      item.to
+                    )
                 : undefined
             }
             dragHandleComponent={!isPublished ? Sortable.Handle : undefined}
@@ -1695,7 +1906,9 @@ export default function BibleAssetsView() {
             onEnterSelection={!isPublished ? enterSelection : undefined}
             // Recording insertion point selection
             isSelectedForRecording={
-              !isPublished && selectedForRecording?.assetId === asset.id
+              !isPublished &&
+              selectedForRecording?.type === 'asset' &&
+              selectedForRecording?.assetId === asset.id
             }
             onSelectForRecording={
               !isPublished ? handleSelectForRecording : undefined
@@ -1716,8 +1929,11 @@ export default function BibleAssetsView() {
       selectedAssetIds,
       toggleSelect,
       enterSelection,
+      selectedForRecording?.type,
       selectedForRecording?.assetId,
-      handleSelectForRecording
+      selectedForRecording?.separatorKey,
+      handleSelectForRecording,
+      handleSelectSeparatorForRecording
     ]
   );
 
@@ -2853,17 +3069,11 @@ export default function BibleAssetsView() {
           className="px-2"
         >
           {isSelectionMode ? (
-            <SelectionControls
+            <BibleSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
-              onMerge={() => {
-                // TODO: Implement batch merge for BibleAssetsView
-                console.log('Batch merge not yet implemented');
-              }}
-              onDelete={() => {
-                // TODO: Implement batch delete for BibleAssetsView
-                console.log('Batch delete not yet implemented');
-              }}
+              onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
               onAssignVerse={() => {
                 // TODO: Implement batch verse assignment for BibleAssetsView
                 console.log('Batch assign verse not yet implemented');
@@ -3023,6 +3233,8 @@ export default function BibleAssetsView() {
               ScrollViewComponent={GHScrollView}
               onApply={(from, to) => {
                 addVerseSeparator(from, to);
+                // Clear recording selection when any label is added
+                setSelectedForRecording(null);
                 setVerseSelectorState({ isOpen: false, key: null });
               }}
               onCancel={() =>
@@ -3055,6 +3267,8 @@ export default function BibleAssetsView() {
               getMaxToForFrom={getMaxToForFrom}
               onApply={(from, to) => {
                 addVerseSeparator(from, to);
+                // Clear recording selection when any label is added
+                setSelectedForRecording(null);
                 setNewLabelSelectorState({ isOpen: false });
               }}
               onCancel={() => setNewLabelSelectorState({ isOpen: false })}
@@ -3094,6 +3308,8 @@ export default function BibleAssetsView() {
                 } else {
                   addVerseSeparator(from, to);
                 }
+                // Clear recording selection when any label is added
+                setSelectedForRecording(null);
                 setAssetVerseSelectorState({ isOpen: false, assetId: null });
               }}
               onCancel={() =>
@@ -3145,6 +3361,9 @@ export default function BibleAssetsView() {
                       to
                     );
                   }
+                  // Clear recording selection when any label is edited
+                  // This ensures we don't have stale order_index references
+                  setSelectedForRecording(null);
                   setEditSeparatorState({ isOpen: false, separatorKey: null });
                 }}
                 onCancel={() =>
