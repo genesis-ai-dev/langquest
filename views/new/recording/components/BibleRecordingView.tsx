@@ -23,6 +23,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
@@ -34,7 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
 import { useVADRecording } from '../hooks/useVADRecording';
-import { getNextOrderIndex, saveRecording } from '../services/recordingService';
+import { saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
@@ -62,9 +63,10 @@ interface UIAsset {
   duration?: number; // Total duration in milliseconds
 }
 
-// Default order_index for unassigned verses (999 * 1000 + 1 = 999001)
-// Sequence starts at 1, not 0 (e.g., verse 7 → 7001, 7002...)
-const DEFAULT_ORDER_INDEX = 999001;
+// Default order_index for unassigned verses: (999 * 1000 + 1) * 1000 = 999001000
+// Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
+// The extra *1000 leaves space for future insertions between assets
+const DEFAULT_ORDER_INDEX = 999001000;
 
 // Verse metadata type
 interface VerseRange {
@@ -73,7 +75,9 @@ interface VerseRange {
 }
 
 interface BibleRecordingViewProps {
-  onBack: () => void;
+  // Callback when user navigates back - receives array of verse numbers that were recorded
+  // Used by parent to normalize order_index for those verses
+  onBack: (recordedVerses?: number[]) => void;
   // Pass existing assets as initial data to avoid redundant query
   initialAssets?: unknown[];
   // Label for the recording session (e.g., verse reference like "5" or "5-7")
@@ -91,6 +95,13 @@ const BibleRecordingView = ({
   initialOrderIndex: _initialOrderIndex = DEFAULT_ORDER_INDEX, // TODO: Use for order_index calculation
   verse: _verse // TODO: Use for verse tracking and metadata
 }: BibleRecordingViewProps) => {
+  // Log props on mount
+  React.useEffect(() => {
+    console.log(
+      `📥 BibleRecordingView props | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'}`
+    );
+  }, [_initialOrderIndex, _label, _verse]);
+
   const queryClient = useQueryClient();
   const { t } = useLocalization();
   const navigation = useCurrentNavigation();
@@ -163,6 +174,60 @@ const BibleRecordingView = ({
 
   // Track pending asset names to prevent duplicates when recording multiple assets quickly
   const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
+
+  // Sequential name counter - persisted per quest in AsyncStorage
+  // Key format: `bible_recording_counter_${questId}`
+  // This counter is independent of order_index and VAD mode
+  const nameCounterRef = React.useRef<number>(1);
+  const nameCounterLoadedRef = React.useRef<boolean>(false);
+
+  // Track which verses were recorded during this session
+  // Used to normalize order_index when returning to BibleAssetsView
+  const recordedVersesRef = React.useRef<Set<number>>(new Set());
+
+  // Load name counter from AsyncStorage on mount
+  React.useEffect(() => {
+    if (!currentQuestId || nameCounterLoadedRef.current) return;
+
+    const loadCounter = async () => {
+      try {
+        const key = `bible_recording_counter_${currentQuestId}`;
+        const saved = await AsyncStorage.getItem(key);
+        if (saved) {
+          const value = parseInt(saved, 10);
+          if (!isNaN(value) && value > 0) {
+            nameCounterRef.current = value;
+            console.log(
+              `📊 Loaded name counter: ${value} for quest ${currentQuestId.slice(0, 8)}`
+            );
+          }
+        }
+        nameCounterLoadedRef.current = true;
+      } catch (error) {
+        console.error('Failed to load name counter:', error);
+        nameCounterLoadedRef.current = true;
+      }
+    };
+
+    void loadCounter();
+  }, [currentQuestId]);
+
+  // Helper to save counter to AsyncStorage
+  const saveNameCounter = React.useCallback(
+    async (value: number) => {
+      if (!currentQuestId) return;
+      try {
+        const key = `bible_recording_counter_${currentQuestId}`;
+        await AsyncStorage.setItem(key, String(value));
+        console.log(
+          `💾 Saved name counter: ${value} for quest ${currentQuestId.slice(0, 8)}`
+        );
+      } catch (error) {
+        console.error('Failed to save name counter:', error);
+      }
+    },
+    [currentQuestId]
+  );
 
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
@@ -255,28 +320,54 @@ const BibleRecordingView = ({
   // Assets are still saved to database, but we don't load existing ones
   const [sessionAssets, setSessionAssets] = React.useState<UIAsset[]>([]);
 
+  // Track the "append" order_index (used when recording at the end of the list)
+  // Initialized from props or DEFAULT_ORDER_INDEX, increments by 1 for each recording at end
+  const appendOrderIndexRef = React.useRef<number>(_initialOrderIndex + 1);
+
   // Helper to add a new asset to the session list
+  // Replicates the shift logic from recordingService.ts to keep UI in sync with DB
   const addSessionAsset = React.useCallback(
     (newAsset: { id: string; name: string; order_index: number }) => {
-      const uiAsset: UIAsset = {
-        id: newAsset.id,
-        name: newAsset.name,
-        created_at: new Date().toISOString(),
-        order_index: newAsset.order_index,
-        source: 'local',
-        segmentCount: 1,
-        duration: undefined
-      };
+      const targetOrderIndex = newAsset.order_index;
 
       setSessionAssets((prev) => {
-        // Insert at correct position based on order_index
-        const newList = [...prev, uiAsset];
-        return newList.sort((a, b) => a.order_index - b.order_index);
-      });
+        // 1. Shift existing assets with order_index >= targetOrderIndex
+        // This mirrors the logic in recordingService.ts
+        const shifted = prev.map((asset) => {
+          if (asset.order_index >= targetOrderIndex) {
+            console.log(
+              `📊 UI Shift: "${asset.name}" ${asset.order_index} → ${asset.order_index + 1}`
+            );
+            return { ...asset, order_index: asset.order_index + 1 };
+          }
+          return asset;
+        });
 
-      debugLog(
-        `➕ Added session asset: "${newAsset.name}" (order_index: ${newAsset.order_index})`
-      );
+        // 2. Create new asset with the target order_index
+        const uiAsset: UIAsset = {
+          id: newAsset.id,
+          name: newAsset.name,
+          created_at: new Date().toISOString(),
+          order_index: targetOrderIndex,
+          source: 'local',
+          segmentCount: 1,
+          duration: undefined
+        };
+
+        console.log(
+          `➕ Adding "${newAsset.name}" with order_index: ${targetOrderIndex}`
+        );
+
+        // 3. Add new asset and sort by order_index
+        const newList = [...shifted, uiAsset];
+        return newList.sort((a, b) =>
+          a.order_index === b.order_index
+            ? a.created_at.localeCompare(b.created_at)
+            : a.order_index > b.order_index
+              ? 1
+              : -1
+        );
+      });
     },
     []
   );
@@ -1074,72 +1165,40 @@ const BibleRecordingView = ({
     insertionIndexRef.current = insertionIndex;
   }, [insertionIndex]);
 
+  // Track if we're currently in the middle of the list (for VAD continuous recording)
+  // When VAD starts, we capture the position and use same order_index for all segments
+  // until VAD stops or user moves the wheel
+  const vadInsertionIndexRef = React.useRef<number | null>(null);
+
   // Initialize VAD counter when VAD mode activates
   React.useEffect(() => {
     if (isVADLocked && vadCounterRef.current === null) {
-      // CRITICAL: Use ref to get the LATEST insertionIndex value
-      // This prevents issues when fullscreen overlay blocks the wheel and causes
-      // insertionIndex state updates to be delayed or missed
-      const currentInsertionIndex = insertionIndexRef.current;
-      const currentAssets = assets;
+      // Capture current position when VAD starts
+      vadInsertionIndexRef.current = insertionIndexRef.current;
+      const isAtEnd =
+        assets.length === 0 || insertionIndexRef.current >= assets.length;
 
-      debugLog(
-        `🎯 VAD initializing | insertionIndex (ref): ${currentInsertionIndex} | insertionIndex (state): ${insertionIndex} | assets.length: ${currentAssets.length}`
-      );
-
-      void (async () => {
-        let targetOrder: number;
-
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (USE_INSERTION_WHEEL) {
-          // Respect insertion wheel position (same logic as manual recordings)
-          // insertionIndex is the boundary BEFORE an item
-          // When at bottom (insertionIndex === assets.length), append to end
-          // When in middle, insert after the currently viewed item
-
-          if (currentInsertionIndex >= currentAssets.length) {
-            // At or past the end - append
-            targetOrder =
-              currentAssets.length > 0
-                ? (currentAssets[currentAssets.length - 1]?.order_index ??
-                    currentAssets.length - 1) + 1
-                : 0;
-            debugLog(
-              `🎯 VAD: At bottom, appending with order_index: ${targetOrder}`
-            );
-          } else {
-            // In the middle - insert after current item
-            const actualInsertionIndex = currentInsertionIndex + 1;
-            if (actualInsertionIndex < currentAssets.length) {
-              targetOrder =
-                currentAssets[actualInsertionIndex]?.order_index ??
-                actualInsertionIndex;
-            } else {
-              targetOrder =
-                currentAssets.length > 0
-                  ? (currentAssets[currentAssets.length - 1]?.order_index ??
-                      currentAssets.length - 1) + 1
-                  : 0;
-            }
-            debugLog(
-              `🎯 VAD: In middle at visual index ${currentInsertionIndex}, inserting at order_index: ${targetOrder}`
-            );
-          }
-        } else {
-          // Legacy: append to end
-          targetOrder = await getNextOrderIndex(currentQuestId!);
-          debugLog(`🎯 VAD counter initialized to end: ${targetOrder}`);
-        }
-
-        vadCounterRef.current = targetOrder;
-      })();
+      if (isAtEnd) {
+        // At end: use append mode, will increment for each segment
+        vadCounterRef.current = appendOrderIndexRef.current;
+        debugLog(
+          `🎯 VAD initialized at END | order_index: ${vadCounterRef.current}`
+        );
+      } else {
+        // In middle: use selected asset's order_index + 1 to insert BELOW it
+        const selectedAsset = assets[insertionIndexRef.current];
+        const selectedOrderIndex =
+          selectedAsset?.order_index ?? insertionIndexRef.current;
+        vadCounterRef.current = selectedOrderIndex + 1;
+        debugLog(
+          `🎯 VAD initialized in MIDDLE | order_index: ${vadCounterRef.current} (below "${selectedAsset?.name}" which has ${selectedOrderIndex})`
+        );
+      }
     } else if (!isVADLocked) {
       vadCounterRef.current = null;
+      vadInsertionIndexRef.current = null;
     }
-    // IMPORTANT: Only depend on isVADLocked and currentQuestId
-    // insertionIndex is read from ref to avoid stale closure issues
-    // assets is captured from closure (intentional - we want the state at activation time)
-  }, [isVADLocked, currentQuestId, assets, insertionIndex]);
+  }, [isVADLocked, assets]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
@@ -1147,30 +1206,28 @@ const BibleRecordingView = ({
     debugLog('🎬 Manual recording start');
     setIsRecording(true);
 
-    // Set order index for manual recording
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (USE_INSERTION_WHEEL) {
-      // IMPORTANT: insertionIndex is the boundary BEFORE an item
-      // When user sees item 0 centered, insertionIndex = 0 (before item 0)
-      // But they want to insert AFTER the item they're viewing
-      // So we use insertionIndex + 1 for the actual insertion position
-      const actualInsertionIndex = insertionIndex + 1;
+    // Calculate order_index based on current Wheel position
+    // - At end: use appendOrderIndexRef (increments automatically)
+    // - In middle: use selected asset's order_index + 1 (to insert BELOW the selected asset)
+    const isAtEnd = assets.length === 0 || insertionIndex >= assets.length;
 
-      const targetOrder =
-        actualInsertionIndex < assets.length
-          ? (assets[actualInsertionIndex]?.order_index ?? actualInsertionIndex)
-          : (assets[assets.length - 1]?.order_index ?? assets.length - 1) + 1;
+    if (isAtEnd) {
+      // At end: use append mode
+      const targetOrder = appendOrderIndexRef.current;
+      appendOrderIndexRef.current = targetOrder + 1;
       currentRecordingOrderRef.current = targetOrder;
       debugLog(
-        `🎯 Recording will insert AFTER item at visual index ${insertionIndex} (boundary ${actualInsertionIndex}) with order_index ${targetOrder}`
+        `🎯 Recording at END | order_index: ${targetOrder}, next append: ${appendOrderIndexRef.current}`
       );
     } else {
-      // Legacy: append to end
-      const targetOrder =
-        assets.length > 0
-          ? (assets[assets.length - 1]?.order_index ?? 0) + 1
-          : 0;
+      // In middle: use selected asset's order_index + 1 to insert BELOW it
+      const selectedAsset = assets[insertionIndex];
+      const selectedOrderIndex = selectedAsset?.order_index ?? insertionIndex;
+      const targetOrder = selectedOrderIndex + 1;
       currentRecordingOrderRef.current = targetOrder;
+      debugLog(
+        `🎯 Recording in MIDDLE | order_index: ${targetOrder} (below "${selectedAsset?.name}" which has ${selectedOrderIndex})`
+      );
     }
   }, [isRecording, assets, insertionIndex]);
 
@@ -1202,16 +1259,14 @@ const BibleRecordingView = ({
           return;
         }
 
-        // Generate name immediately and reserve it to prevent duplicates
-        // In VAD mode: Use the VAD counter which is already incremented per segment
-        // In manual mode: Use total count (existing + pending) for simple sequential naming
-        const nextNumber = isVADLocked
-          ? targetOrder + 1 // VAD: use order_index + 1 for naming (order is 0-based, names are 1-based)
-          : assets.length + pendingAssetNamesRef.current.size + 1;
+        // Generate name using persistent counter (independent of order_index and VAD mode)
+        // Counter is persisted per quest in AsyncStorage and increments continuously
+        const nextNumber = nameCounterRef.current;
+        nameCounterRef.current++; // Increment immediately to reserve this number
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
-        debugLog(
-          `🏷️ Reserved name: ${assetName} (${isVADLocked ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
+        console.log(
+          `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
         );
 
         // Native module flushes the file before sending onSegmentComplete event.
@@ -1250,8 +1305,14 @@ const BibleRecordingView = ({
               userId: currentUser.id,
               orderIndex: targetOrder,
               audioUri: localUri,
-              assetName: assetName // Pass the reserved name
+              assetName: assetName, // Pass the reserved name
+              metadata: _verse ? { verse: _verse } : null // Pass verse metadata if provided
             });
+
+            // Log the saved asset details
+            console.log(
+              `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | propsOrderIndex: ${_initialOrderIndex} | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'}`
+            );
 
             // Add to session assets list (UI only - not loaded from DB)
             addSessionAsset({
@@ -1259,6 +1320,17 @@ const BibleRecordingView = ({
               name: assetName,
               order_index: targetOrder
             });
+
+            // Track which verse was recorded (for order_index normalization on return)
+            // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
+            const verseToTrack = _verse?.from ?? 999;
+            recordedVersesRef.current.add(verseToTrack);
+            debugLog(
+              `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
+            );
+
+            // Save the updated name counter to AsyncStorage
+            await saveNameCounter(nameCounterRef.current);
 
             // Release the reserved name after successful save
             pendingAssetNamesRef.current.delete(assetName);
@@ -1297,9 +1369,11 @@ const BibleRecordingView = ({
       currentUser,
       queryClient,
       isVADLocked,
-      assets,
       targetLanguoidId,
-      addSessionAsset
+      addSessionAsset,
+      _verse,
+      _initialOrderIndex,
+      saveNameCounter
     ]
   );
 
@@ -1311,11 +1385,23 @@ const BibleRecordingView = ({
     }
 
     const targetOrder = vadCounterRef.current;
-    debugLog('🎬 VAD: Segment starting | order_index:', targetOrder);
+    const isAtEnd =
+      vadInsertionIndexRef.current === null ||
+      vadInsertionIndexRef.current >= assets.length;
+
+    debugLog(
+      `🎬 VAD: Segment starting | order_index: ${targetOrder} | isAtEnd: ${isAtEnd}`
+    );
 
     currentRecordingOrderRef.current = targetOrder;
-    vadCounterRef.current = targetOrder + 1; // Increment for next segment
-  }, []);
+
+    // Increment VAD counter for next segment ONLY if appending at end
+    // If inserting in middle, all recordings get the same order_index
+    if (isAtEnd) {
+      vadCounterRef.current = targetOrder + 1;
+      appendOrderIndexRef.current = vadCounterRef.current; // Keep append ref in sync
+    }
+  }, [assets.length]);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
@@ -2209,7 +2295,20 @@ const BibleRecordingView = ({
       {/* Header */}
       <View className="flex-row items-center justify-between p-4">
         <View className="flex-row items-center gap-3">
-          <Button variant="ghost" size="icon" onPress={onBack}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={() => {
+              // Pass recorded verses to parent for order_index normalization
+              const recordedVerses = Array.from(recordedVersesRef.current);
+              if (recordedVerses.length > 0) {
+                console.log(
+                  `📤 Returning with ${recordedVerses.length} recorded verse(s): [${recordedVerses.join(', ')}]`
+                );
+              }
+              onBack(recordedVerses.length > 0 ? recordedVerses : undefined);
+            }}
+          >
             <Icon as={ArrowLeft} />
           </Button>
           <Text className="text-2xl font-bold text-foreground">

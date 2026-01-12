@@ -29,7 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import {
-  BookmarkIcon,
+  BookmarkPlusIcon,
   CheckCheck,
   CloudUpload,
   FlagIcon,
@@ -38,7 +38,6 @@ import {
   LockIcon,
   MicIcon,
   PauseIcon,
-  PencilIcon,
   PlayIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -90,7 +89,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
@@ -704,6 +703,18 @@ export default function BibleAssetsView() {
       .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   }, [assets]);
 
+  // Calculate the last order_index for unassigned assets (verse 999)
+  // This is used when opening BibleRecordingView without a selected verse
+  // to continue from where we left off instead of starting from DEFAULT_ORDER_INDEX
+  const lastUnassignedOrderIndex = React.useMemo(() => {
+    if (assetsWithoutMeta.length === 0) {
+      return undefined; // No unassigned assets, use default
+    }
+    // Get the highest order_index from unassigned assets
+    const lastAsset = assetsWithoutMeta[assetsWithoutMeta.length - 1];
+    return lastAsset?.order_index;
+  }, [assetsWithoutMeta]);
+
   // Step 3: Split manual separators by type (only recomputes when separators change)
   const separatorsWithAssetId = React.useMemo(() => {
     return manualSeparators.filter((sep) => sep.assetId);
@@ -842,7 +853,8 @@ export default function BibleAssetsView() {
 
             // If it's an asset, add it to the update list with order_index
             if (item.type === 'asset') {
-              const newOrderIndex = separator.from * 1000 + sequentialInGroup;
+              const newOrderIndex =
+                (separator.from * 1000 + sequentialInGroup) * 1000;
               sequentialInGroup++;
 
               assetsToUpdate.push({
@@ -890,7 +902,8 @@ export default function BibleAssetsView() {
 
             // If it's an asset, add it to the update list with order_index
             if (item.type === 'asset') {
-              const newOrderIndex = separator.from * 1000 + sequentialInGroup;
+              const newOrderIndex =
+                (separator.from * 1000 + sequentialInGroup) * 1000;
               sequentialInGroup++;
 
               console.log(
@@ -1026,7 +1039,7 @@ export default function BibleAssetsView() {
 
         // If it's an asset, add it to the update list with order_index
         if (item.type === 'asset') {
-          const newOrderIndex = newFrom * 1000 + sequentialInGroup;
+          const newOrderIndex = (newFrom * 1000 + sequentialInGroup) * 1000;
           sequentialInGroup++;
 
           assetsToUpdate.push({
@@ -1281,6 +1294,107 @@ export default function BibleAssetsView() {
       queryKey: ['assets']
     });
   }, [queryClient]);
+
+  // ============================================================================
+  // ORDER_INDEX NORMALIZATION
+  // When returning from BibleRecordingView, normalize order_index for recorded verses
+  // Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
+  // This function reads assets from DB and reassigns order_index with thousand scale
+  // ============================================================================
+  const normalizeOrderIndexForVerses = React.useCallback(
+    async (verses: number[]) => {
+      if (!currentQuestId || verses.length === 0) return;
+
+      console.log(
+        `🔄 Normalizing order_index for ${verses.length} verse(s): [${verses.join(', ')}]`
+      );
+
+      const assetTable = resolveTable('asset', { localOverride: true });
+      const questAssetLinkTable = resolveTable('quest_asset_link', {
+        localOverride: true
+      });
+
+      for (const verse of verses) {
+        // Calculate order_index range for this verse
+        // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
+        // Example: verse 7 → 7000000 to 7999999
+        const minOrderIndex = verse * 1000 * 1000;
+        const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
+
+        try {
+          // Query assets by order_index range using join with quest_asset_link
+          // This ensures we only get assets that belong to this quest
+          const assetsInVerse = await system.db
+            .select({
+              id: assetTable.id,
+              name: assetTable.name,
+              order_index: assetTable.order_index
+            })
+            .from(assetTable)
+            .innerJoin(
+              questAssetLinkTable,
+              eq(assetTable.id, questAssetLinkTable.asset_id)
+            )
+            .where(
+              and(
+                eq(questAssetLinkTable.quest_id, currentQuestId),
+                gte(assetTable.order_index, minOrderIndex),
+                lte(assetTable.order_index, maxOrderIndex)
+              )
+            )
+            .orderBy(asc(assetTable.order_index));
+
+          if (assetsInVerse.length === 0) {
+            console.log(`  ⏭️ Verse ${verse}: no assets found, skipping`);
+            continue;
+          }
+
+          // Recalculate order_index with thousand scale
+          // Formula: (verse * 1000 + sequential) * 1000
+          // sequential starts at 1: 7001000, 7002000, 7003000...
+          const updates: AssetUpdatePayload[] = [];
+          let hasChanges = false;
+
+          for (let i = 0; i < assetsInVerse.length; i++) {
+            const asset = assetsInVerse[i];
+            if (!asset) continue;
+
+            const sequential = i + 1; // 1-based
+            const newOrderIndex = (verse * 1000 + sequential) * 1000;
+
+            // Only update if order_index changed
+            if (asset.order_index !== newOrderIndex) {
+              hasChanges = true;
+              updates.push({
+                assetId: asset.id,
+                order_index: newOrderIndex
+              });
+
+              console.log(
+                `  📝 "${asset.name}" | ${asset.order_index} → ${newOrderIndex}`
+              );
+            }
+          }
+
+          if (hasChanges && updates.length > 0) {
+            await batchUpdateAssetMetadata(updates);
+            console.log(
+              `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
+            );
+          } else {
+            console.log(
+              `  ⏭️ Verse ${verse}: ${assetsInVerse.length} asset(s) already normalized`
+            );
+          }
+        } catch (error) {
+          console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
+        }
+      }
+
+      console.log(`🔄 Normalization complete`);
+    },
+    [currentQuestId]
+  );
 
   // Calculate available range for adding verse label above a specific asset
   // Returns only verses between the previous separator's "to" and next separator's "from"
@@ -1558,7 +1672,7 @@ export default function BibleAssetsView() {
               className="absolute -top-2 right-4 z-[999] rounded-full bg-primary/50 p-1.5 shadow-sm active:bg-primary/90"
             >
               <Icon
-                as={BookmarkIcon}
+                as={BookmarkPlusIcon}
                 size={12}
                 className="text-primary-foreground"
               />
@@ -2312,18 +2426,32 @@ export default function BibleAssetsView() {
 
   // Recording mode UI
   if (showRecording) {
+    // Calculate initialOrderIndex:
+    // - If an asset is selected, use its order_index
+    // - Otherwise, use the last unassigned order_index (to continue from where we left off)
+    // - If no unassigned assets exist, undefined will trigger default in BibleRecordingView
+    const recordingOrderIndex =
+      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
+
     // Pass existing assets as initial data for instant rendering
     return (
       <BibleRecordingView
-        onBack={() => {
+        onBack={async (recordedVerses) => {
           setShowRecording(false);
           setSelectedForRecording(null); // Clear selection when exiting
-          // Refetch to show newly recorded assets
+
+          // Normalize order_index for recorded verses before refetching
+          // This converts unit-scale (7001001) to thousand-scale (7001000)
+          if (recordedVerses && recordedVerses.length > 0) {
+            await normalizeOrderIndexForVerses(recordedVerses);
+          }
+
+          // Refetch to show newly recorded assets with normalized order_index
           void refetch();
         }}
         initialAssets={assets}
         label={selectedForRecording?.verseName}
-        initialOrderIndex={selectedForRecording?.orderIndex}
+        initialOrderIndex={recordingOrderIndex}
         verse={selectedForRecording?.metadata?.verse}
       />
     );
@@ -2338,10 +2466,11 @@ export default function BibleAssetsView() {
 
   // ============================================================================
   // ORDER_INDEX CALCULATION
-  // Formula: order_index = from * 1000 + sequential
+  // Formula: order_index = (from * 1000 + sequential) * 1000
   // - 'from' is the verse number from the separator (999 for unassigned)
   // - 'sequential' is the position within that verse group (1-based, starts at 1)
-  // Example: verse 7, first asset → 7001, second → 7002, etc.
+  // - Final value is multiplied by 1000 to leave space for future insertions
+  // Example: verse 7, first asset → 7001000, second → 7002000, etc.
   // This ensures assets are ordered by verse first, then by position within verse
   // ============================================================================
 
@@ -2369,9 +2498,9 @@ export default function BibleAssetsView() {
         currentSeparator = item;
         sequentialInGroup = 1; // Reset counter for new group (starts at 1)
       } else if (item.type === 'asset') {
-        // Calculate order_index: from * 1000 + sequential
+        // Calculate order_index: (from * 1000 + sequential) * 1000
         const verseBase = currentSeparator?.from ?? UNASSIGNED_VERSE_BASE;
-        const newOrderIndex = verseBase * 1000 + sequentialInGroup;
+        const newOrderIndex = (verseBase * 1000 + sequentialInGroup) * 1000;
         sequentialInGroup++;
 
         // Determine the metadata based on the current separator
@@ -2437,11 +2566,22 @@ export default function BibleAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
       <View className="flex flex-row items-center justify-between">
-        <View className="flex flex-row items-center gap-2">
-          <Text className="text-xl font-semibold">
-            {/* Title */}
+        {/* Left side: Quest name on top, Assets below */}
+        <View className="flex flex-col">
+          {selectedQuest?.name && (
+            <Text className="text-xl font-semibold">
+              {selectedQuest.name.length > 25
+                ? `${selectedQuest.name.slice(0, 25)}...`
+                : selectedQuest.name}
+            </Text>
+          )}
+          <Text className="text-lg font-medium text-muted-foreground">
             {t('assets')}
           </Text>
+        </View>
+
+        {/* Right side: Icons */}
+        <View className="flex flex-row items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -2482,8 +2622,6 @@ export default function BibleAssetsView() {
               />
             </Button>
           )}
-        </View>
-        <View className="flex flex-row items-center gap-2">
           {isPublished ? (
             // Only show cloud-check icon if user is creator, member, or owner
             canSeePublishedBadge ? (
@@ -2597,17 +2735,9 @@ export default function BibleAssetsView() {
                       getAvailableVerses().length === 0
                     }
                   >
-                    <Icon as={BookmarkIcon} className="text-primary" />
+                    <Icon as={BookmarkPlusIcon} className="text-primary" />
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-[1.5px] border-primary"
-                  onPress={() => setShowRecording(true)}
-                >
-                  <Icon as={PencilIcon} className="text-primary" />
-                </Button>
                 {currentQuestId && currentProjectId && (
                   <ExportButton
                     questId={currentQuestId}
