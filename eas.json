@@ -27,6 +27,7 @@
     },
     "preview-simulator": {
       "extends": "preview",
+      "withoutCredentials": true,
       "ios": {
         "simulator": true,
         "distribution": "internal"
@@ -39,6 +40,7 @@
     },
     "production-simulator": {
       "extends": "production",
+      "withoutCredentials": true,
       "distribution": "internal",
       "ios": {
         "simulator": true
