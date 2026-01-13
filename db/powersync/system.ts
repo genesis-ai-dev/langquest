@@ -594,38 +594,6 @@ export class System {
           this.supabaseConnector.client
         );
         console.log('[System] ✓ Server schema version is compatible');
-
-        // CRITICAL: Check if migrations are needed AFTER creating union views
-        // Now we can query _metadata through the views (will be NULL for old records)
-        console.log('[System] Checking for schema migrations...');
-
-        // TEMPORARY: Reset metadata for testing migration
-        // TODO: REMOVE THIS AFTER TESTING
-        // console.log('[System] ⚠️  TESTING: Resetting metadata to 1.0 to force migration...');
-        // const { resetMetadataVersionForTesting } = await import('../migrations/utils');
-        // await resetMetadataVersionForTesting(this.db, '1.0');
-        // console.log('[System] ✓ Metadata reset complete');
-
-        // const { checkNeedsMigration, MigrationNeededError } = await import(
-        //   '../migrations/index'
-        // );
-        // const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
-
-        // // Use Drizzle-wrapped db to query through views (not raw PowerSync)
-        // const needsMigration = await checkNeedsMigration(
-        //   this.db,
-        //   APP_SCHEMA_VERSION
-        // );
-
-        // if (needsMigration) {
-        //   console.log(
-        //     '[System] ⚠️  Migration needed - blocking initialization'
-        //   );
-        //   this.migrationNeeded = true;
-        //   // Throw specific error to signal UI needs to show migration screen
-        //   throw new MigrationNeededError('outdated', APP_SCHEMA_VERSION);
-        // }
-
         console.log('[System] ✓ Schema is up to date');
       }
 
