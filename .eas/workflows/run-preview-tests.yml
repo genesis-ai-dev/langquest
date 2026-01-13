@@ -68,10 +68,6 @@ jobs:
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
-    env:
-      APP_ID: ${{ env.APP_ID }}
-      TEST_EMAIL: ${{ env.TEST_EMAIL }}
-      TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
 
   # ios_get_build:
   #   name: Check for existing ios build
