@@ -67,6 +67,7 @@ jobs:
     image: latest
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
+      record_screen: true
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
   # ios_get_build:
