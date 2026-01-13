@@ -10,6 +10,11 @@ export interface ExistingLabel {
   to: number;
 }
 
+// Unified list item type
+type ListItem =
+  | { type: 'available'; verse: number }
+  | { type: 'existing'; from: number; to: number };
+
 interface VerseAssignerProps {
   // Either provide availableVerses array OR from/to range (for backward compatibility)
   availableVerses?: number[];
@@ -28,6 +33,8 @@ interface VerseAssignerProps {
   getMaxToForFrom?: (selectedFrom: number) => number;
   // Existing verse labels to display for quick selection
   existingLabels?: ExistingLabel[];
+  // Total verse count for the chapter (to show all verses in unified list)
+  verseCount?: number;
 }
 
 export function VerseAssigner({
@@ -43,7 +50,8 @@ export function VerseAssigner({
   className = '',
   ScrollViewComponent = ScrollView,
   getMaxToForFrom,
-  existingLabels = []
+  existingLabels = [],
+  verseCount
 }: VerseAssignerProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<number | undefined>(
     initialFrom
@@ -52,206 +60,241 @@ export function VerseAssigner({
     initialTo
   );
 
-  // Generate array of numbers - use availableVerses if provided, otherwise generate from/to range
-  const allNumbers = React.useMemo(() => {
+  // Track if selection came from an existing label (to prevent range editing)
+  const [isExistingSelected, setIsExistingSelected] = React.useState(false);
+
+  // Generate array of available numbers
+  const availableSet = React.useMemo(() => {
+    const set = new Set<number>();
     if (availableVerses && availableVerses.length > 0) {
-      return availableVerses;
-    }
-    // Fallback to from/to range for backward compatibility
-    if (from !== undefined && to !== undefined) {
-      const numbers: number[] = [];
+      availableVerses.forEach((v) => set.add(v));
+    } else if (from !== undefined && to !== undefined) {
       for (let i = from; i <= to; i++) {
-        numbers.push(i);
+        set.add(i);
       }
-      return numbers;
     }
-    return [];
+    return set;
   }, [availableVerses, from, to]);
+
+  // Determine total verse range
+  const totalVerseCount = React.useMemo(() => {
+    if (verseCount) return verseCount;
+    // Calculate from available verses and existing labels
+    let max = 0;
+    availableSet.forEach((v) => {
+      if (v > max) max = v;
+    });
+    existingLabels.forEach((label) => {
+      if (label.to > max) max = label.to;
+    });
+    return max || to || 1;
+  }, [verseCount, availableSet, existingLabels, to]);
+
+  // Build unified list: interleave available verses with existing labels
+  const unifiedList = React.useMemo(() => {
+    const items: ListItem[] = [];
+    const existingMap = new Map<number, ExistingLabel>(); // Maps 'from' to label
+
+    // Index existing labels by their starting verse
+    for (const label of existingLabels) {
+      existingMap.set(label.from, label);
+    }
+
+    // Build a set of verses covered by existing labels
+    const coveredByExisting = new Set<number>();
+    for (const label of existingLabels) {
+      for (let v = label.from; v <= label.to; v++) {
+        coveredByExisting.add(v);
+      }
+    }
+
+    let verse = 1;
+    while (verse <= totalVerseCount) {
+      // Check if this verse starts an existing label
+      const existingLabel = existingMap.get(verse);
+      if (existingLabel) {
+        items.push({
+          type: 'existing',
+          from: existingLabel.from,
+          to: existingLabel.to
+        });
+        // Skip to after the label's range
+        verse = existingLabel.to + 1;
+      } else if (availableSet.has(verse)) {
+        // Available verse (not part of any existing label)
+        items.push({ type: 'available', verse });
+        verse++;
+      } else {
+        // Verse is not available and not in existing label - skip it
+        verse++;
+      }
+    }
+
+    return items;
+  }, [totalVerseCount, existingLabels, availableSet]);
 
   // Calculate max "to" value when "from" is selected
   const maxTo: number = React.useMemo(() => {
     if (selectedFrom === undefined) {
-      return allNumbers.length > 0
-        ? allNumbers[allNumbers.length - 1]!
-        : to || 1;
+      return totalVerseCount;
     }
     if (getMaxToForFrom) {
       return getMaxToForFrom(selectedFrom);
     }
-    // If no getMaxToForFrom function, allow up to the last available verse
-    return allNumbers.length > 0 ? allNumbers[allNumbers.length - 1]! : to || 1;
-  }, [selectedFrom, getMaxToForFrom, allNumbers, to]);
+    return totalVerseCount;
+  }, [selectedFrom, getMaxToForFrom, totalVerseCount]);
 
-  // Check if a number is selectable based on current selection state
-  const isNumberSelectable = React.useCallback(
-    (num: number) => {
-      // Number must be in the available numbers list
-      if (!allNumbers.includes(num)) {
-        return false;
-      }
+  // Check if a verse is selectable for range selection
+  const isVerseSelectable = React.useCallback(
+    (verse: number) => {
+      if (!availableSet.has(verse)) return false;
 
-      // If nothing selected, all available numbers are selectable
-      if (selectedFrom === undefined) {
-        return true;
-      }
-      // If only "from" selected, only numbers >= selectedFrom and <= maxTo are selectable
+      // If nothing selected, all available are selectable
+      if (selectedFrom === undefined) return true;
+
+      // If existing label is selected, nothing else is selectable
+      if (isExistingSelected) return false;
+
+      // If only "from" selected, only verses >= selectedFrom and <= maxTo are selectable
       if (selectedTo === undefined) {
-        return num >= selectedFrom && num <= maxTo && allNumbers.includes(num);
+        return verse >= selectedFrom && verse <= maxTo;
       }
-      // If both selected, nothing is selectable (user must clear first)
+
+      // If both selected, nothing is selectable
       return false;
     },
-    [selectedFrom, selectedTo, maxTo, allNumbers]
+    [selectedFrom, selectedTo, maxTo, availableSet, isExistingSelected]
   );
 
-  const handleNumberPress = (num: number) => {
-    if (!isNumberSelectable(num)) return;
+  const handleAvailablePress = (verse: number) => {
+    if (!isVerseSelectable(verse)) return;
 
     if (selectedFrom === undefined) {
-      // First selection - set "from"
-      setSelectedFrom(num);
-      // Clear "to" if it was set, since maxTo might have changed
+      // First selection
+      setSelectedFrom(verse);
       setSelectedTo(undefined);
-    } else if (selectedTo === undefined) {
-      // Second selection - set "to" (but limit to maxTo)
-      setSelectedTo(Math.min(num, maxTo));
+      setIsExistingSelected(false);
+    } else if (selectedTo === undefined && !isExistingSelected) {
+      // Second selection for range
+      setSelectedTo(Math.min(verse, maxTo));
     }
   };
 
-  // Check if current selection matches an existing label
-  const isExistingLabelSelected = React.useMemo(() => {
-    if (selectedFrom === undefined || selectedTo === undefined) {
-      return false;
-    }
-    return existingLabels.some(
-      (label) => label.from === selectedFrom && label.to === selectedTo
-    );
-  }, [selectedFrom, selectedTo, existingLabels]);
-
-  const handleClearFrom = () => {
-    // If this was an existing label selection, clear both
-    if (isExistingLabelSelected) {
+  const handleExistingPress = (label: ExistingLabel) => {
+    // If already selected, deselect
+    if (selectedFrom === label.from && selectedTo === label.to) {
       setSelectedFrom(undefined);
       setSelectedTo(undefined);
+      setIsExistingSelected(false);
     } else {
-      setSelectedFrom(undefined);
-      setSelectedTo(undefined); // Clear both since "to" depends on "from"
+      // Select this existing label
+      setSelectedFrom(label.from);
+      setSelectedTo(label.to);
+      setIsExistingSelected(true);
     }
   };
 
-  const handleClearTo = () => {
-    // If this was an existing label selection, clear both
-    if (isExistingLabelSelected) {
-      setSelectedFrom(undefined);
-      setSelectedTo(undefined);
-    } else {
-      setSelectedTo(undefined);
-    }
+  const handleClear = () => {
+    setSelectedFrom(undefined);
+    setSelectedTo(undefined);
+    setIsExistingSelected(false);
   };
 
   const handleApply = () => {
     if (selectedFrom !== undefined && selectedTo !== undefined) {
       onApply(selectedFrom, selectedTo);
     } else if (selectedFrom !== undefined) {
-      // If only "from" is selected, use same value for both
       onApply(selectedFrom, selectedFrom);
     }
   };
 
   const canApply = selectedFrom !== undefined;
 
-  const handleExistingLabelPress = (label: ExistingLabel) => {
-    setSelectedFrom(label.from);
-    setSelectedTo(label.to);
-  };
-
   return (
     <View
       className={`rounded-xl border border-border bg-card p-4 ${className}`}
     >
-      {/* Existing labels section */}
-      {existingLabels.length > 0 && (
-        <View className="mb-4">
-          {/* <Text className="mb-2 text-sm font-medium text-muted-foreground">
-            Existing Labels
-          </Text> */}
-          <ScrollViewComponent
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mb-2"
-            contentContainerClassName="gap-2 px-1"
-          >
-            {existingLabels.map((label, index) => {
-              const isSelected =
-                selectedFrom === label.from && selectedTo === label.to;
-              const labelText =
-                label.from === label.to
-                  ? `Verse ${label.from}`
-                  : `Verse ${label.from}-${label.to}`;
-
-              return (
-                <Pressable
-                  key={`existing-${label.from}-${label.to}-${index}`}
-                  onPress={() => handleExistingLabelPress(label)}
-                  className={`rounded-full border px-3 py-1.5 ${
-                    isSelected
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border bg-muted/30'
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-medium ${
-                      isSelected ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {labelText}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollViewComponent>
-        </View>
-      )}
-
-      {/* Number scroll */}
+      {/* Unified verse list */}
       <ScrollViewComponent
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mb-4"
         contentContainerClassName="gap-2 px-1"
       >
-        {allNumbers.map((num) => {
-          const isSelectedFrom = num === selectedFrom;
-          const isSelectedTo = num === selectedTo;
-          const isSelected = isSelectedFrom || isSelectedTo;
-          const selectable = isNumberSelectable(num);
+        {unifiedList.map((item) => {
+          if (item.type === 'existing') {
+            // Existing label - render as a pill
+            const isSelected =
+              selectedFrom === item.from && selectedTo === item.to;
+            const labelText =
+              item.from === item.to
+                ? `${item.from}`
+                : `${item.from} - ${item.to}`;
+            // Disable existing labels when user is selecting a new range
+            const isDisabled =
+              selectedFrom !== undefined && !isExistingSelected;
 
-          return (
-            <Pressable
-              key={num}
-              onPress={() => handleNumberPress(num)}
-              disabled={!selectable}
-              className={`h-10 w-10 items-center justify-center rounded-full ${
-                isSelected
-                  ? 'bg-primary'
-                  : selectable
-                    ? 'border border-primary/30 bg-primary/5'
-                    : 'bg-muted/30'
-              } ${selectable ? 'active:scale-95' : ''}`}
-            >
-              <Text
-                className={`text-sm font-medium ${
+            return (
+              <Pressable
+                key={`existing-${item.from}-${item.to}`}
+                onPress={() => handleExistingPress(item)}
+                disabled={isDisabled}
+                className={`h-10 items-center justify-center rounded-full px-3 ${
                   isSelected
-                    ? 'text-primary-foreground'
-                    : selectable
-                      ? 'text-primary'
-                      : 'text-muted-foreground/40'
-                }`}
+                    ? 'bg-primary'
+                    : isDisabled
+                      ? 'bg-muted/30'
+                      : 'border border-primary/30 bg-primary/5'
+                } ${!isDisabled ? 'active:scale-95' : ''}`}
               >
-                {num}
-              </Text>
-            </Pressable>
-          );
+                <Text
+                  className={`text-sm font-medium ${
+                    isSelected
+                      ? 'text-primary-foreground'
+                      : isDisabled
+                        ? 'text-muted-foreground/40'
+                        : 'text-primary'
+                  }`}
+                >
+                  {labelText}
+                </Text>
+              </Pressable>
+            );
+          } else {
+            // Available verse - render as circle
+            const verse = item.verse;
+            const isSelectedFrom = verse === selectedFrom;
+            const isSelectedTo = verse === selectedTo;
+            const isSelected = isSelectedFrom || isSelectedTo;
+            const selectable = isVerseSelectable(verse);
+
+            return (
+              <Pressable
+                key={`available-${verse}`}
+                onPress={() => handleAvailablePress(verse)}
+                disabled={!selectable}
+                className={`h-10 w-10 items-center justify-center rounded-full ${
+                  isSelected
+                    ? 'bg-primary'
+                    : selectable
+                      ? 'border border-primary/30 bg-primary/5'
+                      : 'bg-muted/30'
+                } ${selectable ? 'active:scale-95' : ''}`}
+              >
+                <Text
+                  className={`text-sm font-medium ${
+                    isSelected
+                      ? 'text-primary-foreground'
+                      : selectable
+                        ? 'text-primary'
+                        : 'text-muted-foreground/40'
+                  }`}
+                >
+                  {verse}
+                </Text>
+              </Pressable>
+            );
+          }
         })}
       </ScrollViewComponent>
 
@@ -259,7 +302,7 @@ export function VerseAssigner({
       <View className="mb-4 flex-row items-center justify-center gap-3">
         {/* From input */}
         <Pressable
-          onPress={selectedFrom !== undefined ? handleClearFrom : undefined}
+          onPress={selectedFrom !== undefined ? handleClear : undefined}
           className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
             selectedFrom !== undefined
               ? 'border-primary bg-primary/10'
@@ -282,7 +325,7 @@ export function VerseAssigner({
 
         {/* To input */}
         <Pressable
-          onPress={selectedTo !== undefined ? handleClearTo : undefined}
+          onPress={selectedTo !== undefined ? handleClear : undefined}
           disabled={selectedFrom === undefined}
           className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
             selectedTo !== undefined

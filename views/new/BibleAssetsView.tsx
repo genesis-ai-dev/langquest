@@ -73,9 +73,12 @@ import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerific
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
+  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
+import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
@@ -355,6 +358,10 @@ export default function BibleAssetsView() {
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
+
+  // State for batch verse assignment
+  const [showVerseAssignerDrawer, setShowVerseAssignerDrawer] =
+    React.useState(false);
 
   // Manual verse separators created by the user
   const [manualSeparators, setManualSeparators] = React.useState<
@@ -1496,6 +1503,179 @@ export default function BibleAssetsView() {
     },
     [getAvailableVerses, listItems, verseCount]
   );
+
+  // Get existing labels from separators for quick selection in VerseAssigner
+  const existingLabels = React.useMemo(() => {
+    const labels: { from: number; to: number }[] = [];
+    const seen = new Set<string>();
+
+    for (const item of listItems) {
+      if (
+        item.type === 'separator' &&
+        item.from !== undefined &&
+        item.to !== undefined
+      ) {
+        const key = `${item.from}-${item.to}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({ from: item.from, to: item.to });
+        }
+      }
+    }
+
+    // Sort by from value
+    return labels.sort((a, b) => a.from - b.from);
+  }, [listItems]);
+
+  // Check if any selected assets already have labels
+  const selectedAssetsHaveLabels = React.useMemo(() => {
+    for (const assetId of selectedAssetIds) {
+      const asset = assets.find((a) => a.id === assetId);
+      if (asset?.metadata) {
+        try {
+          const meta =
+            typeof asset.metadata === 'string'
+              ? (JSON.parse(asset.metadata) as AssetMetadata | null)
+              : (asset.metadata as AssetMetadata | null);
+          if (meta?.verse?.from !== undefined) {
+            return true;
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+    return false;
+  }, [selectedAssetIds, assets]);
+
+  // Handle applying verse label to selected assets
+  const handleAssignVerseToSelected = React.useCallback(
+    async (from: number, to: number) => {
+      const selectedAssets = assets.filter(
+        (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+      );
+
+      if (selectedAssets.length === 0) return;
+
+      try {
+        const verseBase = from;
+        const minOrderIndex = verseBase * 1000 * 1000;
+        const maxOrderIndex = (verseBase + 1) * 1000 * 1000 - 1;
+
+        // Find the highest order_index already assigned to this verse
+        // (excluding selected assets since they might be moving from another verse)
+        let lastSequential = 0;
+        for (const asset of assets) {
+          if (selectedAssetIds.has(asset.id)) continue; // Skip assets being reassigned
+          if (
+            asset.order_index >= minOrderIndex &&
+            asset.order_index <= maxOrderIndex
+          ) {
+            // Extract sequential part: order_index = (verseBase * 1000 + seq) * 1000
+            // seq = (order_index / 1000) - (verseBase * 1000)
+            const seq = Math.floor(asset.order_index / 1000) - verseBase * 1000;
+            if (seq > lastSequential) {
+              lastSequential = seq;
+            }
+          }
+        }
+
+        console.log(
+          `📊 Verse ${from}: last sequential = ${lastSequential}, assigning ${selectedAssets.length} asset(s) starting at ${lastSequential + 1}`
+        );
+
+        // Calculate order_index continuing from the last existing asset
+        const updates: AssetUpdatePayload[] = selectedAssets.map(
+          (asset, index) => ({
+            assetId: asset.id,
+            metadata: {
+              verse: { from, to }
+            },
+            order_index:
+              (verseBase * 1000 + (lastSequential + index + 1)) * 1000
+          })
+        );
+
+        await batchUpdateAssetMetadata(updates);
+
+        console.log(
+          `✅ Assigned verse ${from}-${to} to ${selectedAssets.length} asset(s)`
+        );
+
+        // Close drawer and clear selection
+        setShowVerseAssignerDrawer(false);
+        cancelSelection();
+        setSelectedForRecording(null);
+
+        // Refresh the list
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+      } catch (error) {
+        console.error('Failed to assign verse to assets:', error);
+        RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
+      }
+    },
+    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]
+  );
+
+  // Handle removing labels from selected assets
+  const handleRemoveLabelFromSelected = React.useCallback(async () => {
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length === 0) return;
+
+    try {
+      const verseBase = UNASSIGNED_VERSE_BASE;
+      const minOrderIndex = verseBase * 1000 * 1000;
+      const maxOrderIndex = (verseBase + 1) * 1000 * 1000 - 1;
+
+      // Find the highest order_index among unassigned assets
+      let lastSequential = 0;
+      for (const asset of assets) {
+        if (selectedAssetIds.has(asset.id)) continue; // Skip assets being moved
+        if (
+          asset.order_index >= minOrderIndex &&
+          asset.order_index <= maxOrderIndex
+        ) {
+          const seq = Math.floor(asset.order_index / 1000) - verseBase * 1000;
+          if (seq > lastSequential) {
+            lastSequential = seq;
+          }
+        }
+      }
+
+      console.log(
+        `📊 Unassigned (${verseBase}): last sequential = ${lastSequential}, moving ${selectedAssets.length} asset(s) starting at ${lastSequential + 1}`
+      );
+
+      // Set metadata to null and assign order_index at end of unassigned list
+      const updates: AssetUpdatePayload[] = selectedAssets.map(
+        (asset, index) => ({
+          assetId: asset.id,
+          metadata: null,
+          order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
+        })
+      );
+
+      await batchUpdateAssetMetadata(updates);
+
+      console.log(`✅ Removed labels from ${selectedAssets.length} asset(s)`);
+
+      // Close drawer and clear selection
+      setShowVerseAssignerDrawer(false);
+      cancelSelection();
+      setSelectedForRecording(null);
+
+      // Refresh the list
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void refetch();
+    } catch (error) {
+      console.error('Failed to remove labels from assets:', error);
+      RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
+    }
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]);
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -3123,10 +3303,7 @@ export default function BibleAssetsView() {
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
-              onAssignVerse={() => {
-                // TODO: Implement batch verse assignment for BibleAssetsView
-                console.log('Batch assign verse not yet implemented');
-              }}
+              onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
           ) : (
             <Button
@@ -3259,6 +3436,40 @@ export default function BibleAssetsView() {
         }}
         onSave={handleSaveRename}
       />
+
+      {/* Batch Verse Assignment Drawer */}
+      <Drawer
+        open={showVerseAssignerDrawer}
+        onOpenChange={(open) => {
+          setShowVerseAssignerDrawer(open);
+        }}
+        snapPoints={['40%']}
+        enableDynamicSizing={false}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Assign Verse</DrawerTitle>
+            <DrawerDescription>
+              Select verse range for {selectedAssetIds.size} selected asset
+              {selectedAssetIds.size !== 1 ? 's' : ''}
+            </DrawerDescription>
+          </DrawerHeader>
+          <VerseAssigner
+            availableVerses={getAvailableVerses()}
+            existingLabels={existingLabels}
+            getMaxToForFrom={getMaxToForFrom}
+            verseCount={verseCount}
+            onApply={(from, to) => {
+              void handleAssignVerseToSelected(from, to);
+            }}
+            onCancel={() => setShowVerseAssignerDrawer(false)}
+            onRemove={handleRemoveLabelFromSelected}
+            hasSelectedAssetsWithLabels={selectedAssetsHaveLabels}
+            className="mx-4"
+            ScrollViewComponent={DrawerScrollView}
+          />
+        </DrawerContent>
+      </Drawer>
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && (
