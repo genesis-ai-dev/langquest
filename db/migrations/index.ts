@@ -22,7 +22,7 @@ import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
 import { migration_2_1_to_2_2 } from './2.1-to-2.2';
-import { rawTableExists, updateMetadataVersion } from './utils';
+import { updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
 // Includes PowerSyncSQLiteDatabase methods plus rawPowerSync access
@@ -372,60 +372,6 @@ function findMigrationPath(
   return path;
 }
 
-/**
- * Preflight checks for migration execution
- * Verifies raw PowerSync access and required raw tables exist
- *
- * @param db - Drizzle database instance
- * @param migrationPath - Array of migrations to run
- * @returns true if preflight passes, false otherwise
- */
-async function runMigrationPreflight(
-  db: DrizzleDB,
-  _migrationPath: Migration[]
-): Promise<boolean> {
-  console.log('[Migration] Running preflight checks...');
-
-  if (typeof db.getAll !== 'function' || typeof db.execute !== 'function') {
-    console.error(
-      '[Migration] ✗ Preflight failed: db missing required methods (getAll, execute)'
-    );
-    return false;
-  }
-
-  console.log('[Migration] ✓ Raw database access verified');
-
-  // Check for required raw tables based on migrations
-  // For JSON-first migrations, we need raw tables to exist
-  // Extract tables that migrations might need
-  // This is a conservative check - migrations will handle missing tables gracefully
-  const commonTables = [
-    'project_local',
-    'project',
-    'asset_content_link_local',
-    'language_local',
-    'language',
-    'project_language_link_local'
-  ];
-
-  for (const table of commonTables) {
-    const scope = table.endsWith('_local') ? 'local' : 'synced';
-    const viewName = table;
-    const exists = await rawTableExists(db, viewName, scope);
-
-    if (!exists) {
-      console.warn(
-        `[Migration] ⚠️  Raw table for ${viewName} (${scope}) does not exist - migration may skip this table`
-      );
-      // Don't fail preflight - migrations handle missing tables gracefully
-    } else {
-      console.log(`[Migration] ✓ Raw table for ${viewName} (${scope}) exists`);
-    }
-  }
-
-  console.log('[Migration] ✓ Preflight checks complete');
-  return true;
-}
 
 /**
  * Run all necessary migrations from current version to target version
@@ -471,22 +417,6 @@ export async function runMigrations(
         `  ${i + 1}. ${m.fromVersion} → ${m.toVersion}: ${m.description}`
       );
     });
-
-    // Run preflight checks
-    const preflightPassed = await runMigrationPreflight(db, migrationPath);
-    if (!preflightPassed) {
-      const errorMsg =
-        'Migration preflight checks failed - raw PowerSync access required';
-      console.error(`[Migration] ✗ ${errorMsg}`);
-      errors.push(errorMsg);
-      return {
-        success: false,
-        migratedFrom: currentVersion,
-        migratedTo: currentVersion,
-        migrationsRun: 0,
-        errors
-      };
-    }
 
     // Run migrations sequentially
     for (let i = 0; i < migrationPath.length; i++) {
