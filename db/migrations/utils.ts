@@ -287,7 +287,7 @@ export async function updateMetadataVersion(
   for (const table of tables) {
     try {
       // Get raw PowerSync table name
-      const rawTableName = getRawTableName(table, 'local');
+      const rawTableName = getRawTableName(table);
 
       // Check if raw table exists
       const tableExistsResult = await db.getAll(
