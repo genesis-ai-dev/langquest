@@ -12,6 +12,7 @@ import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpoDb } from '@/hooks/useExpoDb';
 import {
@@ -137,27 +138,29 @@ export default function RootLayout() {
   return (
     <PowerSyncContext.Provider value={system.powersync}>
       <PostHogProvider>
-        <AuthProvider>
-          <QueryProvider>
-            <AudioProvider>
-              <SafeAreaProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <KeyboardProvider>
-                    <StatusBar style={systemBarsStyle} />
-                    {/* OTA Update Banner - shown before login and after */}
-                    <UpdateBanner />
-                    <BottomSheetModalProvider>
-                      <ThemeProvider value={NAV_THEME[scheme]}>
-                        <Stack screenOptions={{ headerShown: false }} />
-                        <PortalHost />
-                      </ThemeProvider>
-                    </BottomSheetModalProvider>
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
-              </SafeAreaProvider>
-            </AudioProvider>
-          </QueryProvider>
-        </AuthProvider>
+        <PreAuthMigrationCheck>
+          <AuthProvider>
+            <QueryProvider>
+              <AudioProvider>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardProvider>
+                      <StatusBar style={systemBarsStyle} />
+                      {/* OTA Update Banner - shown before login and after */}
+                      <UpdateBanner />
+                      <BottomSheetModalProvider>
+                        <ThemeProvider value={NAV_THEME[scheme]}>
+                          <Stack screenOptions={{ headerShown: false }} />
+                          <PortalHost />
+                        </ThemeProvider>
+                      </BottomSheetModalProvider>
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
+              </AudioProvider>
+            </QueryProvider>
+          </AuthProvider>
+        </PreAuthMigrationCheck>
       </PostHogProvider>
     </PowerSyncContext.Provider>
   );

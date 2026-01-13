@@ -519,51 +519,68 @@ export class System {
       if (!this.initialized) {
         // CRITICAL: Run migrations BEFORE PowerSync init
         // This allows migrations to access raw PowerSync tables that may be removed after init
-        console.log('[System] Running pre-init migrations...');
-        const {
-          checkNeedsMigration,
-          getMinimumSchemaVersion,
-          MigrationNeededError
-        } = await import('../migrations/index');
-        const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+        // NOTE: If migrations were already checked/run pre-auth, skip this check
+        if (!this.migrationDb) {
+          console.log('[System] Running pre-init migrations check...');
+          const {
+            checkNeedsMigration,
+            getMinimumSchemaVersion,
+            MigrationNeededError
+          } = await import('../migrations/index');
+          const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
-        // Open direct SQLite handle for pre-init migrations
-        const rawDb = this.factory.openDB();
-        // Create raw database adapter for migrations
-        // This provides getAll/execute methods before PowerSync.init() is called
-        this.migrationDb = {
-          getAll: async (sql: string, params?: unknown[]) => {
-            const result = await rawDb.execute(sql, params);
-            // Convert DBAdapter result format to array
-            if (result.rows && '_array' in result.rows) {
-              return result.rows._array as unknown[];
+          // Open direct SQLite handle for pre-init migrations
+          const rawDb = this.factory.openDB();
+          // Create raw database adapter for migrations
+          // This provides getAll/execute methods before PowerSync.init() is called
+          this.migrationDb = {
+            getAll: async (sql: string, params?: unknown[]) => {
+              const result = await rawDb.execute(sql, params);
+              // Convert DBAdapter result format to array
+              if (result.rows && '_array' in result.rows) {
+                return result.rows._array as unknown[];
+              }
+              return Array.isArray(result.rows) ? result.rows : [];
+            },
+            execute: async (sql: string) => {
+              await rawDb.execute(sql);
             }
-            return Array.isArray(result.rows) ? result.rows : [];
-          },
-          execute: async (sql: string) => {
-            await rawDb.execute(sql);
+          };
+
+          // Check if migration is needed
+          const needsMigration = await checkNeedsMigration(
+            this.migrationDb,
+            APP_SCHEMA_VERSION
+          );
+
+          if (needsMigration) {
+            console.log('[System] ⚠️  Pre-init migration needed');
+            this.migrationNeeded = true;
+
+            const currentVersion =
+              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+
+            // Throw to trigger MigrationScreen. Migrations will run before re-init.
+            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
           }
-        };
-        // const migrationDb = createRawSQLiteAdapter(rawDb);
 
-        // Check if migration is needed
-        const needsMigration = await checkNeedsMigration(
-          this.migrationDb,
-          APP_SCHEMA_VERSION
-        );
-
-        if (needsMigration) {
-          console.log('[System] ⚠️  Pre-init migration needed');
-          this.migrationNeeded = true;
-
-          const currentVersion =
-            (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
-
-          // Throw to trigger MigrationScreen. Migrations will run before re-init.
-          throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+          console.log('[System] ✓ Pre-init migrations check passed');
+        } else {
+          // MigrationDb already exists from pre-auth check
+          // If migrationNeeded is still true, migrations weren't completed
+          if (this.migrationNeeded) {
+            console.log(
+              '[System] ⚠️  Migration still needed after pre-auth check'
+            );
+            const { getMinimumSchemaVersion, MigrationNeededError } =
+              await import('../migrations/index');
+            const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+            const currentVersion =
+              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+          }
+          console.log('[System] ✓ Migrations already checked pre-auth');
         }
-
-        console.log('[System] ✓ Pre-init migrations check passed');
 
         console.log('Initializing PowerSync...');
         await this.powersync.init();
@@ -1349,6 +1366,7 @@ export class System {
 
   /**
    * Run schema migrations with progress callback
+   * Works both pre-auth and post-auth by creating migrationDb if needed
    * Called from MigrationScreen when user needs to migrate data
    *
    * @param onProgress - Callback for progress updates (current, total, step)
@@ -1371,8 +1389,21 @@ export class System {
       );
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
+      // Create migrationDb if not already set (works for both pre-auth and post-auth)
       if (!this.migrationDb) {
-        throw new Error('Migration database not initialized');
+        const rawDb = this.factory.openDB();
+        this.migrationDb = {
+          getAll: async (sql: string, params?: unknown[]) => {
+            const result = await rawDb.execute(sql, params);
+            if (result.rows && '_array' in result.rows) {
+              return result.rows._array as unknown[];
+            }
+            return Array.isArray(result.rows) ? result.rows : [];
+          },
+          execute: async (sql: string) => {
+            await rawDb.execute(sql);
+          }
+        };
       }
 
       // Get the actual current version from database
@@ -1420,6 +1451,61 @@ export class System {
     // which will now pass the migration check
     useLocalStore.getState().setSystemReady(false);
   }
+
+  /**
+   * Check if migrations are needed before authentication
+   * This allows migrations to run before login, improving UX
+   *
+   * @returns true if migrations are needed, false otherwise
+   */
+  async checkMigrationsNeededPreAuth(): Promise<boolean> {
+    try {
+      console.log('[System] Checking migrations pre-auth...');
+
+      // Dynamic import to avoid circular dependencies
+      const { checkNeedsMigration } = await import('../migrations/index');
+      const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+      // Open direct SQLite handle for pre-auth migration check
+      const rawDb = this.factory.openDB();
+
+      // Create raw database adapter for migration check
+      const migrationDb = {
+        getAll: async (sql: string, params?: unknown[]) => {
+          const result = await rawDb.execute(sql, params);
+          // Convert DBAdapter result format to array
+          if (result.rows && '_array' in result.rows) {
+            return result.rows._array as unknown[];
+          }
+          return Array.isArray(result.rows) ? result.rows : [];
+        },
+        execute: async (sql: string) => {
+          await rawDb.execute(sql);
+        }
+      };
+
+      // Check if migration is needed
+      const needsMigration = await checkNeedsMigration(
+        migrationDb,
+        APP_SCHEMA_VERSION
+      );
+
+      if (needsMigration) {
+        console.log('[System] ⚠️  Pre-auth migration needed');
+        // Store migrationDb for use in runMigrations
+        this.migrationDb = migrationDb;
+        this.migrationNeeded = true;
+        return true;
+      }
+
+      console.log('[System] ✓ Pre-auth migrations check passed');
+      return false;
+    } catch (error) {
+      console.error('[System] Error checking migrations pre-auth:', error);
+      // If we can't check, assume no migration needed to avoid blocking the app
+      return false;
+    }
+  }
 }
 
 // Create and export the system singleton safely
@@ -1464,7 +1550,8 @@ export const system = new Proxy({} as System, {
       prop === 'init' ||
       prop === 'migrationNeeded' ||
       prop === 'runMigrations' ||
-      prop === 'resetForMigration'
+      prop === 'resetForMigration' ||
+      prop === 'checkMigrationsNeededPreAuth'
     ) {
       const instance = getSystem();
       const value = instance[prop as keyof System];
