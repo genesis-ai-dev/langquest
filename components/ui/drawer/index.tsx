@@ -351,7 +351,7 @@ function DrawerDescription({
 
 const AnimatedScrollView =
   Reanimated.createAnimatedComponent<KeyboardAwareScrollViewProps>(
-    KeyboardAwareScrollView
+    KeyboardAwareScrollView as any
   );
 const BottomSheetScrollViewComponent = createBottomSheetScrollableComponent<
   BottomSheetScrollViewMethods,
