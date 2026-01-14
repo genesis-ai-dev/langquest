@@ -115,7 +115,7 @@ export default function NextGenTranslationsList({
   return (
     <View className="flex-1">
       {/* Header with sort options */}
-      <View className="flex-col gap-3 py-4">
+      <View className="flex-col gap-1 py-1">
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             {isPrivateProject && !canVote && (

@@ -5,7 +5,6 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
-import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -194,7 +193,6 @@ export default function NextGenAssetDetailView() {
     useTranscription();
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
-  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const [transcriptionText, setTranscriptionText] = useState('');
   const [contentTypeFilter, setContentTypeFilter] = useState<
     'translation' | 'transcription'
@@ -705,9 +703,10 @@ export default function NextGenAssetDetailView() {
         );
       }
 
-      // Open modal with result for editing
+      // Open the new translation drawer in transcription mode with the transcribed text
       setTranscriptionText(finalText);
-      setShowTranscriptionModal(true);
+      setContentTypeFilter('transcription');
+      setShowNewTranslationModal(true);
     } catch (error) {
       console.error('Transcription error:', error);
       const errorMessage =
@@ -982,7 +981,7 @@ export default function NextGenAssetDetailView() {
       <View className="flex-1">
         {/* Content Type Toggle */}
         <View className="h-px bg-border" />
-        <View className="py-4">
+        <View className="pt-2">
           <ToggleGroup
             type="single"
             value={contentTypeFilter}
@@ -1079,7 +1078,10 @@ export default function NextGenAssetDetailView() {
       {canTranslate && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
-          onClose={() => setShowNewTranslationModal(false)}
+          onClose={() => {
+            setShowNewTranslationModal(false);
+            setTranscriptionText(''); // Clear transcription text when modal closes
+          }}
           onSuccess={handleTranslationSuccess}
           assetId={currentAssetId}
           assetName={activeAsset.name}
@@ -1088,6 +1090,8 @@ export default function NextGenAssetDetailView() {
           translationLanguageId={translationLanguageId}
           isLocalSource={activeAsset.source === 'local'}
           initialContentType={contentTypeFilter}
+          initialText={transcriptionText}
+          resolvedAudioUris={resolvedAudioUris}
         />
       )}
 
@@ -1114,23 +1118,6 @@ export default function NextGenAssetDetailView() {
         />
       )}
 
-      {/* Transcription Edit Modal */}
-      {isAuthenticated && currentProjectId && (
-        <TranscriptionEditModal
-          visible={showTranscriptionModal}
-          onClose={() => setShowTranscriptionModal(false)}
-          onSuccess={() => setTranslationsRefreshKey((prev) => prev + 1)}
-          initialText={transcriptionText}
-          sourceAssetId={activeAsset.id}
-          projectId={currentProjectId}
-          languoidId={
-            activeAsset.content?.[currentContentIndex]?.languoid_id ||
-            activeAsset.content?.[currentContentIndex]?.source_language_id ||
-            ''
-          }
-          isLocalSource={activeAsset.source === 'local'}
-        />
-      )}
     </View>
   );
 }

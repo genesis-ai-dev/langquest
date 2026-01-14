@@ -331,8 +331,12 @@ export default function NextGenTranslationModal({
         // Use local tables for prepublished content, synced tables for published content
         const isLocalSource = asset.source === 'local';
         const tableOptions = { localOverride: isLocalSource };
+        // Preserve the content_type from the original asset
+        // If viewing a transcription, create a new transcription
+        // If viewing a translation, create a new translation
+        const contentTypeToCreate = asset.content_type || 'translation';
         console.log(
-          `[CREATE TRANSCRIPTION] Starting transaction... (isLocalSource: ${isLocalSource})`
+          `[CREATE ${contentTypeToCreate.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
         );
 
         await system.db.transaction(async (tx) => {
@@ -343,7 +347,7 @@ export default function NextGenTranslationModal({
               name: asset.name,
               source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
               source_asset_id: originalSourceAssetId, // Point to the original asset being translated
-              content_type: 'translation',
+              content_type: contentTypeToCreate,
               creator_id: currentUser.id,
               project_id: project.id,
               download_profiles: [currentUser.id]
@@ -395,14 +399,29 @@ export default function NextGenTranslationModal({
         });
       },
       onSuccess: () => {
-        RNAlert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
+        const isTranscription = asset?.content_type === 'transcription';
+        RNAlert.alert(
+          t('success'),
+          isTranscription
+            ? t('transcriptionSubmittedSuccessfully')
+            : t('translationSubmittedSuccessfully')
+        );
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
       },
       onError: (error) => {
-        console.error('Error creating transcription:', error);
-        RNAlert.alert(t('error'), t('failedToCreateTranscription'));
+        const isTranscription = asset?.content_type === 'transcription';
+        console.error(
+          `Error creating ${isTranscription ? 'transcription' : 'translation'}:`,
+          error
+        );
+        RNAlert.alert(
+          t('error'),
+          isTranscription
+            ? t('failedCreateTranscription')
+            : t('failedCreateTranslation')
+        );
       }
     });
 
@@ -503,7 +522,11 @@ export default function NextGenTranslationModal({
             <View className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background">
               {/* Header */}
               <View className="flex-row items-center justify-between border-b border-border p-4">
-                <Text variant="h4">{t('translation')}</Text>
+                <Text variant="h4">
+                  {asset?.content_type === 'transcription'
+                    ? t('transcription')
+                    : t('translation')}
+                </Text>
                 <View className="flex-row items-center gap-2">
                   {/* Edit/Transcription button */}
                   {allowEditing && (

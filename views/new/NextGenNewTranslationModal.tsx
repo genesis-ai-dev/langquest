@@ -26,10 +26,14 @@ import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguageById } from '@/hooks/db/useLanguages';
+import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
+import { useTranscription } from '@/hooks/useTranscription';
+import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
@@ -40,7 +44,7 @@ import {
   getLocalAttachmentUri,
   saveAudioLocally
 } from '@/utils/fileUtils';
-import { cn } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -51,6 +55,7 @@ import {
   Lightbulb,
   MicIcon,
   RefreshCwIcon,
+  SparklesIcon,
   TextIcon,
   XIcon
 } from 'lucide-react-native';
@@ -80,6 +85,8 @@ interface NextGenNewTranslationModalProps {
   translationLanguageId: string; // The language of the new translation asset being created
   isLocalSource?: boolean; // Whether the source asset is local (prepublished) - translations will be stored locally
   initialContentType?: 'translation' | 'transcription'; // Initial content type from parent toggle
+  initialText?: string; // Initial text to populate the text field (e.g., from AI transcription)
+  resolvedAudioUris?: string[]; // Pre-resolved audio URIs from parent
 }
 
 type TranslationType = 'text' | 'audio';
@@ -94,7 +101,9 @@ export default function NextGenNewTranslationModal({
   sourceLanguage,
   translationLanguageId,
   isLocalSource = false,
-  initialContentType = 'translation'
+  initialContentType = 'translation',
+  initialText = '',
+  resolvedAudioUris = []
 }: NextGenNewTranslationModalProps) {
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
@@ -107,9 +116,15 @@ export default function NextGenNewTranslationModal({
   );
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
-  const [contentType, setContentType] = useState<'translation' | 'transcription'>(
-    initialContentType
-  );
+  const [contentType, setContentType] = useState<
+    'translation' | 'transcription'
+  >(initialContentType);
+
+  // Transcription hooks for AI transcription button
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
+  const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
+    useTranscriptionLocalization();
 
   // Query project data using hybrid data (supports anonymous users)
   const isPowerSyncReady = React.useMemo(
@@ -261,9 +276,93 @@ export default function NextGenNewTranslationModal({
     return text.split(/\s+/).filter((word) => word.length > 0);
   };
 
+  // Handle AI transcription from source audio
+  const handleAiTranscription = async () => {
+    if (!isAuthenticated) {
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
+      return;
+    }
+
+    // Use pre-resolved audio URIs from parent
+    const audioUri = resolvedAudioUris[0];
+    if (!audioUri) {
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    console.log('[AI Transcription] Starting transcription for URI:', audioUri);
+
+    try {
+      // Step 1: Get phonetic transcription from ASR
+      const result = await transcribeAudio({ uri: audioUri, mimeType: 'audio/wav' });
+      if (!result.text) {
+        RNAlert.alert(t('error'), 'Transcription returned no text');
+        return;
+      }
+
+      console.log('[AI Transcription] Phonetic result:', result.text);
+
+      // Step 2: Localize the phonetic transcription if we have examples
+      let finalText = result.text;
+
+      if (orthographyExamples.length > 0 && sourceLanguoidId) {
+        const languageName = sourceLanguoidData?.name || 'the target language';
+
+        console.log(
+          '[AI Transcription] Localizing with',
+          orthographyExamples.length,
+          'examples for',
+          languageName
+        );
+
+        try {
+          const localizationResult = await localizeTranscription({
+            phoneticText: result.text,
+            examples: orthographyExamples,
+            languageName
+          });
+
+          if (localizationResult.localizedText) {
+            console.log(
+              '[AI Transcription] Localized result:',
+              localizationResult.localizedText
+            );
+            finalText = localizationResult.localizedText;
+          }
+        } catch (localizationError) {
+          console.warn(
+            '[AI Transcription] Localization failed, using phonetic result:',
+            localizationError
+          );
+        }
+      }
+
+      // Insert the transcribed text into the form
+      form.setValue('text', finalText);
+    } catch (error) {
+      console.error('[AI Transcription] Error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      RNAlert.alert(
+        t('error'),
+        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+      );
+    }
+  };
+
   // Get source language ID from asset content or prop
   const sourceLanguageId =
     assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
+
+  // Get languoid ID from asset content (for transcriptions - this is the source languoid)
+  const sourceLanguoidId = assetContent?.[0]?.languoid_id || null;
 
   // Query language names (source language is optional, target is required)
   // Only query when modal is visible to avoid unnecessary queries
@@ -272,6 +371,17 @@ export default function NextGenNewTranslationModal({
   );
   const { language: targetLanguageData } = useLanguageById(
     visible ? translationLanguageId : ''
+  );
+
+  // Query languoid for transcription placeholder
+  const { languoid: sourceLanguoidData } = useLanguoidById(
+    visible ? sourceLanguoidId || undefined : undefined
+  );
+
+  // Get orthography examples for transcription localization
+  const { data: orthographyExamples = [] } = useOrthographyExamples(
+    currentProjectId,
+    sourceLanguoidId || ''
   );
 
   // Get first content text as preview
@@ -298,6 +408,10 @@ export default function NextGenNewTranslationModal({
   React.useEffect(() => {
     if (visible) {
       form.reset();
+      // Set initial text if provided (e.g., from AI transcription)
+      if (initialText) {
+        form.setValue('text', initialText);
+      }
       setPredictedTranslation(null);
       setPredictionDetails(null);
       setShowDetailsModal(false);
@@ -308,7 +422,7 @@ export default function NextGenNewTranslationModal({
         setTranslationType('text');
       }
     }
-  }, [visible, form, initialContentType]);
+  }, [visible, form, initialContentType, initialText]);
 
   // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
@@ -594,11 +708,17 @@ export default function NextGenNewTranslationModal({
             >
               {contentType === 'translation' && (
                 <TabsList className="w-full flex-row">
-                  <TabsTrigger value="text" className="flex-1 items-center py-2">
+                  <TabsTrigger
+                    value="text"
+                    className="flex-1 items-center py-2"
+                  >
                     <Icon as={TextIcon} size={20} />
                     <Text className="text-base">{t('text')}</Text>
                   </TabsTrigger>
-                  <TabsTrigger value="audio" className="flex-1 items-center py-2">
+                  <TabsTrigger
+                    value="audio"
+                    className="flex-1 items-center py-2"
+                  >
                     <Icon as={MicIcon} size={20} />
                     <Text className="text-base">{t('audio')}</Text>
                   </TabsTrigger>
@@ -761,6 +881,47 @@ export default function NextGenNewTranslationModal({
                             : 'No examples available. Configure API key to enable translation prediction.'}
                         </Text>
                       </View>
+                    ) : contentType === 'transcription' ? (
+                      // AI Transcription button for transcription mode
+                      <View className="flex-row justify-end">
+                        <Pressable
+                          onPress={() => {
+                            void handleAiTranscription();
+                          }}
+                          disabled={isTranscribing || isLocalizing}
+                          className={cn(
+                            'flex-row items-center gap-2 rounded-full border-2 px-4 py-2',
+                            isTranscribing || isLocalizing
+                              ? 'border-muted-foreground bg-muted opacity-50'
+                              : 'border-primary bg-primary shadow-md'
+                          )}
+                        >
+                          {isTranscribing || isLocalizing ? (
+                            <>
+                              <ActivityIndicator
+                                size="small"
+                                color={getThemeColor('foreground')}
+                              />
+                              <Text className="text-sm font-semibold text-foreground">
+                                {isTranscribing
+                                  ? 'Transcribing...'
+                                  : 'Localizing...'}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Icon
+                                as={SparklesIcon}
+                                size={18}
+                                className="text-primary-foreground"
+                              />
+                              <Text className="text-sm font-semibold text-primary-foreground">
+                                Aa
+                              </Text>
+                            </>
+                          )}
+                        </Pressable>
+                      </View>
                     ) : (
                       enableAiSuggestions &&
                       translationType === 'text' && (
@@ -811,7 +972,15 @@ export default function NextGenNewTranslationModal({
                             <Textarea
                               {...transformInputProps(field)}
                               ref={textareaRef}
-                              placeholder={t('enterTranslation')}
+                              placeholder={
+                                contentType === 'transcription'
+                                  ? t('enterYourTranscriptionIn', {
+                                      language:
+                                        sourceLanguoidData?.name ||
+                                        t('sourceLanguage')
+                                    })
+                                  : t('enterTranslation')
+                              }
                               drawerInput
                               onSelectionChange={(e) => {
                                 setCursorPosition(

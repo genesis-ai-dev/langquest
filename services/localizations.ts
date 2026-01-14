@@ -485,6 +485,13 @@ export const localizations = {
     tok_pisin: 'Putim transcription bilong yu long hia',
     indonesian: 'Masukkan transkripsi Anda di sini'
   },
+  enterYourTranscriptionIn: {
+    english: 'Enter your transcription in {language}',
+    spanish: 'Ingrese su transcripción en {language}',
+    brazilian_portuguese: 'Digite sua transcrição em {language}',
+    tok_pisin: 'Putim transcription bilong yu long {language}',
+    indonesian: 'Masukkan transkripsi Anda dalam {language}'
+  },
   enterValidEmail: {
     english: 'Please enter a valid email',
     spanish: 'Por favor ingrese un correo electrónico válido',
@@ -4307,6 +4314,13 @@ export const localizations = {
     brazilian_portuguese: 'Idioma de destino',
     tok_pisin: 'Target Tokples',
     indonesian: 'Bahasa Target'
+  },
+  sourceLanguage: {
+    english: 'Source Language',
+    spanish: 'Idioma de origen',
+    brazilian_portuguese: 'Idioma de origem',
+    tok_pisin: 'Source Tokples',
+    indonesian: 'Bahasa Sumber'
   },
   your: {
     english: 'Your',
