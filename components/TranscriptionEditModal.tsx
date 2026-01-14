@@ -85,12 +85,14 @@ export default function TranscriptionEditModal({
           throw new Error('Failed to create transcription asset');
         }
 
-        await tx.insert(resolveTable('asset_content_link', tableOptions)).values({
-          asset_id: newAsset.id,
-          languoid_id: languoidId,
-          text: text.trim(),
-          download_profiles: [currentUser.id]
-        });
+        await tx
+          .insert(resolveTable('asset_content_link', tableOptions))
+          .values({
+            asset_id: newAsset.id,
+            languoid_id: languoidId,
+            text: text.trim(),
+            download_profiles: [currentUser.id]
+          });
 
         console.log(
           '[SAVE TRANSCRIPTION] Created transcription asset:',

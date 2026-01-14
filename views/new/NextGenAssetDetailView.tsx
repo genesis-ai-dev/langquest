@@ -5,6 +5,7 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,10 +24,10 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
-import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
@@ -35,6 +36,7 @@ import {
   getLocalUri
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -51,11 +53,9 @@ import {
   Volume2Icon,
   VolumeXIcon
 } from 'lucide-react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
-import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';

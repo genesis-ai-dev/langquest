@@ -379,7 +379,8 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
   // These are assets with source_asset_id pointing to any of our source assets
   let translationAssets: ChapterData['translationAssets'] = [];
   let translationContentLinks: ChapterData['translationContentLinks'] = [];
-  let translationQuestAssetLinks: ChapterData['translationQuestAssetLinks'] = [];
+  let translationQuestAssetLinks: ChapterData['translationQuestAssetLinks'] =
+    [];
 
   if (assetIds.length > 0) {
     // Query for assets that have source_asset_id pointing to our source assets
@@ -1525,7 +1526,10 @@ async function executePublishTransaction(
           `⏭️  Skipped ${skipped} translation content links that already exist`
         );
       }
-    } else if (!includeContentLinks && data.translationContentLinks.length > 0) {
+    } else if (
+      !includeContentLinks &&
+      data.translationContentLinks.length > 0
+    ) {
       console.log(
         `⏸️  Delaying ${data.translationContentLinks.length} translation content links until dependencies are ready`
       );

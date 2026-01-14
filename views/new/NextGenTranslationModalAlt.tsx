@@ -327,10 +327,18 @@ export default function NextGenTranslationModal({
         const translationAudio = asset.content
           .flatMap((c) => c.audio ?? [])
           .filter(Boolean);
+
+        // Use local tables for prepublished content, synced tables for published content
+        const isLocalSource = asset.source === 'local';
+        const tableOptions = { localOverride: isLocalSource };
+        console.log(
+          `[CREATE TRANSCRIPTION] Starting transaction... (isLocalSource: ${isLocalSource})`
+        );
+
         await system.db.transaction(async (tx) => {
           // Create a new asset that points to the original source asset
           const [newAsset] = await tx
-            .insert(resolveTable('asset')) // Use synced table like the working version
+            .insert(resolveTable('asset', tableOptions))
             .values({
               name: asset.name,
               source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
@@ -373,15 +381,17 @@ export default function NextGenTranslationModal({
           );
 
           await tx
-            .insert(resolveTable('asset_content_link'))
+            .insert(resolveTable('asset_content_link', tableOptions))
             .values(contentValues);
 
           // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
-          await tx.insert(resolveTable('quest_asset_link')).values({
-            quest_id: currentQuestId,
-            asset_id: newAsset.id,
-            download_profiles: [currentUser.id]
-          });
+          await tx
+            .insert(resolveTable('quest_asset_link', tableOptions))
+            .values({
+              quest_id: currentQuestId,
+              asset_id: newAsset.id,
+              download_profiles: [currentUser.id]
+            });
         });
       },
       onSuccess: () => {
