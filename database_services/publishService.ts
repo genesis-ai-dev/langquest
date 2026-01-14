@@ -187,6 +187,45 @@ interface ChapterData {
     last_updated: string;
     active: boolean;
   }[];
+  // Translations and transcriptions that reference source assets
+  translationAssets: {
+    id: string;
+    name: string | null;
+    order_index: number;
+    source_language_id: string | null;
+    project_id: string | null;
+    source_asset_id: string | null;
+    content_type: 'translation' | 'transcription' | null;
+    images: string[] | null;
+    creator_id: string | null;
+    visible: boolean;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
+  translationContentLinks: {
+    id: string;
+    asset_id: string;
+    source_language_id: string | null;
+    languoid_id: string | null;
+    text: string | null;
+    audio: string[] | null;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
+  translationQuestAssetLinks: {
+    id: string;
+    quest_id: string;
+    asset_id: string;
+    download_profiles: string[] | null;
+    visible: boolean;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
 }
 
 interface ValidationResult {
@@ -336,6 +375,54 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     console.log(`🔗 Found ${assetContentLinks.length} content links`);
   }
 
+  // 4a. Get translations/transcriptions that reference the source assets
+  // These are assets with source_asset_id pointing to any of our source assets
+  let translationAssets: ChapterData['translationAssets'] = [];
+  let translationContentLinks: ChapterData['translationContentLinks'] = [];
+  let translationQuestAssetLinks: ChapterData['translationQuestAssetLinks'] = [];
+
+  if (assetIds.length > 0) {
+    // Query for assets that have source_asset_id pointing to our source assets
+    const potentialTranslations = await system.db
+      .select()
+      .from(assetLocal)
+      .where(inArray(assetLocal.source_asset_id, assetIds));
+
+    // Filter to only translation/transcription content types
+    translationAssets = potentialTranslations.filter(
+      (a): a is typeof a & { content_type: 'translation' | 'transcription' } =>
+        a.content_type === 'translation' || a.content_type === 'transcription'
+    );
+
+    if (translationAssets.length > 0) {
+      console.log(
+        `📝 Found ${translationAssets.length} translations/transcriptions to publish`
+      );
+
+      const translationAssetIds = translationAssets.map((a) => a.id);
+
+      // Get content links for translations
+      translationContentLinks = await system.db
+        .select()
+        .from(assetContentLinkLocal)
+        .where(inArray(assetContentLinkLocal.asset_id, translationAssetIds));
+
+      console.log(
+        `🔗 Found ${translationContentLinks.length} translation content links`
+      );
+
+      // Get quest_asset_links for translations
+      translationQuestAssetLinks = await system.db
+        .select()
+        .from(questAssetLinkLocal)
+        .where(inArray(questAssetLinkLocal.asset_id, translationAssetIds));
+
+      console.log(
+        `🔗 Found ${translationQuestAssetLinks.length} translation quest-asset links`
+      );
+    }
+  }
+
   // 4b. Get project_language_link records if project exists
   let projectLanguageLinks: ChapterData['projectLanguageLinks'] = undefined;
   let languoids: ChapterData['languoids'] = undefined;
@@ -419,7 +506,10 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     questTagLinks,
     assetTagLinks,
     languoids,
-    projectLanguageLinks
+    projectLanguageLinks,
+    translationAssets,
+    translationContentLinks,
+    translationQuestAssetLinks
   };
 }
 
@@ -1248,6 +1338,48 @@ async function executePublishTransaction(
       }
     }
 
+    // 5b. Publish translation/transcription assets (after source assets they reference)
+    if (data.translationAssets.length > 0) {
+      console.log(
+        `📝 Publishing ${data.translationAssets.length} translation/transcription assets...`
+      );
+      let skipped = 0;
+      for (const assetData of data.translationAssets) {
+        // Check if asset already exists
+        const [existingAsset] = await tx
+          .select()
+          .from(asset)
+          .where(eq(asset.id, assetData.id))
+          .limit(1);
+
+        if (!existingAsset) {
+          await tx.insert(asset).values({
+            id: assetData.id,
+            name: assetData.name,
+            order_index: assetData.order_index,
+            source_language_id: assetData.source_language_id,
+            project_id: assetData.project_id,
+            source_asset_id: assetData.source_asset_id,
+            content_type: assetData.content_type,
+            images: assetData.images,
+            creator_id: assetData.creator_id,
+            visible: assetData.visible,
+            download_profiles: assetData.download_profiles,
+            created_at: assetData.created_at,
+            last_updated: assetData.last_updated,
+            active: assetData.active
+          });
+        } else {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        console.log(
+          `⏭️  Skipped ${skipped} translation assets that already exist`
+        );
+      }
+    }
+
     // 6. Publish quest-asset links
     if (data.questAssetLinks.length > 0) {
       console.log(
@@ -1279,6 +1411,41 @@ async function executePublishTransaction(
       if (skipped > 0) {
         console.log(
           `⏭️  Skipped ${skipped} quest-asset links that already exist`
+        );
+      }
+    }
+
+    // 6b. Publish translation quest-asset links
+    if (data.translationQuestAssetLinks.length > 0) {
+      console.log(
+        `🔗 Publishing ${data.translationQuestAssetLinks.length} translation quest-asset links...`
+      );
+      let skipped = 0;
+      for (const link of data.translationQuestAssetLinks) {
+        const [existing] = await tx
+          .select()
+          .from(questAssetLink)
+          .where(eq(questAssetLink.id, link.id))
+          .limit(1);
+
+        if (!existing) {
+          await tx.insert(questAssetLink).values({
+            id: link.id,
+            quest_id: link.quest_id,
+            asset_id: link.asset_id,
+            download_profiles: link.download_profiles,
+            visible: link.visible,
+            created_at: link.created_at,
+            last_updated: link.last_updated,
+            active: link.active
+          });
+        } else {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        console.log(
+          `⏭️  Skipped ${skipped} translation quest-asset links that already exist`
         );
       }
     }
@@ -1320,6 +1487,47 @@ async function executePublishTransaction(
     } else if (!includeContentLinks && data.assetContentLinks.length > 0) {
       console.log(
         `⏸️  Delaying ${data.assetContentLinks.length} content links until dependencies are ready`
+      );
+    }
+
+    // 7b. Publish translation content links (ONLY if includeContentLinks is true)
+    if (includeContentLinks && data.translationContentLinks.length > 0) {
+      console.log(
+        `🔗 Publishing ${data.translationContentLinks.length} translation content links...`
+      );
+      let skipped = 0;
+      for (const link of data.translationContentLinks) {
+        const [existing] = await tx
+          .select()
+          .from(assetContentLink)
+          .where(eq(assetContentLink.id, link.id))
+          .limit(1);
+
+        if (!existing) {
+          await tx.insert(assetContentLink).values({
+            id: link.id,
+            asset_id: link.asset_id,
+            source_language_id: link.source_language_id,
+            languoid_id: link.languoid_id,
+            text: link.text,
+            audio: link.audio,
+            download_profiles: link.download_profiles,
+            created_at: link.created_at,
+            last_updated: link.last_updated,
+            active: link.active
+          });
+        } else {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        console.log(
+          `⏭️  Skipped ${skipped} translation content links that already exist`
+        );
+      }
+    } else if (!includeContentLinks && data.translationContentLinks.length > 0) {
+      console.log(
+        `⏸️  Delaying ${data.translationContentLinks.length} translation content links until dependencies are ready`
       );
     }
 

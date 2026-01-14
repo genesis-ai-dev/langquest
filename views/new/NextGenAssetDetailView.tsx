@@ -1036,10 +1036,7 @@ export default function NextGenAssetDetailView() {
       ) : (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
-          disabled={
-            !canTranslate ||
-            (activeAsset.source && activeAsset.source === 'local')
-          }
+          disabled={!canTranslate}
           onPress={handleNewTranslationPress}
         >
           <Icon as={PlusIcon} size={24} />
@@ -1060,6 +1057,7 @@ export default function NextGenAssetDetailView() {
           assetContent={activeAsset.content}
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
+          isLocalSource={activeAsset.source === 'local'}
         />
       )}
 
@@ -1100,6 +1098,7 @@ export default function NextGenAssetDetailView() {
             activeAsset.content?.[currentContentIndex]?.source_language_id ||
             ''
           }
+          isLocalSource={activeAsset.source === 'local'}
         />
       )}
     </View>

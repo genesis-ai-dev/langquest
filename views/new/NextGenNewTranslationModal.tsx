@@ -78,6 +78,7 @@ interface NextGenNewTranslationModalProps {
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
   translationLanguageId: string; // The language of the new translation asset being created
+  isLocalSource?: boolean; // Whether the source asset is local (prepublished) - translations will be stored locally
 }
 
 type TranslationType = 'text' | 'audio';
@@ -90,7 +91,8 @@ export default function NextGenNewTranslationModal({
   assetName,
   assetContent,
   sourceLanguage,
-  translationLanguageId
+  translationLanguageId,
+  isLocalSource = false
 }: NextGenNewTranslationModalProps) {
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
@@ -350,10 +352,14 @@ export default function NextGenNewTranslationModal({
         throw new Error('System not initialized - cannot create translations');
       }
 
-      console.log('[CREATE TRANSLATION] Starting transaction...');
+      // Use local tables for prepublished content, synced tables for published content
+      const tableOptions = { localOverride: isLocalSource };
+      console.log(
+        `[CREATE TRANSLATION] Starting transaction... (isLocalSource: ${isLocalSource})`
+      );
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
-          .insert(resolveTable('asset'))
+          .insert(resolveTable('asset', tableOptions))
           .values({
             source_asset_id: assetId,
             source_language_id: translationLanguageId,
@@ -387,10 +393,10 @@ export default function NextGenNewTranslationModal({
         }
 
         await tx
-          .insert(resolveTable('asset_content_link'))
+          .insert(resolveTable('asset_content_link', tableOptions))
           .values(contentValues);
 
-        await tx.insert(resolveTable('quest_asset_link')).values({
+        await tx.insert(resolveTable('quest_asset_link', tableOptions)).values({
           quest_id: currentQuestId,
           asset_id: newAsset.id,
           download_profiles: [currentUser.id]
