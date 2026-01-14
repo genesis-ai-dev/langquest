@@ -10,10 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text as RNPText } from '@/components/ui/text';
-import {
-  ToggleGroup,
-  ToggleGroupItem
-} from '@/components/ui/toggle-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
@@ -990,7 +987,8 @@ export default function NextGenAssetDetailView() {
             type="single"
             value={contentTypeFilter}
             onValueChange={(value) => {
-              if (value) setContentTypeFilter(value as typeof contentTypeFilter);
+              if (value)
+                setContentTypeFilter(value as typeof contentTypeFilter);
             }}
             className="w-full"
           >
@@ -1070,12 +1068,14 @@ export default function NextGenAssetDetailView() {
         >
           <Icon as={PlusIcon} size={24} />
           <Text className="font-bold text-secondary">
-            {t('newTranslation')}
+            {contentTypeFilter === 'transcription'
+              ? t('newTranscription')
+              : t('newTranslation')}
           </Text>
         </Button>
       )}
 
-      {/* New Translation Modal */}
+      {/* New Translation/Transcription Modal */}
       {canTranslate && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
@@ -1087,6 +1087,7 @@ export default function NextGenAssetDetailView() {
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
           isLocalSource={activeAsset.source === 'local'}
+          initialContentType={contentTypeFilter}
         />
       )}
 

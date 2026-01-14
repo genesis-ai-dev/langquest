@@ -5,8 +5,7 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerScrollView,
-  DrawerTitle
+  DrawerScrollView
 } from '@/components/ui/drawer';
 import {
   Form,
@@ -21,6 +20,7 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
@@ -79,6 +79,7 @@ interface NextGenNewTranslationModalProps {
   sourceLanguage?: typeof language.$inferSelect | null;
   translationLanguageId: string; // The language of the new translation asset being created
   isLocalSource?: boolean; // Whether the source asset is local (prepublished) - translations will be stored locally
+  initialContentType?: 'translation' | 'transcription'; // Initial content type from parent toggle
 }
 
 type TranslationType = 'text' | 'audio';
@@ -92,7 +93,8 @@ export default function NextGenNewTranslationModal({
   assetContent,
   sourceLanguage,
   translationLanguageId,
-  isLocalSource = false
+  isLocalSource = false,
+  initialContentType = 'translation'
 }: NextGenNewTranslationModalProps) {
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
@@ -105,6 +107,9 @@ export default function NextGenNewTranslationModal({
   );
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
+  const [contentType, setContentType] = useState<'translation' | 'transcription'>(
+    initialContentType
+  );
 
   // Query project data using hybrid data (supports anonymous users)
   const isPowerSyncReady = React.useMemo(
@@ -297,8 +302,13 @@ export default function NextGenNewTranslationModal({
       setPredictionDetails(null);
       setShowDetailsModal(false);
       setCursorPosition(null);
+      setContentType(initialContentType);
+      // In transcription mode, always use text
+      if (initialContentType === 'transcription') {
+        setTranslationType('text');
+      }
     }
-  }, [visible, form]);
+  }, [visible, form, initialContentType]);
 
   // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
@@ -319,7 +329,11 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
       if (translationType === 'text' && !data.text) {
-        throw new Error(t('enterTranslation'));
+        throw new Error(
+          contentType === 'transcription'
+            ? t('enterTranscription')
+            : t('enterTranslation')
+        );
       }
       if (translationType === 'audio' && !data.audioUri) {
         throw new Error('Please record audio');
@@ -355,7 +369,7 @@ export default function NextGenNewTranslationModal({
       // Use local tables for prepublished content, synced tables for published content
       const tableOptions = { localOverride: isLocalSource };
       console.log(
-        `[CREATE TRANSLATION] Starting transaction... (isLocalSource: ${isLocalSource})`
+        `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
       );
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -363,7 +377,7 @@ export default function NextGenNewTranslationModal({
           .values({
             source_asset_id: assetId,
             source_language_id: translationLanguageId,
-            content_type: 'translation',
+            content_type: contentType,
             project_id: currentProjectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]
@@ -405,16 +419,31 @@ export default function NextGenNewTranslationModal({
     },
     onSuccess: () => {
       form.reset();
-      RNAlert.alert(t('success'), t('translationSubmittedSuccessfully'));
+      RNAlert.alert(
+        t('success'),
+        contentType === 'transcription'
+          ? t('transcriptionSubmittedSuccessfully')
+          : t('translationSubmittedSuccessfully')
+      );
       onSuccess?.();
       onClose();
     },
     onError: (error) => {
-      console.error('[CREATE TRANSLATION] Error creating translation:', error);
-      console.error('[CREATE TRANSLATION] Error stack:', error.stack);
+      console.error(
+        `[CREATE ${contentType.toUpperCase()}] Error creating ${contentType}:`,
+        error
+      );
+      console.error(
+        `[CREATE ${contentType.toUpperCase()}] Error stack:`,
+        error.stack
+      );
       RNAlert.alert(
         t('error'),
-        t('failedCreateTranslation') + '\n\n' + error.message
+        (contentType === 'transcription'
+          ? t('failedCreateTranscription')
+          : t('failedCreateTranslation')) +
+          '\n\n' +
+          error.message
       );
     }
   });
@@ -532,27 +561,49 @@ export default function NextGenNewTranslationModal({
       <DrawerContent className="pb-safe">
         <Form {...form}>
           <DrawerHeader>
-            <DrawerTitle>{t('newTranslation')}</DrawerTitle>
+            <ToggleGroup
+              type="single"
+              value={contentType}
+              onValueChange={(value) => {
+                if (value) {
+                  setContentType(value as typeof contentType);
+                  // In transcription mode, always use text
+                  if (value === 'transcription') {
+                    setTranslationType('text');
+                  }
+                }
+              }}
+              className="w-full"
+            >
+              <ToggleGroupItem value="translation" className="flex-1">
+                <Text>{t('newTranslation')}</Text>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="transcription" className="flex-1">
+                <Text>{t('newTranscription')}</Text>
+              </ToggleGroupItem>
+            </ToggleGroup>
           </DrawerHeader>
 
           <DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
-            {/* Translation Type Tabs */}
+            {/* Translation Type Tabs - Hide audio option for transcriptions */}
             <Tabs
               value={translationType}
               onValueChange={(value) =>
                 setTranslationType(value as TranslationType)
               }
             >
-              <TabsList className="w-full flex-row">
-                <TabsTrigger value="text" className="flex-1 items-center py-2">
-                  <Icon as={TextIcon} size={20} />
-                  <Text className="text-base">{t('text')}</Text>
-                </TabsTrigger>
-                <TabsTrigger value="audio" className="flex-1 items-center py-2">
-                  <Icon as={MicIcon} size={20} />
-                  <Text className="text-base">{t('audio')}</Text>
-                </TabsTrigger>
-              </TabsList>
+              {contentType === 'translation' && (
+                <TabsList className="w-full flex-row">
+                  <TabsTrigger value="text" className="flex-1 items-center py-2">
+                    <Icon as={TextIcon} size={20} />
+                    <Text className="text-base">{t('text')}</Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="audio" className="flex-1 items-center py-2">
+                    <Icon as={MicIcon} size={20} />
+                    <Text className="text-base">{t('audio')}</Text>
+                  </TabsTrigger>
+                </TabsList>
+              )}
 
               {/* Asset Info */}
               <View className="flex-col gap-1">

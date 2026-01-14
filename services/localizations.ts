@@ -478,6 +478,13 @@ export const localizations = {
     tok_pisin: 'Putim translation bilong yu long hia',
     indonesian: 'Masukkan terjemahan Anda di sini'
   },
+  enterTranscription: {
+    english: 'Enter your transcription here',
+    spanish: 'Ingrese su transcripción aquí',
+    brazilian_portuguese: 'Digite sua transcrição aqui',
+    tok_pisin: 'Putim transcription bilong yu long hia',
+    indonesian: 'Masukkan transkripsi Anda di sini'
+  },
   enterValidEmail: {
     english: 'Please enter a valid email',
     spanish: 'Por favor ingrese un correo electrónico válido',
@@ -512,6 +519,13 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao criar tradução',
     tok_pisin: 'I no inap mekim translation',
     indonesian: 'Gagal membuat terjemahan'
+  },
+  failedCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar transcrição',
+    tok_pisin: 'I no inap mekim transcription',
+    indonesian: 'Gagal membuat transkripsi'
   },
   failedLoadProjects: {
     english: 'Failed to load projects',
@@ -612,6 +626,13 @@ export const localizations = {
     brazilian_portuguese: 'Nova Tradução',
     tok_pisin: 'Nupela Translation',
     indonesian: 'Terjemahan Baru'
+  },
+  newTranscription: {
+    english: 'New Transcription',
+    spanish: 'Nueva Transcripción',
+    brazilian_portuguese: 'Nova Transcrição',
+    tok_pisin: 'Nupela Transcription',
+    indonesian: 'Transkripsi Baru'
   },
   newUser: {
     english: 'New user?',
@@ -4258,6 +4279,13 @@ export const localizations = {
     brazilian_portuguese: 'Tradução enviada com sucesso',
     tok_pisin: 'Translation i go gut pinis',
     indonesian: 'Terjemahan berhasil dikirim'
+  },
+  transcriptionSubmittedSuccessfully: {
+    english: 'Transcription submitted successfully',
+    spanish: 'Transcripción enviada correctamente',
+    brazilian_portuguese: 'Transcrição enviada com sucesso',
+    tok_pisin: 'Transcription i go gut pinis',
+    indonesian: 'Transkripsi berhasil dikirim'
   },
   text: {
     english: 'Text',
