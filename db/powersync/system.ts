@@ -675,6 +675,19 @@ export class System {
       useLocalStore.getState().setSystemReady(true);
       console.log('System marked as ready');
 
+      // Run migration cleanup after PowerSync is initialized and internet is available
+      // This handles duplicate languoids created during migration that later get synced
+      try {
+        const { migrationCleanup } = await import('@/db/migrations/cleanup');
+        await migrationCleanup();
+      } catch (error) {
+        // Non-critical - cleanup failure shouldn't block initialization
+        console.warn(
+          '[System] Migration cleanup failed (non-critical):',
+          error
+        );
+      }
+
       console.log('PowerSync initialization complete');
     } catch (error) {
       console.error('PowerSync initialization error:', error);
@@ -1429,12 +1442,8 @@ export class System {
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
 
-      // Register cleanup callback to run after PowerSync sync completes
-      // This handles duplicate languoids created during migration that later get synced
-      if (result.migrationsRun > 0) {
-        const { migrationCleanup } = await import('@/db/migrations/cleanup');
-        await migrationCleanup();
-      }
+      // Note: Cleanup will be called after PowerSync initialization completes
+      // This ensures PowerSync is ready and internet connectivity can be checked
     } catch (error) {
       console.error('[System] Migration failed:', error);
       throw error;
