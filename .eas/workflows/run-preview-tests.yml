@@ -46,6 +46,7 @@ jobs:
     if: ${{ needs.android_get_build.outputs.build_id }}
     type: repack
     environment: preview
+    runs_on: linux-medium
     params:
       build_id: ${{ needs.android_get_build.outputs.build_id }}
 
@@ -55,6 +56,7 @@ jobs:
     if: ${{ !needs.android_get_build.outputs.build_id }}
     type: build
     environment: preview
+    runs_on: linux-medium
     params:
       platform: android
       profile: preview-simulator
@@ -68,8 +70,7 @@ jobs:
     runs_on: linux-medium-nested-virtualization
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
-      device_identifier: 'pixel_6'
-      android_system_image_package: 'system-images;android-31;default;x86_64'
+      device_identifier: 'pixel_3a'
       record_screen: true
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
