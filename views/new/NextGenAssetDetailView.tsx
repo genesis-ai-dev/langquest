@@ -9,6 +9,11 @@ import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Text as RNPText } from '@/components/ui/text';
+import {
+  ToggleGroup,
+  ToggleGroupItem
+} from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
@@ -194,6 +199,9 @@ export default function NextGenAssetDetailView() {
     useTranscriptionLocalization();
   const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const [transcriptionText, setTranscriptionText] = useState('');
+  const [contentTypeFilter, setContentTypeFilter] = useState<
+    'translation' | 'transcription'
+  >('translation');
 
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -973,8 +981,28 @@ export default function NextGenAssetDetailView() {
         </View>
       </Tabs>
 
-      {/* Translations List - Pass project data to avoid re-querying */}
+      {/* Translations/Transcriptions List - Pass project data to avoid re-querying */}
       <View className="flex-1">
+        {/* Content Type Toggle */}
+        <View className="h-px bg-border" />
+        <View className="py-4">
+          <ToggleGroup
+            type="single"
+            value={contentTypeFilter}
+            onValueChange={(value) => {
+              if (value) setContentTypeFilter(value as typeof contentTypeFilter);
+            }}
+            className="w-full"
+          >
+            <ToggleGroupItem value="translation" className="flex-1">
+              <RNPText>{t('translations')}</RNPText>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="transcription" className="flex-1">
+              <RNPText>{t('transcriptions')}</RNPText>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </View>
+
         <NextGenTranslationsList
           assetId={currentAssetId}
           assetName={activeAsset.name}
@@ -990,6 +1018,7 @@ export default function NextGenAssetDetailView() {
           }
           canVote={canTranslate}
           membership={translateMembership}
+          contentTypeFilter={contentTypeFilter}
         />
       </View>
 

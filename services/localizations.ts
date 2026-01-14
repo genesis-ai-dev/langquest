@@ -5922,6 +5922,21 @@ export const localizations = {
     tok_pisin: 'Transcription',
     indonesian: 'Transkripsi'
   },
+  transcriptions: {
+    english: 'Transcriptions',
+    spanish: 'Transcripciones',
+    brazilian_portuguese: 'Transcrições',
+    tok_pisin: 'Ol Transcription',
+    indonesian: 'Transkripsi'
+  },
+  noTranscriptionsYet: {
+    english: 'No transcriptions yet. Be the first to transcribe!',
+    spanish: 'No hay transcripciones aún. ¡Sé el primero en transcribir!',
+    brazilian_portuguese:
+      'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
+    tok_pisin: 'I no gat transcription yet. Yu ken namba wan long transcribe!',
+    indonesian: 'Belum ada transkripsi. Jadilah yang pertama mentranskripsi!'
+  },
   transcriptionDescription: {
     english: 'Enable automatic transcription of audio recordings',
     spanish: 'Habilitar transcripción automática de grabaciones de audio',

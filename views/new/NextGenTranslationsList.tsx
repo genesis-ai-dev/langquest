@@ -38,6 +38,7 @@ interface NextGenTranslationsListProps {
   } | null;
   canVote?: boolean;
   membership?: MembershipRole;
+  contentTypeFilter?: 'translation' | 'transcription';
 }
 
 type SortOption = 'voteCount' | 'dateSubmitted';
@@ -46,7 +47,8 @@ export default function NextGenTranslationsList({
   assetId,
   refreshKey,
   projectData,
-  canVote: canVoteProp
+  canVote: canVoteProp,
+  contentTypeFilter = 'translation'
 }: NextGenTranslationsListProps) {
   const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
@@ -65,7 +67,8 @@ export default function NextGenTranslationsList({
     String(voteRefreshKey),
     useOfflineData,
     sortOption,
-    sortOrder
+    sortOrder,
+    contentTypeFilter
   );
 
   // Count blocked translations
@@ -111,13 +114,10 @@ export default function NextGenTranslationsList({
 
   return (
     <View className="flex-1">
-      <View className="h-px bg-border" />
-
-      {/* Header with toggle and sort options */}
+      {/* Header with sort options */}
       <View className="flex-col gap-3 py-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
-            <Text variant="h4">{t('translations')}</Text>
             {isPrivateProject && !canVote && (
               <Icon as={LockIcon} size={18} className="text-muted-foreground" />
             )}
@@ -243,7 +243,9 @@ export default function NextGenTranslationsList({
                 className="text-muted-foreground/50"
               />
               <Text className="text-center text-lg font-medium text-muted-foreground">
-                {t('noTranslationsYet')}
+                {contentTypeFilter === 'transcription'
+                  ? t('noTranscriptionsYet')
+                  : t('noTranslationsYet')}
               </Text>
             </View>
           )}
