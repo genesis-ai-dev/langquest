@@ -1428,6 +1428,13 @@ export class System {
 
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
+
+      // Register cleanup callback to run after PowerSync sync completes
+      // This handles duplicate languoids created during migration that later get synced
+      if (result.migrationsRun > 0) {
+        const { migrationCleanup } = await import('@/db/migrations/cleanup');
+        await migrationCleanup();
+      }
     } catch (error) {
       console.error('[System] Migration failed:', error);
       throw error;

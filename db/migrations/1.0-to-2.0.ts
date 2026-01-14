@@ -424,7 +424,11 @@ export const migration_1_0_to_2_0: Migration = {
           'creator_id', l.creator_id,
           'created_at', COALESCE(l.created_at, datetime('now')),
           'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+          '_metadata', json_set(
+            COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+            '$.awaiting_cleanup',
+            1
+          )
         )
       FROM language_data l
       INNER JOIN pll_data pll ON pll.language_id = l.id
@@ -479,7 +483,11 @@ export const migration_1_0_to_2_0: Migration = {
           'creator_id', l.creator_id,
           'created_at', COALESCE(l.created_at, datetime('now')),
           'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', json('{"schema_version":"1.0"}')
+          '_metadata', json_set(
+            json('{"schema_version":"1.0"}'),
+            '$.awaiting_cleanup',
+            1
+          )
         )
       FROM language_data l
       INNER JOIN pll_data pll ON pll.language_id = l.id
@@ -544,7 +552,11 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+              '_metadata', json_set(
+                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+                '$.awaiting_cleanup',
+                1
+              )
             )
           FROM language_data l
           INNER JOIN acl_data ON acl_data.source_language_id = l.id
@@ -643,7 +655,11 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+              '_metadata', json_set(
+                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+                '$.awaiting_cleanup',
+                1
+              )
             )
           FROM language_data l
           INNER JOIN acl_data acl ON acl.source_language_id = l.id
@@ -795,7 +811,11 @@ export const migration_1_0_to_2_0: Migration = {
           'creator_id', l.creator_id,
           'created_at', COALESCE(l.created_at, datetime('now')),
           'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+          '_metadata', json_set(
+            COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+            '$.awaiting_cleanup',
+            1
+          )
         )
       FROM pll_data pll
       LEFT JOIN language_data l ON trim(l.id) = trim(pll.language_id)
@@ -904,7 +924,11 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+              '_metadata', json_set(
+                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+                '$.awaiting_cleanup',
+                1
+              )
             )
           FROM acl_data
           LEFT JOIN language_data l ON trim(l.id) = trim(acl_data.source_language_id)
@@ -998,7 +1022,11 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+              '_metadata', json_set(
+                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
+                '$.awaiting_cleanup',
+                1
+              )
             )
           FROM acl_data acl
           LEFT JOIN language_data l ON trim(l.id) = trim(acl.source_language_id)
