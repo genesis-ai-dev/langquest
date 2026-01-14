@@ -1527,6 +1527,103 @@ export default function BibleAssetsView() {
     return labels.sort((a, b) => a.from - b.from);
   }, [listItems]);
 
+  // Calculate nextVerse and limitVerse for automatic progression
+  const { nextVerse, limitVerse } = React.useMemo(() => {
+    // If no verse count, can't calculate
+    if (!verseCount || verseCount === 0) {
+      return { nextVerse: null, limitVerse: null };
+    }
+
+    // Get the current verse range from selectedForRecording
+    const currentVerse = selectedForRecording?.metadata?.verse;
+
+    console.log(
+      `📊 Calculating nextVerse/limitVerse | verseCount: ${verseCount} | currentVerse: ${currentVerse ? `${currentVerse.from}-${currentVerse.to}` : 'none'} | existingLabels: ${existingLabels.map((l) => `${l.from}-${l.to}`).join(', ')}`
+    );
+
+    // If no labels exist yet, start from verse 1
+    if (existingLabels.length === 0) {
+      const result = { nextVerse: 1, limitVerse: verseCount };
+      console.log(
+        `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no labels)`
+      );
+      return result;
+    }
+
+    // If no selection or no verse in selection, find the last gap
+    if (!currentVerse) {
+      // Find the last occupied verse
+      const lastLabel = existingLabels[existingLabels.length - 1];
+      if (!lastLabel) {
+        const result = { nextVerse: 1, limitVerse: verseCount };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no last label)`
+        );
+        return result;
+      }
+
+      // If there's space after the last label
+      if (lastLabel.to < verseCount) {
+        const result = { nextVerse: lastLabel.to + 1, limitVerse: verseCount };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (after last label ${lastLabel.from}-${lastLabel.to})`
+        );
+        return result;
+      }
+
+      // No space available
+      const result = { nextVerse: null, limitVerse: null };
+      console.log(
+        `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no space)`
+      );
+      return result;
+    }
+
+    // Find the next available verse after the current selection
+    const currentTo = currentVerse.to;
+
+    // Find the next label that starts after currentTo
+    const nextLabel = existingLabels.find((label) => label.from > currentTo);
+
+    if (nextLabel) {
+      // There's a next label - check if there's space between current and next
+      if (currentTo + 1 < nextLabel.from) {
+        // There's a gap
+        const result = {
+          nextVerse: currentTo + 1,
+          limitVerse: nextLabel.from - 1
+        };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (gap between ${currentTo} and ${nextLabel.from})`
+        );
+        return result;
+      } else {
+        // No gap - next verse is already occupied
+        const result = { nextVerse: null, limitVerse: null };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no gap, next is ${nextLabel.from})`
+        );
+        return result;
+      }
+    } else {
+      // No next label - check if there's space until the end
+      if (currentTo < verseCount) {
+        const result = { nextVerse: currentTo + 1, limitVerse: verseCount };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (from ${currentTo} to end)`
+        );
+        return result;
+      } else {
+        // Already at the end
+        const result = { nextVerse: null, limitVerse: null };
+        console.log(
+          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (already at end)`
+        );
+        return result;
+      }
+    }
+  }, [selectedForRecording, existingLabels, verseCount]);
+
   // Check if any selected assets already have labels
   const selectedAssetsHaveLabels = React.useMemo(() => {
     for (const assetId of selectedAssetIds) {
@@ -2898,6 +2995,9 @@ export default function BibleAssetsView() {
         label={selectedForRecording?.verseName}
         initialOrderIndex={recordingOrderIndex}
         verse={selectedForRecording?.metadata?.verse}
+        bookChapterLabel={bookChapterLabel}
+        nextVerse={nextVerse}
+        limitVerse={limitVerse}
       />
     );
   }
