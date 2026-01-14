@@ -5,19 +5,22 @@
  * Automatically runs migrations and provides progress feedback.
  *
  * Flow:
- * 1. Displayed when AuthContext detects MigrationNeededError
+ * 1. Displayed when AuthContext detects MigrationNeededError (post-auth)
+ *    OR when PreAuthMigrationCheck detects migrations needed (pre-auth)
  * 2. Automatically starts migration on mount
  * 3. Shows progress bar and current step
- * 4. On success: triggers app reload to continue with new schema
+ * 4. On success: triggers app reload (post-auth) or calls onComplete (pre-auth)
  * 5. On error: shows error message with retry option
  */
 
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
+import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
 interface MigrationProgress {
@@ -26,7 +29,16 @@ interface MigrationProgress {
   step: string;
 }
 
-export function MigrationScreen() {
+interface MigrationScreenProps {
+  /**
+   * Callback when migration completes.
+   * If provided, migration proceeds without restart (pre-auth mode).
+   * If not provided, app restarts/reinitializes after migration (post-auth fallback).
+   */
+  onComplete?: () => void;
+}
+
+export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   const [progress, setProgress] = useState<MigrationProgress>({
     current: 0,
     total: 1,
@@ -35,7 +47,8 @@ export function MigrationScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
-  async function runMigration() {
+  // Memoize runMigration with proper dependencies
+  const runMigration = useCallback(async () => {
     try {
       console.log('[MigrationScreen] Starting migration...');
       setError(null);
@@ -45,7 +58,7 @@ export function MigrationScreen() {
         step: 'Preparing database migration...'
       });
 
-      // Run migrations via system
+      // Run migrations via system (works for both pre-auth and post-auth)
       await system.runMigrations((current, total, step) => {
         console.log(
           `[MigrationScreen] Progress: ${current}/${total} - ${step}`
@@ -58,21 +71,32 @@ export function MigrationScreen() {
       setProgress({
         current: 1,
         total: 1,
-        step: 'Migration complete! Restarting app...'
+        step: 'Migration complete!'
       });
 
       // Give user a moment to see success message
       setTimeout(() => {
-        // Trigger app reload to reinitialize with new schema
-        console.log('[MigrationScreen] Reloading app...');
-
-        // On web, reload the page
-        if (typeof window !== 'undefined' && window.location) {
-          window.location.reload();
+        if (onComplete) {
+          // Pre-auth mode: no restart needed since PowerSync hasn't been initialized yet
+          // Just proceed to AuthProvider which will initialize normally
+          console.log(
+            '[MigrationScreen] Migration complete, proceeding to auth...'
+          );
+          onComplete();
         } else {
-          // On native, we need to reset the system state and reinitialize
-          // This will cause useAuth to re-run system.init()
-          system.resetForMigration();
+          // Post-auth fallback: PowerSync was already initialized with old schema
+          // Need to reset and reinitialize with new schema
+          console.log(
+            '[MigrationScreen] Reinitializing system with new schema...'
+          );
+
+          // On web, reload the page to ensure clean state
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          } else {
+            // On native, reset system state so useAuth will re-run system.init()
+            system.resetForMigration();
+          }
         }
       }, 1500);
     } catch (err) {
@@ -85,13 +109,13 @@ export function MigrationScreen() {
         step: 'Migration failed'
       });
     }
-  }
+  }, [onComplete]);
 
   // Memoize wrapper function to pass as reference to scheduleOnRN
   // Per workspace rules: must pass function references, never inline arrow functions
   const startMigration = useCallback(() => {
     void runMigration();
-  }, []); // Empty deps: runMigration uses stable state setters
+  }, [runMigration]);
 
   useEffect(() => {
     // Use scheduleOnRN instead of queueMicrotask per workspace rules
@@ -118,7 +142,7 @@ export function MigrationScreen() {
             {error ? (
               <Text className="text-4xl">⚠️</Text>
             ) : isComplete ? (
-              <Text className="text-4xl">✓</Text>
+              <Icon as={CheckIcon} size={40} />
             ) : (
               <ActivityIndicator size="large" />
             )}
@@ -233,7 +257,7 @@ export function MigrationScreenMinimal() {
         setStatus('Migration complete! Restarting...');
 
         setTimeout(() => {
-          if (typeof window !== 'undefined' && window.location) {
+          if (typeof window !== 'undefined') {
             window.location.reload();
           } else {
             system.resetForMigration();
