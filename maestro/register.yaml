@@ -13,7 +13,7 @@ jsEngine: graaljs
 - tapOn: Accept
 - assertVisible: Every language. Every culture.
 - tapOn:
-    point: 88%,17%
+    id: onboarding-close-button
 - tapOn: Create Account
 - tapOn: Username
 - inputText: ${output.username}-testing
