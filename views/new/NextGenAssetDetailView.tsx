@@ -448,7 +448,63 @@ export default function NextGenAssetDetailView() {
         audioValues.map(async (audioValue: string): Promise<string | null> => {
           // Handle full file URIs
           if (audioValue.startsWith('file://')) {
-            return audioValue;
+            if (await fileExists(audioValue)) {
+              return audioValue;
+            }
+            console.warn(`File URI does not exist: ${audioValue}`);
+            return null;
+          }
+
+          // Handle local URIs (from saveAudioLocally for unpublished content)
+          if (audioValue.startsWith('local/')) {
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
+            // Check if file exists at constructed path
+            if (await fileExists(constructedUri)) {
+              return constructedUri;
+            }
+
+            // File doesn't exist at expected path - try to find it in attachment queue
+            console.log(
+              `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
+            );
+
+            if (system.permAttachmentQueue) {
+              // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
+              const filename = audioValue.replace(/^local\//, '');
+              // Extract UUID part (without extension) for more flexible matching
+              const uuidPart = filename.split('.')[0];
+
+              // Search attachment queue by filename or UUID
+              const attachment = await system.powersync.getOptional<{
+                id: string;
+                filename: string | null;
+                local_uri: string | null;
+              }>(
+                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
+                [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
+              );
+
+              if (attachment?.local_uri) {
+                const foundUri = system.permAttachmentQueue.getLocalUri(
+                  attachment.local_uri
+                );
+                // Verify the found file actually exists
+                if (await fileExists(foundUri)) {
+                  console.log(
+                    `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
+                  );
+                  return foundUri;
+                }
+                console.warn(
+                  `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
+                );
+              }
+            }
+
+            // Local file not found
+            console.warn(`Local audio file not found: ${audioValue}`);
+            return null;
           }
 
           // For anonymous users, get cloud URLs from Supabase storage
