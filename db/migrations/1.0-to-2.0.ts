@@ -432,8 +432,7 @@ export const migration_1_0_to_2_0: Migration = {
         )
       FROM language_data l
       INNER JOIN pll_data pll ON pll.language_id = l.id
-      WHERE pll.languoid_id IS NULL
-        AND l.active = 1
+      WHERE l.active = 1
         ${notExistsSyncedLanguoid('l.id')}
         ${notExistsLocalLanguoid('l.id')}
     `
@@ -491,8 +490,7 @@ export const migration_1_0_to_2_0: Migration = {
         )
       FROM language_data l
       INNER JOIN pll_data pll ON pll.language_id = l.id
-      WHERE pll.languoid_id IS NULL
-        AND l.active = 1
+      WHERE l.active = 1
         ${notExistsSyncedLanguoid('l.id')}
         ${notExistsLocalLanguoid('l.id')}
     `
@@ -819,8 +817,7 @@ export const migration_1_0_to_2_0: Migration = {
         )
       FROM pll_data pll
       LEFT JOIN language_data l ON trim(l.id) = trim(pll.language_id)
-      WHERE pll.languoid_id IS NULL
-        AND pll.language_id IS NOT NULL
+      WHERE pll.language_id IS NOT NULL
         ${notExistsSyncedLanguoid('pll.language_id')}
         ${notExistsLocalLanguoid('pll.language_id')}
     `
