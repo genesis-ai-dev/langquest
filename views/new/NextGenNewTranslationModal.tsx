@@ -887,7 +887,8 @@ export default function NextGenNewTranslationModal({
                             : 'No examples available. Configure API key to enable translation prediction.'}
                         </Text>
                       </View>
-                    ) : enableTranscription && contentType === 'transcription' ? (
+                    ) : enableTranscription &&
+                      contentType === 'transcription' ? (
                       // AI Transcription button for transcription mode (experimental)
                       <View className="flex-row justify-end">
                         <Pressable
