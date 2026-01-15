@@ -137,7 +137,6 @@ export async function getMinimumSchemaVersion(
     // Always query raw PowerSync tables directly, never views
     const tables = [
       'profile_local',
-      'language_local',
       'project_local',
       'quest_local',
       'asset_local',

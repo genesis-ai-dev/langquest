@@ -10,7 +10,6 @@ interface VerifiedIds {
   questTagLinkIds: string[];
   assetTagLinkIds: string[];
   tagIds: string[];
-  languageIds: string[];
   languoidIds: string[];
   languoidAliasIds: string[];
   languoidSourceIds: string[];
@@ -149,12 +148,6 @@ export async function bulkUndownloadQuest(
 
     // Remove from each table in reverse order (opposite of download)
     // This ensures dependencies are removed in the right order
-
-    const languagesUpdated = await removeFromTable(
-      'language',
-      verifiedIds.languageIds
-    );
-    results.push({ tableName: 'language', recordsUpdated: languagesUpdated });
 
     // Remove from languoid-related tables
     const regionPropertiesUpdated = await removeFromTable(

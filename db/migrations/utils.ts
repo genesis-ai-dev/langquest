@@ -250,7 +250,6 @@ export async function updateMetadataVersion(
   // We must update the JSON structure directly so getMinimumSchemaVersion can read it
   const tables = [
     'profile_local',
-    'language_local',
     'project_local',
     'quest_local',
     'asset_local',
@@ -680,7 +679,6 @@ export async function resetMetadataVersionForTesting(
 
   const tables = [
     'profile_local',
-    'language_local',
     'project_local',
     'quest_local',
     'asset_local',

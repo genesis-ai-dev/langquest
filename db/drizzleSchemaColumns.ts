@@ -248,8 +248,7 @@ export function createProfileTable<
       username: text(),
       password: text(),
       avatar: text(),
-      ui_language_id: text(),
-      ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
+      ui_languoid_id: text(), // Reference to languoid table
       terms_accepted: int({ mode: 'boolean' }),
       terms_accepted_at: text(),
       ...extraColumns
@@ -260,37 +259,6 @@ export function createProfileTable<
   return table;
 }
 
-export function createLanguageTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'language', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'language',
-    {
-      ...getTableColumns(source),
-      // Enforce the existence of either native_name or english_name in the app
-      native_name: text(), // Enforce uniqueness across chains in the app
-      english_name: text(), // Enforce uniqueness across chains in the app
-      iso639_3: text(), // Enforce uniqueness across chains in the app
-      locale: text(),
-      ui_ready: int({ mode: 'boolean' }).notNull(),
-      download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
-
-  return table;
-}
 
 export function createTagTable<
   T extends TableSource,

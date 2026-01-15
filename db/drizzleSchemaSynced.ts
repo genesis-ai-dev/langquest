@@ -8,7 +8,6 @@ import {
   createBlockedContentTable,
   createBlockedUsersTable,
   createInviteTable,
-  createLanguageTable,
   createLanguoidAliasTable,
   createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
@@ -45,12 +44,6 @@ import {
 export const profile_synced = createProfileTable('synced');
 
 export const userRelations = relations(profile_synced, ({ many, one }) => ({
-  created_languages: many(language_synced, { relationName: 'creator' }),
-  ui_language: one(language_synced, {
-    fields: [profile_synced.ui_language_id],
-    references: [language_synced.id],
-    relationName: 'uiLanguage'
-  }),
   ui_languoid: one(languoid_synced, {
     fields: [profile_synced.ui_languoid_id],
     references: [languoid_synced.id],
@@ -60,28 +53,6 @@ export const userRelations = relations(profile_synced, ({ many, one }) => ({
   received_invites: many(invite_synced, { relationName: 'invite_receiver' }),
   sent_requests: many(request_synced, { relationName: 'request_sender' })
 }));
-
-export const language_synced = createLanguageTable('synced', {
-  profile: profile_synced
-});
-
-export const language_syncedRelations = relations(
-  language_synced,
-  ({ one, many }) => ({
-    creator: one(profile_synced, {
-      fields: [language_synced.creator_id],
-      references: [profile_synced.id],
-      relationName: 'creator'
-    }),
-    uiUsers: many(profile_synced, { relationName: 'uiLanguage' }),
-    sourceLanguageProjects: many(project_synced, {
-      relationName: 'sourceLanguage'
-    }),
-    targetLanguageProjects: many(project_synced, {
-      relationName: 'targetLanguage'
-    })
-  })
-);
 
 // Languoid tables
 export const languoid_synced = createLanguoidTable('synced', {

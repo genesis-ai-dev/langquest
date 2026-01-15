@@ -10,7 +10,6 @@ interface DiscoveredIds {
   questTagLinkIds: string[];
   assetTagLinkIds: string[];
   tagIds: string[];
-  languageIds: string[];
   languoidIds: string[];
   languoidAliasIds: string[];
   languoidSourceIds: string[];
@@ -208,12 +207,6 @@ export async function bulkDownloadQuest(
 
     const tagsUpdated = await updateTable('tag', discoveredIds.tagIds);
     results.push({ tableName: 'tag', recordsUpdated: tagsUpdated });
-
-    const languagesUpdated = await updateTable(
-      'language',
-      discoveredIds.languageIds
-    );
-    results.push({ tableName: 'language', recordsUpdated: languagesUpdated });
 
     // Update languoid-related tables
     const languoidsUpdated = await updateTable(

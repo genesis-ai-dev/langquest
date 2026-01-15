@@ -11,7 +11,6 @@ import {
   createBlockedContentTable,
   createBlockedUsersTable,
   createInviteTable,
-  createLanguageTable,
   createLanguoidAliasTable,
   createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
@@ -50,12 +49,6 @@ export const profile_local = createProfileTable('local');
 export const user_localRelations = relations(
   profile_local,
   ({ many, one }) => ({
-    created_languages: many(language_local, { relationName: 'creator' }),
-    ui_language: one(language_local, {
-      fields: [profile_local.ui_language_id],
-      references: [language_local.id],
-      relationName: 'uiLanguage'
-    }),
     ui_languoid: one(languoid_local, {
       fields: [profile_local.ui_languoid_id],
       references: [languoid_local.id],
@@ -64,28 +57,6 @@ export const user_localRelations = relations(
     sent_invites: many(invite_local, { relationName: 'invite_sender' }),
     received_invites: many(invite_local, { relationName: 'invite_receiver' }),
     sent_requests: many(request_local, { relationName: 'request_sender' })
-  })
-);
-
-export const language_local = createLanguageTable('local', {
-  profile: profile_local
-});
-
-export const language_localRelations = relations(
-  language_local,
-  ({ one, many }) => ({
-    creator: one(profile_local, {
-      fields: [language_local.creator_id],
-      references: [profile_local.id],
-      relationName: 'creator'
-    }),
-    uiUsers: many(profile_local, { relationName: 'uiLanguage' }),
-    sourceLanguageProjects: many(project_local, {
-      relationName: 'sourceLanguage'
-    }),
-    targetLanguageProjects: many(project_local, {
-      relationName: 'targetLanguage'
-    })
   })
 );
 

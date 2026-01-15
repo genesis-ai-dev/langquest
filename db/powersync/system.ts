@@ -883,19 +883,6 @@ export class System {
     const time = performance.now();
     // Create a profile first
     const PROFILE_ID = 'c111d43b-5983-4342-9d9e-5fc8d09d77b9';
-    const ENGLISH_LANGUAGE_ID = uuid.v4();
-
-    // Insert language
-    await this.db.insert(drizzleSchemaLocal.language_local).values({
-      id: ENGLISH_LANGUAGE_ID,
-      creator_id: PROFILE_ID,
-      native_name: 'Generated English',
-      english_name: 'Generated English',
-      iso639_3: 'gen-eng',
-      locale: 'gen-en',
-      ui_ready: false,
-      download_profiles: [PROFILE_ID]
-    });
 
     async function createProject(
       i: number,

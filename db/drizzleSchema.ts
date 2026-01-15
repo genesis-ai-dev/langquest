@@ -9,7 +9,6 @@ import {
   createBlockedContentTable,
   createBlockedUsersTable,
   createInviteTable,
-  createLanguageTable,
   createLanguoidAliasTable,
   createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
@@ -46,12 +45,6 @@ export { APP_SCHEMA_VERSION };
 export const profile = createProfileTable('merged');
 
 export const userRelations = relations(profile, ({ many, one }) => ({
-  created_languages: many(language, { relationName: 'creator' }),
-  ui_language: one(language, {
-    fields: [profile.ui_language_id],
-    references: [language.id],
-    relationName: 'uiLanguage'
-  }),
   ui_languoid: one(languoid, {
     fields: [profile.ui_languoid_id],
     references: [languoid.id],
@@ -60,19 +53,6 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   sent_invites: many(invite, { relationName: 'invite_sender' }),
   received_invites: many(invite, { relationName: 'invite_receiver' }),
   sent_requests: many(request, { relationName: 'request_sender' })
-}));
-
-export const language = createLanguageTable('merged', { profile });
-
-export const languageRelations = relations(language, ({ one, many }) => ({
-  creator: one(profile, {
-    fields: [language.creator_id],
-    references: [profile.id],
-    relationName: 'creator'
-  }),
-  uiUsers: many(profile, { relationName: 'uiLanguage' }),
-  sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
-  targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
 // Languoid tables

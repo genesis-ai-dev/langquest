@@ -22,7 +22,6 @@ export interface VerifiedIds {
   questTagLinkIds: string[];
   assetTagLinkIds: string[];
   tagIds: string[];
-  languageIds: string[];
   languoidIds: string[];
   languoidAliasIds: string[];
   languoidSourceIds: string[];
@@ -57,7 +56,7 @@ export interface VerificationState {
       typeof useSharedValue<CategoryVerificationStatus>
     >;
     tags: ReturnType<typeof useSharedValue<CategoryVerificationStatus>>;
-    languages: ReturnType<typeof useSharedValue<CategoryVerificationStatus>>;
+    languoids: ReturnType<typeof useSharedValue<CategoryVerificationStatus>>;
     attachments: ReturnType<typeof useSharedValue<CategoryVerificationStatus>>;
   };
   totalRecordsShared: ReturnType<typeof useSharedValue<number>>;
@@ -100,7 +99,6 @@ export function useQuestOffloadVerification(
     questTagLinkIds: [],
     assetTagLinkIds: [],
     tagIds: [],
-    languageIds: [],
     languoidIds: [],
     languoidAliasIds: [],
     languoidSourceIds: [],
@@ -134,7 +132,7 @@ export function useQuestOffloadVerification(
     useSharedValue<CategoryVerificationStatus>(initialStatus);
   const tagsProgress =
     useSharedValue<CategoryVerificationStatus>(initialStatus);
-  const languagesProgress =
+  const languoidsProgress =
     useSharedValue<CategoryVerificationStatus>(initialStatus);
   const attachmentsProgress =
     useSharedValue<CategoryVerificationStatus>(initialStatus);
@@ -152,7 +150,7 @@ export function useQuestOffloadVerification(
       questTagLinksProgress.value.verified +
       assetTagLinksProgress.value.verified +
       tagsProgress.value.verified +
-      languagesProgress.value.verified +
+      languoidsProgress.value.verified +
       attachmentsProgress.value.verified;
   }, [
     questProgress,
@@ -164,7 +162,7 @@ export function useQuestOffloadVerification(
     questTagLinksProgress,
     assetTagLinksProgress,
     tagsProgress,
-    languagesProgress,
+    languoidsProgress,
     attachmentsProgress,
     totalRecordsShared
   ]);
@@ -190,7 +188,7 @@ export function useQuestOffloadVerification(
     questTagLinksProgress.value = { ...initialStatus, isVerifying: true };
     assetTagLinksProgress.value = { ...initialStatus, isVerifying: true };
     tagsProgress.value = { ...initialStatus, isVerifying: true };
-    languagesProgress.value = { ...initialStatus, isVerifying: true };
+    languoidsProgress.value = { ...initialStatus, isVerifying: true };
     attachmentsProgress.value = { ...initialStatus, isVerifying: true };
     totalRecordsShared.value = 0;
 
@@ -207,7 +205,6 @@ export function useQuestOffloadVerification(
       questTagLinkIds: [],
       assetTagLinkIds: [],
       tagIds: [],
-      languageIds: [],
       // Languoid IDs are intentionally left empty during offload verification
       // Languoids are shared resources and shouldn't be undownloaded with individual quests
       languoidIds: [],
@@ -748,8 +745,8 @@ export function useQuestOffloadVerification(
           return;
         }
 
-        // Collect language IDs
-        const languageIds = new Set<string>();
+        // Collect languoid IDs
+        const languoidIds = new Set<string>();
         if (questResult?.project_id) {
           try {
             // Get languoids from project_language_link
@@ -762,7 +759,7 @@ export function useQuestOffloadVerification(
 
             if (!error && projectLanguageLinks) {
               projectLanguageLinks.forEach((link) => {
-                if (link.languoid_id) languageIds.add(link.languoid_id);
+                if (link.languoid_id) languoidIds.add(link.languoid_id);
               });
             }
           } catch (error) {
@@ -774,13 +771,13 @@ export function useQuestOffloadVerification(
         }
 
         assetContentLinksResult?.forEach((link) => {
-          if (link.languoid_id) languageIds.add(link.languoid_id);
+          if (link.languoid_id) languoidIds.add(link.languoid_id);
         });
 
-        ids.languageIds = Array.from(languageIds);
-        languagesProgress.value = {
-          count: ids.languageIds.length,
-          verified: ids.languageIds.length,
+        ids.languoidIds = Array.from(languoidIds);
+        languoidsProgress.value = {
+          count: ids.languoidIds.length,
+          verified: ids.languoidIds.length,
           isVerifying: false,
           hasError: false
         };
@@ -1068,7 +1065,7 @@ export function useQuestOffloadVerification(
           isVerifying: false,
           hasError: false
         };
-        languagesProgress.value = {
+        languoidsProgress.value = {
           count: 0,
           verified: 0,
           isVerifying: false,
@@ -1106,7 +1103,7 @@ export function useQuestOffloadVerification(
     questTagLinksProgress,
     assetTagLinksProgress,
     tagsProgress,
-    languagesProgress,
+    languoidsProgress,
     attachmentsProgress,
     totalRecordsShared,
     updateTotal
@@ -1144,7 +1141,7 @@ export function useQuestOffloadVerification(
       questTagLinks: questTagLinksProgress,
       assetTagLinks: assetTagLinksProgress,
       tags: tagsProgress,
-      languages: languagesProgress,
+      languoids: languoidsProgress,
       attachments: attachmentsProgress
     },
     totalRecordsShared,
