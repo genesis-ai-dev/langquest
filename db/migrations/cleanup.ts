@@ -48,6 +48,28 @@ async function getLanguoidTablesAndRecords() {
 }
 
 /**
+ * Remove awaiting_cleanup flag from a languoid's metadata
+ * Works with either a transaction or regular database instance
+ */
+async function removeAwaitingCleanupFlag(
+  languoidLocal: ReturnType<typeof resolveTable<'languoid'>>,
+  localId: string,
+  localLanguoid: { _metadata?: { awaiting_cleanup?: boolean } | null } | undefined,
+  dbOrTx:
+    | typeof system.db
+    | Parameters<Parameters<typeof system.db.transaction>[0]>[0]
+): Promise<void> {
+  if (localLanguoid?._metadata && 'awaiting_cleanup' in localLanguoid._metadata) {
+    const { awaiting_cleanup: _, ...metadataWithoutFlag } =
+      localLanguoid._metadata;
+    await dbOrTx
+      .update(languoidLocal)
+      .set({ _metadata: metadataWithoutFlag })
+      .where(eq(languoidLocal.id, localId));
+  }
+}
+
+/**
  * Find and remove duplicate languoid records
  * Relinks all references from local languoid to Supabase languoid, then deletes local duplicate
  * Matches by ID - queries Supabase directly to check for languoids that exist remotely
@@ -180,6 +202,7 @@ export async function cleanupDuplicateLanguoids(): Promise<{
 
   // Build duplicates list from languoids that exist remotely
   const duplicates: DuplicateLanguoid[] = [];
+  const nonDuplicateIds: string[] = [];
   awaitingCleanupLanguoids.forEach((localLanguoid) => {
     if (remoteIds.has(localLanguoid.id)) {
       duplicates.push({
@@ -187,8 +210,37 @@ export async function cleanupDuplicateLanguoids(): Promise<{
         name: localLanguoid.name,
         source: 'local'
       });
+    } else {
+      // Languoid doesn't exist in Supabase - still need to remove awaiting_cleanup flag
+      nonDuplicateIds.push(localLanguoid.id);
     }
   });
+
+  // Remove awaiting_cleanup flag from languoids that don't exist in Supabase
+  if (nonDuplicateIds.length > 0) {
+    console.log(
+      `ℹ️ [LanguoidCleanup] Removing awaiting_cleanup flag from ${nonDuplicateIds.length} languoid(s) not found in Supabase`
+    );
+    try {
+      for (const localId of nonDuplicateIds) {
+        const localLanguoid = awaitingCleanupLanguoids.find(
+          (l) => l.id === localId
+        );
+        await removeAwaitingCleanupFlag(
+          languoidLocal,
+          localId,
+          localLanguoid,
+          system.db
+        );
+        console.log(`  ✓ Removed awaiting_cleanup flag from: ${localId}`);
+      }
+    } catch (error) {
+      console.warn(
+        `⚠️ [LanguoidCleanup] Failed to remove awaiting_cleanup flag from non-duplicate languoids:`,
+        error
+      );
+    }
+  }
 
   if (duplicates.length === 0) {
     console.log('✅ [LanguoidCleanup] No duplicate languoids found');
@@ -219,14 +271,12 @@ export async function cleanupDuplicateLanguoids(): Promise<{
         const localLanguoid = awaitingCleanupLanguoids.find(
           (l) => l.id === localId
         );
-        if (localLanguoid?._metadata?.awaiting_cleanup) {
-          const { awaiting_cleanup: _, ...metadataWithoutFlag } =
-            localLanguoid._metadata;
-          await tx
-            .update(languoidLocal)
-            .set({ _metadata: metadataWithoutFlag })
-            .where(eq(languoidLocal.id, localId));
-        }
+        await removeAwaitingCleanupFlag(
+          languoidLocal,
+          localId,
+          localLanguoid,
+          tx
+        );
 
         // 1. Update project_language_link_local references
         const projectLanguageLinkLocal = resolveTable('project_language_link', {
