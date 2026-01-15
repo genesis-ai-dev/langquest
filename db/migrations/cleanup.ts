@@ -20,6 +20,8 @@ import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { eq, sql } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
+import type { OpMetadata } from '@/db/powersync/opMetadata';
+import { getDefaultOpMetadata } from '@/db/powersync/opMetadata';
 import { getRawTableName } from './utils';
 
 interface DuplicateLanguoid {
@@ -54,17 +56,28 @@ async function getLanguoidTablesAndRecords() {
 async function removeAwaitingCleanupFlag(
   languoidLocal: ReturnType<typeof resolveTable<'languoid'>>,
   localId: string,
-  localLanguoid: { _metadata?: { awaiting_cleanup?: boolean } | null } | undefined,
+  localLanguoid:
+    | { _metadata?: { awaiting_cleanup?: boolean } | null }
+    | undefined,
   dbOrTx:
     | typeof system.db
     | Parameters<Parameters<typeof system.db.transaction>[0]>[0]
 ): Promise<void> {
-  if (localLanguoid?._metadata && 'awaiting_cleanup' in localLanguoid._metadata) {
+  if (
+    localLanguoid?._metadata &&
+    'awaiting_cleanup' in localLanguoid._metadata
+  ) {
     const { awaiting_cleanup: _, ...metadataWithoutFlag } =
       localLanguoid._metadata;
+    // Ensure schema_version is preserved, fallback to default if not present
+    const updatedMetadata: OpMetadata =
+      'schema_version' in metadataWithoutFlag &&
+      typeof metadataWithoutFlag.schema_version === 'string'
+        ? (metadataWithoutFlag as OpMetadata)
+        : getDefaultOpMetadata();
     await dbOrTx
       .update(languoidLocal)
-      .set({ _metadata: metadataWithoutFlag })
+      .set({ _metadata: updatedMetadata })
       .where(eq(languoidLocal.id, localId));
   }
 }

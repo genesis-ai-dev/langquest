@@ -372,7 +372,6 @@ function findMigrationPath(
   return path;
 }
 
-
 /**
  * Run all necessary migrations from current version to target version
  *
