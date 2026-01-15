@@ -114,6 +114,9 @@ export default function NextGenNewTranslationModal({
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
   );
+  const enableTranscription = useLocalStore(
+    (state) => state.enableTranscription
+  );
   const [translationType, setTranslationType] =
     useState<TranslationType>('text');
   const [contentType, setContentType] = useState<
@@ -884,8 +887,8 @@ export default function NextGenNewTranslationModal({
                             : 'No examples available. Configure API key to enable translation prediction.'}
                         </Text>
                       </View>
-                    ) : contentType === 'transcription' ? (
-                      // AI Transcription button for transcription mode
+                    ) : enableTranscription && contentType === 'transcription' ? (
+                      // AI Transcription button for transcription mode (experimental)
                       <View className="flex-row justify-end">
                         <Pressable
                           onPress={() => {
