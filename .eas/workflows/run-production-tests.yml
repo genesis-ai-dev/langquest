@@ -70,7 +70,8 @@ jobs:
     runs_on: linux-medium-nested-virtualization
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
-      device_identifier: 'pixel_6'
+      record_screen: true
+      android_system_image_package: 'system-images;android-31;default;x86_64'
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
   # ios_get_build:
