@@ -547,7 +547,9 @@ export default function NextGenAssetDetailView() {
           // Handle attachment IDs (look up in attachment queue) for authenticated users
           const attachmentState = attachmentStates.get(audioValue);
           if (attachmentState?.local_uri && attachmentState.filename) {
-            return await getLocalAttachmentUriWithOPFS(attachmentState.filename);
+            return await getLocalAttachmentUriWithOPFS(
+              attachmentState.filename
+            );
           }
 
           // Fallback: try to get cloud URL if local not available
@@ -1143,7 +1145,6 @@ export default function NextGenAssetDetailView() {
           }}
         />
       )}
-
     </View>
   );
 }

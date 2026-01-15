@@ -301,7 +301,10 @@ export default function NextGenNewTranslationModal({
 
     try {
       // Step 1: Get phonetic transcription from ASR
-      const result = await transcribeAudio({ uri: audioUri, mimeType: 'audio/wav' });
+      const result = await transcribeAudio({
+        uri: audioUri,
+        mimeType: 'audio/wav'
+      });
       if (!result.text) {
         RNAlert.alert(t('error'), 'Transcription returned no text');
         return;
