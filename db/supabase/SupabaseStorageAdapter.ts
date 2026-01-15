@@ -35,6 +35,22 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
     const { mediaType = 'text/plain' } = options ?? {};
 
+    // Check if file already exists in remote storage to avoid RLS issues with upsert
+    // When a file exists but is owned by another user, upsert fails on the UPDATE portion
+    const { data: existingFiles, error: listError } =
+      await this.options.client.storage
+        .from(AppConfig.supabaseBucket)
+        .list('', { search: filename, limit: 1 });
+
+    if (
+      !listError &&
+      existingFiles &&
+      existingFiles.some((f) => f.name === filename)
+    ) {
+      console.log('[STORAGE] File already exists, skipping upload:', filename);
+      return;
+    }
+
     // Use upsert: true to overwrite existing files and avoid "resource already exists" errors
     const res = await this.options.client.storage
       .from(AppConfig.supabaseBucket)
