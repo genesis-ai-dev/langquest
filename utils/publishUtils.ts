@@ -296,10 +296,19 @@ export async function publishQuest(questId: string, projectId: string) {
       await tx.run(sql.raw(nestedQuestQuery));
 
       // Step 4: Insert assets and related records
+      // CRITICAL: Insert SOURCE assets FIRST (no source_asset_id), then CHILD assets (with source_asset_id)
+      // This ensures foreign key constraints are satisfied (children reference parents)
       const assetColumns = getTableColumns(asset_synced);
-      const assetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
-      console.log('assetQuery', assetQuery);
-      await tx.run(sql.raw(assetQuery));
+
+      // Step 4a: Insert SOURCE assets first (assets without source_asset_id)
+      const sourceAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local' AND source_asset_id IS NULL`;
+      console.log('sourceAssetQuery', sourceAssetQuery);
+      await tx.run(sql.raw(sourceAssetQuery));
+
+      // Step 4b: Insert CHILD assets second (translations/transcriptions with source_asset_id)
+      const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local' AND source_asset_id IS NOT NULL`;
+      console.log('childAssetQuery', childAssetQuery);
+      await tx.run(sql.raw(childAssetQuery));
 
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
       const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) SELECT ${questAssetLinkColumns} FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;

@@ -478,6 +478,20 @@ export const localizations = {
     tok_pisin: 'Putim translation bilong yu long hia',
     indonesian: 'Masukkan terjemahan Anda di sini'
   },
+  enterTranscription: {
+    english: 'Enter your transcription here',
+    spanish: 'Ingrese su transcripción aquí',
+    brazilian_portuguese: 'Digite sua transcrição aqui',
+    tok_pisin: 'Putim transcription bilong yu long hia',
+    indonesian: 'Masukkan transkripsi Anda di sini'
+  },
+  enterYourTranscriptionIn: {
+    english: 'Enter your transcription in {language}',
+    spanish: 'Ingrese su transcripción en {language}',
+    brazilian_portuguese: 'Digite sua transcrição em {language}',
+    tok_pisin: 'Putim transcription bilong yu long {language}',
+    indonesian: 'Masukkan transkripsi Anda dalam {language}'
+  },
   enterValidEmail: {
     english: 'Please enter a valid email',
     spanish: 'Por favor ingrese un correo electrónico válido',
@@ -512,6 +526,13 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao criar tradução',
     tok_pisin: 'I no inap mekim translation',
     indonesian: 'Gagal membuat terjemahan'
+  },
+  failedCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar transcrição',
+    tok_pisin: 'I no inap mekim transcription',
+    indonesian: 'Gagal membuat transkripsi'
   },
   failedLoadProjects: {
     english: 'Failed to load projects',
@@ -612,6 +633,13 @@ export const localizations = {
     brazilian_portuguese: 'Nova Tradução',
     tok_pisin: 'Nupela Translation',
     indonesian: 'Terjemahan Baru'
+  },
+  newTranscription: {
+    english: 'New Transcription',
+    spanish: 'Nueva Transcripción',
+    brazilian_portuguese: 'Nova Transcrição',
+    tok_pisin: 'Nupela Transcription',
+    indonesian: 'Transkripsi Baru'
   },
   newUser: {
     english: 'New user?',
@@ -4259,6 +4287,13 @@ export const localizations = {
     tok_pisin: 'Translation i go gut pinis',
     indonesian: 'Terjemahan berhasil dikirim'
   },
+  transcriptionSubmittedSuccessfully: {
+    english: 'Transcription submitted successfully',
+    spanish: 'Transcripción enviada correctamente',
+    brazilian_portuguese: 'Transcrição enviada com sucesso',
+    tok_pisin: 'Transcription i go gut pinis',
+    indonesian: 'Transkripsi berhasil dikirim'
+  },
   text: {
     english: 'Text',
     spanish: 'Texto',
@@ -4279,6 +4314,13 @@ export const localizations = {
     brazilian_portuguese: 'Idioma de destino',
     tok_pisin: 'Target Tokples',
     indonesian: 'Bahasa Target'
+  },
+  sourceLanguage: {
+    english: 'Source Language',
+    spanish: 'Idioma de origen',
+    brazilian_portuguese: 'Idioma de origem',
+    tok_pisin: 'Source Tokples',
+    indonesian: 'Bahasa Sumber'
   },
   your: {
     english: 'Your',
@@ -4349,6 +4391,21 @@ export const localizations = {
     brazilian_portuguese: 'Por favor, faça login para votar',
     tok_pisin: 'Plis login pastaim long vote',
     indonesian: 'Silakan login untuk memilih'
+  },
+  pleaseLogInToTranscribe: {
+    english: 'Please log in to transcribe audio',
+    spanish: 'Por favor, inicia sesión para transcribir audio',
+    brazilian_portuguese: 'Por favor, faça login para transcrever áudio',
+    tok_pisin: 'Plis login pastaim long transcribe audio',
+    indonesian: 'Silakan login untuk mentranskripsi audio'
+  },
+  transcriptionFailed: {
+    english: 'Failed to transcribe audio. Please try again.',
+    spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao transcrever áudio. Por favor, tente novamente.',
+    tok_pisin: 'I no inap transcribe audio. Plis traim gen.',
+    indonesian: 'Gagal mentranskripsi audio. Silakan coba lagi.'
   },
   yourTranscriptionHasBeenSubmitted: {
     english: 'Your transcription has been submitted',
@@ -5899,6 +5956,43 @@ export const localizations = {
       'Exportim ol bible chapter olsem audio fail long shareim na distributim',
     indonesian:
       'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan'
+  },
+  transcription: {
+    english: 'Transcription',
+    spanish: 'Transcripción',
+    brazilian_portuguese: 'Transcrição',
+    tok_pisin: 'Transcription',
+    indonesian: 'Transkripsi'
+  },
+  transcriptions: {
+    english: 'Transcriptions',
+    spanish: 'Transcripciones',
+    brazilian_portuguese: 'Transcrições',
+    tok_pisin: 'Ol Transcription',
+    indonesian: 'Transkripsi'
+  },
+  noTranscriptionsYet: {
+    english: 'No transcriptions yet. Be the first to transcribe!',
+    spanish: 'No hay transcripciones aún. ¡Sé el primero en transcribir!',
+    brazilian_portuguese:
+      'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
+    tok_pisin: 'I no gat transcription yet. Yu ken namba wan long transcribe!',
+    indonesian: 'Belum ada transkripsi. Jadilah yang pertama mentranskripsi!'
+  },
+  transcriptionDescription: {
+    english: 'Enable automatic transcription of audio recordings',
+    spanish: 'Habilitar transcripción automática de grabaciones de audio',
+    brazilian_portuguese:
+      'Habilitar transcrição automática de gravações de áudio',
+    tok_pisin: 'Enablem automatic transcription bilong audio recordings',
+    indonesian: 'Aktifkan transkripsi otomatis rekaman audio'
+  },
+  transcriptionComplete: {
+    english: 'Transcription Complete',
+    spanish: 'Transcripción completada',
+    brazilian_portuguese: 'Transcrição concluída',
+    tok_pisin: 'Transcription i pinis',
+    indonesian: 'Transkripsi selesai'
   },
   copyFeedbackLink: {
     english: 'Copy Feedback Link',

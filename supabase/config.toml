@@ -330,3 +330,8 @@ entrypoint = "./functions/sqltr/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/predict-translation/index.ts"
+
+[functions.transcribe]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/transcribe/index.ts"
