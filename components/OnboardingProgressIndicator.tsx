@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -136,7 +136,8 @@ export function OnboardingProgressIndicator({
           return (
             <View key={step} className="relative z-[20] items-center">
               {/* Step circle */}
-              <View
+              <Pressable
+                testID={`onboarding-step-${step}`}
                 className={cn(
                   'h-6 w-6 items-center justify-center rounded-full border-2',
                   isActive
@@ -162,7 +163,7 @@ export function OnboardingProgressIndicator({
                     {index + 1}
                   </Text>
                 )}
-              </View>
+              </Pressable>
 
               {/* Step label */}
               <Text

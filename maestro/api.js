@@ -1,7 +1,7 @@
-function deleteUser(email) {
-  const supabaseUrl = SUPABASE_URL;
-  const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = MAESTRO_SUPABASE_URL;
+const serviceRoleKey = MAESTRO_SUPABASE_SERVICE_ROLE_KEY;
 
+function deleteUser(email) {
   // Validate email is defined and is a non-empty string
   if (!email || typeof email !== 'string' || email.trim() === '') {
     throw new Error(
@@ -44,9 +44,6 @@ function deleteUser(email) {
 }
 
 function generatePasswordResetLink(email) {
-  const supabaseUrl = SUPABASE_URL;
-  const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY;
-
   // Validate email is defined and is a non-empty string
   if (!email || typeof email !== 'string' || email.trim() === '') {
     throw new Error(
@@ -62,7 +59,7 @@ function generatePasswordResetLink(email) {
 
   if (!projectRef) {
     throw new Error(
-      'Could not extract project ref from SUPABASE_URL: ' + supabaseUrl
+      'Could not extract project ref from Supabase URL: ' + supabaseUrl
     );
   }
 
