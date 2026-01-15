@@ -376,6 +376,13 @@ export default function NextGenAssetDetailView() {
     return [...audioIds, ...(activeAsset.images ?? [])];
   }, [activeAsset]);
 
+  // Check if source asset has any audio (needed to determine if transcription is available)
+  const sourceHasAudio = React.useMemo(() => {
+    return (activeAsset?.content ?? []).some(
+      (content) => content.audio && content.audio.length > 0
+    );
+  }, [activeAsset?.content]);
+
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
@@ -426,6 +433,14 @@ export default function NextGenAssetDetailView() {
       setCurrentContentIndex(0);
     });
   }, [currentAssetId]);
+
+  // Reset to translations tab if source has no audio (transcription requires audio)
+  useEffect(() => {
+    if (!sourceHasAudio && contentTypeFilter === 'transcription') {
+      setContentTypeFilter('translation');
+    }
+  }, [sourceHasAudio, contentTypeFilter]);
+
   // Get audio URIs for a specific content item (not all content flattened)
   // Both web and native now use async OPFS resolution
   const [resolvedAudioUris, setResolvedAudioUris] = useState<string[]>([]);
@@ -531,8 +546,8 @@ export default function NextGenAssetDetailView() {
 
           // Handle attachment IDs (look up in attachment queue) for authenticated users
           const attachmentState = attachmentStates.get(audioValue);
-          if (attachmentState?.local_uri) {
-            return getLocalAttachmentUriWithOPFS(attachmentState.filename);
+          if (attachmentState?.local_uri && attachmentState.filename) {
+            return await getLocalAttachmentUriWithOPFS(attachmentState.filename);
           }
 
           // Fallback: try to get cloud URL if local not available
@@ -628,7 +643,7 @@ export default function NextGenAssetDetailView() {
       return;
     }
 
-    // Validate the audio file exists before attempting transcription
+    // Validate the audio URI exists
     if (!uri) {
       RNAlert.alert(
         t('error'),
@@ -638,15 +653,24 @@ export default function NextGenAssetDetailView() {
       return;
     }
 
-    const exists = await fileExists(uri);
-    if (!exists) {
-      console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
-      return;
+    // For local files, check if they exist. Skip check for URLs (fileExists only works for file:// URIs)
+    const isLocalFile = uri.startsWith('file://');
+    if (isLocalFile) {
+      try {
+        const exists = await fileExists(uri);
+        if (!exists) {
+          console.log('[Transcription] Audio file not found at URI:', uri);
+          RNAlert.alert(
+            t('error'),
+            t('audioNotAvailable') ||
+              'Audio not available. The file may not have been downloaded yet.'
+          );
+          return;
+        }
+      } catch (error) {
+        console.warn('[Transcription] Error checking file existence:', error);
+        // Continue anyway - let the transcription service handle the error
+      }
     }
 
     console.log('[Transcription] Starting transcription for URI:', uri);
@@ -979,7 +1003,7 @@ export default function NextGenAssetDetailView() {
 
       {/* Translations/Transcriptions List - Pass project data to avoid re-querying */}
       <View className="flex-1">
-        {/* Content Type Toggle */}
+        {/* Content Type Toggle - only show transcription option if source has audio */}
         <View className="h-px bg-border" />
         <View className="pt-2">
           <ToggleGroup
@@ -994,9 +1018,11 @@ export default function NextGenAssetDetailView() {
             <ToggleGroupItem value="translation" className="flex-1">
               <RNPText>{t('translations')}</RNPText>
             </ToggleGroupItem>
-            <ToggleGroupItem value="transcription" className="flex-1">
-              <RNPText>{t('transcriptions')}</RNPText>
-            </ToggleGroupItem>
+            {sourceHasAudio && (
+              <ToggleGroupItem value="transcription" className="flex-1">
+                <RNPText>{t('transcriptions')}</RNPText>
+              </ToggleGroupItem>
+            )}
           </ToggleGroup>
         </View>
 

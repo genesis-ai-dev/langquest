@@ -1343,7 +1343,9 @@ async function executePublishTransaction(
           }
         }
         if (skipped > 0) {
-          console.log(`⏭️  Skipped ${skipped} source assets that already exist`);
+          console.log(
+            `⏭️  Skipped ${skipped} source assets that already exist`
+          );
         }
       }
 
