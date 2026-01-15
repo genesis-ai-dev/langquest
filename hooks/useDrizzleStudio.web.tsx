@@ -2,6 +2,7 @@ import type { WASQLiteOpenFactory } from '@powersync/web';
 import type { DevToolsPluginClient, EventSubscription } from 'expo/devtools';
 import { useDevToolsPluginClient } from 'expo/devtools';
 import { useEffect, useRef } from 'react';
+import type { WebDBConnection } from './types';
 
 export function openDB() {
   // don't open db on web we use web connection
@@ -19,17 +20,7 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-interface WebDBConnection {
-  init: () => Promise<void>;
-  close: () => Promise<void>;
-  execute: (
-    sql: string,
-    params?: unknown[]
-  ) => Promise<{ rows: { _array: unknown[] } }>;
-  executeRaw: (sql: string, params?: unknown[]) => Promise<unknown[][]>;
-}
-
-export function useDrizzleStudio() {
+function useDrizzleStudioDev() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { system } = require('@/db/powersync/system') as {
     system: { factory: WASQLiteOpenFactory };
@@ -97,6 +88,7 @@ export function useDrizzleStudio() {
         (await factory.openConnection()) as unknown as WebDBConnection;
       await conn.init();
       connRef.current = conn;
+
       initializedRef.current = true;
     };
 
@@ -145,3 +137,15 @@ export function useDrizzleStudio() {
     };
   }, [client, factory]);
 }
+
+let useDrizzleStudio: typeof useDrizzleStudioDev;
+
+if (__DEV__) {
+  useDrizzleStudio = useDrizzleStudioDev;
+} else {
+  useDrizzleStudio = () => {
+    // No-op in production
+  };
+}
+
+export { useDrizzleStudio };
