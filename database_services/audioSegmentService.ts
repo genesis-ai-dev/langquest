@@ -75,8 +75,8 @@ export class AudioSegmentService {
             asset_id: newAsset.id,
             source_language_id: sourceLanguageId,
             text: segment.name,
-            // Link to the created attachment record so the UI can resolve URIs and states
-            audio: [`local/${localUri}`],
+            // Link to the local file path (localUri already includes 'local/' prefix from saveAudioLocally)
+            audio: [localUri],
             download_profiles: [creatorId]
           });
 
