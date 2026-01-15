@@ -727,17 +727,17 @@ const BibleRecordingView = ({
       `📊 Updated order_index for verse ${verseToAdd}: ${newOrderIndex}`
     );
 
+    // Mark that a pill was added (so auto-scroll doesn't move the wheel)
+    wasPillAddedRef.current = true;
+
     // Add the verse pill to the list
     addVersePill(verseToAdd, newOrderIndex);
 
     // Set currentDynamicVerse to this verse (for button calculation)
     setCurrentDynamicVerse(verseToAdd);
 
-    // Scroll to the new pill (end of list) after it's added
-    // The wheel will update its item count and we should move to the new item
-    setTimeout(() => {
-      setInsertionIndex(allItems.length); // Will be the index after the new pill is added
-    }, 50);
+    // NOTE: We intentionally do NOT update insertionIndex here
+    // This allows the user to stay at their current position
 
     // If VAD is active, also update the currentRecordingVerseRef
     // This ensures that the next VAD segment uses the new verse metadata
@@ -750,7 +750,7 @@ const BibleRecordingView = ({
         `🎯 VAD: Updated verse to ${verseToAdd} and order_index to ${newOrderIndex + 1}`
       );
     }
-  }, [verseToAdd, isVADLocked, addVersePill, allItems.length]);
+  }, [verseToAdd, isVADLocked, addVersePill]);
 
   // Map assets to SharedValues from the pool (after assets is declared)
   const assetIdsKey = React.useMemo(
@@ -805,6 +805,13 @@ const BibleRecordingView = ({
   // Track item count to detect new insertions
   const previousItemCountRef = React.useRef(allItems.length);
 
+  // Track if the last recording was in the middle (not at end)
+  // Used to determine if we should move insertionIndex to the new item
+  const wasRecordingInMiddleRef = React.useRef<boolean>(false);
+
+  // Track if a pill was just added (to distinguish from asset recording)
+  const wasPillAddedRef = React.useRef<boolean>(false);
+
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
     const currentCount = allItems.length;
@@ -812,37 +819,56 @@ const BibleRecordingView = ({
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
-      debugLog('📜 Auto-scrolling to new item');
+      console.log(
+        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current}`
+      );
 
-      // If we were at the end, update insertionIndex to stay at the end
-      // This is crucial for the Add Verse button to remain visible
-      const wasAtEnd = insertionIndex >= previousCount;
-      if (wasAtEnd) {
-        debugLog(
-          `📍 Updating insertionIndex to stay at end: ${insertionIndex} → ${currentCount}`
+      const wasInMiddle = wasRecordingInMiddleRef.current;
+      const wasPillAdded = wasPillAddedRef.current;
+
+      // Reset the flags
+      wasRecordingInMiddleRef.current = false;
+      wasPillAddedRef.current = false;
+
+      if (wasPillAdded) {
+        // A pill was added - don't move, let user stay where they are
+        console.log('📍 Pill added - not moving insertionIndex');
+      } else if (wasInMiddle) {
+        // Recorded in the middle - move to the new asset
+        const newIndex = insertionIndex + 1;
+        console.log(
+          `📍 Moving to new asset (recorded in middle): ${insertionIndex} → ${newIndex}`
+        );
+        setInsertionIndex(newIndex);
+
+        // Scroll to the new item
+        const timeoutId = setTimeout(() => {
+          try {
+            wheelRef.current?.scrollToInsertionIndex(newIndex, true);
+          } catch (error) {
+            console.error('Failed to scroll:', error);
+          }
+          timeoutIdsRef.current.delete(timeoutId);
+        }, 100);
+        timeoutIdsRef.current.add(timeoutId);
+      } else {
+        // Asset appended at the end - move to stay at end
+        console.log(
+          `📍 Moving to end (appended): ${insertionIndex} → ${currentCount}`
         );
         setInsertionIndex(currentCount);
-      }
 
-      // Small delay to ensure the new item is rendered before scrolling
-      const timeoutId = setTimeout(() => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (USE_INSERTION_WHEEL) {
-            // For wheel: scroll to the newly inserted item's position
-            // After insertion at index N, the new item is at position N
-            const newItemIndex = Math.min(insertionIndex, currentCount - 1);
-            wheelRef.current?.scrollToInsertionIndex(newItemIndex + 1, true);
-          } else {
-            // For list: scroll to end
-            listRef.current?.scrollToEnd({ animated: true });
+        // Scroll to the end
+        const timeoutId = setTimeout(() => {
+          try {
+            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+          } catch (error) {
+            console.error('Failed to scroll:', error);
           }
-        } catch (error) {
-          console.error('Failed to scroll:', error);
-        }
-        timeoutIdsRef.current.delete(timeoutId);
-      }, 100);
-      timeoutIdsRef.current.add(timeoutId);
+          timeoutIdsRef.current.delete(timeoutId);
+        }, 100);
+        timeoutIdsRef.current.add(timeoutId);
+      }
     }
 
     previousItemCountRef.current = currentCount;
@@ -1552,13 +1578,35 @@ const BibleRecordingView = ({
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
     if (isRecording) return;
-    debugLog('🎬 Manual recording start');
+
+    // Use ref for most up-to-date value (avoid stale closure)
+    const currentInsertionIndex = insertionIndexRef.current;
+
+    console.log(
+      `🎬 Recording START | insertionIndex state: ${insertionIndex} | ref: ${currentInsertionIndex} | allItems.length: ${allItems.length}`
+    );
+
+    // Log all items for debugging
+    console.log(
+      '📋 All items:',
+      allItems
+        .map(
+          (item, idx) =>
+            `[${idx}] ${isPill(item) ? `Pill-${item.verse?.from}` : item.name} (order: ${item.order_index})`
+        )
+        .join(', ')
+    );
+
     setIsRecording(true);
 
     // Calculate order_index based on current Wheel position
     // - At end: use appendOrderIndexRef (increments automatically)
     // - In middle: use selected item's order_index + 1 (to insert BELOW the selected item)
-    const isAtEnd = allItems.length === 0 || insertionIndex >= allItems.length;
+    const isAtEnd =
+      allItems.length === 0 || currentInsertionIndex >= allItems.length;
+
+    // Track if we're recording in the middle (for auto-scroll behavior)
+    wasRecordingInMiddleRef.current = !isAtEnd;
 
     if (isAtEnd) {
       // At end: use append mode
@@ -1571,13 +1619,14 @@ const BibleRecordingView = ({
       const verseToUse = lastItem?.verse ?? persistedVerseRef.current ?? null;
       currentRecordingVerseRef.current = verseToUse;
 
-      debugLog(
+      console.log(
         `🎯 Recording at END | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
       );
     } else {
-      // In middle: use the item at insertionIndex (could be asset or pill)
-      const selectedItem = allItems[insertionIndex];
-      const selectedOrderIndex = selectedItem?.order_index ?? insertionIndex;
+      // In middle: use the item at currentInsertionIndex (could be asset or pill)
+      const selectedItem = allItems[currentInsertionIndex];
+      const selectedOrderIndex =
+        selectedItem?.order_index ?? currentInsertionIndex;
       const targetOrder = selectedOrderIndex + 1;
       currentRecordingOrderRef.current = targetOrder;
 
@@ -1590,8 +1639,8 @@ const BibleRecordingView = ({
           ? selectedItem.name
           : `pill-${selectedItem.verse?.from ?? 'null'}`
         : 'unknown';
-      debugLog(
-        `🎯 Recording in MIDDLE | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${itemName}")`
+      console.log(
+        `🎯 Recording in MIDDLE | insertionIndex: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
       );
     }
   }, [isRecording, allItems, insertionIndex]);
@@ -1755,6 +1804,9 @@ const BibleRecordingView = ({
     // Use the captured isAtEnd state from when VAD was activated
     // This prevents issues where assets.length changes during recording
     const isAtEnd = vadIsAtEndRef.current;
+
+    // Track if we're recording in the middle (for auto-scroll behavior)
+    wasRecordingInMiddleRef.current = !isAtEnd;
 
     debugLog(
       `🎬 VAD: Segment starting | order_index: ${targetOrder} | isAtEnd: ${isAtEnd}`
@@ -2744,7 +2796,14 @@ const BibleRecordingView = ({
             <ArrayInsertionWheel
               ref={wheelRef}
               value={insertionIndex}
-              onChange={setInsertionIndex}
+              onChange={(newIndex) => {
+                console.log(
+                  `🎡 Wheel onChange: ${insertionIndex} → ${newIndex}`
+                );
+                setInsertionIndex(newIndex);
+                // Also update the ref immediately for recording callbacks
+                insertionIndexRef.current = newIndex;
+              }}
               rowHeight={ROW_HEIGHT}
               className="h-full flex-1"
               bottomInset={footerHeight}
