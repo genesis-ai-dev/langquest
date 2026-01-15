@@ -190,8 +190,12 @@ export default function NextGenProjectsView() {
         'english_name' in savedLanguage
       ) {
         // It's a Language - find or create corresponding languoid
+        const savedLang = savedLanguage as unknown as {
+          native_name?: string;
+          english_name?: string;
+        };
         const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
+          savedLang.native_name || savedLang.english_name || '';
         if (languageName && currentUser?.id) {
           findOrCreateLanguoidByName(languageName, currentUser.id).then(
             (languoidId) => {
@@ -227,8 +231,12 @@ export default function NextGenProjectsView() {
         'english_name' in savedLanguage
       ) {
         // It's a Language - find or create corresponding languoid
+        const savedLang = savedLanguage as unknown as {
+          native_name?: string;
+          english_name?: string;
+        };
         const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
+          savedLang.native_name || savedLang.english_name || '';
         if (languageName && currentUser?.id) {
           findOrCreateLanguoidByName(languageName, currentUser.id).then(
             (languoidId) => {

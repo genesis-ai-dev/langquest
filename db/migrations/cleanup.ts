@@ -16,6 +16,7 @@
  * Usage: Import and call `migrationCleanup()` after PowerSync initialization
  */
 
+import type { OpMetadata } from '@/db/powersync/opMetadata';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { eq, sql } from 'drizzle-orm';
@@ -67,9 +68,16 @@ async function removeAwaitingCleanupFlag(
   ) {
     const { awaiting_cleanup: _, ...metadataWithoutFlag } =
       localLanguoid._metadata;
+    // If metadataWithoutFlag is empty, set to null instead of empty object
+    // Ensure it has at least schema_version to be a valid OpMetadata
+    const updatedMetadata: OpMetadata | null =
+      Object.keys(metadataWithoutFlag).length > 0 &&
+      'schema_version' in metadataWithoutFlag
+        ? (metadataWithoutFlag as OpMetadata)
+        : null;
     await dbOrTx
       .update(languoidLocal)
-      .set({ _metadata: metadataWithoutFlag })
+      .set({ _metadata: updatedMetadata })
       .where(eq(languoidLocal.id, localId));
   }
 }

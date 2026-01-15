@@ -397,7 +397,7 @@ export default function NextGenAssetDetailView() {
   // Get the current content's language ID for transcription localization
   const currentContentLanguageId = React.useMemo(() => {
     const content = activeAsset?.content?.[currentContentIndex];
-    return content?.languoid_id || content?.source_language_id || '';
+    return content?.languoid_id || '';
   }, [activeAsset?.content, currentContentIndex]);
 
   // Fetch orthography examples for transcription localization
@@ -1031,9 +1031,7 @@ export default function NextGenAssetDetailView() {
           sourceAssetId={activeAsset.id}
           projectId={currentProjectId}
           languoidId={
-            activeAsset.content?.[currentContentIndex]?.languoid_id ||
-            activeAsset.content?.[currentContentIndex]?.source_language_id ||
-            ''
+            activeAsset.content?.[currentContentIndex]?.languoid_id || ''
           }
         />
       )}

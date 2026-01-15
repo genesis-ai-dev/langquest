@@ -404,7 +404,7 @@ function main() {
   // Create a placeholder - will be initialized when connection is established
   let dbAdapter: ReturnType<typeof createDevToolsDbAdapter> | null = null;
   let devToolsClient: DevToolsPluginClient | null = null;
-  let reconnectTimeout: NodeJS.Timeout | null = null;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   let isConnecting = false;
   let retryCount = 0;
   const MAX_RETRIES = 50; // Limit retries to prevent infinite loops

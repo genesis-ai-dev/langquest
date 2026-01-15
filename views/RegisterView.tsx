@@ -78,7 +78,9 @@ export default function RegisterView({
       // Get languoid name - handle both Languoid (name) and old Language (english_name) types
       const languoidName =
         (currentLanguage as unknown as Languoid | undefined)?.name ||
-        (currentLanguage as unknown as Language | undefined)?.english_name ||
+        ('english_name' in (currentLanguage || {}) &&
+          (currentLanguage as unknown as { english_name?: string })
+            ?.english_name) ||
         'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({

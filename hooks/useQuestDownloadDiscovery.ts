@@ -739,7 +739,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
           hasError: false
         };
         tagsProgress.value = { count: 0, isLoading: false, hasError: false };
-        languagesProgress.value = {
+        languoidsProgress.value = {
           count: 0,
           isLoading: false,
           hasError: false

@@ -742,7 +742,7 @@ export function BibleChapterList({
           'Asset Tags':
             discoveryState.progressSharedValues.assetTagLinks.value.count,
           Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
+          Languages: discoveryState.progressSharedValues.languoids.value.count
         }}
       />
     </View>

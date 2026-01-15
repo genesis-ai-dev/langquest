@@ -1,4 +1,4 @@
-import type { language, profile } from '@/db/drizzleSchema';
+import type { languoid, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colorScheme } from 'nativewind';
 import { create } from 'zustand';
@@ -38,7 +38,7 @@ export interface NavigationStackItem {
   assetData?: Record<string, unknown>;
 }
 
-export type Language = typeof language.$inferSelect;
+export type Language = typeof languoid.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
 // VAD (Voice Activity Detection) constants - single source of truth

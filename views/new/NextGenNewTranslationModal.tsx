@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import type { asset_content_link, language } from '@/db/drizzleSchema';
+import type { asset_content_link, languoid } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
@@ -76,7 +76,7 @@ interface NextGenNewTranslationModalProps {
   assetId: string;
   assetName?: string | null;
   assetContent?: AssetContent[];
-  sourceLanguage?: typeof language.$inferSelect | null;
+  sourceLanguage?: typeof languoid.$inferSelect | null;
   translationLanguageId: string; // The language of the new translation asset being created
 }
 
@@ -536,10 +536,7 @@ export default function NextGenNewTranslationModal({
                   {assetName || t('unknown')}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
-                  {sourceLanguage?.native_name ||
-                    sourceLanguage?.english_name ||
-                    t('unknown')}{' '}
-                  → {t('targetLanguage')}
+                  {sourceLanguage?.name || t('unknown')} → {t('targetLanguage')}
                 </Text>
               </View>
 
