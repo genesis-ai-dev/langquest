@@ -272,16 +272,13 @@ export const project_local = createProjectTable('local', {
   profile: profile_local
 });
 
-export const project_localRelations = relations(
-  project_local,
-  ({ many }) => ({
-    quests: many(quest_local),
-    profile_project_links: many(profile_project_link_local),
-    source_languages: many(project_language_link_local),
-    invites: many(invite_local),
-    requests: many(request_local)
-  })
-);
+export const project_localRelations = relations(project_local, ({ many }) => ({
+  quests: many(quest_local),
+  profile_project_links: many(profile_project_link_local),
+  source_languages: many(project_language_link_local),
+  invites: many(invite_local),
+  requests: many(request_local)
+}));
 
 // (removed duplicate early definition of project_language_link)
 export const quest_local = createQuestTable('local', {

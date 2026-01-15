@@ -9,7 +9,11 @@ import { requestBackupDirectory } from '@/utils/backupUtils';
 import { and, eq, isNotNull } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
-import { asset, asset_content_link, project_language_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  project_language_link
+} from '@/db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { LocalizationKey } from '@/services/localizations';
 import { resolveTable } from './dbUtils';
@@ -308,7 +312,7 @@ async function restoreFromBackup(
               )
             )
             .limit(1);
-          
+
           if (!targetLanguoidLink[0]?.languoid_id) {
             throw new Error(
               `Could not find target languoid for asset ${assetIdFromFile}`

@@ -259,7 +259,6 @@ export function createProfileTable<
   return table;
 }
 
-
 export function createTagTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}

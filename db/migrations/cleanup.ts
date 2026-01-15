@@ -54,12 +54,17 @@ async function getLanguoidTablesAndRecords() {
 async function removeAwaitingCleanupFlag(
   languoidLocal: ReturnType<typeof resolveTable<'languoid'>>,
   localId: string,
-  localLanguoid: { _metadata?: { awaiting_cleanup?: boolean } | null } | undefined,
+  localLanguoid:
+    | { _metadata?: { awaiting_cleanup?: boolean } | null }
+    | undefined,
   dbOrTx:
     | typeof system.db
     | Parameters<Parameters<typeof system.db.transaction>[0]>[0]
 ): Promise<void> {
-  if (localLanguoid?._metadata && 'awaiting_cleanup' in localLanguoid._metadata) {
+  if (
+    localLanguoid?._metadata &&
+    'awaiting_cleanup' in localLanguoid._metadata
+  ) {
     const { awaiting_cleanup: _, ...metadataWithoutFlag } =
       localLanguoid._metadata;
     await dbOrTx

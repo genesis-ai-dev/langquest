@@ -6,7 +6,15 @@ import {
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, getTableColumns, inArray, notInArray, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  notInArray,
+  or,
+  sql
+} from 'drizzle-orm';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalStore } from '@/store/localStore';
