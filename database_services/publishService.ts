@@ -107,6 +107,7 @@ interface ChapterData {
     source_language_id: string | null;
     project_id: string | null;
     source_asset_id: string | null;
+    content_type: 'source' | 'translation' | 'transcription' | null;
     images: string[] | null;
     creator_id: string | null;
     visible: boolean;
@@ -1001,9 +1002,11 @@ async function waitForCriticalDependencies(
 }
 
 /**
- * Copy all records from *_local to synced tables
- * CRITICAL: We insert asset_content_link SEPARATELY after dependencies are confirmed
- * This prevents PowerSync from uploading them before RLS dependencies are ready
+ * Copy all records from *_local to synced tables in a single transaction.
+ * CRITICAL: Source assets are inserted BEFORE child assets (translations/transcriptions)
+ * to ensure foreign key constraints are satisfied.
+ *
+ * @param includeContentLinks - If false, skip asset_content_link records (inserted in second pass after dependencies sync)
  */
 async function executePublishTransaction(
   data: ChapterData,
@@ -1302,51 +1305,95 @@ async function executePublishTransaction(
       }
     }
 
-    // 5. Publish assets (preserving order)
+    // 5. Publish assets
+    // CRITICAL: Insert SOURCE assets FIRST (no source_asset_id), then CHILD assets
+    // This ensures foreign key constraints are satisfied (children reference parents)
     if (data.assets.length > 0) {
-      console.log(`📝 Publishing ${data.assets.length} assets...`);
-      let skipped = 0;
-      for (const assetData of data.assets) {
-        // Check if asset already exists
-        const [existingAsset] = await tx
-          .select()
-          .from(asset)
-          .where(eq(asset.id, assetData.id))
-          .limit(1);
+      // 5a. Insert source assets first (no source_asset_id)
+      const sourceAssets = data.assets.filter((a) => !a.source_asset_id);
+      if (sourceAssets.length > 0) {
+        console.log(`📝 Publishing ${sourceAssets.length} source assets...`);
+        let skipped = 0;
+        for (const assetData of sourceAssets) {
+          const [existingAsset] = await tx
+            .select()
+            .from(asset)
+            .where(eq(asset.id, assetData.id))
+            .limit(1);
 
-        if (!existingAsset) {
-          await tx.insert(asset).values({
-            id: assetData.id,
-            name: assetData.name,
-            order_index: assetData.order_index,
-            source_language_id: assetData.source_language_id,
-            project_id: assetData.project_id,
-            source_asset_id: assetData.source_asset_id,
-            images: assetData.images,
-            creator_id: assetData.creator_id,
-            visible: assetData.visible,
-            download_profiles: assetData.download_profiles,
-            created_at: assetData.created_at,
-            last_updated: assetData.last_updated,
-            active: assetData.active
-          });
-        } else {
-          skipped++;
+          if (!existingAsset) {
+            await tx.insert(asset).values({
+              id: assetData.id,
+              name: assetData.name,
+              order_index: assetData.order_index,
+              source_language_id: assetData.source_language_id,
+              project_id: assetData.project_id,
+              source_asset_id: assetData.source_asset_id,
+              content_type: assetData.content_type,
+              images: assetData.images,
+              creator_id: assetData.creator_id,
+              visible: assetData.visible,
+              download_profiles: assetData.download_profiles,
+              created_at: assetData.created_at,
+              last_updated: assetData.last_updated,
+              active: assetData.active
+            });
+          } else {
+            skipped++;
+          }
+        }
+        if (skipped > 0) {
+          console.log(`⏭️  Skipped ${skipped} source assets that already exist`);
         }
       }
-      if (skipped > 0) {
-        console.log(`⏭️  Skipped ${skipped} assets that already exist`);
+
+      // 5b. Insert child assets second (have source_asset_id)
+      const childAssets = data.assets.filter((a) => a.source_asset_id);
+      if (childAssets.length > 0) {
+        console.log(`📝 Publishing ${childAssets.length} child assets...`);
+        let skipped = 0;
+        for (const assetData of childAssets) {
+          const [existingAsset] = await tx
+            .select()
+            .from(asset)
+            .where(eq(asset.id, assetData.id))
+            .limit(1);
+
+          if (!existingAsset) {
+            await tx.insert(asset).values({
+              id: assetData.id,
+              name: assetData.name,
+              order_index: assetData.order_index,
+              source_language_id: assetData.source_language_id,
+              project_id: assetData.project_id,
+              source_asset_id: assetData.source_asset_id,
+              content_type: assetData.content_type,
+              images: assetData.images,
+              creator_id: assetData.creator_id,
+              visible: assetData.visible,
+              download_profiles: assetData.download_profiles,
+              created_at: assetData.created_at,
+              last_updated: assetData.last_updated,
+              active: assetData.active
+            });
+          } else {
+            skipped++;
+          }
+        }
+        if (skipped > 0) {
+          console.log(`⏭️  Skipped ${skipped} child assets that already exist`);
+        }
       }
     }
 
-    // 5b. Publish translation/transcription assets (after source assets they reference)
+    // 5c. Publish translation/transcription assets from translationAssets array
+    // (these are gathered separately and also need source assets to exist first)
     if (data.translationAssets.length > 0) {
       console.log(
         `📝 Publishing ${data.translationAssets.length} translation/transcription assets...`
       );
       let skipped = 0;
       for (const assetData of data.translationAssets) {
-        // Check if asset already exists
         const [existingAsset] = await tx
           .select()
           .from(asset)
@@ -1451,8 +1498,8 @@ async function executePublishTransaction(
       }
     }
 
-    // 7. Publish asset content links (ONLY if includeContentLinks is true)
-    // This is delayed until after dependencies are confirmed
+    // 7. Publish asset content links (only if includeContentLinks is true)
+    // This is delayed until after all assets are confirmed in Supabase
     if (includeContentLinks && data.assetContentLinks.length > 0) {
       console.log(
         `🔗 Publishing ${data.assetContentLinks.length} content links...`
@@ -1485,13 +1532,9 @@ async function executePublishTransaction(
       if (skipped > 0) {
         console.log(`⏭️  Skipped ${skipped} content links that already exist`);
       }
-    } else if (!includeContentLinks && data.assetContentLinks.length > 0) {
-      console.log(
-        `⏸️  Delaying ${data.assetContentLinks.length} content links until dependencies are ready`
-      );
     }
 
-    // 7b. Publish translation content links (ONLY if includeContentLinks is true)
+    // 7b. Publish translation content links (only if includeContentLinks is true)
     if (includeContentLinks && data.translationContentLinks.length > 0) {
       console.log(
         `🔗 Publishing ${data.translationContentLinks.length} translation content links...`
@@ -1526,13 +1569,6 @@ async function executePublishTransaction(
           `⏭️  Skipped ${skipped} translation content links that already exist`
         );
       }
-    } else if (
-      !includeContentLinks &&
-      data.translationContentLinks.length > 0
-    ) {
-      console.log(
-        `⏸️  Delaying ${data.translationContentLinks.length} translation content links until dependencies are ready`
-      );
     }
 
     // 8. Publish tag links
@@ -1667,17 +1703,17 @@ export async function publishBibleChapter(
     }
 
     // STEP 5A: Execute publish transaction (WITHOUT asset_content_link)
-    // This prevents PowerSync from trying to upload content links before dependencies are ready
+    // Source assets are inserted before child assets within the transaction
     await executePublishTransaction(chapterData, userId, false);
 
     // STEP 5B: Wait for critical dependencies to reach Supabase
-    // This ensures RLS policies have everything they need before we insert content links
-    console.log('⏳ Waiting before inserting asset_content_link records...');
+    // This ensures RLS policies have everything they need before inserting content links
+    console.log('⏳ Waiting for dependencies to sync to Supabase...');
     await waitForCriticalDependencies(chapterData, userId);
 
-    // STEP 5C: Now insert asset_content_link records
-    // Dependencies are confirmed, so RLS should pass
-    console.log('✅ Dependencies ready - inserting asset_content_link records');
+    // STEP 5C: Insert asset_content_link records
+    // Dependencies are now confirmed in Supabase
+    console.log('🔗 Inserting asset_content_link records...');
     await executePublishTransaction(chapterData, userId, true);
 
     console.log('\n✅ CHAPTER PUBLISH COMPLETE');
