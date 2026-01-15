@@ -60,6 +60,7 @@ function debugLog(...args: unknown[]) {
 }
 
 interface UIAsset {
+  type: 'asset';
   id: string;
   name: string;
   created_at: string;
@@ -69,6 +70,22 @@ interface UIAsset {
   duration?: number; // Total duration in milliseconds
   verse?: { from: number; to: number } | null; // Verse metadata (can be a range like 1-3)
 }
+
+interface VersePillItem {
+  type: 'pill';
+  id: string; // Unique ID for the pill (e.g., 'pill-verse-5')
+  order_index: number;
+  verse: { from: number; to: number } | null; // Verse metadata
+}
+
+// Union type for items in the list (assets or verse pills)
+type ListItem = UIAsset | VersePillItem;
+
+// Type guard to check if item is an asset
+const isAsset = (item: ListItem): item is UIAsset => item.type === 'asset';
+
+// Type guard to check if item is a pill
+const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 
 // Default order_index for unassigned verses: (999 * 1000 + 1) * 1000 = 999001000
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
@@ -367,10 +384,23 @@ const BibleRecordingView = ({
     Map<string, number>
   >(new Map());
 
-  // SESSION-ONLY ASSETS: Only show assets created during this recording session
-  // When user exits and returns, the list starts empty
+  // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
+  // When user exits and returns, the list starts with just the initial verse pill
   // Assets are still saved to database, but we don't load existing ones
-  const [sessionAssets, setSessionAssets] = React.useState<UIAsset[]>([]);
+  const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
+    // Initialize with the initial verse pill
+    const initialVerse = _verse ?? null;
+    const initialPill: VersePillItem = {
+      type: 'pill',
+      id: `pill-initial-${_initialOrderIndex}`,
+      order_index: _initialOrderIndex,
+      verse: initialVerse
+    };
+    console.log(
+      `🏷️ Initial pill created | order_index: ${_initialOrderIndex} | verse: ${initialVerse ? `${initialVerse.from}-${initialVerse.to}` : 'null'}`
+    );
+    return [initialPill];
+  });
 
   // Track the "append" order_index (used when recording at the end of the list)
   // Initialized from props or DEFAULT_ORDER_INDEX, increments by 1 for each recording at end
@@ -387,21 +417,25 @@ const BibleRecordingView = ({
     }) => {
       const targetOrderIndex = newAsset.order_index;
 
-      setSessionAssets((prev) => {
-        // 1. Shift existing assets with order_index >= targetOrderIndex
+      setSessionItems((prev) => {
+        // 1. Shift existing items (both assets and pills) with order_index >= targetOrderIndex
         // This mirrors the logic in recordingService.ts
-        const shifted = prev.map((asset) => {
-          if (asset.order_index >= targetOrderIndex) {
+        const shifted = prev.map((item) => {
+          if (item.order_index >= targetOrderIndex) {
+            const itemName = isAsset(item)
+              ? item.name
+              : `pill-${item.verse?.from ?? 'null'}`;
             console.log(
-              `📊 UI Shift: "${asset.name}" ${asset.order_index} → ${asset.order_index + 1}`
+              `📊 UI Shift: "${itemName}" ${item.order_index} → ${item.order_index + 1}`
             );
-            return { ...asset, order_index: asset.order_index + 1 };
+            return { ...item, order_index: item.order_index + 1 };
           }
-          return asset;
+          return item;
         });
 
         // 2. Create new asset with the target order_index and verse
         const uiAsset: UIAsset = {
+          type: 'asset',
           id: newAsset.id,
           name: newAsset.name,
           created_at: new Date().toISOString(),
@@ -418,20 +452,65 @@ const BibleRecordingView = ({
 
         // 3. Add new asset and sort by order_index
         const newList = [...shifted, uiAsset];
-        return newList.sort((a, b) =>
-          a.order_index === b.order_index
-            ? a.created_at.localeCompare(b.created_at)
-            : a.order_index > b.order_index
-              ? 1
-              : -1
-        );
+        return newList.sort((a, b) => {
+          if (a.order_index === b.order_index) {
+            // Pills come before assets at the same order_index
+            if (isPill(a) && isAsset(b)) return -1;
+            if (isAsset(a) && isPill(b)) return 1;
+            // Both are same type - sort by created_at for assets, keep order for pills
+            if (isAsset(a) && isAsset(b)) {
+              return a.created_at.localeCompare(b.created_at);
+            }
+            return 0;
+          }
+          return a.order_index > b.order_index ? 1 : -1;
+        });
       });
     },
     []
   );
 
-  // Use session assets instead of database query
-  const rawAssets = sessionAssets;
+  // Helper to add a new verse pill to the session list
+  const addVersePill = React.useCallback(
+    (verse: number, orderIndex: number) => {
+      const newPill: VersePillItem = {
+        type: 'pill',
+        id: `pill-verse-${verse}-${Date.now()}`,
+        order_index: orderIndex,
+        verse: { from: verse, to: verse }
+      };
+
+      console.log(
+        `🏷️ Adding pill for verse ${verse} with order_index: ${orderIndex}`
+      );
+
+      setSessionItems((prev) => {
+        const newList = [...prev, newPill];
+        return newList.sort((a, b) => {
+          if (a.order_index === b.order_index) {
+            // Pills come before assets at the same order_index
+            if (isPill(a) && isAsset(b)) return -1;
+            if (isAsset(a) && isPill(b)) return 1;
+            if (isAsset(a) && isAsset(b)) {
+              return a.created_at.localeCompare(b.created_at);
+            }
+            return 0;
+          }
+          return a.order_index > b.order_index ? 1 : -1;
+        });
+      });
+    },
+    []
+  );
+
+  // Use session items - filter to get only assets for backward compatibility
+  const rawAssets = React.useMemo(
+    () => sessionItems.filter(isAsset),
+    [sessionItems]
+  );
+
+  // All items (assets + pills) for the wheel
+  const allItems = sessionItems;
 
   // Normalize assets
   // ARCHITECTURE:
@@ -475,6 +554,7 @@ const BibleRecordingView = ({
         }
 
         return {
+          type: 'asset' as const,
           id: obj.id,
           name: obj.name,
           created_at: obj.created_at,
@@ -498,28 +578,38 @@ const BibleRecordingView = ({
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
 
-  // Check if we're at the end of the list (for VersePill behavior)
+  // Check if we're at the end of the list (for add verse button behavior)
   const isAtEndOfList = React.useMemo(
-    () => assets.length === 0 || insertionIndex >= assets.length,
-    [assets.length, insertionIndex]
+    () => allItems.length === 0 || insertionIndex >= allItems.length,
+    [allItems.length, insertionIndex]
   );
 
-  // Get the asset at the current insertion position (center of wheel)
-  // This is used to show the verse in VersePill when scrolling through items
-  const highlightedAsset = React.useMemo(() => {
-    if (assets.length === 0) return null;
-    // insertionIndex can be 0 to assets.length (inclusive)
-    // When at the end (insertionIndex >= assets.length), we still want to show the last asset
-    const idx = Math.min(insertionIndex, assets.length - 1);
-    return assets[idx] ?? null;
-  }, [assets, insertionIndex]);
+  // Get the item at the current insertion position (center of wheel)
+  // This can be either an asset or a verse pill
+  const highlightedItem = React.useMemo(() => {
+    if (allItems.length === 0) return null;
+    // insertionIndex can be 0 to allItems.length (inclusive)
+    // When at the end (insertionIndex >= allItems.length), we still want to show the last item
+    const idx = Math.min(insertionIndex, allItems.length - 1);
+    return allItems[idx] ?? null;
+  }, [allItems, insertionIndex]);
 
-  // Get verse metadata from highlighted asset (uses actual metadata, not order_index)
+  // Get the highlighted item as an asset (null if it's a pill)
+  // Prefixed with _ as it may not be used directly but kept for potential future use
+  const _highlightedAsset = React.useMemo(() => {
+    if (!highlightedItem || isPill(highlightedItem)) return null;
+    return highlightedItem;
+  }, [highlightedItem]);
+
+  // Get verse metadata from highlighted item (works for both assets and pills)
   // This can be a range like { from: 1, to: 3 }
-  const highlightedAssetVerse = React.useMemo(() => {
-    if (!highlightedAsset) return null;
-    return highlightedAsset.verse ?? null;
-  }, [highlightedAsset]);
+  const highlightedItemVerse = React.useMemo(() => {
+    if (!highlightedItem) return null;
+    return highlightedItem.verse ?? null;
+  }, [highlightedItem]);
+
+  // Legacy alias for backward compatibility
+  const highlightedAssetVerse = highlightedItemVerse;
 
   // Helper to format verse range as text
   const formatVerseRange = React.useCallback(
@@ -625,35 +715,42 @@ const BibleRecordingView = ({
   const handleAddNextVerse = React.useCallback(() => {
     if (verseToAdd === null) return;
 
-    console.log(`➕ Adding verse ${verseToAdd} to VersePill`);
+    console.log(`➕ Adding verse ${verseToAdd} as pill to list`);
 
     // Calculate order_index for the first asset of this verse
     // Formula: (verse * 1000 + 1) * 1000
     // This positions it at the beginning of the verse range
     const newOrderIndex = (verseToAdd * 1000 + 1) * 1000;
-    appendOrderIndexRef.current = newOrderIndex;
+    appendOrderIndexRef.current = newOrderIndex + 1; // Next asset goes after the pill
 
     console.log(
       `📊 Updated order_index for verse ${verseToAdd}: ${newOrderIndex}`
     );
 
-    // Set currentDynamicVerse to this verse
-    // The VersePill will now show this verse
-    // The button will automatically calculate the next verse (verseToAdd + 1)
+    // Add the verse pill to the list
+    addVersePill(verseToAdd, newOrderIndex);
+
+    // Set currentDynamicVerse to this verse (for button calculation)
     setCurrentDynamicVerse(verseToAdd);
+
+    // Scroll to the new pill (end of list) after it's added
+    // The wheel will update its item count and we should move to the new item
+    setTimeout(() => {
+      setInsertionIndex(allItems.length); // Will be the index after the new pill is added
+    }, 50);
 
     // If VAD is active, also update the currentRecordingVerseRef
     // This ensures that the next VAD segment uses the new verse metadata
     if (isVADLocked) {
       const newVerse = { from: verseToAdd, to: verseToAdd };
       currentRecordingVerseRef.current = newVerse;
-      // Also update VAD counter to use the new order_index
-      vadCounterRef.current = newOrderIndex;
+      // Also update VAD counter to use the new order_index (after the pill)
+      vadCounterRef.current = newOrderIndex + 1;
       console.log(
-        `🎯 VAD: Updated verse to ${verseToAdd} and order_index to ${newOrderIndex}`
+        `🎯 VAD: Updated verse to ${verseToAdd} and order_index to ${newOrderIndex + 1}`
       );
     }
-  }, [verseToAdd, isVADLocked]);
+  }, [verseToAdd, isVADLocked, addVersePill, allItems.length]);
 
   // Map assets to SharedValues from the pool (after assets is declared)
   const assetIdsKey = React.useMemo(
@@ -680,16 +777,19 @@ const BibleRecordingView = ({
     }
   }, [assetIdsKey, assets, progressPool]);
 
-  // Stable asset list that only updates when content actually changes
-  // We intentionally use assetContentKey instead of assets to prevent re-renders
-  // when assets array reference changes but content is identical
+  // Stable item list that only updates when content actually changes
+  // We intentionally use assetContentKey instead of allItems to prevent re-renders
+  // when items array reference changes but content is identical
+  const itemsForWheel = React.useMemo(() => allItems, [allItems]);
+
+  // Assets only (for legacy LegendList)
   const assetsForLegendList = React.useMemo(() => assets, [assets]);
 
-  // Clamp insertion index when asset count changes
+  // Clamp insertion index when item count changes
   React.useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (USE_INSERTION_WHEEL) {
-      const maxIndex = assets.length; // Can insert at 0..N (after last item)
+      const maxIndex = allItems.length; // Can insert at 0..N (after last item)
       if (insertionIndex > maxIndex) {
         debugLog(
           `📍 Clamping insertion index from ${insertionIndex} to ${maxIndex}`
@@ -697,22 +797,22 @@ const BibleRecordingView = ({
         setInsertionIndex(maxIndex);
       }
     }
-  }, [assets.length, insertionIndex]);
+  }, [allItems.length, insertionIndex]);
 
   // Ref for LegendList to enable scrolling
   const listRef = React.useRef<LegendListRef>(null);
 
-  // Track asset count to detect new insertions
-  const previousAssetCountRef = React.useRef(assets.length);
+  // Track item count to detect new insertions
+  const previousItemCountRef = React.useRef(allItems.length);
 
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
-    const currentCount = assets.length;
-    const previousCount = previousAssetCountRef.current;
+    const currentCount = allItems.length;
+    const previousCount = previousItemCountRef.current;
 
-    // Only scroll if a new asset was added (count increased)
+    // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
-      debugLog('📜 Auto-scrolling to new asset');
+      debugLog('📜 Auto-scrolling to new item');
 
       // If we were at the end, update insertionIndex to stay at the end
       // This is crucial for the Add Verse button to remain visible
@@ -745,8 +845,8 @@ const BibleRecordingView = ({
       timeoutIdsRef.current.add(timeoutId);
     }
 
-    previousAssetCountRef.current = currentCount;
-  }, [assets.length, insertionIndex]);
+    previousItemCountRef.current = currentCount;
+  }, [allItems.length, insertionIndex]);
 
   // ============================================================================
   // AUDIO PLAYBACK
@@ -1414,28 +1514,32 @@ const BibleRecordingView = ({
         // At end: use append mode, will increment for each segment
         vadCounterRef.current = appendOrderIndexRef.current;
 
-        // Verse: use dynamic verse if set, otherwise persisted verse
-        const verseToUse = currentDynamicVerse
-          ? { from: currentDynamicVerse, to: currentDynamicVerse }
-          : (persistedVerseRef.current ?? null);
+        // Verse: use the verse from the last item in the list (could be a pill)
+        const lastItem = allItems[allItems.length - 1];
+        const verseToUse = lastItem?.verse ?? persistedVerseRef.current ?? null;
         currentRecordingVerseRef.current = verseToUse;
 
         debugLog(
           `🎯 VAD initialized at END | order_index: ${vadCounterRef.current} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
         );
       } else {
-        // In middle: use asset at insertionIndex
-        const selectedAsset = assets[insertionIndexRef.current];
+        // In middle: use item at insertionIndex (could be asset or pill)
+        const selectedItem = allItems[insertionIndexRef.current];
         const selectedOrderIndex =
-          selectedAsset?.order_index ?? insertionIndexRef.current;
+          selectedItem?.order_index ?? insertionIndexRef.current;
         vadCounterRef.current = selectedOrderIndex + 1;
 
-        // Verse: use the same verse as the selected asset
-        const verseToUse = selectedAsset?.verse ?? null;
+        // Verse: use the same verse as the selected item
+        const verseToUse = selectedItem?.verse ?? null;
         currentRecordingVerseRef.current = verseToUse;
 
+        const itemName = selectedItem
+          ? isAsset(selectedItem)
+            ? selectedItem.name
+            : `pill-${selectedItem.verse?.from ?? 'null'}`
+          : 'unknown';
         debugLog(
-          `🎯 VAD initialized in MIDDLE | order_index: ${vadCounterRef.current} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${selectedAsset?.name}")`
+          `🎯 VAD initialized in MIDDLE | order_index: ${vadCounterRef.current} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${itemName}")`
         );
       }
     } else if (!isVADLocked) {
@@ -1443,7 +1547,7 @@ const BibleRecordingView = ({
       vadInsertionIndexRef.current = null;
       vadIsAtEndRef.current = false;
     }
-  }, [isVADLocked, assets, currentDynamicVerse]);
+  }, [isVADLocked, allItems, currentDynamicVerse]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
@@ -1453,8 +1557,8 @@ const BibleRecordingView = ({
 
     // Calculate order_index based on current Wheel position
     // - At end: use appendOrderIndexRef (increments automatically)
-    // - In middle: use selected asset's order_index + 1 (to insert BELOW the selected asset)
-    const isAtEnd = assets.length === 0 || insertionIndex >= assets.length;
+    // - In middle: use selected item's order_index + 1 (to insert BELOW the selected item)
+    const isAtEnd = allItems.length === 0 || insertionIndex >= allItems.length;
 
     if (isAtEnd) {
       // At end: use append mode
@@ -1462,31 +1566,35 @@ const BibleRecordingView = ({
       appendOrderIndexRef.current = targetOrder + 1;
       currentRecordingOrderRef.current = targetOrder;
 
-      // Verse: use dynamic verse if set, otherwise persisted verse
-      const verseToUse = currentDynamicVerse
-        ? { from: currentDynamicVerse, to: currentDynamicVerse }
-        : (persistedVerseRef.current ?? null);
+      // Verse: use the verse from the last item in the list (could be a pill)
+      const lastItem = allItems[allItems.length - 1];
+      const verseToUse = lastItem?.verse ?? persistedVerseRef.current ?? null;
       currentRecordingVerseRef.current = verseToUse;
 
       debugLog(
         `🎯 Recording at END | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
       );
     } else {
-      // In middle: use the asset at insertionIndex
-      const selectedAsset = assets[insertionIndex];
-      const selectedOrderIndex = selectedAsset?.order_index ?? insertionIndex;
+      // In middle: use the item at insertionIndex (could be asset or pill)
+      const selectedItem = allItems[insertionIndex];
+      const selectedOrderIndex = selectedItem?.order_index ?? insertionIndex;
       const targetOrder = selectedOrderIndex + 1;
       currentRecordingOrderRef.current = targetOrder;
 
-      // Verse: use the same verse as the selected asset
-      const verseToUse = selectedAsset?.verse ?? null;
+      // Verse: use the same verse as the selected item
+      const verseToUse = selectedItem?.verse ?? null;
       currentRecordingVerseRef.current = verseToUse;
 
+      const itemName = selectedItem
+        ? isAsset(selectedItem)
+          ? selectedItem.name
+          : `pill-${selectedItem.verse?.from ?? 'null'}`
+        : 'unknown';
       debugLog(
-        `🎯 Recording in MIDDLE | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${selectedAsset?.name}")`
+        `🎯 Recording in MIDDLE | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${itemName}")`
       );
     }
-  }, [isRecording, assets, insertionIndex, currentDynamicVerse]);
+  }, [isRecording, allItems, insertionIndex]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -2031,7 +2139,7 @@ const BibleRecordingView = ({
         await audioSegmentService.deleteAudioSegment(assetId);
 
         // Remove from session assets list
-        setSessionAssets((prev) => prev.filter((a) => a.id !== assetId));
+        setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
 
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'by-quest', currentQuestId],
@@ -2075,7 +2183,7 @@ const BibleRecordingView = ({
         await audioSegmentService.deleteAudioSegment(second.id);
 
         // Remove merged asset from session list (second one gets deleted)
-        setSessionAssets((prev) => prev.filter((a) => a.id !== second.id));
+        setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
 
         // Force re-load of segment count for the merged asset
         debugLog(
@@ -2156,7 +2264,7 @@ const BibleRecordingView = ({
 
                 // Remove merged assets from session list (all except target get deleted)
                 const deletedIds = new Set(rest.map((a) => a.id));
-                setSessionAssets((prev) =>
+                setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
 
@@ -2230,7 +2338,7 @@ const BibleRecordingView = ({
 
                 // Remove deleted assets from session list
                 const deletedIds = new Set(selectedOrdered.map((a) => a.id));
-                setSessionAssets((prev) =>
+                setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
 
@@ -2281,7 +2389,7 @@ const BibleRecordingView = ({
 
         // Update the name directly in sessionAssets to reflect in UI immediately
         // This is safe because the database was already updated successfully
-        setSessionAssets((prev) =>
+        setSessionItems((prev) =>
           prev.map((asset) =>
             asset.id === renameAssetId ? { ...asset, name: newName } : asset
           )
@@ -2463,7 +2571,23 @@ const BibleRecordingView = ({
   // OPTIMIZED: No audioContext.position/duration dependencies - progress now uses SharedValues!
   // This eliminates re-creating all children 10+ times per second during audio playback
   const wheelChildren = React.useMemo(() => {
-    return assetsForLegendList.map((item, index) => {
+    return itemsForWheel.map((item, index) => {
+      // Render verse pill items differently from asset items
+      if (isPill(item)) {
+        const pillText = item.verse
+          ? (formatVerseRange(item.verse) ?? 'No Label')
+          : 'No Label';
+        return (
+          <View
+            key={item.id}
+            className="flex-row items-center justify-center py-2"
+          >
+            <VersePill text={pillText} />
+          </View>
+        );
+      }
+
+      // Asset item rendering
       // Check if this asset is playing individually OR if it's the currently playing asset during play-all
       const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
@@ -2474,9 +2598,14 @@ const BibleRecordingView = ({
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
+
+      // Check if next item is an asset (not a pill) and not from cloud
+      const nextItem = itemsForWheel[index + 1];
       const canMergeDown =
-        index < assetsForLegendList.length - 1 &&
-        assetsForLegendList[index + 1]?.source !== 'cloud';
+        index < itemsForWheel.length - 1 &&
+        nextItem &&
+        isAsset(nextItem) &&
+        nextItem.source !== 'cloud';
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
@@ -2520,7 +2649,8 @@ const BibleRecordingView = ({
       );
     });
   }, [
-    assetsForLegendList,
+    itemsForWheel,
+    formatVerseRange,
     audioContext.isPlaying,
     audioContext.currentAudioId,
     currentlyPlayingAssetId,
@@ -2607,27 +2737,10 @@ const BibleRecordingView = ({
 
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
-        {assets.length === 0 && (
-          <View className="items-center justify-center py-16">
-            <Text className="text-center text-muted-foreground">
-              Start recording to create assets.
-            </Text>
-          </View>
-        )}
-
         {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
         {USE_INSERTION_WHEEL ? (
-          // ArrayInsertionWheel mode - always show wheel, even when empty
+          // ArrayInsertionWheel mode - always show wheel (starts with initial verse pill)
           <View className="relative h-full flex-1">
-            {/* Verse pill positioned above the center item */}
-            {versePillText && (
-              <View
-                className="absolute left-0 right-0 z-10 -mt-24"
-                style={{ top: '40%', transform: [{ translateY: -50 }] }}
-              >
-                <VersePill text={versePillText} />
-              </View>
-            )}
             <ArrayInsertionWheel
               ref={wheelRef}
               value={insertionIndex}
