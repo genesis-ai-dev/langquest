@@ -2,6 +2,16 @@ Remove backwards compatibility code for @version:
 
 Find TypeScript code referencing versions below @version. Remove it from application files only. Verify min_required_schema_version in get_schema_info() makes this code obsolete.
 
+## PowerSync is Schemaless (Important!)
+
+PowerSync stores synced data as **schemaless JSON** internally. The client-side Drizzle schema is just a "view" on top of this data. This has important implications:
+
+> "The schema as supplied on the client is only a view on top of the schemaless data. Updating this client-side schema is immediate when the new version of the app runs, **with no client-side migrations required**."
+>
+> — [PowerSync: Implementing Schema Changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
+
+**Important clarification:** PowerSync handles _schema changes_ (adding/removing columns) automatically without migrations. However, **data transformations** (modifying existing data, backfilling values, computing derived fields) still require client-side migrations.
+
 ## Step 1: Examine all migration files
 
 CRITICAL FIRST STEP: Read and understand ALL migration files from version 0.0 up to @version:

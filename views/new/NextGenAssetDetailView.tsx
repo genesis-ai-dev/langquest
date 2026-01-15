@@ -24,9 +24,16 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useTranscription } from '@/hooks/useTranscription';
+import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
+import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { getLocalAttachmentUriWithOPFS, getLocalUri } from '@/utils/fileUtils';
+import {
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  getLocalUri
+} from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -44,9 +51,11 @@ import {
   Volume2Icon,
   VolumeXIcon
 } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
+import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -174,6 +183,17 @@ export default function NextGenAssetDetailView() {
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
+
+  // Transcription feature
+  const enableTranscription = useLocalStore(
+    (state) => state.enableTranscription
+  );
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
+  const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
+    useTranscriptionLocalization();
+  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
+  const [transcriptionText, setTranscriptionText] = useState('');
 
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -374,6 +394,18 @@ export default function NextGenAssetDetailView() {
 
   const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
 
+  // Get the current content's language ID for transcription localization
+  const currentContentLanguageId = React.useMemo(() => {
+    const content = activeAsset?.content?.[currentContentIndex];
+    return content?.languoid_id || content?.source_language_id || '';
+  }, [activeAsset?.content, currentContentIndex]);
+
+  // Fetch orthography examples for transcription localization
+  const { data: orthographyExamples = [] } = useOrthographyExamples(
+    currentProjectId,
+    currentContentLanguageId
+  );
+
   // Active tab is now derived from asset content via useMemo above
 
   // Reset content index when asset changes
@@ -519,6 +551,105 @@ export default function NextGenAssetDetailView() {
     setTranslationsRefreshKey((prev) => prev + 1);
   };
 
+  // Transcription handler for source audio
+  const handleTranscribe = async (uri: string) => {
+    if (!isAuthenticated) {
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
+      return;
+    }
+
+    // Validate the audio file exists before attempting transcription
+    if (!uri) {
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    const exists = await fileExists(uri);
+    if (!exists) {
+      console.log('[Transcription] Audio file not found at URI:', uri);
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    console.log('[Transcription] Starting transcription for URI:', uri);
+
+    try {
+      // Step 1: Get phonetic transcription from ASR
+      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
+      if (!result.text) {
+        RNAlert.alert(t('error'), 'Transcription returned no text');
+        return;
+      }
+
+      console.log('[Transcription] Phonetic result:', result.text);
+
+      // Step 2: Localize the phonetic transcription if we have examples
+      let finalText = result.text;
+
+      if (orthographyExamples.length > 0 && currentContentLanguageId) {
+        // Get language name for the prompt
+        const languoid = languoidById.get(currentContentLanguageId);
+        const languageName = languoid?.name || 'the target language';
+
+        console.log(
+          '[Transcription] Localizing with',
+          orthographyExamples.length,
+          'examples for',
+          languageName
+        );
+
+        try {
+          const localizationResult = await localizeTranscription({
+            phoneticText: result.text,
+            examples: orthographyExamples,
+            languageName
+          });
+
+          if (localizationResult.localizedText) {
+            console.log(
+              '[Transcription] Localized result:',
+              localizationResult.localizedText
+            );
+            finalText = localizationResult.localizedText;
+          }
+        } catch (localizationError) {
+          // Log but don't fail - fall back to phonetic transcription
+          console.warn(
+            '[Transcription] Localization failed, using phonetic result:',
+            localizationError
+          );
+        }
+      } else {
+        console.log(
+          '[Transcription] No orthography examples available, using phonetic result'
+        );
+      }
+
+      // Open modal with result for editing
+      setTranscriptionText(finalText);
+      setShowTranscriptionModal(true);
+    } catch (error) {
+      console.error('Transcription error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      RNAlert.alert(
+        t('error'),
+        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+      );
+    }
+  };
+
   const handleNewTranslationPress = () => {
     if (!canTranslate) {
       // If no access, PrivateAccessGate will handle showing the modal
@@ -637,6 +768,12 @@ export default function NextGenAssetDetailView() {
                       })()}
                       audioSegments={resolvedAudioUris}
                       isLoading={isLoadingAttachments}
+                      onTranscribe={
+                        enableTranscription && isAuthenticated
+                          ? handleTranscribe
+                          : undefined
+                      }
+                      isTranscribing={isTranscribing || isLocalizing}
                     />
                     <View className="flex w-full flex-row justify-between">
                       {/* Audio status indicator */}
@@ -881,6 +1018,23 @@ export default function NextGenAssetDetailView() {
               goBack();
             }
           }}
+        />
+      )}
+
+      {/* Transcription Edit Modal */}
+      {isAuthenticated && currentProjectId && (
+        <TranscriptionEditModal
+          visible={showTranscriptionModal}
+          onClose={() => setShowTranscriptionModal(false)}
+          onSuccess={() => setTranslationsRefreshKey((prev) => prev + 1)}
+          initialText={transcriptionText}
+          sourceAssetId={activeAsset.id}
+          projectId={currentProjectId}
+          languoidId={
+            activeAsset.content?.[currentContentIndex]?.languoid_id ||
+            activeAsset.content?.[currentContentIndex]?.source_language_id ||
+            ''
+          }
         />
       )}
     </View>

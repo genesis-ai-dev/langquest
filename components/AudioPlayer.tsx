@@ -5,7 +5,13 @@ import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import Carousel from './Carousel';
 
 interface AudioFile {
@@ -19,13 +25,17 @@ interface AudioPlayerProps {
   audioSegments?: string[];
   useCarousel?: boolean;
   mini?: boolean;
+  onTranscribe?: (uri: string) => void;
+  isTranscribing?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   audioFiles = [],
   audioSegments,
   useCarousel = true,
-  mini = false
+  mini = false,
+  onTranscribe,
+  isTranscribing = false
 }) => {
   const { t } = useLocalization();
   const {
@@ -76,16 +86,41 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     return (
       <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
-        <TouchableOpacity
-          style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-          onPress={() => handlePlayPause(item.uri, item.id)}
-        >
-          <Ionicons
-            name={isThisAudioPlaying ? 'pause' : 'play'}
-            size={mini ? 24 : 48}
-            color={colors.text}
-          />
-        </TouchableOpacity>
+        <View style={styles.controlsRow}>
+          <TouchableOpacity
+            style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
+            onPress={() => handlePlayPause(item.uri, item.id)}
+          >
+            <Ionicons
+              name={isThisAudioPlaying ? 'pause' : 'play'}
+              size={mini ? 24 : 48}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+          {onTranscribe && (
+            <TouchableOpacity
+              style={[
+                styles.transcribeButton,
+                mini && styles.miniTranscribeButton
+              ]}
+              onPress={() => onTranscribe(item.uri)}
+              disabled={isTranscribing}
+            >
+              {isTranscribing ? (
+                <ActivityIndicator
+                  size={mini ? 16 : 24}
+                  color={colors.background}
+                />
+              ) : (
+                <Ionicons
+                  name="text-outline"
+                  size={mini ? 18 : 28}
+                  color={colors.background}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
         {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
         <View
           style={[
@@ -140,6 +175,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%'
   },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.medium
+  },
   audioPlayButton: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -147,6 +187,19 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: colors.inputBackground
+  },
+  transcribeButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary
+  },
+  miniTranscribeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18
   },
   audioFileName: {
     color: colors.text,

@@ -12,7 +12,9 @@ import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useExpoDb } from '@/hooks/useExpoDb';
 import {
   NotoSans_400Regular,
   NotoSans_500Medium,
@@ -34,7 +36,6 @@ import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { PressablesConfig } from 'pressto';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import {
   configureReanimatedLogger,
@@ -69,6 +70,9 @@ export default function RootLayout() {
   const hasMounted = useRef(false);
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
+
+  // Initialize dev tools plugin for database MCP access
+  useExpoDb();
 
   // Load Noto Sans fonts
   const [fontsLoaded] = useFonts({
@@ -134,34 +138,29 @@ export default function RootLayout() {
   return (
     <PowerSyncContext.Provider value={system.powersync}>
       <PostHogProvider>
-        <AuthProvider>
-          <QueryProvider>
-            <AudioProvider>
-              <SafeAreaProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <KeyboardProvider>
-                    <StatusBar style={systemBarsStyle} />
-                    {/* OTA Update Banner - shown before login and after */}
-                    <UpdateBanner />
-                    <BottomSheetModalProvider>
-                      <ThemeProvider value={NAV_THEME[scheme]}>
-                        <PressablesConfig
-                          animationConfig={{
-                            duration: 100
-                            // easing: Easing.out(Easing.ease)
-                          }}
-                        >
+        <PreAuthMigrationCheck>
+          <AuthProvider>
+            <QueryProvider>
+              <AudioProvider>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardProvider>
+                      <StatusBar style={systemBarsStyle} />
+                      {/* OTA Update Banner - shown before login and after */}
+                      <UpdateBanner />
+                      <BottomSheetModalProvider>
+                        <ThemeProvider value={NAV_THEME[scheme]}>
                           <Stack screenOptions={{ headerShown: false }} />
-                        </PressablesConfig>
-                        <PortalHost />
-                      </ThemeProvider>
-                    </BottomSheetModalProvider>
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
-              </SafeAreaProvider>
-            </AudioProvider>
-          </QueryProvider>
-        </AuthProvider>
+                          <PortalHost />
+                        </ThemeProvider>
+                      </BottomSheetModalProvider>
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
+              </AudioProvider>
+            </QueryProvider>
+          </AuthProvider>
+        </PreAuthMigrationCheck>
       </PostHogProvider>
     </PowerSyncContext.Provider>
   );

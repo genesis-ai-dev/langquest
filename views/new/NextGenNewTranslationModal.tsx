@@ -347,6 +347,7 @@ export default function NextGenNewTranslationModal({
           .insert(resolveTable('asset'))
           .values({
             source_asset_id: assetId,
+            content_type: 'translation',
             project_id: currentProjectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]

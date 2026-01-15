@@ -4357,6 +4357,21 @@ export const localizations = {
     tok_pisin: 'Plis login pastaim long vote',
     indonesian: 'Silakan login untuk memilih'
   },
+  pleaseLogInToTranscribe: {
+    english: 'Please log in to transcribe audio',
+    spanish: 'Por favor, inicia sesión para transcribir audio',
+    brazilian_portuguese: 'Por favor, faça login para transcrever áudio',
+    tok_pisin: 'Plis login pastaim long transcribe audio',
+    indonesian: 'Silakan login untuk mentranskripsi audio'
+  },
+  transcriptionFailed: {
+    english: 'Failed to transcribe audio. Please try again.',
+    spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao transcrever áudio. Por favor, tente novamente.',
+    tok_pisin: 'I no inap transcribe audio. Plis traim gen.',
+    indonesian: 'Gagal mentranskripsi audio. Silakan coba lagi.'
+  },
   yourTranscriptionHasBeenSubmitted: {
     english: 'Your transcription has been submitted',
     spanish: 'Tu transcripción ha sido enviada',
@@ -5906,6 +5921,28 @@ export const localizations = {
       'Exportim ol bible chapter olsem audio fail long shareim na distributim',
     indonesian:
       'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan'
+  },
+  transcription: {
+    english: 'Transcription',
+    spanish: 'Transcripción',
+    brazilian_portuguese: 'Transcrição',
+    tok_pisin: 'Transcription',
+    indonesian: 'Transkripsi'
+  },
+  transcriptionDescription: {
+    english: 'Enable automatic transcription of audio recordings',
+    spanish: 'Habilitar transcripción automática de grabaciones de audio',
+    brazilian_portuguese:
+      'Habilitar transcrição automática de gravações de áudio',
+    tok_pisin: 'Enablem automatic transcription bilong audio recordings',
+    indonesian: 'Aktifkan transkripsi otomatis rekaman audio'
+  },
+  transcriptionComplete: {
+    english: 'Transcription Complete',
+    spanish: 'Transcripción completada',
+    brazilian_portuguese: 'Transcrição concluída',
+    tok_pisin: 'Transcription i pinis',
+    indonesian: 'Transkripsi selesai'
   },
   copyFeedbackLink: {
     english: 'Copy Feedback Link',

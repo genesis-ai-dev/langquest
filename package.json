@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "scripts": {
     "start": "expo start --dev-client",
     "start:prod": "expo start --dev-client --no-dev --minify",
@@ -125,7 +125,6 @@
     "posthog-js": "^1.265.1",
     "posthog-react-native": "^4.3.0",
     "posthog-react-native-session-replay": "^1.1.1",
-    "pressto": "^0.6.0",
     "react": "19.0.0",
     "react-compiler-runtime": "^19.0.0-beta-af1b7da-20250417",
     "react-dom": "19.0.0",
@@ -158,6 +157,7 @@
     "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@eslint/compat": "^1.2.4",
     "@libsql/client": "^0.14.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "@react-native-community/cli": "latest",
     "@react-native/debugger-frontend": "^0.83.1",
     "@react-native/dev-middleware": "^0.83.1",
@@ -200,6 +200,12 @@
   },
   "overrides": {
     "ajv": "^6.12.6",
+    "@modelcontextprotocol/sdk": {
+      "ajv": "^8.17.1",
+      "ajv-formats": {
+        "ajv": "^8.17.1"
+      }
+    },
     "schema-utils": "3.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",

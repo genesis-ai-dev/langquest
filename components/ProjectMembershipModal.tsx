@@ -425,7 +425,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
 
     if (!currentUser) {
-      return null;
+      return;
     }
 
     RNAlert.alert(t('confirmLeave'), t('confirmLeaveMessage'), [
@@ -645,7 +645,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const handleSendInvitation = async () => {
     // Guard clause: Don't render if currentUser is null
     if (!currentUser) {
-      return null;
+      return;
     }
 
     if (!isValidEmail(inviteEmail)) {
