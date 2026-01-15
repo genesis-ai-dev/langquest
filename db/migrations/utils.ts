@@ -60,7 +60,7 @@ export async function addColumn(
 
   // Convert view name to PowerSync table name
   // 'asset_local' -> 'ps_data_local__asset_local'
-  const psTableName = getRawTableName(table, 'local');
+  const psTableName = getRawTableName(table);
 
   try {
     await db.execute(`ALTER TABLE ${psTableName} ADD COLUMN ${columnDef}`);
@@ -102,7 +102,7 @@ export async function renameColumn(
   );
 
   // Convert view name to PowerSync table name
-  const psTableName = getRawTableName(table, 'local');
+  const psTableName = getRawTableName(table);
 
   try {
     // Try direct rename (SQLite 3.25.0+)
@@ -138,7 +138,7 @@ export async function dropColumn(
   console.log(`[Migration] Dropping column from ${table}: ${columnName}`);
 
   // Convert view name to PowerSync table name
-  const psTableName = getRawTableName(table, 'local');
+  const psTableName = getRawTableName(table);
 
   try {
     await db.execute(`ALTER TABLE ${psTableName} DROP COLUMN ${columnName}`);
@@ -584,7 +584,7 @@ export async function columnExists(
   table: string,
   columnName: string
 ): Promise<boolean> {
-  const psTableName = getRawTableName(table, 'local');
+  const psTableName = getRawTableName(table);
 
   try {
     const result = await db.getAll(

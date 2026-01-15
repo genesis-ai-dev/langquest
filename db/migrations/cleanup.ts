@@ -129,7 +129,7 @@ export async function cleanupDuplicateLanguoids(): Promise<{
 
         // Remove awaiting_cleanup flag from non-valid UUID languoids (test data) in a single query
         try {
-          const languoidRawTable = getRawTableName('languoid_local', 'local');
+          const languoidRawTable = getRawTableName('languoid_local');
           // Build query with IN clause for all skipped IDs
           const idsList = skippedIds
             .map((id) => `'${id.replace(/'/g, "''")}'`)
