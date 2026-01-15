@@ -5,16 +5,15 @@
  */
 
 import { Button } from '@/components/ui/button';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
-} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import {
+  SimpleDrawer,
+  SimpleDrawerClose,
+  SimpleDrawerDescription,
+  SimpleDrawerFooter,
+  SimpleDrawerHeader,
+  SimpleDrawerTitle
+} from '@/components/ui/simple-drawer';
 import { Text } from '@/components/ui/text';
 import {
   Tooltip,
@@ -35,7 +34,6 @@ import {
   VAD_THRESHOLD_MIN
 } from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
-import { useGestureEventsHandlersDefault } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import {
   HelpCircle,
@@ -118,45 +116,7 @@ const visualPositionToDb = (percent: number): number => {
   return DB_MIN + (clampedPercent / 100) * (DB_MAX - DB_MIN);
 };
 
-// Factory to create a gesture handler hook that tracks dragging state
-// FIXED: Pass SharedValue directly instead of wrapping in a ref
-// The ref wrapper was causing Reanimated warnings about modifying frozen objects
-function createDraggingGestureHandler(draggingShared: SharedValue<boolean>) {
-  // Return a hook function that will be called by BottomSheet
-  return function useDraggingGestureHandler() {
-    const defaultHandlers = useGestureEventsHandlersDefault();
-
-    return {
-      handleOnStart: (
-        ...args: Parameters<typeof defaultHandlers.handleOnStart>
-      ) => {
-        'worklet';
-        draggingShared.value = true;
-        defaultHandlers.handleOnStart(...args);
-      },
-      handleOnChange: (
-        ...args: Parameters<typeof defaultHandlers.handleOnChange>
-      ) => {
-        'worklet';
-        defaultHandlers.handleOnChange(...args);
-      },
-      handleOnEnd: (
-        ...args: Parameters<typeof defaultHandlers.handleOnEnd>
-      ) => {
-        'worklet';
-        draggingShared.value = false;
-        defaultHandlers.handleOnEnd(...args);
-      },
-      handleOnFinalize: (
-        ...args: Parameters<typeof defaultHandlers.handleOnFinalize>
-      ) => {
-        'worklet';
-        draggingShared.value = false;
-        defaultHandlers.handleOnFinalize(...args);
-      }
-    };
-  };
-}
+// Removed gesture handler factory - SimpleDrawer handles gestures internally
 
 interface VADSettingsDrawerProps {
   isOpen: boolean;
@@ -212,8 +172,8 @@ function VADSettingsDrawerInternal({
   const primaryForegroundColor = useThemeColor('primary-foreground');
   const borderColor = useThemeColor('border');
 
-  // Track dragging state on JS thread for SVG color changes
-  const [isDraggingJS, setIsDraggingJS] = React.useState(false);
+  // Track dragging state on JS thread for SVG color changes (no longer needed with SimpleDrawer)
+  const [isDraggingJS] = React.useState(false);
 
   // Calculate energy bar dimensions based on available width
   const { energyBarSegments, energyBarTotalWidth } = React.useMemo(() => {
@@ -779,29 +739,7 @@ function VADSettingsDrawerInternal({
   const cachedEnergyLevel = useSharedValue(0);
   // SharedValue for energy bar width (so worklets can access it)
   const energyBarWidthShared = useSharedValue(energyBarTotalWidth);
-  // Track if drawer is being dragged (to pause calculations)
-  const isDragging = useSharedValue(false);
-
-  // Create custom gesture handler hook using factory
-  // FIXED: Pass SharedValue directly - refs were causing Reanimated warnings
-  const gestureHandlerHook = React.useMemo(
-    () => createDraggingGestureHandler(isDragging),
-    [isDragging]
-  );
-
-  // Sync isDragging to JS thread for SVG color changes
-  // CRITICAL: Must use function reference with scheduleOnRN, not inline arrow
-  const updateIsDraggingJS = React.useCallback((dragging: boolean) => {
-    setIsDraggingJS(dragging);
-  }, []);
-
-  useAnimatedReaction(
-    () => isDragging.value,
-    (dragging) => {
-      'worklet';
-      scheduleOnRN(updateIsDraggingJS, dragging);
-    }
-  );
+  // Removed isDragging tracking - SimpleDrawer doesn't interfere with content gestures
 
   // Keep shared value in sync with memoized value
   React.useEffect(() => {
@@ -811,13 +749,6 @@ function VADSettingsDrawerInternal({
   // Animated style for the energy fill overlay (clips the gradient SVG)
   const energyFillStyle = useAnimatedStyle(() => {
     'worklet';
-    // Skip calculations when drawer is being dragged
-    if (isDragging.value) {
-      return {
-        width: (cachedEnergyLevel.value / 100) * energyBarWidthShared.value
-      };
-    }
-
     const counter = frameCounter.value;
     frameCounter.value = (counter + 1) % 3;
 
@@ -855,21 +786,14 @@ function VADSettingsDrawerInternal({
   // Animated styles for status indicator (runs entirely on UI thread, instant - no animation)
   const recordingStatusStyle = useAnimatedStyle(() => {
     'worklet';
-    if (isDragging.value) return { opacity: 0 };
     const isAbove = cachedEnergyLevel.value > thresholdPositionShared.value;
     return { opacity: isAbove ? 1 : 0 };
   });
 
   const waitingStatusStyle = useAnimatedStyle(() => {
     'worklet';
-    if (isDragging.value) return { opacity: 0 };
     const isAbove = cachedEnergyLevel.value > thresholdPositionShared.value;
     return { opacity: isAbove ? 0 : 1 };
-  });
-
-  const pausedStatusStyle = useAnimatedStyle(() => {
-    'worklet';
-    return { opacity: isDragging.value ? 1 : 0 };
   });
 
   // Silence timer progress (1 = full/speaking, 0 = empty/will split)
@@ -920,17 +844,14 @@ function VADSettingsDrawerInternal({
   });
 
   return (
-    <Drawer
-      open={isOpen}
-      onOpenChange={onOpenChange}
-      snapPoints={[730, 900]}
-      gestureEventsHandlersHook={gestureHandlerHook}
-    >
-      <DrawerContent className="max-h-[90%]">
-        <DrawerHeader className="flex-row items-start justify-between">
+    <SimpleDrawer open={isOpen} onOpenChange={onOpenChange} maxHeight={1.0}>
+      <View className="px-6">
+        <SimpleDrawerHeader className="flex-row items-start justify-between">
           <View className="flex-1">
-            <DrawerTitle>{t('vadTitle')}</DrawerTitle>
-            <DrawerDescription>{t('vadDescription')}</DrawerDescription>
+            <SimpleDrawerTitle>{t('vadTitle')}</SimpleDrawerTitle>
+            <SimpleDrawerDescription>
+              {t('vadDescription')}
+            </SimpleDrawerDescription>
           </View>
           <Tooltip>
             <TooltipTrigger hitSlop={10}>
@@ -951,7 +872,7 @@ function VADSettingsDrawerInternal({
               </Text>
             </TooltipContent>
           </Tooltip>
-        </DrawerHeader>
+        </SimpleDrawerHeader>
 
         <View className="flex flex-col gap-6">
           {/* ═══════════════════════════════════════════════════════════════
@@ -1177,13 +1098,6 @@ function VADSettingsDrawerInternal({
               >
                 <Text className="text-xs text-muted-foreground">
                   🎤 {t('vadRecordingNow')}
-                </Text>
-              </Animated.View>
-              <Animated.View
-                style={[{ position: 'absolute', left: 0 }, pausedStatusStyle]}
-              >
-                <Text className="text-xs text-muted-foreground">
-                  ⏸️ {t('vadPaused')}
                 </Text>
               </Animated.View>
             </View>
@@ -1515,13 +1429,13 @@ function VADSettingsDrawerInternal({
           </View>
         </View>
 
-        <DrawerFooter>
-          <DrawerClose>
+        <SimpleDrawerFooter>
+          <SimpleDrawerClose variant="default">
             <Text>{t('done')}</Text>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+          </SimpleDrawerClose>
+        </SimpleDrawerFooter>
+      </View>
+    </SimpleDrawer>
   );
 }
 
