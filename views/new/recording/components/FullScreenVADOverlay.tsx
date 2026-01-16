@@ -20,6 +20,7 @@ interface FullScreenVADOverlayProps {
   energyShared: SharedValue<number>;
   vadThreshold: number;
   isRecordingShared: SharedValue<boolean>;
+  isDiscardedShared?: SharedValue<number>;
   onCancel: () => void;
 }
 
@@ -28,6 +29,7 @@ export function FullScreenVADOverlay({
   energyShared,
   vadThreshold,
   isRecordingShared,
+  isDiscardedShared,
   onCancel
 }: FullScreenVADOverlayProps) {
   const { t } = useLocalization();
@@ -54,6 +56,7 @@ export function FullScreenVADOverlay({
             energyShared={energyShared}
             vadThreshold={vadThreshold}
             isRecordingShared={isRecordingShared}
+            isDiscardedShared={isDiscardedShared}
             barCount={60}
             maxHeight={80}
           />

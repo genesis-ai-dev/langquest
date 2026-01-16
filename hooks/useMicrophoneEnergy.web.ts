@@ -6,6 +6,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 export interface MicrophoneEnergyResult {
   energy: number; // Normalized energy level (0-1)
@@ -21,6 +23,13 @@ export interface UseMicrophoneEnergyReturn {
   stopEnergyDetection: () => Promise<void>;
   clearError: () => void;
   resetEnergy: () => void;
+  requestPermissions: () => Promise<boolean>;
+  startSegment: (options?: { prerollMs?: number }) => Promise<void>;
+  stopSegment: () => Promise<string | null>;
+  // SharedValue for high-performance UI updates (no re-renders!)
+  energyShared: SharedValue<number>;
+  // Ref for logic that needs the latest value without re-renders
+  energyRef: { current: number };
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
@@ -28,6 +37,12 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
   const [energyResult, setEnergyResult] =
     useState<MicrophoneEnergyResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
+
+  // SharedValue for high-performance UI updates (no re-renders!)
+  const energyShared = useSharedValue(0);
+
+  // Ref for logic that needs the latest value without re-renders
+  const energyRef = useRef(0);
 
   // Audio context and stream refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -144,7 +159,12 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
           currentSmoothed * (1 - SMOOTHING_FACTOR) + rms * SMOOTHING_FACTOR;
         smoothedEnergyRef.current = newSmoothed;
 
-        // Update state
+        // Update SharedValue for UI (no re-render)
+        energyShared.value = rms;
+        // Update ref for logic that needs it (no re-render)
+        energyRef.current = rms;
+
+        // Update state (for legacy consumers)
         setEnergyResult({
           energy: rms,
           smoothedEnergy: newSmoothed,
@@ -183,6 +203,33 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
   const resetEnergy = useCallback(() => {
     setEnergyResult(null);
     smoothedEnergyRef.current = 0;
+    energyShared.value = 0;
+    energyRef.current = 0;
+  }, [energyShared]);
+
+  // Stub implementations for compatibility with native interface
+  const requestPermissions = useCallback(async (): Promise<boolean> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const startSegment = useCallback(
+    async (_options?: { prerollMs?: number }) => {
+      // Web doesn't support segment recording - this is a native-only feature
+      console.warn('startSegment is not supported on web');
+    },
+    []
+  );
+
+  const stopSegment = useCallback(async (): Promise<string | null> => {
+    // Web doesn't support segment recording - this is a native-only feature
+    console.warn('stopSegment is not supported on web');
+    return null;
   }, []);
 
   // Cleanup on unmount
@@ -199,6 +246,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
     startEnergyDetection,
     stopEnergyDetection,
     clearError,
-    resetEnergy
+    resetEnergy,
+    requestPermissions,
+    startSegment,
+    stopSegment,
+    energyShared,
+    energyRef
   };
 }
