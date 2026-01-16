@@ -49,7 +49,7 @@ export const VAD_THRESHOLD_DEFAULT = 0.1;
 // VAD silence duration constants (in milliseconds)
 export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
 export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
-export const VAD_SILENCE_DURATION_DEFAULT = 700; // 0.7 seconds
+export const VAD_SILENCE_DURATION_DEFAULT = 1000; // 1.0 seconds
 
 // New VAD algorithm settings
 export const VAD_ONSET_MULTIPLIER_MIN = 0.05;

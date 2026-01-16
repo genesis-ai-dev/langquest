@@ -5,15 +5,17 @@
  */
 
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import {
-  SimpleDrawer,
-  SimpleDrawerClose,
-  SimpleDrawerDescription,
-  SimpleDrawerFooter,
-  SimpleDrawerHeader,
-  SimpleDrawerTitle
-} from '@/components/ui/simple-drawer';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerScrollView,
+  DrawerTitle
+} from '@/components/ui/drawer';
+import { Icon } from '@/components/ui/icon';
+import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import {
   Tooltip,
@@ -34,7 +36,7 @@ import {
   VAD_THRESHOLD_MIN
 } from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
-import Slider from '@react-native-community/slider';
+import { PortalHost } from '@rn-primitives/portal';
 import {
   HelpCircle,
   Maximize2,
@@ -116,7 +118,64 @@ const visualPositionToDb = (percent: number): number => {
   return DB_MIN + (clampedPercent / 100) * (DB_MAX - DB_MIN);
 };
 
-// Removed gesture handler factory - SimpleDrawer handles gestures internally
+// Linear UI to exponential energy conversion (for intuitive slider)
+// Maps linear UI value (0-1) to energy value (VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX)
+// Uses logarithmic interpolation so the slider feels linear to users
+const linearUIToEnergy = (linearValue: number): number => {
+  // Validate input
+  if (!isFinite(linearValue)) return VAD_THRESHOLD_DEFAULT;
+
+  const clamped = Math.max(0, Math.min(1, linearValue));
+  if (clamped === 0) return VAD_THRESHOLD_MIN;
+  if (clamped === 1) return VAD_THRESHOLD_MAX;
+
+  // Logarithmic interpolation: e = min * (max/min)^u
+  // This makes the slider feel linear while mapping to exponential energy values
+  const ratio = VAD_THRESHOLD_MAX / VAD_THRESHOLD_MIN;
+  const energy = VAD_THRESHOLD_MIN * Math.pow(ratio, clamped);
+
+  // Validate result and clamp to avoid precision issues
+  if (!isFinite(energy)) return VAD_THRESHOLD_DEFAULT;
+
+  const result = Math.max(
+    VAD_THRESHOLD_MIN,
+    Math.min(VAD_THRESHOLD_MAX, Number(energy.toFixed(6)))
+  );
+
+  return isFinite(result) ? result : VAD_THRESHOLD_DEFAULT;
+};
+
+// Exponential energy to linear UI conversion (inverse of above)
+const energyToLinearUI = (energy: number): number => {
+  // Validate input
+  if (!isFinite(energy) || energy <= 0) return 0;
+  if (energy >= VAD_THRESHOLD_MAX) return 1;
+
+  const clamped = Math.max(
+    VAD_THRESHOLD_MIN,
+    Math.min(VAD_THRESHOLD_MAX, energy)
+  );
+  if (clamped <= VAD_THRESHOLD_MIN) return 0;
+  if (clamped >= VAD_THRESHOLD_MAX) return 1;
+
+  // Inverse logarithmic interpolation: u = log(e/min) / log(max/min)
+  const ratio = VAD_THRESHOLD_MAX / VAD_THRESHOLD_MIN;
+  const logRatio = Math.log(ratio);
+
+  // Avoid division by zero or invalid log calculations
+  if (!isFinite(logRatio) || logRatio === 0) return 0;
+
+  const numerator = Math.log(clamped / VAD_THRESHOLD_MIN);
+  if (!isFinite(numerator)) return 0;
+
+  const linearValue = numerator / logRatio;
+
+  // Ensure result is valid and clamped
+  const result = Math.max(0, Math.min(1, linearValue));
+  return isFinite(result) ? result : 0;
+};
+
+// Using gorhom Drawer with custom slider that handles gestures properly
 
 interface VADSettingsDrawerProps {
   isOpen: boolean;
@@ -172,7 +231,7 @@ function VADSettingsDrawerInternal({
   const primaryForegroundColor = useThemeColor('primary-foreground');
   const borderColor = useThemeColor('border');
 
-  // Track dragging state on JS thread for SVG color changes (no longer needed with SimpleDrawer)
+  // Track dragging state on JS thread for SVG color changes
   const [isDraggingJS] = React.useState(false);
 
   // Calculate energy bar dimensions based on available width
@@ -739,7 +798,7 @@ function VADSettingsDrawerInternal({
   const cachedEnergyLevel = useSharedValue(0);
   // SharedValue for energy bar width (so worklets can access it)
   const energyBarWidthShared = useSharedValue(energyBarTotalWidth);
-  // Removed isDragging tracking - SimpleDrawer doesn't interfere with content gestures
+  // Custom slider handles gesture conflicts with BottomSheet
 
   // Keep shared value in sync with memoized value
   React.useEffect(() => {
@@ -844,598 +903,605 @@ function VADSettingsDrawerInternal({
   });
 
   return (
-    <SimpleDrawer open={isOpen} onOpenChange={onOpenChange} maxHeight={1.0}>
-      <View className="px-6">
-        <SimpleDrawerHeader className="flex-row items-start justify-between">
-          <View className="flex-1">
-            <SimpleDrawerTitle>{t('vadTitle')}</SimpleDrawerTitle>
-            <SimpleDrawerDescription>
-              {t('vadDescription')}
-            </SimpleDrawerDescription>
-          </View>
-          <Tooltip>
-            <TooltipTrigger hitSlop={10}>
-              <Icon as={HelpCircle} size={20} />
-            </TooltipTrigger>
-            <TooltipContent className="w-64" side="bottom" align="end">
-              <Text>
-                {t('vadHelpTitle')}
-                {'\n'}
-                {'\n'}
-                {t('vadHelpAutomatic')}
-                {'\n'}
-                {'\n'}
-                {t('vadHelpSensitivity')}
-                {'\n'}
-                {'\n'}
-                {t('vadHelpPause')}
-              </Text>
-            </TooltipContent>
-          </Tooltip>
-        </SimpleDrawerHeader>
+    <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={['100%']}>
+      <DrawerContent asChild>
+        <View style={{ flex: 1 }} className="px-6">
+          {/* PortalHost for tooltips inside this drawer */}
+          <PortalHost name="vad-settings-drawer" />
+          <DrawerScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
+            <DrawerHeader className="flex-row items-start justify-between">
+              <View className="flex-1">
+                <DrawerTitle>{t('vadTitle')}</DrawerTitle>
+                <DrawerDescription>{t('vadDescription')}</DrawerDescription>
+              </View>
+              <Tooltip>
+                <TooltipTrigger hitSlop={10}>
+                  <Icon as={HelpCircle} size={20} />
+                </TooltipTrigger>
+                <TooltipContent
+                  className="w-64"
+                  side="bottom"
+                  align="end"
+                  portalHost="vad-settings-drawer"
+                >
+                  <Text>
+                    {t('vadHelpTitle')}
+                    {'\n'}
+                    {'\n'}
+                    {t('vadHelpAutomatic')}
+                    {'\n'}
+                    {'\n'}
+                    {t('vadHelpSensitivity')}
+                    {'\n'}
+                    {'\n'}
+                    {t('vadHelpPause')}
+                  </Text>
+                </TooltipContent>
+              </Tooltip>
+            </DrawerHeader>
 
-        <View className="flex flex-col gap-6">
-          {/* ═══════════════════════════════════════════════════════════════
+            <View className="flex flex-col gap-6">
+              {/* ═══════════════════════════════════════════════════════════════
               SECTION 1: Display Mode Selection (currently hidden)
               Choose between fullscreen overlay or footer-based VAD display
               ═══════════════════════════════════════════════════════════════ */}
-          {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-          {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
-            <View className="gap-3">
-              <View>
-                <Text className="text-sm font-medium text-foreground">
-                  {t('vadDisplayMode')}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t('vadDisplayDescription')}
-                </Text>
-              </View>
+              {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+              {SHOULD_SHOW_DISPLAY_MODE_SELECTION && (
+                <View className="gap-3">
+                  <View>
+                    <Text className="text-sm font-medium text-foreground">
+                      {t('vadDisplayMode')}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {t('vadDisplayDescription')}
+                    </Text>
+                  </View>
 
-              <View className="flex-row gap-3">
-                {/* Full Screen Option */}
-                <Button
-                  variant={displayMode === 'fullscreen' ? 'default' : 'outline'}
-                  onPress={() => onDisplayModeChange('fullscreen')}
-                  className="h-24 flex-1 flex-col gap-2"
-                >
-                  <Icon
-                    as={Maximize2}
-                    size={28}
-                    className={
-                      displayMode === 'fullscreen'
-                        ? 'text-primary-foreground'
-                        : 'text-foreground'
-                    }
-                  />
-                  <Text
-                    className={`text-sm font-medium ${
-                      displayMode === 'fullscreen'
-                        ? 'text-primary-foreground'
-                        : 'text-foreground'
-                    }`}
-                  >
-                    {t('vadFullScreen')}
-                  </Text>
-                </Button>
+                  <View className="flex-row gap-3">
+                    {/* Full Screen Option */}
+                    <Button
+                      variant={
+                        displayMode === 'fullscreen' ? 'default' : 'outline'
+                      }
+                      onPress={() => onDisplayModeChange('fullscreen')}
+                      className="h-24 flex-1 flex-col gap-2"
+                    >
+                      <Icon
+                        as={Maximize2}
+                        size={28}
+                        className={
+                          displayMode === 'fullscreen'
+                            ? 'text-primary-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                      <Text
+                        className={`text-sm font-medium ${
+                          displayMode === 'fullscreen'
+                            ? 'text-primary-foreground'
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {t('vadFullScreen')}
+                      </Text>
+                    </Button>
 
-                {/* Footer Option */}
-                <Button
-                  variant={displayMode === 'footer' ? 'default' : 'outline'}
-                  onPress={() => onDisplayModeChange('footer')}
-                  className="h-24 flex-1 flex-col gap-2"
-                >
-                  <Icon
-                    as={RectangleHorizontal}
-                    size={28}
-                    className={
-                      displayMode === 'footer'
-                        ? 'text-primary-foreground'
-                        : 'text-foreground'
-                    }
-                  />
-                  <Text
-                    className={`text-sm font-medium ${
-                      displayMode === 'footer'
-                        ? 'text-primary-foreground'
-                        : 'text-foreground'
-                    }`}
-                  >
-                    {t('vadFooter')}
-                  </Text>
-                </Button>
-              </View>
-            </View>
-          )}
-          {/* ═══════════════════════════════════════════════════════════════
+                    {/* Footer Option */}
+                    <Button
+                      variant={displayMode === 'footer' ? 'default' : 'outline'}
+                      onPress={() => onDisplayModeChange('footer')}
+                      className="h-24 flex-1 flex-col gap-2"
+                    >
+                      <Icon
+                        as={RectangleHorizontal}
+                        size={28}
+                        className={
+                          displayMode === 'footer'
+                            ? 'text-primary-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                      <Text
+                        className={`text-sm font-medium ${
+                          displayMode === 'footer'
+                            ? 'text-primary-foreground'
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {t('vadFooter')}
+                      </Text>
+                    </Button>
+                  </View>
+                </View>
+              )}
+              {/* ═══════════════════════════════════════════════════════════════
               SECTION 2: Input Level Visualization
               Live microphone energy meter showing current audio level
               Red threshold marker shows where VAD will trigger
               ═══════════════════════════════════════════════════════════════ */}
-          <View className="gap-1">
-            <View className="flex-row items-center gap-2">
-              <Icon as={Mic} size={18} className="text-foreground" />
-              <Text className="text-sm font-medium text-foreground">
-                {t('vadCurrentLevel')}
-              </Text>
-            </View>
+              <View className="gap-1">
+                <View className="flex-row items-center gap-2">
+                  <Icon as={Mic} size={18} className="text-foreground" />
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('vadCurrentLevel')}
+                  </Text>
+                </View>
 
-            <View className="items-center justify-center py-2">
-              <View
-                style={{
-                  width: energyBarTotalWidth,
-                  height: ENERGY_BAR_HEIGHT,
-                  position: 'relative'
-                }}
-              >
-                <Svg
-                  width={energyBarTotalWidth}
-                  height={ENERGY_BAR_HEIGHT}
-                  style={{ position: 'absolute', top: 0, left: 0 }}
-                >
-                  {Array.from({ length: energyBarSegments }).map((_, i) => (
-                    <Rect
-                      key={i}
-                      x={i * (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)}
-                      y={0}
-                      width={ENERGY_BAR_PILL_WIDTH}
-                      height={ENERGY_BAR_HEIGHT}
-                      rx={ENERGY_BAR_RADIUS}
-                      ry={ENERGY_BAR_RADIUS}
-                      fill={accentColor}
-                    />
-                  ))}
-                </Svg>
-
-                <Animated.View
-                  style={[
-                    {
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
+                <View className="items-center justify-center py-2">
+                  <View
+                    style={{
+                      width: energyBarTotalWidth,
                       height: ENERGY_BAR_HEIGHT,
-                      overflow: 'hidden'
-                    },
-                    energyFillStyle
-                  ]}
-                >
-                  <Svg width={energyBarTotalWidth} height={ENERGY_BAR_HEIGHT}>
-                    <Defs>
-                      <SvgLinearGradient
-                        id="energyGrad"
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="0"
-                      >
-                        <Stop
-                          offset="0%"
-                          stopColor={
-                            isDraggingJS ? mutedForegroundColor : '#22c55e'
-                          }
-                        />
-                        <Stop
-                          offset="25%"
-                          stopColor={
-                            isDraggingJS ? mutedForegroundColor : '#84cc16'
-                          }
-                        />
-                        <Stop
-                          offset="50%"
-                          stopColor={
-                            isDraggingJS ? mutedForegroundColor : '#eab308'
-                          }
-                        />
-                        <Stop
-                          offset="75%"
-                          stopColor={
-                            isDraggingJS ? mutedForegroundColor : '#f97316'
-                          }
-                        />
-                        <Stop
-                          offset="100%"
-                          stopColor={
-                            isDraggingJS ? mutedForegroundColor : '#ef4444'
-                          }
-                        />
-                      </SvgLinearGradient>
-                      <Mask id="pillMask">
-                        {Array.from({ length: energyBarSegments }).map(
-                          (_, i) => (
-                            <Rect
-                              key={i}
-                              x={
-                                i * (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)
-                              }
-                              y={0}
-                              width={ENERGY_BAR_PILL_WIDTH}
-                              height={ENERGY_BAR_HEIGHT}
-                              rx={ENERGY_BAR_RADIUS}
-                              ry={ENERGY_BAR_RADIUS}
-                              fill="white"
-                            />
-                          )
-                        )}
-                      </Mask>
-                    </Defs>
-                    <Rect
+                      position: 'relative'
+                    }}
+                  >
+                    <Svg
                       width={energyBarTotalWidth}
                       height={ENERGY_BAR_HEIGHT}
-                      fill="url(#energyGrad)"
-                      mask="url(#pillMask)"
+                      style={{ position: 'absolute', top: 0, left: 0 }}
+                    >
+                      {Array.from({ length: energyBarSegments }).map((_, i) => (
+                        <Rect
+                          key={i}
+                          x={i * (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)}
+                          y={0}
+                          width={ENERGY_BAR_PILL_WIDTH}
+                          height={ENERGY_BAR_HEIGHT}
+                          rx={ENERGY_BAR_RADIUS}
+                          ry={ENERGY_BAR_RADIUS}
+                          fill={accentColor}
+                        />
+                      ))}
+                    </Svg>
+
+                    <Animated.View
+                      style={[
+                        {
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          height: ENERGY_BAR_HEIGHT,
+                          overflow: 'hidden'
+                        },
+                        energyFillStyle
+                      ]}
+                    >
+                      <Svg
+                        width={energyBarTotalWidth}
+                        height={ENERGY_BAR_HEIGHT}
+                      >
+                        <Defs>
+                          <SvgLinearGradient
+                            id="energyGrad"
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0"
+                          >
+                            <Stop
+                              offset="0%"
+                              stopColor={
+                                isDraggingJS ? mutedForegroundColor : '#22c55e'
+                              }
+                            />
+                            <Stop
+                              offset="25%"
+                              stopColor={
+                                isDraggingJS ? mutedForegroundColor : '#84cc16'
+                              }
+                            />
+                            <Stop
+                              offset="50%"
+                              stopColor={
+                                isDraggingJS ? mutedForegroundColor : '#eab308'
+                              }
+                            />
+                            <Stop
+                              offset="75%"
+                              stopColor={
+                                isDraggingJS ? mutedForegroundColor : '#f97316'
+                              }
+                            />
+                            <Stop
+                              offset="100%"
+                              stopColor={
+                                isDraggingJS ? mutedForegroundColor : '#ef4444'
+                              }
+                            />
+                          </SvgLinearGradient>
+                          <Mask id="pillMask">
+                            {Array.from({ length: energyBarSegments }).map(
+                              (_, i) => (
+                                <Rect
+                                  key={i}
+                                  x={
+                                    i *
+                                    (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)
+                                  }
+                                  y={0}
+                                  width={ENERGY_BAR_PILL_WIDTH}
+                                  height={ENERGY_BAR_HEIGHT}
+                                  rx={ENERGY_BAR_RADIUS}
+                                  ry={ENERGY_BAR_RADIUS}
+                                  fill="white"
+                                />
+                              )
+                            )}
+                          </Mask>
+                        </Defs>
+                        <Rect
+                          width={energyBarTotalWidth}
+                          height={ENERGY_BAR_HEIGHT}
+                          fill="url(#energyGrad)"
+                          mask="url(#pillMask)"
+                        />
+                      </Svg>
+                    </Animated.View>
+
+                    <Animated.View
+                      style={[
+                        {
+                          position: 'absolute',
+                          top: 0,
+                          height: ENERGY_BAR_HEIGHT,
+                          width: 3,
+                          zIndex: 10
+                        },
+                        thresholdMarkerStyle
+                      ]}
+                      className="bg-destructive shadow-lg"
                     />
-                  </Svg>
-                </Animated.View>
+                  </View>
+                </View>
 
-                <Animated.View
-                  style={[
-                    {
-                      position: 'absolute',
-                      top: 0,
-                      height: ENERGY_BAR_HEIGHT,
-                      width: 3,
-                      zIndex: 10
-                    },
-                    thresholdMarkerStyle
-                  ]}
-                  className="bg-destructive shadow-lg"
-                />
+                <View className="relative h-5">
+                  <Animated.View
+                    style={[
+                      { position: 'absolute', left: 0 },
+                      waitingStatusStyle
+                    ]}
+                  >
+                    <Text className="text-xs text-muted-foreground">
+                      💤 {t('vadWaiting')}
+                    </Text>
+                  </Animated.View>
+                  <Animated.View
+                    style={[
+                      { position: 'absolute', left: 0 },
+                      recordingStatusStyle
+                    ]}
+                  >
+                    <Text className="text-xs text-muted-foreground">
+                      🎤 {t('vadRecordingNow')}
+                    </Text>
+                  </Animated.View>
+                </View>
               </View>
-            </View>
 
-            <View className="relative h-5">
-              <Animated.View
-                style={[{ position: 'absolute', left: 0 }, waitingStatusStyle]}
-              >
-                <Text className="text-xs text-muted-foreground">
-                  💤 {t('vadWaiting')}
-                </Text>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  { position: 'absolute', left: 0 },
-                  recordingStatusStyle
-                ]}
-              >
-                <Text className="text-xs text-muted-foreground">
-                  🎤 {t('vadRecordingNow')}
-                </Text>
-              </Animated.View>
-            </View>
-          </View>
-
-          {/* ═══════════════════════════════════════════════════════════════
+              {/* ═══════════════════════════════════════════════════════════════
               SECTION 3: Threshold Settings
               Adjust VAD sensitivity - lower = more sensitive, higher = less
               Includes auto-calibration button that samples background noise
               ═══════════════════════════════════════════════════════════════ */}
-          <View className="gap-2">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-foreground">
-                  {t('vadThreshold')}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  Lower = more sensitive, higher = less sensitive
-                </Text>
+              <View className="gap-2">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-foreground">
+                      {t('vadThreshold')}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      Lower = more sensitive, higher = less sensitive
+                    </Text>
+                  </View>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={handleResetToDefault}
+                    className="h-8"
+                  >
+                    <Icon as={RotateCcw} size={16} />
+                  </Button>
+                </View>
+
+                <View className="mt-1 flex-row items-center justify-center gap-1">
+                  <Text className="text-base font-semibold text-foreground">
+                    {energyToLinearUI(localThreshold).toFixed(2)}
+                  </Text>
+                  <Text className="text-sm text-muted-foreground">
+                    (
+                    {energyToLinearUI(localThreshold) <= 0.2
+                      ? 'very sensitive'
+                      : energyToLinearUI(localThreshold) <= 0.4
+                        ? 'sensitive'
+                        : energyToLinearUI(localThreshold) <= 0.6
+                          ? 'balanced'
+                          : energyToLinearUI(localThreshold) <= 0.8
+                            ? 'less sensitive'
+                            : 'not sensitive'}
+                    )
+                  </Text>
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onPress={handleDecreaseThreshold}
+                    disabled={localThreshold <= VAD_THRESHOLD_MIN}
+                  >
+                    <Icon as={Minus} size={16} />
+                  </Button>
+
+                  {/* Slider uses linear UI (0-1) for intuitive feel, converts to exponential energy under the hood */}
+                  <Slider
+                    style={{ width: '100%', height: 40, flex: 1, zIndex: 10 }}
+                    minimumValue={0}
+                    maximumValue={1}
+                    step={0.01}
+                    animated={false}
+                    value={energyToLinearUI(localThreshold)}
+                    onValueChange={(linearValue: number) => {
+                      // Validate input before conversion
+                      if (
+                        !isFinite(linearValue) ||
+                        linearValue < 0 ||
+                        linearValue > 1
+                      )
+                        return;
+                      // Convert linear UI value to energy value
+                      const newEnergy = linearUIToEnergy(linearValue);
+                      if (isFinite(newEnergy)) {
+                        updateThresholdImmediate(newEnergy);
+                      }
+                    }}
+                    minimumTrackTintColor={useThemeColor('primary')}
+                    maximumTrackTintColor={borderColor}
+                    thumbTintColor={useThemeColor('primary')}
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onPress={handleIncreaseThreshold}
+                    disabled={localThreshold >= VAD_THRESHOLD_MAX}
+                  >
+                    <Icon as={Plus} size={16} />
+                  </Button>
+                </View>
+
+                <View className="gap-2">
+                  <Button
+                    onPress={handleAutoCalibrate}
+                    disabled={isCalibrating}
+                    className="w-full"
+                  >
+                    {isCalibrating ? (
+                      <View className="flex-row items-center gap-2">
+                        <ActivityIndicator
+                          size="small"
+                          color={primaryForegroundColor}
+                        />
+                        <Text className="text-primary-foreground">
+                          {t('vadCalibrating') || 'Calibrating...'}{' '}
+                          {Math.round(calibrationProgress)}%
+                        </Text>
+                      </View>
+                    ) : (
+                      <View className="flex-row items-center gap-2">
+                        <Icon
+                          as={Sparkles}
+                          size={20}
+                          className="text-primary-foreground"
+                        />
+                        <Text className="text-primary-foreground">
+                          {t('vadAutoCalibrate') || 'Auto-Calibrate'}
+                        </Text>
+                      </View>
+                    )}
+                  </Button>
+
+                  {calibrationError && (
+                    <Text className="text-xs text-destructive">
+                      {calibrationError}
+                    </Text>
+                  )}
+                </View>
               </View>
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={handleResetToDefault}
-                className="h-8"
-              >
-                <Icon as={RotateCcw} size={16} />
-              </Button>
-            </View>
 
-            <View className="mt-1 flex-row items-center justify-center gap-1">
-              <Text className="text-base font-semibold text-foreground">
-                {localThreshold.toFixed(3)}
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                (
-                {localThreshold <= 0.02
-                  ? 'very sensitive'
-                  : localThreshold <= 0.05
-                    ? 'sensitive'
-                    : localThreshold <= 0.1
-                      ? 'balanced'
-                      : localThreshold <= 0.2
-                        ? 'less sensitive'
-                        : 'not sensitive'}
-                )
-              </Text>
-            </View>
-
-            <View className="flex-row items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={handleDecreaseThreshold}
-                disabled={localThreshold <= VAD_THRESHOLD_MIN}
-              >
-                <Icon as={Minus} size={16} />
-              </Button>
-
-              {/* TODO: Slider dragging has issues in BottomSheet - use +/- buttons or tap */}
-              {/* Slider uses dB scale (-60 to 0 dB) to match the visual meter exactly */}
-              {/* This creates a logarithmic feel: left side covers quiet levels, right side loud */}
-              <Slider
-                style={{ width: '100%', height: 40, flex: 1 }}
-                minimumValue={DB_MIN}
-                maximumValue={DB_MAX}
-                step={1}
-                value={energyToDb(localThreshold)}
-                onValueChange={(dbValue: number) => {
-                  // Convert dB back to linear energy
-                  const newEnergy =
-                    dbValue <= DB_MIN
-                      ? VAD_THRESHOLD_MIN
-                      : Math.pow(10, dbValue / 20);
-                  const clampedEnergy = Math.max(
-                    VAD_THRESHOLD_MIN,
-                    Math.min(VAD_THRESHOLD_MAX, newEnergy)
-                  );
-                  updateThresholdImmediate(Number(clampedEnergy.toFixed(4)));
-                }}
-                minimumTrackTintColor={useThemeColor('primary')}
-                maximumTrackTintColor={borderColor}
-                thumbTintColor={useThemeColor('primary')}
-              />
-
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={handleIncreaseThreshold}
-                disabled={localThreshold >= VAD_THRESHOLD_MAX}
-              >
-                <Icon as={Plus} size={16} />
-              </Button>
-            </View>
-
-            <View className="gap-2">
-              <Button
-                onPress={handleAutoCalibrate}
-                disabled={isCalibrating}
-                className="w-full"
-              >
-                {isCalibrating ? (
-                  <View className="flex-row items-center gap-2">
-                    <ActivityIndicator
-                      size="small"
-                      color={primaryForegroundColor}
-                    />
-                    <Text className="text-primary-foreground">
-                      {t('vadCalibrating') || 'Calibrating...'}{' '}
-                      {Math.round(calibrationProgress)}%
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="flex-row items-center gap-2">
-                    <Icon
-                      as={Sparkles}
-                      size={20}
-                      className="text-primary-foreground"
-                    />
-                    <Text className="text-primary-foreground">
-                      {t('vadAutoCalibrate') || 'Auto-Calibrate'}
-                    </Text>
-                  </View>
-                )}
-              </Button>
-
-              {calibrationError && (
-                <Text className="text-xs text-destructive">
-                  {calibrationError}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {/* ═══════════════════════════════════════════════════════════════
+              {/* ═══════════════════════════════════════════════════════════════
               SECTION 4: Silence Duration (Pause Length)
               How long to wait after audio drops below threshold before
               ending the current segment. Longer = complete thoughts,
               shorter = quick segments.
               ═══════════════════════════════════════════════════════════════ */}
-          <View className="gap-3">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-foreground">
-                  {t('vadSilenceDuration')}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t('vadSilenceDescription')}
-                </Text>
-              </View>
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={resetSilenceDuration}
-                className="h-8"
-              >
-                <Icon as={RotateCcw} size={16} />
-              </Button>
-            </View>
-
-            <View className="flex-row items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon-xl"
-                onPress={decrementSilence}
-                disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
-                className="size-14"
-              >
-                <Icon as={Minus} size={24} />
-              </Button>
-
-              <View className="flex-1 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-muted p-3">
-                {/* Duration text */}
-                <View className="items-center">
-                  <Text className="text-2xl font-bold text-foreground">
-                    {(localSilenceDuration / 1000).toFixed(1)}s
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {localSilenceDuration < 1000
-                      ? t('vadQuickSegments')
-                      : localSilenceDuration <= 1500
-                        ? t('vadBalanced')
-                        : t('vadCompleteThoughts')}
-                  </Text>
-                </View>
-
-                {/* Circular silence timer indicator */}
-                <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
-                  <Svg
-                    width={CIRCLE_SIZE}
-                    height={CIRCLE_SIZE}
-                    style={{
-                      transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
-                    }}
+              <View className="gap-3">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-foreground">
+                      {t('vadSilenceDuration')}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {t('vadSilenceDescription')}
+                    </Text>
+                  </View>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={resetSilenceDuration}
+                    className="h-8"
                   >
-                    {/* Background circle */}
-                    <Circle
-                      cx={CIRCLE_SIZE / 2}
-                      cy={CIRCLE_SIZE / 2}
-                      r={RADIUS}
-                      stroke="#cccccc"
-                      strokeWidth={STROKE_WIDTH}
-                      fill="transparent"
-                    />
-                    {/* Animated progress circle */}
-                    <AnimatedCircle
-                      cx={CIRCLE_SIZE / 2}
-                      cy={CIRCLE_SIZE / 2}
-                      r={RADIUS}
-                      stroke="#22c55e"
-                      strokeWidth={STROKE_WIDTH}
-                      fill="transparent"
-                      strokeDasharray={CIRCUMFERENCE}
-                      animatedProps={animatedCircleProps}
-                      strokeLinecap="round"
-                    />
-                  </Svg>
+                    <Icon as={RotateCcw} size={16} />
+                  </Button>
+                </View>
+
+                <View className="flex-row items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon-xl"
+                    onPress={decrementSilence}
+                    disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
+                    className="size-14"
+                  >
+                    <Icon as={Minus} size={24} />
+                  </Button>
+
+                  <View className="flex-1 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-muted p-3">
+                    {/* Duration text */}
+                    <View className="items-center">
+                      <Text className="text-2xl font-bold text-foreground">
+                        {(localSilenceDuration / 1000).toFixed(1)}s
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        {localSilenceDuration < 1000
+                          ? t('vadQuickSegments')
+                          : localSilenceDuration <= 1500
+                            ? t('vadBalanced')
+                            : t('vadCompleteThoughts')}
+                      </Text>
+                    </View>
+
+                    {/* Circular silence timer indicator */}
+                    <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
+                      <Svg
+                        width={CIRCLE_SIZE}
+                        height={CIRCLE_SIZE}
+                        style={{
+                          transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
+                        }}
+                      >
+                        {/* Background circle */}
+                        <Circle
+                          cx={CIRCLE_SIZE / 2}
+                          cy={CIRCLE_SIZE / 2}
+                          r={RADIUS}
+                          stroke="#cccccc"
+                          strokeWidth={STROKE_WIDTH}
+                          fill="transparent"
+                        />
+                        {/* Animated progress circle */}
+                        <AnimatedCircle
+                          cx={CIRCLE_SIZE / 2}
+                          cy={CIRCLE_SIZE / 2}
+                          r={RADIUS}
+                          stroke="#22c55e"
+                          strokeWidth={STROKE_WIDTH}
+                          fill="transparent"
+                          strokeDasharray={CIRCUMFERENCE}
+                          animatedProps={animatedCircleProps}
+                          strokeLinecap="round"
+                        />
+                      </Svg>
+                    </View>
+                  </View>
+
+                  <Button
+                    variant="outline"
+                    size="icon-xl"
+                    onPress={incrementSilence}
+                    disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
+                    className="size-14"
+                  >
+                    <Icon as={Plus} size={24} />
+                  </Button>
                 </View>
               </View>
 
-              <Button
-                variant="outline"
-                size="icon-xl"
-                onPress={incrementSilence}
-                disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
-                className="size-14"
-              >
-                <Icon as={Plus} size={24} />
-              </Button>
-            </View>
-          </View>
-
-          {/* ═══════════════════════════════════════════════════════════════
+              {/* ═══════════════════════════════════════════════════════════════
               SECTION 5: Min Segment Length (Transient Filter)
               Discard segments shorter than this duration to filter out
               brief noises like claps, coughs, and other transients.
               NOTE: Slider dragging has known issues with bottom sheet
               gesture handling - use +/- buttons or tap on slider track.
               ═══════════════════════════════════════════════════════════════ */}
-          <View className="gap-2">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-foreground">
-                  {t('vadMinSegmentLength')}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t('vadMinSegmentLengthDescription')}
-                </Text>
+              <View className="gap-2">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-foreground">
+                      {t('vadMinSegmentLength')}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {t('vadMinSegmentLengthDescription')}
+                    </Text>
+                  </View>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={resetMinSegmentLength}
+                    className="h-8"
+                  >
+                    <Icon as={RotateCcw} size={16} />
+                  </Button>
+                </View>
+
+                <View className="mt-1 flex-row items-center justify-center gap-1">
+                  <Text className="text-base font-semibold text-foreground">
+                    {(localMinSegmentLength / 1000).toFixed(2)}s
+                  </Text>
+                  <Text className="text-sm text-muted-foreground">
+                    (
+                    {localMinSegmentLength === 0
+                      ? t('vadNoFilter')
+                      : localMinSegmentLength <= 150
+                        ? t('vadLightFilter')
+                        : localMinSegmentLength <= 300
+                          ? t('vadMediumFilter')
+                          : t('vadStrongFilter')}
+                    )
+                  </Text>
+                </View>
+
+                <View className="flex-row items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onPress={decrementMinSegmentLength}
+                    disabled={
+                      localMinSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN
+                    }
+                  >
+                    <Icon as={Minus} size={16} />
+                  </Button>
+
+                  <Slider
+                    style={{ width: '100%', height: 40, flex: 1, zIndex: 10 }}
+                    minimumValue={VAD_MIN_SEGMENT_LENGTH_MIN}
+                    maximumValue={VAD_MIN_SEGMENT_LENGTH_MAX}
+                    step={50}
+                    animated={false}
+                    value={localMinSegmentLength}
+                    onValueChange={updateMinSegmentLengthImmediate}
+                    minimumTrackTintColor={useThemeColor('primary')}
+                    maximumTrackTintColor={borderColor}
+                    thumbTintColor={useThemeColor('primary')}
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onPress={incrementMinSegmentLength}
+                    disabled={
+                      localMinSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX
+                    }
+                  >
+                    <Icon as={Plus} size={16} />
+                  </Button>
+                </View>
               </View>
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={resetMinSegmentLength}
-                className="h-8"
-              >
-                <Icon as={RotateCcw} size={16} />
-              </Button>
             </View>
+          </DrawerScrollView>
 
-            <View className="mt-1 flex-row items-center justify-center gap-1">
-              <Text className="text-base font-semibold text-foreground">
-                {localMinSegmentLength}ms
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                (
-                {localMinSegmentLength === 0
-                  ? t('vadNoFilter')
-                  : localMinSegmentLength <= 150
-                    ? t('vadLightFilter')
-                    : localMinSegmentLength <= 300
-                      ? t('vadMediumFilter')
-                      : t('vadStrongFilter')}
-                )
-              </Text>
-            </View>
-
-            <View className="flex-row items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={decrementMinSegmentLength}
-                disabled={localMinSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN}
-              >
-                <Icon as={Minus} size={16} />
-              </Button>
-
-              {/*
-                TODO: Slider dragging does not work inside @gorhom/bottom-sheet.
-                The BottomSheet's gesture handler intercepts all pan gestures before
-                they reach the native slider component.
-
-                Attempted solutions that did NOT work:
-                1. NativeViewGestureHandler with disallowInterruption={true}
-                2. Wrapping in horizontal ScrollView with scrollEnabled={false}
-                3. Conditional gestureEventsHandlersHook (returning null/undefined)
-                4. PanGestureHandler wrapper around the slider
-                5. onStartShouldSetResponder/onMoveShouldSetResponder on parent View
-
-                Root cause: The native @react-native-community/slider component's
-                touch handling conflicts with react-native-gesture-handler at the
-                native level. The BottomSheet captures the pan gesture before the
-                slider can respond, so onSlidingStart only fires on touch release.
-
-                Workaround: Use the +/- buttons or tap on the slider track to set values.
-                A custom JS-based slider using Reanimated/PanGestureHandler would work,
-                but is out of scope for now.
-              */}
-              <Slider
-                style={{ width: '100%', height: 40, flex: 1 }}
-                minimumValue={VAD_MIN_SEGMENT_LENGTH_MIN}
-                maximumValue={VAD_MIN_SEGMENT_LENGTH_MAX}
-                step={50}
-                value={localMinSegmentLength}
-                onValueChange={updateMinSegmentLengthImmediate}
-                minimumTrackTintColor={useThemeColor('primary')}
-                maximumTrackTintColor={borderColor}
-                thumbTintColor={useThemeColor('primary')}
-              />
-
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={incrementMinSegmentLength}
-                disabled={localMinSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX}
-              >
-                <Icon as={Plus} size={16} />
-              </Button>
-            </View>
+          {/* Footer pinned to bottom, outside scroll view */}
+          <View className="border-t border-border bg-background pb-6 pt-2">
+            <DrawerClose variant="default">
+              <Text>{t('done')}</Text>
+            </DrawerClose>
           </View>
         </View>
-
-        <SimpleDrawerFooter>
-          <SimpleDrawerClose variant="default">
-            <Text>{t('done')}</Text>
-          </SimpleDrawerClose>
-        </SimpleDrawerFooter>
-      </View>
-    </SimpleDrawer>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
