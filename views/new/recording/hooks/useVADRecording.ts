@@ -92,7 +92,6 @@ export function useVADRecording({
 
   // Get new VAD algorithm settings from store
   const vadOnsetMultiplier = useLocalStore((s) => s.vadOnsetMultiplier);
-  const vadPreOnsetMultiplier = useLocalStore((s) => s.vadPreOnsetMultiplier);
   const vadMaxOnsetDuration = useLocalStore((s) => s.vadMaxOnsetDuration);
   const vadRewindHalfPause = useLocalStore((s) => s.vadRewindHalfPause);
   const vadMinSegmentLength = useLocalStore(
@@ -111,8 +110,6 @@ export function useVADRecording({
         threshold.toFixed(4),
         '| onsetMultiplier:',
         vadOnsetMultiplier,
-        '| preOnsetMultiplier:',
-        vadPreOnsetMultiplier,
         '| maxOnsetDuration:',
         vadMaxOnsetDuration,
         '| rewindHalfPause:',
@@ -127,7 +124,6 @@ export function useVADRecording({
         minSegmentDuration: VAD_SILENCE_DURATION_MIN,
         // New algorithm settings
         onsetMultiplier: vadOnsetMultiplier,
-        preOnsetMultiplier: vadPreOnsetMultiplier,
         maxOnsetDuration: vadMaxOnsetDuration,
         rewindHalfPause: vadRewindHalfPause,
         minActiveAudioDuration: vadMinSegmentLength
@@ -215,7 +211,6 @@ export function useVADRecording({
     threshold,
     silenceDuration,
     vadOnsetMultiplier,
-    vadPreOnsetMultiplier,
     vadMaxOnsetDuration,
     vadRewindHalfPause,
     vadMinSegmentLength,

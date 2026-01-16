@@ -56,10 +56,6 @@ export const VAD_ONSET_MULTIPLIER_MIN = 0.05;
 export const VAD_ONSET_MULTIPLIER_MAX = 0.5;
 export const VAD_ONSET_MULTIPLIER_DEFAULT = 0.1;
 
-export const VAD_PRE_ONSET_MULTIPLIER_MIN = 0;
-export const VAD_PRE_ONSET_MULTIPLIER_MAX = 1.0;
-export const VAD_PRE_ONSET_MULTIPLIER_DEFAULT = 0.75;
-
 export const VAD_MAX_ONSET_DURATION_MIN = 50;
 export const VAD_MAX_ONSET_DURATION_MAX = 500;
 export const VAD_MAX_ONSET_DURATION_DEFAULT = 250;
@@ -142,8 +138,6 @@ export interface LocalState {
   // New VAD algorithm settings
   vadOnsetMultiplier: number;
   setVadOnsetMultiplier: (multiplier: number) => void;
-  vadPreOnsetMultiplier: number;
-  setVadPreOnsetMultiplier: (multiplier: number) => void;
   vadMaxOnsetDuration: number;
   setVadMaxOnsetDuration: (duration: number) => void;
   vadRewindHalfPause: boolean;
@@ -276,7 +270,6 @@ export const useLocalStore = create<LocalState>()(
       vadDisplayMode: 'footer', // Default to footer mode
       // New VAD algorithm settings (defaults)
       vadOnsetMultiplier: VAD_ONSET_MULTIPLIER_DEFAULT,
-      vadPreOnsetMultiplier: VAD_PRE_ONSET_MULTIPLIER_DEFAULT,
       vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
       vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
       vadMinSegmentLength: VAD_MIN_SEGMENT_LENGTH_DEFAULT,
@@ -403,13 +396,6 @@ export const useLocalStore = create<LocalState>()(
           vadOnsetMultiplier: Math.max(
             VAD_ONSET_MULTIPLIER_MIN,
             Math.min(VAD_ONSET_MULTIPLIER_MAX, multiplier)
-          )
-        }),
-      setVadPreOnsetMultiplier: (multiplier) =>
-        set({
-          vadPreOnsetMultiplier: Math.max(
-            VAD_PRE_ONSET_MULTIPLIER_MIN,
-            Math.min(VAD_PRE_ONSET_MULTIPLIER_MAX, multiplier)
           )
         }),
       setVadMaxOnsetDuration: (duration) =>

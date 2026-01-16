@@ -30,7 +30,6 @@ class MicrophoneEnergyModule : Module() {
   private var vadEnabled = false
   private var vadThreshold = 0.05f
   private var vadOnsetMultiplier = 0.1f
-  private var vadPreOnsetMultiplier = 0.75f
   private var vadMaxOnsetDuration = 250
   private var vadSilenceDuration = 300
   private var vadMinSegmentDuration = 500
@@ -115,7 +114,6 @@ class MicrophoneEnergyModule : Module() {
     (config["silenceDuration"] as? Number)?.let { vadSilenceDuration = it.toInt() }
     (config["minSegmentDuration"] as? Number)?.let { vadMinSegmentDuration = it.toInt() }
     (config["onsetMultiplier"] as? Number)?.let { vadOnsetMultiplier = it.toFloat() }
-    (config["preOnsetMultiplier"] as? Number)?.let { vadPreOnsetMultiplier = it.toFloat() }
     (config["maxOnsetDuration"] as? Number)?.let { vadMaxOnsetDuration = it.toInt() }
     (config["rewindHalfPause"] as? Boolean)?.let { vadRewindHalfPause = it }
     (config["minActiveAudioDuration"] as? Number)?.let { vadMinActiveAudioDuration = it.toInt() }
@@ -153,12 +151,11 @@ class MicrophoneEnergyModule : Module() {
   
   private fun handleVAD(rawPeak: Float, now: Long) {
     val onsetThreshold = vadThreshold * vadOnsetMultiplier
-    val preOnsetDuration = (vadMaxOnsetDuration * vadPreOnsetMultiplier).toLong()
     if (rawPeak > vadThreshold) lastAboveThresholdTime = now
     
     when (vadState) {
       "IDLE" -> {
-        preOnsetCutPoint = max(0, now - preOnsetDuration)
+        preOnsetCutPoint = max(0, now - vadMaxOnsetDuration)
         if (rawPeak > onsetThreshold) {
           vadState = "ONSET_PENDING"; lockedOnsetTime = preOnsetCutPoint
           if (rawPeak > vadThreshold) confirmAndStartRecording(now)

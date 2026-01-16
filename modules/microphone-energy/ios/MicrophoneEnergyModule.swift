@@ -37,7 +37,6 @@ public class MicrophoneEnergyModule: Module {
     private var vadEnabled = false
     private var vadThreshold: Float = 0.05
     private var vadOnsetMultiplier: Float = 0.1
-    private var vadPreOnsetMultiplier: Float = 0.75
     private var vadMaxOnsetDuration: Int = 250
     private var vadSilenceDuration: Int = 300
     private var vadMinSegmentDuration: Int = 500
@@ -154,7 +153,6 @@ public class MicrophoneEnergyModule: Module {
         if let silenceDuration = config["silenceDuration"] as? NSNumber { vadSilenceDuration = silenceDuration.intValue }
         if let minSegmentDuration = config["minSegmentDuration"] as? NSNumber { vadMinSegmentDuration = minSegmentDuration.intValue }
         if let onsetMultiplier = config["onsetMultiplier"] as? NSNumber { vadOnsetMultiplier = onsetMultiplier.floatValue }
-        if let preOnsetMultiplier = config["preOnsetMultiplier"] as? NSNumber { vadPreOnsetMultiplier = preOnsetMultiplier.floatValue }
         if let maxOnsetDuration = config["maxOnsetDuration"] as? NSNumber { vadMaxOnsetDuration = maxOnsetDuration.intValue }
         if let rewindHalfPause = config["rewindHalfPause"] as? Bool { vadRewindHalfPause = rewindHalfPause }
         if let minActiveAudioDuration = config["minActiveAudioDuration"] as? NSNumber { vadMinActiveAudioDuration = minActiveAudioDuration.intValue }
@@ -217,13 +215,12 @@ public class MicrophoneEnergyModule: Module {
     
     private func handleVAD(rawPeak: Float, now: TimeInterval) {
         let onsetThreshold = vadThreshold * vadOnsetMultiplier
-        let preOnsetDuration = TimeInterval(vadMaxOnsetDuration) * TimeInterval(vadPreOnsetMultiplier)
         
         if rawPeak > vadThreshold { lastAboveThresholdTime = now }
         
         switch vadState {
         case "IDLE":
-            preOnsetCutPoint = max(0, now - preOnsetDuration)
+            preOnsetCutPoint = max(0, now - TimeInterval(vadMaxOnsetDuration))
             if rawPeak > onsetThreshold {
                 vadState = "ONSET_PENDING"
                 lockedOnsetTime = preOnsetCutPoint
