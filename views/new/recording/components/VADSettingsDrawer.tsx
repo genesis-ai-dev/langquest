@@ -48,7 +48,7 @@ import {
   Sparkles
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   cancelAnimation,
@@ -74,8 +74,7 @@ const ENERGY_BAR_PILL_WIDTH = 18; // Individual pill width in px
 const ENERGY_BAR_HEIGHT = 28; // Bar height in px
 const ENERGY_BAR_SPACING = 4; // Gap between pills in px
 const ENERGY_BAR_RADIUS = 4; // Pill corner radius in px
-// Total horizontal padding: DrawerContent px-6 (24px × 2) + BottomSheetScrollView paddingHorizontal (16px × 2)
-const ENERGY_BAR_HORIZONTAL_PADDING = 48;
+// Energy bar width is now measured dynamically via onLayout
 
 // Animated circle for Reanimated
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -225,7 +224,6 @@ function VADSettingsDrawerInternal({
   // Ref to store latest energy value for calibration (updated via worklet bridge)
   const latestEnergyRef = React.useRef(0);
   const { t } = useLocalization();
-  const { width: screenWidth } = useWindowDimensions();
   const accentColor = useThemeColor('accent');
   const mutedForegroundColor = useThemeColor('muted-foreground');
   const primaryForegroundColor = useThemeColor('primary-foreground');
@@ -234,20 +232,26 @@ function VADSettingsDrawerInternal({
   // Track dragging state on JS thread for SVG color changes
   const [isDraggingJS] = React.useState(false);
 
-  // Calculate energy bar dimensions based on available width
+  // Measure actual container width for energy bar (adapts to any padding)
+  const [energyBarContainerWidth, setEnergyBarContainerWidth] =
+    React.useState(0);
+
+  // Calculate energy bar dimensions based on measured container width
   const { energyBarSegments, energyBarTotalWidth } = React.useMemo(() => {
-    const availableWidth = screenWidth - ENERGY_BAR_HORIZONTAL_PADDING;
+    if (energyBarContainerWidth === 0) {
+      return { energyBarSegments: 0, energyBarTotalWidth: 0 };
+    }
     // N pills + (N-1) gaps = availableWidth
     // N = (availableWidth + spacing) / (pillWidth + spacing)
     const segments = Math.floor(
-      (availableWidth + ENERGY_BAR_SPACING) /
+      (energyBarContainerWidth + ENERGY_BAR_SPACING) /
         (ENERGY_BAR_PILL_WIDTH + ENERGY_BAR_SPACING)
     );
     // Actual width: N pills + (N-1) gaps
     const totalWidth =
       segments * ENERGY_BAR_PILL_WIDTH + (segments - 1) * ENERGY_BAR_SPACING;
     return { energyBarSegments: segments, energyBarTotalWidth: totalWidth };
-  }, [screenWidth]);
+  }, [energyBarContainerWidth]);
 
   // Local state for immediate UI updates (bypasses store persistence delay)
   const [localThreshold, setLocalThreshold] = React.useState(threshold);
@@ -906,8 +910,6 @@ function VADSettingsDrawerInternal({
     <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={['100%']}>
       <DrawerContent asChild>
         <View style={{ flex: 1 }} className="px-6">
-          {/* PortalHost for tooltips inside this drawer */}
-          <PortalHost name="vad-settings-drawer" />
           <DrawerScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 16 }}
@@ -925,6 +927,7 @@ function VADSettingsDrawerInternal({
                   className="w-64"
                   side="bottom"
                   align="end"
+                  sideOffset={2}
                   portalHost="vad-settings-drawer"
                 >
                   <Text>
@@ -1030,10 +1033,15 @@ function VADSettingsDrawerInternal({
                   </Text>
                 </View>
 
-                <View className="items-center justify-center py-2">
+                <View
+                  className="py-2"
+                  onLayout={(e) =>
+                    setEnergyBarContainerWidth(e.nativeEvent.layout.width)
+                  }
+                >
                   <View
                     style={{
-                      width: energyBarTotalWidth,
+                      width: energyBarContainerWidth || '100%',
                       height: ENERGY_BAR_HEIGHT,
                       position: 'relative'
                     }}
@@ -1499,6 +1507,9 @@ function VADSettingsDrawerInternal({
               <Text>{t('done')}</Text>
             </DrawerClose>
           </View>
+
+          {/* PortalHost for tooltips - must be LAST to render on top */}
+          <PortalHost name="vad-settings-drawer" />
         </View>
       </DrawerContent>
     </Drawer>
