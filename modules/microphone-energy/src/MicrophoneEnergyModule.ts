@@ -14,7 +14,7 @@ export type VADConfig = {
   confirmMultiplier?: number;
   minSegmentDuration?: number;
   maxOnsetDuration?: number;
-  rewindHalfPause?: number;
+  rewindHalfPause?: boolean;
   minActiveAudioDuration?: number;
 };
 
