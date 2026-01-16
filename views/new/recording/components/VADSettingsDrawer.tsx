@@ -91,14 +91,6 @@ const DB_MIN = -60; // Minimum dB (very quiet)
 const DB_MAX = 0; // Maximum dB (maximum level)
 
 // Pure helper functions (no component dependencies)
-// CRITICAL: Native module sends energy as normalized amplitude (0-1 range)
-// NOT raw RMS energy, so normalizeEnergy should only clamp, not divide
-const _normalizeEnergy = (energy: number): number => {
-  // Energy from native is already normalized amplitude (0-1)
-  // Only clamp to ensure it's in valid range
-  return Math.min(1.0, Math.max(0, energy));
-};
-
 const energyToDb = (energy: number): number => {
   // Energy is already normalized (0-1), just clamp if needed
   const normalized = energy > 1.0 ? 1.0 : Math.max(0, energy);
@@ -225,12 +217,8 @@ function VADSettingsDrawerInternal({
   const latestEnergyRef = React.useRef(0);
   const { t } = useLocalization();
   const accentColor = useThemeColor('accent');
-  const mutedForegroundColor = useThemeColor('muted-foreground');
   const primaryForegroundColor = useThemeColor('primary-foreground');
   const borderColor = useThemeColor('border');
-
-  // Track dragging state on JS thread for SVG color changes
-  const [isDraggingJS] = React.useState(false);
 
   // Measure actual container width for energy bar (adapts to any padding)
   const [energyBarContainerWidth, setEnergyBarContainerWidth] =
@@ -1084,36 +1072,11 @@ function VADSettingsDrawerInternal({
                             x2="1"
                             y2="0"
                           >
-                            <Stop
-                              offset="0%"
-                              stopColor={
-                                isDraggingJS ? mutedForegroundColor : '#22c55e'
-                              }
-                            />
-                            <Stop
-                              offset="25%"
-                              stopColor={
-                                isDraggingJS ? mutedForegroundColor : '#84cc16'
-                              }
-                            />
-                            <Stop
-                              offset="50%"
-                              stopColor={
-                                isDraggingJS ? mutedForegroundColor : '#eab308'
-                              }
-                            />
-                            <Stop
-                              offset="75%"
-                              stopColor={
-                                isDraggingJS ? mutedForegroundColor : '#f97316'
-                              }
-                            />
-                            <Stop
-                              offset="100%"
-                              stopColor={
-                                isDraggingJS ? mutedForegroundColor : '#ef4444'
-                              }
-                            />
+                            <Stop offset="0%" stopColor="#22c55e" />
+                            <Stop offset="25%" stopColor="#84cc16" />
+                            <Stop offset="50%" stopColor="#eab308" />
+                            <Stop offset="75%" stopColor="#f97316" />
+                            <Stop offset="100%" stopColor="#ef4444" />
                           </SvgLinearGradient>
                           <Mask id="pillMask">
                             {Array.from({ length: energyBarSegments }).map(
