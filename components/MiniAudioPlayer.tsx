@@ -1,6 +1,10 @@
+import { Icon } from '@/components/ui/icon';
+import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
+import { getThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { SparklesIcon } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -66,13 +70,19 @@ export default function MiniAudioPlayer({
       {onTranscribe && (
         <TouchableOpacity
           onPress={handleTranscribe}
-          style={styles.transcribeButton}
+          style={styles.transcribePill}
           disabled={isTranscribing}
         >
           {isTranscribing ? (
-            <ActivityIndicator size={16} color={colors.background} />
+            <ActivityIndicator
+              size={16}
+              color={getThemeColor('primary-foreground')}
+            />
           ) : (
-            <Ionicons name="text-outline" size={18} color={colors.background} />
+            <View style={styles.pillContent}>
+              <Icon as={SparklesIcon} size={18} className="text-black" />
+              <Text className="text-s">Aa</Text>
+            </View>
           )}
         </TouchableOpacity>
       )}
@@ -96,12 +106,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  transcribeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  transcribePill: {
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    paddingHorizontal: 12
+  },
+  pillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
   }
 });

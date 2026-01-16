@@ -27,6 +27,7 @@ interface TranscriptionEditModalProps {
   sourceAssetId: string;
   projectId: string;
   languoidId: string;
+  isLocalSource?: boolean; // Whether the source asset is local (prepublished) - transcriptions will be stored locally
 }
 
 export default function TranscriptionEditModal({
@@ -36,7 +37,8 @@ export default function TranscriptionEditModal({
   initialText,
   sourceAssetId,
   projectId,
-  languoidId
+  languoidId,
+  isLocalSource = false
 }: TranscriptionEditModalProps) {
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
@@ -62,10 +64,14 @@ export default function TranscriptionEditModal({
         throw new Error('Transcription text cannot be empty');
       }
 
-      console.log('[SAVE TRANSCRIPTION] Starting transaction...');
+      // Use local tables for prepublished content, synced tables for published content
+      const tableOptions = { localOverride: isLocalSource };
+      console.log(
+        `[SAVE TRANSCRIPTION] Starting transaction... (isLocalSource: ${isLocalSource})`
+      );
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
-          .insert(resolveTable('asset'))
+          .insert(resolveTable('asset', tableOptions))
           .values({
             source_asset_id: sourceAssetId,
             content_type: 'transcription',
@@ -79,12 +85,14 @@ export default function TranscriptionEditModal({
           throw new Error('Failed to create transcription asset');
         }
 
-        await tx.insert(resolveTable('asset_content_link')).values({
-          asset_id: newAsset.id,
-          languoid_id: languoidId,
-          text: text.trim(),
-          download_profiles: [currentUser.id]
-        });
+        await tx
+          .insert(resolveTable('asset_content_link', tableOptions))
+          .values({
+            asset_id: newAsset.id,
+            languoid_id: languoidId,
+            text: text.trim(),
+            download_profiles: [currentUser.id]
+          });
 
         console.log(
           '[SAVE TRANSCRIPTION] Created transcription asset:',
