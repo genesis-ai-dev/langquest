@@ -915,7 +915,7 @@ function VADSettingsDrawerInternal({
                   className="w-72"
                   side="bottom"
                   align="end"
-                  sideOffset={0}
+                  sideOffset={-40}
                   portalHost="vad-settings-drawer"
                 >
                   <View>
