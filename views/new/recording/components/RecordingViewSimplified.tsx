@@ -1336,7 +1336,7 @@ const RecordingViewSimplified = ({
   // Hook up native VAD recording
   const {
     currentEnergy,
-    isRecording:     isVADRecording,
+    isRecording: isVADRecording,
     energyShared,
     isRecordingShared,
     isDiscardedShared
@@ -2307,12 +2307,12 @@ const RecordingViewSimplified = ({
               setShowVADSettings(true);
             }}
             currentEnergy={currentEnergy}
-        vadThreshold={vadThreshold}
-        energyShared={energyShared}
-        isRecordingShared={isRecordingShared}
-        isDiscardedShared={isDiscardedShared}
-        displayMode={vadDisplayMode}
-      />
+            vadThreshold={vadThreshold}
+            energyShared={energyShared}
+            isRecordingShared={isRecordingShared}
+            isDiscardedShared={isDiscardedShared}
+            displayMode={vadDisplayMode}
+          />
         )}
       </View>
 

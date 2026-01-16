@@ -76,7 +76,7 @@ interface WaveformVisualizationProps {
   maxHeight?: number;
 }
 
-  export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
+export const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
   isVisible,
   energyShared,
   vadThreshold,
@@ -157,7 +157,11 @@ interface WaveformVisualizationProps {
     () => isDiscardedShared?.value ?? 0,
     (discardCount, previousDiscardCount) => {
       'worklet';
-      if (!isVisible || discardCount === 0 || discardCount === previousDiscardCount)
+      if (
+        !isVisible ||
+        discardCount === 0 ||
+        discardCount === previousDiscardCount
+      )
         return;
 
       // When a discard happens, revert all red bars in the current view to blue

@@ -11,10 +11,7 @@
 
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import MicrophoneEnergyModule from '@/modules/microphone-energy';
-import {
-  VAD_SILENCE_DURATION_MIN,
-  useLocalStore
-} from '@/store/localStore';
+import { VAD_SILENCE_DURATION_MIN, useLocalStore } from '@/store/localStore';
 import React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
@@ -94,9 +91,7 @@ export function useVADRecording({
   const vadOnsetMultiplier = useLocalStore((s) => s.vadOnsetMultiplier);
   const vadMaxOnsetDuration = useLocalStore((s) => s.vadMaxOnsetDuration);
   const vadRewindHalfPause = useLocalStore((s) => s.vadRewindHalfPause);
-  const vadMinSegmentLength = useLocalStore(
-    (s) => s.vadMinSegmentLength
-  );
+  const vadMinSegmentLength = useLocalStore((s) => s.vadMinSegmentLength);
 
   // Configure native VAD and manage activation/deactivation
   // NEW ALGORITHM: Uses threshold directly without Schmitt trigger scaling
