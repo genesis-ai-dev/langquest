@@ -883,7 +883,7 @@ function VADSettingsDrawerInternal({
   );
 
   // Circular progress indicator props
-  const CIRCLE_SIZE = 40;
+  const CIRCLE_SIZE = 32;
   const STROKE_WIDTH = 5;
   const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -1287,7 +1287,7 @@ function VADSettingsDrawerInternal({
               ending the current segment. Longer = complete thoughts,
               shorter = quick segments.
               ═══════════════════════════════════════════════════════════════ */}
-              <View className="gap-3">
+              <View className="gap-2">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1">
                     <Text className="text-sm font-medium text-foreground">
@@ -1307,74 +1307,87 @@ function VADSettingsDrawerInternal({
                   </Button>
                 </View>
 
-                <View className="flex-row items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="icon-xl"
-                    onPress={decrementSilence}
-                    disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
-                    className="size-14"
-                  >
-                    <Icon as={Minus} size={24} />
-                  </Button>
-
-                  <View className="flex-1 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-muted p-3">
-                    {/* Duration text */}
-                    <View className="items-center">
-                      <Text className="text-2xl font-bold text-foreground">
-                        {(localSilenceDuration / 1000).toFixed(1)}s
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        {localSilenceDuration < 1000
-                          ? t('vadQuickSegments')
-                          : localSilenceDuration <= 1500
-                            ? t('vadBalanced')
-                            : t('vadCompleteThoughts')}
-                      </Text>
-                    </View>
-
-                    {/* Circular silence timer indicator */}
-                    <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
-                      <Svg
-                        width={CIRCLE_SIZE}
-                        height={CIRCLE_SIZE}
-                        style={{
-                          transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
-                        }}
-                      >
-                        {/* Background circle */}
-                        <Circle
-                          cx={CIRCLE_SIZE / 2}
-                          cy={CIRCLE_SIZE / 2}
-                          r={RADIUS}
-                          stroke="#cccccc"
-                          strokeWidth={STROKE_WIDTH}
-                          fill="transparent"
-                        />
-                        {/* Animated progress circle */}
-                        <AnimatedCircle
-                          cx={CIRCLE_SIZE / 2}
-                          cy={CIRCLE_SIZE / 2}
-                          r={RADIUS}
-                          stroke="#22c55e"
-                          strokeWidth={STROKE_WIDTH}
-                          fill="transparent"
-                          strokeDasharray={CIRCUMFERENCE}
-                          animatedProps={animatedCircleProps}
-                          strokeLinecap="round"
-                        />
-                      </Svg>
-                    </View>
+                <View className="mt-1 flex-row items-center justify-center gap-3">
+                  {/* Value display */}
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-base font-semibold text-foreground">
+                      {(localSilenceDuration / 1000).toFixed(1)}s
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      (
+                      {localSilenceDuration < 1000
+                        ? t('vadQuickSegments')
+                        : localSilenceDuration <= 1500
+                          ? t('vadBalanced')
+                          : t('vadCompleteThoughts')}
+                      )
+                    </Text>
                   </View>
 
+                  {/* Circular silence timer indicator */}
+                  <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}>
+                    <Svg
+                      width={CIRCLE_SIZE}
+                      height={CIRCLE_SIZE}
+                      style={{
+                        transform: [{ scaleX: -1 }, { rotate: '-90deg' }]
+                      }}
+                    >
+                      {/* Background circle */}
+                      <Circle
+                        cx={CIRCLE_SIZE / 2}
+                        cy={CIRCLE_SIZE / 2}
+                        r={RADIUS}
+                        stroke="#cccccc"
+                        strokeWidth={STROKE_WIDTH}
+                        fill="transparent"
+                      />
+                      {/* Animated progress circle */}
+                      <AnimatedCircle
+                        cx={CIRCLE_SIZE / 2}
+                        cy={CIRCLE_SIZE / 2}
+                        r={RADIUS}
+                        stroke="#22c55e"
+                        strokeWidth={STROKE_WIDTH}
+                        fill="transparent"
+                        strokeDasharray={CIRCUMFERENCE}
+                        animatedProps={animatedCircleProps}
+                        strokeLinecap="butt"
+                      />
+                    </Svg>
+                  </View>
+                </View>
+
+                <View className="flex-row items-center gap-2">
                   <Button
                     variant="outline"
-                    size="icon-xl"
+                    size="icon-sm"
+                    onPress={decrementSilence}
+                    disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
+                  >
+                    <Icon as={Minus} size={16} />
+                  </Button>
+
+                  <Slider
+                    style={{ width: '100%', height: 40, flex: 1, zIndex: 10 }}
+                    minimumValue={VAD_SILENCE_DURATION_MIN}
+                    maximumValue={VAD_SILENCE_DURATION_MAX}
+                    step={100}
+                    animated={false}
+                    value={localSilenceDuration}
+                    onValueChange={updateSilenceDurationImmediate}
+                    minimumTrackTintColor={useThemeColor('primary')}
+                    maximumTrackTintColor={borderColor}
+                    thumbTintColor={useThemeColor('primary')}
+                  />
+
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
                     onPress={incrementSilence}
                     disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
-                    className="size-14"
                   >
-                    <Icon as={Plus} size={24} />
+                    <Icon as={Plus} size={16} />
                   </Button>
                 </View>
               </View>

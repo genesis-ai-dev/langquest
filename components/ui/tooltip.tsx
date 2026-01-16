@@ -203,7 +203,7 @@ const FullWindowOverlay =
   Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
 
 const tooltipVariants = cva(
-  'z-[6000] rounded-md border border-border bg-background px-3 py-2 sm:py-1.5'
+  'z-[6000] rounded-md border border-border bg-background px-3 py-2 sm:py-1.5 shadow-lg'
 );
 
 const tooltipTextVariants = cva('text-xs text-foreground');
