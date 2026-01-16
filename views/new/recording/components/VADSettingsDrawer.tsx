@@ -924,24 +924,19 @@ function VADSettingsDrawerInternal({
                   <Icon as={HelpCircle} size={20} />
                 </TooltipTrigger>
                 <TooltipContent
-                  className="w-64"
+                  className="w-72"
                   side="bottom"
                   align="end"
                   sideOffset={2}
                   portalHost="vad-settings-drawer"
                 >
-                  <Text>
-                    {t('vadHelpTitle')}
-                    {'\n'}
-                    {'\n'}
-                    {t('vadHelpAutomatic')}
-                    {'\n'}
-                    {'\n'}
-                    {t('vadHelpSensitivity')}
-                    {'\n'}
-                    {'\n'}
-                    {t('vadHelpPause')}
-                  </Text>
+                  <View>
+                    <Text className="font-bold">{t('vadHelpTitle')}</Text>
+                    <Text className="mt-2">{t('vadHelpAutomatic')}</Text>
+                    <Text className="mt-2">{t('vadHelpSensitivity')}</Text>
+                    <Text className="mt-2">{t('vadHelpPause')}</Text>
+                    <Text className="mt-2">{t('vadHelpMinSegment')}</Text>
+                  </View>
                 </TooltipContent>
               </Tooltip>
             </DrawerHeader>
@@ -1316,6 +1311,10 @@ function VADSettingsDrawerInternal({
                       {calibrationError}
                     </Text>
                   )}
+
+                  <Text className="text-xs text-muted-foreground">
+                    {t('vadCalibrateHint')}
+                  </Text>
                 </View>
               </View>
 

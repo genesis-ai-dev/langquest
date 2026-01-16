@@ -4722,11 +4722,11 @@ export const localizations = {
       'Berapa lama keheningan yang diperlukan untuk menentukan batas segmen.'
   },
   vadMinSegmentLength: {
-    english: 'Min segment length',
-    spanish: 'Longitud mínima de segmento',
-    brazilian_portuguese: 'Comprimento mínimo do segmento',
-    tok_pisin: 'Liklik taim inap bilong toktok',
-    indonesian: 'Panjang segmen minimum'
+    english: 'Minimum Segment Length',
+    spanish: 'Longitud Mínima de Segmento',
+    brazilian_portuguese: 'Comprimento Mínimo do Segmento',
+    tok_pisin: 'Liklik Taim Inap Bilong Toktok',
+    indonesian: 'Panjang Segmen Minimum'
   },
   vadMinSegmentLengthDescription: {
     english: 'Discard segments below this duration (filter brief noises)',
@@ -4871,28 +4871,52 @@ export const localizations = {
     indonesian: 'Cara Kerja'
   },
   vadHelpAutomatic: {
-    english: 'Starts when you speak. Stops when you pause.',
-    spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
+    english:
+      'When sound is detected a segment will automatically start recording. After some silence the segment will be saved. You may record multiple segments like this in sequence while recording is activated.',
+    spanish:
+      'Cuando se detecta sonido, un segmento comenzará a grabarse automáticamente. Después de un silencio, el segmento se guardará. Puedes grabar múltiples segmentos así en secuencia mientras la grabación está activada.',
     brazilian_portuguese:
-      'Inicia quando você fala. Para quando você faz uma pausa.',
-    tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
-    indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
+      'Quando som é detectado, um segmento começará a gravar automaticamente. Após um silêncio, o segmento será salvo. Você pode gravar múltiplos segmentos assim em sequência enquanto a gravação está ativada.',
+    tok_pisin:
+      'Taim masin i harim nois, em bai stat long rekodim. Bihain long taim i no gat nois, em bai sevim. Yu ken rekodim planti taim olsem wanwan taim rekod i op.',
+    indonesian:
+      'Saat suara terdeteksi, segmen akan mulai merekam secara otomatis. Setelah keheningan, segmen akan disimpan. Anda dapat merekam beberapa segmen seperti ini secara berurutan saat perekaman diaktifkan.'
   },
   vadHelpSensitivity: {
-    english: 'Lower sensitivity picks up quiet speech.',
-    spanish: 'Menor sensibilidad capta el habla tranquila.',
-    brazilian_portuguese: 'Menor sensibilidade capta fala baixa.',
-    tok_pisin: 'Liklik strong i harim smol toktok.',
-    indonesian: 'Sensitivitas rendah menangkap suara pelan.'
+    english:
+      'Sensitivity sets the threshold to determine when a clip starts and ends. Lower sensitivity picks up quieter speech, but also other potential noises.',
+    spanish:
+      'La sensibilidad controla el umbral que determina cuándo un clip comienza y termina. Con mayor sensibilidad se detecta habla más silenciosa, pero también más ruido de fondo.',
+    brazilian_portuguese:
+      'A sensibilidade define o limite para determinar quando um clipe começa e termina. Sensibilidade mais baixa capta fala mais baixa, mas também outros ruídos potenciais.',
+    tok_pisin:
+      'Sensitiv i makim hamas nois i nidim bilong stat na pinis. Liklik sensitiv i harim smol toktok, tasol em i ken harim tu ol narapela nois.',
+    indonesian:
+      'Sensitivitas mengatur ambang batas untuk menentukan kapan klip dimulai dan berakhir. Sensitivitas rendah menangkap suara pelan, tetapi juga suara lain yang mungkin.'
   },
   vadHelpPause: {
-    english: 'Shorter pause splits faster. Longer captures everything.',
-    spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
+    english:
+      'A shorter Pause Length will break your recording into more segments at smaller pauses.',
+    spanish:
+      'Una longitud de pausa más corta dividirá tu grabación en más segmentos en pausas más pequeñas.',
     brazilian_portuguese:
-      'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
-    tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
+      'Um comprimento de pausa mais curto dividirá sua gravação em mais segmentos em pausas menores.',
+    tok_pisin:
+      'Sotpela taim bilong pas bai katim rekod bilong yu long planti hap long ol liklik taim yu pas.',
     indonesian:
-      'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+      'Durasi jeda yang lebih pendek akan memecah rekaman Anda menjadi lebih banyak segmen pada jeda yang lebih kecil.'
+  },
+  vadHelpMinSegment: {
+    english:
+      'Minimum Segment Length prevents saving of very short segments below the set duration, such as coughs or door slams.',
+    spanish:
+      'La Longitud Mínima de Segmento evita guardar segmentos muy cortos por debajo de la duración establecida, como toses o portazos.',
+    brazilian_portuguese:
+      'O Comprimento Mínimo do Segmento evita salvar segmentos muito curtos abaixo da duração definida, como tosses ou batidas de porta.',
+    tok_pisin:
+      'Liklik Taim Inap i banisim ol sotpela rekod aninit long taim yu makim, olsem kus o doa i paitim.',
+    indonesian:
+      'Panjang Segmen Minimum mencegah penyimpanan segmen yang sangat pendek di bawah durasi yang ditetapkan, seperti batuk atau bunyi pintu.'
   },
   vadAutoCalibrate: {
     english: 'Auto-Calibrate',
@@ -4917,6 +4941,18 @@ export const localizations = {
     tok_pisin: 'Em i no wok. Traim gen long ples i no gat tumas nois.',
     indonesian:
       'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
+  },
+  vadCalibrateHint: {
+    english:
+      'During auto-calibration remain silent or only allow sounds that you want to be below the sensitivity threshold.',
+    spanish:
+      'Durante la auto-calibración permanece en silencio o solo permite sonidos que deseas que estén por debajo del umbral de sensibilidad.',
+    brazilian_portuguese:
+      'Durante a auto-calibração permaneça em silêncio ou apenas permita sons que você deseja que fiquem abaixo do limite de sensibilidade.',
+    tok_pisin:
+      'Taim masin i wokim kalibresen, yu mas stap isi o larim ol nois tasol we yu laik i stap aninit long mak.',
+    indonesian:
+      'Selama kalibrasi otomatis tetaplah diam atau hanya izinkan suara yang ingin Anda agar berada di bawah ambang sensitivitas.'
   },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
