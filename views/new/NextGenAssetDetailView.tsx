@@ -345,8 +345,6 @@ export default function NextGenAssetDetailView() {
     }
   }, [activeAsset]);
 
-  // Removed check for target_language_id - now using project_language_link
-
   const currentStatus = useStatusContext();
 
   const { allowEditing, allowSettings } = !activeAsset

@@ -52,7 +52,6 @@ interface ChapterData {
     id: string;
     name: string;
     description: string | null;
-    // target_language_id removed - use project_language_link instead
     creator_id: string | null;
     private: boolean;
     visible: boolean;
@@ -955,7 +954,6 @@ async function executePublishTransaction(
             id: data.project.id,
             name: data.project.name,
             description: data.project.description,
-            // target_language_id removed - use project_language_link instead
             creator_id: data.project.creator_id,
             private: data.project.private,
             visible: data.project.visible,
@@ -1224,7 +1222,6 @@ async function executePublishTransaction(
             id: assetData.id,
             name: assetData.name,
             order_index: assetData.order_index,
-            // source_language_id removed - use asset_content_link.languoid_id instead
             project_id: assetData.project_id,
             source_asset_id: assetData.source_asset_id,
             images: assetData.images,

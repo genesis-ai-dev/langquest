@@ -1050,13 +1050,6 @@ export class System {
             project_id: project.id,
             source_asset_id: null
           };
-          // const assetContentLink: InsertAssetContentLink = {
-          //   id: uuid.v4(),
-          //   asset_id: asset.id,
-          //   source_language_id: ENGLISH_LANGUAGE_ID,
-          //   text: 'Test',
-          //   download_profiles: [PROFILE_ID]
-          // };
           const translationAsset: InsertAsset = {
             id: uuid.v4(),
             source_asset_id: asset.id,
@@ -1161,7 +1154,6 @@ export class System {
     //     name: `Asset ${i + 1}`,
     //     images: [],
     //     download_profiles: [PROFILE_ID],
-    //     source_language_id: ENGLISH_LANGUAGE_ID,
     //     project_id: projects[i % projects.length]?.id,
     //     source_asset_id: null,
     //     target_asset_id: null

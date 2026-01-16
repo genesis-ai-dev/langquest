@@ -376,7 +376,6 @@ function getAssetsByQuestIdConfig(quest_id: string) {
         .select({
           id: asset.id,
           name: asset.name,
-          // source_language_id removed from asset-level usage; use content-level source_language_id
           images: asset.images,
           creator_id: asset.creator_id,
           visible: asset.visible,
@@ -484,7 +483,6 @@ export function useAssetsByProjectId(project_id: string) {
         .selectDistinct({
           id: asset.id,
           name: asset.name,
-          // source_language_id removed from asset-level usage; use content-level source_language_id
           images: asset.images,
           creator_id: asset.creator_id,
           visible: asset.visible,
