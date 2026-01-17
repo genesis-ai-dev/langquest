@@ -89,7 +89,7 @@ import {
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
@@ -634,11 +634,11 @@ export default function BibleAssetsView() {
     debouncedSearchQuery,
     showInvisibleContent
   );
-  // const _localAssets = useLocalAssetsByQuest(
-  //   currentQuestId || '',
-  //   debouncedSearchQuery,
-  //   showInvisibleContent
-  // );
+  const localAssets = useLocalAssetsByQuest(
+    currentQuestId || '',
+    debouncedSearchQuery,
+    showInvisibleContent
+  );
 
   // Use the appropriate hook result based on isPublished condition
   const {
@@ -650,8 +650,8 @@ export default function BibleAssetsView() {
     isOnline,
     isFetching,
     refetch
-  } = publishedAssets;
-  // } = isPublished ? publishedAssets : localAssets;
+    //} = publishedAssets;
+  } = isPublished ? publishedAssets : localAssets;
 
   // Flatten all pages into a single array and deduplicate
   // Prefer synced over local when the same asset ID appears in both
