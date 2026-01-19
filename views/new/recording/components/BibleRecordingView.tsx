@@ -28,12 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
-import {
-  ArrowLeft,
-  BookmarkPlusIcon,
-  PauseIcon,
-  PlayIcon
-} from 'lucide-react-native';
+import { ArrowLeft, PauseIcon, PlayIcon, Plus } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -227,6 +222,9 @@ const BibleRecordingView = ({
   // Used to normalize order_index when returning to BibleAssetsView
   const recordedVersesRef = React.useRef<Set<number>>(new Set());
 
+  // Track if the user is allowed to add a new verse
+  const allowAddVerseRef = React.useRef<boolean>(true);
+
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
     if (!currentQuestId || nameCounterLoadedRef.current) return;
@@ -389,7 +387,8 @@ const BibleRecordingView = ({
   // Assets are still saved to database, but we don't load existing ones
   const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
     // Initialize with the initial verse pill
-    const initialVerse = _verse ?? null;
+    if (!_verse) return [];
+    const initialVerse = _verse;
     const initialPill: VersePillItem = {
       type: 'pill',
       id: `pill-initial-${_initialOrderIndex}`,
@@ -397,7 +396,7 @@ const BibleRecordingView = ({
       verse: initialVerse
     };
     console.log(
-      `🏷️ Initial pill created | order_index: ${_initialOrderIndex} | verse: ${initialVerse ? `${initialVerse.from}-${initialVerse.to}` : 'null'}`
+      `🏷️ Initial pill created | order_index: ${_initialOrderIndex} | verse: ${initialVerse.from}-${initialVerse.to}`
     );
     return [initialPill];
   });
@@ -445,6 +444,10 @@ const BibleRecordingView = ({
           duration: undefined,
           verse: newAsset.verse ?? null
         };
+
+        if (!newAsset.verse) {
+          allowAddVerseRef.current = false;
+        }
 
         console.log(
           `➕ Adding "${newAsset.name}" with order_index: ${targetOrderIndex} | verse: ${newAsset.verse ? `${newAsset.verse.from}-${newAsset.verse.to}` : 'null'}`
@@ -694,7 +697,7 @@ const BibleRecordingView = ({
       ? `${highlightedAssetVerse.from}-${highlightedAssetVerse.to}`
       : 'null';
     console.log(
-      `🔘 State | insertionIdx: ${insertionIndex} | assetsLen: ${assets.length} | isAtEnd: ${isAtEndOfList} | debouncedIsAtEnd: ${debouncedIsAtEnd} | highlightedVerse: ${highlightedVerseStr} | verseToAdd: ${verseToAdd} | currentDynamic: ${currentDynamicVerse} | persistedLimit: ${persistedLimitVerseRef.current} | persistedNext: ${persistedNextVerseRef.current} | showBtn: ${showAddVerseButton} | pillText: ${versePillText}`
+      `🔘 State | insertionIdx: ${insertionIndex} | assetsLen: ${assets.length} | isAtEnd: ${isAtEndOfList} | debouncedIsAtEnd: ${debouncedIsAtEnd} | highlightedVerse: ${highlightedVerseStr} | verseToAdd: ${verseToAdd} | currentDynamic: ${currentDynamicVerse} | pillText: ${versePillText}`
     );
   }, [
     insertionIndex,
@@ -709,8 +712,7 @@ const BibleRecordingView = ({
   ]);
 
   // Handle adding next verse metadata
-  // When clicked, sets currentDynamicVerse to verseToAdd
-  // The VersePill will update to show this verse
+  // When clicked, adds a pill at the end of the list
   // The button will then show the next verse (verseToAdd + 1)
   const handleAddNextVerse = React.useCallback(() => {
     if (verseToAdd === null) return;
@@ -721,13 +723,15 @@ const BibleRecordingView = ({
     // Formula: (verse * 1000 + 1) * 1000
     // This positions it at the beginning of the verse range
     const newOrderIndex = (verseToAdd * 1000 + 1) * 1000;
-    appendOrderIndexRef.current = newOrderIndex + 1; // Next asset goes after the pill
+
+    // Update appendOrderIndexRef to point to after this new pill
+    appendOrderIndexRef.current = newOrderIndex + 1;
 
     console.log(
-      `📊 Updated order_index for verse ${verseToAdd}: ${newOrderIndex}`
+      `📊 Adding pill for verse ${verseToAdd} | order_index: ${newOrderIndex} | next append: ${appendOrderIndexRef.current}`
     );
 
-    // Mark that a pill was added (so auto-scroll doesn't move the wheel)
+    // Mark that a pill was added (so auto-scroll moves to end)
     wasPillAddedRef.current = true;
 
     // Add the verse pill to the list
@@ -736,18 +740,16 @@ const BibleRecordingView = ({
     // Set currentDynamicVerse to this verse (for button calculation)
     setCurrentDynamicVerse(verseToAdd);
 
-    // NOTE: We intentionally do NOT update insertionIndex here
-    // This allows the user to stay at their current position
+    // Move insertion index to the end (where the pill was added)
+    // This is done in the next useEffect that monitors allItems.length change
 
-    // If VAD is active, also update the currentRecordingVerseRef
-    // This ensures that the next VAD segment uses the new verse metadata
+    // If VAD is active, update recording context to use the new pill
     if (isVADLocked) {
       const newVerse = { from: verseToAdd, to: verseToAdd };
       currentRecordingVerseRef.current = newVerse;
-      // Also update VAD counter to use the new order_index (after the pill)
       vadCounterRef.current = newOrderIndex + 1;
       console.log(
-        `🎯 VAD: Updated verse to ${verseToAdd} and order_index to ${newOrderIndex + 1}`
+        `🎯 VAD: Updated to verse ${verseToAdd} | order_index: ${newOrderIndex + 1}`
       );
     }
   }, [verseToAdd, isVADLocked, addVersePill]);
@@ -823,6 +825,11 @@ const BibleRecordingView = ({
         `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current}`
       );
 
+      console.log(
+        '[recording in the middle]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+        wasRecordingInMiddleRef.current
+      );
+
       const wasInMiddle = wasRecordingInMiddleRef.current;
       const wasPillAdded = wasPillAddedRef.current;
 
@@ -831,8 +838,22 @@ const BibleRecordingView = ({
       wasPillAddedRef.current = false;
 
       if (wasPillAdded) {
-        // A pill was added - don't move, let user stay where they are
-        console.log('📍 Pill added - not moving insertionIndex');
+        // A pill was added - move to the end
+        console.log(
+          `📍 Pill added - moving to end: ${insertionIndex} → ${currentCount}`
+        );
+        setInsertionIndex(currentCount);
+
+        // Scroll to the end
+        const timeoutId = setTimeout(() => {
+          try {
+            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+          } catch (error) {
+            console.error('Failed to scroll after pill added:', error);
+          }
+          timeoutIdsRef.current.delete(timeoutId);
+        }, 100);
+        timeoutIdsRef.current.add(timeoutId);
       } else if (wasInMiddle) {
         // Recorded in the middle - move to the new asset
         const newIndex = insertionIndex + 1;
@@ -1512,6 +1533,61 @@ const BibleRecordingView = ({
   // RECORDING HANDLERS
   // ============================================================================
 
+  /**
+   * CENTRALIZED INSERTION CONTEXT
+   * This function calculates where and how to insert new recordings
+   * based on the current wheel position and list state.
+   *
+   * Returns:
+   * - orderIndex: The order_index to use for the new recording
+   * - verse: The verse metadata to use for the new recording
+   * - isAtEnd: Whether we're inserting at the end of the list
+   */
+  const getInsertionContext = React.useCallback(
+    (currentIndex: number = insertionIndex) => {
+      const isAtEnd = allItems.length === 0 || currentIndex >= allItems.length;
+      console.log(
+        '🔍 getInsertionContext | currentIndex:',
+        currentIndex,
+        '| allItems.length:',
+        allItems.length,
+        '| isAtEnd:',
+        isAtEnd
+      );
+
+      if (isAtEnd) {
+        // At end: calculate order_index based on last item, not appendOrderIndexRef
+        // appendOrderIndexRef is only used as a cache and gets updated after recording
+        const lastItem = allItems[allItems.length - 1];
+        const orderIndex = lastItem
+          ? lastItem.order_index + 1
+          : appendOrderIndexRef.current; // Fallback for empty list
+        const verse = lastItem?.verse ?? persistedVerseRef.current ?? null;
+
+        console.log(
+          '🔍 At END | lastItem order_index:',
+          lastItem?.order_index,
+          '| calculated orderIndex:',
+          orderIndex,
+          '| appendOrderIndexRef:',
+          appendOrderIndexRef.current
+        );
+
+        return { orderIndex, verse, isAtEnd: true };
+      } else {
+        // In middle: use selected item's context
+        const selectedItem = allItems[currentIndex];
+        const orderIndex = selectedItem
+          ? selectedItem.order_index + 1
+          : currentIndex + 1;
+        const verse = selectedItem?.verse ?? null;
+
+        return { orderIndex, verse, isAtEnd: false };
+      }
+    },
+    [allItems, insertionIndex]
+  );
+
   // Store insertion index in ref to prevent stale closure issues
   const insertionIndexRef = React.useRef(insertionIndex);
   React.useEffect(() => {
@@ -1531,119 +1607,100 @@ const BibleRecordingView = ({
     if (isVADLocked && vadCounterRef.current === null) {
       // Capture current position when VAD starts
       vadInsertionIndexRef.current = insertionIndexRef.current;
-      const isAtEnd =
-        assets.length === 0 || insertionIndexRef.current >= assets.length;
-      // Capture isAtEnd state once - this won't change during VAD session
-      vadIsAtEndRef.current = isAtEnd;
 
-      if (isAtEnd) {
-        // At end: use append mode, will increment for each segment
-        vadCounterRef.current = appendOrderIndexRef.current;
+      // Get insertion context based on current position
+      const {
+        orderIndex,
+        verse,
+        isAtEnd: contextIsAtEnd
+      } = getInsertionContext(insertionIndexRef.current);
 
-        // Verse: use the verse from the last item in the list (could be a pill)
-        const lastItem = allItems[allItems.length - 1];
-        const verseToUse = lastItem?.verse ?? persistedVerseRef.current ?? null;
-        currentRecordingVerseRef.current = verseToUse;
+      vadCounterRef.current = orderIndex;
+      currentRecordingVerseRef.current = verse;
 
-        debugLog(
-          `🎯 VAD initialized at END | order_index: ${vadCounterRef.current} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
-        );
-      } else {
-        // In middle: use item at insertionIndex (could be asset or pill)
-        const selectedItem = allItems[insertionIndexRef.current];
-        const selectedOrderIndex =
-          selectedItem?.order_index ?? insertionIndexRef.current;
-        vadCounterRef.current = selectedOrderIndex + 1;
+      const selectedItem = contextIsAtEnd
+        ? allItems[allItems.length - 1]
+        : allItems[insertionIndexRef.current];
+      const itemName = selectedItem
+        ? isPill(selectedItem)
+          ? `pill-${selectedItem.verse?.from ?? 'null'}`
+          : selectedItem.name
+        : 'none';
 
-        // Verse: use the same verse as the selected item
-        const verseToUse = selectedItem?.verse ?? null;
-        currentRecordingVerseRef.current = verseToUse;
-
-        const itemName = selectedItem
-          ? isAsset(selectedItem)
-            ? selectedItem.name
-            : `pill-${selectedItem.verse?.from ?? 'null'}`
-          : 'unknown';
-        debugLog(
-          `🎯 VAD initialized in MIDDLE | order_index: ${vadCounterRef.current} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} (same as "${itemName}")`
-        );
-      }
+      debugLog(
+        `🎯 VAD initialized ${contextIsAtEnd ? 'at END' : 'in MIDDLE'} | index: ${insertionIndexRef.current} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
+      );
     } else if (!isVADLocked) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
+      console.log(
+        '[INSERTION INDEX REF 000X VAD]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+        vadInsertionIndexRef.current,
+        insertionIndexRef.current
+      );
       vadIsAtEndRef.current = false;
     }
-  }, [isVADLocked, allItems, currentDynamicVerse]);
+  }, [
+    isVADLocked,
+    allItems,
+    currentDynamicVerse,
+    assets.length,
+    getInsertionContext
+  ]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
     if (isRecording) return;
 
-    // Use ref for most up-to-date value (avoid stale closure)
     const currentInsertionIndex = insertionIndexRef.current;
 
     console.log(
-      `🎬 Recording START | insertionIndex state: ${insertionIndex} | ref: ${currentInsertionIndex} | allItems.length: ${allItems.length}`
+      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | allItems.length: ${allItems.length}`
     );
 
-    // Log all items for debugging
-    console.log(
-      '📋 All items:',
-      allItems
-        .map(
-          (item, idx) =>
-            `[${idx}] ${isPill(item) ? `Pill-${item.verse?.from}` : item.name} (order: ${item.order_index})`
-        )
-        .join(', ')
+    // Get insertion context (order_index and verse) based on current position
+    const { orderIndex, verse, isAtEnd } = getInsertionContext(
+      currentInsertionIndex
     );
 
-    setIsRecording(true);
-
-    // Calculate order_index based on current Wheel position
-    // - At end: use appendOrderIndexRef (increments automatically)
-    // - In middle: use selected item's order_index + 1 (to insert BELOW the selected item)
-    const isAtEnd =
-      allItems.length === 0 || currentInsertionIndex >= allItems.length;
+    // Store values for use during recording
+    currentRecordingOrderRef.current = orderIndex;
+    currentRecordingVerseRef.current = verse;
 
     // Track if we're recording in the middle (for auto-scroll behavior)
     wasRecordingInMiddleRef.current = !isAtEnd;
 
+    // Update appendOrderIndexRef to point to next position after this recording
+    // This serves as a fallback for empty lists or initial state
     if (isAtEnd) {
-      // At end: use append mode
-      const targetOrder = appendOrderIndexRef.current;
-      appendOrderIndexRef.current = targetOrder + 1;
-      currentRecordingOrderRef.current = targetOrder;
-
-      // Verse: use the verse from the last item in the list (could be a pill)
-      const lastItem = allItems[allItems.length - 1];
-      const verseToUse = lastItem?.verse ?? persistedVerseRef.current ?? null;
-      currentRecordingVerseRef.current = verseToUse;
-
+      appendOrderIndexRef.current = orderIndex + 1;
       console.log(
-        `🎯 Recording at END | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
-      );
-    } else {
-      // In middle: use the item at currentInsertionIndex (could be asset or pill)
-      const selectedItem = allItems[currentInsertionIndex];
-      const selectedOrderIndex =
-        selectedItem?.order_index ?? currentInsertionIndex;
-      const targetOrder = selectedOrderIndex + 1;
-      currentRecordingOrderRef.current = targetOrder;
-
-      // Verse: use the same verse as the selected item
-      const verseToUse = selectedItem?.verse ?? null;
-      currentRecordingVerseRef.current = verseToUse;
-
-      const itemName = selectedItem
-        ? isAsset(selectedItem)
-          ? selectedItem.name
-          : `pill-${selectedItem.verse?.from ?? 'null'}`
-        : 'unknown';
-      console.log(
-        `🎯 Recording in MIDDLE | insertionIndex: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
+        '📊 Updated appendOrderIndexRef:',
+        appendOrderIndexRef.current,
+        '(for next recording at end)'
       );
     }
-  }, [isRecording, allItems, insertionIndex]);
+
+    // If starting recording without verse, disable adding new verses
+    if (!verse) {
+      allowAddVerseRef.current = false;
+    }
+
+    setIsRecording(true);
+
+    const selectedItem = isAtEnd
+      ? allItems[allItems.length - 1]
+      : allItems[currentInsertionIndex];
+    const itemName = selectedItem
+      ? isPill(selectedItem)
+        ? `pill-${selectedItem.verse?.from ?? 'null'}`
+        : selectedItem.name
+      : 'none';
+
+    console.log(
+      `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
+    );
+  }, [isRecording, allItems, getInsertionContext]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -1657,7 +1714,15 @@ const BibleRecordingView = ({
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
-      const targetOrder = currentRecordingOrderRef.current;
+      // Recalculate order_index based on current list state
+      // This ensures each consecutive recording gets a unique incremented order_index
+      const currentContext = getInsertionContext(insertionIndexRef.current);
+      const targetOrder = currentContext.orderIndex;
+      const verseToUse = currentContext.verse;
+
+      // Update refs for next recording in same session
+      currentRecordingOrderRef.current = targetOrder;
+      currentRecordingVerseRef.current = verseToUse;
 
       try {
         debugLog('💾 Saving recording | order_index:', targetOrder);
@@ -1729,7 +1794,7 @@ const BibleRecordingView = ({
 
             // Log the saved asset details
             console.log(
-              `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | propsOrderIndex: ${_initialOrderIndex} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'} | dynamic: ${currentDynamicVerse}`
+              `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
             );
 
             // Add to session assets list (UI only - not loaded from DB)
@@ -1788,8 +1853,8 @@ const BibleRecordingView = ({
       queryClient,
       targetLanguoidId,
       addSessionAsset,
-      _initialOrderIndex,
-      saveNameCounter
+      saveNameCounter,
+      getInsertionContext
     ]
   );
 
@@ -2797,12 +2862,16 @@ const BibleRecordingView = ({
               ref={wheelRef}
               value={insertionIndex}
               onChange={(newIndex) => {
+                const item = itemsForWheel[newIndex];
+                const itemDesc = item
+                  ? isPill(item)
+                    ? `pill-${item.verse?.from ?? 'null'}`
+                    : item.name
+                  : 'end';
                 console.log(
-                  `🎡 Wheel onChange: ${insertionIndex} → ${newIndex}`
+                  `🎡 Wheel onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
                 );
                 setInsertionIndex(newIndex);
-                // Also update the ref immediately for recording callbacks
-                insertionIndexRef.current = newIndex;
               }}
               rowHeight={ROW_HEIGHT}
               className="h-full flex-1"
@@ -2824,28 +2893,32 @@ const BibleRecordingView = ({
       </View>
 
       {/* Add verse button - floats above recording controls */}
-      {!isSelectionMode && showAddVerseButton && verseToAdd !== null && (
-        <View
-          className="absolute left-0 right-0 z-50 flex w-full items-center"
-          style={{
-            bottom: footerHeight + insets.bottom + 8
-          }}
-        >
-          <View className="px-4">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-primary bg-primary/10"
-              onPress={handleAddNextVerse}
-            >
-              <Icon as={BookmarkPlusIcon} size={20} className="text-primary" />
-              <Text className="ml-2 font-semibold text-primary">
-                {bookChapterLabel}:{verseToAdd}
-              </Text>
-            </Button>
+      {!isSelectionMode &&
+        showAddVerseButton &&
+        verseToAdd !== null &&
+        !isVADRecording &&
+        allowAddVerseRef.current && (
+          <View
+            className="absolute left-0 right-0 z-50 flex w-full items-center"
+            style={{
+              bottom: footerHeight + insets.bottom + 8
+            }}
+          >
+            <View className="flex flex-row items-center gap-2 px-4">
+              <Icon as={Plus} size={20} className="text-primary" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-primary bg-primary/10"
+                onPress={handleAddNextVerse}
+              >
+                <Text className="m-2 font-semibold text-primary">
+                  {bookChapterLabel}:{verseToAdd}
+                </Text>
+              </Button>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">

@@ -150,6 +150,14 @@ interface ManualSeparator {
   assetId?: string;
 }
 
+const RecordingPlaceIndicator = () => (
+  <View className="flex flex-row items-center justify-center gap-1 py-2">
+    {/* <Icon as={CassetteTapeIcon} size={16} className="text-destructive" /> */}
+    <View className="h-2 w-2 rounded-full bg-destructive" />{' '}
+    <Text className="text-xs text-destructive">REC</Text>
+  </View>
+);
+
 // ============================================================================
 // HELPER FUNCTIONS (moved outside component for better performance)
 // ============================================================================
@@ -2116,46 +2124,51 @@ export default function BibleAssetsView() {
           selectedForRecording?.separatorKey === item.key;
 
         return (
-          <VerseSeparator
-            editable={!isPublished}
-            from={item.from}
-            to={item.to}
-            label={bookChapterLabelRef.current}
-            onPress={
-              !isPublished
-                ? () => {
-                    setEditSeparatorState({
-                      isOpen: true,
-                      separatorKey: item.key,
-                      from: item.from,
-                      to: item.to
-                    });
-                  }
-                : undefined
-            }
-            // Recording selection - clicking the separator text selects it for recording
-            isSelectedForRecording={!isPublished && isSeparatorSelected}
-            onSelectForRecording={
-              !isPublished
-                ? () =>
-                    handleSelectSeparatorForRecording(
-                      item.key,
-                      item.from,
-                      item.to
-                    )
-                : undefined
-            }
-            dragHandleComponent={!isPublished ? Sortable.Handle : undefined}
-            dragHandleProps={
-              !isPublished
-                ? {
-                    mode: fixedItemsIndexesRef.current.includes(index)
-                      ? 'fixed-order'
-                      : 'draggable'
-                  }
-                : undefined
-            }
-          />
+          <View>
+            <VerseSeparator
+              editable={!isPublished}
+              from={item.from}
+              to={item.to}
+              label={bookChapterLabelRef.current}
+              onPress={
+                !isPublished
+                  ? () => {
+                      setEditSeparatorState({
+                        isOpen: true,
+                        separatorKey: item.key,
+                        from: item.from,
+                        to: item.to
+                      });
+                    }
+                  : undefined
+              }
+              // Recording selection - clicking the separator text selects it for recording
+              isSelectedForRecording={!isPublished && isSeparatorSelected}
+              onSelectForRecording={
+                !isPublished
+                  ? () =>
+                      handleSelectSeparatorForRecording(
+                        item.key,
+                        item.from,
+                        item.to
+                      )
+                  : undefined
+              }
+              dragHandleComponent={!isPublished ? Sortable.Handle : undefined}
+              dragHandleProps={
+                !isPublished
+                  ? {
+                      mode: fixedItemsIndexesRef.current.includes(index)
+                        ? 'fixed-order'
+                        : 'draggable'
+                    }
+                  : undefined
+              }
+            />
+            {!isPublished && !isSelectionMode && isSeparatorSelected && (
+              <RecordingPlaceIndicator />
+            )}
+          </View>
         );
       }
 
@@ -2188,6 +2201,11 @@ export default function BibleAssetsView() {
       const assetRange = getRangeForAsset(asset.id);
       const hasAvailableVerses = assetRange.availableVerses.length > 0;
       const isSelected = selectedAssetIds.has(asset.id);
+
+      const isAssetSelectedForRecording =
+        !isPublished &&
+        selectedForRecording?.type === 'asset' &&
+        selectedForRecording?.assetId === asset.id;
 
       return (
         <View className="relative">
@@ -2229,16 +2247,15 @@ export default function BibleAssetsView() {
             onToggleSelect={!isPublished ? toggleSelect : undefined}
             onEnterSelection={!isPublished ? enterSelection : undefined}
             // Recording insertion point selection
-            isSelectedForRecording={
-              !isPublished &&
-              selectedForRecording?.type === 'asset' &&
-              selectedForRecording?.assetId === asset.id
-            }
+            isSelectedForRecording={isAssetSelectedForRecording}
             onSelectForRecording={
               !isPublished ? handleSelectForRecording : undefined
             }
             onRename={!isPublished ? handleRenameAsset : undefined}
           />
+          {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
+            <RecordingPlaceIndicator />
+          )}
         </View>
       );
     },
