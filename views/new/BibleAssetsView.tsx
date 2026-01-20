@@ -40,7 +40,6 @@ import {
   CheckCheck,
   CloudUpload,
   FlagIcon,
-  GripVerticalIcon,
   InfoIcon,
   LockIcon,
   MicIcon,
@@ -778,7 +777,14 @@ export default function BibleAssetsView() {
     manualSeparators
   ]);
 
+  // Keep a ref to assets for stable callback (avoids recreating on every asset change)
+  const assetsRef = React.useRef(assets);
+  React.useEffect(() => {
+    assetsRef.current = assets;
+  }, [assets]);
+
   // Handler for selecting/deselecting an asset for recording insertion
+  // Optimized with ref to avoid recreation on every asset change
   const handleSelectForRecording = React.useCallback(
     (assetId: string) => {
       // Toggle: if same asset clicked, deselect
@@ -790,17 +796,14 @@ export default function BibleAssetsView() {
         return;
       }
 
-      // Find the asset in our list
-      const assetItem = listItems.find(
-        (item) => item.type === 'asset' && item.content.id === assetId
-      );
+      // Find the asset using ref (stable across renders)
+      const asset = assetsRef.current.find((a) => a.id === assetId);
 
-      if (!assetItem || assetItem.type !== 'asset') {
+      if (!asset) {
         console.warn('Asset not found:', assetId);
         return;
       }
 
-      const asset = assetItem.content;
       const metadata = asset.metadata as AssetMetadata | null;
       const orderIndex = asset.order_index ?? 0;
 
@@ -823,7 +826,7 @@ export default function BibleAssetsView() {
         verseName
       });
     },
-    [selectedForRecording?.type, selectedForRecording?.assetId, listItems]
+    [selectedForRecording?.type, selectedForRecording?.assetId]
   );
 
   // Handler for selecting/deselecting a separator for recording insertion
@@ -2154,6 +2157,12 @@ export default function BibleAssetsView() {
     [listItems, getRangeForSeparator]
   );
 
+  // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
+  const stableOnPlay = React.useCallback(
+    (assetId: string) => handlePlayAssetRef.current(assetId),
+    []
+  );
+
   const renderItem = React.useCallback(
     ({
       item,
@@ -2226,24 +2235,6 @@ export default function BibleAssetsView() {
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
         currentlyPlayingAssetId === asset.id;
 
-      // Only show drag handle when NOT in selection mode
-      const dragHandle =
-        !isPublished && !isSelectionMode ? (
-          <Sortable.Handle
-            mode={
-              fixedItemsIndexesRef.current.includes(index)
-                ? 'fixed-order'
-                : 'draggable'
-            }
-          >
-            <Icon
-              as={GripVerticalIcon}
-              size={24}
-              className="text-muted-foreground"
-            />
-          </Sortable.Handle>
-        ) : null;
-
       const isSelected = selectedAssetIds.has(asset.id);
 
       const isAssetSelectedForRecording =
@@ -2294,9 +2285,11 @@ export default function BibleAssetsView() {
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
             onUpdate={handleAssetUpdate}
-            onPlay={(assetId) => handlePlayAssetRef.current(assetId)}
+            onPlay={stableOnPlay}
             isPublished={isPublished}
-            dragHandle={dragHandle}
+            // Drag handle props (primitives instead of ReactNode)
+            showDragHandle={!isPublished && !isSelectionMode}
+            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
             // Selection mode only works when NOT published
             isSelectionMode={!isPublished && isSelectionMode}
             isSelected={!isPublished && isSelected}
@@ -2322,6 +2315,7 @@ export default function BibleAssetsView() {
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
       handleAssetUpdate,
+      stableOnPlay,
       getRangeForAsset,
       isSelectionMode,
       selectedAssetIds,

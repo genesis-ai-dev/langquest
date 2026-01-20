@@ -20,6 +20,7 @@ import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
   EyeOffIcon,
+  GripVerticalIcon,
   HardDriveIcon,
   PauseIcon,
   PencilLineIcon,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import Sortable from 'react-native-sortables';
 // import { TagModal } from '../../components/TagModal';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
@@ -50,7 +52,9 @@ export interface BibleAssetListItemProps {
   onPlay?: (assetId: string) => void | Promise<void>;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
-  dragHandle?: React.ReactNode;
+  // Drag & Drop props (replaces dragHandle ReactNode)
+  showDragHandle?: boolean; // Whether to show drag handle (not in selection mode, not published)
+  isDragFixed?: boolean; // Whether this item has fixed drag order
   // Selection mode props (batch operations like merge/delete)
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -63,7 +67,7 @@ export interface BibleAssetListItemProps {
   onRename?: (assetId: string, currentName: string | null) => void;
 }
 
-export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
+const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   asset,
   questId,
   isCurrentlyPlaying = false,
@@ -71,7 +75,8 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
   onUpdate: _onUpdate,
   onPlay,
   attachmentState: _attachmentState,
-  dragHandle,
+  showDragHandle = false,
+  isDragFixed = false,
   isSelectionMode = false,
   isSelected = false,
   onToggleSelect,
@@ -204,6 +209,21 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
 
   // Tags display - commented out
   // const tag = tags.length > 0 ? tags[0] : null;
+
+  // Create drag handle inside component (memoized for performance)
+  const dragHandle = React.useMemo(() => {
+    if (!showDragHandle) return null;
+
+    return (
+      <Sortable.Handle mode={isDragFixed ? 'fixed-order' : 'draggable'}>
+        <Icon
+          as={GripVerticalIcon}
+          size={24}
+          className="text-muted-foreground"
+        />
+      </Sortable.Handle>
+    );
+  }, [showDragHandle, isDragFixed]);
 
   // Render selection checkbox or drag handle
   const selectionOrDragElement = isSelectionMode ? (
@@ -366,3 +386,75 @@ export const BibleAssetListItem: React.FC<BibleAssetListItemProps> = ({
     </Pressable>
   );
 };
+
+/**
+ * Custom comparison function for React.memo
+ * Returns TRUE if props are EQUAL (skip re-render)
+ * Returns FALSE if props are DIFFERENT (re-render needed)
+ */
+const arePropsEqual = (
+  prevProps: BibleAssetListItemProps,
+  nextProps: BibleAssetListItemProps
+): boolean => {
+  // 1. Compare primitive props that affect visual rendering
+  if (
+    prevProps.questId !== nextProps.questId ||
+    prevProps.isPublished !== nextProps.isPublished ||
+    prevProps.isCurrentlyPlaying !== nextProps.isCurrentlyPlaying ||
+    prevProps.showDragHandle !== nextProps.showDragHandle ||
+    prevProps.isDragFixed !== nextProps.isDragFixed ||
+    prevProps.isSelectionMode !== nextProps.isSelectionMode ||
+    prevProps.isSelected !== nextProps.isSelected ||
+    prevProps.isSelectedForRecording !== nextProps.isSelectedForRecording
+  ) {
+    return false; // Props changed, need to re-render
+  }
+
+  // 2. Compare asset object (only fields that affect UI)
+  const prevAsset = prevProps.asset;
+  const nextAsset = nextProps.asset;
+
+  if (
+    prevAsset.id !== nextAsset.id ||
+    prevAsset.name !== nextAsset.name ||
+    prevAsset.order_index !== nextAsset.order_index ||
+    prevAsset.visible !== nextAsset.visible ||
+    prevAsset.active !== nextAsset.active ||
+    prevAsset.quest_visible !== nextAsset.quest_visible ||
+    prevAsset.quest_active !== nextAsset.quest_active ||
+    prevAsset.source !== nextAsset.source
+  ) {
+    return false; // Asset changed, need to re-render
+  }
+
+  // 3. Compare metadata (small object, JSON.stringify is fast)
+  const prevMetadata = JSON.stringify(prevAsset.metadata);
+  const nextMetadata = JSON.stringify(nextAsset.metadata);
+  if (prevMetadata !== nextMetadata) {
+    return false; // Metadata changed, need to re-render
+  }
+
+  // 4. Compare attachmentState (only the state field matters for UI)
+  const prevState = prevProps.attachmentState?.state;
+  const nextState = nextProps.attachmentState?.state;
+  if (prevState !== nextState) {
+    return false; // Attachment state changed, need to re-render
+  }
+
+  // 5. Ignore function props (they're stable from Part 2 optimization)
+  // onUpdate, onPlay, onToggleSelect, onEnterSelection, onSelectForRecording, onRename
+  // These are ignored because they're memoized in the parent component
+
+  return true; // Props are equal, skip re-render ✅
+};
+
+/**
+ * Memoized BibleAssetListItem component
+ * Only re-renders when props that affect visual output change
+ */
+export const BibleAssetListItem = React.memo(
+  BibleAssetListItemComponent,
+  arePropsEqual
+);
+
+BibleAssetListItem.displayName = 'BibleAssetListItem';
