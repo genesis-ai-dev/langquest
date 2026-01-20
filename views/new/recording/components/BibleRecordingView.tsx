@@ -2608,6 +2608,57 @@ const BibleRecordingView = ({
     handleRenameAsset
   ]);
 
+  // ============================================================================
+  // OPTIMIZED CALLBACKS MAP - Prevents creating new functions in wheelChildren
+  // ============================================================================
+
+  // Create a memoized factory for asset callbacks
+  // This prevents creating new inline functions in wheelChildren useMemo
+  const createAssetCallbacks = React.useCallback(
+    (assetId: string) => ({
+      onPress: () => {
+        if (isSelectionMode) {
+          stableToggleSelect(assetId);
+        } else {
+          void stableHandlePlayAsset(assetId);
+        }
+      },
+      onLongPress: () => {
+        stableEnterSelection(assetId);
+      },
+      onPlay: () => {
+        void stableHandlePlayAsset(assetId);
+      }
+    }),
+    [
+      isSelectionMode,
+      stableToggleSelect,
+      stableHandlePlayAsset,
+      stableEnterSelection
+    ]
+  );
+
+  // Create a Map of callbacks per asset (only recreates when dependencies change)
+  // This is much more efficient than creating new functions in the render loop
+  const assetCallbacksMap = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        onPress: () => void;
+        onLongPress: () => void;
+        onPlay: () => void;
+      }
+    >();
+
+    itemsForWheel.forEach((item) => {
+      if (isAsset(item)) {
+        map.set(item.id, createAssetCallbacks(item.id));
+      }
+    });
+
+    return map;
+  }, [itemsForWheel, createAssetCallbacks]);
+
   // Memoized render function for LegendList
   // OPTIMIZED: No audioContext.position dependency - progress now uses SharedValues!
   // This eliminates 10 re-renders/second during audio playback
@@ -2734,6 +2785,15 @@ const BibleRecordingView = ({
           ? assetProgressSharedMapRef.current.get(item.id)
           : undefined;
 
+      // Get stable callbacks from Map (avoids creating new functions)
+      const callbacks = assetCallbacksMap.get(item.id);
+
+      // Fallback if callbacks not found (shouldn't happen, but defensive)
+      if (!callbacks) {
+        console.warn(`Missing callbacks for asset ${item.id}`);
+        return null;
+      }
+
       return (
         <AssetCard
           key={item.id}
@@ -2746,19 +2806,9 @@ const BibleRecordingView = ({
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
           customProgress={customProgress}
-          onPress={() => {
-            if (isSelectionMode) {
-              stableToggleSelect(item.id);
-            } else {
-              void stableHandlePlayAsset(item.id);
-            }
-          }}
-          onLongPress={() => {
-            stableEnterSelection(item.id);
-          }}
-          onPlay={() => {
-            void stableHandlePlayAsset(item.id);
-          }}
+          onPress={callbacks.onPress}
+          onLongPress={callbacks.onLongPress}
+          onPlay={callbacks.onPlay}
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
           onRename={stableHandleRenameAsset}
@@ -2776,9 +2826,7 @@ const BibleRecordingView = ({
     // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,
     isSelectionMode,
-    stableHandlePlayAsset,
-    stableToggleSelect,
-    stableEnterSelection,
+    assetCallbacksMap, // OPTIMIZED: Map of stable callbacks per asset
     stableHandleDeleteLocalAsset,
     stableHandleMergeDownLocal,
     stableHandleRenameAsset
