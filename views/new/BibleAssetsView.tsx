@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import { AssetsDeletionDrawer } from '@/components/AssetsDeletionDrawer';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -32,8 +33,10 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BookmarkPlusIcon,
+  BrushCleaning,
   CheckCheck,
   CloudUpload,
   FlagIcon,
@@ -153,7 +156,7 @@ interface ManualSeparator {
 const RecordingPlaceIndicator = () => (
   <View className="flex flex-row items-center justify-center gap-1 py-2">
     {/* <Icon as={CassetteTapeIcon} size={16} className="text-destructive" /> */}
-    <View className="h-2 w-2 rounded-full bg-destructive" />{' '}
+    <View className="h-2 w-2 rounded-full bg-destructive" />
     <Text className="text-xs text-destructive">REC</Text>
   </View>
 );
@@ -332,6 +335,7 @@ export default function BibleAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
   const [verseSelectorState, setVerseSelectorState] = React.useState<{
     isOpen: boolean;
     key: string | null;
@@ -871,6 +875,49 @@ export default function BibleAssetsView() {
   );
 
   // Handle batch delete of selected assets
+  // Handle delete all assets
+  const handleDeleteAllAssets = React.useCallback(async () => {
+    if (!currentQuestId) return;
+
+    // Filter assets that are local (not cloud-only)
+    const localAssets = assets.filter((a) => a.source !== 'cloud');
+
+    if (localAssets.length < 1) {
+      RNAlert.alert(t('info'), 'No local assets to delete.');
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Starting deletion of ${localAssets.length} assets...`);
+
+      for (const asset of localAssets) {
+        await audioSegmentService.deleteAudioSegment(asset.id);
+      }
+
+      // Reset the name counter for this quest
+      const counterKey = `bible_recording_counter_${currentQuestId}`;
+      await AsyncStorage.removeItem(counterKey);
+      console.log(
+        `🔄 Name counter reset for quest ${currentQuestId.slice(0, 8)}`
+      );
+
+      setSelectedForRecording(null);
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void refetch();
+
+      console.log(
+        `✅ Delete all completed: ${localAssets.length} assets deleted`
+      );
+      RNAlert.alert(
+        t('success'),
+        `${localAssets.length} assets deleted successfully.`
+      );
+    } catch (e) {
+      console.error('Failed to delete all assets', e);
+      RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
+    }
+  }, [assets, currentQuestId, queryClient, t, refetch]);
+
   const handleBatchDeleteSelected = React.useCallback(() => {
     // Filter selected assets that are local (not cloud-only)
     const selectedAssets = assets.filter(
@@ -2197,9 +2244,6 @@ export default function BibleAssetsView() {
           </Sortable.Handle>
         ) : null;
 
-      // Check if there are available verses for this asset
-      const assetRange = getRangeForAsset(asset.id);
-      const hasAvailableVerses = assetRange.availableVerses.length > 0;
       const isSelected = selectedAssetIds.has(asset.id);
 
       const isAssetSelectedForRecording =
@@ -2207,30 +2251,42 @@ export default function BibleAssetsView() {
         selectedForRecording?.type === 'asset' &&
         selectedForRecording?.assetId === asset.id;
 
+      // Only calculate range if this asset is selected for recording (performance optimization)
+      const assetRange = isAssetSelectedForRecording
+        ? getRangeForAsset(asset.id)
+        : null;
+      const hasAvailableVerses = assetRange
+        ? assetRange.availableVerses.length > 0
+        : false;
+
       return (
         <View className="relative">
-          {/* Add verse button - positioned above and to the right */}
-          {/* Only show if there are available verses and NOT in selection mode */}
-          {!isPublished && hasAvailableVerses && !isSelectionMode && (
-            <Pressable
-              onPress={() => {
-                const range = getRangeForAsset(asset.id);
-                setAssetVerseSelectorState({
-                  isOpen: true,
-                  assetId: asset.id,
-                  from: range.from,
-                  to: range.to
-                });
-              }}
-              className="absolute -top-2 right-4 z-[999] rounded-full bg-primary/50 p-1.5 shadow-sm active:bg-primary/90"
-            >
-              <Icon
-                as={BookmarkPlusIcon}
-                size={12}
-                className="text-primary-foreground"
-              />
-            </Pressable>
-          )}
+          {/* Add verse button - centered, only shown when asset is selected for recording */}
+          {!isPublished &&
+            !isSelectionMode &&
+            isAssetSelectedForRecording &&
+            hasAvailableVerses && (
+              <View className="flex flex-row items-center justify-center gap-1 py-2">
+                <Pressable
+                  onPress={() => {
+                    const range = getRangeForAsset(asset.id);
+                    setAssetVerseSelectorState({
+                      isOpen: true,
+                      assetId: asset.id,
+                      from: range.from,
+                      to: range.to
+                    });
+                  }}
+                  className="rounded-full bg-primary/80 p-1 shadow-sm active:bg-primary"
+                >
+                  <Icon
+                    as={BookmarkPlusIcon}
+                    size={12}
+                    className="text-primary-foreground"
+                  />
+                </Pressable>
+              </View>
+            )}
           <BibleAssetListItem
             key={asset.id}
             asset={asset}
@@ -2282,7 +2338,7 @@ export default function BibleAssetsView() {
 
   const _onEndReached = React.useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+      void fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
@@ -3473,6 +3529,13 @@ export default function BibleAssetsView() {
                   ) : null}
                 </>
               ) : null}
+              {!isPublished && (
+                <SpeedDialItem
+                  icon={BrushCleaning}
+                  variant="outline"
+                  onPress={() => setShowDeleteAllDrawer(true)}
+                />
+              )}
               {/* Info button always visible */}
               <SpeedDialItem
                 icon={InfoIcon}
@@ -3504,6 +3567,16 @@ export default function BibleAssetsView() {
           projectId={currentProjectId || ''}
         />
       )}
+
+      {/* Delete All Assets Drawer */}
+      <AssetsDeletionDrawer
+        isOpen={showDeleteAllDrawer}
+        onClose={() => setShowDeleteAllDrawer(false)}
+        onConfirm={() => void handleDeleteAllAssets()}
+        title="Delete All Assets?"
+        description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
+        countdown={10}
+      />
       {selectedQuest && (
         <ModalDetails
           isVisible={showDetailsModal}
