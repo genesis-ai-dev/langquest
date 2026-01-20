@@ -1,10 +1,47 @@
 import { Icon } from '@/components/ui/icon';
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
+import type { VariantProps } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
+
+const alertVariants = cva(
+  'relative flex w-full flex-row items-start gap-3 rounded-lg border border-border bg-card px-4 py-3',
+  {
+    variants: {
+      variant: {
+        default: '',
+        destructive: 'border-destructive/30 bg-destructive/10',
+        warn: 'border-warning/30 bg-warning/10'
+      }
+    },
+    defaultVariants: {
+      variant: 'default'
+    }
+  }
+);
+
+const alertTextVariants = cva('text-sm text-foreground', {
+  variants: {
+    variant: {
+      default: '',
+      destructive: 'text-destructive',
+      warn: 'text-warning'
+    }
+  },
+  defaultVariants: {
+    variant: 'default'
+  }
+});
+
+type AlertProps = ViewProps &
+  React.RefAttributes<View> & {
+    icon: LucideIcon;
+    iconClassName?: string;
+  } & VariantProps<typeof alertVariants>;
 
 function Alert({
   className,
@@ -13,28 +50,12 @@ function Alert({
   icon,
   iconClassName,
   ...props
-}: ViewProps &
-  React.RefAttributes<View> & {
-    icon: LucideIcon;
-    variant?: 'default' | 'destructive';
-    iconClassName?: string;
-  }) {
+}: AlertProps) {
   return (
-    <TextClassContext.Provider
-      value={cn(
-        'text-sm text-foreground',
-        variant === 'destructive' && 'text-destructive',
-        className
-      )}
-    >
+    <TextClassContext.Provider value={alertTextVariants({ variant })}>
       <View
         role="alert"
-        className={cn(
-          'relative flex w-full flex-row items-start gap-3 rounded-lg border border-border bg-card px-4 py-3',
-          variant === 'destructive' &&
-            'border-destructive/30 bg-destructive/10',
-          className
-        )}
+        className={cn(alertVariants({ variant }), className)}
         {...props}
       >
         <Icon as={icon} className={iconClassName} />
@@ -66,6 +87,7 @@ function AlertDescription({
       className={cn(
         'text-sm leading-relaxed text-muted-foreground',
         textClass?.includes('text-destructive') && 'text-destructive/90',
+        textClass?.includes('text-warning') && 'text-warning/90',
         className
       )}
       {...props}
@@ -73,4 +95,10 @@ function AlertDescription({
   );
 }
 
-export { Alert, AlertDescription, AlertTitle };
+export {
+  Alert,
+  AlertDescription, alertTextVariants, AlertTitle,
+  alertVariants
+};
+export type { AlertProps };
+

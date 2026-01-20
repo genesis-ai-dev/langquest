@@ -20,8 +20,9 @@
  * 3. language_id points to a SYNCED language (language via PowerSync) - downloaded project
  * 4. Neither - language_id exists but language record was not synced (limited sync rules)
  *
- * For each case, we check if a matching languoid already exists (synced or local).
- * If not, we create a new languoid_local record.
+ * For cases 2 and 4, we check if a matching languoid already exists (synced or local).
+ * If not, we create a new languoid_local record from language_local only.
+ * For case 3, we rely on synced languoids from the languoid synced table (not created locally).
  *
  * JSON-FIRST MIGRATION:
  * This migration reads legacy fields (target_language_id, source_language_id) from raw
@@ -36,11 +37,11 @@
 
 import type { Migration } from './index';
 import {
-  ensureTableExists,
-  getRawTableName,
-  jsonExtractColumns,
-  rawJsonKeyExists,
-  rawTableExists
+    ensureTableExists,
+    getRawTableName,
+    jsonExtractColumns,
+    rawJsonKeyExists,
+    rawTableExists
 } from './utils';
 
 export const migration_1_0_to_2_0: Migration = {
@@ -71,6 +72,11 @@ export const migration_1_0_to_2_0: Migration = {
     const assetContentLinkRawExists = await rawTableExists(
       db,
       'asset_content_link_local',
+      'local'
+    );
+    const assetLocalRawExists = await rawTableExists(
+      db,
+      'asset_local',
       'local'
     );
 
@@ -350,12 +356,18 @@ export const migration_1_0_to_2_0: Migration = {
 
     console.log('[Migration 1.0→2.0] ✓ Synced languoid references applied');
 
-    // Step 3: Create languoid_local records for any remaining language references
-    // Check BOTH synced and local language tables, and create languoid_local if missing
+    // Step 3: Create languoid_local records for ALL non-orphan languages
+    // A language is "non-orphan" if it's referenced in any of these tables:
+    // - project_local.target_language_id (legacy)
+    // - project_language_link_local.language_id
+    // - asset_local.source_language_id
+    // - asset_content_link_local.source_language_id
+    // - profile_local.ui_language_id
+    // Only create from local language table - synced languoids come from languoid synced table
     if (onProgress)
-      onProgress(3, 4, 'Creating languoid records for unmatched languages');
+      onProgress(3, 4, 'Creating languoid records for all non-orphan languages');
     console.log(
-      '[Migration 1.0→2.0] Creating languoid_local for unmatched languages...'
+      '[Migration 1.0→2.0] Creating languoid_local for all non-orphan languages...'
     );
 
     // Build conditional EXISTS clauses based on table existence
@@ -376,11 +388,84 @@ export const migration_1_0_to_2_0: Migration = {
         ? `AND NOT EXISTS (SELECT 1 FROM ${languoidLocalTable} WHERE id = ${idExpr})`
         : '';
 
-    // Create from LOCAL language table first
-    // CRITICAL: PowerSync stores data as JSON in 'data' column, not individual columns
     // Ensure languoid_local table exists - create it if PowerSync hasn't created it yet
     await ensureTableExists(db, 'languoid_local', 'local');
     const languoidLocalTableName = getRawTableName('languoid_local');
+
+    // Check which reference tables exist and have the relevant JSON keys
+    const profileLocalRawExists = await rawTableExists(db, 'profile_local', 'local');
+    const hasUiLanguageId = profileLocalRawExists && await rawJsonKeyExists(
+      db,
+      'profile_local',
+      '$.ui_language_id',
+      'local'
+    );
+    const hasSourceLanguageIdInAsset = assetLocalRawExists && await rawJsonKeyExists(
+      db,
+      'asset_local',
+      '$.source_language_id',
+      'local'
+    );
+    const hasSourceLanguageIdInAcl = assetContentLinkRawExists && await rawJsonKeyExists(
+      db,
+      'asset_content_link_local',
+      '$.source_language_id',
+      'local'
+    );
+
+    // Build a comprehensive query that finds ALL non-orphan languages
+    // by checking all possible reference points
+    // NOTE: Use json_extract() directly to avoid duplicate aliases from jsonExtractColumns()
+    const unionParts: string[] = [
+      // From project_language_link_local (always check this one)
+      `SELECT DISTINCT json_extract(data, '$.language_id') as language_id
+       FROM ${getRawTableName('project_language_link_local')}
+       WHERE json_extract(data, '$.language_id') IS NOT NULL`
+    ];
+
+    // Add project_local.target_language_id if it exists
+    if (hasTargetLanguageIdLocal) {
+      unionParts.push(`
+        SELECT DISTINCT json_extract(data, '$.target_language_id') as language_id
+        FROM ${getRawTableName('project_local')}
+        WHERE json_extract(data, '$.target_language_id') IS NOT NULL
+      `);
+    }
+
+    // Add asset_local.source_language_id if it exists
+    if (hasSourceLanguageIdInAsset) {
+      unionParts.push(`
+        SELECT DISTINCT json_extract(data, '$.source_language_id') as language_id
+        FROM ${getRawTableName('asset_local')}
+        WHERE json_extract(data, '$.source_language_id') IS NOT NULL
+      `);
+    }
+
+    // Add asset_content_link_local.source_language_id if it exists
+    if (hasSourceLanguageIdInAcl) {
+      unionParts.push(`
+        SELECT DISTINCT json_extract(data, '$.source_language_id') as language_id
+        FROM ${getRawTableName('asset_content_link_local')}
+        WHERE json_extract(data, '$.source_language_id') IS NOT NULL
+      `);
+    }
+
+    // Add profile_local.ui_language_id if it exists
+    if (hasUiLanguageId) {
+      unionParts.push(`
+        SELECT DISTINCT json_extract(data, '$.ui_language_id') as language_id
+        FROM ${getRawTableName('profile_local')}
+        WHERE json_extract(data, '$.ui_language_id') IS NOT NULL
+      `);
+    }
+
+    const referencedLanguageIds = `
+      SELECT DISTINCT language_id FROM (
+        ${unionParts.join('\n        UNION\n        ')}
+      ) WHERE language_id IS NOT NULL
+    `;
+
+    // Create languoids for ALL non-orphan languages from language_local
     await db.execute(
       `
       WITH language_data AS (
@@ -398,15 +483,8 @@ export const migration_1_0_to_2_0: Migration = {
           ])}
         FROM ${getRawTableName('language_local')}
       ),
-      pll_data AS (
-        SELECT 
-          ${jsonExtractColumns([
-            'id',
-            'project_id',
-            'language_id',
-            'languoid_id'
-          ])}
-        FROM ${getRawTableName('project_language_link_local')}
+      referenced_ids AS (
+        ${referencedLanguageIds}
       )
       INSERT OR IGNORE INTO ${languoidLocalTableName} (
         id,
@@ -424,77 +502,20 @@ export const migration_1_0_to_2_0: Migration = {
           'creator_id', l.creator_id,
           'created_at', COALESCE(l.created_at, datetime('now')),
           'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', json_set(
-            COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-            '$.awaiting_cleanup',
-            1
-          )
+          '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
         )
       FROM language_data l
-      INNER JOIN pll_data pll ON pll.language_id = l.id
+      INNER JOIN referenced_ids ref ON ref.language_id = l.id
       WHERE l.active = 1
         ${notExistsSyncedLanguoid('l.id')}
         ${notExistsLocalLanguoid('l.id')}
     `
     );
 
-    // Create from SYNCED language table (for downloaded projects where languoid wasn't synced)
-    // CRITICAL: PowerSync stores data as JSON in 'data' column, not individual columns
-    await db.execute(
-      `
-      WITH language_data AS (
-        SELECT 
-          id,
-          ${jsonExtractColumns([
-            'english_name',
-            'native_name',
-            'ui_ready',
-            'active',
-            'creator_id',
-            'created_at',
-            'last_updated'
-          ])}
-        FROM ${getRawTableName('language')}
-      ),
-      pll_data AS (
-        SELECT 
-          ${jsonExtractColumns([
-            'id',
-            'project_id',
-            'language_id',
-            'languoid_id'
-          ])}
-        FROM ${getRawTableName('project_language_link_local')}
-      )
-      INSERT OR IGNORE INTO ${languoidLocalTableName} (
-        id,
-        data
-      )
-      SELECT DISTINCT
-        l.id,
-        json_object(
-          'id', l.id,
-          'name', COALESCE(l.english_name, l.native_name, 'Unknown'),
-          'level', 'language',
-          'ui_ready', COALESCE(l.ui_ready, 0),
-          'active', 1,
-          'source', 'local',
-          'creator_id', l.creator_id,
-          'created_at', COALESCE(l.created_at, datetime('now')),
-          'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', json_set(
-            json('{"schema_version":"1.0"}'),
-            '$.awaiting_cleanup',
-            1
-          )
-        )
-      FROM language_data l
-      INNER JOIN pll_data pll ON pll.language_id = l.id
-      WHERE l.active = 1
-        ${notExistsSyncedLanguoid('l.id')}
-        ${notExistsLocalLanguoid('l.id')}
-    `
+    console.log(
+      '[Migration 1.0→2.0] ✓ Created languoid_local records for all non-orphan languages'
     );
+
 
     // Handle asset_content_link_local - from local language
     // JSON-FIRST: Read source_language_id from raw JSON
@@ -550,11 +571,7 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json_set(
-                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-                '$.awaiting_cleanup',
-                1
-              )
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
             )
           FROM language_data l
           INNER JOIN acl_data ON acl_data.source_language_id = l.id
@@ -564,55 +581,6 @@ export const migration_1_0_to_2_0: Migration = {
         `
         );
 
-        // Create languoids from synced language table
-        await db.execute(
-          `
-          WITH acl_data AS (
-            SELECT 
-              id,
-              ${jsonExtractColumns(['source_language_id'])}
-            FROM ${aclLocalTable}
-            WHERE json_extract(data, '$.source_language_id') IS NOT NULL
-          )
-          INSERT OR IGNORE INTO ${languoidLocalTableName} (
-            id,
-            data
-          )
-          WITH language_data AS (
-            SELECT 
-              id,
-              ${jsonExtractColumns([
-                'english_name',
-                'native_name',
-                'ui_ready',
-                'active',
-                'creator_id',
-                'created_at',
-                'last_updated'
-              ])}
-            FROM ${getRawTableName('language')}
-          )
-          SELECT DISTINCT
-            l.id,
-            json_object(
-              'id', l.id,
-              'name', COALESCE(l.english_name, l.native_name, 'Unknown'),
-              'level', 'language',
-              'ui_ready', COALESCE(l.ui_ready, 0),
-              'active', 1,
-              'source', 'local',
-              'creator_id', l.creator_id,
-              'created_at', COALESCE(l.created_at, datetime('now')),
-              'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json('{"schema_version":"1.0"}')
-            )
-          FROM language_data l
-          INNER JOIN acl_data ON acl_data.source_language_id = l.id
-          WHERE l.active = 1
-            ${notExistsSyncedLanguoid('l.id')}
-            ${notExistsLocalLanguoid('l.id')}
-        `
-        );
       } else {
         // Fallback: use view if JSON key doesn't exist (newer data)
         await db.execute(
@@ -653,11 +621,7 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json_set(
-                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-                '$.awaiting_cleanup',
-                1
-              )
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
             )
           FROM language_data l
           INNER JOIN acl_data acl ON acl.source_language_id = l.id
@@ -668,26 +632,43 @@ export const migration_1_0_to_2_0: Migration = {
         `
         );
 
+      }
+    }
+
+    // Handle asset_local.source_language_id - create languoids for languages referenced directly in assets
+    // This ensures languages referenced in asset_local (but not in asset_content_link_local) get languoids
+    if (assetLocalRawExists) {
+      const hasSourceLanguageIdInAsset = await rawJsonKeyExists(
+        db,
+        'asset_local',
+        '$.source_language_id',
+        'local'
+      );
+
+      if (hasSourceLanguageIdInAsset) {
+        const assetLocalTable = getRawTableName('asset_local');
         await db.execute(
           `
-          WITH language_data AS (
+          WITH asset_data AS (
+            SELECT DISTINCT
+              ${jsonExtractColumns(['source_language_id'])}
+            FROM ${assetLocalTable}
+            WHERE json_extract(data, '$.source_language_id') IS NOT NULL
+          ),
+          language_data AS (
             SELECT 
+              id,
               ${jsonExtractColumns([
-                'id',
                 'english_name',
                 'native_name',
                 'ui_ready',
                 'active',
                 'creator_id',
                 'created_at',
-                'last_updated'
+                'last_updated',
+                '_metadata'
               ])}
-            FROM ${getRawTableName('language', 'synced')}
-          ),
-          acl_data AS (
-            SELECT 
-              ${jsonExtractColumns(['id', 'source_language_id', 'languoid_id'])}
-            FROM ${getRawTableName('asset_content_link_local')}
+            FROM ${getRawTableName('language_local')}
           )
           INSERT OR IGNORE INTO ${languoidLocalTableName} (
             id,
@@ -705,15 +686,18 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json('{"schema_version":"1.0"}')
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
             )
           FROM language_data l
-          INNER JOIN acl_data acl ON acl.source_language_id = l.id
-          WHERE acl.languoid_id IS NULL
-            AND l.active = 1
+          INNER JOIN asset_data a ON a.source_language_id = l.id
+          WHERE l.active = 1
             ${notExistsSyncedLanguoid('l.id')}
             ${notExistsLocalLanguoid('l.id')}
         `
+        );
+
+        console.log(
+          '[Migration 1.0→2.0] ✓ Created languoid_local records from asset_local.source_language_id'
         );
       }
     }
@@ -749,20 +733,6 @@ export const migration_1_0_to_2_0: Migration = {
           ])}
         FROM ${getRawTableName('language_local')}
       ),
-      language_synced_data AS (
-        SELECT 
-          id,
-          ${jsonExtractColumns([
-            'english_name',
-            'native_name',
-            'ui_ready',
-            'active',
-            'creator_id',
-            'created_at',
-            'last_updated'
-          ])}
-        FROM ${getRawTableName('language')}
-      ),
       language_data AS (
         SELECT 
           trim(id) as id,
@@ -775,19 +745,6 @@ export const migration_1_0_to_2_0: Migration = {
           last_updated,
           _metadata
         FROM language_local_data
-        UNION ALL
-        SELECT 
-          trim(id) as id,
-          english_name,
-          native_name,
-          ui_ready,
-          active,
-          creator_id,
-          created_at,
-          last_updated,
-          NULL as _metadata
-        FROM language_synced_data
-        WHERE trim(id) NOT IN (SELECT trim(id) FROM language_local_data)
       )
       INSERT OR IGNORE INTO ${languoidLocalTableName} (
         id,
@@ -809,11 +766,7 @@ export const migration_1_0_to_2_0: Migration = {
           'creator_id', l.creator_id,
           'created_at', COALESCE(l.created_at, datetime('now')),
           'last_updated', COALESCE(l.last_updated, datetime('now')),
-          '_metadata', json_set(
-            COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-            '$.awaiting_cleanup',
-            1
-          )
+          '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
         )
       FROM pll_data pll
       LEFT JOIN language_data l ON trim(l.id) = trim(pll.language_id)
@@ -835,7 +788,7 @@ export const migration_1_0_to_2_0: Migration = {
       if (hasSourceLanguageId) {
         // Create minimal languoids for remaining language_ids referenced in project_language_link_local
         // Extract JSON fields into columns first, then query normally
-        // Try to get language name from language_local or synced language table, fallback to "Unknown Language" if not found
+        // Try to get language name from language_local, fallback to "Unknown Language" if not found
         const aclLocalTable = getRawTableName('asset_content_link_local');
         await db.execute(
           `
@@ -861,20 +814,6 @@ export const migration_1_0_to_2_0: Migration = {
               ])}
             FROM ${getRawTableName('language_local')}
           ),
-          language_synced_data AS (
-            SELECT 
-              ${jsonExtractColumns([
-                'id',
-                'english_name',
-                'native_name',
-                'ui_ready',
-                'active',
-                'creator_id',
-                'created_at',
-                'last_updated'
-              ])}
-            FROM ${getRawTableName('language')}
-          ),
           language_data AS (
             SELECT 
               trim(id) as id,
@@ -887,19 +826,6 @@ export const migration_1_0_to_2_0: Migration = {
               last_updated,
               _metadata
             FROM language_local_data
-            UNION ALL
-            SELECT 
-              trim(id) as id,
-              english_name,
-              native_name,
-              ui_ready,
-              active,
-              creator_id,
-              created_at,
-              last_updated,
-              NULL as _metadata
-            FROM language_synced_data
-            WHERE trim(id) NOT IN (SELECT trim(id) FROM language_local_data)
           )
           INSERT OR IGNORE INTO ${languoidLocalTableName} (
             id,
@@ -921,11 +847,7 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json_set(
-                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-                '$.awaiting_cleanup',
-                1
-              )
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
             )
           FROM acl_data
           LEFT JOIN language_data l ON trim(l.id) = trim(acl_data.source_language_id)
@@ -936,7 +858,7 @@ export const migration_1_0_to_2_0: Migration = {
         );
       } else {
         // Fallback: use view if JSON key doesn't exist
-        // Try to get language name from language_local or synced language table, fallback to "Unknown Language" if not found
+        // Try to get language name from language_local, fallback to "Unknown Language" if not found
         await db.execute(
           `
           WITH acl_data AS (
@@ -959,20 +881,6 @@ export const migration_1_0_to_2_0: Migration = {
               ])}
             FROM ${getRawTableName('language_local')}
           ),
-          language_synced_data AS (
-            SELECT 
-              ${jsonExtractColumns([
-                'id',
-                'english_name',
-                'native_name',
-                'ui_ready',
-                'active',
-                'creator_id',
-                'created_at',
-                'last_updated'
-              ])}
-            FROM ${getRawTableName('language')}
-          ),
           language_data AS (
             SELECT 
               trim(id) as id,
@@ -985,19 +893,6 @@ export const migration_1_0_to_2_0: Migration = {
               last_updated,
               _metadata
             FROM language_local_data
-            UNION ALL
-            SELECT 
-              trim(id) as id,
-              english_name,
-              native_name,
-              ui_ready,
-              active,
-              creator_id,
-              created_at,
-              last_updated,
-              NULL as _metadata
-            FROM language_synced_data
-            WHERE trim(id) NOT IN (SELECT trim(id) FROM language_local_data)
           )
           INSERT OR IGNORE INTO ${languoidLocalTableName} (
             id,
@@ -1019,11 +914,7 @@ export const migration_1_0_to_2_0: Migration = {
               'creator_id', l.creator_id,
               'created_at', COALESCE(l.created_at, datetime('now')),
               'last_updated', COALESCE(l.last_updated, datetime('now')),
-              '_metadata', json_set(
-                COALESCE(l._metadata, json('{"schema_version":"1.0"}')),
-                '$.awaiting_cleanup',
-                1
-              )
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
             )
           FROM acl_data acl
           LEFT JOIN language_data l ON trim(l.id) = trim(acl.source_language_id)
@@ -1031,6 +922,86 @@ export const migration_1_0_to_2_0: Migration = {
             AND acl.source_language_id IS NOT NULL
             ${notExistsSyncedLanguoid('acl.source_language_id')}
             ${notExistsLocalLanguoid('acl.source_language_id')}
+        `
+        );
+      }
+    }
+
+    // FALLBACK: For asset_local - create minimal languoids for remaining language_ids
+    // Try to get language name from language_local, fallback to "Unknown Language" if not found
+    if (assetLocalRawExists) {
+      const hasSourceLanguageIdInAsset = await rawJsonKeyExists(
+        db,
+        'asset_local',
+        '$.source_language_id',
+        'local'
+      );
+
+      if (hasSourceLanguageIdInAsset) {
+        const assetLocalTable = getRawTableName('asset_local');
+        await db.execute(
+          `
+          WITH asset_data AS (
+            SELECT DISTINCT
+              ${jsonExtractColumns(['source_language_id'])}
+            FROM ${assetLocalTable}
+            WHERE json_extract(data, '$.source_language_id') IS NOT NULL
+          ),
+          language_local_data AS (
+            SELECT 
+              ${jsonExtractColumns([
+                'id',
+                'english_name',
+                'native_name',
+                'ui_ready',
+                'active',
+                'creator_id',
+                'created_at',
+                'last_updated',
+                '_metadata'
+              ])}
+            FROM ${getRawTableName('language_local')}
+          ),
+          language_data AS (
+            SELECT 
+              trim(id) as id,
+              english_name,
+              native_name,
+              ui_ready,
+              active,
+              creator_id,
+              created_at,
+              last_updated,
+              _metadata
+            FROM language_local_data
+          )
+          INSERT OR IGNORE INTO ${languoidLocalTableName} (
+            id,
+            data
+          )
+          SELECT DISTINCT
+            trim(asset_data.source_language_id),
+            json_object(
+              'id', trim(asset_data.source_language_id),
+              'name', COALESCE(
+                NULLIF(trim(l.english_name), ''),
+                NULLIF(trim(l.native_name), ''),
+                'Unknown Language'
+              ),
+              'level', 'language',
+              'ui_ready', COALESCE(l.ui_ready, 0),
+              'active', 1,
+              'source', 'local',
+              'creator_id', l.creator_id,
+              'created_at', COALESCE(l.created_at, datetime('now')),
+              'last_updated', COALESCE(l.last_updated, datetime('now')),
+              '_metadata', COALESCE(l._metadata, json('{"schema_version":"1.0"}'))
+            )
+          FROM asset_data
+          LEFT JOIN language_data l ON trim(l.id) = trim(asset_data.source_language_id)
+          WHERE asset_data.source_language_id IS NOT NULL
+            ${notExistsSyncedLanguoid('asset_data.source_language_id')}
+            ${notExistsLocalLanguoid('asset_data.source_language_id')}
         `
         );
       }
