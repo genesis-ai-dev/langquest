@@ -483,7 +483,7 @@ export default function BibleAssetsView() {
   // Store book name and chapter number for VerseSeparator label
   const bookChapterLabelRef = React.useRef<string>('Verse');
 
-  // Calculate book chapter label
+  // Calculate book chapter label (short name for separators)
   const bookChapterLabel = React.useMemo(() => {
     if (!selectedQuest || !currentBookId) {
       return 'Verse';
@@ -3063,6 +3063,7 @@ export default function BibleAssetsView() {
         initialOrderIndex={recordingOrderIndex}
         verse={selectedForRecording?.metadata?.verse}
         bookChapterLabel={bookChapterLabel}
+        bookChapterLabelFull={selectedQuest?.name}
         nextVerse={nextVerse}
         limitVerse={limitVerse}
       />

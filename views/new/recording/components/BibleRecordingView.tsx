@@ -110,8 +110,10 @@ interface BibleRecordingViewProps {
   initialOrderIndex?: number;
   // Verse metadata from the selected asset
   verse?: VerseRange;
-  // Book chapter label (e.g., "Gen 1" or "Mat 3")
+  // Book chapter label for separators (short name, e.g., "Gen 1" or "Mat 3")
   bookChapterLabel?: string;
+  // Book chapter label for header (full name from quest.name, e.g., "Genesis 1" or "Matthew 3")
+  bookChapterLabelFull?: string;
   // Next verse number to record (for automatic progression)
   nextVerse?: number | null;
   // Limit verse number (for stopping automatic progression)
@@ -124,7 +126,8 @@ const BibleRecordingView = ({
   label: _label = '', // TODO: Display label in header
   initialOrderIndex: _initialOrderIndex = DEFAULT_ORDER_INDEX, // TODO: Use for order_index calculation
   verse: _verse, // TODO: Use for verse tracking and metadata
-  bookChapterLabel = 'Verse', // Book chapter label (e.g., "Gen 1" or "Mat 3")
+  bookChapterLabel = 'Verse', // Book chapter label for separators (short name, e.g., "Gen 1")
+  bookChapterLabelFull, // Book chapter label for header (full name from quest, e.g., "Genesis 1")
   nextVerse = null, // Next verse number to record (for automatic progression)
   limitVerse = null // Limit verse number (for stopping automatic progression)
 }: BibleRecordingViewProps) => {
@@ -2874,32 +2877,52 @@ const BibleRecordingView = ({
             <Icon as={ArrowLeft} />
           </Button>
           <Text className="text-2xl font-bold text-foreground">
+            {bookChapterLabelFull || bookChapterLabel}
+          </Text>
+          {/* <Text className="text-xl font-bold text-foreground">
             {t('doRecord')}
-          </Text>
-          <Text className="text-xl font-bold text-foreground">
-            {t('assets')} ({assets.length})
-          </Text>
+          </Text> */}
         </View>
-        {assets.length > 0 && enablePlayAll && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={handlePlayAllAssets}
-            className="h-10 w-10"
-          >
-            <Icon
-              as={
-                audioContext.isPlaying &&
-                audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                  ? PauseIcon
-                  : PlayIcon
-              }
-              size={24}
-            />
-          </Button>
+        <View className="flex-row items-center gap-3">
+          <Text className="text-base font-semibold text-muted-foreground">
+            {assets.length} {t('assets').toLowerCase()}
+          </Text>
+          {assets.length > 0 && enablePlayAll && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handlePlayAllAssets}
+              className="h-10 w-10"
+            >
+              <Icon
+                as={
+                  audioContext.isPlaying &&
+                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+                    ? PauseIcon
+                    : PlayIcon
+                }
+                size={24}
+              />
+            </Button>
+          )}
+        </View>
+      </View>
+      <View className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive':'bg-primary'}`}>
+        {/* {(isRecording || isVADRecording)? ( */}
+        {(isVADLocked)? (
+          <Text className="text-sm text-center font-semibold text-white">
+            {highlightedItemVerse
+              ? `${t('recording')}: ${formatVerseRange(highlightedItemVerse)}`
+              : t('recording')}
+          </Text>
+        ) : (
+          <Text className="text-center text-primary-foreground font-semibold text-sm">
+            {highlightedItemVerse
+              ? `${t('recordTo')}: ${formatVerseRange(highlightedItemVerse)}`
+              : `${t('noLabelSelected')}`}
+          </Text>
         )}
       </View>
-
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
         {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}

@@ -3416,6 +3416,20 @@ export const localizations = {
     tok_pisin: 'Recording...',
     indonesian: 'Merekam...'
   },
+  recordTo: {
+    english: 'Record to',
+    spanish: 'Grabar en',
+    brazilian_portuguese: 'Gravar em',
+    tok_pisin: 'Rekodem long',
+    indonesian: 'Rekam ke'
+  },
+  noLabelSelected: {
+    english: 'No label selected',
+    spanish: 'Sin etiqueta seleccionada',
+    brazilian_portuguese: 'Nenhum rótulo selecionado',
+    tok_pisin: 'No label i stap',
+    indonesian: 'Tidak ada label dipilih'
+  },
   audioSegments: {
     english: 'Audio Segments',
     spanish: 'Pistas de Audio',
