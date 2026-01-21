@@ -1081,7 +1081,6 @@ export default function BibleAssetsView() {
         void queryClient.invalidateQueries({ queryKey: ['assets'] });
         void refetch();
 
-        console.log('✅ Asset renamed successfully');
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
@@ -1174,9 +1173,6 @@ export default function BibleAssetsView() {
                 order_index: newOrderIndex
               });
 
-              console.log(
-                `📝 "${item.content.name}" | verse: ${separator.from}-${separator.to ?? separator.from} | order_index: ${newOrderIndex}`
-              );
             }
           }
         } else {
@@ -1200,9 +1196,6 @@ export default function BibleAssetsView() {
 
             // Stop if we encounter another separator
             if (item.type === 'separator') {
-              console.log(
-                `🛑 Found another separator at index ${i}, stopping asset collection`
-              );
               break;
             }
 
@@ -1212,9 +1205,6 @@ export default function BibleAssetsView() {
                 (separator.from * 1000 + sequentialInGroup) * 1000;
               sequentialInGroup++;
 
-              console.log(
-                `➕ Adding asset ${item.content.id} to update list (index ${i})`
-              );
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
@@ -1226,9 +1216,6 @@ export default function BibleAssetsView() {
                 order_index: newOrderIndex
               });
 
-              console.log(
-                `📝 "${item.content.name}" | verse: ${separator.from}-${separator.to ?? separator.from} | order_index: ${newOrderIndex}`
-              );
             }
           }
         }
@@ -1359,9 +1346,6 @@ export default function BibleAssetsView() {
             order_index: newOrderIndex
           });
 
-          console.log(
-            `📝 "${item.content.name}" | verse: ${newFrom}-${newTo} | order_index: ${newOrderIndex}`
-          );
         }
       }
 
@@ -1595,16 +1579,9 @@ export default function BibleAssetsView() {
     // Get the current verse range from selectedForRecording
     const currentVerse = selectedForRecording?.metadata?.verse;
 
-    console.log(
-      `📊 Calculating nextVerse/limitVerse | verseCount: ${verseCount} | currentVerse: ${currentVerse ? `${currentVerse.from}-${currentVerse.to}` : 'none'} | existingLabels: ${existingLabels.map((l) => `${l.from}-${l.to}`).join(', ')}`
-    );
-
     // If no labels exist yet, start from verse 1
     if (existingLabels.length === 0) {
       const result = { nextVerse: 1, limitVerse: verseCount };
-      console.log(
-        `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no labels)`
-      );
       return result;
     }
 
@@ -1614,26 +1591,17 @@ export default function BibleAssetsView() {
       const lastLabel = existingLabels[existingLabels.length - 1];
       if (!lastLabel) {
         const result = { nextVerse: 1, limitVerse: verseCount };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no last label)`
-        );
         return result;
       }
 
       // If there's space after the last label
       if (lastLabel.to < verseCount) {
         const result = { nextVerse: lastLabel.to + 1, limitVerse: verseCount };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (after last label ${lastLabel.from}-${lastLabel.to})`
-        );
         return result;
       }
 
       // No space available
       const result = { nextVerse: null, limitVerse: null };
-      console.log(
-        `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no space)`
-      );
       return result;
     }
 
@@ -1651,32 +1619,20 @@ export default function BibleAssetsView() {
           nextVerse: currentTo + 1,
           limitVerse: nextLabel.from - 1
         };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (gap between ${currentTo} and ${nextLabel.from})`
-        );
         return result;
       } else {
         // No gap - next verse is already occupied
         const result = { nextVerse: null, limitVerse: null };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (no gap, next is ${nextLabel.from})`
-        );
         return result;
       }
     } else {
       // No next label - check if there's space until the end
       if (currentTo < verseCount) {
         const result = { nextVerse: currentTo + 1, limitVerse: verseCount };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (from ${currentTo} to end)`
-        );
         return result;
       } else {
         // Already at the end
         const result = { nextVerse: null, limitVerse: null };
-        console.log(
-          `✅ Result: nextVerse=${result.nextVerse}, limitVerse=${result.limitVerse} (already at end)`
-        );
         return result;
       }
     }
@@ -1734,10 +1690,6 @@ export default function BibleAssetsView() {
             }
           }
         }
-
-        console.log(
-          `📊 Verse ${from}: last sequential = ${lastSequential}, assigning ${selectedAssets.length} asset(s) starting at ${lastSequential + 1}`
-        );
 
         // Calculate order_index continuing from the last existing asset
         const updates: AssetUpdatePayload[] = selectedAssets.map(
@@ -1881,10 +1833,6 @@ export default function BibleAssetsView() {
     async (verses: number[]) => {
       if (!currentQuestId || verses.length === 0) return;
 
-      console.log(
-        `🔄 Normalizing order_index for ${verses.length} verse(s): [${verses.join(', ')}]`
-      );
-
       const assetTable = resolveTable('asset', { localOverride: true });
       const questAssetLinkTable = resolveTable('quest_asset_link', {
         localOverride: true
@@ -1945,10 +1893,6 @@ export default function BibleAssetsView() {
                 assetId: asset.id,
                 order_index: newOrderIndex
               });
-
-              console.log(
-                `  📝 "${asset.name}" | ${asset.order_index} → ${newOrderIndex}`
-              );
             }
           }
 
