@@ -587,7 +587,8 @@ export default function NextGenAssetDetailView() {
   );
 
   // FlatList ref for programmatic scrolling - must be before any early returns
-  const contentFlatListRef = useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
+  const contentFlatListRef =
+    useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
 
   // Viewability config for FlatList - must be before any early returns
   const viewabilityConfig = useRef({
@@ -597,8 +598,9 @@ export default function NextGenAssetDetailView() {
   // Handle viewable items change (when user swipes) - must be before any early returns
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0]?.index !== null) {
-        setCurrentContentIndex(viewableItems[0].index);
+      const firstItem = viewableItems[0];
+      if (firstItem?.index != null) {
+        setCurrentContentIndex(firstItem.index);
       }
     }
   ).current;
@@ -904,7 +906,9 @@ export default function NextGenAssetDetailView() {
                     const isCurrentItem = index === currentContentIndex;
 
                     return (
-                      <View style={{ width: contentWidth, paddingHorizontal: 8 }}>
+                      <View
+                        style={{ width: contentWidth, paddingHorizontal: 8 }}
+                      >
                         <SourceContent
                           content={content}
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -937,7 +941,9 @@ export default function NextGenAssetDetailView() {
                       size="icon"
                       className="h-8 w-8"
                       disabled={currentContentIndex === 0}
-                      onPress={() => scrollToContentIndex(currentContentIndex - 1)}
+                      onPress={() =>
+                        scrollToContentIndex(currentContentIndex - 1)
+                      }
                     >
                       <Icon
                         as={ChevronLeftIcon}
@@ -972,7 +978,9 @@ export default function NextGenAssetDetailView() {
                       disabled={
                         currentContentIndex === activeAsset.content.length - 1
                       }
-                      onPress={() => scrollToContentIndex(currentContentIndex + 1)}
+                      onPress={() =>
+                        scrollToContentIndex(currentContentIndex + 1)
+                      }
                     >
                       <Icon
                         as={ChevronRightIcon}
@@ -986,7 +994,6 @@ export default function NextGenAssetDetailView() {
                     </Button>
                   </View>
                 )}
-
               </View>
             ) : (
               <Text className="p-8 text-center text-base italic text-muted-foreground">

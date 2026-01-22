@@ -34,12 +34,12 @@ export const SourceContent: React.FC<SourceContentProps> = ({
       )}
 
       {/* Text content - scrollable */}
-      <View className="flex-1 w-full rounded bg-primary-foreground p-3">
+      <View className="w-full flex-1 rounded bg-primary-foreground p-3">
         <ScrollView
           showsVerticalScrollIndicator={true}
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          <Text className="text-base text-foreground leading-relaxed">
+          <Text className="text-base leading-relaxed text-foreground">
             {content.text}
           </Text>
         </ScrollView>
@@ -58,7 +58,10 @@ export const SourceContent: React.FC<SourceContentProps> = ({
             />
           ) : (
             <View className="flex-row items-center justify-center gap-2 py-2">
-              <ActivityIndicator size="small" color={getThemeColor('primary')} />
+              <ActivityIndicator
+                size="small"
+                color={getThemeColor('primary')}
+              />
               <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
             </View>
           )}

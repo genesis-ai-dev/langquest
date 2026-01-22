@@ -330,7 +330,10 @@ function validateReferentialIntegrity(
   const validTranslationAssetIds = new Set<string>(
     validTranslationAssets.map((a) => a.id)
   );
-  const allValidAssetIds = new Set([...validAssetIds, ...validTranslationAssetIds]);
+  const allValidAssetIds = new Set([
+    ...validAssetIds,
+    ...validTranslationAssetIds
+  ]);
 
   // 3. Validate translation quest_asset_links
   const validTranslationQuestAssetLinks = (
@@ -440,12 +443,24 @@ function validateReferentialIntegrity(
     console.warn(
       `⚠️ Found ${totalOrphans} orphan records that will be skipped during publish:`
     );
-    console.warn(`   - quest_asset_links: ${orphanedRecords.questAssetLinks.length}`);
-    console.warn(`   - translation quest_asset_links: ${orphanedRecords.translationQuestAssetLinks.length}`);
-    console.warn(`   - asset_content_links: ${orphanedRecords.assetContentLinks.length}`);
-    console.warn(`   - translation content_links: ${orphanedRecords.translationContentLinks.length}`);
-    console.warn(`   - quest_tag_links: ${orphanedRecords.questTagLinks.length}`);
-    console.warn(`   - asset_tag_links: ${orphanedRecords.assetTagLinks.length}`);
+    console.warn(
+      `   - quest_asset_links: ${orphanedRecords.questAssetLinks.length}`
+    );
+    console.warn(
+      `   - translation quest_asset_links: ${orphanedRecords.translationQuestAssetLinks.length}`
+    );
+    console.warn(
+      `   - asset_content_links: ${orphanedRecords.assetContentLinks.length}`
+    );
+    console.warn(
+      `   - translation content_links: ${orphanedRecords.translationContentLinks.length}`
+    );
+    console.warn(
+      `   - quest_tag_links: ${orphanedRecords.questTagLinks.length}`
+    );
+    console.warn(
+      `   - asset_tag_links: ${orphanedRecords.assetTagLinks.length}`
+    );
     console.warn(`   - child assets: ${orphanedRecords.childAssets.length}`);
     console.warn('   These records are preserved locally for investigation.');
   } else {

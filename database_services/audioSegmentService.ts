@@ -136,12 +136,12 @@ export class AudioSegmentService {
 
   /**
    * Delete audio segment and all associated records (including child translations)
-   * 
+   *
    * Deletion order (children before parents to maintain referential integrity):
    * 1. Find all child assets (translations/transcriptions with source_asset_id = this asset)
    * 2. For each child asset: delete votes, asset_tag_links, quest_asset_links, asset_content_links, then the asset
    * 3. For the parent asset: delete votes, asset_tag_links, quest_asset_links, asset_content_links, then the asset
-   * 
+   *
    * @param assetId - The ID of the asset to delete
    * @param options.preserveAudioFiles - If true, skip deleting audio files from attachment queue.
    *   Use this when merging assets, where audio files are being transferred to another asset.

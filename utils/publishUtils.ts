@@ -308,7 +308,10 @@ export async function publishQuest(questId: string, projectId: string) {
       // Step 4b: Insert CHILD assets second (translations/transcriptions with source_asset_id)
       // CRITICAL: Only insert child assets where the source_asset_id actually exists
       const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) 
-        SELECT ${assetColumns.split(', ').map(c => `child.${c}`).join(', ')} 
+        SELECT ${assetColumns
+          .split(', ')
+          .map((c) => `child.${c}`)
+          .join(', ')} 
         FROM asset_local child
         WHERE child.id IN (${toColumns(nestedAssetIds)}) 
           AND child.source = 'local' 
@@ -321,7 +324,10 @@ export async function publishQuest(questId: string, projectId: string) {
       // This prevents FK constraint violations when PowerSync uploads to Supabase
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
       const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) 
-        SELECT ${questAssetLinkColumns.split(', ').map(c => `qal.${c}`).join(', ')} 
+        SELECT ${questAssetLinkColumns
+          .split(', ')
+          .map((c) => `qal.${c}`)
+          .join(', ')} 
         FROM quest_asset_link_local qal
         WHERE qal.quest_id IN (${toColumns(allQuestIds)}) 
           AND qal.source = 'local'
@@ -445,7 +451,10 @@ export async function publishQuest(questId: string, projectId: string) {
       // CRITICAL: Only insert quest_tag_links where both quest and tag exist
       const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
       const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns}) 
-        SELECT ${questTagLinkColumns.split(', ').map(c => `qtl.${c}`).join(', ')} 
+        SELECT ${questTagLinkColumns
+          .split(', ')
+          .map((c) => `qtl.${c}`)
+          .join(', ')} 
         FROM quest_tag_link_local qtl
         WHERE qtl.quest_id IN (${toColumns(allQuestIds)}) 
           AND qtl.source = 'local'
@@ -457,7 +466,10 @@ export async function publishQuest(questId: string, projectId: string) {
       // CRITICAL: Only insert asset_tag_links where both asset and tag exist
       const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
       const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) 
-        SELECT ${assetTagLinkColumns.split(', ').map(c => `atl.${c}`).join(', ')} 
+        SELECT ${assetTagLinkColumns
+          .split(', ')
+          .map((c) => `atl.${c}`)
+          .join(', ')} 
         FROM asset_tag_link_local atl
         WHERE atl.asset_id IN (${toColumns(nestedAssetIds)}) 
           AND atl.source = 'local'

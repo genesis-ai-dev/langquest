@@ -95,7 +95,16 @@ function Slider({
     maxShared.value = max;
     stepShared.value = step ?? 0;
     animatedShared.value = animated;
-  }, [min, max, step, animated, minShared, maxShared, stepShared, animatedShared]);
+  }, [
+    min,
+    max,
+    step,
+    animated,
+    minShared,
+    maxShared,
+    stepShared,
+    animatedShared
+  ]);
 
   // Sync dragValue and currentValueShared when value prop changes externally (programmatic updates)
   React.useEffect(() => {
@@ -177,7 +186,10 @@ function Slider({
           (newValue - minShared.value) / stepShared.value
         );
         newValue = stepIndex * stepShared.value + minShared.value;
-        newValue = Math.max(minShared.value, Math.min(maxShared.value, newValue));
+        newValue = Math.max(
+          minShared.value,
+          Math.min(maxShared.value, newValue)
+        );
       }
 
       dragValue.value = newValue;
@@ -235,7 +247,10 @@ function Slider({
           (newValue - minShared.value) / stepShared.value
         );
         newValue = stepIndex * stepShared.value + minShared.value;
-        newValue = Math.max(minShared.value, Math.min(maxShared.value, newValue));
+        newValue = Math.max(
+          minShared.value,
+          Math.min(maxShared.value, newValue)
+        );
       }
 
       dragValue.value = animatedShared.value
