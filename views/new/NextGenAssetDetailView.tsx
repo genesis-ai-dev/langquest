@@ -50,12 +50,11 @@ import {
   LockIcon,
   PlusIcon,
   SettingsIcon,
-  UserIcon,
-  Volume2Icon,
-  VolumeXIcon
+  UserIcon
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import type { FlatList as FlatListType, ViewToken } from 'react-native';
+import { Dimensions, FlatList, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
@@ -426,11 +425,13 @@ export default function NextGenAssetDetailView() {
 
   // Active tab is now derived from asset content via useMemo above
 
-  // Reset content index when asset changes
+  // Reset content index and scroll position when asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
     scheduleOnRN(() => {
       setCurrentContentIndex(0);
+      // Also scroll the FlatList to the first item
+      contentFlatListRef.current?.scrollToIndex({ index: 0, animated: false });
     });
   }, [currentAssetId]);
 
@@ -580,12 +581,48 @@ export default function NextGenAssetDetailView() {
     isAuthenticated
   ]);
 
-  console.log('resolvedAudioUris', resolvedAudioUris);
-
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
     'assets'
   );
+
+  // FlatList ref for programmatic scrolling - must be before any early returns
+  const contentFlatListRef = useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
+
+  // Viewability config for FlatList - must be before any early returns
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+
+  // Handle viewable items change (when user swipes) - must be before any early returns
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0]?.index !== null) {
+        setCurrentContentIndex(viewableItems[0].index);
+      }
+    }
+  ).current;
+
+  // Screen dimensions for layout calculations
+  const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
+  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
+  // Content width for FlatList paging (full width minus padding)
+  const contentWidth = screenWidth - 32; // 16px padding on each side
+
+  // Scroll to a specific content index
+  const scrollToContentIndex = (index: number) => {
+    if (contentFlatListRef.current && activeAsset?.content) {
+      const clampedIndex = Math.max(
+        0,
+        Math.min(index, activeAsset.content.length - 1)
+      );
+      contentFlatListRef.current.scrollToIndex({
+        index: clampedIndex,
+        animated: true
+      });
+    }
+  };
 
   if (!currentAssetId) {
     return (
@@ -598,9 +635,6 @@ export default function NextGenAssetDetailView() {
       </View>
     );
   }
-
-  const screenHeight = Dimensions.get('window').height;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
@@ -840,139 +874,119 @@ export default function NextGenAssetDetailView() {
           className={cn(!allowEditing && 'opacity-50', 'flex overflow-hidden')}
           style={{ height: assetViewerHeight }}
         >
-          <TabsContent value="text" className="flex w-full flex-col px-2 py-4">
+          <TabsContent value="text" className="flex-1 py-2">
             {activeAsset.content && activeAsset.content.length > 0 ? (
-              <View>
-                {/* Current content item */}
-                {activeAsset.content[currentContentIndex] && (
-                  <View>
-                    <SourceContent
-                      content={activeAsset.content[currentContentIndex]}
-                      sourceLanguage={(() => {
-                        const content =
-                          activeAsset.content[currentContentIndex];
-                        if (!content) return null;
-                        const languoidId =
-                          content.languoid_id || content.source_language_id;
-                        const languoid = languoidId
-                          ? (languoidById.get(languoidId) ?? null)
-                          : null;
-                        // TODO: Update SourceContent to accept Languoid type
-                        // For now, use type assertion to handle transition
-                        return languoid as any;
-                      })()}
-                      audioSegments={resolvedAudioUris}
-                      isLoading={isLoadingAttachments}
-                      onTranscribe={
-                        enableTranscription && isAuthenticated
-                          ? handleTranscribe
-                          : undefined
-                      }
-                      isTranscribing={isTranscribing || isLocalizing}
-                    />
-                    <View className="flex w-full flex-row justify-between">
-                      {/* Audio status indicator */}
-                      {__DEV__ &&
-                        activeAsset.content[currentContentIndex]
-                          ?.audio?.[0] && (
-                          <View className="flex-row items-center gap-1">
-                            <Icon
-                              as={
-                                attachmentStates.get(
-                                  activeAsset.content[currentContentIndex]
-                                    .audio[0]
-                                )?.local_uri
-                                  ? Volume2Icon
-                                  : VolumeXIcon
-                              }
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                            <Text className="text-sm text-muted-foreground">
-                              {attachmentStates.get(
-                                activeAsset.content[currentContentIndex]
-                                  .audio[0]
-                              )?.local_uri
-                                ? t('audioReady')
-                                : t('audioNotAvailable')}
-                            </Text>
-                          </View>
-                        )}
+              <View style={{ flex: 1 }}>
+                {/* Swipeable content carousel */}
+                <FlatList
+                  ref={contentFlatListRef}
+                  data={activeAsset.content}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                  viewabilityConfig={viewabilityConfig}
+                  snapToInterval={contentWidth}
+                  decelerationRate="fast"
+                  getItemLayout={(_, index) => ({
+                    length: contentWidth,
+                    offset: contentWidth * index,
+                    index
+                  })}
+                  style={{ height: 200 }}
+                  renderItem={({ item: content, index }) => {
+                    const languoidId =
+                      content.languoid_id || content.source_language_id;
+                    const languoid = languoidId
+                      ? (languoidById.get(languoidId) ?? null)
+                      : null;
+                    const isCurrentItem = index === currentContentIndex;
 
-                      {/* Combined navigation controls and audio status */}
+                    return (
+                      <View style={{ width: contentWidth, paddingHorizontal: 8 }}>
+                        <SourceContent
+                          content={content}
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          sourceLanguage={languoid as any}
+                          audioSegments={
+                            isCurrentItem ? resolvedAudioUris : undefined
+                          }
+                          isLoading={isCurrentItem && isLoadingAttachments}
+                          onTranscribe={
+                            isCurrentItem &&
+                            enableTranscription &&
+                            isAuthenticated
+                              ? handleTranscribe
+                              : undefined
+                          }
+                          isTranscribing={
+                            isCurrentItem && (isTranscribing || isLocalizing)
+                          }
+                        />
+                      </View>
+                    );
+                  }}
+                />
 
-                      {activeAsset.content.length > 1 ? (
+                {/* Navigation controls and pagination - only show if multiple items */}
+                {activeAsset.content.length > 1 && (
+                  <View className="flex-row items-center justify-center gap-2 pt-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={currentContentIndex === 0}
+                      onPress={() => scrollToContentIndex(currentContentIndex - 1)}
+                    >
+                      <Icon
+                        as={ChevronLeftIcon}
+                        size={20}
+                        className={
+                          currentContentIndex === 0
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                    </Button>
+
+                    {/* Pagination dots */}
+                    <View className="flex-row items-center gap-1.5">
+                      {activeAsset.content.map((_, index) => (
                         <View
-                          className="flex-row items-center justify-between pt-2"
-                          style={{ marginTop: 8 }}
-                        >
-                          {/* Navigation buttons - only show if multiple items */}
-                          {activeAsset.content.length > 1 ? (
-                            <View className="flex-row items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                disabled={currentContentIndex === 0}
-                                onPress={() =>
-                                  setCurrentContentIndex((prev) =>
-                                    Math.max(0, prev - 1)
-                                  )
-                                }
-                              >
-                                <Icon
-                                  as={ChevronLeftIcon}
-                                  size={20}
-                                  className={
-                                    currentContentIndex === 0
-                                      ? 'text-muted-foreground'
-                                      : 'text-foreground'
-                                  }
-                                />
-                              </Button>
-
-                              <Text className="text-sm text-muted-foreground">
-                                {currentContentIndex + 1} /{' '}
-                                {activeAsset.content.length}
-                              </Text>
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                disabled={
-                                  currentContentIndex ===
-                                  activeAsset.content.length - 1
-                                }
-                                onPress={() =>
-                                  setCurrentContentIndex((prev) =>
-                                    Math.min(
-                                      (activeAsset.content?.length ?? 1) - 1,
-                                      prev + 1
-                                    )
-                                  )
-                                }
-                              >
-                                <Icon
-                                  as={ChevronRightIcon}
-                                  size={20}
-                                  className={
-                                    currentContentIndex ===
-                                    activeAsset.content.length - 1
-                                      ? 'text-muted-foreground'
-                                      : 'text-foreground'
-                                  }
-                                />
-                              </Button>
-                            </View>
-                          ) : (
-                            <View />
+                          key={index}
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            index === currentContentIndex
+                              ? 'bg-primary'
+                              : 'bg-muted-foreground/30'
                           )}
-                        </View>
-                      ) : null}
+                        />
+                      ))}
                     </View>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={
+                        currentContentIndex === activeAsset.content.length - 1
+                      }
+                      onPress={() => scrollToContentIndex(currentContentIndex + 1)}
+                    >
+                      <Icon
+                        as={ChevronRightIcon}
+                        size={20}
+                        className={
+                          currentContentIndex === activeAsset.content.length - 1
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                    </Button>
                   </View>
                 )}
+
               </View>
             ) : (
               <Text className="p-8 text-center text-base italic text-muted-foreground">

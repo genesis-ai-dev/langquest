@@ -352,11 +352,19 @@ export async function publishQuest(questId: string, projectId: string) {
       );
 
       // CRITICAL: Only insert asset_content_links where the referenced asset actually exists
+      // Build prefixed columns manually to avoid splitting issues with REPLACE function
+      const aclColumnsPrefixed = assetContentLinkColumns
+        .split(', ')
+        .map((col) => {
+          if (col === 'audio') {
+            // Special handling for audio column - strip 'local/' prefix
+            return `REPLACE(acl.audio, 'local/', '') AS audio`;
+          }
+          return `acl.${col}`;
+        })
+        .join(', ');
       const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) 
-        SELECT ${assetContentLinkColumns.replace(
-        `audio,`,
-        `REPLACE(acl.audio, 'local/', '') AS audio,`
-      ).split(', ').map(c => c.includes(' AS ') ? c : `acl.${c}`).join(', ')} 
+        SELECT ${aclColumnsPrefixed} 
         FROM asset_content_link_local acl
         WHERE acl.asset_id IN (${toColumns(nestedAssetIds)}) 
           AND acl.source = 'local'
