@@ -81,24 +81,38 @@ function Slider({
     return isFinite(result) ? result : 0;
   }, [min, max, clampedValue]);
 
-  // Sync dragValue when value prop changes externally (programmatic updates)
+  // Store min, max, step, animated, and current value in shared values for worklet access
+  // Using useSharedValue instead of useRef avoids Reanimated serialization warnings
+  const minShared = useSharedValue(min);
+  const maxShared = useSharedValue(max);
+  const stepShared = useSharedValue(step ?? 0);
+  const animatedShared = useSharedValue(animated);
+  const currentValueShared = useSharedValue(clampedValue);
+
+  // Sync shared values when props change
+  React.useEffect(() => {
+    minShared.value = min;
+    maxShared.value = max;
+    stepShared.value = step ?? 0;
+    animatedShared.value = animated;
+  }, [
+    min,
+    max,
+    step,
+    animated,
+    minShared,
+    maxShared,
+    stepShared,
+    animatedShared
+  ]);
+
+  // Sync dragValue and currentValueShared when value prop changes externally (programmatic updates)
   React.useEffect(() => {
     if (!isDragging.value) {
+      currentValueShared.value = clampedValue;
       dragValue.value = clampedValue;
     }
-  }, [clampedValue, isDragging, dragValue]);
-
-  // Store min, max, step, animated in refs for worklet access
-  const minRef = React.useRef(min);
-  const maxRef = React.useRef(max);
-  const stepRef = React.useRef(step);
-  const animatedRef = React.useRef(animated);
-  React.useEffect(() => {
-    minRef.current = min;
-    maxRef.current = max;
-    stepRef.current = step;
-    animatedRef.current = animated;
-  }, [min, max, step, animated]);
+  }, [clampedValue, isDragging, dragValue, currentValueShared]);
 
   // Handle value change (with step snapping)
   const handleValueChange = React.useCallback(
@@ -119,11 +133,17 @@ function Slider({
     [min, max, step, onValueChange]
   );
 
-  // Store callback in ref for worklet access
+  // Stable callback wrapper to call onValueChange from worklets via runOnJS
+  // The ref is accessed on JS thread (inside callOnValueChange), not in the worklet
+  // This avoids Reanimated serialization warnings from modifying ref.current after capture
   const onValueChangeRef = React.useRef(handleValueChange);
   React.useEffect(() => {
     onValueChangeRef.current = handleValueChange;
   }, [handleValueChange]);
+
+  const callOnValueChange = React.useCallback((value: number) => {
+    onValueChangeRef.current(value);
+  }, []);
 
   // Pan gesture for dragging thumb
   const panGesture = Gesture.Pan()
@@ -133,10 +153,12 @@ function Slider({
     .onStart(() => {
       'worklet';
       isDragging.value = true;
-      dragValue.value = clampedValue;
+      // Use currentValueShared (SharedValue) instead of clampedValue (JS value) to avoid serialization warnings
+      dragValue.value = currentValueShared.value;
       // Capture starting percent for relative dragging
-      const range = Math.max(1e-6, maxRef.current - minRef.current);
-      startPercent.value = ((clampedValue - minRef.current) / range) * 100;
+      const range = Math.max(1e-6, maxShared.value - minShared.value);
+      startPercent.value =
+        ((currentValueShared.value - minShared.value) / range) * 100;
     })
     .onUpdate((event) => {
       'worklet';
@@ -151,44 +173,47 @@ function Slider({
       );
 
       // Convert to value
-      const range = maxRef.current - minRef.current;
-      const rawValue = minRef.current + (newPercent / 100) * range;
+      const range = maxShared.value - minShared.value;
+      const rawValue = minShared.value + (newPercent / 100) * range;
       let newValue = Math.max(
-        minRef.current,
-        Math.min(maxRef.current, rawValue)
+        minShared.value,
+        Math.min(maxShared.value, rawValue)
       );
 
       // Apply step snapping using integer arithmetic
-      if (stepRef.current && stepRef.current > 0) {
+      if (stepShared.value > 0) {
         const stepIndex = Math.round(
-          (newValue - minRef.current) / stepRef.current
+          (newValue - minShared.value) / stepShared.value
         );
-        newValue = stepIndex * stepRef.current + minRef.current;
-        newValue = Math.max(minRef.current, Math.min(maxRef.current, newValue));
+        newValue = stepIndex * stepShared.value + minShared.value;
+        newValue = Math.max(
+          minShared.value,
+          Math.min(maxShared.value, newValue)
+        );
       }
 
       dragValue.value = newValue;
-      runOnJS(onValueChangeRef.current)(newValue);
+      runOnJS(callOnValueChange)(newValue);
     })
     .onEnd(() => {
       'worklet';
       isDragging.value = false;
       // Snap to final value (with optional spring animation)
       let finalValue = dragValue.value;
-      if (stepRef.current && stepRef.current > 0) {
+      if (stepShared.value > 0) {
         const stepIndex = Math.round(
-          (finalValue - minRef.current) / stepRef.current
+          (finalValue - minShared.value) / stepShared.value
         );
-        finalValue = stepIndex * stepRef.current + minRef.current;
+        finalValue = stepIndex * stepShared.value + minShared.value;
         finalValue = Math.max(
-          minRef.current,
-          Math.min(maxRef.current, finalValue)
+          minShared.value,
+          Math.min(maxShared.value, finalValue)
         );
       }
-      dragValue.value = animatedRef.current
+      dragValue.value = animatedShared.value
         ? withSpring(finalValue, { overshootClamping: true })
         : finalValue;
-      runOnJS(onValueChangeRef.current)(finalValue);
+      runOnJS(callOnValueChange)(finalValue);
     })
     .onFinalize(() => {
       'worklet';
@@ -209,26 +234,29 @@ function Slider({
       );
 
       // Convert to value
-      const range = maxRef.current - minRef.current;
-      const rawValue = minRef.current + (tapPercent / 100) * range;
+      const range = maxShared.value - minShared.value;
+      const rawValue = minShared.value + (tapPercent / 100) * range;
       let newValue = Math.max(
-        minRef.current,
-        Math.min(maxRef.current, rawValue)
+        minShared.value,
+        Math.min(maxShared.value, rawValue)
       );
 
       // Apply step snapping using integer arithmetic
-      if (stepRef.current && stepRef.current > 0) {
+      if (stepShared.value > 0) {
         const stepIndex = Math.round(
-          (newValue - minRef.current) / stepRef.current
+          (newValue - minShared.value) / stepShared.value
         );
-        newValue = stepIndex * stepRef.current + minRef.current;
-        newValue = Math.max(minRef.current, Math.min(maxRef.current, newValue));
+        newValue = stepIndex * stepShared.value + minShared.value;
+        newValue = Math.max(
+          minShared.value,
+          Math.min(maxShared.value, newValue)
+        );
       }
 
-      dragValue.value = animatedRef.current
+      dragValue.value = animatedShared.value
         ? withSpring(newValue, { overshootClamping: true })
         : newValue;
-      runOnJS(onValueChangeRef.current)(newValue);
+      runOnJS(callOnValueChange)(newValue);
     });
 
   // Combined gesture (tap on track, pan on thumb)
@@ -243,18 +271,19 @@ function Slider({
     [trackWidth]
   );
 
-  // Animated value for display (use dragValue when dragging, otherwise use prop value)
+  // Animated value for display - always use dragValue since it's synced with clampedValue via useEffect
+  // Using dragValue (SharedValue) instead of clampedValue (JS value) avoids worklet serialization warnings
   const displayValue = useDerivedValue(() => {
-    return isDragging.value ? dragValue.value : clampedValue;
-  }, [clampedValue]);
+    return dragValue.value;
+  });
 
-  // Calculate display percentage
+  // Calculate display percentage using SharedValues to avoid worklet serialization warnings
   const displayPercent = useDerivedValue(() => {
     const val = displayValue.value;
-    const range = Math.max(1e-6, max - min);
-    const raw = ((val - min) / range) * 100;
+    const range = Math.max(1e-6, maxShared.value - minShared.value);
+    const raw = ((val - minShared.value) / range) * 100;
     return Math.max(0, Math.min(100, isFinite(raw) ? raw : 0));
-  }, [min, max]);
+  });
 
   // Theme colors (fallback to props if provided) - must be called unconditionally
   const themePrimary = useThemeColor('primary');
@@ -287,7 +316,7 @@ function Slider({
     );
 
     // Always use direct value if animations are disabled or during dragging
-    if (!animatedRef.current || isDragging.value) {
+    if (!animatedShared.value || isDragging.value) {
       return {
         left: `${leftPercent}%`
       };

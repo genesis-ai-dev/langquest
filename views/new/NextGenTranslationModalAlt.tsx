@@ -25,7 +25,7 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { Ionicons } from '@expo/vector-icons';
@@ -253,7 +253,7 @@ export default function NextGenTranslationModal({
   const [audioSegments, setAudioSegments] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadAudioSegments = async () => {
+    const loadAudioSegments = () => {
       if (!asset?.content) {
         setAudioSegments([]);
         return;
@@ -261,16 +261,17 @@ export default function NextGenTranslationModal({
       const audioIds = asset.content
         .flatMap((c) => c.audio ?? [])
         .filter(Boolean);
-      const segments = await Promise.all(
-        audioIds.map((audio) =>
-          getLocalAttachmentUriWithOPFS(
-            attachmentStates.get(audio)?.local_uri ?? ''
-          )
-        )
-      );
-      setAudioSegments(segments.filter(Boolean));
+      // Use getLocalUri directly - local_uri already includes the path prefix
+      // Only include segments where attachmentStates has a valid local_uri
+      const segments = audioIds
+        .map((audio) => {
+          const localUri = attachmentStates.get(audio)?.local_uri;
+          return localUri ? getLocalUri(localUri) : null;
+        })
+        .filter((uri): uri is string => uri !== null);
+      setAudioSegments(segments);
     };
-    void loadAudioSegments();
+    loadAudioSegments();
   }, [asset?.content, attachmentStates]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;

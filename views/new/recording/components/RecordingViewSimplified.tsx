@@ -1727,7 +1727,10 @@ const RecordingViewSimplified = ({
           });
         }
 
-        await audioSegmentService.deleteAudioSegment(second.id);
+        // CRITICAL: Preserve audio files when merging - they are now linked to the first asset
+        await audioSegmentService.deleteAudioSegment(second.id, {
+          preserveAudioFiles: true
+        });
 
         // Force re-load of segment count for the merged asset
         debugLog(
@@ -1803,7 +1806,10 @@ const RecordingViewSimplified = ({
                     });
                   }
 
-                  await audioSegmentService.deleteAudioSegment(src.id);
+                  // CRITICAL: Preserve audio files when merging - they are now linked to the target asset
+                  await audioSegmentService.deleteAudioSegment(src.id, {
+                    preserveAudioFiles: true
+                  });
                 }
 
                 // Force re-load of segment count for the merged target asset
