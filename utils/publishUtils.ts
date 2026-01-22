@@ -306,12 +306,33 @@ export async function publishQuest(questId: string, projectId: string) {
       await tx.run(sql.raw(sourceAssetQuery));
 
       // Step 4b: Insert CHILD assets second (translations/transcriptions with source_asset_id)
-      const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local' AND source_asset_id IS NOT NULL`;
+      // CRITICAL: Only insert child assets where the source_asset_id actually exists
+      const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) 
+        SELECT ${assetColumns
+          .split(', ')
+          .map((c) => `child.${c}`)
+          .join(', ')} 
+        FROM asset_local child
+        WHERE child.id IN (${toColumns(nestedAssetIds)}) 
+          AND child.source = 'local' 
+          AND child.source_asset_id IS NOT NULL
+          AND EXISTS (SELECT 1 FROM asset_local parent WHERE parent.id = child.source_asset_id)`;
       console.log('childAssetQuery', childAssetQuery);
       await tx.run(sql.raw(childAssetQuery));
 
+      // CRITICAL: Only insert quest_asset_links where the referenced asset actually exists
+      // This prevents FK constraint violations when PowerSync uploads to Supabase
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
-      const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) SELECT ${questAssetLinkColumns} FROM quest_asset_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;
+      const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) 
+        SELECT ${questAssetLinkColumns
+          .split(', ')
+          .map((c) => `qal.${c}`)
+          .join(', ')} 
+        FROM quest_asset_link_local qal
+        WHERE qal.quest_id IN (${toColumns(allQuestIds)}) 
+          AND qal.source = 'local'
+          AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = qal.asset_id)`;
+      console.log('questAssetLinkQuery', questAssetLinkQuery);
       await tx.run(sql.raw(questAssetLinkQuery));
 
       const assetContentLinkColumns = getTableColumns(
@@ -336,10 +357,24 @@ export async function publishQuest(questId: string, projectId: string) {
           .map(getLocalAttachmentUri) // without OPFS
       );
 
-      const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) SELECT ${assetContentLinkColumns.replace(
-        `audio,`,
-        `REPLACE(audio, 'local/', '') AS audio,`
-      )} FROM asset_content_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
+      // CRITICAL: Only insert asset_content_links where the referenced asset actually exists
+      // Build prefixed columns manually to avoid splitting issues with REPLACE function
+      const aclColumnsPrefixed = assetContentLinkColumns
+        .split(', ')
+        .map((col) => {
+          if (col === 'audio') {
+            // Special handling for audio column - strip 'local/' prefix
+            return `REPLACE(acl.audio, 'local/', '') AS audio`;
+          }
+          return `acl.${col}`;
+        })
+        .join(', ');
+      const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) 
+        SELECT ${aclColumnsPrefixed} 
+        FROM asset_content_link_local acl
+        WHERE acl.asset_id IN (${toColumns(nestedAssetIds)}) 
+          AND acl.source = 'local'
+          AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = acl.asset_id)`;
       console.log('assetContentLinkQuery', assetContentLinkQuery);
       await tx.run(sql.raw(assetContentLinkQuery));
 
@@ -413,12 +448,34 @@ export async function publishQuest(questId: string, projectId: string) {
       const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(tagsToPublish)}) AND source = 'local'`;
       await tx.run(sql.raw(tagQuery));
 
+      // CRITICAL: Only insert quest_tag_links where both quest and tag exist
       const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
-      const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns}) SELECT ${questTagLinkColumns} FROM quest_tag_link_local WHERE quest_id IN (${toColumns(allQuestIds)}) AND source = 'local'`;
+      const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns}) 
+        SELECT ${questTagLinkColumns
+          .split(', ')
+          .map((c) => `qtl.${c}`)
+          .join(', ')} 
+        FROM quest_tag_link_local qtl
+        WHERE qtl.quest_id IN (${toColumns(allQuestIds)}) 
+          AND qtl.source = 'local'
+          AND EXISTS (SELECT 1 FROM quest_local q WHERE q.id = qtl.quest_id)
+          AND EXISTS (SELECT 1 FROM tag_local t WHERE t.id = qtl.tag_id)`;
+      console.log('questTagLinkQuery', questTagLinkQuery);
       await tx.run(sql.raw(questTagLinkQuery));
 
+      // CRITICAL: Only insert asset_tag_links where both asset and tag exist
       const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
-      const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) SELECT ${assetTagLinkColumns} FROM asset_tag_link_local WHERE asset_id IN (${toColumns(nestedAssetIds)}) AND source = 'local'`;
+      const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) 
+        SELECT ${assetTagLinkColumns
+          .split(', ')
+          .map((c) => `atl.${c}`)
+          .join(', ')} 
+        FROM asset_tag_link_local atl
+        WHERE atl.asset_id IN (${toColumns(nestedAssetIds)}) 
+          AND atl.source = 'local'
+          AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = atl.asset_id)
+          AND EXISTS (SELECT 1 FROM tag_local t WHERE t.id = atl.tag_id)`;
+      console.log('assetTagLinkQuery', assetTagLinkQuery);
       await tx.run(sql.raw(assetTagLinkQuery));
 
       console.log('localAudioFilesForAssets', localAudioFilesForAssets);

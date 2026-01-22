@@ -19,8 +19,10 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   resetEnergy: () => void;
   startSegment: (options?: { prerollMs?: number }) => Promise<void>;
   stopSegment: () => Promise<string | null>;
-  // NEW: SharedValue for high-performance UI updates
+  // SharedValue for high-performance UI updates (no re-renders!)
   energyShared: SharedValue<number>;
+  // Ref for logic that needs the latest value without re-renders
+  energyRef: { current: number };
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergy {
@@ -30,8 +32,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     error: null
   });
 
-  // NEW: SharedValue for high-performance UI updates (no re-renders!)
+  // SharedValue for high-performance UI updates (no re-renders!)
   const energyShared = useSharedValue(0);
+
+  // Ref for logic that needs the latest value (calibration, etc.) - NO re-renders
+  const energyRef = useRef(0);
 
   // Ref to track active state to avoid stale closures
   const isActiveRef = useRef(false);
@@ -187,6 +192,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     resetEnergy,
     startSegment,
     stopSegment,
-    energyShared
+    energyShared,
+    energyRef
   };
 }

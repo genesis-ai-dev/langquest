@@ -135,25 +135,23 @@ export class AudioSegmentService {
   }
 
   /**
-   * Delete audio segment and associated files
+   * Delete audio segment and all associated records (including child translations)
+   *
+   * Deletion order (children before parents to maintain referential integrity):
+   * 1. Find all child assets (translations/transcriptions with source_asset_id = this asset)
+   * 2. For each child asset: delete votes, asset_tag_links, quest_asset_links, asset_content_links, then the asset
+   * 3. For the parent asset: delete votes, asset_tag_links, quest_asset_links, asset_content_links, then the asset
+   *
+   * @param assetId - The ID of the asset to delete
+   * @param options.preserveAudioFiles - If true, skip deleting audio files from attachment queue.
+   *   Use this when merging assets, where audio files are being transferred to another asset.
    */
-  async deleteAudioSegment(assetId: string): Promise<void> {
+  async deleteAudioSegment(
+    assetId: string,
+    options?: { preserveAudioFiles?: boolean }
+  ): Promise<void> {
+    const { preserveAudioFiles = false } = options ?? {};
     try {
-      // Get asset content to find audio file
-      const assetContent = await db
-        .select()
-        .from(asset_content_link)
-        .where(eq(asset_content_link.asset_id, assetId));
-
-      // Delete audio files
-      for (const content of assetContent) {
-        if (content.audio) {
-          for (const audio of content.audio) {
-            await system.permAttachmentQueue?.deleteFromQueue(audio);
-          }
-        }
-      }
-
       const resolvedAsset = resolveTable('asset', { localOverride: true });
       const resolvedAssetContent = resolveTable('asset_content_link', {
         localOverride: true
@@ -161,16 +159,85 @@ export class AudioSegmentService {
       const resolvedQuestAssetLink = resolveTable('quest_asset_link', {
         localOverride: true
       });
+      const resolvedVote = resolveTable('vote', { localOverride: true });
+      const resolvedAssetTagLink = resolveTable('asset_tag_link', {
+        localOverride: true
+      });
 
-      await system.db
-        .delete(resolvedAsset)
-        .where(eq(resolvedAsset.id, assetId));
-      await system.db
-        .delete(resolvedAssetContent)
-        .where(eq(resolvedAssetContent.asset_id, assetId));
-      await system.db
-        .delete(resolvedQuestAssetLink)
-        .where(eq(resolvedQuestAssetLink.asset_id, assetId));
+      // Find all child assets (translations/transcriptions) that reference this asset
+      const childAssets = await system.db
+        .select({ id: resolvedAsset.id })
+        .from(resolvedAsset)
+        .where(eq(resolvedAsset.source_asset_id, assetId));
+
+      // Collect all asset IDs to delete (children + parent)
+      const allAssetIds = [...childAssets.map((c) => c.id), assetId];
+
+      // Collect audio files to delete from attachment queue BEFORE transaction
+      const allAssetContent = await db
+        .select()
+        .from(asset_content_link)
+        .where(eq(asset_content_link.asset_id, assetId));
+
+      // Also get content from child assets
+      for (const child of childAssets) {
+        const childContent = await db
+          .select()
+          .from(asset_content_link)
+          .where(eq(asset_content_link.asset_id, child.id));
+        allAssetContent.push(...childContent);
+      }
+
+      // Delete audio files from queue (file system ops, outside transaction)
+      // SKIP if preserveAudioFiles is true (used during merge when audio is being transferred)
+      if (!preserveAudioFiles) {
+        for (const content of allAssetContent) {
+          if (content.audio) {
+            for (const audio of content.audio) {
+              await system.permAttachmentQueue?.deleteFromQueue(audio);
+            }
+          }
+        }
+      } else {
+        console.log(
+          `⏭️ Preserving ${allAssetContent.length} audio files (merge operation)`
+        );
+      }
+
+      // CRITICAL: Delete all related records in a single transaction
+      // Order matters: delete children before parent to maintain referential integrity
+      await system.db.transaction(async (tx) => {
+        for (const currentAssetId of allAssetIds) {
+          // 1. Delete votes (references asset_id)
+          await tx
+            .delete(resolvedVote)
+            .where(eq(resolvedVote.asset_id, currentAssetId));
+
+          // 2. Delete asset_tag_links (references asset_id)
+          await tx
+            .delete(resolvedAssetTagLink)
+            .where(eq(resolvedAssetTagLink.asset_id, currentAssetId));
+
+          // 3. Delete quest_asset_links (references asset_id)
+          await tx
+            .delete(resolvedQuestAssetLink)
+            .where(eq(resolvedQuestAssetLink.asset_id, currentAssetId));
+
+          // 4. Delete asset_content_links (references asset_id)
+          await tx
+            .delete(resolvedAssetContent)
+            .where(eq(resolvedAssetContent.asset_id, currentAssetId));
+
+          // 5. Delete the asset itself (must be last for this asset)
+          await tx
+            .delete(resolvedAsset)
+            .where(eq(resolvedAsset.id, currentAssetId));
+        }
+      });
+
+      console.log(
+        `✅ Deleted asset ${assetId.slice(0, 8)} and ${childAssets.length} child assets`
+      );
     } catch (error) {
       console.error('Failed to delete audio segment:', error);
       throw error;
