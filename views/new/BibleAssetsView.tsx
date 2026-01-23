@@ -2177,8 +2177,9 @@ export default function BibleAssetsView() {
       const asset = item.content;
       const isPlaying =
         audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === asset.id;
+        (audioContext.currentAudioId === asset.id || // Individual play
+          (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+            currentlyPlayingAssetId === asset.id)); // Play all
 
       const isSelected = selectedAssetIds.has(asset.id);
 
