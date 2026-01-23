@@ -3430,6 +3430,13 @@ export const localizations = {
     tok_pisin: 'No label i stap',
     indonesian: 'Tidak ada label dipilih'
   },
+  startRecordingSession: {
+    english: 'Start Recording Session',
+    spanish: 'Iniciar Sesión de Grabación',
+    brazilian_portuguese: 'Iniciar Sessão de Gravação',
+    tok_pisin: 'Stat Rekodem Taim',
+    indonesian: 'Mulai Sesi Rekaman'
+  },
   audioSegments: {
     english: 'Audio Segments',
     spanish: 'Pistas de Audio',

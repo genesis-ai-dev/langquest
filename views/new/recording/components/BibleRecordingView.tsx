@@ -22,14 +22,13 @@ import {
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { LegendListRef } from '@legendapp/list';
-import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
-import { ArrowLeft, PauseIcon, PlayIcon, Plus } from 'lucide-react-native';
-import React from 'react';
+import { ArrowDownNarrowWide, ArrowLeft, ChevronLeft, Mic, PauseIcon, PlayIcon, Plus } from 'lucide-react-native';
+import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,7 +44,7 @@ import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
-const USE_INSERTION_WHEEL = true;
+// const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -367,7 +366,8 @@ const BibleRecordingView = ({
     selectedAssetIds,
     enterSelection,
     toggleSelect,
-    cancelSelection
+    cancelSelection,
+    selectMultiple
   } = useSelectionMode();
 
   // Rename drawer state
@@ -792,16 +792,13 @@ const BibleRecordingView = ({
 
   // Clamp insertion index when item count changes
   React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (USE_INSERTION_WHEEL) {
+     
+    // if (USE_INSERTION_WHEEL) {
       const maxIndex = allItems.length; // Can insert at 0..N (after last item)
       if (insertionIndex > maxIndex) {
-        debugLog(
-          `📍 Clamping insertion index from ${insertionIndex} to ${maxIndex}`
-        );
         setInsertionIndex(maxIndex);
       }
-    }
+    // }
   }, [allItems.length, insertionIndex]);
 
   // Ref for LegendList to enable scrolling
@@ -2486,6 +2483,32 @@ const BibleRecordingView = ({
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
   // ============================================================================
+  // SELECT ALL / DESELECT ALL
+  // ============================================================================
+
+  // Calculate if all local assets are selected
+  const allSelected = React.useMemo(() => {
+    if (!isSelectionMode || assets.length === 0) return false;
+    const selectableAssets = assets.filter((a) => a.source !== 'cloud');
+    if (selectableAssets.length === 0) return false;
+    return selectableAssets.every((a) => selectedAssetIds.has(a.id));
+  }, [isSelectionMode, assets, selectedAssetIds]);
+
+  // Handle select all / deselect all
+  const handleSelectAll = React.useCallback(() => {
+    if (allSelected) {
+      // Deselect all
+      selectMultiple([]);
+    } else {
+      // Select all local assets (exclude cloud assets)
+      const selectableIds = assets
+        .filter((a) => a.source !== 'cloud')
+        .map((a) => a.id);
+      selectMultiple(selectableIds);
+    }
+  }, [allSelected, assets, selectMultiple]);
+
+  // ============================================================================
   // RENAME ASSET
   // ============================================================================
 
@@ -2841,6 +2864,76 @@ const BibleRecordingView = ({
   // Show full-screen overlay when VAD is locked and display mode is fullscreen
   const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
 
+  const addButtonComponent = useMemo(() => {
+    // Apply same conditions as floating button (line 3050)
+    const shouldShow =
+      !isSelectionMode &&
+      showAddVerseButton &&
+      verseToAdd !== null &&
+      !isVADRecording &&
+      allowAddVerseRef.current;
+
+    if (!shouldShow) return null;
+
+    return (
+      <View className="left-0 right-0 flex w-full items-center">
+        <View className="flex flex-row items-center gap-2">
+          <Icon as={ChevronLeft} size={20} className="text-primary" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full border-primary bg-primary/10 text-sm"
+            onPress={handleAddNextVerse}
+          >
+            <Icon as={Plus} size={20} className="text-primary" />
+            <Text className="font-semibold text-primary">
+              {/* {bookChapterLabel}:{verseToAdd} */}
+              {verseToAdd}
+            </Text>
+          </Button>
+        </View>
+      </View>
+    );
+  }, [
+    isSelectionMode,
+    showAddVerseButton,
+    verseToAdd,
+    isVADRecording,
+    handleAddNextVerse
+  ]);
+
+  const boundaryComponent = useMemo(
+    () => (
+    <View
+    style={{ height: ROW_HEIGHT }}
+    className="flex-row items-center justify-center px-4"
+  >
+    <View className='flex-1' />
+    <View
+      className="flex-row items-center gap-2"
+      style={{ flex: 1, justifyContent: 'center' }}
+    >
+      {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
+      <View
+        className="flex-row items-center justify-center rounded-full bg-primary/10 p-2 border border-dashed border-primary/50"
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <Icon as={Mic} size={20} className='text-secondary-foreground/50'/>
+        <Icon
+          as={ArrowDownNarrowWide}
+          size={20}
+          style={{ marginLeft: 4 }}
+          className='text-secondary-foreground/50'
+        />
+      </View>
+    </View>
+    <View className='flex-1'>{addButtonComponent}</View>
+  </View>
+  ), [addButtonComponent]);
+
   return (
     <View className="flex-1 bg-background">
       {/* Full-screen VAD overlay - takes over entire screen */}
@@ -2907,7 +3000,7 @@ const BibleRecordingView = ({
           )}
         </View>
       </View>
-      <View className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive':'bg-primary'}`}>
+      <View className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive':'bg-primary/70'}`}>
         {/* {(isRecording || isVADRecording)? ( */}
         {(isVADLocked)? (
           <Text className="text-sm text-center font-semibold text-white">
@@ -2916,7 +3009,7 @@ const BibleRecordingView = ({
               : t('recording')}
           </Text>
         ) : (
-          <Text className="text-center text-primary-foreground font-semibold text-sm">
+          <Text className="text-center text-destructive-foreground font-semibold text-sm">
             {highlightedItemVerse
               ? `${t('recordTo')}: ${formatVerseRange(highlightedItemVerse)}`
               : `${t('noLabelSelected')}`}
@@ -2925,8 +3018,8 @@ const BibleRecordingView = ({
       </View>
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {USE_INSERTION_WHEEL ? (
+        { }
+        {/* {USE_INSERTION_WHEEL ? ( */}
           // ArrayInsertionWheel mode - always show wheel (starts with initial verse pill)
           <View className="relative h-full flex-1">
             <ArrayInsertionWheel
@@ -2947,11 +3040,12 @@ const BibleRecordingView = ({
               rowHeight={ROW_HEIGHT}
               className="h-full flex-1"
               bottomInset={footerHeight}
+              boundaryComponent={boundaryComponent}
             >
               {wheelChildren}
             </ArrayInsertionWheel>
           </View>
-        ) : (
+        {/* ) : (
           // LegendList mode (legacy)
           assetsForLegendList.length > 0 && (
             <LegendList
@@ -2960,11 +3054,38 @@ const BibleRecordingView = ({
               renderItem={renderAssetItem}
             />
           )
-        )}
+        )} */}
       </View>
 
       {/* Add verse button - floats above recording controls */}
-      {!isSelectionMode &&
+      {/* {!isSelectionMode &&
+        showAddVerseButton &&
+        verseToAdd !== null &&
+        !isVADRecording &&
+        allowAddVerseRef.current && (
+          <View
+            className="absolute left-0 right-0 z-50 flex w-full items-center"
+            style={{
+              bottom: footerHeight + insets.bottom + 8
+            }}
+          >
+            <View className="flex flex-row items-center gap-2 px-4">
+              <Icon as={ChevronLeft} size={20} className="text-primary" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-primary bg-primary/10 text-sm"
+                onPress={handleAddNextVerse}
+              >
+              <Icon as={Plus} size={20} className="text-primary" />
+                <Text className="font-semibold text-primary">
+                  {verseToAdd}
+                </Text>
+              </Button>
+            </View>
+          </View>
+        )} */}
+      {/* {!isSelectionMode &&
         showAddVerseButton &&
         verseToAdd !== null &&
         !isVADRecording &&
@@ -2989,7 +3110,7 @@ const BibleRecordingView = ({
               </Button>
             </View>
           </View>
-        )}
+        )} */}
 
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
@@ -3000,6 +3121,9 @@ const BibleRecordingView = ({
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              allowSelectAll={true}
+              allSelected={allSelected}
+              onSelectAll={handleSelectAll}
             />
           </View>
         ) : (

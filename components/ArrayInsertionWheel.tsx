@@ -20,6 +20,7 @@ interface ArrayInsertionWheelProps {
   className?: string;
   topInset?: number; // unused in native wheel, kept for API parity
   bottomInset?: number; // unused in native wheel, kept for API parity
+  boundaryComponent?: React.ReactNode;
 }
 
 function ArrayInsertionWheelInternal(
@@ -30,7 +31,8 @@ function ArrayInsertionWheelInternal(
     rowHeight,
     className,
     topInset = 0,
-    bottomInset = 0
+    bottomInset = 0,
+    boundaryComponent
   }: ArrayInsertionWheelProps,
   ref: React.Ref<ArrayInsertionWheelHandle>
 ) {
@@ -132,6 +134,10 @@ function ArrayInsertionWheelInternal(
       // Final boundary (i === children.length)
       // When empty (0 items), this is position 0 - the only insertion point
       // When non-empty, this is position N - insert after all items
+      if (boundaryComponent) {
+        return boundaryComponent;
+      }
+
       return (
         <View
           style={{ height: rowHeight }}
@@ -160,7 +166,7 @@ function ArrayInsertionWheelInternal(
         </View>
       );
     },
-    [children, rowHeight]
+    [children, rowHeight, boundaryComponent]
   );
 
   return (

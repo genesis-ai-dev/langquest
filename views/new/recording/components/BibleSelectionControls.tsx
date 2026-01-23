@@ -40,7 +40,7 @@ export const BibleSelectionControls = React.memo(function SelectionControls({
           <Button
             variant="default"
             disabled={selectedCount < 1}
-            onPress={onAssignVerse || (() => {})}
+            onPress={() => onAssignVerse?.()}
           >
             <Icon as={Bookmark} />
           </Button>

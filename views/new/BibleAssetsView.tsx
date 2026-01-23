@@ -38,6 +38,7 @@ import {
   BookmarkPlusIcon,
   BrushCleaning,
   CheckCheck,
+  ChevronRight,
   CloudUpload,
   FlagIcon,
   InfoIcon,
@@ -3400,51 +3401,12 @@ export default function BibleAssetsView() {
         </Animated.ScrollView>
       )}
 
-      {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-        <View
-          style={{
-            paddingBottom: insets.bottom,
-            paddingRight: isSelectionMode ? 0 : 75 // Leave space for SpeedDial when not in selection mode
-          }}
-          className="px-2"
-        >
-          {isSelectionMode ? (
-            <BibleSelectionControls
-              selectedCount={selectedAssetIds.size}
-              onCancel={cancelSelection}
-              onMerge={handleBatchMergeSelected}
-              onDelete={handleBatchDeleteSelected}
-              onAssignVerse={() => setShowVerseAssignerDrawer(true)}
-            />
-          ) : (
-            <Button
-              variant="destructive"
-              size="lg"
-              className="w-full"
-              onPress={() => setShowRecording(true)}
-            >
-              <Icon
-                as={MicIcon}
-                size={24}
-                className="text-destructive-foreground"
-              />
-              <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-                {selectedForRecording?.verseName
-                  ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                  : t('doRecord')}
-              </Text>
-            </Button>
-          )}
-        </View>
-      )}
-
       {/* Hide SpeedDial in selection mode */}
       {!isSelectionMode && (
         <View
           style={{
             bottom: insets.bottom + 24,
-            right: 24
+            left: 24
           }}
           className="absolute z-50"
         >
@@ -3458,6 +3420,7 @@ export default function BibleAssetsView() {
                       icon={SettingsIcon}
                       variant="outline"
                       onPress={() => setShowSettingsModal(true)}
+                     
                     />
                   ) : !hasReported ? (
                     <SpeedDialItem
@@ -3493,10 +3456,65 @@ export default function BibleAssetsView() {
                 }}
               />
             </SpeedDialItems>
-            <SpeedDialTrigger />
+            <SpeedDialTrigger className='rounded-md -top-0.5 text-destructive-foreground' />
           </SpeedDial>
         </View>
+      )}      
+
+      {/* Sticky Record Button Footer - only show for authenticated users */}
+      {!isPublished && currentUser && (
+        <View
+          style={{
+            paddingBottom: insets.bottom,
+            paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+          }}
+          className="px-2"
+        >
+          {isSelectionMode ? (
+            <BibleSelectionControls
+              selectedCount={selectedAssetIds.size}
+              onCancel={cancelSelection}
+              onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
+              onAssignVerse={() => setShowVerseAssignerDrawer(true)}
+            />
+          ) : (
+            <Pressable
+              //variant="destructive"
+              // size="lg"
+              className="bg-primary w-full flex-row items-center justify-around gap-2 p-2 px-4 rounded-lg ml-14"
+              onPress={() => setShowRecording(true)}
+            >
+              <Icon
+                as={MicIcon}
+                size={24}
+                className="text-secondary"
+              />
+              <View className="flex-col justify-start items-start gap-0 ml-2">
+              
+                <Text className="text-base font-semibold text-secondary text-center">
+                  {t('startRecordingSession')}
+                </Text>
+              <Text className="text-sm text-secondary text-center">
+                {selectedForRecording?.verseName
+                  ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
+                  : t('noLabelSelected')}
+                {/* {selectedForRecording?.verseName
+                  ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
+                  : t('doRecord')} */}
+              </Text>
+              </View>
+              <Icon
+                as={ChevronRight}
+                size={24}
+                className="text-secondary"
+              />              
+            </Pressable>
+
+          )}
+        </View>
       )}
+
 
       {allowSettings && isOwner && (
         <QuestSettingsModal
