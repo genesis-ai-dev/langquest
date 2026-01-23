@@ -119,7 +119,7 @@ function ArrayInsertionWheelInternal(
   );
 
   const renderItem = React.useCallback(
-    ({ item }: { item: PickerItem<number> }) => {
+    ({ item }: { item: PickerItem<number> }): React.ReactElement => {
       const i = item.value;
 
       // Render actual items (not the final boundary)
@@ -135,7 +135,7 @@ function ArrayInsertionWheelInternal(
       // When empty (0 items), this is position 0 - the only insertion point
       // When non-empty, this is position N - insert after all items
       if (boundaryComponent) {
-        return boundaryComponent;
+        return <>{boundaryComponent}</>;
       }
 
       return (
