@@ -3437,6 +3437,27 @@ export const localizations = {
     tok_pisin: 'Stat Rekodem Taim',
     indonesian: 'Mulai Sesi Rekaman'
   },
+  typeToConfirm: {
+    english: 'Type {text} to confirm',
+    spanish: 'Escriba {text} para confirmar',
+    brazilian_portuguese: 'Digite {text} para confirmar',
+    tok_pisin: 'Raitim {text} bilong siaim',
+    indonesian: 'Ketik {text} untuk mengkonfirmasi'
+  },
+  confirmDeletion: {
+    english: 'Confirm Deletion',
+    spanish: 'Confirmar Eliminación',
+    brazilian_portuguese: 'Confirmar Exclusão',
+    tok_pisin: 'Siaim Rausim',
+    indonesian: 'Konfirmasi Penghapusan'
+  },
+  deleting: {
+    english: 'Deleting...',
+    spanish: 'Eliminando...',
+    brazilian_portuguese: 'Excluindo...',
+    tok_pisin: 'Rausim nau...',
+    indonesian: 'Menghapus...'
+  },
   audioSegments: {
     english: 'Audio Segments',
     spanish: 'Pistas de Audio',

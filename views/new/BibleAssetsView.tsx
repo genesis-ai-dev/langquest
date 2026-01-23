@@ -34,6 +34,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
 import {
   BookmarkPlusIcon,
   BrushCleaning,
@@ -2596,108 +2597,51 @@ export default function BibleAssetsView() {
     []
   );
 
-  // Track currently playing asset based on audio position
-  React.useEffect(() => {
-    // If not playing at all, clear the highlight
+  // Asset ranges for play-all: maps each asset to its time range
+  const assetTimeRangesRef = React.useRef<
+    { assetId: string; startMs: number; endMs: number }[]
+  >([]);
+
+  // Calculate which asset should be highlighted based on position (useMemo for performance)
+  const derivedCurrentlyPlayingAssetId = React.useMemo(() => {
+    // Not playing at all
     if (!audioContext.isPlaying) {
-      setCurrentlyPlayingAssetId(null);
-      return;
+      return null;
     }
 
-    // If playing a single asset (not play-all mode), the currentAudioId IS the assetId
-    // Just keep the highlight for that asset (handlePlayAsset already sets it)
+    // Playing a single asset (not play-all mode)
     if (audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID) {
-      // The currentAudioId is the assetId, ensure it's highlighted
-      setCurrentlyPlayingAssetId(audioContext.currentAudioId);
-      return;
+      return audioContext.currentAudioId;
     }
 
-    // Calculate which asset is playing based on cumulative position (play-all mode)
-    const checkCurrentAsset = () => {
-      const uris = uriOrderRef.current;
-      const durations = segmentDurationsRef.current;
+    // Play-all mode: Find asset by time range
+    const position = audioContext.position;
+    const ranges = assetTimeRangesRef.current;
 
-      if (uris.length === 0) return;
+    if (ranges.length === 0) {
+      // Fallback: use first asset in order
+      return assetOrderRef.current[0] || null;
+    }
 
-      const position = audioContext.position; // Position in milliseconds
-
-      // If we don't have durations yet, use simple percentage-based approach
-      if (durations.length === 0 || durations.every((d) => d === 0)) {
-        const duration = audioContext.duration;
-        if (duration === 0) {
-          console.log(
-            `⏸️ No duration available yet (position: ${position}ms, duration: ${duration}ms)`
-          );
-          return;
-        }
-
-        // Fallback: use percentage-based calculation
-        const positionPercent = position / duration;
-        const uriIndex = Math.min(
-          Math.floor(positionPercent * uris.length),
-          uris.length - 1
-        );
-
-        const currentUri = uris[uriIndex];
-        if (currentUri) {
-          const assetId = assetUriMapRef.current.get(currentUri);
-          if (assetId) {
-            if (assetId !== currentlyPlayingAssetId) {
-              console.log(
-                `🎵 [Fallback] Highlighting asset ${assetId.slice(0, 8)} (segment ${uriIndex + 1}/${uris.length}, ${Math.round(positionPercent * 100)}%)`
-              );
-              setCurrentlyPlayingAssetId(assetId);
-            }
-          } else {
-            console.warn(`⚠️ No asset ID found for URI at index ${uriIndex}`);
-          }
-        }
-        return;
+    // Find which range the current position falls into
+    for (const range of ranges) {
+      if (position >= range.startMs && position < range.endMs) {
+        return range.assetId;
       }
+    }
 
-      // Calculate which segment we're in based on cumulative durations
-      let cumulativeDuration = 0;
-      for (let i = 0; i < uris.length; i++) {
-        const segmentDuration = durations[i] || 0;
-        const segmentStart = cumulativeDuration;
-        cumulativeDuration += segmentDuration;
-
-        // If position is within this segment's range
-        // Use <= for the last segment to catch it even if position is slightly off
-        if (
-          (position >= segmentStart && position <= cumulativeDuration) ||
-          (i === uris.length - 1 && position >= segmentStart)
-        ) {
-          const currentUri = uris[i];
-          if (currentUri) {
-            const assetId = assetUriMapRef.current.get(currentUri);
-            if (assetId) {
-              if (assetId !== currentlyPlayingAssetId) {
-                console.log(
-                  `🎵 Highlighting asset ${assetId.slice(0, 8)} (segment ${i + 1}/${uris.length}, position: ${Math.round(position)}ms in range [${Math.round(segmentStart)}-${Math.round(cumulativeDuration)}]ms)`
-                );
-                setCurrentlyPlayingAssetId(assetId);
-              }
-            } else {
-              console.warn(`⚠️ No asset ID found for URI at index ${i}`);
-            }
-          }
-          break;
-        }
-      }
-    };
-
-    // Check immediately and then periodically while playing
-    checkCurrentAsset();
-    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
-    return () => clearInterval(interval);
+    // If position is beyond all ranges, return the last asset
+    return ranges[ranges.length - 1]?.assetId || null;
   }, [
     audioContext.isPlaying,
     audioContext.currentAudioId,
-    audioContext.position,
-    audioContext.duration,
-    currentlyPlayingAssetId
+    audioContext.position
   ]);
+
+  // Update state only when the derived value actually changes
+  React.useEffect(() => {
+    setCurrentlyPlayingAssetId(derivedCurrentlyPlayingAssetId);
+  }, [derivedCurrentlyPlayingAssetId]);
 
   // Handle play all assets
   const handlePlayAllAssets = React.useCallback(async () => {
@@ -2713,6 +2657,7 @@ export default function BibleAssetsView() {
         assetOrderRef.current = [];
         uriOrderRef.current = [];
         segmentDurationsRef.current = [];
+        assetTimeRangesRef.current = [];
       } else {
         if (assets.length === 0) {
           console.warn('⚠️ No assets to play');
@@ -2725,17 +2670,49 @@ export default function BibleAssetsView() {
         assetOrderRef.current = [];
         uriOrderRef.current = [];
         segmentDurationsRef.current = [];
+        assetTimeRangesRef.current = [];
 
+        // Build time ranges for each asset
+        let cumulativeTime = 0;
         for (const asset of assets) {
           const uris = await getAssetAudioUris(asset.id);
           if (uris.length > 0) {
+            const assetStartTime = cumulativeTime;
             assetOrderRef.current.push(asset.id);
+            
+            // Add all URIs for this asset
             for (const uri of uris) {
               allUris.push(uri);
               uriOrderRef.current.push(uri);
-              // Map each URI to its asset ID
               assetUriMapRef.current.set(uri, asset.id);
+              
+              // Load duration for this URI
+              try {
+                const { sound } = await Audio.Sound.createAsync({ uri });
+                const status = await sound.getStatusAsync();
+                await sound.unloadAsync();
+                if (status.isLoaded) {
+                  const duration = status.durationMillis ?? 0;
+                  segmentDurationsRef.current.push(duration);
+                  cumulativeTime += duration;
+                } else {
+                  segmentDurationsRef.current.push(0);
+                }
+              } catch {
+                segmentDurationsRef.current.push(0);
+              }
             }
+            
+            // Store the time range for this asset
+            assetTimeRangesRef.current.push({
+              assetId: asset.id,
+              startMs: assetStartTime,
+              endMs: cumulativeTime
+            });
+
+            console.log(
+              `📊 Asset ${asset.id.slice(0, 8)}: ${Math.round(assetStartTime)}ms - ${Math.round(cumulativeTime)}ms (${uris.length} segments)`
+            );
           }
         }
 
@@ -2745,15 +2722,10 @@ export default function BibleAssetsView() {
         }
 
         console.log(
-          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
+          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets (total: ${Math.round(cumulativeTime)}ms)`
         );
 
-        // Set the first asset as currently playing
-        // Note: Duration preloading is handled by AudioContext.playSoundSequence
-        if (assetOrderRef.current.length > 0) {
-          setCurrentlyPlayingAssetId(assetOrderRef.current[0] || null);
-        }
-
+        // Start playing (AudioContext will handle sequence playback)
         await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
       }
     } catch (error) {
@@ -3533,7 +3505,7 @@ export default function BibleAssetsView() {
         onConfirm={() => void handleDeleteAllAssets()}
         title="Delete All Assets?"
         description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
-        countdown={10}
+        confirmationString={selectedQuest?.name || 'DELETE'}
       />
       {selectedQuest && (
         <ModalDetails

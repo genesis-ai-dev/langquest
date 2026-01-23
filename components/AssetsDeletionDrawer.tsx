@@ -8,7 +8,9 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { useLocalization } from '@/hooks/useLocalization';
 import { AlertTriangleIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
@@ -20,7 +22,7 @@ interface AssetsDeletionDrawerProps {
   onConfirm: () => void | Promise<void>;
   title: string;
   description: string;
-  countdown?: number; // Countdown duration in seconds (default: 10)
+  confirmationString: string; // String that user must type to confirm deletion
 }
 
 export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
@@ -29,38 +31,22 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
   onConfirm,
   title,
   description,
-  countdown = 10
+  confirmationString
 }) => {
-  const [timeLeft, setTimeLeft] = React.useState(countdown);
+  const { t } = useLocalization();
+  const [inputValue, setInputValue] = React.useState('');
   const [isExecuting, setIsExecuting] = React.useState(false);
 
-  // Reset timer when drawer opens
+  // Reset input when drawer opens
   React.useEffect(() => {
     if (isOpen) {
-      setTimeLeft(countdown);
+      setInputValue('');
       setIsExecuting(false);
     }
-  }, [isOpen, countdown]);
-
-  // Countdown timer
-  React.useEffect(() => {
-    if (!isOpen || timeLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isOpen, timeLeft]);
+  }, [isOpen]);
 
   const handleConfirm = async () => {
-    if (timeLeft > 0 || isExecuting) return;
+    if (inputValue !== confirmationString || isExecuting) return;
 
     setIsExecuting(true);
     try {
@@ -73,7 +59,7 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
     }
   };
 
-  const isButtonDisabled = timeLeft > 0 || isExecuting;
+  const isButtonDisabled = inputValue !== confirmationString || isExecuting;
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -92,6 +78,23 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
           </DrawerDescription>
         </DrawerHeader>
 
+        <View className="px-4 pb-4">
+          <Text className="mb-2 text-sm text-muted-foreground">
+            {t('typeToConfirm').replace(
+              '{text}',
+              `"${confirmationString}"`
+            )}
+          </Text>
+          <Input
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder={confirmationString}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isExecuting}
+          />
+        </View>
+
         <DrawerFooter className="gap-2">
           <Button
             variant="destructive"
@@ -101,22 +104,18 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
           >
             {isExecuting ? (
               <Text className="font-semibold text-destructive-foreground">
-                Deleting...
-              </Text>
-            ) : timeLeft > 0 ? (
-              <Text className="font-semibold text-destructive-foreground">
-                Wait {timeLeft}s to confirm
+                {t('deleting')}
               </Text>
             ) : (
               <Text className="font-semibold text-destructive-foreground">
-                Confirm Deletion
+                {t('confirmDeletion')}
               </Text>
             )}
           </Button>
 
           <DrawerClose asChild>
             <Button variant="outline" disabled={isExecuting}>
-              <Text className="font-semibold">Cancel</Text>
+              <Text className="font-semibold">{t('cancel')}</Text>
             </Button>
           </DrawerClose>
         </DrawerFooter>
