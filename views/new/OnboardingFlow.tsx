@@ -130,12 +130,12 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     }
   });
 
-  // Create language mutation
+  // Create language mutation (uses synced table for immediate project publishing)
   const { mutateAsync: createLanguage, isPending: isCreatingLanguage } =
     useMutation({
       mutationFn: async (values: LanguageFormData) => {
         const newLanguage = await db
-          .insert(resolveTable('language', { localOverride: true }))
+          .insert(resolveTable('language', { localOverride: false }))
           .values({
             id: uuid.v4(),
             native_name: values.native_name,
@@ -153,7 +153,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
       }
     });
 
-  // Create project mutation
+  // Create project mutation (uses synced tables for immediate project publishing)
   const { mutateAsync: createProject, isPending: isCreatingProject } =
     useMutation({
       mutationFn: async (languageId: string) => {
@@ -171,7 +171,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
           | undefined;
         await db.transaction(async (tx) => {
           const [project] = await tx
-            .insert(resolveTable('project', { localOverride: true }))
+            .insert(resolveTable('project', { localOverride: false }))
             .values({
               name: projectName,
               template: projectType!,
@@ -187,7 +187,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
 
           await tx
             .insert(
-              resolveTable('profile_project_link', { localOverride: true })
+              resolveTable('profile_project_link', { localOverride: false })
             )
             .values({
               id: `${currentUser!.id}_${project.id}`,
