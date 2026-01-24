@@ -21,7 +21,6 @@ import {
   saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import type { LegendListRef } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
@@ -787,22 +786,13 @@ const BibleRecordingView = ({
   // when items array reference changes but content is identical
   const itemsForWheel = React.useMemo(() => allItems, [allItems]);
 
-  // Assets only (for legacy LegendList)
-  const assetsForLegendList = React.useMemo(() => assets, [assets]);
-
   // Clamp insertion index when item count changes
   React.useEffect(() => {
-     
-    // if (USE_INSERTION_WHEEL) {
-      const maxIndex = allItems.length; // Can insert at 0..N (after last item)
-      if (insertionIndex > maxIndex) {
-        setInsertionIndex(maxIndex);
-      }
-    // }
+    const maxIndex = allItems.length; // Can insert at 0..N (after last item)
+    if (insertionIndex > maxIndex) {
+      setInsertionIndex(maxIndex);
+    }
   }, [allItems.length, insertionIndex]);
-
-  // Ref for LegendList to enable scrolling
-  const listRef = React.useRef<LegendListRef>(null);
 
   // Track item count to detect new insertions
   const previousItemCountRef = React.useRef(allItems.length);
@@ -2685,87 +2675,13 @@ const BibleRecordingView = ({
     return map;
   }, [itemsForWheel, createAssetCallbacks]);
 
-  // Memoized render function for LegendList
-  // OPTIMIZED: No audioContext.position dependency - progress now uses SharedValues!
-  // This eliminates 10 re-renders/second during audio playback
-  const renderAssetItem = React.useCallback(
-    ({ item, index }: { item: UIAsset; index: number }) => {
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
-      const isThisAssetPlayingIndividually =
-        audioContext.isPlaying && audioContext.currentAudioId === item.id;
-      const isThisAssetPlayingInPlayAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
-      const isThisAssetPlaying =
-        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      const isSelected = selectedAssetIds.has(item.id);
-      const canMergeDown =
-        index < assets.length - 1 && assets[index + 1]?.source !== 'cloud';
 
-      // Duration from lazy-loaded metadata
-      const duration = item.duration;
-
-      // Get custom progress for play-all mode
-      const customProgress =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-          ? assetProgressSharedMapRef.current.get(item.id)
-          : undefined;
-
-      return (
-        <AssetCard
-          asset={item}
-          index={index}
-          isSelected={isSelected}
-          isSelectionMode={isSelectionMode}
-          isPlaying={isThisAssetPlaying}
-          duration={duration}
-          canMergeDown={canMergeDown}
-          segmentCount={item.segmentCount}
-          customProgress={customProgress}
-          onPress={() => {
-            if (isSelectionMode) {
-              stableToggleSelect(item.id);
-            } else {
-              void stableHandlePlayAsset(item.id);
-            }
-          }}
-          onLongPress={() => {
-            stableEnterSelection(item.id);
-          }}
-          onPlay={() => {
-            void stableHandlePlayAsset(item.id);
-          }}
-          onDelete={stableHandleDeleteLocalAsset}
-          onMerge={stableHandleMergeDownLocal}
-          onRename={stableHandleRenameAsset}
-        />
-      );
-    },
-    [
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      currentlyPlayingAssetId,
-      // audioContext.position REMOVED - uses SharedValues now!
-      // audioContext.duration REMOVED - not needed for render
-      selectedAssetIds,
-      isSelectionMode,
-      assets,
-      stableHandlePlayAsset,
-      stableToggleSelect,
-      stableEnterSelection,
-      stableHandleDeleteLocalAsset,
-      stableHandleMergeDownLocal,
-      stableHandleRenameAsset
-    ]
-  );
-
-  // Memoized children for ArrayInsertionWheel
-  // OPTIMIZED: No audioContext.position/duration dependencies - progress now uses SharedValues!
-  // This eliminates re-creating all children 10+ times per second during audio playback
-  const wheelChildren = React.useMemo(() => {
-    return itemsForWheel.map((item, index) => {
+  // Lazy renderItem for ArrayInsertionWheel
+  // OPTIMIZED: Only renders items when they become visible (virtualização)
+  // No audioContext.position/duration dependencies - progress now uses SharedValues!
+  // This is much more efficient than pre-creating all children
+  const renderWheelItem = React.useCallback(
+    (item: ListItem, index: number) => {
       // Render verse pill items differently from asset items
       if (isPill(item)) {
         const pillText = item.verse
@@ -2817,7 +2733,7 @@ const BibleRecordingView = ({
       // Fallback if callbacks not found (shouldn't happen, but defensive)
       if (!callbacks) {
         console.warn(`Missing callbacks for asset ${item.id}`);
-        return null;
+        return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
       return (
@@ -2840,23 +2756,21 @@ const BibleRecordingView = ({
           onRename={stableHandleRenameAsset}
         />
       );
-    });
-  }, [
-    itemsForWheel,
-    formatVerseRange,
-    audioContext.isPlaying,
-    audioContext.currentAudioId,
-    currentlyPlayingAssetId,
-    // assetProgressSharedMap REMOVED - it's a ref, accessed directly in render
-    // audioContext.position REMOVED - uses SharedValues now!
-    // audioContext.duration REMOVED - not needed for render
-    selectedAssetIds,
-    isSelectionMode,
-    assetCallbacksMap, // OPTIMIZED: Map of stable callbacks per asset
-    stableHandleDeleteLocalAsset,
-    stableHandleMergeDownLocal,
-    stableHandleRenameAsset
-  ]);
+    },
+    [
+      formatVerseRange,
+      audioContext.isPlaying,
+      audioContext.currentAudioId,
+      currentlyPlayingAssetId,
+      selectedAssetIds,
+      isSelectionMode,
+      itemsForWheel,
+      assetCallbacksMap,
+      stableHandleDeleteLocalAsset,
+      stableHandleMergeDownLocal,
+      stableHandleRenameAsset
+    ]
+  );
 
   // SESSION-ONLY MODE: No loading/error states needed
   // The list starts empty and only shows assets recorded in this session
@@ -3022,7 +2936,7 @@ const BibleRecordingView = ({
         {/* {USE_INSERTION_WHEEL ? ( */}
           // ArrayInsertionWheel mode - always show wheel (starts with initial verse pill)
           <View className="relative h-full flex-1">
-            <ArrayInsertionWheel
+            <ArrayInsertionWheel<ListItem>
               ref={wheelRef}
               value={insertionIndex}
               onChange={(newIndex) => {
@@ -3041,9 +2955,9 @@ const BibleRecordingView = ({
               className="h-full flex-1"
               bottomInset={footerHeight}
               boundaryComponent={boundaryComponent}
-            >
-              {wheelChildren}
-            </ArrayInsertionWheel>
+              data={itemsForWheel}
+              renderItem={renderWheelItem}
+            />
           </View>
         {/* ) : (
           // LegendList mode (legacy)

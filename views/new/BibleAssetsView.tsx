@@ -3332,7 +3332,7 @@ export default function BibleAssetsView() {
         <View
           style={{
             bottom: insets.bottom + 24,
-            left: 24
+            ...(isPublished ? { right: 24 } : { left: 24 })
           }}
           className="absolute z-50"
         >
