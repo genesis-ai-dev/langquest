@@ -872,9 +872,6 @@ export default function BibleAssetsView() {
         verseName
       });
 
-      console.log(
-        `🎯 Selected separator for recording | verse: ${verse} | orderIndex: ${orderIndex} | verseName: "${verseName}"`
-      );
     },
     [selectedForRecording?.type, selectedForRecording?.separatorKey]
   );
@@ -902,9 +899,6 @@ export default function BibleAssetsView() {
       // Reset the name counter for this quest
       const counterKey = `bible_recording_counter_${currentQuestId}`;
       await AsyncStorage.removeItem(counterKey);
-      console.log(
-        `🔄 Name counter reset for quest ${currentQuestId.slice(0, 8)}`
-      );
 
       setSelectedForRecording(null);
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -1278,9 +1272,6 @@ export default function BibleAssetsView() {
     }
 
     if (separatorsToRemove.length > 0) {
-      console.log(
-        `🧹 Cleaning up ${separatorsToRemove.length} manual separator(s) that are now persisted in asset metadata`
-      );
       setManualSeparators((prev) =>
         prev.filter((sep) => !separatorsToRemove.includes(sep.key))
       );
@@ -1355,10 +1346,6 @@ export default function BibleAssetsView() {
       if (assetsToUpdate.length > 0) {
         try {
           await batchUpdateAssetMetadata(assetsToUpdate);
-          console.log(
-            `✅ Updated ${assetsToUpdate.length} asset(s) below separator with new verse range ${newFrom}-${newTo} (with order_index)`
-          );
-
           // Invalidate queries to refresh the UI
           void queryClient.invalidateQueries({ queryKey: ['assets'] });
           void refetch();
@@ -1707,10 +1694,6 @@ export default function BibleAssetsView() {
 
         await batchUpdateAssetMetadata(updates);
 
-        console.log(
-          `✅ Assigned verse ${from}-${to} to ${selectedAssets.length} asset(s)`
-        );
-
         // Close drawer and clear selection
         setShowVerseAssignerDrawer(false);
         cancelSelection();
@@ -1755,10 +1738,6 @@ export default function BibleAssetsView() {
         }
       }
 
-      console.log(
-        `📊 Unassigned (${verseBase}): last sequential = ${lastSequential}, moving ${selectedAssets.length} asset(s) starting at ${lastSequential + 1}`
-      );
-
       // Set metadata to null and assign order_index at end of unassigned list
       const updates: AssetUpdatePayload[] = selectedAssets.map(
         (asset, index) => ({
@@ -1769,8 +1748,6 @@ export default function BibleAssetsView() {
       );
 
       await batchUpdateAssetMetadata(updates);
-
-      console.log(`✅ Removed labels from ${selectedAssets.length} asset(s)`);
 
       // Close drawer and clear selection
       setShowVerseAssignerDrawer(false);
@@ -1871,7 +1848,6 @@ export default function BibleAssetsView() {
             .orderBy(asc(assetTable.order_index));
 
           if (assetsInVerse.length === 0) {
-            console.log(`  ⏭️ Verse ${verse}: no assets found, skipping`);
             continue;
           }
 
@@ -1903,17 +1879,12 @@ export default function BibleAssetsView() {
             console.log(
               `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
             );
-          } else {
-            console.log(
-              `  ⏭️ Verse ${verse}: ${assetsInVerse.length} asset(s) already normalized`
-            );
-          }
+          } 
         } catch (error) {
           console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
         }
       }
 
-      console.log(`🔄 Normalization complete`);
     },
     [currentQuestId]
   );
@@ -2943,6 +2914,87 @@ export default function BibleAssetsView() {
     }
   };
 
+  // ============================================================================
+  // SORTING HANDLER (memoized for performance)
+  // ============================================================================
+  const UNASSIGNED_VERSE_BASE = 999; // High value so unassigned assets appear at the end
+
+  const handleSorting = React.useCallback(
+    async (params: { indexToKey: string[]; data: ListItem[] }) => {
+      // Build a map of key -> item for quick lookup
+      const keyToItem = new Map(params.data.map((item) => [item.key, item]));
+
+      // Iterate through the new order and update asset metadata + order_index
+      // based on the preceding separator
+      let currentSeparator: ListItemSeparator | null = null;
+      let sequentialInGroup = 1; // Tracks position within current verse group (starts at 1)
+      const updates: AssetUpdatePayload[] = [];
+
+      for (const key of params.indexToKey) {
+        const item = keyToItem.get(key);
+        if (!item) continue;
+
+        if (item.type === 'separator') {
+          currentSeparator = item;
+          sequentialInGroup = 1; // Reset counter for new group (starts at 1)
+        } else if (item.type === 'asset') {
+          // Calculate order_index: (from * 1000 + sequential) * 1000
+          const verseBase = currentSeparator?.from ?? UNASSIGNED_VERSE_BASE;
+          const newOrderIndex = (verseBase * 1000 + sequentialInGroup) * 1000;
+          sequentialInGroup++;
+
+          // Determine the metadata based on the current separator
+          const newMetadata: AssetMetadata | null = currentSeparator?.from
+            ? {
+                verse: {
+                  from: currentSeparator.from,
+                  to: currentSeparator.to ?? currentSeparator.from
+                }
+              }
+            : null;
+
+          // Check if metadata or order_index has changed
+          const currentMetadata = item.content.metadata;
+          const currentOrderIndex = item.content.order_index;
+
+          const metadataChanged =
+            JSON.stringify(newMetadata) !== JSON.stringify(currentMetadata);
+          const orderIndexChanged = newOrderIndex !== currentOrderIndex;
+
+          if (metadataChanged || orderIndexChanged) {
+            const update: AssetUpdatePayload = {
+              assetId: item.content.id
+            };
+
+            // Only include changed fields
+            if (metadataChanged) {
+              update.metadata = newMetadata;
+            }
+            if (orderIndexChanged) {
+              update.order_index = newOrderIndex;
+            }
+
+            updates.push(update);
+          }
+        }
+      }
+
+      // Batch update all changed assets
+      if (updates.length > 0) {
+        try {
+          await batchUpdateAssetMetadata(updates);
+
+          // Invalidate queries to refresh the UI
+          void queryClient.invalidateQueries({ queryKey: ['assets'] });
+          void refetch(); // Refresh current assets to remove stale separators
+        } catch (err: unknown) {
+          console.error('Failed to update assets:', err);
+        }
+      }
+    },
+    [queryClient, refetch]
+  );
+
   if (!currentQuestId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -2994,105 +3046,6 @@ export default function BibleAssetsView() {
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
   const projectName = currentProjectData?.name || '';
-
-  // ============================================================================
-  // ORDER_INDEX CALCULATION
-  // Formula: order_index = (from * 1000 + sequential) * 1000
-  // - 'from' is the verse number from the separator (999 for unassigned)
-  // - 'sequential' is the position within that verse group (1-based, starts at 1)
-  // - Final value is multiplied by 1000 to leave space for future insertions
-  // Example: verse 7, first asset → 7001000, second → 7002000, etc.
-  // This ensures assets are ordered by verse first, then by position within verse
-  // ============================================================================
-
-  const UNASSIGNED_VERSE_BASE = 999; // High value so unassigned assets appear at the end
-
-  async function _handleSorting(params: {
-    indexToKey: string[];
-    data: ListItem[];
-  }) {
-    console.log('🔄 Sorting:');
-    // Build a map of key -> item for quick lookup
-    const keyToItem = new Map(params.data.map((item) => [item.key, item]));
-
-    // Iterate through the new order and update asset metadata + order_index
-    // based on the preceding separator
-    let currentSeparator: ListItemSeparator | null = null;
-    let sequentialInGroup = 1; // Tracks position within current verse group (starts at 1)
-    const updates: AssetUpdatePayload[] = [];
-
-    for (const key of params.indexToKey) {
-      const item = keyToItem.get(key);
-      if (!item) continue;
-
-      if (item.type === 'separator') {
-        currentSeparator = item;
-        sequentialInGroup = 1; // Reset counter for new group (starts at 1)
-      } else if (item.type === 'asset') {
-        // Calculate order_index: (from * 1000 + sequential) * 1000
-        const verseBase = currentSeparator?.from ?? UNASSIGNED_VERSE_BASE;
-        const newOrderIndex = (verseBase * 1000 + sequentialInGroup) * 1000;
-        sequentialInGroup++;
-
-        // Determine the metadata based on the current separator
-        const newMetadata: AssetMetadata | null = currentSeparator?.from
-          ? {
-              verse: {
-                from: currentSeparator.from,
-                to: currentSeparator.to ?? currentSeparator.from
-              }
-            }
-          : null;
-
-        // Check if metadata or order_index has changed
-        const currentMetadata = item.content.metadata;
-        const currentOrderIndex = item.content.order_index;
-
-        const metadataChanged =
-          JSON.stringify(newMetadata) !== JSON.stringify(currentMetadata);
-        const orderIndexChanged = newOrderIndex !== currentOrderIndex;
-
-        if (metadataChanged || orderIndexChanged) {
-          const update: AssetUpdatePayload = {
-            assetId: item.content.id
-          };
-
-          // Only include changed fields
-          if (metadataChanged) {
-            update.metadata = newMetadata;
-          }
-          if (orderIndexChanged) {
-            update.order_index = newOrderIndex;
-          }
-
-          // Log asset change details
-          console.log(
-            `📝 "${item.content.name}" (${item.content.id.slice(0, 8)}...) | ` +
-              `metadata: ${metadataChanged ? `${JSON.stringify(currentMetadata)} → ${JSON.stringify(newMetadata)}` : '(unchanged)'} | ` +
-              `order_index: ${orderIndexChanged ? `${currentOrderIndex} → ${newOrderIndex}` : '(unchanged)'}`
-          );
-
-          updates.push(update);
-        }
-      }
-    }
-
-    // Batch update all changed assets
-    if (updates.length > 0) {
-      try {
-        await batchUpdateAssetMetadata(updates);
-        console.log(
-          `✅ Updated ${updates.length} asset(s) (metadata + order_index)`
-        );
-
-        // Invalidate queries to refresh the UI
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch(); // Refresh current assets to remove stale separators
-      } catch (err: unknown) {
-        console.error('Failed to update assets:', err);
-      }
-    }
-  }
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6">
@@ -3346,7 +3299,7 @@ export default function BibleAssetsView() {
             rowGap={3}
             scrollableRef={scrollableRef} // required for auto scroll
             overDrag="vertical"
-            onDragEnd={(params) => void _handleSorting(params)}
+            onDragEnd={(params) => void handleSorting(params)}
             customHandle
             sortEnabled={!isSelectionMode} // Disable sorting in selection mode
             // autoScrollActivationOffset={75}
@@ -3489,7 +3442,7 @@ export default function BibleAssetsView() {
       )}
 
 
-      {allowSettings && isOwner && (
+      {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
@@ -3499,15 +3452,17 @@ export default function BibleAssetsView() {
       )}
 
       {/* Delete All Assets Drawer */}
-      <AssetsDeletionDrawer
-        isOpen={showDeleteAllDrawer}
-        onClose={() => setShowDeleteAllDrawer(false)}
-        onConfirm={() => void handleDeleteAllAssets()}
-        title="Delete All Assets?"
-        description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
-        confirmationString={selectedQuest?.name || 'DELETE'}
-      />
-      {selectedQuest && (
+      {showDeleteAllDrawer && (
+        <AssetsDeletionDrawer
+          isOpen={showDeleteAllDrawer}
+          onClose={() => setShowDeleteAllDrawer(false)}
+          onConfirm={() => void handleDeleteAllAssets()}
+          title="Delete All Assets?"
+          description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
+          confirmationString={selectedQuest?.name || 'DELETE'}
+        />
+      )}
+      {showDetailsModal && selectedQuest && (
         <ModalDetails
           isVisible={showDetailsModal}
           contentType="quest"
@@ -3531,68 +3486,74 @@ export default function BibleAssetsView() {
       )}
 
       {/* Offload Verification Drawer */}
-      <QuestOffloadVerificationDrawer
-        isOpen={showOffloadDrawer}
-        onOpenChange={(open) => {
-          if (!open && !isOffloading) {
-            setShowOffloadDrawer(false);
-            verificationState.cancel();
-          }
-        }}
-        onContinue={handleOffloadConfirm}
-        verificationState={verificationState}
-        isOffloading={isOffloading}
-      />
+      {showOffloadDrawer && (
+        <QuestOffloadVerificationDrawer
+          isOpen={showOffloadDrawer}
+          onOpenChange={(open) => {
+            if (!open && !isOffloading) {
+              setShowOffloadDrawer(false);
+              verificationState.cancel();
+            }
+          }}
+          onContinue={handleOffloadConfirm}
+          verificationState={verificationState}
+          isOffloading={isOffloading}
+        />
+      )}
 
       {/* Rename Asset Drawer */}
-      <RenameAssetDrawer
-        isOpen={showRenameDrawer}
-        currentName={renameAssetName}
-        onOpenChange={(open) => {
-          setShowRenameDrawer(open);
-          if (!open) {
-            setRenameAssetId(null);
-          }
-        }}
-        onSave={handleSaveRename}
-      />
+      {showRenameDrawer && (
+        <RenameAssetDrawer
+          isOpen={showRenameDrawer}
+          currentName={renameAssetName}
+          onOpenChange={(open) => {
+            setShowRenameDrawer(open);
+            if (!open) {
+              setRenameAssetId(null);
+            }
+          }}
+          onSave={handleSaveRename}
+        />
+      )}
 
       {/* Batch Verse Assignment Drawer */}
-      <Drawer
-        open={showVerseAssignerDrawer}
-        onOpenChange={(open) => {
-          setShowVerseAssignerDrawer(open);
-        }}
-        snapPoints={['40%']}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Assign Verse</DrawerTitle>
-            <DrawerDescription>
-              Select verse range for {selectedAssetIds.size} selected asset
-              {selectedAssetIds.size !== 1 ? 's' : ''}
-            </DrawerDescription>
-          </DrawerHeader>
-          <VerseAssigner
-            availableVerses={getAvailableVerses()}
-            existingLabels={existingLabels}
-            getMaxToForFrom={getMaxToForFrom}
-            verseCount={verseCount}
-            onApply={(from, to) => {
-              void handleAssignVerseToSelected(from, to);
-            }}
-            onCancel={() => setShowVerseAssignerDrawer(false)}
-            onRemove={handleRemoveLabelFromSelected}
-            hasSelectedAssetsWithLabels={selectedAssetsHaveLabels}
-            className="mx-4"
-            ScrollViewComponent={DrawerScrollView}
-          />
-        </DrawerContent>
-      </Drawer>
+      {showVerseAssignerDrawer && (
+        <Drawer
+          open={showVerseAssignerDrawer}
+          onOpenChange={(open) => {
+            setShowVerseAssignerDrawer(open);
+          }}
+          snapPoints={['40%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Assign Verse</DrawerTitle>
+              <DrawerDescription>
+                Select verse range for {selectedAssetIds.size} selected asset
+                {selectedAssetIds.size !== 1 ? 's' : ''}
+              </DrawerDescription>
+            </DrawerHeader>
+            <VerseAssigner
+              availableVerses={getAvailableVerses()}
+              existingLabels={existingLabels}
+              getMaxToForFrom={getMaxToForFrom}
+              verseCount={verseCount}
+              onApply={(from, to) => {
+                void handleAssignVerseToSelected(from, to);
+              }}
+              onCancel={() => setShowVerseAssignerDrawer(false)}
+              onRemove={handleRemoveLabelFromSelected}
+              hasSelectedAssetsWithLabels={selectedAssetsHaveLabels}
+              className="mx-4"
+              ScrollViewComponent={DrawerScrollView}
+            />
+          </DrawerContent>
+        </Drawer>
+      )}
 
       {/* Private Access Gate Modal for Membership Requests */}
-      {isPrivateProject && (
+      {isPrivateProject && showPrivateAccessModal && (
         <PrivateAccessGate
           projectId={currentProjectId || ''}
           projectName={projectName as string}
@@ -3605,168 +3566,176 @@ export default function BibleAssetsView() {
       )}
 
       {/* Verse Range Selector Drawer for editing existing separator */}
-      <Drawer
-        open={verseSelectorState.isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setVerseSelectorState({ isOpen: false, key: null });
-          }
-        }}
-        snapPoints={['40%']}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Select Verse Range</DrawerTitle>
-          </DrawerHeader>
-          <View className="p-4">
-            <VerseRangeSelector
-              from={verseSelectorState.from ?? 1}
-              to={verseSelectorState.to ?? verseCount}
-              ScrollViewComponent={GHScrollView}
-              onApply={(from, to) => {
-                addVerseSeparator(from, to);
-                // Clear recording selection when any label is added
-                setSelectedForRecording(null);
-                setVerseSelectorState({ isOpen: false, key: null });
-              }}
-              onCancel={() =>
-                setVerseSelectorState({ isOpen: false, key: null })
-              }
-            />
-          </View>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Verse Range Selector Drawer for adding new label */}
-      <Drawer
-        open={newLabelSelectorState.isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setNewLabelSelectorState({ isOpen: false });
-          }
-        }}
-        snapPoints={['40%']}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Add Verse Label</DrawerTitle>
-          </DrawerHeader>
-          <View className="p-4">
-            <VerseRangeSelector
-              availableVerses={getAvailableVerses()}
-              ScrollViewComponent={GHScrollView}
-              getMaxToForFrom={getMaxToForFrom}
-              onApply={(from, to) => {
-                addVerseSeparator(from, to);
-                // Clear recording selection when any label is added
-                setSelectedForRecording(null);
-                setNewLabelSelectorState({ isOpen: false });
-              }}
-              onCancel={() => setNewLabelSelectorState({ isOpen: false })}
-            />
-          </View>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Verse Range Selector Drawer for adding label above asset */}
-      <Drawer
-        open={assetVerseSelectorState.isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAssetVerseSelectorState({ isOpen: false, assetId: null });
-          }
-        }}
-        snapPoints={['40%']}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Add Verse Label</DrawerTitle>
-          </DrawerHeader>
-          <View className="p-4">
-            <VerseRangeSelector
-              availableVerses={
-                assetVerseSelectorState.assetId
-                  ? getRangeForAsset(assetVerseSelectorState.assetId)
-                      .availableVerses
-                  : getAvailableVerses()
-              }
-              ScrollViewComponent={GHScrollView}
-              getMaxToForFrom={getMaxToForFrom}
-              onApply={(from, to) => {
-                if (assetVerseSelectorState.assetId) {
-                  addVerseSeparator(from, to, assetVerseSelectorState.assetId);
-                } else {
-                  addVerseSeparator(from, to);
-                }
-                // Clear recording selection when any label is added
-                setSelectedForRecording(null);
-                setAssetVerseSelectorState({ isOpen: false, assetId: null });
-              }}
-              onCancel={() =>
-                setAssetVerseSelectorState({ isOpen: false, assetId: null })
-              }
-            />
-          </View>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Verse Range Selector Drawer for editing separator */}
-      <Drawer
-        open={editSeparatorState.isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditSeparatorState({ isOpen: false, separatorKey: null });
-          }
-        }}
-        snapPoints={['40%']}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Edit Verse Label</DrawerTitle>
-          </DrawerHeader>
-          <View className="p-4">
-            {editSeparatorState.separatorKey && (
+      {verseSelectorState.isOpen && (
+        <Drawer
+          open={verseSelectorState.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setVerseSelectorState({ isOpen: false, key: null });
+            }
+          }}
+          snapPoints={['40%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Select Verse Range</DrawerTitle>
+            </DrawerHeader>
+            <View className="p-4">
               <VerseRangeSelector
-                availableVerses={
-                  getRangeForSeparator(editSeparatorState.separatorKey)
-                    .availableVerses
-                }
-                from={editSeparatorState.from}
-                to={editSeparatorState.to}
+                from={verseSelectorState.from ?? 1}
+                to={verseSelectorState.to ?? verseCount}
                 ScrollViewComponent={GHScrollView}
-                getMaxToForFrom={(selectedFrom) =>
-                  getMaxToForFromSeparator(
-                    editSeparatorState.separatorKey!,
-                    selectedFrom
-                  )
-                }
-                onApply={async (from, to) => {
-                  if (editSeparatorState.separatorKey) {
-                    await updateVerseSeparator(
-                      editSeparatorState.separatorKey,
-                      editSeparatorState.from,
-                      editSeparatorState.to,
-                      from,
-                      to
-                    );
-                  }
-                  // Clear recording selection when any label is edited
-                  // This ensures we don't have stale order_index references
+                onApply={(from, to) => {
+                  addVerseSeparator(from, to);
+                  // Clear recording selection when any label is added
                   setSelectedForRecording(null);
-                  setEditSeparatorState({ isOpen: false, separatorKey: null });
+                  setVerseSelectorState({ isOpen: false, key: null });
                 }}
                 onCancel={() =>
-                  setEditSeparatorState({ isOpen: false, separatorKey: null })
+                  setVerseSelectorState({ isOpen: false, key: null })
                 }
               />
-            )}
-          </View>
-        </DrawerContent>
-      </Drawer>
+            </View>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {/* Verse Range Selector Drawer for adding new label */}
+      {newLabelSelectorState.isOpen && (
+        <Drawer
+          open={newLabelSelectorState.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setNewLabelSelectorState({ isOpen: false });
+            }
+          }}
+          snapPoints={['40%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Add Verse Label</DrawerTitle>
+            </DrawerHeader>
+            <View className="p-4">
+              <VerseRangeSelector
+                availableVerses={getAvailableVerses()}
+                ScrollViewComponent={GHScrollView}
+                getMaxToForFrom={getMaxToForFrom}
+                onApply={(from, to) => {
+                  addVerseSeparator(from, to);
+                  // Clear recording selection when any label is added
+                  setSelectedForRecording(null);
+                  setNewLabelSelectorState({ isOpen: false });
+                }}
+                onCancel={() => setNewLabelSelectorState({ isOpen: false })}
+              />
+            </View>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {/* Verse Range Selector Drawer for adding label above asset */}
+      {assetVerseSelectorState.isOpen && (
+        <Drawer
+          open={assetVerseSelectorState.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAssetVerseSelectorState({ isOpen: false, assetId: null });
+            }
+          }}
+          snapPoints={['40%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Add Verse Label</DrawerTitle>
+            </DrawerHeader>
+            <View className="p-4">
+              <VerseRangeSelector
+                availableVerses={
+                  assetVerseSelectorState.assetId
+                    ? getRangeForAsset(assetVerseSelectorState.assetId)
+                        .availableVerses
+                    : getAvailableVerses()
+                }
+                ScrollViewComponent={GHScrollView}
+                getMaxToForFrom={getMaxToForFrom}
+                onApply={(from, to) => {
+                  if (assetVerseSelectorState.assetId) {
+                    addVerseSeparator(from, to, assetVerseSelectorState.assetId);
+                  } else {
+                    addVerseSeparator(from, to);
+                  }
+                  // Clear recording selection when any label is added
+                  setSelectedForRecording(null);
+                  setAssetVerseSelectorState({ isOpen: false, assetId: null });
+                }}
+                onCancel={() =>
+                  setAssetVerseSelectorState({ isOpen: false, assetId: null })
+                }
+              />
+            </View>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {/* Verse Range Selector Drawer for editing separator */}
+      {editSeparatorState.isOpen && (
+        <Drawer
+          open={editSeparatorState.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditSeparatorState({ isOpen: false, separatorKey: null });
+            }
+          }}
+          snapPoints={['40%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Verse Label</DrawerTitle>
+            </DrawerHeader>
+            <View className="p-4">
+              {editSeparatorState.separatorKey && (
+                <VerseRangeSelector
+                  availableVerses={
+                    getRangeForSeparator(editSeparatorState.separatorKey)
+                      .availableVerses
+                  }
+                  from={editSeparatorState.from}
+                  to={editSeparatorState.to}
+                  ScrollViewComponent={GHScrollView}
+                  getMaxToForFrom={(selectedFrom) =>
+                    getMaxToForFromSeparator(
+                      editSeparatorState.separatorKey!,
+                      selectedFrom
+                    )
+                  }
+                  onApply={async (from, to) => {
+                    if (editSeparatorState.separatorKey) {
+                      await updateVerseSeparator(
+                        editSeparatorState.separatorKey,
+                        editSeparatorState.from,
+                        editSeparatorState.to,
+                        from,
+                        to
+                      );
+                    }
+                    // Clear recording selection when any label is edited
+                    // This ensures we don't have stale order_index references
+                    setSelectedForRecording(null);
+                    setEditSeparatorState({ isOpen: false, separatorKey: null });
+                  }}
+                  onCancel={() =>
+                    setEditSeparatorState({ isOpen: false, separatorKey: null })
+                  }
+                />
+              )}
+            </View>
+          </DrawerContent>
+        </Drawer>
+      )}
     </View>
   );
 }
