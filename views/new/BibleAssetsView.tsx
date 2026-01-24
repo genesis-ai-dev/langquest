@@ -3403,14 +3403,13 @@ export default function BibleAssetsView() {
               // size="lg"
               className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
               onPress={() => setShowRecording(true)}
-              
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
               <View className="ml-2 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
-                <Text className="text-left text-sm text-secondary w-full">
+                <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
                     ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                     : t('noLabelSelected')}

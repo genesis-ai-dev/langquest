@@ -64,8 +64,7 @@ import { useLocalStore } from '@/store/localStore';
 // import { OTAUpdateDebugControls } from '@/components/OTAUpdateDebugControls';
 
 function AppViewContent() {
-  const { currentView, canGoBack, goBack, goToProjects } =
-    useAppNavigation();
+  const { currentView, canGoBack, goBack, goToProjects } = useAppNavigation();
   const { isAuthenticated } = useAuth();
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
