@@ -478,6 +478,20 @@ export const localizations = {
     tok_pisin: 'Putim translation bilong yu long hia',
     indonesian: 'Masukkan terjemahan Anda di sini'
   },
+  enterTranscription: {
+    english: 'Enter your transcription here',
+    spanish: 'Ingrese su transcripción aquí',
+    brazilian_portuguese: 'Digite sua transcrição aqui',
+    tok_pisin: 'Putim transcription bilong yu long hia',
+    indonesian: 'Masukkan transkripsi Anda di sini'
+  },
+  enterYourTranscriptionIn: {
+    english: 'Enter your transcription in {language}',
+    spanish: 'Ingrese su transcripción en {language}',
+    brazilian_portuguese: 'Digite sua transcrição em {language}',
+    tok_pisin: 'Putim transcription bilong yu long {language}',
+    indonesian: 'Masukkan transkripsi Anda dalam {language}'
+  },
   enterValidEmail: {
     english: 'Please enter a valid email',
     spanish: 'Por favor ingrese un correo electrónico válido',
@@ -512,6 +526,13 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao criar tradução',
     tok_pisin: 'I no inap mekim translation',
     indonesian: 'Gagal membuat terjemahan'
+  },
+  failedCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar transcrição',
+    tok_pisin: 'I no inap mekim transcription',
+    indonesian: 'Gagal membuat transkripsi'
   },
   failedLoadProjects: {
     english: 'Failed to load projects',
@@ -612,6 +633,13 @@ export const localizations = {
     brazilian_portuguese: 'Nova Tradução',
     tok_pisin: 'Nupela Translation',
     indonesian: 'Terjemahan Baru'
+  },
+  newTranscription: {
+    english: 'New Transcription',
+    spanish: 'Nueva Transcripción',
+    brazilian_portuguese: 'Nova Transcrição',
+    tok_pisin: 'Nupela Transcription',
+    indonesian: 'Transkripsi Baru'
   },
   newUser: {
     english: 'New user?',
@@ -4301,6 +4329,13 @@ export const localizations = {
     tok_pisin: 'Translation i go gut pinis',
     indonesian: 'Terjemahan berhasil dikirim'
   },
+  transcriptionSubmittedSuccessfully: {
+    english: 'Transcription submitted successfully',
+    spanish: 'Transcripción enviada correctamente',
+    brazilian_portuguese: 'Transcrição enviada com sucesso',
+    tok_pisin: 'Transcription i go gut pinis',
+    indonesian: 'Transkripsi berhasil dikirim'
+  },
   text: {
     english: 'Text',
     spanish: 'Texto',
@@ -4321,6 +4356,13 @@ export const localizations = {
     brazilian_portuguese: 'Idioma de destino',
     tok_pisin: 'Target Tokples',
     indonesian: 'Bahasa Target'
+  },
+  sourceLanguage: {
+    english: 'Source Language',
+    spanish: 'Idioma de origen',
+    brazilian_portuguese: 'Idioma de origem',
+    tok_pisin: 'Source Tokples',
+    indonesian: 'Bahasa Sumber'
   },
   your: {
     english: 'Your',
@@ -4754,11 +4796,58 @@ export const localizations = {
     indonesian: 'Durasi Jeda'
   },
   vadSilenceDescription: {
-    english: 'How long to wait before stopping',
-    spanish: 'Tiempo de espera antes de detener',
-    brazilian_portuguese: 'Quanto tempo esperar antes de parar',
-    tok_pisin: 'Hamas taim bipo em i stop',
-    indonesian: 'Berapa lama menunggu sebelum berhenti'
+    english: 'How much silence is needed to determine segment boundaries.',
+    spanish:
+      'Cuánto silencio se necesita para determinar los límites del segmento.',
+    brazilian_portuguese:
+      'Quanto silêncio é necessário para determinar os limites do segmento.',
+    tok_pisin: 'Hamas taim i no gat nois bilong katim toktok.',
+    indonesian:
+      'Berapa lama keheningan yang diperlukan untuk menentukan batas segmen.'
+  },
+  vadMinSegmentLength: {
+    english: 'Minimum Segment Length',
+    spanish: 'Longitud Mínima de Segmento',
+    brazilian_portuguese: 'Comprimento Mínimo do Segmento',
+    tok_pisin: 'Liklik Taim Inap Bilong Toktok',
+    indonesian: 'Panjang Segmen Minimum'
+  },
+  vadMinSegmentLengthDescription: {
+    english: 'Discard segments below this duration (filter brief noises)',
+    spanish:
+      'Descartar segmentos por debajo de esta duración (filtrar ruidos breves)',
+    brazilian_portuguese:
+      'Descartar segmentos abaixo desta duração (filtrar ruídos breves)',
+    tok_pisin: 'Rausim sotpela rekoding (filta liklik pairap)',
+    indonesian: 'Buang segmen di bawah durasi ini (filter suara singkat)'
+  },
+  vadNoFilter: {
+    english: 'No filter',
+    spanish: 'Sin filtro',
+    brazilian_portuguese: 'Sem filtro',
+    tok_pisin: 'No filta',
+    indonesian: 'Tanpa filter'
+  },
+  vadLightFilter: {
+    english: 'Light filter',
+    spanish: 'Filtro ligero',
+    brazilian_portuguese: 'Filtro leve',
+    tok_pisin: 'Liklik filta',
+    indonesian: 'Filter ringan'
+  },
+  vadMediumFilter: {
+    english: 'Medium filter',
+    spanish: 'Filtro medio',
+    brazilian_portuguese: 'Filtro médio',
+    tok_pisin: 'Namel filta',
+    indonesian: 'Filter sedang'
+  },
+  vadStrongFilter: {
+    english: 'Strong filter',
+    spanish: 'Filtro fuerte',
+    brazilian_portuguese: 'Filtro forte',
+    tok_pisin: 'Strongpela filta',
+    indonesian: 'Filter kuat'
   },
   vadSensitive: {
     english: 'Sensitive',
@@ -4866,28 +4955,52 @@ export const localizations = {
     indonesian: 'Cara Kerja'
   },
   vadHelpAutomatic: {
-    english: 'Starts when you speak. Stops when you pause.',
-    spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
+    english:
+      'When sound is detected a segment will automatically start recording. After some silence the segment will be saved. You may record multiple segments like this in sequence while recording is activated.',
+    spanish:
+      'Cuando se detecta sonido, un segmento comenzará a grabarse automáticamente. Después de un silencio, el segmento se guardará. Puedes grabar múltiples segmentos así en secuencia mientras la grabación está activada.',
     brazilian_portuguese:
-      'Inicia quando você fala. Para quando você faz uma pausa.',
-    tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
-    indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
+      'Quando som é detectado, um segmento começará a gravar automaticamente. Após um silêncio, o segmento será salvo. Você pode gravar múltiplos segmentos assim em sequência enquanto a gravação está ativada.',
+    tok_pisin:
+      'Taim masin i harim nois, em bai stat long rekodim. Bihain long taim i no gat nois, em bai sevim. Yu ken rekodim planti taim olsem wanwan taim rekod i op.',
+    indonesian:
+      'Saat suara terdeteksi, segmen akan mulai merekam secara otomatis. Setelah keheningan, segmen akan disimpan. Anda dapat merekam beberapa segmen seperti ini secara berurutan saat perekaman diaktifkan.'
   },
   vadHelpSensitivity: {
-    english: 'Lower sensitivity picks up quiet speech.',
-    spanish: 'Menor sensibilidad capta el habla tranquila.',
-    brazilian_portuguese: 'Menor sensibilidade capta fala baixa.',
-    tok_pisin: 'Liklik strong i harim smol toktok.',
-    indonesian: 'Sensitivitas rendah menangkap suara pelan.'
+    english:
+      'Sensitivity sets the threshold to determine when a clip starts and ends. Lower sensitivity picks up quieter speech, but also other potential noises.',
+    spanish:
+      'La sensibilidad controla el umbral que determina cuándo un clip comienza y termina. Con mayor sensibilidad se detecta habla más silenciosa, pero también más ruido de fondo.',
+    brazilian_portuguese:
+      'A sensibilidade define o limite para determinar quando um clipe começa e termina. Sensibilidade mais baixa capta fala mais baixa, mas também outros ruídos potenciais.',
+    tok_pisin:
+      'Sensitiv i makim hamas nois i nidim bilong stat na pinis. Liklik sensitiv i harim smol toktok, tasol em i ken harim tu ol narapela nois.',
+    indonesian:
+      'Sensitivitas mengatur ambang batas untuk menentukan kapan klip dimulai dan berakhir. Sensitivitas rendah menangkap suara pelan, tetapi juga suara lain yang mungkin.'
   },
   vadHelpPause: {
-    english: 'Shorter pause splits faster. Longer captures everything.',
-    spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
+    english:
+      'A shorter Pause Length will break your recording into more segments at smaller pauses.',
+    spanish:
+      'Una longitud de pausa más corta dividirá tu grabación en más segmentos en pausas más pequeñas.',
     brazilian_portuguese:
-      'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
-    tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
+      'Um comprimento de pausa mais curto dividirá sua gravação em mais segmentos em pausas menores.',
+    tok_pisin:
+      'Sotpela taim bilong pas bai katim rekod bilong yu long planti hap long ol liklik taim yu pas.',
     indonesian:
-      'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+      'Durasi jeda yang lebih pendek akan memecah rekaman Anda menjadi lebih banyak segmen pada jeda yang lebih kecil.'
+  },
+  vadHelpMinSegment: {
+    english:
+      'Minimum Segment Length prevents saving of very short segments below the set duration, such as coughs or door slams.',
+    spanish:
+      'La Longitud Mínima de Segmento evita guardar segmentos muy cortos por debajo de la duración establecida, como toses o portazos.',
+    brazilian_portuguese:
+      'O Comprimento Mínimo do Segmento evita salvar segmentos muito curtos abaixo da duração definida, como tosses ou batidas de porta.',
+    tok_pisin:
+      'Liklik Taim Inap i banisim ol sotpela rekod aninit long taim yu makim, olsem kus o doa i paitim.',
+    indonesian:
+      'Panjang Segmen Minimum mencegah penyimpanan segmen yang sangat pendek di bawah durasi yang ditetapkan, seperti batuk atau bunyi pintu.'
   },
   vadAutoCalibrate: {
     english: 'Auto-Calibrate',
@@ -4912,6 +5025,18 @@ export const localizations = {
     tok_pisin: 'Em i no wok. Traim gen long ples i no gat tumas nois.',
     indonesian:
       'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
+  },
+  vadCalibrateHint: {
+    english:
+      'During auto-calibration remain silent or only allow sounds that you want to be below the sensitivity threshold.',
+    spanish:
+      'Durante la auto-calibración permanece en silencio o solo permite sonidos que deseas que estén por debajo del umbral de sensibilidad.',
+    brazilian_portuguese:
+      'Durante a auto-calibração permaneça em silêncio ou apenas permita sons que você deseja que fiquem abaixo do limite de sensibilidade.',
+    tok_pisin:
+      'Taim masin i wokim kalibresen, yu mas stap isi o larim ol nois tasol we yu laik i stap aninit long mak.',
+    indonesian:
+      'Selama kalibrasi otomatis tetaplah diam atau hanya izinkan suara yang ingin Anda agar berada di bawah ambang sensitivitas.'
   },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
@@ -5963,6 +6088,21 @@ export const localizations = {
     brazilian_portuguese: 'Transcrição',
     tok_pisin: 'Transcription',
     indonesian: 'Transkripsi'
+  },
+  transcriptions: {
+    english: 'Transcriptions',
+    spanish: 'Transcripciones',
+    brazilian_portuguese: 'Transcrições',
+    tok_pisin: 'Ol Transcription',
+    indonesian: 'Transkripsi'
+  },
+  noTranscriptionsYet: {
+    english: 'No transcriptions yet. Be the first to transcribe!',
+    spanish: 'No hay transcripciones aún. ¡Sé el primero en transcribir!',
+    brazilian_portuguese:
+      'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
+    tok_pisin: 'I no gat transcription yet. Yu ken namba wan long transcribe!',
+    indonesian: 'Belum ada transkripsi. Jadilah yang pertama mentranskripsi!'
   },
   transcriptionDescription: {
     english: 'Enable automatic transcription of audio recordings',

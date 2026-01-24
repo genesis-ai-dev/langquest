@@ -115,12 +115,12 @@ export default function NextGenProjectsView() {
           throw new Error('Must be logged in to create projects');
         }
 
-        // insert into local storage
+        // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
           // Create project (target_language_id is deprecated but still required by schema)
           const { target_languoid_id, ...projectValues } = values;
           const [newProject] = await tx
-            .insert(resolveTable('project', { localOverride: true }))
+            .insert(resolveTable('project', { localOverride: false }))
             .values({
               ...projectValues,
               template: projectValues.template,
@@ -134,7 +134,7 @@ export default function NextGenProjectsView() {
           // Create profile_project_link
           await tx
             .insert(
-              resolveTable('profile_project_link', { localOverride: true })
+              resolveTable('profile_project_link', { localOverride: false })
             )
             .values({
               id: `${currentUser.id}_${newProject.id}`,
@@ -146,13 +146,13 @@ export default function NextGenProjectsView() {
 
           // Create project_language_link with languoid_id
           // PK is (project_id, languoid_id, language_type) - language_id is optional
-          const projectLanguageLinkLocal = resolveTable(
+          const projectLanguageLinkSynced = resolveTable(
             'project_language_link',
             {
-              localOverride: true
+              localOverride: false
             }
           );
-          await tx.insert(projectLanguageLinkLocal).values({
+          await tx.insert(projectLanguageLinkSynced).values({
             project_id: newProject.id,
             language_id: null, // Optional - for backward compatibility
             languoid_id: target_languoid_id, // Required - part of PK

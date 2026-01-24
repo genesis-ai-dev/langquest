@@ -22,8 +22,8 @@ export interface CreateLanguoidResult {
 }
 
 /**
- * Creates a new languoid in local storage (for offline use)
- * When the user comes online, PowerSync will upload it to the server
+ * Creates a new languoid in synced storage
+ * When offline, PowerSync queues for upload when user comes online
  *
  * @param params - Languoid creation parameters
  * @returns The created languoid ID
@@ -39,16 +39,16 @@ export async function createLanguoidOffline(
     ui_ready = false
   } = params;
 
-  // Check if a languoid with this name already exists locally
-  const languoidLocal = resolveTable('languoid', { localOverride: true });
+  // Check if a languoid with this name already exists in synced table
+  const languoidSynced = resolveTable('languoid', { localOverride: false });
   const existing = await system.db
     .select()
-    .from(languoidLocal)
-    .where(eq(languoidLocal.name, name))
+    .from(languoidSynced)
+    .where(eq(languoidSynced.name, name))
     .limit(1);
 
   if (existing.length > 0 && existing[0]) {
-    // Languoid already exists locally
+    // Languoid already exists
     return {
       languoid_id: existing[0].id,
       created: false
@@ -58,10 +58,10 @@ export async function createLanguoidOffline(
   // Generate a new ID for the languoid
   const languoidId = uuid.v4() as string;
 
-  // Create the languoid in local storage
+  // Create the languoid in synced storage
   await system.db.transaction(async (tx) => {
     // Insert languoid
-    await tx.insert(languoidLocal).values({
+    await tx.insert(languoidSynced).values({
       id: languoidId,
       name: name.trim(),
       level,
@@ -73,12 +73,12 @@ export async function createLanguoidOffline(
 
     // If iso639_3 code is provided, create languoid_source record
     if (iso639_3 && iso639_3.trim() !== '') {
-      const languoidSourceLocal = resolveTable('languoid_source', {
-        localOverride: true
+      const languoidSourceSynced = resolveTable('languoid_source', {
+        localOverride: false
       });
 
       const sourceId = uuid.v4() as string;
-      await tx.insert(languoidSourceLocal).values({
+      await tx.insert(languoidSourceSynced).values({
         id: sourceId,
         name: 'iso639-3',
         languoid_id: languoidId,
@@ -98,8 +98,7 @@ export async function createLanguoidOffline(
 
 /**
  * Finds or creates a languoid by name
- * First checks if a languoid with the given name exists (locally or synced)
- * If not found, creates a new one offline
+ * Checks synced table, creates in synced table if not found
  *
  * @param name - The languoid name to find or create
  * @param creator_id - The user creating the languoid
@@ -115,31 +114,19 @@ export async function findOrCreateLanguoidByName(
 
   const trimmedName = name.trim();
 
-  // First check synced table (might already exist from server)
+  // Check synced table (all languoids are now created in synced)
   const languoidSynced = resolveTable('languoid', { localOverride: false });
-  const [existingSynced] = await system.db
+  const [existing] = await system.db
     .select()
     .from(languoidSynced)
     .where(eq(languoidSynced.name, trimmedName))
     .limit(1);
 
-  if (existingSynced) {
-    return existingSynced.id;
+  if (existing) {
+    return existing.id;
   }
 
-  // Check local table
-  const languoidLocal = resolveTable('languoid', { localOverride: true });
-  const [existingLocal] = await system.db
-    .select()
-    .from(languoidLocal)
-    .where(eq(languoidLocal.name, trimmedName))
-    .limit(1);
-
-  if (existingLocal) {
-    return existingLocal.id;
-  }
-
-  // Not found - create new languoid offline
+  // Not found - create new languoid in synced table
   const result = await createLanguoidOffline({
     name: trimmedName,
     level: 'language',
@@ -151,7 +138,7 @@ export async function findOrCreateLanguoidByName(
 
 /**
  * Creates a project_language_link with languoid_id
- * Handles both offline and online scenarios
+ * Creates in synced table for immediate project publishing
  *
  * PK is now (project_id, languoid_id, language_type) - languoid_id is required
  *
@@ -168,19 +155,19 @@ export async function createProjectLanguageLinkWithLanguoid(
   creator_id: string,
   language_id?: string // Optional for backward compatibility
 ): Promise<void> {
-  const projectLanguageLinkLocal = resolveTable('project_language_link', {
-    localOverride: true
+  const projectLanguageLinkSynced = resolveTable('project_language_link', {
+    localOverride: false
   });
 
   // Check if link already exists using new PK (project_id, languoid_id, language_type)
   const existing = await system.db
     .select()
-    .from(projectLanguageLinkLocal)
+    .from(projectLanguageLinkSynced)
     .where(
       and(
-        eq(projectLanguageLinkLocal.project_id, project_id),
-        eq(projectLanguageLinkLocal.languoid_id, languoid_id),
-        eq(projectLanguageLinkLocal.language_type, language_type)
+        eq(projectLanguageLinkSynced.project_id, project_id),
+        eq(projectLanguageLinkSynced.languoid_id, languoid_id),
+        eq(projectLanguageLinkSynced.language_type, language_type)
       )
     )
     .limit(1);
@@ -191,7 +178,7 @@ export async function createProjectLanguageLinkWithLanguoid(
   }
 
   // Create new link - languoid_id is required (part of PK), language_id is optional
-  await system.db.insert(projectLanguageLinkLocal).values({
+  await system.db.insert(projectLanguageLinkSynced).values({
     project_id,
     language_id: language_id || null, // Optional - for backward compatibility
     languoid_id,

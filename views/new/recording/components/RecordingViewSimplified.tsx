@@ -136,6 +136,12 @@ const RecordingViewSimplified = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
+  const vadMinSegmentLength = useLocalStore(
+    (state) => state.vadMinSegmentLength
+  );
+  const setVadMinSegmentLength = useLocalStore(
+    (state) => state.setVadMinSegmentLength
+  );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
@@ -1306,17 +1312,22 @@ const RecordingViewSimplified = ({
     debugLog('🎬 VAD: Segment starting | order_index:', targetOrder);
 
     currentRecordingOrderRef.current = targetOrder;
-    vadCounterRef.current = targetOrder + 1; // Increment for next segment
+    // Don't increment yet - wait until it's confirmed not to be a transient
   }, []);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
       if (!uri || uri === '') {
         debugLog('🗑️ VAD: Segment discarded');
+        // Do NOT increment counter - the next segment will reuse currentRecordingOrderRef.current
         return;
       }
 
       debugLog('📼 VAD: Segment complete');
+      // Increment counter only for valid segments
+      if (vadCounterRef.current !== null) {
+        vadCounterRef.current += 1;
+      }
       void handleRecordingComplete(uri, 0, []);
     },
     [handleRecordingComplete]
@@ -1327,7 +1338,8 @@ const RecordingViewSimplified = ({
     currentEnergy,
     isRecording: isVADRecording,
     energyShared,
-    isRecordingShared
+    isRecordingShared,
+    isDiscardedShared
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
@@ -1715,7 +1727,10 @@ const RecordingViewSimplified = ({
           });
         }
 
-        await audioSegmentService.deleteAudioSegment(second.id);
+        // CRITICAL: Preserve audio files when merging - they are now linked to the first asset
+        await audioSegmentService.deleteAudioSegment(second.id, {
+          preserveAudioFiles: true
+        });
 
         // Force re-load of segment count for the merged asset
         debugLog(
@@ -1791,7 +1806,10 @@ const RecordingViewSimplified = ({
                     });
                   }
 
-                  await audioSegmentService.deleteAudioSegment(src.id);
+                  // CRITICAL: Preserve audio files when merging - they are now linked to the target asset
+                  await audioSegmentService.deleteAudioSegment(src.id, {
+                    preserveAudioFiles: true
+                  });
                 }
 
                 // Force re-load of segment count for the merged target asset
@@ -2192,6 +2210,7 @@ const RecordingViewSimplified = ({
           energyShared={energyShared}
           vadThreshold={vadThreshold}
           isRecordingShared={isRecordingShared}
+          isDiscardedShared={isDiscardedShared}
           onCancel={() => {
             // Cancel VAD mode
             setIsVADLocked(false);
@@ -2297,6 +2316,7 @@ const RecordingViewSimplified = ({
             vadThreshold={vadThreshold}
             energyShared={energyShared}
             isRecordingShared={isRecordingShared}
+            isDiscardedShared={isDiscardedShared}
             displayMode={vadDisplayMode}
           />
         )}
@@ -2329,6 +2349,8 @@ const RecordingViewSimplified = ({
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
+        minSegmentLength={vadMinSegmentLength}
+        onMinSegmentLengthChange={setVadMinSegmentLength}
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}

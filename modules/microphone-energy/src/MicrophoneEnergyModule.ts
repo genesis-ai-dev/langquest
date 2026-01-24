@@ -13,6 +13,9 @@ export type VADConfig = {
   onsetMultiplier?: number;
   confirmMultiplier?: number;
   minSegmentDuration?: number;
+  maxOnsetDuration?: number;
+  rewindHalfPause?: boolean;
+  minActiveAudioDuration?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions

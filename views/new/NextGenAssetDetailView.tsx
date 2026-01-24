@@ -8,6 +8,8 @@ import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Text as RNPText } from '@/components/ui/text';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
@@ -23,10 +25,10 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
-import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
@@ -35,6 +37,7 @@ import {
   getLocalUri
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -47,15 +50,12 @@ import {
   LockIcon,
   PlusIcon,
   SettingsIcon,
-  UserIcon,
-  Volume2Icon,
-  VolumeXIcon
+  UserIcon
 } from 'lucide-react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import type { FlatList as FlatListType, ViewToken } from 'react-native';
+import { Dimensions, FlatList, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
-import TranscriptionEditModal from '@/components/TranscriptionEditModal';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
@@ -192,8 +192,10 @@ export default function NextGenAssetDetailView() {
     useTranscription();
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
-  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false);
   const [transcriptionText, setTranscriptionText] = useState('');
+  const [contentTypeFilter, setContentTypeFilter] = useState<
+    'translation' | 'transcription'
+  >('translation');
 
   // Use state for activeTab since user can change it
   const [activeTab, setActiveTab] = useState<TabType>('text');
@@ -373,6 +375,13 @@ export default function NextGenAssetDetailView() {
     return [...audioIds, ...(activeAsset.images ?? [])];
   }, [activeAsset]);
 
+  // Check if source asset has any audio (needed to determine if transcription is available)
+  const sourceHasAudio = React.useMemo(() => {
+    return (activeAsset?.content ?? []).some(
+      (content) => content.audio && content.audio.length > 0
+    );
+  }, [activeAsset?.content]);
+
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
@@ -416,13 +425,23 @@ export default function NextGenAssetDetailView() {
 
   // Active tab is now derived from asset content via useMemo above
 
-  // Reset content index when asset changes
+  // Reset content index and scroll position when asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
     scheduleOnRN(() => {
       setCurrentContentIndex(0);
+      // Also scroll the FlatList to the first item
+      contentFlatListRef.current?.scrollToIndex({ index: 0, animated: false });
     });
   }, [currentAssetId]);
+
+  // Reset to translations tab if source has no audio (transcription requires audio)
+  useEffect(() => {
+    if (!sourceHasAudio && contentTypeFilter === 'transcription') {
+      setContentTypeFilter('translation');
+    }
+  }, [sourceHasAudio, contentTypeFilter]);
+
   // Get audio URIs for a specific content item (not all content flattened)
   // Both web and native now use async OPFS resolution
   const [resolvedAudioUris, setResolvedAudioUris] = useState<string[]>([]);
@@ -448,7 +467,63 @@ export default function NextGenAssetDetailView() {
         audioValues.map(async (audioValue: string): Promise<string | null> => {
           // Handle full file URIs
           if (audioValue.startsWith('file://')) {
-            return audioValue;
+            if (await fileExists(audioValue)) {
+              return audioValue;
+            }
+            console.warn(`File URI does not exist: ${audioValue}`);
+            return null;
+          }
+
+          // Handle local URIs (from saveAudioLocally for unpublished content)
+          if (audioValue.startsWith('local/')) {
+            const constructedUri =
+              await getLocalAttachmentUriWithOPFS(audioValue);
+            // Check if file exists at constructed path
+            if (await fileExists(constructedUri)) {
+              return constructedUri;
+            }
+
+            // File doesn't exist at expected path - try to find it in attachment queue
+            console.log(
+              `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
+            );
+
+            if (system.permAttachmentQueue) {
+              // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
+              const filename = audioValue.replace(/^local\//, '');
+              // Extract UUID part (without extension) for more flexible matching
+              const uuidPart = filename.split('.')[0];
+
+              // Search attachment queue by filename or UUID
+              const attachment = await system.powersync.getOptional<{
+                id: string;
+                filename: string | null;
+                local_uri: string | null;
+              }>(
+                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
+                [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
+              );
+
+              if (attachment?.local_uri) {
+                const foundUri = system.permAttachmentQueue.getLocalUri(
+                  attachment.local_uri
+                );
+                // Verify the found file actually exists
+                if (await fileExists(foundUri)) {
+                  console.log(
+                    `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
+                  );
+                  return foundUri;
+                }
+                console.warn(
+                  `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
+                );
+              }
+            }
+
+            // Local file not found
+            console.warn(`Local audio file not found: ${audioValue}`);
+            return null;
           }
 
           // For anonymous users, get cloud URLs from Supabase storage
@@ -472,8 +547,10 @@ export default function NextGenAssetDetailView() {
 
           // Handle attachment IDs (look up in attachment queue) for authenticated users
           const attachmentState = attachmentStates.get(audioValue);
-          if (attachmentState?.local_uri) {
-            return getLocalAttachmentUriWithOPFS(attachmentState.filename);
+          if (attachmentState?.local_uri && attachmentState.filename) {
+            return await getLocalAttachmentUriWithOPFS(
+              attachmentState.filename
+            );
           }
 
           // Fallback: try to get cloud URL if local not available
@@ -504,12 +581,50 @@ export default function NextGenAssetDetailView() {
     isAuthenticated
   ]);
 
-  console.log('resolvedAudioUris', resolvedAudioUris);
-
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     currentAssetId || '',
     'assets'
   );
+
+  // FlatList ref for programmatic scrolling - must be before any early returns
+  const contentFlatListRef =
+    useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
+
+  // Viewability config for FlatList - must be before any early returns
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+
+  // Handle viewable items change (when user swipes) - must be before any early returns
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const firstItem = viewableItems[0];
+      if (firstItem?.index != null) {
+        setCurrentContentIndex(firstItem.index);
+      }
+    }
+  ).current;
+
+  // Screen dimensions for layout calculations
+  const screenHeight = Dimensions.get('window').height;
+  const screenWidth = Dimensions.get('window').width;
+  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
+  // Content width for FlatList paging (full width minus padding)
+  const contentWidth = screenWidth - 32; // 16px padding on each side
+
+  // Scroll to a specific content index
+  const scrollToContentIndex = (index: number) => {
+    if (contentFlatListRef.current && activeAsset?.content) {
+      const clampedIndex = Math.max(
+        0,
+        Math.min(index, activeAsset.content.length - 1)
+      );
+      contentFlatListRef.current.scrollToIndex({
+        index: clampedIndex,
+        animated: true
+      });
+    }
+  };
 
   if (!currentAssetId) {
     return (
@@ -522,9 +637,6 @@ export default function NextGenAssetDetailView() {
       </View>
     );
   }
-
-  const screenHeight = Dimensions.get('window').height;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
 
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
@@ -569,7 +681,7 @@ export default function NextGenAssetDetailView() {
       return;
     }
 
-    // Validate the audio file exists before attempting transcription
+    // Validate the audio URI exists
     if (!uri) {
       RNAlert.alert(
         t('error'),
@@ -579,15 +691,24 @@ export default function NextGenAssetDetailView() {
       return;
     }
 
-    const exists = await fileExists(uri);
-    if (!exists) {
-      console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
-      return;
+    // For local files, check if they exist. Skip check for URLs (fileExists only works for file:// URIs)
+    const isLocalFile = uri.startsWith('file://');
+    if (isLocalFile) {
+      try {
+        const exists = await fileExists(uri);
+        if (!exists) {
+          console.log('[Transcription] Audio file not found at URI:', uri);
+          RNAlert.alert(
+            t('error'),
+            t('audioNotAvailable') ||
+              'Audio not available. The file may not have been downloaded yet.'
+          );
+          return;
+        }
+      } catch (error) {
+        console.warn('[Transcription] Error checking file existence:', error);
+        // Continue anyway - let the transcription service handle the error
+      }
     }
 
     console.log('[Transcription] Starting transcription for URI:', uri);
@@ -644,9 +765,10 @@ export default function NextGenAssetDetailView() {
         );
       }
 
-      // Open modal with result for editing
+      // Open the new translation drawer in transcription mode with the transcribed text
       setTranscriptionText(finalText);
-      setShowTranscriptionModal(true);
+      setContentTypeFilter('transcription');
+      setShowNewTranslationModal(true);
     } catch (error) {
       console.error('Transcription error:', error);
       const errorMessage =
@@ -754,137 +876,122 @@ export default function NextGenAssetDetailView() {
           className={cn(!allowEditing && 'opacity-50', 'flex overflow-hidden')}
           style={{ height: assetViewerHeight }}
         >
-          <TabsContent value="text" className="flex w-full flex-col px-2 py-4">
+          <TabsContent value="text" className="flex-1 py-2">
             {activeAsset.content && activeAsset.content.length > 0 ? (
-              <View>
-                {/* Current content item */}
-                {activeAsset.content[currentContentIndex] && (
-                  <View>
-                    <SourceContent
-                      content={activeAsset.content[currentContentIndex]}
-                      sourceLanguage={(() => {
-                        const content =
-                          activeAsset.content[currentContentIndex];
-                        if (!content) return null;
-                        const languoidId =
-                          content.languoid_id || content.source_language_id;
-                        const languoid = languoidId
-                          ? (languoidById.get(languoidId) ?? null)
-                          : null;
-                        // TODO: Update SourceContent to accept Languoid type
-                        // For now, use type assertion to handle transition
-                        return languoid as any;
-                      })()}
-                      audioSegments={resolvedAudioUris}
-                      isLoading={isLoadingAttachments}
-                      onTranscribe={
-                        enableTranscription && isAuthenticated
-                          ? handleTranscribe
-                          : undefined
+              <View style={{ flex: 1 }}>
+                {/* Swipeable content carousel */}
+                <FlatList
+                  ref={contentFlatListRef}
+                  data={activeAsset.content}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                  viewabilityConfig={viewabilityConfig}
+                  snapToInterval={contentWidth}
+                  decelerationRate="fast"
+                  getItemLayout={(_, index) => ({
+                    length: contentWidth,
+                    offset: contentWidth * index,
+                    index
+                  })}
+                  style={{ height: 200 }}
+                  renderItem={({ item: content, index }) => {
+                    const languoidId =
+                      content.languoid_id || content.source_language_id;
+                    const languoid = languoidId
+                      ? (languoidById.get(languoidId) ?? null)
+                      : null;
+                    const isCurrentItem = index === currentContentIndex;
+
+                    return (
+                      <View
+                        style={{ width: contentWidth, paddingHorizontal: 8 }}
+                      >
+                        <SourceContent
+                          content={content}
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          sourceLanguage={languoid as any}
+                          audioSegments={
+                            isCurrentItem ? resolvedAudioUris : undefined
+                          }
+                          isLoading={isCurrentItem && isLoadingAttachments}
+                          onTranscribe={
+                            isCurrentItem &&
+                            enableTranscription &&
+                            isAuthenticated
+                              ? handleTranscribe
+                              : undefined
+                          }
+                          isTranscribing={
+                            isCurrentItem && (isTranscribing || isLocalizing)
+                          }
+                        />
+                      </View>
+                    );
+                  }}
+                />
+
+                {/* Navigation controls and pagination - only show if multiple items */}
+                {activeAsset.content.length > 1 && (
+                  <View className="flex-row items-center justify-center gap-2 pt-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={currentContentIndex === 0}
+                      onPress={() =>
+                        scrollToContentIndex(currentContentIndex - 1)
                       }
-                      isTranscribing={isTranscribing || isLocalizing}
-                    />
-                    <View className="flex w-full flex-row justify-between">
-                      {/* Audio status indicator */}
-                      {__DEV__ &&
-                        activeAsset.content[currentContentIndex]
-                          ?.audio?.[0] && (
-                          <View className="flex-row items-center gap-1">
-                            <Icon
-                              as={
-                                attachmentStates.get(
-                                  activeAsset.content[currentContentIndex]
-                                    .audio[0]
-                                )?.local_uri
-                                  ? Volume2Icon
-                                  : VolumeXIcon
-                              }
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                            <Text className="text-sm text-muted-foreground">
-                              {attachmentStates.get(
-                                activeAsset.content[currentContentIndex]
-                                  .audio[0]
-                              )?.local_uri
-                                ? t('audioReady')
-                                : t('audioNotAvailable')}
-                            </Text>
-                          </View>
-                        )}
+                    >
+                      <Icon
+                        as={ChevronLeftIcon}
+                        size={20}
+                        className={
+                          currentContentIndex === 0
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                    </Button>
 
-                      {/* Combined navigation controls and audio status */}
-
-                      {activeAsset.content.length > 1 ? (
+                    {/* Pagination dots */}
+                    <View className="flex-row items-center gap-1.5">
+                      {activeAsset.content.map((_, index) => (
                         <View
-                          className="flex-row items-center justify-between pt-2"
-                          style={{ marginTop: 8 }}
-                        >
-                          {/* Navigation buttons - only show if multiple items */}
-                          {activeAsset.content.length > 1 ? (
-                            <View className="flex-row items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                disabled={currentContentIndex === 0}
-                                onPress={() =>
-                                  setCurrentContentIndex((prev) =>
-                                    Math.max(0, prev - 1)
-                                  )
-                                }
-                              >
-                                <Icon
-                                  as={ChevronLeftIcon}
-                                  size={20}
-                                  className={
-                                    currentContentIndex === 0
-                                      ? 'text-muted-foreground'
-                                      : 'text-foreground'
-                                  }
-                                />
-                              </Button>
-
-                              <Text className="text-sm text-muted-foreground">
-                                {currentContentIndex + 1} /{' '}
-                                {activeAsset.content.length}
-                              </Text>
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                disabled={
-                                  currentContentIndex ===
-                                  activeAsset.content.length - 1
-                                }
-                                onPress={() =>
-                                  setCurrentContentIndex((prev) =>
-                                    Math.min(
-                                      (activeAsset.content?.length ?? 1) - 1,
-                                      prev + 1
-                                    )
-                                  )
-                                }
-                              >
-                                <Icon
-                                  as={ChevronRightIcon}
-                                  size={20}
-                                  className={
-                                    currentContentIndex ===
-                                    activeAsset.content.length - 1
-                                      ? 'text-muted-foreground'
-                                      : 'text-foreground'
-                                  }
-                                />
-                              </Button>
-                            </View>
-                          ) : (
-                            <View />
+                          key={index}
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            index === currentContentIndex
+                              ? 'bg-primary'
+                              : 'bg-muted-foreground/30'
                           )}
-                        </View>
-                      ) : null}
+                        />
+                      ))}
                     </View>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={
+                        currentContentIndex === activeAsset.content.length - 1
+                      }
+                      onPress={() =>
+                        scrollToContentIndex(currentContentIndex + 1)
+                      }
+                    >
+                      <Icon
+                        as={ChevronRightIcon}
+                        size={20}
+                        className={
+                          currentContentIndex === activeAsset.content.length - 1
+                            ? 'text-muted-foreground'
+                            : 'text-foreground'
+                        }
+                      />
+                    </Button>
                   </View>
                 )}
               </View>
@@ -917,8 +1024,31 @@ export default function NextGenAssetDetailView() {
         </View>
       </Tabs>
 
-      {/* Translations List - Pass project data to avoid re-querying */}
+      {/* Translations/Transcriptions List - Pass project data to avoid re-querying */}
       <View className="flex-1">
+        {/* Content Type Toggle - only show transcription option if source has audio */}
+        <View className="h-px bg-border" />
+        <View className="pt-2">
+          <ToggleGroup
+            type="single"
+            value={contentTypeFilter}
+            onValueChange={(value) => {
+              if (value)
+                setContentTypeFilter(value as typeof contentTypeFilter);
+            }}
+            className="w-full"
+          >
+            <ToggleGroupItem value="translation" className="flex-1">
+              <RNPText>{t('translations')}</RNPText>
+            </ToggleGroupItem>
+            {sourceHasAudio && (
+              <ToggleGroupItem value="transcription" className="flex-1">
+                <RNPText>{t('transcriptions')}</RNPText>
+              </ToggleGroupItem>
+            )}
+          </ToggleGroup>
+        </View>
+
         <NextGenTranslationsList
           assetId={currentAssetId}
           assetName={activeAsset.name}
@@ -934,6 +1064,7 @@ export default function NextGenAssetDetailView() {
           }
           canVote={canTranslate}
           membership={translateMembership}
+          contentTypeFilter={contentTypeFilter}
         />
       </View>
 
@@ -980,30 +1111,36 @@ export default function NextGenAssetDetailView() {
       ) : (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
-          disabled={
-            !canTranslate ||
-            (activeAsset.source && activeAsset.source === 'local')
-          }
+          disabled={!canTranslate}
           onPress={handleNewTranslationPress}
         >
           <Icon as={PlusIcon} size={24} />
           <Text className="font-bold text-secondary">
-            {t('newTranslation')}
+            {contentTypeFilter === 'transcription'
+              ? t('newTranscription')
+              : t('newTranslation')}
           </Text>
         </Button>
       )}
 
-      {/* New Translation Modal */}
+      {/* New Translation/Transcription Modal */}
       {canTranslate && (
         <NextGenNewTranslationModal
           visible={showNewTranslationModal}
-          onClose={() => setShowNewTranslationModal(false)}
+          onClose={() => {
+            setShowNewTranslationModal(false);
+            setTranscriptionText(''); // Clear transcription text when modal closes
+          }}
           onSuccess={handleTranslationSuccess}
           assetId={currentAssetId}
           assetName={activeAsset.name}
           assetContent={activeAsset.content}
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
+          isLocalSource={activeAsset.source === 'local'}
+          initialContentType={contentTypeFilter}
+          initialText={transcriptionText}
+          resolvedAudioUris={resolvedAudioUris}
         />
       )}
 
@@ -1027,23 +1164,6 @@ export default function NextGenAssetDetailView() {
               goBack();
             }
           }}
-        />
-      )}
-
-      {/* Transcription Edit Modal */}
-      {isAuthenticated && currentProjectId && (
-        <TranscriptionEditModal
-          visible={showTranscriptionModal}
-          onClose={() => setShowTranscriptionModal(false)}
-          onSuccess={() => setTranslationsRefreshKey((prev) => prev + 1)}
-          initialText={transcriptionText}
-          sourceAssetId={activeAsset.id}
-          projectId={currentProjectId}
-          languoidId={
-            activeAsset.content?.[currentContentIndex]?.languoid_id ||
-            activeAsset.content?.[currentContentIndex]?.source_language_id ||
-            ''
-          }
         />
       )}
     </View>
