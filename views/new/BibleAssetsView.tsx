@@ -871,7 +871,6 @@ export default function BibleAssetsView() {
         metadata,
         verseName
       });
-
     },
     [selectedForRecording?.type, selectedForRecording?.separatorKey]
   );
@@ -1076,7 +1075,6 @@ export default function BibleAssetsView() {
         // Invalidate queries to refresh the list
         void queryClient.invalidateQueries({ queryKey: ['assets'] });
         void refetch();
-
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
@@ -1168,7 +1166,6 @@ export default function BibleAssetsView() {
                 },
                 order_index: newOrderIndex
               });
-
             }
           }
         } else {
@@ -1211,7 +1208,6 @@ export default function BibleAssetsView() {
                 },
                 order_index: newOrderIndex
               });
-
             }
           }
         }
@@ -1338,7 +1334,6 @@ export default function BibleAssetsView() {
             },
             order_index: newOrderIndex
           });
-
         }
       }
 
@@ -1879,12 +1874,11 @@ export default function BibleAssetsView() {
             console.log(
               `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
             );
-          } 
+          }
         } catch (error) {
           console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
         }
       }
-
     },
     [currentQuestId]
   );
@@ -2650,13 +2644,13 @@ export default function BibleAssetsView() {
           if (uris.length > 0) {
             const assetStartTime = cumulativeTime;
             assetOrderRef.current.push(asset.id);
-            
+
             // Add all URIs for this asset
             for (const uri of uris) {
               allUris.push(uri);
               uriOrderRef.current.push(uri);
               assetUriMapRef.current.set(uri, asset.id);
-              
+
               // Load duration for this URI
               try {
                 const { sound } = await Audio.Sound.createAsync({ uri });
@@ -2673,7 +2667,7 @@ export default function BibleAssetsView() {
                 segmentDurationsRef.current.push(0);
               }
             }
-            
+
             // Store the time range for this asset
             assetTimeRangesRef.current.push({
               assetId: asset.id,
@@ -3346,7 +3340,6 @@ export default function BibleAssetsView() {
                       icon={SettingsIcon}
                       variant="outline"
                       onPress={() => setShowSettingsModal(true)}
-                     
                     />
                   ) : !hasReported ? (
                     <SpeedDialItem
@@ -3382,10 +3375,10 @@ export default function BibleAssetsView() {
                 }}
               />
             </SpeedDialItems>
-            <SpeedDialTrigger className='rounded-md -top-0.5 text-destructive-foreground' />
+            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
           </SpeedDial>
         </View>
-      )}      
+      )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
       {!isPublished && currentUser && (
@@ -3408,39 +3401,28 @@ export default function BibleAssetsView() {
             <Pressable
               //variant="destructive"
               // size="lg"
-              className="bg-primary w-full flex-row items-center justify-around gap-2 p-2 px-4 rounded-lg ml-14"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
               onPress={() => setShowRecording(true)}
             >
-              <Icon
-                as={MicIcon}
-                size={24}
-                className="text-secondary"
-              />
-              <View className="flex-col justify-start items-start gap-0 ml-2">
-              
-                <Text className="text-base font-semibold text-secondary text-center">
+              <Icon as={MicIcon} size={24} className="text-secondary" />
+              <View className="ml-2 flex-col items-start justify-start gap-0">
+                <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
-              <Text className="text-sm text-secondary text-center">
-                {selectedForRecording?.verseName
-                  ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                  : t('noLabelSelected')}
-                {/* {selectedForRecording?.verseName
+                <Text className="text-center text-sm text-secondary">
+                  {selectedForRecording?.verseName
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
+                    : t('noLabelSelected')}
+                  {/* {selectedForRecording?.verseName
                   ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                   : t('doRecord')} */}
-              </Text>
+                </Text>
               </View>
-              <Icon
-                as={ChevronRight}
-                size={24}
-                className="text-secondary"
-              />              
+              <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-
           )}
         </View>
       )}
-
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
@@ -3663,7 +3645,11 @@ export default function BibleAssetsView() {
                 getMaxToForFrom={getMaxToForFrom}
                 onApply={(from, to) => {
                   if (assetVerseSelectorState.assetId) {
-                    addVerseSeparator(from, to, assetVerseSelectorState.assetId);
+                    addVerseSeparator(
+                      from,
+                      to,
+                      assetVerseSelectorState.assetId
+                    );
                   } else {
                     addVerseSeparator(from, to);
                   }
@@ -3725,7 +3711,10 @@ export default function BibleAssetsView() {
                     // Clear recording selection when any label is edited
                     // This ensures we don't have stale order_index references
                     setSelectedForRecording(null);
-                    setEditSeparatorState({ isOpen: false, separatorKey: null });
+                    setEditSeparatorState({
+                      isOpen: false,
+                      separatorKey: null
+                    });
                   }}
                   onCancel={() =>
                     setEditSeparatorState({ isOpen: false, separatorKey: null })

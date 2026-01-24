@@ -56,7 +56,7 @@ function ArrayInsertionWheelInternal<T>(
 
   // Determine which API is being used
   const isLazyMode = 'data' in props && props.data !== undefined;
-  
+
   // Calculate item count based on mode
   let itemCount: number;
   if (isLazyMode) {
@@ -65,7 +65,7 @@ function ArrayInsertionWheelInternal<T>(
     // Eager mode - children is guaranteed by type
     itemCount = props.children.length + 1;
   }
-  
+
   const clampedValue = Math.max(0, Math.min(itemCount - 1, value));
 
   // Stabilize clampedValue to prevent unnecessary WheelPicker updates
@@ -138,7 +138,7 @@ function ArrayInsertionWheelInternal<T>(
   const renderItemInternal = React.useCallback(
     ({ item }: { item: PickerItem<number> }): React.ReactElement => {
       const i = item.value;
-      
+
       // Calculate data length based on mode
       let dataLength: number;
       if (isLazyMode) {
@@ -256,7 +256,9 @@ function ArrayInsertionWheelInternal<T>(
   );
 }
 
-const ArrayInsertionWheel = React.forwardRef(ArrayInsertionWheelInternal) as <T = unknown>(
+const ArrayInsertionWheel = React.forwardRef(ArrayInsertionWheelInternal) as <
+  T = unknown
+>(
   props: ArrayInsertionWheelProps<T> & {
     ref?: React.Ref<ArrayInsertionWheelHandle>;
   }

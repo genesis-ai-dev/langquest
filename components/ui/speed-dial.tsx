@@ -198,5 +198,4 @@ SpeedDialItem.displayName = 'SpeedDialItem';
 
 export { SpeedDial, SpeedDialItem, SpeedDialItems, SpeedDialTrigger };
 
-  export type { ItemProps as SpeedDialItemProps, SpeedDialProps };
-
+export type { ItemProps as SpeedDialItemProps, SpeedDialProps };

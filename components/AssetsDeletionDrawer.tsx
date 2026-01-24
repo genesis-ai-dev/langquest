@@ -80,10 +80,7 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
 
         <View className="px-4 pb-4">
           <Text className="mb-2 text-sm text-muted-foreground">
-            {t('typeToConfirm').replace(
-              '{text}',
-              `"${confirmationString}"`
-            )}
+            {t('typeToConfirm').replace('{text}', `"${confirmationString}"`)}
           </Text>
           <Input
             value={inputValue}

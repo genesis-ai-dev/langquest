@@ -133,8 +133,8 @@ export default function SettingsView() {
 
   const handleVerseMarkersToggle = (value: boolean) => {
     setEnableVerseMarkers(value);
-  }
-  
+  };
+
   const handleTranscriptionToggle = (value: boolean) => {
     setEnableTranscription(value);
   };
@@ -300,7 +300,8 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableVerseMarkers,
           onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
-        },{
+        },
+        {
           id: 'transcription',
           title: t('transcription') || 'Transcription',
           description:

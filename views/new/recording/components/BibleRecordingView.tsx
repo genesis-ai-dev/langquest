@@ -26,7 +26,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
-import { ArrowDownNarrowWide, ArrowLeft, ChevronLeft, Mic, PauseIcon, PlayIcon, Plus } from 'lucide-react-native';
+import {
+  ArrowDownNarrowWide,
+  ArrowLeft,
+  ChevronLeft,
+  Mic,
+  PauseIcon,
+  PlayIcon,
+  Plus
+} from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -2675,7 +2683,6 @@ const BibleRecordingView = ({
     return map;
   }, [itemsForWheel, createAssetCallbacks]);
 
-
   // Lazy renderItem for ArrayInsertionWheel
   // OPTIMIZED: Only renders items when they become visible (virtualização)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
@@ -2818,35 +2825,37 @@ const BibleRecordingView = ({
 
   const boundaryComponent = useMemo(
     () => (
-    <View
-    style={{ height: ROW_HEIGHT }}
-    className="flex-row items-center justify-center px-4"
-  >
-    <View className='flex-1' />
-    <View
-      className="flex-row items-center gap-2"
-      style={{ flex: 1, justifyContent: 'center' }}
-    >
-      {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
       <View
-        className="flex-row items-center justify-center rounded-full bg-primary/10 p-2 border border-dashed border-primary/50"
-        style={{
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
+        style={{ height: ROW_HEIGHT }}
+        className="flex-row items-center justify-center px-4"
       >
-        <Icon as={Mic} size={20} className='text-secondary-foreground/50'/>
-        <Icon
-          as={ArrowDownNarrowWide}
-          size={20}
-          style={{ marginLeft: 4 }}
-          className='text-secondary-foreground/50'
-        />
+        <View className="flex-1" />
+        <View
+          className="flex-row items-center gap-2"
+          style={{ flex: 1, justifyContent: 'center' }}
+        >
+          {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
+          <View
+            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 p-2"
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Icon as={Mic} size={20} className="text-secondary-foreground/50" />
+            <Icon
+              as={ArrowDownNarrowWide}
+              size={20}
+              style={{ marginLeft: 4 }}
+              className="text-secondary-foreground/50"
+            />
+          </View>
+        </View>
+        <View className="flex-1">{addButtonComponent}</View>
       </View>
-    </View>
-    <View className='flex-1'>{addButtonComponent}</View>
-  </View>
-  ), [addButtonComponent]);
+    ),
+    [addButtonComponent]
+  );
 
   return (
     <View className="flex-1 bg-background">
@@ -2914,16 +2923,18 @@ const BibleRecordingView = ({
           )}
         </View>
       </View>
-      <View className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive':'bg-primary/70'}`}>
+      <View
+        className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive' : 'bg-primary/70'}`}
+      >
         {/* {(isRecording || isVADRecording)? ( */}
-        {(isVADLocked)? (
-          <Text className="text-sm text-center font-semibold text-white">
+        {isVADLocked ? (
+          <Text className="text-center text-sm font-semibold text-white">
             {highlightedItemVerse
               ? `${t('recording')}: ${formatVerseRange(highlightedItemVerse)}`
               : t('recording')}
           </Text>
         ) : (
-          <Text className="text-center text-destructive-foreground font-semibold text-sm">
+          <Text className="text-center text-sm font-semibold text-destructive-foreground">
             {highlightedItemVerse
               ? `${t('recordTo')}: ${formatVerseRange(highlightedItemVerse)}`
               : `${t('noLabelSelected')}`}
@@ -2932,33 +2943,34 @@ const BibleRecordingView = ({
       </View>
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
-        { }
+        {}
         {/* {USE_INSERTION_WHEEL ? ( */}
-          // ArrayInsertionWheel mode - always show wheel (starts with initial verse pill)
-          <View className="relative h-full flex-1">
-            <ArrayInsertionWheel<ListItem>
-              ref={wheelRef}
-              value={insertionIndex}
-              onChange={(newIndex) => {
-                const item = itemsForWheel[newIndex];
-                const itemDesc = item
-                  ? isPill(item)
-                    ? `pill-${item.verse?.from ?? 'null'}`
-                    : item.name
-                  : 'end';
-                console.log(
-                  `🎡 Wheel onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
-                );
-                setInsertionIndex(newIndex);
-              }}
-              rowHeight={ROW_HEIGHT}
-              className="h-full flex-1"
-              bottomInset={footerHeight}
-              boundaryComponent={boundaryComponent}
-              data={itemsForWheel}
-              renderItem={renderWheelItem}
-            />
-          </View>
+        // ArrayInsertionWheel mode - always show wheel (starts with initial
+        verse pill)
+        <View className="relative h-full flex-1">
+          <ArrayInsertionWheel<ListItem>
+            ref={wheelRef}
+            value={insertionIndex}
+            onChange={(newIndex) => {
+              const item = itemsForWheel[newIndex];
+              const itemDesc = item
+                ? isPill(item)
+                  ? `pill-${item.verse?.from ?? 'null'}`
+                  : item.name
+                : 'end';
+              console.log(
+                `🎡 Wheel onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
+              );
+              setInsertionIndex(newIndex);
+            }}
+            rowHeight={ROW_HEIGHT}
+            className="h-full flex-1"
+            bottomInset={footerHeight}
+            boundaryComponent={boundaryComponent}
+            data={itemsForWheel}
+            renderItem={renderWheelItem}
+          />
+        </View>
         {/* ) : (
           // LegendList mode (legacy)
           assetsForLegendList.length > 0 && (
