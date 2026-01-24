@@ -107,6 +107,7 @@ interface ChapterData {
     source_language_id: string | null;
     project_id: string | null;
     source_asset_id: string | null;
+    content_type: 'source' | 'translation' | 'transcription' | null;
     images: string[] | null;
     creator_id: string | null;
     visible: boolean;
@@ -187,12 +188,299 @@ interface ChapterData {
     last_updated: string;
     active: boolean;
   }[];
+  // Translations and transcriptions that reference source assets
+  translationAssets: {
+    id: string;
+    name: string | null;
+    order_index: number;
+    source_language_id: string | null;
+    project_id: string | null;
+    source_asset_id: string | null;
+    content_type: 'translation' | 'transcription' | null;
+    images: string[] | null;
+    creator_id: string | null;
+    visible: boolean;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
+  translationContentLinks: {
+    id: string;
+    asset_id: string;
+    source_language_id: string | null;
+    languoid_id: string | null;
+    text: string | null;
+    audio: string[] | null;
+    download_profiles: string[] | null;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
+  translationQuestAssetLinks: {
+    id: string;
+    quest_id: string;
+    asset_id: string;
+    download_profiles: string[] | null;
+    visible: boolean;
+    created_at: string;
+    last_updated: string;
+    active: boolean;
+  }[];
 }
 
 interface ValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
+}
+
+interface ReferentialIntegrityResult {
+  filteredData: ChapterData;
+  orphanedRecords: {
+    questAssetLinks: string[];
+    translationQuestAssetLinks: string[];
+    assetContentLinks: string[];
+    translationContentLinks: string[];
+    questTagLinks: string[];
+    assetTagLinks: string[];
+    childAssets: string[];
+  };
+  warnings: string[];
+}
+
+// ============================================================================
+// REFERENTIAL INTEGRITY VALIDATION
+// ============================================================================
+
+/**
+ * Validate referential integrity of all records before publishing.
+ * Filter out orphan records (where referenced entities don't exist) but preserve them locally.
+ * This prevents FK constraint violations during upload while keeping data for investigation.
+ *
+ * Checks:
+ * - quest_asset_link: quest_id and asset_id must exist
+ * - asset_content_link: asset_id must exist
+ * - quest_tag_link: quest_id and tag_id must exist
+ * - asset_tag_link: asset_id and tag_id must exist
+ * - child assets: source_asset_id must exist
+ */
+function validateReferentialIntegrity(
+  data: ChapterData
+): ReferentialIntegrityResult {
+  console.log('🔍 Validating referential integrity...');
+
+  const warnings: string[] = [];
+  const orphanedRecords = {
+    questAssetLinks: [] as string[],
+    translationQuestAssetLinks: [] as string[],
+    assetContentLinks: [] as string[],
+    translationContentLinks: [] as string[],
+    questTagLinks: [] as string[],
+    assetTagLinks: [] as string[],
+    childAssets: [] as string[]
+  };
+
+  // Build sets of valid IDs for efficient lookup
+  const validQuestIds = new Set<string>([data.chapter.id]);
+  if (data.parentBook) {
+    validQuestIds.add(data.parentBook.id);
+  }
+
+  const validAssetIds = new Set<string>(data.assets.map((a) => a.id));
+  const validTagIds = new Set<string>((data.tags ?? []).map((t) => t.id));
+
+  // 1. Validate quest_asset_links
+  const validQuestAssetLinks = data.questAssetLinks.filter((link) => {
+    const questExists = validQuestIds.has(link.quest_id);
+    const assetExists = validAssetIds.has(link.asset_id);
+
+    if (!questExists || !assetExists) {
+      orphanedRecords.questAssetLinks.push(link.id);
+      if (!questExists) {
+        warnings.push(
+          `⚠️ Orphan quest_asset_link ${link.id.slice(0, 8)}: quest_id ${link.quest_id.slice(0, 8)} not found`
+        );
+      }
+      if (!assetExists) {
+        warnings.push(
+          `⚠️ Orphan quest_asset_link ${link.id.slice(0, 8)}: asset_id ${link.asset_id.slice(0, 8)} not found`
+        );
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // 2. Validate translation assets (source_asset_id must exist)
+  const validTranslationAssets = (data.translationAssets ?? []).filter(
+    (asset) => {
+      if (asset.source_asset_id && !validAssetIds.has(asset.source_asset_id)) {
+        orphanedRecords.childAssets.push(asset.id);
+        warnings.push(
+          `⚠️ Orphan translation asset ${asset.id.slice(0, 8)}: source_asset_id ${asset.source_asset_id.slice(0, 8)} not found`
+        );
+        return false;
+      }
+      return true;
+    }
+  );
+
+  // Build valid translation asset IDs set (after filtering)
+  const validTranslationAssetIds = new Set<string>(
+    validTranslationAssets.map((a) => a.id)
+  );
+  const allValidAssetIds = new Set([
+    ...validAssetIds,
+    ...validTranslationAssetIds
+  ]);
+
+  // 3. Validate translation quest_asset_links
+  const validTranslationQuestAssetLinks = (
+    data.translationQuestAssetLinks ?? []
+  ).filter((link) => {
+    const questExists = validQuestIds.has(link.quest_id);
+    const assetExists = allValidAssetIds.has(link.asset_id);
+
+    if (!questExists || !assetExists) {
+      orphanedRecords.translationQuestAssetLinks.push(link.id);
+      if (!questExists) {
+        warnings.push(
+          `⚠️ Orphan translation quest_asset_link ${link.id.slice(0, 8)}: quest_id ${link.quest_id.slice(0, 8)} not found`
+        );
+      }
+      if (!assetExists) {
+        warnings.push(
+          `⚠️ Orphan translation quest_asset_link ${link.id.slice(0, 8)}: asset_id ${link.asset_id.slice(0, 8)} not found`
+        );
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // 4. Validate asset_content_links
+  const validAssetContentLinks = data.assetContentLinks.filter((link) => {
+    if (!allValidAssetIds.has(link.asset_id)) {
+      orphanedRecords.assetContentLinks.push(link.id);
+      warnings.push(
+        `⚠️ Orphan asset_content_link ${link.id.slice(0, 8)}: asset_id ${link.asset_id.slice(0, 8)} not found`
+      );
+      return false;
+    }
+    return true;
+  });
+
+  // 5. Validate translation content links
+  const validTranslationContentLinks = (
+    data.translationContentLinks ?? []
+  ).filter((link) => {
+    if (!allValidAssetIds.has(link.asset_id)) {
+      orphanedRecords.translationContentLinks.push(link.id);
+      warnings.push(
+        `⚠️ Orphan translation content_link ${link.id.slice(0, 8)}: asset_id ${link.asset_id.slice(0, 8)} not found`
+      );
+      return false;
+    }
+    return true;
+  });
+
+  // 6. Validate quest_tag_links
+  const validQuestTagLinks = (data.questTagLinks ?? []).filter((link) => {
+    const questExists = validQuestIds.has(link.quest_id);
+    const tagExists = validTagIds.has(link.tag_id);
+
+    if (!questExists || !tagExists) {
+      orphanedRecords.questTagLinks.push(link.id);
+      if (!questExists) {
+        warnings.push(
+          `⚠️ Orphan quest_tag_link ${link.id.slice(0, 8)}: quest_id ${link.quest_id.slice(0, 8)} not found`
+        );
+      }
+      if (!tagExists) {
+        warnings.push(
+          `⚠️ Orphan quest_tag_link ${link.id.slice(0, 8)}: tag_id ${link.tag_id.slice(0, 8)} not found`
+        );
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // 7. Validate asset_tag_links
+  const validAssetTagLinks = (data.assetTagLinks ?? []).filter((link) => {
+    const assetExists = allValidAssetIds.has(link.asset_id);
+    const tagExists = validTagIds.has(link.tag_id);
+
+    if (!assetExists || !tagExists) {
+      orphanedRecords.assetTagLinks.push(link.id);
+      if (!assetExists) {
+        warnings.push(
+          `⚠️ Orphan asset_tag_link ${link.id.slice(0, 8)}: asset_id ${link.asset_id.slice(0, 8)} not found`
+        );
+      }
+      if (!tagExists) {
+        warnings.push(
+          `⚠️ Orphan asset_tag_link ${link.id.slice(0, 8)}: tag_id ${link.tag_id.slice(0, 8)} not found`
+        );
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // Log summary
+  const totalOrphans =
+    orphanedRecords.questAssetLinks.length +
+    orphanedRecords.translationQuestAssetLinks.length +
+    orphanedRecords.assetContentLinks.length +
+    orphanedRecords.translationContentLinks.length +
+    orphanedRecords.questTagLinks.length +
+    orphanedRecords.assetTagLinks.length +
+    orphanedRecords.childAssets.length;
+
+  if (totalOrphans > 0) {
+    console.warn(
+      `⚠️ Found ${totalOrphans} orphan records that will be skipped during publish:`
+    );
+    console.warn(
+      `   - quest_asset_links: ${orphanedRecords.questAssetLinks.length}`
+    );
+    console.warn(
+      `   - translation quest_asset_links: ${orphanedRecords.translationQuestAssetLinks.length}`
+    );
+    console.warn(
+      `   - asset_content_links: ${orphanedRecords.assetContentLinks.length}`
+    );
+    console.warn(
+      `   - translation content_links: ${orphanedRecords.translationContentLinks.length}`
+    );
+    console.warn(
+      `   - quest_tag_links: ${orphanedRecords.questTagLinks.length}`
+    );
+    console.warn(
+      `   - asset_tag_links: ${orphanedRecords.assetTagLinks.length}`
+    );
+    console.warn(`   - child assets: ${orphanedRecords.childAssets.length}`);
+    console.warn('   These records are preserved locally for investigation.');
+  } else {
+    console.log('✅ All records have valid references');
+  }
+
+  return {
+    filteredData: {
+      ...data,
+      questAssetLinks: validQuestAssetLinks,
+      translationAssets: validTranslationAssets,
+      translationQuestAssetLinks: validTranslationQuestAssetLinks,
+      assetContentLinks: validAssetContentLinks,
+      translationContentLinks: validTranslationContentLinks,
+      questTagLinks: validQuestTagLinks,
+      assetTagLinks: validAssetTagLinks
+    },
+    orphanedRecords,
+    warnings
+  };
 }
 
 // ============================================================================
@@ -336,6 +624,55 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     console.log(`🔗 Found ${assetContentLinks.length} content links`);
   }
 
+  // 4a. Get translations/transcriptions that reference the source assets
+  // These are assets with source_asset_id pointing to any of our source assets
+  let translationAssets: ChapterData['translationAssets'] = [];
+  let translationContentLinks: ChapterData['translationContentLinks'] = [];
+  let translationQuestAssetLinks: ChapterData['translationQuestAssetLinks'] =
+    [];
+
+  if (assetIds.length > 0) {
+    // Query for assets that have source_asset_id pointing to our source assets
+    const potentialTranslations = await system.db
+      .select()
+      .from(assetLocal)
+      .where(inArray(assetLocal.source_asset_id, assetIds));
+
+    // Filter to only translation/transcription content types
+    translationAssets = potentialTranslations.filter(
+      (a): a is typeof a & { content_type: 'translation' | 'transcription' } =>
+        a.content_type === 'translation' || a.content_type === 'transcription'
+    );
+
+    if (translationAssets.length > 0) {
+      console.log(
+        `📝 Found ${translationAssets.length} translations/transcriptions to publish`
+      );
+
+      const translationAssetIds = translationAssets.map((a) => a.id);
+
+      // Get content links for translations
+      translationContentLinks = await system.db
+        .select()
+        .from(assetContentLinkLocal)
+        .where(inArray(assetContentLinkLocal.asset_id, translationAssetIds));
+
+      console.log(
+        `🔗 Found ${translationContentLinks.length} translation content links`
+      );
+
+      // Get quest_asset_links for translations
+      translationQuestAssetLinks = await system.db
+        .select()
+        .from(questAssetLinkLocal)
+        .where(inArray(questAssetLinkLocal.asset_id, translationAssetIds));
+
+      console.log(
+        `🔗 Found ${translationQuestAssetLinks.length} translation quest-asset links`
+      );
+    }
+  }
+
   // 4b. Get project_language_link records if project exists
   let projectLanguageLinks: ChapterData['projectLanguageLinks'] = undefined;
   let languoids: ChapterData['languoids'] = undefined;
@@ -419,7 +756,10 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
     questTagLinks,
     assetTagLinks,
     languoids,
-    projectLanguageLinks
+    projectLanguageLinks,
+    translationAssets,
+    translationContentLinks,
+    translationQuestAssetLinks
   };
 }
 
@@ -910,9 +1250,11 @@ async function waitForCriticalDependencies(
 }
 
 /**
- * Copy all records from *_local to synced tables
- * CRITICAL: We insert asset_content_link SEPARATELY after dependencies are confirmed
- * This prevents PowerSync from uploading them before RLS dependencies are ready
+ * Copy all records from *_local to synced tables in a single transaction.
+ * CRITICAL: Source assets are inserted BEFORE child assets (translations/transcriptions)
+ * to ensure foreign key constraints are satisfied.
+ *
+ * @param includeContentLinks - If false, skip asset_content_link records (inserted in second pass after dependencies sync)
  */
 async function executePublishTransaction(
   data: ChapterData,
@@ -1211,12 +1553,97 @@ async function executePublishTransaction(
       }
     }
 
-    // 5. Publish assets (preserving order)
+    // 5. Publish assets
+    // CRITICAL: Insert SOURCE assets FIRST (no source_asset_id), then CHILD assets
+    // This ensures foreign key constraints are satisfied (children reference parents)
     if (data.assets.length > 0) {
-      console.log(`📝 Publishing ${data.assets.length} assets...`);
+      // 5a. Insert source assets first (no source_asset_id)
+      const sourceAssets = data.assets.filter((a) => !a.source_asset_id);
+      if (sourceAssets.length > 0) {
+        console.log(`📝 Publishing ${sourceAssets.length} source assets...`);
+        let skipped = 0;
+        for (const assetData of sourceAssets) {
+          const [existingAsset] = await tx
+            .select()
+            .from(asset)
+            .where(eq(asset.id, assetData.id))
+            .limit(1);
+
+          if (!existingAsset) {
+            await tx.insert(asset).values({
+              id: assetData.id,
+              name: assetData.name,
+              order_index: assetData.order_index,
+              source_language_id: assetData.source_language_id,
+              project_id: assetData.project_id,
+              source_asset_id: assetData.source_asset_id,
+              content_type: assetData.content_type,
+              images: assetData.images,
+              creator_id: assetData.creator_id,
+              visible: assetData.visible,
+              download_profiles: assetData.download_profiles,
+              created_at: assetData.created_at,
+              last_updated: assetData.last_updated,
+              active: assetData.active
+            });
+          } else {
+            skipped++;
+          }
+        }
+        if (skipped > 0) {
+          console.log(
+            `⏭️  Skipped ${skipped} source assets that already exist`
+          );
+        }
+      }
+
+      // 5b. Insert child assets second (have source_asset_id)
+      const childAssets = data.assets.filter((a) => a.source_asset_id);
+      if (childAssets.length > 0) {
+        console.log(`📝 Publishing ${childAssets.length} child assets...`);
+        let skipped = 0;
+        for (const assetData of childAssets) {
+          const [existingAsset] = await tx
+            .select()
+            .from(asset)
+            .where(eq(asset.id, assetData.id))
+            .limit(1);
+
+          if (!existingAsset) {
+            await tx.insert(asset).values({
+              id: assetData.id,
+              name: assetData.name,
+              order_index: assetData.order_index,
+              source_language_id: assetData.source_language_id,
+              project_id: assetData.project_id,
+              source_asset_id: assetData.source_asset_id,
+              content_type: assetData.content_type,
+              images: assetData.images,
+              creator_id: assetData.creator_id,
+              visible: assetData.visible,
+              download_profiles: assetData.download_profiles,
+              created_at: assetData.created_at,
+              last_updated: assetData.last_updated,
+              active: assetData.active
+            });
+          } else {
+            skipped++;
+          }
+        }
+        if (skipped > 0) {
+          console.log(`⏭️  Skipped ${skipped} child assets that already exist`);
+        }
+      }
+    }
+
+    // 5c. Publish translation/transcription assets from translationAssets array
+    // (these are gathered separately and also need source assets to exist first)
+    if (data.translationAssets.length > 0) {
+      console.log(
+        `📝 Publishing ${data.translationAssets.length} translation/transcription assets...`
+      );
       let skipped = 0;
-      for (const assetData of data.assets) {
-        // Check if asset already exists
+      for (const assetData of data.translationAssets) {
         const [existingAsset] = await tx
           .select()
           .from(asset)
@@ -1231,6 +1658,7 @@ async function executePublishTransaction(
             source_language_id: assetData.source_language_id,
             project_id: assetData.project_id,
             source_asset_id: assetData.source_asset_id,
+            content_type: assetData.content_type,
             images: assetData.images,
             creator_id: assetData.creator_id,
             visible: assetData.visible,
@@ -1244,7 +1672,9 @@ async function executePublishTransaction(
         }
       }
       if (skipped > 0) {
-        console.log(`⏭️  Skipped ${skipped} assets that already exist`);
+        console.log(
+          `⏭️  Skipped ${skipped} translation assets that already exist`
+        );
       }
     }
 
@@ -1283,8 +1713,43 @@ async function executePublishTransaction(
       }
     }
 
-    // 7. Publish asset content links (ONLY if includeContentLinks is true)
-    // This is delayed until after dependencies are confirmed
+    // 6b. Publish translation quest-asset links
+    if (data.translationQuestAssetLinks.length > 0) {
+      console.log(
+        `🔗 Publishing ${data.translationQuestAssetLinks.length} translation quest-asset links...`
+      );
+      let skipped = 0;
+      for (const link of data.translationQuestAssetLinks) {
+        const [existing] = await tx
+          .select()
+          .from(questAssetLink)
+          .where(eq(questAssetLink.id, link.id))
+          .limit(1);
+
+        if (!existing) {
+          await tx.insert(questAssetLink).values({
+            id: link.id,
+            quest_id: link.quest_id,
+            asset_id: link.asset_id,
+            download_profiles: link.download_profiles,
+            visible: link.visible,
+            created_at: link.created_at,
+            last_updated: link.last_updated,
+            active: link.active
+          });
+        } else {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        console.log(
+          `⏭️  Skipped ${skipped} translation quest-asset links that already exist`
+        );
+      }
+    }
+
+    // 7. Publish asset content links (only if includeContentLinks is true)
+    // This is delayed until after all assets are confirmed in Supabase
     if (includeContentLinks && data.assetContentLinks.length > 0) {
       console.log(
         `🔗 Publishing ${data.assetContentLinks.length} content links...`
@@ -1317,10 +1782,43 @@ async function executePublishTransaction(
       if (skipped > 0) {
         console.log(`⏭️  Skipped ${skipped} content links that already exist`);
       }
-    } else if (!includeContentLinks && data.assetContentLinks.length > 0) {
+    }
+
+    // 7b. Publish translation content links (only if includeContentLinks is true)
+    if (includeContentLinks && data.translationContentLinks.length > 0) {
       console.log(
-        `⏸️  Delaying ${data.assetContentLinks.length} content links until dependencies are ready`
+        `🔗 Publishing ${data.translationContentLinks.length} translation content links...`
       );
+      let skipped = 0;
+      for (const link of data.translationContentLinks) {
+        const [existing] = await tx
+          .select()
+          .from(assetContentLink)
+          .where(eq(assetContentLink.id, link.id))
+          .limit(1);
+
+        if (!existing) {
+          await tx.insert(assetContentLink).values({
+            id: link.id,
+            asset_id: link.asset_id,
+            source_language_id: link.source_language_id,
+            languoid_id: link.languoid_id,
+            text: link.text,
+            audio: link.audio,
+            download_profiles: link.download_profiles,
+            created_at: link.created_at,
+            last_updated: link.last_updated,
+            active: link.active
+          });
+        } else {
+          skipped++;
+        }
+      }
+      if (skipped > 0) {
+        console.log(
+          `⏭️  Skipped ${skipped} translation content links that already exist`
+        );
+      }
     }
 
     // 8. Publish tag links
@@ -1443,30 +1941,42 @@ export async function publishBibleChapter(
       };
     }
 
+    // STEP 2b: Validate referential integrity and filter orphan records
+    // This prevents FK constraint violations by skipping records whose referenced entities don't exist
+    const integrityResult = validateReferentialIntegrity(chapterData);
+    const filteredChapterData = integrityResult.filteredData;
+
+    if (integrityResult.warnings.length > 0) {
+      console.warn(
+        `⚠️ Referential integrity check found ${integrityResult.warnings.length} issues - orphan records will be skipped`
+      );
+    }
+
     // STEP 3: Ensure parent book exists in Supabase FIRST (bypass PowerSync for ordering)
     // This prevents foreign key constraint violations during chapter upload
-    await ensureParentBookInSupabase(chapterData);
+    await ensureParentBookInSupabase(filteredChapterData);
 
     // STEP 4: Ensure audio files are uploading
-    const pendingAttachments = await ensureAudioUploaded(chapterData);
+    const pendingAttachments = await ensureAudioUploaded(filteredChapterData);
 
     if (pendingAttachments > 0) {
       console.log(`⏳ ${pendingAttachments} audio files still uploading...`);
     }
 
     // STEP 5A: Execute publish transaction (WITHOUT asset_content_link)
-    // This prevents PowerSync from trying to upload content links before dependencies are ready
-    await executePublishTransaction(chapterData, userId, false);
+    // Source assets are inserted before child assets within the transaction
+    // Uses filteredChapterData to skip orphan records
+    await executePublishTransaction(filteredChapterData, userId, false);
 
     // STEP 5B: Wait for critical dependencies to reach Supabase
-    // This ensures RLS policies have everything they need before we insert content links
-    console.log('⏳ Waiting before inserting asset_content_link records...');
-    await waitForCriticalDependencies(chapterData, userId);
+    // This ensures RLS policies have everything they need before inserting content links
+    console.log('⏳ Waiting for dependencies to sync to Supabase...');
+    await waitForCriticalDependencies(filteredChapterData, userId);
 
-    // STEP 5C: Now insert asset_content_link records
-    // Dependencies are confirmed, so RLS should pass
-    console.log('✅ Dependencies ready - inserting asset_content_link records');
-    await executePublishTransaction(chapterData, userId, true);
+    // STEP 5C: Insert asset_content_link records
+    // Dependencies are now confirmed in Supabase
+    console.log('🔗 Inserting asset_content_link records...');
+    await executePublishTransaction(filteredChapterData, userId, true);
 
     console.log('\n✅ CHAPTER PUBLISH COMPLETE');
     console.log('📡 PowerSync is uploading to cloud in background...');

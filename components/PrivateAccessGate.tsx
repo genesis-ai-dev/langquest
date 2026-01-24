@@ -2,8 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
-import { useLocalStore } from '@/store/localStore';
 import {
   profile_project_link,
   project as projectTable,
@@ -14,11 +12,14 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   CircleAlertIcon,
   CircleArrowDownIcon,
@@ -32,7 +33,6 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 // Type definitions
 type Request = InferSelectModel<typeof request>;

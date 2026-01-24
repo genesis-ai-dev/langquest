@@ -1,3 +1,4 @@
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
@@ -26,6 +27,7 @@ interface TranscriptionEditModalProps {
   sourceAssetId: string;
   projectId: string;
   languoidId: string;
+  isLocalSource?: boolean; // Whether the source asset is local (prepublished) - transcriptions will be stored locally
 }
 
 export default function TranscriptionEditModal({
@@ -35,7 +37,8 @@ export default function TranscriptionEditModal({
   initialText,
   sourceAssetId,
   projectId,
-  languoidId
+  languoidId,
+  isLocalSource = false
 }: TranscriptionEditModalProps) {
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
@@ -61,10 +64,14 @@ export default function TranscriptionEditModal({
         throw new Error('Transcription text cannot be empty');
       }
 
-      console.log('[SAVE TRANSCRIPTION] Starting transaction...');
+      // Use local tables for prepublished content, synced tables for published content
+      const tableOptions = { localOverride: isLocalSource };
+      console.log(
+        `[SAVE TRANSCRIPTION] Starting transaction... (isLocalSource: ${isLocalSource})`
+      );
       await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
-          .insert(resolveTable('asset'))
+          .insert(resolveTable('asset', tableOptions))
           .values({
             source_asset_id: sourceAssetId,
             content_type: 'transcription',
@@ -78,12 +85,14 @@ export default function TranscriptionEditModal({
           throw new Error('Failed to create transcription asset');
         }
 
-        await tx.insert(resolveTable('asset_content_link')).values({
-          asset_id: newAsset.id,
-          languoid_id: languoidId,
-          text: text.trim(),
-          download_profiles: [currentUser.id]
-        });
+        await tx
+          .insert(resolveTable('asset_content_link', tableOptions))
+          .values({
+            asset_id: newAsset.id,
+            languoid_id: languoidId,
+            text: text.trim(),
+            download_profiles: [currentUser.id]
+          });
 
         console.log(
           '[SAVE TRANSCRIPTION] Created transcription asset:',
@@ -146,7 +155,7 @@ export default function TranscriptionEditModal({
           {/* Header with X and Check buttons */}
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
             <TouchableOpacity onPress={handleClose} className="p-2">
-              <XIcon size={24} className="text-foreground" />
+              <Icon as={XIcon} size={24} className="text-foreground" />
             </TouchableOpacity>
 
             <Text className="text-lg font-semibold">Edit Transcription</Text>
@@ -161,7 +170,8 @@ export default function TranscriptionEditModal({
               {saveTranscriptionMutation.isPending ? (
                 <ActivityIndicator size="small" />
               ) : (
-                <CheckIcon
+                <Icon
+                  as={CheckIcon}
                   size={24}
                   className={
                     editedText.trim() ? 'text-primary' : 'text-muted-foreground'
