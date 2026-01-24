@@ -172,27 +172,33 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   SelectPrimitive.ItemRef,
-  SelectPrimitive.ItemProps & { textClassName?: string }
->(({ className, textClassName, ...props }, ref) => (
+  SelectPrimitive.ItemProps & {
+    textClassName?: string;
+    showCheckIcon?: boolean;
+  }
+>(({ className, textClassName, showCheckIcon = true, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'web:group native:py-2 native:pl-10 relative flex w-full flex-row items-center rounded-md py-1.5 pl-8 pr-2 active:bg-accent web:cursor-default web:select-none web:outline-none web:hover:bg-accent/50 web:focus:bg-accent',
+      'web:group native:py-2 relative flex w-full flex-row items-center rounded-md py-1.5 pr-2 active:bg-accent web:cursor-default web:select-none web:outline-none web:hover:bg-accent/50 web:focus:bg-accent',
+      showCheckIcon ? 'native:pl-10 pl-8' : 'native:pl-3 pl-3',
       props.disabled && 'opacity-50 web:pointer-events-none',
       className
     )}
     {...props}
   >
-    <View className="native:left-3.5 native:pt-px absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-      <SelectPrimitive.ItemIndicator>
-        <Icon
-          as={CheckIcon}
-          size={16}
-          strokeWidth={3}
-          className="text-popover-foreground"
-        />
-      </SelectPrimitive.ItemIndicator>
-    </View>
+    {showCheckIcon && (
+      <View className="native:left-3.5 native:pt-px absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <Icon
+            as={CheckIcon}
+            size={16}
+            strokeWidth={3}
+            className="text-popover-foreground"
+          />
+        </SelectPrimitive.ItemIndicator>
+      </View>
+    )}
     <SelectPrimitive.ItemText
       className={cn(
         'native:text-base flex-1 text-sm text-popover-foreground web:group-focus:text-accent-foreground',

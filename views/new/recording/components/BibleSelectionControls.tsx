@@ -12,40 +12,38 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
+import { Bookmark, Merge, Trash2, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
-interface SelectionControlsProps {
+interface BibleSelectionControlsProps {
   selectedCount: number;
   onCancel: () => void;
   onMerge: () => void;
   onDelete: () => void;
-  allowSelectAll?: boolean;
-  allSelected?: boolean;
-  onSelectAll?: () => void;
+  onAssignVerse?: () => void;
 }
 
-export const SelectionControls = React.memo(function SelectionControls({
+export const BibleSelectionControls = React.memo(function SelectionControls({
   selectedCount,
   onCancel,
   onMerge,
   onDelete,
-  allowSelectAll = false,
-  allSelected = false,
-  onSelectAll
-}: SelectionControlsProps) {
+  onAssignVerse
+}: BibleSelectionControlsProps) {
   const { t } = useLocalization();
   return (
     <View className="mb-3 flex-row items-center justify-between rounded-lg border border-border bg-card p-3">
       <Text className="text-sm text-muted-foreground">({selectedCount})</Text>
       <View className="align-between flex-row">
         <View className="flex-row gap-2">
-          {allowSelectAll && onSelectAll && (
-            <Button variant="default" onPress={onSelectAll}>
-              <Icon as={allSelected ? ListX : ListChecks} />
-            </Button>
-          )}
+          <Button
+            variant="default"
+            disabled={selectedCount < 1}
+            onPress={() => onAssignVerse?.()}
+          >
+            <Icon as={Bookmark} />
+          </Button>
           <Button
             variant="default"
             disabled={selectedCount < 2}

@@ -31,7 +31,8 @@ export function useAppNavigation() {
     navigationStack,
     setNavigationStack,
     addRecentQuest,
-    addRecentAsset
+    addRecentAsset,
+    enableVerseMarkers
   } = useLocalStore();
 
   // Ensure navigationStack is always an array - safe access pattern
@@ -169,6 +170,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
+      const assetView =
+        questData.projectData?.template === 'bible' && enableVerseMarkers
+          ? 'bible-assets'
+          : 'assets';
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -180,7 +185,7 @@ export function useAppNavigation() {
       // Check if we're already at this quest
       if (
         currentState.questId === questData.id &&
-        currentState.view === 'assets'
+        currentState.view === assetView
       ) {
         // Already here, do nothing
         return;
@@ -191,11 +196,11 @@ export function useAppNavigation() {
         currentState.questId === questData.id &&
         currentState.view === 'asset-detail'
       ) {
-        goBackToView('assets');
+        goBackToView(assetView);
       } else {
         // Navigate fresh, pass data forward and preserve bookId (for Bible navigation)
         navigate({
-          view: 'assets',
+          view: assetView,
           questId: questData.id,
           questName: questData.name,
           projectId: questData.project_id,
@@ -205,7 +210,7 @@ export function useAppNavigation() {
         });
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView]
+    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
   );
 
   const goToAsset = useCallback(
@@ -329,7 +334,8 @@ export function useAppNavigation() {
           goToQuest({
             id: state.questId!,
             project_id: state.projectId!,
-            name: state.questName
+            name: state.questName,
+            projectData: state.projectData
           })
       });
       crumbs.push({ label: state.assetName, onPress: undefined });
