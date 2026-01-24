@@ -203,6 +203,16 @@ const BibleRecordingView = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const vadMinSegmentLength = useLocalStore(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    (state) => state.vadMinSegmentLength
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const setVadMinSegmentLength = useLocalStore(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    (state) => state.setVadMinSegmentLength
+  );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
@@ -2943,10 +2953,6 @@ const BibleRecordingView = ({
       </View>
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
-        {}
-        {/* {USE_INSERTION_WHEEL ? ( */}
-        // ArrayInsertionWheel mode - always show wheel (starts with initial
-        verse pill)
         <View className="relative h-full flex-1">
           <ArrayInsertionWheel<ListItem>
             ref={wheelRef}
@@ -2971,72 +2977,7 @@ const BibleRecordingView = ({
             renderItem={renderWheelItem}
           />
         </View>
-        {/* ) : (
-          // LegendList mode (legacy)
-          assetsForLegendList.length > 0 && (
-            <LegendList
-              ref={listRef}
-              data={assetsForLegendList}
-              renderItem={renderAssetItem}
-            />
-          )
-        )} */}
       </View>
-
-      {/* Add verse button - floats above recording controls */}
-      {/* {!isSelectionMode &&
-        showAddVerseButton &&
-        verseToAdd !== null &&
-        !isVADRecording &&
-        allowAddVerseRef.current && (
-          <View
-            className="absolute left-0 right-0 z-50 flex w-full items-center"
-            style={{
-              bottom: footerHeight + insets.bottom + 8
-            }}
-          >
-            <View className="flex flex-row items-center gap-2 px-4">
-              <Icon as={ChevronLeft} size={20} className="text-primary" />
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-primary bg-primary/10 text-sm"
-                onPress={handleAddNextVerse}
-              >
-              <Icon as={Plus} size={20} className="text-primary" />
-                <Text className="font-semibold text-primary">
-                  {verseToAdd}
-                </Text>
-              </Button>
-            </View>
-          </View>
-        )} */}
-      {/* {!isSelectionMode &&
-        showAddVerseButton &&
-        verseToAdd !== null &&
-        !isVADRecording &&
-        allowAddVerseRef.current && (
-          <View
-            className="absolute left-0 right-0 z-50 flex w-full items-center"
-            style={{
-              bottom: footerHeight + insets.bottom + 8
-            }}
-          >
-            <View className="flex flex-row items-center gap-2 px-4">
-              <Icon as={Plus} size={20} className="text-primary" />
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-primary bg-primary/10"
-                onPress={handleAddNextVerse}
-              >
-                <Text className="m-2 font-semibold text-primary">
-                  {bookChapterLabel}:{verseToAdd}
-                </Text>
-              </Button>
-            </View>
-          </View>
-        )} */}
 
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
@@ -3099,6 +3040,8 @@ const BibleRecordingView = ({
             setAutoCalibrateOnOpen(false);
           }
         }}
+        minSegmentLength={vadMinSegmentLength} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+        onMinSegmentLengthChange={setVadMinSegmentLength} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}

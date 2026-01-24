@@ -90,7 +90,7 @@ export function VerseSeparator({
               <Text
                 className={`${
                   largeText ? 'text-sm' : 'text-xs'
-                } font-medium ${isSelectedForRecording ? 'text-primary underline' : 'text-amber-600/80'}`}
+                } min-w-24 px-1 font-medium ${isSelectedForRecording ? 'text-primary underline' : 'text-amber-600/80'}`}
               >
                 {getText()}
               </Text>
@@ -99,7 +99,7 @@ export function VerseSeparator({
             <Text
               className={`${
                 largeText ? 'text-sm' : 'text-xs'
-              } font-medium text-amber-600/80`}
+              } min-w-24 px-1 font-medium text-amber-600/80`}
             >
               {getText()}
             </Text>
@@ -136,7 +136,7 @@ export function VerseSeparator({
           <Text
             className={`${
               largeText ? 'text-sm' : 'text-xs'
-            } font-semibold text-primary ${isSelectedForRecording ? 'underline' : ''}`}
+            } min-w-24 px-1 text-center font-semibold text-primary ${isSelectedForRecording ? 'underline' : ''}`}
           >
             {getText()}
           </Text>
@@ -145,7 +145,7 @@ export function VerseSeparator({
         <Text
           className={`${
             largeText ? 'text-sm' : 'text-xs'
-          } font-semibold text-primary`}
+          } min-w-24 text-center font-semibold text-primary`}
         >
           {getText()}
         </Text>
