@@ -3444,6 +3444,48 @@ export const localizations = {
     tok_pisin: 'Recording...',
     indonesian: 'Merekam...'
   },
+  recordTo: {
+    english: 'Record to',
+    spanish: 'Grabar en',
+    brazilian_portuguese: 'Gravar em',
+    tok_pisin: 'Rekodem long',
+    indonesian: 'Rekam ke'
+  },
+  noLabelSelected: {
+    english: 'No label selected',
+    spanish: 'Sin etiqueta seleccionada',
+    brazilian_portuguese: 'Nenhum rótulo selecionado',
+    tok_pisin: 'No label i stap',
+    indonesian: 'Tidak ada label dipilih'
+  },
+  startRecordingSession: {
+    english: 'Start Recording Session',
+    spanish: 'Iniciar Sesión de Grabación',
+    brazilian_portuguese: 'Iniciar Sessão de Gravação',
+    tok_pisin: 'Stat Rekodem Taim',
+    indonesian: 'Mulai Sesi Rekaman'
+  },
+  typeToConfirm: {
+    english: 'Type {text} to confirm',
+    spanish: 'Escriba {text} para confirmar',
+    brazilian_portuguese: 'Digite {text} para confirmar',
+    tok_pisin: 'Raitim {text} bilong siaim',
+    indonesian: 'Ketik {text} untuk mengkonfirmasi'
+  },
+  confirmDeletion: {
+    english: 'Confirm Deletion',
+    spanish: 'Confirmar Eliminación',
+    brazilian_portuguese: 'Confirmar Exclusão',
+    tok_pisin: 'Siaim Rausim',
+    indonesian: 'Konfirmasi Penghapusan'
+  },
+  deleting: {
+    english: 'Deleting...',
+    spanish: 'Eliminando...',
+    brazilian_portuguese: 'Excluindo...',
+    tok_pisin: 'Rausim nau...',
+    indonesian: 'Menghapus...'
+  },
   audioSegments: {
     english: 'Audio Segments',
     spanish: 'Pistas de Audio',
@@ -6110,7 +6152,23 @@ export const localizations = {
     tok_pisin: 'Link kopim igo long clipboard!',
     indonesian: 'Tautan disalin ke clipboard!'
   },
-
+  verseMarkers: {
+    english: 'Verse Labels',
+    spanish: 'Etiquetas de Versículos',
+    brazilian_portuguese: 'Etiquetas de Versículos',
+    tok_pisin: 'Verse Labels',
+    indonesian: 'Label Versi'
+  },
+  verseMarkersDescription: {
+    english: 'Enable verse labels to help organize Bible resources',
+    spanish:
+      'Habilitar etiquetas de versículos para ayudar a organizar recursos de la Biblia',
+    brazilian_portuguese:
+      'Habilitar etiquetas de versículos para ajudar a organizar recursos da Bíblia',
+    tok_pisin: 'Enable verse labels to help organize Bible resources',
+    indonesian:
+      'Aktifkan label versi untuk membantu mengorganisir sumber daya Alkitab'
+  },
   // Languoid Link Suggestion strings
   languoidLinkSuggestionTitle: {
     english: 'Link your language?',

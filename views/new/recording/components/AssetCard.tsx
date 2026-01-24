@@ -27,12 +27,12 @@ import { cn } from '@/utils/styleUtils';
 import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Extrapolation,
   interpolate,
   useAnimatedStyle,
-  useDerivedValue,
-  type SharedValue
+  useDerivedValue
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 

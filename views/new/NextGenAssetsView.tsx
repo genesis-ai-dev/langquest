@@ -86,6 +86,7 @@ type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[] | undefined;
 };
 
 export default function NextGenAssetsView() {
@@ -311,8 +312,25 @@ export default function NextGenAssetsView() {
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
   }, [safeAttachmentStates]);
 
+  const handleAssetUpdate = React.useCallback(async () => {
+    // await queryClient.invalidateQueries({
+    //   // queryKey: ['assets', 'by-quest', currentQuestId],
+    //   queryKey: ['by-quest', currentQuestId],
+    //   exact: false
+    // });
+    await queryClient.invalidateQueries({
+      queryKey: ['assets']
+    });
+  }, [queryClient]);
+
   const renderItem = React.useCallback(
-    ({ item }: { item: AssetQuestLink & { source?: HybridDataSource } }) => {
+    ({
+      item,
+      isPublished
+    }: {
+      item: AssetQuestLink & { source?: HybridDataSource };
+      isPublished: boolean;
+    }) => {
       const isPlaying =
         audioContext.isPlaying &&
         audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
@@ -324,13 +342,17 @@ export default function NextGenAssetsView() {
       }
 
       return (
-        <AssetListItem
-          key={item.id}
-          asset={item}
-          attachmentState={safeAttachmentStates.get(item.id)}
-          questId={currentQuestId || ''}
-          isCurrentlyPlaying={isPlaying}
-        />
+        <>
+          <AssetListItem
+            key={item.id}
+            asset={item}
+            attachmentState={safeAttachmentStates.get(item.id)}
+            questId={currentQuestId || ''}
+            isCurrentlyPlaying={isPlaying}
+            onUpdate={handleAssetUpdate}
+            isPublished={isPublished}
+          />
+        </>
       );
     },
     // Use stable memo key instead of Map reference to prevent hook dependency issues
@@ -340,7 +362,8 @@ export default function NextGenAssetsView() {
       safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
-      currentlyPlayingAssetId
+      currentlyPlayingAssetId,
+      handleAssetUpdate
     ]
   );
 
@@ -1276,7 +1299,7 @@ export default function NextGenAssetsView() {
           data={assets}
           keyExtractor={(item) => item.id}
           extraData={currentlyPlayingAssetId}
-          renderItem={({ item }) => renderItem({ item })}
+          renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           estimatedItemSize={120}
