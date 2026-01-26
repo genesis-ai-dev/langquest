@@ -43,6 +43,7 @@ import {
   CloudUpload,
   FlagIcon,
   InfoIcon,
+  Library,
   LockIcon,
   MicIcon,
   PauseIcon,
@@ -2142,10 +2143,11 @@ export default function BibleAssetsView() {
       // Handle asset items
       const asset = item.content;
       const isPlaying =
-        audioContext.isPlaying &&
-        (audioContext.currentAudioId === asset.id || // Individual play
-          (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-            currentlyPlayingAssetId === asset.id)); // Play all
+        (audioContext.isPlaying &&
+          (audioContext.currentAudioId === asset.id || // Individual play
+            (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
+              currentlyPlayingAssetId === asset.id))) || // Play all
+        currentlyPlayingAssetId === asset.id; // Visual highlight (preview mode)
 
       const isSelected = selectedAssetIds.has(asset.id);
 
@@ -2567,46 +2569,200 @@ export default function BibleAssetsView() {
     { assetId: string; startMs: number; endMs: number }[]
   >([]);
 
-  // Calculate which asset should be highlighted based on position (useMemo for performance)
+  // Calculate which asset should be highlighted based on position
+  // NOTE: This is only used for handlePlayAllAssets (old function) and handlePlayAsset (individual)
+  // handlePlayAll (new function) controls currentlyPlayingAssetId directly
   const derivedCurrentlyPlayingAssetId = React.useMemo(() => {
     // Not playing at all
     if (!audioContext.isPlaying) {
       return null;
     }
 
-    // Playing a single asset (not play-all mode)
+    // Playing a single asset (not play-all mode) - return directly
     if (audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID) {
       return audioContext.currentAudioId;
     }
 
-    // Play-all mode: Find asset by time range
-    const position = audioContext.position;
+    // Play-all mode (handlePlayAllAssets): Use time ranges if available
     const ranges = assetTimeRangesRef.current;
-
-    if (ranges.length === 0) {
-      // Fallback: use first asset in order
-      return assetOrderRef.current[0] || null;
-    }
-
-    // Find which range the current position falls into
-    for (const range of ranges) {
-      if (position >= range.startMs && position < range.endMs) {
-        return range.assetId;
+    if (ranges.length > 0) {
+      const position = audioContext.position;
+      for (const range of ranges) {
+        if (position >= range.startMs && position < range.endMs) {
+          return range.assetId;
+        }
       }
+      // Position beyond all ranges - return last asset
+      return ranges[ranges.length - 1]?.assetId || null;
     }
 
-    // If position is beyond all ranges, return the last asset
-    return ranges[ranges.length - 1]?.assetId || null;
+    // Fallback to first asset in order
+    return assetOrderRef.current[0] || null;
   }, [
     audioContext.isPlaying,
     audioContext.currentAudioId,
     audioContext.position
   ]);
 
-  // Update state only when the derived value actually changes
+  // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
+  const isPlayAllRunningRef = React.useRef(false);
+
+  // Update state only for handlePlayAsset and handlePlayAllAssets
+  // handlePlayAll controls state directly so we skip when it's running
   React.useEffect(() => {
-    setCurrentlyPlayingAssetId(derivedCurrentlyPlayingAssetId);
-  }, [derivedCurrentlyPlayingAssetId]);
+    // Skip if handlePlayAll is controlling the state directly
+    if (isPlayAllRunningRef.current) {
+      return;
+    }
+
+    // Only update if we're in audioContext-controlled playback mode
+    if (
+      audioContext.isPlaying &&
+      (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID ||
+        audioContext.currentAudioId)
+    ) {
+      setCurrentlyPlayingAssetId(derivedCurrentlyPlayingAssetId);
+    }
+  }, [
+    derivedCurrentlyPlayingAssetId,
+    audioContext.isPlaying,
+    audioContext.currentAudioId
+  ]);
+
+  // Handle play all - plays all assets sequentially with direct asset-audio linking
+  // Uses assets that have isAssetSelectedForRecording={true} in BibleAssetListItem (determined by selectedForRecording)
+  // Takes selectedAsset as parameter to avoid recreating the function when selection changes
+
+  const handlePlayAll = React.useCallback(
+    async (
+      selectedAsset?: { type: 'asset' | 'separator'; assetId?: string } | null
+    ) => {
+      try {
+        // Check if already playing - toggle to stop
+        if (isPlayAllRunningRef.current) {
+          isPlayAllRunningRef.current = false;
+          await audioContext.stopCurrentSound();
+          setCurrentlyPlayingAssetId(null);
+          console.log('⏸️ Stopped play all');
+          return;
+        }
+
+        // Determine which assets to process based on isAssetSelectedForRecording state
+        let assetsToProcess: AssetQuestLink[];
+
+        if (selectedAsset?.type === 'asset' && selectedAsset?.assetId) {
+          const selectedIndex = assets.findIndex(
+            (a) => a.id === selectedAsset.assetId
+          );
+          if (selectedIndex >= 0) {
+            assetsToProcess = assets.slice(selectedIndex);
+          } else {
+            assetsToProcess = assets;
+          }
+        } else {
+          assetsToProcess = assets;
+        }
+
+        if (assetsToProcess.length === 0) {
+          console.warn('⚠️ No assets to play');
+          return;
+        }
+
+        console.log(
+          `🎵 Starting play all from ${assetsToProcess.length} assets...`
+        );
+
+        // Mark as running
+        isPlayAllRunningRef.current = true;
+
+        // Build playlist: Array<{assetId, uris}>
+        const playlist: { assetId: string; uris: string[] }[] = [];
+
+        for (const asset of assetsToProcess) {
+          // Check if cancelled
+          if (!isPlayAllRunningRef.current) {
+            console.log('⏸️ Play all cancelled during playlist build');
+            return;
+          }
+
+          // Get URIs for this asset (getAssetAudioUris handles all the resolution)
+          const uris = await getAssetAudioUris(asset.id);
+          if (uris.length > 0) {
+            playlist.push({ assetId: asset.id, uris });
+          }
+        }
+
+        if (playlist.length === 0) {
+          console.error('❌ No audio URIs found for any assets');
+          isPlayAllRunningRef.current = false;
+          return;
+        }
+
+        console.log(
+          `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
+        );
+
+        // STEP 2: Play each asset sequentially with direct linking
+        for (let i = 0; i < playlist.length; i++) {
+          // Check if cancelled
+          if (!isPlayAllRunningRef.current) {
+            console.log('⏸️ Play all cancelled');
+            setCurrentlyPlayingAssetId(null);
+            return;
+          }
+
+          const item = playlist[i]!;
+
+          // HIGHLIGHT THIS ASSET - direct link!
+          setCurrentlyPlayingAssetId(item.assetId);
+          console.log(
+            `▶️ [${i + 1}/${playlist.length}] Playing asset ${item.assetId.slice(0, 8)} (${item.uris.length} segments)`
+          );
+
+          // Play all URIs for this asset sequentially
+          for (const uri of item.uris) {
+            // Check if cancelled
+            if (!isPlayAllRunningRef.current) {
+              setCurrentlyPlayingAssetId(null);
+              return;
+            }
+
+            // Play this URI and wait for it to finish
+            await new Promise<void>((resolve) => {
+              // Create and play the sound
+              Audio.Sound.createAsync({ uri }, { shouldPlay: true })
+                .then(({ sound }) => {
+                  // Set up listener for when sound finishes
+                  sound.setOnPlaybackStatusUpdate((status) => {
+                    if (!status.isLoaded) return;
+
+                    if (status.didJustFinish) {
+                      void sound.unloadAsync().then(() => {
+                        resolve();
+                      });
+                    }
+                  });
+                })
+                .catch((error) => {
+                  console.error('Failed to play audio:', error);
+                  resolve(); // Continue to next even on error
+                });
+            });
+          }
+        }
+
+        // Done playing all
+        console.log('✅ Finished playing all assets');
+        setCurrentlyPlayingAssetId(null);
+        isPlayAllRunningRef.current = false;
+      } catch (error) {
+        console.error('❌ Erro ao tocar todos os assets:', error);
+        setCurrentlyPlayingAssetId(null);
+        isPlayAllRunningRef.current = false;
+      }
+    },
+    [assets, audioContext, getAssetAudioUris]
+  );
 
   // Handle play all assets
   const handlePlayAllAssets = React.useCallback(async () => {
@@ -3060,6 +3216,16 @@ export default function BibleAssetsView() {
 
         {/* Right side: Icons */}
         <View className="flex flex-row items-center gap-2">
+          {assets.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => handlePlayAll(selectedForRecording)}
+              className="h-10 w-10"
+            >
+              <Icon as={Library} size={20} />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
