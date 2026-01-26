@@ -242,8 +242,6 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
     dragHandle
   );
 
-  console.log('RENDERING ASSET LIST ITEM', asset.name);
-
   return (
     <Pressable onPress={handlePress} onLongPress={handleLongPress}>
       <Card

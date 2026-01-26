@@ -2606,6 +2606,8 @@ export default function BibleAssetsView() {
 
   // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
   const isPlayAllRunningRef = React.useRef(false);
+  // Ref to track current playing sound for immediate cancellation
+  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
 
   // Update state only for handlePlayAsset and handlePlayAllAssets
   // handlePlayAll controls state directly so we skip when it's running
@@ -2622,6 +2624,9 @@ export default function BibleAssetsView() {
         audioContext.currentAudioId)
     ) {
       setCurrentlyPlayingAssetId(derivedCurrentlyPlayingAssetId);
+    } else if (!audioContext.isPlaying && !audioContext.currentAudioId) {
+      // Clear highlight when audio finishes naturally
+      setCurrentlyPlayingAssetId(null);
     }
   }, [
     derivedCurrentlyPlayingAssetId,
@@ -2641,7 +2646,18 @@ export default function BibleAssetsView() {
         // Check if already playing - toggle to stop
         if (isPlayAllRunningRef.current) {
           isPlayAllRunningRef.current = false;
-          await audioContext.stopCurrentSound();
+          
+          // Stop current sound immediately
+          if (currentPlayAllSoundRef.current) {
+            try {
+              await currentPlayAllSoundRef.current.stopAsync();
+              await currentPlayAllSoundRef.current.unloadAsync();
+              currentPlayAllSoundRef.current = null;
+            } catch (error) {
+              console.error('Error stopping sound:', error);
+            }
+          }
+          
           setCurrentlyPlayingAssetId(null);
           console.log('⏸️ Stopped play all');
           return;
@@ -2732,11 +2748,15 @@ export default function BibleAssetsView() {
               // Create and play the sound
               Audio.Sound.createAsync({ uri }, { shouldPlay: true })
                 .then(({ sound }) => {
+                  // Store reference for immediate cancellation
+                  currentPlayAllSoundRef.current = sound;
+                  
                   // Set up listener for when sound finishes
                   sound.setOnPlaybackStatusUpdate((status) => {
                     if (!status.isLoaded) return;
 
                     if (status.didJustFinish) {
+                      currentPlayAllSoundRef.current = null;
                       void sound.unloadAsync().then(() => {
                         resolve();
                       });
@@ -2745,6 +2765,7 @@ export default function BibleAssetsView() {
                 })
                 .catch((error) => {
                   console.error('Failed to play audio:', error);
+                  currentPlayAllSoundRef.current = null;
                   resolve(); // Continue to next even on error
                 });
             });
@@ -2755,13 +2776,15 @@ export default function BibleAssetsView() {
         console.log('✅ Finished playing all assets');
         setCurrentlyPlayingAssetId(null);
         isPlayAllRunningRef.current = false;
+        currentPlayAllSoundRef.current = null;
       } catch (error) {
         console.error('❌ Erro ao tocar todos os assets:', error);
         setCurrentlyPlayingAssetId(null);
         isPlayAllRunningRef.current = false;
+        currentPlayAllSoundRef.current = null;
       }
     },
-    [assets, audioContext, getAssetAudioUris]
+    [assets, getAssetAudioUris]
   );
 
   // Handle play all assets
