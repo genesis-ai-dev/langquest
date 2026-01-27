@@ -643,6 +643,7 @@ export default function BibleAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -3271,7 +3272,7 @@ export default function BibleAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && (
+          {assets.length > 0 && enablePlayAll && (
             <Button
               variant="ghost"
               size="icon"
@@ -3300,21 +3301,6 @@ export default function BibleAssetsView() {
               <Icon as={BookmarkPlusIcon} className="text-primary" />
             </Button>
           )}
-          {/* Show cloud badge next to title if published */}
-          {isPublished && canSeePublishedBadge && (
-            <Button
-              variant="outline"
-              className="h-10 px-4 py-0"
-              onPress={() => {
-                RNAlert.alert(t('questSyncedToCloud'));
-              }}
-            >
-              <View className="flex-row items-center gap-0.5">
-                <Icon as={CloudUpload} size={18} />
-                <Icon as={CheckCheck} size={14} />
-              </View>
-            </Button>
-          )}
         </View>
 
         {/* Right side: Publish/Export buttons (isolated) */}
@@ -3339,17 +3325,31 @@ export default function BibleAssetsView() {
             </Button>
           )} */}
           {isPublished ? (
-            // Show export button if user is creator, member, or owner
+            // Show cloud badge and export button if user is creator, member, or owner
             canSeePublishedBadge ? (
-              currentQuestId && currentProjectId && (
-                <ExportButton
-                  questId={currentQuestId}
-                  projectId={currentProjectId}
-                  questName={selectedQuest?.name}
-                  disabled={isPublishing || !isOnline}
-                  membership={membership}
-                />
-              )
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 py-0"
+                  onPress={() => {
+                    RNAlert.alert(t('questSyncedToCloud'));
+                  }}
+                >
+                  <View className="flex-row items-center gap-0.5">
+                    <Icon as={CloudUpload} size={18} />
+                    <Icon as={CheckCheck} size={14} />
+                  </View>
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
+              </>
             ) : (
               // Show membership request button for non-members viewing published quest
               isPrivateProject && (

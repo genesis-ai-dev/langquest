@@ -30,9 +30,9 @@ import {
   ArrowDownNarrowWide,
   ArrowLeft,
   ChevronLeft,
+  ListVideo,
   Mic,
   PauseIcon,
-  PlayIcon,
   Plus
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -203,14 +203,14 @@ const BibleRecordingView = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const vadMinSegmentLength = useLocalStore(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+     
     (state) => state.vadMinSegmentLength
   );
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+   
   const setVadMinSegmentLength = useLocalStore(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+     
     (state) => state.setVadMinSegmentLength
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
@@ -292,6 +292,13 @@ const BibleRecordingView = ({
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
+  // Track if PlayAll is running (for button icon state)
+  const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
+  // Ref to track if handlePlayAll is running (for cancellation)
+  const isPlayAllRunningRef = React.useRef(false);
+  // Ref to track current playing sound for immediate cancellation
+  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  
   const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
   // Track segment ranges for each asset (start position, end position, duration)
@@ -1373,169 +1380,135 @@ const BibleRecordingView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioContext.isPlaying, audioContext.currentAudioId, assets]);
 
-  // Handle play all assets
-  const handlePlayAllAssets = React.useCallback(async () => {
+  // Handle play all assets - optimized version with direct control
+  const handlePlayAll = React.useCallback(async () => {
     try {
-      const isPlayingAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
-
-      if (isPlayingAll) {
-        debugLog('⏸️ Stopping play all');
-        await audioContext.stopCurrentSound();
-        setCurrentlyPlayingAssetId(null);
-        assetUriMapRef.current.clear();
-        segmentDurationsRef.current = [];
-        assetSegmentRangesRef.current.clear();
-        lastScrolledAssetIdRef.current = null;
-        // Reset all asset progress
-        for (const progressShared of assetProgressSharedMapRef.current.values()) {
-          progressShared.value = 0;
-        }
-      } else {
-        debugLog('▶️ Playing all assets');
-        if (assets.length === 0) {
-          console.warn('⚠️ No assets to play');
-          return;
-        }
-
-        // Collect all URIs from all assets in order, tracking which asset each URI belongs to
-        const allUris: string[] = [];
-        assetUriMapRef.current.clear();
-        segmentDurationsRef.current = [];
-
-        for (const asset of assets) {
-          const uris = await getAssetAudioUris(asset.id);
-          for (const uri of uris) {
-            allUris.push(uri);
-            // Map each URI to its asset ID
-            assetUriMapRef.current.set(uri, asset.id);
+      // Check if already playing - toggle to stop
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          try {
+            await currentPlayAllSoundRef.current.stopAsync();
+            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          } catch (error) {
+            console.error('Error stopping sound:', error);
           }
         }
+        
+        setCurrentlyPlayingAssetId(null);
+        debugLog('⏸️ Stopped play all');
+        return;
+      }
 
-        if (allUris.length === 0) {
-          console.error('❌ No audio URIs found for any assets');
+      if (itemsForWheel.length === 0) {
+        console.warn('⚠️ No items to play');
+        return;
+      }
+
+      // Mark as running
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      debugLog(`🎵 Starting play all from wheel position ${insertionIndex}`);
+
+      let assetsPlayed = 0;
+
+      // Iterate directly through itemsForWheel starting from insertionIndex
+      for (let wheelIndex = insertionIndex; wheelIndex < itemsForWheel.length; wheelIndex++) {
+        // Check if cancelled
+        if (!isPlayAllRunningRef.current) {
+          debugLog('⏸️ Play all cancelled');
+          setCurrentlyPlayingAssetId(null);
           return;
         }
 
+        const item = itemsForWheel[wheelIndex];
+        
+        // Skip if no item or if it's a pill
+        if (!item || isPill(item)) {
+          debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
+          continue;
+        }
+
+        // It's an asset - play it
+        const asset = item;
+        
+        // Get URIs for this asset
+        const uris = await getAssetAudioUris(asset.id);
+        if (uris.length === 0) {
+          debugLog(`⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`);
+          continue;
+        }
+
+        // HIGHLIGHT THIS ASSET
+        setCurrentlyPlayingAssetId(asset.id);
+        
+        // Scroll to this position in the wheel (wheelIndex is the direct position)
+        if (wheelRef.current) {
+          wheelRef.current.scrollItemToTop(wheelIndex - 1, true);
+        }
+        
+        assetsPlayed++;
         debugLog(
-          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
+          `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
         );
 
-        // Preload durations for accurate highlighting and calculate asset segment ranges
-        try {
-          const durations: number[] = [];
-          for (const uri of allUris) {
-            try {
-              const { sound } = await Audio.Sound.createAsync({ uri });
-              const status = await sound.getStatusAsync();
-              await sound.unloadAsync();
-              durations.push(
-                status.isLoaded ? (status.durationMillis ?? 0) : 0
-              );
-            } catch (error) {
-              debugLog(
-                `Failed to get duration for ${uri.slice(0, 30)}:`,
-                error
-              );
-              durations.push(0);
-            }
+        // Play all URIs for this asset sequentially
+        for (const uri of uris) {
+          // Check if cancelled
+          if (!isPlayAllRunningRef.current) {
+            setCurrentlyPlayingAssetId(null);
+            return;
           }
-          segmentDurationsRef.current = durations;
-          debugLog(
-            `📊 Loaded durations for ${durations.length} segments:`,
-            durations.map((d) => Math.round(d / 1000)).join('s, ') + 's'
-          );
 
-          // Calculate segment ranges for each asset
-          assetSegmentRangesRef.current.clear();
-          let cumulativeStart = 0;
-          for (const asset of assets) {
-            const assetUris = allUris.filter(
-              (uri) => assetUriMapRef.current.get(uri) === asset.id
-            );
-            if (assetUris.length === 0) continue;
+          // Play this URI and wait for it to finish
+          await new Promise<void>((resolve) => {
+            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
+              .then(({ sound }) => {
+                currentPlayAllSoundRef.current = sound;
+                
+                sound.setOnPlaybackStatusUpdate((status) => {
+                  if (!status.isLoaded) return;
 
-            // Find the indices of this asset's URIs in the allUris array
-            const assetUriIndices: number[] = [];
-            for (let i = 0; i < allUris.length; i++) {
-              const uri = allUris[i];
-              if (uri && assetUriMapRef.current.get(uri) === asset.id) {
-                assetUriIndices.push(i);
-              }
-            }
-
-            // Calculate total duration for this asset's segments
-            const assetDuration = assetUriIndices.reduce(
-              (sum, idx) => sum + (durations[idx] || 0),
-              0
-            );
-
-            const startMs = cumulativeStart;
-            const endMs = cumulativeStart + assetDuration;
-
-            assetSegmentRangesRef.current.set(asset.id, {
-              startMs,
-              endMs,
-              durationMs: assetDuration
-            });
-
-            // Reset progress for this asset
-            const progressShared = assetProgressSharedMapRef.current.get(
-              asset.id
-            );
-            if (progressShared) {
-              progressShared.value = 0;
-              debugLog(`🔄 Reset progress for asset ${asset.id.slice(0, 8)}`);
-            } else {
-              debugLog(
-                `⚠️ No progress SharedValue found for asset ${asset.id.slice(0, 8)} when setting up ranges`
-              );
-            }
-
-            debugLog(
-              `📊 Asset ${asset.id.slice(0, 8)} segments: ${assetUriIndices.length} segments, ${Math.round(assetDuration / 1000)}s total, range [${Math.round(startMs)}-${Math.round(endMs)}]ms`
-            );
-
-            cumulativeStart = endMs;
-          }
-        } catch (error) {
-          debugLog('Failed to preload durations:', error);
-          // Continue anyway - will use percentage-based fallback
+                  if (status.didJustFinish) {
+                    currentPlayAllSoundRef.current = null;
+                    void sound.unloadAsync().then(() => {
+                      resolve();
+                    });
+                  }
+                });
+              })
+              .catch((error) => {
+                console.error('Failed to play audio:', error);
+                currentPlayAllSoundRef.current = null;
+                resolve();
+              });
+          });
         }
-
-        // Set the first asset as currently playing and scroll to it
-        if (assets.length > 0 && assets[0]) {
-          const firstAssetId = assets[0].id;
-          setCurrentlyPlayingAssetId(firstAssetId);
-          lastScrolledAssetIdRef.current = null; // Reset to allow immediate scroll
-
-          // Scroll to first asset immediately
-          if (wheelRef.current) {
-            debugLog(
-              `📜 Scrolling to first asset at index 0 (asset ${firstAssetId.slice(0, 8)})`
-            );
-            // scrollItemToTop adds 1 internally, so subtract 1 to get correct position (0 -> -1 -> 0)
-            wheelRef.current.scrollItemToTop(-1, true);
-            lastScrolledAssetIdRef.current = firstAssetId;
-          }
-        }
-
-        await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
       }
+
+      if (assetsPlayed === 0) {
+        console.warn('⚠️ No assets found to play from current position');
+      }
+
+      // Done playing all
+      debugLog('✅ Finished playing all assets');
+      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
       setCurrentlyPlayingAssetId(null);
-      assetUriMapRef.current.clear();
-      segmentDurationsRef.current = [];
-      assetSegmentRangesRef.current.clear();
-      lastScrolledAssetIdRef.current = null;
-      // Reset all asset progress
-      for (const progressShared of assetProgressSharedMapRef.current.values()) {
-        progressShared.value = 0;
-      }
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
     }
-  }, [audioContext, getAssetAudioUris, assets]);
+  }, [getAssetAudioUris, insertionIndex, itemsForWheel]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -2910,27 +2883,23 @@ const BibleRecordingView = ({
           </Text> */}
         </View>
         <View className="flex-row items-center gap-3">
-          <Text className="text-base font-semibold text-muted-foreground">
-            {assets.length} {t('assets').toLowerCase()}
-          </Text>
           {assets.length > 0 && enablePlayAll && (
             <Button
               variant="ghost"
               size="icon"
-              onPress={handlePlayAllAssets}
+              onPress={handlePlayAll}
               className="h-10 w-10"
             >
               <Icon
-                as={
-                  audioContext.isPlaying &&
-                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                    ? PauseIcon
-                    : PlayIcon
-                }
-                size={24}
+                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                size={20}
+                className="text-primary"
               />
             </Button>
           )}
+          <Text className="text-base font-semibold text-muted-foreground">
+            {assets.length} {t('assets').toLowerCase()}
+          </Text>
         </View>
       </View>
       <View
@@ -3040,8 +3009,8 @@ const BibleRecordingView = ({
             setAutoCalibrateOnOpen(false);
           }
         }}
-        minSegmentLength={vadMinSegmentLength} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-        onMinSegmentLengthChange={setVadMinSegmentLength} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+        minSegmentLength={vadMinSegmentLength}  
+        onMinSegmentLengthChange={setVadMinSegmentLength}  
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
