@@ -162,5 +162,5 @@ export function useLocalization(languageOverride?: string | null) {
     return translatedString;
   };
 
-  return { t };
+  return { t, currentLanguage: userLanguage };
 }

@@ -4,6 +4,7 @@ import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
@@ -29,6 +30,7 @@ export function BibleBookList({
   onCloudLoadingChange
 }: BibleBookListProps) {
   const { t } = useLocalization();
+  const getBookName = useBibleBookNameGetter();
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
 
@@ -81,6 +83,7 @@ export function BibleBookList({
     const iconSource = BOOK_ICON_MAP[book.id];
     const bookExists = existingBookIds?.has(book.id);
     const isDisabled = !bookExists && !canCreateNew;
+    const { abbrev } = getBookName(book.id);
 
     if (!bookExists && isDisabled) {
       return;
@@ -109,10 +112,10 @@ export function BibleBookList({
         />
         <View className="flex-col items-center gap-0.5">
           <Text
-            className="text-xs font-bold uppercase"
+            className="text-xs font-bold"
             style={{ letterSpacing: 0.5 }}
           >
-            {book.id}
+            {abbrev}
           </Text>
           <Text className="text-xxs text-muted-foreground">
             {book.chapters}
