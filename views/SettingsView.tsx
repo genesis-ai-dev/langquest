@@ -282,10 +282,8 @@ export default function SettingsView() {
         },
         {
           id: 'questExport',
-          title: t('questExport') || 'Quest Export',
-          description:
-            t('questExportDescription') ||
-            'Export bible chapters as audio files for sharing and distribution',
+          title: t('questExport'),
+          description: t('questExportDescription'),
           type: 'toggle',
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
@@ -293,20 +291,16 @@ export default function SettingsView() {
         },
         {
           id: 'verseMarkers',
-          title: t('verseMarkers') || 'Verse Labels',
-          description:
-            t('verseMarkersDescription') ||
-            'Enable verse labels to help organize Bible resources',
+          title: t('verseMarkers'),
+          description: t('verseMarkersDescription'),
           type: 'toggle',
           value: enableVerseMarkers,
           onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
         },
         {
           id: 'transcription',
-          title: t('transcription') || 'Transcription',
-          description:
-            t('transcriptionDescription') ||
-            'Enable automatic transcription of audio recordings',
+          title: t('transcription'),
+          description: t('transcriptionDescription'),
           type: 'toggle',
           value: enableTranscription,
           onPress: () => handleTranscriptionToggle(!enableTranscription)

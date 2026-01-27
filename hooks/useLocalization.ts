@@ -42,7 +42,10 @@ function mapLanguoidNameToSupportedLanguage(
     // Indonesian names and endonyms
     'standard indonesian': 'indonesian',
     indonesian: 'indonesian',
-    'bahasa indonesia': 'indonesian'
+    'bahasa indonesia': 'indonesian',
+    // Nepali names and endonyms
+    nepali: 'nepali',
+    नेपाली: 'nepali'
   };
 
   return mapping[normalized] ?? 'english';
