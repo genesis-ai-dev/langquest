@@ -81,6 +81,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetListItem } from './AssetListItem';
 import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
+import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
 type Asset = typeof asset.$inferSelect;
 type AssetQuestLink = Asset & {
@@ -101,6 +102,14 @@ export default function NextGenAssetsView() {
   const audioContext = useAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+
+  // Selection mode for visual highlight (playAll start point)
+  const {
+    selectedAssetIds,
+    enterSelection,
+    cancelSelection
+  } = useSelectionMode();
+
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -183,6 +192,23 @@ export default function NextGenAssetsView() {
           : undefined;
     return questData?.[0];
   }, [currentQuestData, queriedQuestData]);
+
+  // Check if quest is published (source is 'synced') - computed early for use in callbacks
+  const isPublished = selectedQuest?.source === 'synced';
+
+  // Handle single selection (for playAll start point) - always single selection
+  const handleToggleSelect = React.useCallback(
+    (assetId: string) => {
+      // Single selection: if already selected, deselect. Otherwise, select only this one.
+      if (selectedAssetIds.has(assetId)) {
+        cancelSelection();
+      } else {
+        // Select only this one (enterSelection clears previous and sets new)
+        enterSelection(assetId);
+      }
+    },
+    [selectedAssetIds, cancelSelection, enterSelection]
+  );
 
   // Query project data to get privacy status if not passed
   const { data: queriedProjectData } = useHybridData({
@@ -341,6 +367,8 @@ export default function NextGenAssetsView() {
         console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
       }
 
+      const isSelected = selectedAssetIds.has(item.id);
+
       return (
         <>
           <AssetListItem
@@ -351,19 +379,22 @@ export default function NextGenAssetsView() {
             isCurrentlyPlaying={isPlaying}
             onUpdate={handleAssetUpdate}
             isPublished={isPublished}
+            isSelected={isSelected}
+            onToggleSelect={handleToggleSelect}
           />
         </>
       );
     },
     // Use stable memo key instead of Map reference to prevent hook dependency issues
-    // Always has exactly 2 dependencies (string, string) - never changes size
     [
       currentQuestId,
       safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
-      handleAssetUpdate
+      handleAssetUpdate,
+      selectedAssetIds,
+      handleToggleSelect
     ]
   );
 
@@ -1075,9 +1106,6 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Check if quest is published (source is 'synced')
-  const isPublished = selectedQuest?.source === 'synced';
-
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
   const projectName = currentProjectData?.name || '';
@@ -1298,7 +1326,7 @@ export default function NextGenAssetsView() {
         <LegendList
           data={assets}
           keyExtractor={(item) => item.id}
-          extraData={currentlyPlayingAssetId}
+          extraData={[currentlyPlayingAssetId, selectedAssetIds]}
           renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}

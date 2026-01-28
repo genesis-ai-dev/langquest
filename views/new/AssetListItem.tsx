@@ -15,11 +15,13 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   EyeOffIcon,
   HardDriveIcon,
-  PauseIcon
+  PauseIcon,
+  SquareArrowOutUpRightIcon
   // Plus,
   // TagIcon
 } from 'lucide-react-native';
@@ -44,6 +46,9 @@ export interface AssetListItemProps {
   onUpdate?: () => void;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
+  // Selection props (visual highlight for playAll)
+  isSelected?: boolean;
+  onToggleSelect?: (assetId: string) => void;
 }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
@@ -52,7 +57,9 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   isCurrentlyPlaying = false,
   isPublished: _isPublished,
   onUpdate: _onUpdate,
-  attachmentState: _attachmentState
+  attachmentState: _attachmentState,
+  isSelected = false,
+  onToggleSelect
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -124,7 +131,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     questId
   );
 
-  const handlePress = () => {
+  const handleOpenAsset = () => {
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -150,6 +157,11 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     });
   };
 
+  const handlePress = () => {
+    // Always toggle selection when clicking on the card
+    onToggleSelect?.(asset.id);
+  };
+
   const handleDownloadToggle = () => {
     if (!currentUser?.id) return;
 
@@ -162,7 +174,12 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   return (
     <Pressable onPress={handlePress}>
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''}`}
+        className={cn(
+          !allowEditing && 'opacity-50',
+          invisible && 'opacity-30',
+          isCurrentlyPlaying && 'border-2 border-primary bg-primary/5',
+          isSelected && 'border-2 border-primary bg-primary/10'
+        )}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 gap-1">
@@ -218,12 +235,22 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   )}
                 </Pressable>
               </View> */}
-              <DownloadIndicator
-                isFlaggedForDownload={isDownloaded}
-                isLoading={isDownloading}
-                onPress={handleDownloadToggle}
-                size={20}
-              />
+              <View className="flex flex-row items-center gap-2">
+                <DownloadIndicator
+                  isFlaggedForDownload={isDownloaded}
+                  isLoading={isDownloading}
+                  onPress={handleDownloadToggle}
+                  size={16}
+                  iconColor='text-primary/50'
+                />
+                <Pressable onPress={handleOpenAsset}>
+                  <Icon
+                    as={SquareArrowOutUpRightIcon}
+                    size={16}
+                    className="text-primary"
+                  />
+                </Pressable>
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
