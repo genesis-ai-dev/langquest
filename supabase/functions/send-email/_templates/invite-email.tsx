@@ -103,6 +103,19 @@ export const InviteEmail = ({
       button: 'Joinim LangQuest',
       orCopy: 'Or copyim pasteim link yu long yu browser:',
       expiry: 'Link yu no expireim long 7 days.'
+    },
+    ne: {
+      preview: `तपाईंलाई ${projectName} मा LangQuest मा सामेल हुन आमन्त्रित गरिएको छ`,
+      title: 'प्रोजेक्ट आमन्त्रण',
+      greeting: 'नमस्कार!',
+      description: `${inviterName} ले तपाईंलाई LangQuest मा "${projectName}" प्रोजेक्टमा सामेल हुन आमन्त्रित गर्नुभएको छ, एक सहयोगी भाषा सिकाइ प्लेटफर्म।`,
+      whatIsLangQuest:
+        'LangQuest ले समुदायहरूलाई भाषा सिकाइ स्रोतहरू सिर्जना र साझेदारी गर्न मद्दत गर्दछ। अनुवाद, अडियो रेकर्डिङहरू योगदान गर्न र विश्वभर भाषाहरू संरक्षण गर्न मद्दत गर्न हामीसँग जोडिनुहोस्।',
+      instruction:
+        'तपाईंको खाता सिर्जना गर्न र प्रोजेक्टमा सामेल हुन तलको बटनमा क्लिक गर्नुहोस्:',
+      button: 'LangQuest मा सामेल हुनुहोस्',
+      orCopy: 'वा यो लिंक तपाईंको ब्राउजरमा कपि र पेस्ट गर्नुहोस्:',
+      expiry: 'यो आमन्त्रण लिंक ७ दिनमा समाप्त हुनेछ।'
     }
   };
 

@@ -76,6 +76,15 @@ export const ConfirmEmail = ({
       button: 'Strongim LangQuest Akaun',
       orCopy: 'Or copyim pasteim link yu long yu browser:',
       expiry: 'Link yu no expireim long 24 hours.'
+    },
+    ne: {
+      preview: 'तपाईंको LangQuest खाता पुष्टि गर्नुहोस्',
+      title: 'तपाईंको खाता पुष्टि गर्नुहोस्',
+      description:
+        'तपाईंको खाता पुष्टि गर्न र दर्ता पूरा गर्न यो लिंक अनुसरण गर्नुहोस्:',
+      button: 'खाता पुष्टि गर्नुहोस्',
+      orCopy: 'वा यो लिंक तपाईंको ब्राउजरमा कपि र पेस्ट गर्नुहोस्:',
+      expiry: 'यो लिंक २४ घण्टामा समाप्त हुनेछ।'
     }
   };
 
