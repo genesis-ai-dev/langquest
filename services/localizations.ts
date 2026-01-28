@@ -7,6 +7,34 @@ export type SupportedLanguage =
   | 'indonesian'
   | 'nepali';
 
+/**
+ * Languoid names that have local UI support.
+ * Used to filter ui_ready languoids from the DB to prevent showing
+ * languages that newer DB versions support but older app versions don't.
+ * Must match the mapping in useLocalization.ts mapLanguoidNameToSupportedLanguage()
+ */
+export const SUPPORTED_LANGUAGE_NAMES = new Set([
+  // English
+  'english',
+  // Spanish
+  'spanish',
+  'español',
+  'espanol',
+  // Brazilian Portuguese
+  'brazilian portuguese',
+  'português brasileiro',
+  'portugues brasileiro',
+  // Tok Pisin
+  'tok pisin',
+  // Indonesian
+  'standard indonesian',
+  'indonesian',
+  'bahasa indonesia',
+  // Nepali
+  'nepali',
+  'नेपाली'
+]);
+
 // Define the structure for translations
 export type LocalizationKey = keyof typeof localizations;
 
