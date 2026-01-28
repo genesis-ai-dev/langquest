@@ -791,6 +791,26 @@ export default function BibleAssetsView() {
 
   // Handler for selecting/deselecting an asset for recording insertion
   // Optimized with ref to avoid recreation on every asset change
+  // Handle single selection for published quests (for playAll start point)
+  const handleToggleSelect = React.useCallback(
+    (assetId: string) => {
+      if (isPublished) {
+        // Single selection: if already selected, deselect. Otherwise, select only this one.
+        if (selectedAssetIds.has(assetId)) {
+          cancelSelection();
+        } else {
+          // Clear all and select only this one
+          cancelSelection();
+          toggleSelect(assetId);
+        }
+      } else {
+        // Multi-selection for batch operations when not published
+        toggleSelect(assetId);
+      }
+    },
+    [isPublished, selectedAssetIds, cancelSelection, toggleSelect]
+  );
+
   const handleSelectForRecording = React.useCallback(
     (assetId: string) => {
       // Toggle: if same asset clicked, deselect
@@ -2209,8 +2229,10 @@ export default function BibleAssetsView() {
             isDragFixed={fixedItemsIndexesRef.current.includes(index)}
             // Selection mode only works when NOT published
             isSelectionMode={!isPublished && isSelectionMode}
-            isSelected={!isPublished && isSelected}
-            onToggleSelect={!isPublished ? toggleSelect : undefined}
+            // isSelected works for both published and unpublished (visual highlight)
+            isSelected={isSelected}
+            // onToggleSelect: single selection when published, multi-selection when not
+            onToggleSelect={handleToggleSelect}
             onEnterSelection={!isPublished ? enterSelection : undefined}
             // Recording insertion point selection
             isSelectedForRecording={isAssetSelectedForRecording}
@@ -2236,7 +2258,7 @@ export default function BibleAssetsView() {
       getRangeForAsset,
       isSelectionMode,
       selectedAssetIds,
-      toggleSelect,
+      handleToggleSelect,
       enterSelection,
       selectedForRecording?.type,
       selectedForRecording?.assetId,
@@ -2670,9 +2692,10 @@ export default function BibleAssetsView() {
           return;
         }
 
-        // Determine which assets to process based on isAssetSelectedForRecording state
+        // Determine which assets to process based on selection state
         let assetsToProcess: AssetQuestLink[];
 
+        // Priority 1: selectedForRecording (for unpublished quests with recording selection)
         if (selectedAsset?.type === 'asset' && selectedAsset?.assetId) {
           const selectedIndex = assets.findIndex(
             (a) => a.id === selectedAsset.assetId
@@ -2682,7 +2705,21 @@ export default function BibleAssetsView() {
           } else {
             assetsToProcess = assets;
           }
-        } else {
+        }
+        // Priority 2: selectedAssetIds (for published quests with visual selection)
+        else if (selectedAssetIds.size > 0) {
+          const firstSelectedIndex = assets.findIndex((a) =>
+            selectedAssetIds.has(a.id)
+          );
+          if (firstSelectedIndex >= 0) {
+            assetsToProcess = assets.slice(firstSelectedIndex);
+            console.log(`🎵 Starting from first selected asset at index ${firstSelectedIndex}`);
+          } else {
+            assetsToProcess = assets;
+          }
+        }
+        // Priority 3: No selection, play all
+        else {
           assetsToProcess = assets;
         }
 
@@ -2795,7 +2832,7 @@ export default function BibleAssetsView() {
         currentPlayAllSoundRef.current = null;
       }
     },
-    [assets, getAssetAudioUris]
+    [assets, getAssetAudioUris, selectedAssetIds]
   );
 
   // OLD handlePlayAllAssets function - commented out (replaced by handlePlayAll)

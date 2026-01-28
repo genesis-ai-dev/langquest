@@ -25,9 +25,9 @@ import {
   PauseIcon,
   PencilLineIcon,
   PlayIcon,
+  SquareArrowOutUpRightIcon,
   // Plus,
-  SquareIcon
-  // TagIcon
+  SquareIcon,
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
@@ -155,19 +155,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
     questId
   );
 
-  const handlePress = () => {
-    // If in selection mode, toggle selection instead of navigating
-    if (isSelectionMode) {
-      onToggleSelect?.(asset.id);
-      return;
-    }
-
-    // If not published, select for recording (toggle)
-    if (!isPublished) {
-      onSelectForRecording?.(asset.id);
-      return;
-    }
-
+  const handleOpenAsset = () => {
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -190,7 +178,51 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
       questData: currentQuestData // Pass quest data forward!
       // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
       // relationships which aren't loaded in the list view
-    });
+    });    
+  };
+
+  const handlePress = () => {
+    // If in selection mode, toggle selection instead of navigating
+    if (isSelectionMode) {
+      onToggleSelect?.(asset.id);
+      return;
+    }
+
+    // If not published, select for recording (toggle)
+    if (!isPublished) {
+      onSelectForRecording?.(asset.id);
+      return;
+    }
+
+    // If published, toggle selection for playAll (visual highlight only, no icons)
+    onToggleSelect?.(asset.id);
+
+    // handleOpenAsset();
+
+
+    // layerStatus.setLayerStatus(
+    //   LayerType.ASSET,
+    //   {
+    //     visible: asset.visible,
+    //     active: asset.active,
+    //     quest_active: asset.quest_active,
+    //     quest_visible: asset.quest_visible,
+    //     source: asset.source
+    //   },
+    //   asset.id,
+    //   questId
+    // );
+
+    // goToAsset({
+    //   id: asset.id,
+    //   name: asset.name || t('unnamedAsset'),
+    //   questId: questId,
+    //   projectId: asset.project_id!,
+    //   projectData: currentProjectData, // Pass project data forward!
+    //   questData: currentQuestData // Pass quest data forward!
+    //   // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
+    //   // relationships which aren't loaded in the list view
+    // });
   };
 
   const handleLongPress = () => {
@@ -287,7 +319,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                         e.stopPropagation();
                         void onPlay(asset.id);
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40 ml-2"
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Icon
@@ -348,17 +380,27 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                 >
                   <Icon
                     as={PencilLineIcon}
-                    size={14}
+                    size={12}
                     className="text-primary"
                   />
                 </Pressable>
               ) : (
-                <DownloadIndicator
-                  isFlaggedForDownload={isDownloaded}
-                  isLoading={isDownloading}
-                  onPress={handleDownloadToggle}
-                  size={16}
-                />
+                <>
+                  <DownloadIndicator
+                    isFlaggedForDownload={isDownloaded}
+                    isLoading={isDownloading}
+                    onPress={handleDownloadToggle}
+                    size={16}
+                    iconColor='text-primary/50'
+                  />
+                  <Pressable onPress={handleOpenAsset} className='mr-2'>
+                    <Icon
+                      as={SquareArrowOutUpRightIcon}
+                      size={16}
+                      className="text-primary"
+                    />
+                  </Pressable>
+                </>
               )}
             </View>
             {SHOW_DEV_ELEMENTS && (
