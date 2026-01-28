@@ -7225,7 +7225,8 @@ export const localizations = {
     tok_pisin: 'Enable verse labels to help organize Bible resources',
     indonesian:
       'Aktifkan label versi untuk membantu mengorganisir sumber daya Alkitab',
-    nepali: 'बाइबल स्रोतहरू व्यवस्थित गर्न मद्दत गर्न पद लेबलहरू सक्षम गर्नुहोस्'
+    nepali:
+      'बाइबल स्रोतहरू व्यवस्थित गर्न मद्दत गर्न पद लेबलहरू सक्षम गर्नुहोस्'
   },
   // Languoid Link Suggestion strings
   languoidLinkSuggestionTitle: {

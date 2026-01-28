@@ -5,7 +5,10 @@ interface BookName {
   abbrev: string;
 }
 
-type BibleBookNames = Record<string, Partial<Record<SupportedLanguage, BookName>>>;
+type BibleBookNames = Record<
+  string,
+  Partial<Record<SupportedLanguage, BookName>>
+>;
 
 /**
  * Localized Bible book names and abbreviations for all supported UI languages.
@@ -566,6 +569,9 @@ export function getLocalizedBookName(
   // Try requested language, then fall back to English
   return (
     bookNames[language] ??
-    bookNames.english ?? { name: bookId.toUpperCase(), abbrev: bookId.toUpperCase() }
+    bookNames.english ?? {
+      name: bookId.toUpperCase(),
+      abbrev: bookId.toUpperCase()
+    }
   );
 }

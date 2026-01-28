@@ -111,10 +111,7 @@ export function BibleBookList({
           resizeMode="contain"
         />
         <View className="flex-col items-center gap-0.5">
-          <Text
-            className="text-xs font-bold"
-            style={{ letterSpacing: 0.5 }}
-          >
+          <Text className="text-xs font-bold" style={{ letterSpacing: 0.5 }}>
             {abbrev}
           </Text>
           <Text className="text-xxs text-muted-foreground">
