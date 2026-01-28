@@ -31,7 +31,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
 import { Audio } from 'expo-av';
-import { ArrowLeft, PauseIcon, PlayIcon } from 'lucide-react-native';
+import { ArrowLeft, ListVideo, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -168,6 +168,11 @@ const RecordingViewSimplified = ({
   >(new Map());
   // Track last scrolled asset to avoid scrolling to the same asset multiple times
   const lastScrolledAssetIdRef = React.useRef<string | null>(null);
+
+  // New PlayAll state (starts from insertionIndex)
+  const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
+  const isPlayAllRunningRef = React.useRef(false);
+  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
 
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
@@ -1070,6 +1075,157 @@ const RecordingViewSimplified = ({
       }
     }
   }, [audioContext, getAssetAudioUris, assets]);
+
+  // Handle play all - plays all assets sequentially starting from insertionIndex
+  const handlePlayAll = React.useCallback(async () => {
+    try {
+      // Check if already playing - toggle to stop
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          try {
+            await currentPlayAllSoundRef.current.stopAsync();
+            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          } catch (error) {
+            console.error('Error stopping sound:', error);
+          }
+        }
+        
+        setCurrentlyPlayingAssetId(null);
+        debugLog('⏸️ Stopped play all');
+        return;
+      }
+
+      if (assets.length === 0) {
+        console.warn('⚠️ No assets to play');
+        return;
+      }
+
+      // Determine which assets to process starting from insertionIndex
+      const startIndex = Math.min(insertionIndex, assets.length - 1);
+      const assetsToProcess = assets.slice(startIndex);
+
+      if (assetsToProcess.length === 0) {
+        console.warn('⚠️ No assets to play from insertion index');
+        return;
+      }
+
+      debugLog(
+        `🎵 Starting play all from insertion index ${startIndex} (${assetsToProcess.length} assets)...`
+      );
+
+      // Mark as running
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      // Build playlist: Array<{assetId, uris}>
+      const playlist: { assetId: string; uris: string[] }[] = [];
+
+      for (const asset of assetsToProcess) {
+        // Check if cancelled
+        if (!isPlayAllRunningRef.current) {
+          debugLog('⏸️ Play all cancelled during playlist build');
+          return;
+        }
+
+        // Get URIs for this asset
+        const uris = await getAssetAudioUris(asset.id);
+        if (uris.length > 0) {
+          playlist.push({ assetId: asset.id, uris });
+        }
+      }
+
+      if (playlist.length === 0) {
+        console.error('❌ No audio URIs found for any assets');
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        return;
+      }
+
+      debugLog(
+        `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
+      );
+
+      // Play each asset sequentially
+      for (let i = 0; i < playlist.length; i++) {
+        // Check if cancelled
+        if (!isPlayAllRunningRef.current) {
+          debugLog('⏸️ Play all cancelled');
+          setCurrentlyPlayingAssetId(null);
+          return;
+        }
+
+        const item = playlist[i]!;
+        const actualAssetIndex = startIndex + i;
+
+        // HIGHLIGHT THIS ASSET
+        setCurrentlyPlayingAssetId(item.assetId);
+        
+        // Give React a chance to process the state update
+        await Promise.resolve();
+        
+        // Scroll to this asset in the wheel
+        // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
+        if (wheelRef.current) {
+          wheelRef.current.scrollItemToTop(actualAssetIndex - 1, true);
+        }
+
+        debugLog(
+          `▶️ [${i + 1}/${playlist.length}] Playing asset at index ${actualAssetIndex} (${item.assetId.slice(0, 8)}, ${item.uris.length} segments)`
+        );
+
+        // Play all URIs for this asset sequentially
+        for (const uri of item.uris) {
+          // Check if cancelled
+          if (!isPlayAllRunningRef.current) {
+            setCurrentlyPlayingAssetId(null);
+            return;
+          }
+
+          // Play this URI and wait for it to finish
+          await new Promise<void>((resolve) => {
+            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
+              .then(({ sound }) => {
+                currentPlayAllSoundRef.current = sound;
+                
+                sound.setOnPlaybackStatusUpdate((status) => {
+                  if (!status.isLoaded) return;
+
+                  if (status.didJustFinish) {
+                    currentPlayAllSoundRef.current = null;
+                    void sound.unloadAsync().then(() => {
+                      resolve();
+                    });
+                  }
+                });
+              })
+              .catch((error) => {
+                console.error('Failed to play audio:', error);
+                currentPlayAllSoundRef.current = null;
+                resolve();
+              });
+          });
+        }
+      }
+
+      // Finished playing all
+      debugLog('✅ Finished playing all assets');
+      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
+    } catch (error) {
+      console.error('❌ Error playing all assets:', error);
+      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
+    }
+  }, [assets, getAssetAudioUris, insertionIndex]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -2232,22 +2388,36 @@ const RecordingViewSimplified = ({
           </Text>
         </View>
         {assets.length > 0 && enablePlayAll && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={handlePlayAllAssets}
-            className="h-10 w-10"
-          >
-            <Icon
-              as={
-                audioContext.isPlaying &&
-                audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                  ? PauseIcon
-                  : PlayIcon
-              }
-              size={24}
-            />
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handlePlayAllAssets}
+              className="h-10 w-10"
+            >
+              <Icon
+                as={
+                  audioContext.isPlaying &&
+                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+                    ? PauseIcon
+                    : PlayIcon
+                }
+                size={24}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handlePlayAll}
+              className="h-10 w-10"
+            >
+              <Icon
+                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                size={24}
+                className="text-primary"
+              />
+            </Button>
+          </>
         )}
       </View>
 
