@@ -29,12 +29,14 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
+import { Audio } from 'expo-av';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
   CloudUpload,
   FlagIcon,
   InfoIcon,
+  ListVideo,
   LockIcon,
   MicIcon,
   PauseIcon,
@@ -131,9 +133,16 @@ export default function NextGenAssetsView() {
   const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+
+  // New PlayAll state (starts from selected asset)
+  const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
+  const isPlayAllRunningRef = React.useRef(false);
+  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
+
+  const currentPlayingAssetIdRef = React.useRef<string | null>(null);
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -366,7 +375,7 @@ export default function NextGenAssetsView() {
       if (isPlaying && __DEV__) {
         console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
       }
-
+      
       const isSelected = selectedAssetIds.has(item.id);
 
       return (
@@ -376,7 +385,7 @@ export default function NextGenAssetsView() {
             asset={item}
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
-            isCurrentlyPlaying={isPlaying}
+            isCurrentlyPlaying={isPlaying || currentPlayingAssetIdRef.current === item.id}
             onUpdate={handleAssetUpdate}
             isPublished={isPublished}
             isSelected={isSelected}
@@ -385,7 +394,6 @@ export default function NextGenAssetsView() {
         </>
       );
     },
-    // Use stable memo key instead of Map reference to prevent hook dependency issues
     [
       currentQuestId,
       safeAttachmentStates,
@@ -815,7 +823,167 @@ export default function NextGenAssetsView() {
     currentlyPlayingAssetId
   ]);
 
-  // Handle play all assets
+  // Handle play all - plays all assets sequentially starting from selected asset
+  const handlePlayAll = React.useCallback(async () => {
+    currentPlayingAssetIdRef.current = null;
+    try {
+      // Check if already playing - toggle to stop
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          try {
+            await currentPlayAllSoundRef.current.stopAsync();
+            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          } catch (error) {
+            console.error('Error stopping sound:', error);
+          }
+        }
+        currentPlayingAssetIdRef.current = null;
+        setCurrentlyPlayingAssetId(null);
+        console.log('⏸️ Stopped play all');
+        return;
+      }
+
+      // Determine which assets to process based on selection state
+      let assetsToProcess: AssetQuestLink[];
+
+      // If there's a selected asset, start from it
+      if (selectedAssetIds.size > 0) {
+        const firstSelectedIndex = assets.findIndex((a) =>
+          selectedAssetIds.has(a.id)
+        );
+        if (firstSelectedIndex >= 0) {
+          assetsToProcess = assets.slice(firstSelectedIndex);
+          console.log(
+            `🎵 Starting from first selected asset at index ${firstSelectedIndex}`
+          );
+        } else {
+          assetsToProcess = assets;
+        }
+      } else {
+        // No selection, play all
+        assetsToProcess = assets;
+      }
+
+      if (assetsToProcess.length === 0) {
+        console.warn('⚠️ No assets to play');
+        return;
+      }
+
+      console.log(
+        `🎵 Starting play all from ${assetsToProcess.length} assets...`
+      );
+
+      // Mark as running
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      // Build playlist: Array<{assetId, uris}>
+      const playlist: { assetId: string; uris: string[] }[] = [];
+
+      for (const asset of assetsToProcess) {
+        // Check if cancelled
+        if (!isPlayAllRunningRef.current) {
+          console.log('⏸️ Play all cancelled during playlist build');
+          return;
+        }
+
+        // Get URIs for this asset
+        const uris = await getAssetAudioUris(asset.id);
+        if (uris.length > 0) {
+          playlist.push({ assetId: asset.id, uris });
+        }
+      }
+
+      if (playlist.length === 0) {
+        console.error('❌ No audio URIs found for any assets');
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        return;
+      }
+
+      console.log(
+        `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
+      );
+
+      // Play each asset sequentially with direct linking
+      for (let i = 0; i < playlist.length; i++) {
+        // Check if cancelled
+        if (!isPlayAllRunningRef.current) {
+          console.log('⏸️ Play all cancelled');
+          currentPlayingAssetIdRef.current = null;
+          setCurrentlyPlayingAssetId(null);
+          return;
+        }
+
+        const item = playlist[i]!;
+
+        // HIGHLIGHT THIS ASSET - direct link!
+        currentPlayingAssetIdRef.current = item.assetId;
+        setCurrentlyPlayingAssetId(item.assetId);
+        console.log(
+          `▶️ [${i + 1}/${playlist.length}] Playing asset ${item.assetId.slice(0, 8)} (assetId: ${currentPlayingAssetIdRef.current}, ${item.uris.length} segments)`
+        );
+
+        // Play all URIs for this asset sequentially
+        for (const uri of item.uris) {
+          // Check if cancelled
+          if (!isPlayAllRunningRef.current) {
+            currentPlayingAssetIdRef.current = null;
+            setCurrentlyPlayingAssetId(null);
+            return;
+          }
+
+          // Play this URI and wait for it to finish
+          await new Promise<void>((resolve) => {
+            // Create and play the sound
+            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
+              .then(({ sound }) => {
+                // Store reference for immediate cancellation
+                currentPlayAllSoundRef.current = sound;
+
+                // Set up listener for when sound finishes
+                sound.setOnPlaybackStatusUpdate((status) => {
+                  if (!status.isLoaded) return;
+
+                  if (status.didJustFinish) {
+                    currentPlayAllSoundRef.current = null;
+                    void sound.unloadAsync().then(() => {
+                      resolve();
+                    });
+                  }
+                });
+              })
+              .catch((error) => {
+                console.error('Failed to play audio:', error);
+                currentPlayAllSoundRef.current = null;
+                resolve(); // Continue to next even on error
+              });
+          });
+        }
+      }
+
+      // Finished playing all
+      console.log('✅ Finished playing all assets');
+      currentPlayingAssetIdRef.current = null;
+      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
+    } catch (error) {
+      console.error('❌ Error playing all assets:', error);
+      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      currentPlayAllSoundRef.current = null;
+    }
+  }, [assets, getAssetAudioUris, selectedAssetIds]);
+
+  // Handle play all assets (original - plays all from beginning)
   const handlePlayAllAssets = React.useCallback(async () => {
     try {
       const isPlayingAll =
@@ -1140,22 +1308,36 @@ export default function NextGenAssetsView() {
             </Animated.View>
           </Button>
           {assets.length > 0 && enablePlayAll && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={handlePlayAllAssets}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={
-                  audioContext.isPlaying &&
-                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                    ? PauseIcon
-                    : PlayIcon
-                }
-                size={20}
-              />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={handlePlayAllAssets}
+                className="h-10 w-10"
+              >
+                <Icon
+                  as={
+                    audioContext.isPlaying &&
+                    audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
+                      ? PauseIcon
+                      : PlayIcon
+                  }
+                  size={20}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={handlePlayAll}
+                className="h-10 w-10"
+              >
+                <Icon
+                  as={isPlayAllRunning ? PauseIcon : ListVideo}
+                  size={20}
+                  className="text-primary"
+                />
+              </Button>
+            </>
           )}
         </View>
         <View className="flex flex-row items-center gap-2">
@@ -1327,11 +1509,11 @@ export default function NextGenAssetsView() {
           data={assets}
           keyExtractor={(item) => item.id}
           extraData={[currentlyPlayingAssetId, selectedAssetIds]}
+          recycleItems
           renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           estimatedItemSize={120}
-          recycleItems
           contentContainerStyle={{
             gap: 8,
             paddingBottom: !isPublished ? 100 : 24
