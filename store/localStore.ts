@@ -11,6 +11,7 @@ export type AppView =
   | 'quests'
   | 'assets'
   | 'asset-detail'
+  | 'bible-assets'
   | 'profile'
   | 'notifications'
   | 'settings'
@@ -120,6 +121,10 @@ export interface LocalState {
   setEnablePlayAll: (enabled: boolean) => void;
   enableQuestExport: boolean;
   setEnableQuestExport: (enabled: boolean) => void;
+  enableVerseMarkers: boolean;
+  setEnableVerseMarkers: (enabled: boolean) => void;
+  verseMarkersFeaturePrompted: boolean;
+  setVerseMarkersFeaturePrompted: (prompted: boolean) => void;
   enableTranscription: boolean;
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
@@ -261,6 +266,8 @@ export const useLocalStore = create<LocalState>()(
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
+      enableVerseMarkers: false,
+      verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
 
@@ -369,6 +376,9 @@ export const useLocalStore = create<LocalState>()(
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
       setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
+      setEnableVerseMarkers: (enabled) => set({ enableVerseMarkers: enabled }),
+      setVerseMarkersFeaturePrompted: (prompted) =>
+        set({ verseMarkersFeaturePrompted: prompted }),
       setEnableTranscription: (enabled) =>
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
