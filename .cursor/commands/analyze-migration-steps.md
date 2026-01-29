@@ -13,9 +13,9 @@ Analyze migration steps and verify migration status:
      ```bash
      cp testing/client-migrations/{@version}.db testing/client-migrations/{@version}-test-cases.db
      ```
-   - **CRITICAL: Consolidate source database** - Consolidate the source database into a single file (no WAL/SHM):
+   - **CRITICAL: Revert any changes to source database** - After copying, revert any git changes to ensure the original database file is untouched:
      ```bash
-     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}.db
+     git checkout testing/client-migrations/{@version}.db
      ```
    - Consolidate the test database copy into a single file (no WAL/SHM):
      ```bash

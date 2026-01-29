@@ -99,7 +99,7 @@ echo -e "${GREEN}Test database: $TEST_DB${NC}"
 
 # Close/terminate the app
 echo -e "${YELLOW}Closing app...${NC}"
-"$SCRIPT_DIR/restart-device-app.sh" close
+"$SCRIPT_DIR/restart-device-app.sh" close "$PLATFORM"
 
 if [ "$PLATFORM" = "ios" ]; then
     # iOS Simulator path
@@ -194,6 +194,41 @@ if [ "$PLATFORM" = "ios" ]; then
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
+    
+    # Clear degraded mode keys from AsyncStorage
+    echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
+    APP_SUPPORT_DIR="$DB_DIR/../Application Support/$APP_BUNDLE_ID"
+    ASYNC_STORAGE_V1="$APP_SUPPORT_DIR/RCTAsyncLocalStorage_V1"
+    
+    # AsyncStorage on iOS can be in different locations, try common ones
+    ASYNC_STORAGE_PATHS=(
+        "$APP_SUPPORT_DIR/RCTAsyncLocalStorage_V1"
+        "$DB_DIR/../Application Support/RCTAsyncLocalStorage_V1"
+        "$DB_DIR/RCTAsyncLocalStorage_V1"
+        "$DB_DIR/../Documents/RCTAsyncLocalStorage_V1"
+    )
+    
+    ASYNC_FOUND=false
+    for ASYNC_PATH in "${ASYNC_STORAGE_PATHS[@]}"; do
+        if [ -d "$ASYNC_PATH" ]; then
+            echo -e "${GREEN}Found AsyncStorage at: $ASYNC_PATH${NC}"
+            # Remove the manifest.json which contains the key-value pairs
+            if [ -f "$ASYNC_PATH/manifest.json" ]; then
+                echo -e "${YELLOW}Removing AsyncStorage manifest (clears all keys)...${NC}"
+                rm -f "$ASYNC_PATH/manifest.json"
+                ASYNC_FOUND=true
+            fi
+            # Also remove any SQLite-based AsyncStorage files
+            rm -f "$ASYNC_PATH"/*.sqlite* 2>/dev/null || true
+            break
+        fi
+    done
+    
+    if [ "$ASYNC_FOUND" = false ]; then
+        echo -e "${YELLOW}AsyncStorage directory not found (may not exist yet, which is fine)${NC}"
+    else
+        echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
+    fi
 
 elif [ "$PLATFORM" = "android" ]; then
     # Android Emulator path
@@ -214,11 +249,12 @@ elif [ "$PLATFORM" = "android" ]; then
     
     # Try to find database in common locations using run-as (for debuggable apps)
     # PowerSync typically stores databases in /data/data/{package}/files/ or /data/data/{package}/databases/
+    # CRITICAL: Check databases/ FIRST as PowerSync may prefer that location on Android
     DB_PATHS=(
-        "/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
         "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db"
-        "/data/data/${APP_BUNDLE_ID}/files/powersync.db"
+        "/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
         "/data/data/${APP_BUNDLE_ID}/databases/powersync.db"
+        "/data/data/${APP_BUNDLE_ID}/files/powersync.db"
     )
     
     DB_PATH=""
@@ -244,12 +280,28 @@ elif [ "$PLATFORM" = "android" ]; then
         
         echo -e "${GREEN}Found app with package: $APP_BUNDLE_ID${NC}"
         
-        # Use default PowerSync location
-        DB_PATH="/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
+        # Use databases/ as default PowerSync location on Android (more common)
+        DB_PATH="/data/data/${APP_BUNDLE_ID}/databases/sqlite.db"
         
         # Create directory if it doesn't exist (using run-as for debuggable apps)
         adb shell "run-as $APP_BUNDLE_ID mkdir -p $(dirname "$DB_PATH")" 2>/dev/null || \
         adb shell "mkdir -p $(dirname "$DB_PATH")" 2>/dev/null || true
+    fi
+    
+    # CRITICAL: Also copy to files/ directory if databases/ is being used, as PowerSync might check both
+    # This ensures compatibility regardless of which location PowerSync actually uses
+    if [ "$DB_PATH" = "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db" ]; then
+        FILES_DB_PATH="/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
+        echo -e "${YELLOW}Also copying to files/ directory for compatibility...${NC}"
+        TEMP_DB="/data/local/tmp/temp_sqlite.db"
+        adb push "$TEST_DB" "$TEMP_DB" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            adb shell "run-as $APP_BUNDLE_ID cp $TEMP_DB $FILES_DB_PATH" 2>/dev/null || \
+            adb push "$TEST_DB" "$FILES_DB_PATH" 2>/dev/null || true
+            adb shell "run-as $APP_BUNDLE_ID chmod 664 $FILES_DB_PATH" 2>/dev/null || adb shell "chmod 664 $FILES_DB_PATH" 2>/dev/null || true
+            adb shell "rm -f $TEMP_DB" 2>/dev/null || true
+            echo -e "${GREEN}✓ Also copied to files/ directory${NC}"
+        fi
     fi
     
     echo -e "${GREEN}Target database: $DB_PATH${NC}"
@@ -332,5 +384,34 @@ elif [ "$PLATFORM" = "android" ]; then
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
+    
+    # Clear degraded mode keys from AsyncStorage
+    echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
+    
+    # AsyncStorage on Android is typically stored in files/AsyncStorage/ directory (RocksDB)
+    # or in shared_prefs for older versions
+    ASYNC_STORAGE_DIR="/data/data/${APP_BUNDLE_ID}/files/AsyncStorage"
+    SHARED_PREFS_DIR="/data/data/${APP_BUNDLE_ID}/shared_prefs"
+    
+    # Try to remove AsyncStorage RocksDB directory
+    if adb shell "run-as $APP_BUNDLE_ID test -d $ASYNC_STORAGE_DIR" 2>/dev/null; then
+        echo -e "${GREEN}Found AsyncStorage directory${NC}"
+        echo -e "${YELLOW}Removing AsyncStorage directory (clears all keys)...${NC}"
+        adb shell "run-as $APP_BUNDLE_ID rm -rf $ASYNC_STORAGE_DIR" 2>/dev/null || \
+        adb shell "rm -rf $ASYNC_STORAGE_DIR" 2>/dev/null || true
+        echo -e "${GREEN}✓ AsyncStorage directory removed${NC}"
+    else
+        echo -e "${YELLOW}AsyncStorage directory not found (may not exist yet, which is fine)${NC}"
+    fi
+    
+    # Also try to clear any shared_prefs that might contain AsyncStorage data
+    # AsyncStorage sometimes uses shared_prefs file named after the package
+    ASYNC_PREFS_FILE="${SHARED_PREFS_DIR}/${APP_BUNDLE_ID}.xml"
+    ASYNC_PREFS_FILE2="${SHARED_PREFS_DIR}/AsyncLocalStorageUtil.xml"
+    
+    adb shell "run-as $APP_BUNDLE_ID rm -f $ASYNC_PREFS_FILE $ASYNC_PREFS_FILE2" 2>/dev/null || \
+    adb shell "rm -f $ASYNC_PREFS_FILE $ASYNC_PREFS_FILE2" 2>/dev/null || true
+    
+    echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
 fi
 

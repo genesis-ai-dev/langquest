@@ -13,8 +13,16 @@
  * 5. On error: shows error message with retry option
  */
 
+import { useAuth } from '@/contexts/AuthContext';
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import {
+  clearDegradedMode,
+  incrementRetryCount,
+  isDegradedMode,
+  resetRetryCount,
+  shouldRetryMigration
+} from '@/services/degradedModeService';
 import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -39,6 +47,7 @@ interface MigrationScreenProps {
 }
 
 export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
+  const { setMigrationNeeded } = useAuth();
   const [progress, setProgress] = useState<MigrationProgress>({
     current: 0,
     total: 1,
@@ -46,12 +55,48 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   });
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [isDegraded, setIsDegraded] = useState(false);
+
+  // Check degraded mode on mount and auto-proceed if already in degraded mode
+  useEffect(() => {
+    void (async () => {
+      const degraded = await isDegradedMode();
+      setIsDegraded(degraded);
+      if (degraded) {
+        const shouldRetry = await shouldRetryMigration();
+        if (!shouldRetry) {
+          // Already in degraded mode and version hasn't changed - auto-proceed
+          console.log(
+            '[MigrationScreen] Already in degraded mode - allowing app to continue'
+          );
+          setProgress({
+            current: 0,
+            total: 1,
+            step: 'Continuing in degraded mode...'
+          });
+
+          // Auto-proceed after a brief delay to show the message
+          setTimeout(() => {
+            if (onComplete) {
+              // Pre-auth: proceed normally
+              onComplete();
+            } else {
+              // Post-auth: clear migration needed flag and allow app to continue
+              setMigrationNeeded(false);
+              system.clearMigrationNeeded();
+            }
+          }, 1500);
+        }
+      }
+    })();
+  }, [onComplete, setMigrationNeeded]);
 
   // Memoize runMigration with proper dependencies
   const runMigration = useCallback(async () => {
     try {
       console.log('[MigrationScreen] Starting migration...');
       setError(null);
+      setIsDegraded(false);
       setProgress({
         current: 0,
         total: 1,
@@ -67,6 +112,11 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
       });
 
       console.log('[MigrationScreen] Migration complete!');
+
+      // Clear degraded mode and reset retry count on success
+      await clearDegradedMode();
+      await resetRetryCount();
+
       setIsComplete(true);
       setProgress({
         current: 1,
@@ -102,14 +152,45 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('[MigrationScreen] Migration failed:', errorMessage);
-      setError(errorMessage);
-      setProgress({
-        current: 0,
-        total: 1,
-        step: 'Migration failed'
-      });
+
+      // Increment retry count and check if we should enter degraded mode
+      const enteredDegradedMode = await incrementRetryCount();
+
+      if (enteredDegradedMode) {
+        setIsDegraded(true);
+        setError(
+          'Migration failed multiple times. The app will continue in degraded mode. Please update the app to retry migration.'
+        );
+        setProgress({
+          current: 0,
+          total: 1,
+          step: 'Entering degraded mode...'
+        });
+
+        // Auto-proceed after showing the message - no restart needed
+        setTimeout(() => {
+          console.log(
+            '[MigrationScreen] Entered degraded mode - allowing app to continue'
+          );
+          if (onComplete) {
+            // Pre-auth: proceed normally
+            onComplete();
+          } else {
+            // Post-auth: clear migration needed flag and allow app to continue
+            setMigrationNeeded(false);
+            system.clearMigrationNeeded();
+          }
+        }, 2000);
+      } else {
+        setError(errorMessage);
+        setProgress({
+          current: 0,
+          total: 1,
+          step: 'Migration failed'
+        });
+      }
     }
-  }, [onComplete]);
+  }, [onComplete, setMigrationNeeded]);
 
   // Memoize wrapper function to pass as reference to scheduleOnRN
   // Per workspace rules: must pass function references, never inline arrow functions
@@ -214,13 +295,16 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
         {/* Action Buttons */}
         {error && (
           <View className="space-y-3">
-            <Button onPress={handleRetry} className="w-full">
-              <Text>Retry Migration</Text>
-            </Button>
+            {!isDegraded && (
+              <Button onPress={handleRetry} className="w-full">
+                <Text>Retry Migration</Text>
+              </Button>
+            )}
 
             <Text className="mt-4 text-center text-xs text-muted-foreground">
-              If this error persists, please contact support or reinstall the
-              app.
+              {isDegraded
+                ? 'Please update the app to retry migration. The app will continue in degraded mode until updated.'
+                : 'If this error persists, please contact support or reinstall the app.'}
             </Text>
           </View>
         )}

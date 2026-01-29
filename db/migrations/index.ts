@@ -22,6 +22,7 @@ import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
 import { migration_2_1_to_2_2 } from './2.1-to-2.2';
+import { migration_2_2_to_3_0 } from './2.2-to-3.0';
 import { updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
@@ -81,7 +82,9 @@ export const migrations: Migration[] = [
   migration_1_0_to_2_0,
   migration_2_0_to_2_1,
   // Add content_type column to asset table
-  migration_2_1_to_2_2
+  migration_2_1_to_2_2,
+  // Test migration for degraded mode (intentionally fails)
+  migration_2_2_to_3_0
   // Add future migrations here:
 ];
 
