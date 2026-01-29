@@ -7,6 +7,7 @@ import type { AppView, NavigationStackItem } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { profiler } from '@/utils/profiler';
 import { useCallback, useMemo } from 'react';
+import { useLocalization } from './useLocalization';
 
 export interface NavigationState {
   view: AppView;
@@ -34,6 +35,7 @@ export function useAppNavigation() {
     addRecentAsset,
     enableVerseMarkers
   } = useLocalStore();
+  const { t } = useLocalization();
 
   // Ensure navigationStack is always an array - safe access pattern
   const safeNavigationStack = useMemo(() => {
@@ -284,24 +286,26 @@ export function useAppNavigation() {
   const breadcrumbs = useMemo(() => {
     const crumbs: { label: string; onPress?: () => void }[] = [];
 
+    const projectsLabel = t('projects');
+
     // Guard against malformed currentState (should always have view based on useMemo logic)
     if (!('view' in currentState)) {
-      return [{ label: 'Projects', onPress: goToProjects }];
+      return [{ label: projectsLabel, onPress: goToProjects }];
     }
 
     const state = currentState;
 
     if (state.view === 'projects') {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
     } else if (state.view === 'quests' && state.projectName) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({ label: state.projectName, onPress: undefined });
     } else if (
       state.view === 'assets' &&
       state.projectName &&
       state.questName
     ) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
         label: state.projectName,
         onPress: () =>
@@ -318,7 +322,7 @@ export function useAppNavigation() {
       state.questName &&
       state.assetName
     ) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
         label: state.projectName,
         onPress: () =>
@@ -344,8 +348,8 @@ export function useAppNavigation() {
     // Always return at least one crumb to prevent empty array errors
     return crumbs.length > 0
       ? crumbs
-      : [{ label: 'Projects', onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest]);
+      : [{ label: projectsLabel, onPress: goToProjects }];
+  }, [currentState, goToProjects, goToProject, goToQuest, t]);
 
   return {
     // Current state

@@ -8,6 +8,7 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Text } from '@/components/ui/text';
+import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -28,6 +29,7 @@ export function QuestionModal({
   onNo,
   onClose
 }: QuestionModalProps) {
+  const { t } = useLocalization();
   const [isOpen, setIsOpen] = React.useState(visible);
 
   // Sync internal state with prop
@@ -65,10 +67,10 @@ export function QuestionModal({
         <DrawerFooter>
           <View className="flex-row gap-3">
             <Button variant="secondary" className="flex-1" onPress={handleNo}>
-              <Text>No</Text>
+              <Text>{t('no')}</Text>
             </Button>
             <Button variant="default" className="flex-1" onPress={handleYes}>
-              <Text>Yes</Text>
+              <Text>{t('yes')}</Text>
             </Button>
           </View>
         </DrawerFooter>
