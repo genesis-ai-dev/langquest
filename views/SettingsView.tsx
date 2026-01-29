@@ -51,7 +51,7 @@ export default function SettingsView() {
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
   );
-  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
+  // const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
   const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const enableTranscription = useLocalStore(
@@ -75,7 +75,7 @@ export default function SettingsView() {
   const setEnableAiSuggestions = useLocalStore(
     (state) => state.setEnableAiSuggestions
   );
-  const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
+  // const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
   );
@@ -123,9 +123,9 @@ export default function SettingsView() {
     setEnableAiSuggestions(value);
   };
 
-  const handlePlayAllToggle = (value: boolean) => {
-    setEnablePlayAll(value);
-  };
+  // const handlePlayAllToggle = (value: boolean) => {
+  //   setEnablePlayAll(value);
+  // };
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
@@ -272,14 +272,14 @@ export default function SettingsView() {
           value: enableAiSuggestions,
           onPress: () => handleAiSuggestionsToggle(!enableAiSuggestions)
         },
-        {
-          id: 'playAll',
-          title: t('playAll'),
-          description: t('playAllDescription'),
-          type: 'toggle',
-          value: enablePlayAll,
-          onPress: () => handlePlayAllToggle(!enablePlayAll)
-        },
+        // {
+        //   id: 'playAll',
+        //   title: t('playAll'),
+        //   description: t('playAllDescription'),
+        //   type: 'toggle',
+        //   value: enablePlayAll,
+        //   onPress: () => handlePlayAllToggle(!enablePlayAll)
+        // },
         {
           id: 'questExport',
           title: t('questExport') || 'Quest Export',

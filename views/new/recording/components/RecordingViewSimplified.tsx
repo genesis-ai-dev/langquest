@@ -144,7 +144,7 @@ const RecordingViewSimplified = ({
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
-  
+
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -188,38 +188,8 @@ const RecordingViewSimplified = ({
   // Track AbortController for batch loading cleanup
   const batchLoadingControllerRef = React.useRef<AbortController | null>(null);
 
-  // Create SharedValues for each asset's progress (0-100 percentage)
-  // We need to create them at the top level, so we'll create a pool and map them
-  // Store the mapping in a ref that gets updated when assets change
-  const assetProgressSharedMapRef = React.useRef<
-    Map<string, ReturnType<typeof useSharedValue<number>>>
-  >(new Map());
-
-  // Create SharedValues for assets (max 100 assets supported)
-  // We create a pool and reuse them - must create at top level (hooks rule)
-  const progressPool0 = useSharedValue(0);
-  const progressPool1 = useSharedValue(0);
-  const progressPool2 = useSharedValue(0);
-  const progressPool3 = useSharedValue(0);
-  const progressPool4 = useSharedValue(0);
-  const progressPool5 = useSharedValue(0);
-  const progressPool6 = useSharedValue(0);
-  const progressPool7 = useSharedValue(0);
-  const progressPool8 = useSharedValue(0);
-  const progressPool9 = useSharedValue(0);
-  // Create more if needed (extend this pattern or use a different approach)
-  const progressPool = React.useRef([
-    progressPool0,
-    progressPool1,
-    progressPool2,
-    progressPool3,
-    progressPool4,
-    progressPool5,
-    progressPool6,
-    progressPool7,
-    progressPool8,
-    progressPool9
-  ]).current;
+  // Single SharedValue for play-all progress (only 1 asset plays at a time)
+  const playAllProgress = useSharedValue(0);
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
@@ -364,31 +334,6 @@ const RecordingViewSimplified = ({
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
-
-  // Map assets to SharedValues from the pool (after assets is declared)
-  const assetIdsKey = React.useMemo(
-    () => assets.map((a) => a.id).join(','),
-    [assets]
-  );
-  React.useEffect(() => {
-    if (assets.length === 0) {
-      assetProgressSharedMapRef.current.clear();
-      return;
-    }
-
-    const map = assetProgressSharedMapRef.current;
-    map.clear();
-
-    // Assign SharedValues from pool to assets
-    for (let i = 0; i < Math.min(assets.length, progressPool.length); i++) {
-      const asset = assets[i];
-      if (asset) {
-        // Reset the SharedValue
-        progressPool[i]!.value = 0;
-        map.set(asset.id, progressPool[i]!);
-      }
-    }
-  }, [assetIdsKey, assets, progressPool]);
 
   // Stable asset list that only updates when content actually changes
   // We intentionally use assetContentKey instead of assets to prevent re-renders
@@ -733,9 +678,6 @@ const RecordingViewSimplified = ({
     []
   );
 
-  // Special audio ID for "play all" mode
-  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
-
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
@@ -777,7 +719,7 @@ const RecordingViewSimplified = ({
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
         setIsPlayAllRunning(false);
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
@@ -788,7 +730,9 @@ const RecordingViewSimplified = ({
             console.error('Error stopping sound:', error);
           }
         }
-        
+
+        // Reset progress
+        playAllProgress.value = 0;
         setCurrentlyPlayingAssetId(null);
         debugLog('⏸️ Stopped play all');
         return;
@@ -860,10 +804,10 @@ const RecordingViewSimplified = ({
 
         // HIGHLIGHT THIS ASSET
         setCurrentlyPlayingAssetId(item.assetId);
-        
+
         // Give React a chance to process the state update
         await Promise.resolve();
-        
+
         // Scroll to this asset in the wheel
         // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
         if (wheelRef.current) {
@@ -873,6 +817,9 @@ const RecordingViewSimplified = ({
         debugLog(
           `▶️ [${i + 1}/${playlist.length}] Playing asset at index ${actualAssetIndex} (${item.assetId.slice(0, 8)}, ${item.uris.length} segments)`
         );
+
+        // Reset progress for new asset
+        playAllProgress.value = 0;
 
         // Play all URIs for this asset sequentially
         for (const uri of item.uris) {
@@ -888,11 +835,19 @@ const RecordingViewSimplified = ({
             Audio.Sound.createAsync({ uri }, { shouldPlay: true })
               .then(({ sound }) => {
                 currentPlayAllSoundRef.current = sound;
-                
+
                 sound.setOnPlaybackStatusUpdate((status) => {
                   if (!status.isLoaded) return;
 
+                  // Update progress for current asset
+                  if (status.durationMillis) {
+                    playAllProgress.value =
+                      (status.positionMillis / status.durationMillis) * 100;
+                  }
+
                   if (status.didJustFinish) {
+                    // Mark as complete
+                    playAllProgress.value = 100;
                     currentPlayAllSoundRef.current = null;
                     void sound.unloadAsync().then(() => {
                       resolve();
@@ -909,20 +864,22 @@ const RecordingViewSimplified = ({
         }
       }
 
-      // Finished playing all
+      // Finished playing all - reset progress
       debugLog('✅ Finished playing all assets');
+      playAllProgress.value = 0;
       setCurrentlyPlayingAssetId(null);
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Error playing all assets:', error);
+      playAllProgress.value = 0;
       setCurrentlyPlayingAssetId(null);
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     }
-  }, [assets, getAssetAudioUris, insertionIndex]);
+  }, [assets, getAssetAudioUris, insertionIndex, playAllProgress]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1807,7 +1764,6 @@ const RecordingViewSimplified = ({
     const assetUriMap = assetUriMapRef.current;
     const segmentDurations = segmentDurationsRef.current;
     const assetSegmentRanges = assetSegmentRangesRef.current;
-    const assetProgressSharedMap = assetProgressSharedMapRef.current;
     const pendingAssetNames = pendingAssetNamesRef.current;
     const loadedAssetIds = loadedAssetIdsRef.current;
     const timeoutIds = timeoutIdsRef.current;
@@ -1821,16 +1777,19 @@ const RecordingViewSimplified = ({
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current.stopAsync().then(() => {
-            void currentPlayAllSoundRef.current?.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          }).catch(() => {
-            // Ignore errors during cleanup
-            currentPlayAllSoundRef.current = null;
-          });
+          void currentPlayAllSoundRef.current
+            .stopAsync()
+            .then(() => {
+              void currentPlayAllSoundRef.current?.unloadAsync();
+              currentPlayAllSoundRef.current = null;
+            })
+            .catch(() => {
+              // Ignore errors during cleanup
+              currentPlayAllSoundRef.current = null;
+            });
         }
       }
 
@@ -1838,7 +1797,6 @@ const RecordingViewSimplified = ({
       assetUriMap.clear();
       segmentDurations.length = 0;
       assetSegmentRanges.clear();
-      assetProgressSharedMap.clear();
       lastScrolledAssetIdRef.current = null;
       pendingAssetNames.clear();
       loadedAssetIds.clear();
@@ -1895,9 +1853,7 @@ const RecordingViewSimplified = ({
       const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
       const isThisAssetPlayingInPlayAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
+        isPlayAllRunning && currentlyPlayingAssetId === item.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
@@ -1907,12 +1863,10 @@ const RecordingViewSimplified = ({
       // Duration from lazy-loaded metadata
       const duration = item.duration;
 
-      // Get custom progress for play-all mode
-      const customProgress =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-          ? assetProgressSharedMapRef.current.get(item.id)
-          : undefined;
+      // Get custom progress for play-all mode (only for the currently playing asset)
+      const customProgress = isThisAssetPlayingInPlayAll
+        ? playAllProgress
+        : undefined;
 
       return (
         <AssetCard
@@ -1947,7 +1901,9 @@ const RecordingViewSimplified = ({
     [
       audioContext.isPlaying,
       audioContext.currentAudioId,
+      isPlayAllRunning,
       currentlyPlayingAssetId,
+      playAllProgress,
       // audioContext.position REMOVED - uses SharedValues now!
       // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
@@ -1971,9 +1927,7 @@ const RecordingViewSimplified = ({
       const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
       const isThisAssetPlayingInPlayAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
+        isPlayAllRunning && currentlyPlayingAssetId === item.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
@@ -1984,12 +1938,10 @@ const RecordingViewSimplified = ({
       // Duration from lazy-loaded metadata
       const duration = item.duration;
 
-      // Get custom progress for play-all mode
-      const customProgress =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-          ? assetProgressSharedMapRef.current.get(item.id)
-          : undefined;
+      // Get custom progress for play-all mode (only for the currently playing asset)
+      const customProgress = isThisAssetPlayingInPlayAll
+        ? playAllProgress
+        : undefined;
 
       return (
         <AssetCard
@@ -2026,8 +1978,9 @@ const RecordingViewSimplified = ({
     assetsForLegendList,
     audioContext.isPlaying,
     audioContext.currentAudioId,
+    isPlayAllRunning,
     currentlyPlayingAssetId,
-    // assetProgressSharedMap REMOVED - it's a ref, accessed directly in render
+    playAllProgress,
     // audioContext.position REMOVED - uses SharedValues now!
     // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,

@@ -2680,7 +2680,7 @@ export default function BibleAssetsView() {
         if (isPlayAllRunningRef.current) {
           isPlayAllRunningRef.current = false;
           setIsPlayAllRunning(false);
-          
+
           // Stop current sound immediately
           if (currentPlayAllSoundRef.current) {
             try {
@@ -2691,7 +2691,7 @@ export default function BibleAssetsView() {
               console.error('Error stopping sound:', error);
             }
           }
-          
+
           setCurrentlyPlayingAssetId(null);
           console.log('⏸️ Stopped play all');
           return;
@@ -2718,7 +2718,9 @@ export default function BibleAssetsView() {
           );
           if (firstSelectedIndex >= 0) {
             assetsToProcess = assets.slice(firstSelectedIndex);
-            console.log(`🎵 Starting from first selected asset at index ${firstSelectedIndex}`);
+            console.log(
+              `🎵 Starting from first selected asset at index ${firstSelectedIndex}`
+            );
           } else {
             assetsToProcess = assets;
           }
@@ -2801,7 +2803,7 @@ export default function BibleAssetsView() {
                 .then(({ sound }) => {
                   // Store reference for immediate cancellation
                   currentPlayAllSoundRef.current = sound;
-                  
+
                   // Set up listener for when sound finishes
                   sound.setOnPlaybackStatusUpdate((status) => {
                     if (!status.isLoaded) return;
@@ -2846,7 +2848,7 @@ export default function BibleAssetsView() {
     if (isPlayAllRunningRef.current) {
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
-      
+
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
@@ -2857,15 +2859,15 @@ export default function BibleAssetsView() {
           console.error('Error stopping sound:', error);
         }
       }
-      
+
       setCurrentlyPlayingAssetId(null);
     }
-    
+
     // Stop any other audio from audioContext
     if (audioContext.isPlaying) {
       await audioContext.stopCurrentSound();
     }
-    
+
     // Now show recording
     setShowRecording(true);
   }, [audioContext]);
@@ -2881,16 +2883,19 @@ export default function BibleAssetsView() {
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current.stopAsync().then(() => {
-            void currentPlayAllSoundRef.current?.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          }).catch(() => {
-            // Ignore errors during cleanup
-            currentPlayAllSoundRef.current = null;
-          });
+          void currentPlayAllSoundRef.current
+            .stopAsync()
+            .then(() => {
+              void currentPlayAllSoundRef.current?.unloadAsync();
+              currentPlayAllSoundRef.current = null;
+            })
+            .catch(() => {
+              // Ignore errors during cleanup
+              currentPlayAllSoundRef.current = null;
+            });
         }
       }
 
@@ -3383,7 +3388,11 @@ export default function BibleAssetsView() {
               onPress={() => handlePlayAll(selectedForRecording)}
               className="h-10 w-10"
             >
-              <Icon as={isPlayAllRunning ? PauseIcon : ListVideo} size={20} className="text-primary" />
+              <Icon
+                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                size={20}
+                className="text-primary"
+              />
             </Button>
           )}
           {!isPublished && currentUser && (

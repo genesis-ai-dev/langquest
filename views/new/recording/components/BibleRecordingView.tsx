@@ -202,14 +202,12 @@ const BibleRecordingView = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
-   
+
   const vadMinSegmentLength = useLocalStore(
-     
     (state) => state.vadMinSegmentLength
   );
-   
+
   const setVadMinSegmentLength = useLocalStore(
-     
     (state) => state.setVadMinSegmentLength
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
@@ -1168,7 +1166,7 @@ const BibleRecordingView = ({
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
         setIsPlayAllRunning(false);
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
@@ -1179,7 +1177,7 @@ const BibleRecordingView = ({
             console.error('Error stopping sound:', error);
           }
         }
-        
+
         setCurrentlyPlayingAssetId(null);
         debugLog('⏸️ Stopped play all');
         return;
@@ -1199,7 +1197,11 @@ const BibleRecordingView = ({
       let assetsPlayed = 0;
 
       // Iterate directly through itemsForWheel starting from insertionIndex
-      for (let wheelIndex = insertionIndex; wheelIndex < itemsForWheel.length; wheelIndex++) {
+      for (
+        let wheelIndex = insertionIndex;
+        wheelIndex < itemsForWheel.length;
+        wheelIndex++
+      ) {
         // Check if cancelled
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!isPlayAllRunningRef.current) {
@@ -1209,7 +1211,7 @@ const BibleRecordingView = ({
         }
 
         const item = itemsForWheel[wheelIndex];
-        
+
         // Skip if no item or if it's a pill
         if (!item || isPill(item)) {
           debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
@@ -1218,22 +1220,24 @@ const BibleRecordingView = ({
 
         // It's an asset - play it
         const asset = item;
-        
+
         // Get URIs for this asset
         const uris = await getAssetAudioUris(asset.id);
         if (uris.length === 0) {
-          debugLog(`⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`);
+          debugLog(
+            `⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`
+          );
           continue;
         }
 
         // HIGHLIGHT THIS ASSET
         setCurrentlyPlayingAssetId(asset.id);
-        
+
         // Scroll to this position in the wheel (wheelIndex is the direct position)
         if (wheelRef.current) {
           wheelRef.current.scrollItemToTop(wheelIndex - 1, true);
         }
-        
+
         assetsPlayed++;
         debugLog(
           `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
@@ -1253,7 +1257,7 @@ const BibleRecordingView = ({
             Audio.Sound.createAsync({ uri }, { shouldPlay: true })
               .then(({ sound }) => {
                 currentPlayAllSoundRef.current = sound;
-                
+
                 sound.setOnPlaybackStatusUpdate((status) => {
                   if (!status.isLoaded) return;
 
@@ -2341,16 +2345,19 @@ const BibleRecordingView = ({
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current.stopAsync().then(() => {
-            void currentPlayAllSoundRef.current?.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          }).catch(() => {
-            // Ignore errors during cleanup
-            currentPlayAllSoundRef.current = null;
-          });
+          void currentPlayAllSoundRef.current
+            .stopAsync()
+            .then(() => {
+              void currentPlayAllSoundRef.current?.unloadAsync();
+              currentPlayAllSoundRef.current = null;
+            })
+            .catch(() => {
+              // Ignore errors during cleanup
+              currentPlayAllSoundRef.current = null;
+            });
         }
       }
 
@@ -2786,8 +2793,8 @@ const BibleRecordingView = ({
             setAutoCalibrateOnOpen(false);
           }
         }}
-        minSegmentLength={vadMinSegmentLength}  
-        onMinSegmentLengthChange={setVadMinSegmentLength}  
+        minSegmentLength={vadMinSegmentLength}
+        onMinSegmentLengthChange={setVadMinSegmentLength}
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}

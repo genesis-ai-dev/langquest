@@ -105,11 +105,8 @@ export default function NextGenAssetsView() {
   const insets = useSafeAreaInsets();
 
   // Selection mode for visual highlight (playAll start point)
-  const {
-    selectedAssetIds,
-    enterSelection,
-    cancelSelection
-  } = useSelectionMode();
+  const { selectedAssetIds, enterSelection, cancelSelection } =
+    useSelectionMode();
 
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
@@ -377,7 +374,7 @@ export default function NextGenAssetsView() {
       if (isPlaying && __DEV__) {
         console.log(`🎨 Rendering highlighted asset: ${item.id.slice(0, 8)}`);
       }
-      
+
       const isSelected = selectedAssetIds.has(item.id);
 
       return (
@@ -984,7 +981,6 @@ export default function NextGenAssetsView() {
     }
   }, [assets, getAssetAudioUris, selectedAssetIds]);
 
-
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
@@ -1154,7 +1150,7 @@ export default function NextGenAssetsView() {
     if (isPlayAllRunningRef.current) {
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
-      
+
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
@@ -1165,16 +1161,16 @@ export default function NextGenAssetsView() {
           console.error('Error stopping sound:', error);
         }
       }
-      
+
       currentPlayingAssetIdRef.current = null;
       setCurrentlyPlayingAssetId(null);
     }
-    
+
     // Stop any other audio from audioContext
     if (audioContext.isPlaying) {
       await audioContext.stopCurrentSound();
     }
-    
+
     // Now show recording
     setShowRecording(true);
   }, [audioContext]);
@@ -1194,16 +1190,19 @@ export default function NextGenAssetsView() {
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-        
+
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current.stopAsync().then(() => {
-            void currentPlayAllSoundRef.current?.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          }).catch(() => {
-            // Ignore errors during cleanup
-            currentPlayAllSoundRef.current = null;
-          });
+          void currentPlayAllSoundRef.current
+            .stopAsync()
+            .then(() => {
+              void currentPlayAllSoundRef.current?.unloadAsync();
+              currentPlayAllSoundRef.current = null;
+            })
+            .catch(() => {
+              // Ignore errors during cleanup
+              currentPlayAllSoundRef.current = null;
+            });
         }
       }
 
