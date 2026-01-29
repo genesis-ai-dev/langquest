@@ -37,7 +37,6 @@ import {
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -215,7 +214,6 @@ const BibleRecordingView = ({
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
-  const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -298,15 +296,6 @@ const BibleRecordingView = ({
   const isPlayAllRunningRef = React.useRef(false);
   // Ref to track current playing sound for immediate cancellation
   const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
-  
-  const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
-  const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
-  // Track segment ranges for each asset (start position, end position, duration)
-  const assetSegmentRangesRef = React.useRef<
-    Map<string, { startMs: number; endMs: number; durationMs: number }>
-  >(new Map());
-  // Track last scrolled asset to avoid scrolling to the same asset multiple times
-  const lastScrolledAssetIdRef = React.useRef<string | null>(null);
 
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
@@ -316,38 +305,11 @@ const BibleRecordingView = ({
   // Track AbortController for batch loading cleanup
   const batchLoadingControllerRef = React.useRef<AbortController | null>(null);
 
-  // Create SharedValues for each asset's progress (0-100 percentage)
-  // We need to create them at the top level, so we'll create a pool and map them
-  // Store the mapping in a ref that gets updated when assets change
-  const assetProgressSharedMapRef = React.useRef<
-    Map<string, ReturnType<typeof useSharedValue<number>>>
-  >(new Map());
-
-  // Create SharedValues for assets (max 100 assets supported)
-  // We create a pool and reuse them - must create at top level (hooks rule)
-  const progressPool0 = useSharedValue(0);
-  const progressPool1 = useSharedValue(0);
-  const progressPool2 = useSharedValue(0);
-  const progressPool3 = useSharedValue(0);
-  const progressPool4 = useSharedValue(0);
-  const progressPool5 = useSharedValue(0);
-  const progressPool6 = useSharedValue(0);
-  const progressPool7 = useSharedValue(0);
-  const progressPool8 = useSharedValue(0);
-  const progressPool9 = useSharedValue(0);
-  // Create more if needed (extend this pattern or use a different approach)
-  const progressPool = React.useRef([
-    progressPool0,
-    progressPool1,
-    progressPool2,
-    progressPool3,
-    progressPool4,
-    progressPool5,
-    progressPool6,
-    progressPool7,
-    progressPool8,
-    progressPool9
-  ]).current;
+  // Ref to hold latest audioContext for cleanup (avoids stale closure)
+  const audioContextCurrentRef = React.useRef(audioContext);
+  React.useEffect(() => {
+    audioContextCurrentRef.current = audioContext;
+  }, [audioContext]);
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
@@ -366,20 +328,15 @@ const BibleRecordingView = ({
 
   // Persist initial props in refs - these should NOT change during the recording session
   // even when invalidateQueries causes re-renders. We capture them once on mount.
-  const persistedNextVerseRef = React.useRef(nextVerse);
-  const persistedLimitVerseRef = React.useRef(limitVerse);
-  const persistedVerseRef = React.useRef(_verse);
-
-  // Log initial values on mount
-  React.useEffect(() => {
-    console.log(
-      `📌 Persisted initial props | nextVerse: ${nextVerse} | limitVerse: ${limitVerse} | _verse: ${_verse?.from}-${_verse?.to}`
-    );
-    persistedNextVerseRef.current = nextVerse;
-    persistedLimitVerseRef.current = limitVerse;
-    persistedVerseRef.current = _verse;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount - these values are persisted for the session
+  // Using useState with initializer function ensures this only runs once
+  const [persistedProps] = React.useState(() => ({
+    nextVerse,
+    limitVerse,
+    verse: _verse
+  }));
+  const persistedNextVerseRef = React.useRef(persistedProps.nextVerse);
+  const persistedLimitVerseRef = React.useRef(persistedProps.limitVerse);
+  const persistedVerseRef = React.useRef(persistedProps.verse);
 
   // Debounced insertion index to prevent button flickering when scrolling fast
   const [debouncedIsAtEnd, setDebouncedIsAtEnd] = React.useState(false);
@@ -781,31 +738,6 @@ const BibleRecordingView = ({
     }
   }, [verseToAdd, isVADLocked, addVersePill]);
 
-  // Map assets to SharedValues from the pool (after assets is declared)
-  const assetIdsKey = React.useMemo(
-    () => assets.map((a) => a.id).join(','),
-    [assets]
-  );
-  React.useEffect(() => {
-    if (assets.length === 0) {
-      assetProgressSharedMapRef.current.clear();
-      return;
-    }
-
-    const map = assetProgressSharedMapRef.current;
-    map.clear();
-
-    // Assign SharedValues from pool to assets
-    for (let i = 0; i < Math.min(assets.length, progressPool.length); i++) {
-      const asset = assets[i];
-      if (asset) {
-        // Reset the SharedValue
-        progressPool[i]!.value = 0;
-        map.set(asset.id, progressPool[i]!);
-      }
-    }
-  }, [assetIdsKey, assets, progressPool]);
-
   // Stable item list that only updates when content actually changes
   // We intentionally use assetContentKey instead of allItems to prevent re-renders
   // when items array reference changes but content is identical
@@ -1195,9 +1127,6 @@ const BibleRecordingView = ({
     []
   );
 
-  // Special audio ID for "play all" mode
-  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
-
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
@@ -1231,154 +1160,6 @@ const BibleRecordingView = ({
     },
     [audioContext, getAssetAudioUris]
   );
-
-  // Track currently playing asset based on audio position during play-all
-  React.useEffect(() => {
-    if (
-      !audioContext.isPlaying ||
-      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
-    ) {
-      setCurrentlyPlayingAssetId(null);
-      return;
-    }
-
-    // Calculate which asset is playing based on cumulative position
-    // Also update progress for each asset based on its segment range
-    const checkCurrentAsset = () => {
-      const uris = Array.from(assetUriMapRef.current.keys());
-      const durations = segmentDurationsRef.current;
-      const ranges = assetSegmentRangesRef.current;
-
-      if (uris.length === 0) return;
-
-      const position = audioContext.position; // Position in milliseconds
-
-      // Update progress for each asset based on its segment range
-      const progressMap = assetProgressSharedMapRef.current;
-      for (const [assetId, range] of ranges.entries()) {
-        const progressShared = progressMap.get(assetId);
-        if (!progressShared) {
-          debugLog(
-            `⚠️ No progress SharedValue found for asset ${assetId.slice(0, 8)}`
-          );
-          continue;
-        }
-
-        if (position < range.startMs) {
-          // Before this asset's segments - no progress
-          progressShared.value = 0;
-        } else if (position >= range.endMs) {
-          // After this asset's segments - fully complete
-          progressShared.value = 100;
-        } else {
-          // Within this asset's segments - calculate progress
-          const assetPosition = position - range.startMs;
-          const progressPercent = (assetPosition / range.durationMs) * 100;
-          const clampedProgress = Math.min(100, Math.max(0, progressPercent));
-          progressShared.value = clampedProgress;
-          debugLog(
-            `📊 Asset ${assetId.slice(0, 8)} progress: ${Math.round(clampedProgress)}% (position: ${Math.round(position)}ms, range: [${Math.round(range.startMs)}-${Math.round(range.endMs)}]ms)`
-          );
-        }
-      }
-
-      // Find which asset is currently playing
-      let newPlayingAssetId: string | null = null;
-
-      // If we don't have durations yet, use simple percentage-based approach
-      if (durations.length === 0 || durations.every((d) => d === 0)) {
-        const duration = audioContext.duration;
-        if (duration === 0) return;
-
-        // Fallback: use percentage-based calculation
-        const positionPercent = position / duration;
-        const uriIndex = Math.min(
-          Math.floor(positionPercent * uris.length),
-          uris.length - 1
-        );
-
-        const currentUri = uris[uriIndex];
-        if (currentUri) {
-          const assetId = assetUriMapRef.current.get(currentUri);
-          if (assetId) {
-            newPlayingAssetId = assetId;
-          }
-        }
-      } else {
-        // Calculate which segment we're in based on cumulative durations
-        let cumulativeDuration = 0;
-        for (let i = 0; i < uris.length; i++) {
-          const segmentDuration = durations[i] || 0;
-          const segmentStart = cumulativeDuration;
-          cumulativeDuration += segmentDuration;
-
-          // If position is within this segment's range
-          if (
-            (position >= segmentStart && position <= cumulativeDuration) ||
-            (i === uris.length - 1 && position >= segmentStart)
-          ) {
-            const currentUri = uris[i];
-            if (currentUri) {
-              const assetId = assetUriMapRef.current.get(currentUri);
-              if (assetId) {
-                newPlayingAssetId = assetId;
-              }
-            }
-            break;
-          }
-        }
-      }
-
-      // Update currently playing asset ID and scroll to it
-      if (newPlayingAssetId) {
-        setCurrentlyPlayingAssetId((prev) => {
-          if (newPlayingAssetId !== prev) {
-            debugLog(
-              `🎵 Highlighting asset ${newPlayingAssetId.slice(0, 8)} (was: ${prev?.slice(0, 8) ?? 'none'})`
-            );
-
-            // Scroll to the currently playing asset (only if it changed)
-            if (
-              wheelRef.current &&
-              newPlayingAssetId !== lastScrolledAssetIdRef.current
-            ) {
-              // Find the index of the asset in the assets array
-              const assetIndex = assets.findIndex(
-                (a) => a.id === newPlayingAssetId
-              );
-              if (assetIndex >= 0) {
-                debugLog(
-                  `📜 Scrolling to asset at index ${assetIndex} (asset ${newPlayingAssetId.slice(0, 8)})`
-                );
-                // Scroll the item to the top of the wheel
-                // scrollItemToTop adds 1 internally, so subtract 1 to get correct position
-                wheelRef.current.scrollItemToTop(assetIndex - 1, true);
-                lastScrolledAssetIdRef.current = newPlayingAssetId;
-              } else {
-                debugLog(
-                  `⚠️ Could not find asset ${newPlayingAssetId.slice(0, 8)} in assets array`
-                );
-              }
-            }
-
-            return newPlayingAssetId;
-          }
-          return prev;
-        });
-      }
-    };
-
-    // Check immediately and then periodically while playing
-    checkCurrentAsset();
-    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
-    return () => clearInterval(interval);
-    // Note: We intentionally read audioContext.position and audioContext.duration inside the callback
-    // rather than including them as dependencies, because they change frequently (every ~200ms)
-    // and we don't want to re-run the effect that often. The interval handles the updates.
-    // assetProgressSharedMap is a ref, so we access it directly in the callback.
-    // assets is included to find the asset index for scrolling.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioContext.isPlaying, audioContext.currentAudioId, assets]);
 
   // Handle play all assets - optimized version with direct control
   const handlePlayAll = React.useCallback(async () => {
@@ -1420,6 +1201,7 @@ const BibleRecordingView = ({
       // Iterate directly through itemsForWheel starting from insertionIndex
       for (let wheelIndex = insertionIndex; wheelIndex < itemsForWheel.length; wheelIndex++) {
         // Check if cancelled
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!isPlayAllRunningRef.current) {
           debugLog('⏸️ Play all cancelled');
           setCurrentlyPlayingAssetId(null);
@@ -1460,6 +1242,7 @@ const BibleRecordingView = ({
         // Play all URIs for this asset sequentially
         for (const uri of uris) {
           // Check if cancelled
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (!isPlayAllRunningRef.current) {
             setCurrentlyPlayingAssetId(null);
             return;
@@ -2545,28 +2328,33 @@ const BibleRecordingView = ({
   // This prevents memory leaks when navigating away from the recording view
   React.useEffect(() => {
     // Capture refs in variables to avoid stale closure warnings
-    const assetUriMap = assetUriMapRef.current;
-    const segmentDurations = segmentDurationsRef.current;
-    const assetSegmentRanges = assetSegmentRangesRef.current;
-    const assetProgressSharedMap = assetProgressSharedMapRef.current;
     const pendingAssetNames = pendingAssetNamesRef.current;
     const loadedAssetIds = loadedAssetIdsRef.current;
     const timeoutIds = timeoutIdsRef.current;
-    // Store reference to audioContext - access current value in cleanup
-    const audioContextRef = audioContext;
 
     return () => {
-      // Stop audio playback if playing (check current state, not captured state)
-      if (audioContextRef.isPlaying) {
-        void audioContextRef.stopCurrentSound();
+      // Stop audio playback if playing (access via ref for latest state)
+      if (audioContextCurrentRef.current.isPlaying) {
+        void audioContextCurrentRef.current.stopCurrentSound();
+      }
+
+      // Stop PlayAll if running
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          void currentPlayAllSoundRef.current.stopAsync().then(() => {
+            void currentPlayAllSoundRef.current?.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          }).catch(() => {
+            // Ignore errors during cleanup
+            currentPlayAllSoundRef.current = null;
+          });
+        }
       }
 
       // Clear all refs to free memory
-      assetUriMap.clear();
-      segmentDurations.length = 0;
-      assetSegmentRanges.clear();
-      assetProgressSharedMap.clear();
-      lastScrolledAssetIdRef.current = null;
       pendingAssetNames.clear();
       loadedAssetIds.clear();
 
@@ -2584,12 +2372,10 @@ const BibleRecordingView = ({
       setAssetSegmentCounts(new Map());
       setAssetDurations(new Map());
       setCurrentlyPlayingAssetId(null);
+      setIsPlayAllRunning(false);
 
-      debugLog('🧹 Cleaned up RecordingViewSimplified on unmount');
+      debugLog('🧹 Cleaned up BibleRecordingView on unmount');
     };
-    // Empty dependency array - this effect should only run on mount/unmount
-    // We access audioContext directly in cleanup to get the latest state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ============================================================================
@@ -2692,9 +2478,7 @@ const BibleRecordingView = ({
       const isThisAssetPlayingIndividually =
         audioContext.isPlaying && audioContext.currentAudioId === item.id;
       const isThisAssetPlayingInPlayAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
+        isPlayAllRunning && currentlyPlayingAssetId === item.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
       const isSelected = selectedAssetIds.has(item.id);
@@ -2709,13 +2493,6 @@ const BibleRecordingView = ({
 
       // Duration from lazy-loaded metadata
       const duration = item.duration;
-
-      // Get custom progress for play-all mode
-      const customProgress =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-          ? assetProgressSharedMapRef.current.get(item.id)
-          : undefined;
 
       // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
@@ -2737,7 +2514,6 @@ const BibleRecordingView = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
-          customProgress={customProgress}
           onPress={callbacks.onPress}
           onLongPress={callbacks.onLongPress}
           onPlay={callbacks.onPlay}
@@ -2751,6 +2527,7 @@ const BibleRecordingView = ({
       formatVerseRange,
       audioContext.isPlaying,
       audioContext.currentAudioId,
+      isPlayAllRunning,
       currentlyPlayingAssetId,
       selectedAssetIds,
       isSelectionMode,
@@ -2883,7 +2660,7 @@ const BibleRecordingView = ({
           </Text> */}
         </View>
         <View className="flex-row items-center gap-3">
-          {assets.length > 0 && enablePlayAll && (
+          {assets.length > 0 && (
             <Button
               variant="ghost"
               size="icon"

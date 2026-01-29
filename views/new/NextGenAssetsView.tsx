@@ -41,7 +41,6 @@ import {
   MicIcon,
   PauseIcon,
   PencilIcon,
-  PlayIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -129,10 +128,10 @@ export default function NextGenAssetsView() {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
-  const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
-  const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
-  const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
-  const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  // const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
+  // const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
+  // const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
+  // const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
 
   // New PlayAll state (starts from selected asset)
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
@@ -143,6 +142,12 @@ export default function NextGenAssetsView() {
   );
 
   const currentPlayingAssetIdRef = React.useRef<string | null>(null);
+
+  // Ref to hold latest audioContext for cleanup (avoids stale closure)
+  const audioContextRef = React.useRef(audioContext);
+  React.useEffect(() => {
+    audioContextRef.current = audioContext;
+  }, [audioContext]);
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -280,7 +285,6 @@ export default function NextGenAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
-  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   const {
     data,
@@ -366,10 +370,8 @@ export default function NextGenAssetsView() {
       item: AssetQuestLink & { source?: HybridDataSource };
       isPublished: boolean;
     }) => {
-      const isPlaying =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-        currentlyPlayingAssetId === item.id;
+      // Check if this asset is currently playing in PlayAll mode
+      const isPlaying = isPlayAllRunning && currentlyPlayingAssetId === item.id;
 
       // Debug logging for highlighting
       if (isPlaying && __DEV__) {
@@ -385,7 +387,7 @@ export default function NextGenAssetsView() {
             asset={item}
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
-            isCurrentlyPlaying={isPlaying || currentPlayingAssetIdRef.current === item.id}
+            isCurrentlyPlaying={isPlaying}
             onUpdate={handleAssetUpdate}
             isPublished={isPublished}
             isSelected={isSelected}
@@ -397,8 +399,7 @@ export default function NextGenAssetsView() {
     [
       currentQuestId,
       safeAttachmentStates,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
+      isPlayAllRunning,
       currentlyPlayingAssetId,
       handleAssetUpdate,
       selectedAssetIds,
@@ -448,7 +449,7 @@ export default function NextGenAssetsView() {
   );
 
   // Special audio ID for "play all" mode
-  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
+  // const PLAY_ALL_AUDIO_ID = 'play-all-assets';
 
   // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
   // Includes fallback logic for local-only files when server records are removed
@@ -727,101 +728,101 @@ export default function NextGenAssetsView() {
   );
 
   // Track currently playing asset based on audio position
-  React.useEffect(() => {
-    if (
-      !audioContext.isPlaying ||
-      audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
-    ) {
-      setCurrentlyPlayingAssetId(null);
-      return;
-    }
+  // React.useEffect(() => {
+  //   if (
+  //     !audioContext.isPlaying ||
+  //     audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID
+  //   ) {
+  //     setCurrentlyPlayingAssetId(null);
+  //     return;
+  //   }
 
-    // Calculate which asset is playing based on cumulative position
-    const checkCurrentAsset = () => {
-      const uris = uriOrderRef.current;
-      const durations = segmentDurationsRef.current;
+  //   // Calculate which asset is playing based on cumulative position
+  //   const checkCurrentAsset = () => {
+  //     const uris = uriOrderRef.current;
+  //     const durations = segmentDurationsRef.current;
 
-      if (uris.length === 0) return;
+  //     if (uris.length === 0) return;
 
-      const position = audioContext.position; // Position in milliseconds
+  //     const position = audioContext.position; // Position in milliseconds
 
-      // If we don't have durations yet, use simple percentage-based approach
-      if (durations.length === 0 || durations.every((d) => d === 0)) {
-        const duration = audioContext.duration;
-        if (duration === 0) {
-          console.log(
-            `⏸️ No duration available yet (position: ${position}ms, duration: ${duration}ms)`
-          );
-          return;
-        }
+  //     // If we don't have durations yet, use simple percentage-based approach
+  //     if (durations.length === 0 || durations.every((d) => d === 0)) {
+  //       const duration = audioContext.duration;
+  //       if (duration === 0) {
+  //         console.log(
+  //           `⏸️ No duration available yet (position: ${position}ms, duration: ${duration}ms)`
+  //         );
+  //         return;
+  //       }
 
-        // Fallback: use percentage-based calculation
-        const positionPercent = position / duration;
-        const uriIndex = Math.min(
-          Math.floor(positionPercent * uris.length),
-          uris.length - 1
-        );
+  //       // Fallback: use percentage-based calculation
+  //       const positionPercent = position / duration;
+  //       const uriIndex = Math.min(
+  //         Math.floor(positionPercent * uris.length),
+  //         uris.length - 1
+  //       );
 
-        const currentUri = uris[uriIndex];
-        if (currentUri) {
-          const assetId = assetUriMapRef.current.get(currentUri);
-          if (assetId) {
-            if (assetId !== currentlyPlayingAssetId) {
-              console.log(
-                `🎵 [Fallback] Highlighting asset ${assetId.slice(0, 8)} (segment ${uriIndex + 1}/${uris.length}, ${Math.round(positionPercent * 100)}%)`
-              );
-              setCurrentlyPlayingAssetId(assetId);
-            }
-          } else {
-            console.warn(`⚠️ No asset ID found for URI at index ${uriIndex}`);
-          }
-        }
-        return;
-      }
+  //       const currentUri = uris[uriIndex];
+  //       if (currentUri) {
+  //         const assetId = assetUriMapRef.current.get(currentUri);
+  //         if (assetId) {
+  //           if (assetId !== currentlyPlayingAssetId) {
+  //             console.log(
+  //               `🎵 [Fallback] Highlighting asset ${assetId.slice(0, 8)} (segment ${uriIndex + 1}/${uris.length}, ${Math.round(positionPercent * 100)}%)`
+  //             );
+  //             setCurrentlyPlayingAssetId(assetId);
+  //           }
+  //         } else {
+  //           console.warn(`⚠️ No asset ID found for URI at index ${uriIndex}`);
+  //         }
+  //       }
+  //       return;
+  //     }
 
-      // Calculate which segment we're in based on cumulative durations
-      let cumulativeDuration = 0;
-      for (let i = 0; i < uris.length; i++) {
-        const segmentDuration = durations[i] || 0;
-        const segmentStart = cumulativeDuration;
-        cumulativeDuration += segmentDuration;
+  //     // Calculate which segment we're in based on cumulative durations
+  //     let cumulativeDuration = 0;
+  //     for (let i = 0; i < uris.length; i++) {
+  //       const segmentDuration = durations[i] || 0;
+  //       const segmentStart = cumulativeDuration;
+  //       cumulativeDuration += segmentDuration;
 
-        // If position is within this segment's range
-        // Use <= for the last segment to catch it even if position is slightly off
-        if (
-          (position >= segmentStart && position <= cumulativeDuration) ||
-          (i === uris.length - 1 && position >= segmentStart)
-        ) {
-          const currentUri = uris[i];
-          if (currentUri) {
-            const assetId = assetUriMapRef.current.get(currentUri);
-            if (assetId) {
-              if (assetId !== currentlyPlayingAssetId) {
-                console.log(
-                  `🎵 Highlighting asset ${assetId.slice(0, 8)} (segment ${i + 1}/${uris.length}, position: ${Math.round(position)}ms in range [${Math.round(segmentStart)}-${Math.round(cumulativeDuration)}]ms)`
-                );
-                setCurrentlyPlayingAssetId(assetId);
-              }
-            } else {
-              console.warn(`⚠️ No asset ID found for URI at index ${i}`);
-            }
-          }
-          break;
-        }
-      }
-    };
+  //       // If position is within this segment's range
+  //       // Use <= for the last segment to catch it even if position is slightly off
+  //       if (
+  //         (position >= segmentStart && position <= cumulativeDuration) ||
+  //         (i === uris.length - 1 && position >= segmentStart)
+  //       ) {
+  //         const currentUri = uris[i];
+  //         if (currentUri) {
+  //           const assetId = assetUriMapRef.current.get(currentUri);
+  //           if (assetId) {
+  //             if (assetId !== currentlyPlayingAssetId) {
+  //               console.log(
+  //                 `🎵 Highlighting asset ${assetId.slice(0, 8)} (segment ${i + 1}/${uris.length}, position: ${Math.round(position)}ms in range [${Math.round(segmentStart)}-${Math.round(cumulativeDuration)}]ms)`
+  //               );
+  //               setCurrentlyPlayingAssetId(assetId);
+  //             }
+  //           } else {
+  //             console.warn(`⚠️ No asset ID found for URI at index ${i}`);
+  //           }
+  //         }
+  //         break;
+  //       }
+  //     }
+  //   };
 
-    // Check immediately and then periodically while playing
-    checkCurrentAsset();
-    const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
-    return () => clearInterval(interval);
-  }, [
-    audioContext.isPlaying,
-    audioContext.currentAudioId,
-    audioContext.position,
-    audioContext.duration,
-    currentlyPlayingAssetId
-  ]);
+  //   // Check immediately and then periodically while playing
+  //   checkCurrentAsset();
+  //   const interval = setInterval(checkCurrentAsset, 200); // Check every 200ms
+  //   return () => clearInterval(interval);
+  // }, [
+  //   audioContext.isPlaying,
+  //   audioContext.currentAudioId,
+  //   audioContext.position,
+  //   audioContext.duration,
+  //   currentlyPlayingAssetId
+  // ]);
 
   // Handle play all - plays all assets sequentially starting from selected asset
   const handlePlayAll = React.useCallback(async () => {
@@ -983,72 +984,6 @@ export default function NextGenAssetsView() {
     }
   }, [assets, getAssetAudioUris, selectedAssetIds]);
 
-  // Handle play all assets (original - plays all from beginning)
-  const handlePlayAllAssets = React.useCallback(async () => {
-    try {
-      const isPlayingAll =
-        audioContext.isPlaying &&
-        audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
-
-      if (isPlayingAll) {
-        await audioContext.stopCurrentSound();
-        setCurrentlyPlayingAssetId(null);
-        assetUriMapRef.current.clear();
-        assetOrderRef.current = [];
-        uriOrderRef.current = [];
-        segmentDurationsRef.current = [];
-      } else {
-        if (assets.length === 0) {
-          console.warn('⚠️ No assets to play');
-          return;
-        }
-
-        // Collect all URIs from all assets in order, tracking which asset each URI belongs to
-        const allUris: string[] = [];
-        assetUriMapRef.current.clear();
-        assetOrderRef.current = [];
-        uriOrderRef.current = [];
-        segmentDurationsRef.current = [];
-
-        for (const asset of assets) {
-          const uris = await getAssetAudioUris(asset.id);
-          if (uris.length > 0) {
-            assetOrderRef.current.push(asset.id);
-            for (const uri of uris) {
-              allUris.push(uri);
-              uriOrderRef.current.push(uri);
-              // Map each URI to its asset ID
-              assetUriMapRef.current.set(uri, asset.id);
-            }
-          }
-        }
-
-        if (allUris.length === 0) {
-          console.error('❌ No audio URIs found for any assets');
-          return;
-        }
-
-        console.log(
-          `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets`
-        );
-
-        // Set the first asset as currently playing
-        // Note: Duration preloading is handled by AudioContext.playSoundSequence
-        if (assetOrderRef.current.length > 0) {
-          setCurrentlyPlayingAssetId(assetOrderRef.current[0] || null);
-        }
-
-        await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
-      }
-    } catch (error) {
-      console.error('❌ Failed to play all assets:', error);
-      setCurrentlyPlayingAssetId(null);
-      assetUriMapRef.current.clear();
-      assetOrderRef.current = [];
-      uriOrderRef.current = [];
-      segmentDurationsRef.current = [];
-    }
-  }, [audioContext, getAssetAudioUris, assets]);
 
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
@@ -1213,42 +1148,76 @@ export default function NextGenAssetsView() {
     }
   };
 
+  // Handle going to recording - stops any playing audio first
+  const handleGoToRecording = React.useCallback(async () => {
+    // Stop PlayAll if running
+    if (isPlayAllRunningRef.current) {
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      
+      // Stop current sound immediately
+      if (currentPlayAllSoundRef.current) {
+        try {
+          await currentPlayAllSoundRef.current.stopAsync();
+          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current = null;
+        } catch (error) {
+          console.error('Error stopping sound:', error);
+        }
+      }
+      
+      currentPlayingAssetIdRef.current = null;
+      setCurrentlyPlayingAssetId(null);
+    }
+    
+    // Stop any other audio from audioContext
+    if (audioContext.isPlaying) {
+      await audioContext.stopCurrentSound();
+    }
+    
+    // Now show recording
+    setShowRecording(true);
+  }, [audioContext]);
+
   // Cleanup effect: Clear all refs and stop audio when component unmounts
   // This prevents memory leaks when navigating away from the assets view
   React.useEffect(() => {
     // Capture refs in variables to avoid stale closure warnings
-    const assetUriMap = assetUriMapRef.current;
-    const assetOrder = assetOrderRef.current;
-    const uriOrder = uriOrderRef.current;
-    const segmentDurations = segmentDurationsRef.current;
     const timeoutIds = timeoutIdsRef.current;
-    // Store reference to audioContext methods - access current value in cleanup
-    const audioContextRef = audioContext;
 
     return () => {
-      // Stop audio playback if playing (check current state, not captured state)
-      if (audioContextRef.isPlaying) {
-        void audioContextRef.stopCurrentSound();
+      // Stop audio playback if playing (access via ref for latest state)
+      if (audioContextRef.current.isPlaying) {
+        void audioContextRef.current.stopCurrentSound();
       }
 
-      // Clear all refs to free memory
-      assetUriMap.clear();
-      assetOrder.length = 0;
-      uriOrder.length = 0;
-      segmentDurations.length = 0;
+      // Stop PlayAll if running
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          void currentPlayAllSoundRef.current.stopAsync().then(() => {
+            void currentPlayAllSoundRef.current?.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          }).catch(() => {
+            // Ignore errors during cleanup
+            currentPlayAllSoundRef.current = null;
+          });
+        }
+      }
 
       // Clear all pending timeouts
       timeoutIds.forEach((id) => clearTimeout(id));
       timeoutIds.clear();
 
       // Reset state
+      currentPlayingAssetIdRef.current = null;
       setCurrentlyPlayingAssetId(null);
+      setIsPlayAllRunning(false);
 
       console.log('🧹 Cleaned up NextGenAssetsView on unmount');
     };
-    // Empty dependency array - this effect should only run on mount/unmount
-    // We access audioContext directly in cleanup to get the latest state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!currentQuestId) {
@@ -1307,24 +1276,8 @@ export default function NextGenAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && enablePlayAll && (
+          {assets.length > 0 && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={handlePlayAllAssets}
-                className="h-10 w-10"
-              >
-                <Icon
-                  as={
-                    audioContext.isPlaying &&
-                    audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                      ? PauseIcon
-                      : PlayIcon
-                  }
-                  size={20}
-                />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1442,7 +1395,7 @@ export default function NextGenAssetsView() {
                   variant="outline"
                   size="icon"
                   className="border-[1.5px] border-primary"
-                  onPress={() => setShowRecording(true)}
+                  onPress={() => void handleGoToRecording()}
                 >
                   <Icon as={PencilIcon} className="text-primary" />
                 </Button>
@@ -1575,7 +1528,7 @@ export default function NextGenAssetsView() {
             variant="destructive"
             size="lg"
             className="w-full"
-            onPress={() => setShowRecording(true)}
+            onPress={() => void handleGoToRecording()}
           >
             <Icon
               as={MicIcon}

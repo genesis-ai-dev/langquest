@@ -643,7 +643,6 @@ export default function BibleAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
-  const enablePlayAll = useLocalStore((s) => s.enablePlayAll);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -2637,6 +2636,12 @@ export default function BibleAssetsView() {
   // Ref to track current playing sound for immediate cancellation
   const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
 
+  // Ref to hold latest audioContext for cleanup (avoids stale closure)
+  const audioContextCurrentRef = React.useRef(audioContext);
+  React.useEffect(() => {
+    audioContextCurrentRef.current = audioContext;
+  }, [audioContext]);
+
   // Update state only for handlePlayAsset and handlePlayAllAssets
   // handlePlayAll controls state directly so we skip when it's running
   React.useEffect(() => {
@@ -2834,6 +2839,68 @@ export default function BibleAssetsView() {
     },
     [assets, getAssetAudioUris, selectedAssetIds]
   );
+
+  // Handle going to recording - stops any playing audio first
+  const handleGoToRecording = React.useCallback(async () => {
+    // Stop PlayAll if running
+    if (isPlayAllRunningRef.current) {
+      isPlayAllRunningRef.current = false;
+      setIsPlayAllRunning(false);
+      
+      // Stop current sound immediately
+      if (currentPlayAllSoundRef.current) {
+        try {
+          await currentPlayAllSoundRef.current.stopAsync();
+          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current = null;
+        } catch (error) {
+          console.error('Error stopping sound:', error);
+        }
+      }
+      
+      setCurrentlyPlayingAssetId(null);
+    }
+    
+    // Stop any other audio from audioContext
+    if (audioContext.isPlaying) {
+      await audioContext.stopCurrentSound();
+    }
+    
+    // Now show recording
+    setShowRecording(true);
+  }, [audioContext]);
+
+  // Cleanup effect: Stop audio when component unmounts
+  React.useEffect(() => {
+    return () => {
+      // Stop audio playback if playing (access via ref for latest state)
+      if (audioContextCurrentRef.current.isPlaying) {
+        void audioContextCurrentRef.current.stopCurrentSound();
+      }
+
+      // Stop PlayAll if running
+      if (isPlayAllRunningRef.current) {
+        isPlayAllRunningRef.current = false;
+        
+        // Stop current sound immediately
+        if (currentPlayAllSoundRef.current) {
+          void currentPlayAllSoundRef.current.stopAsync().then(() => {
+            void currentPlayAllSoundRef.current?.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          }).catch(() => {
+            // Ignore errors during cleanup
+            currentPlayAllSoundRef.current = null;
+          });
+        }
+      }
+
+      // Reset state
+      setCurrentlyPlayingAssetId(null);
+      setIsPlayAllRunning(false);
+
+      console.log('🧹 Cleaned up BibleAssetsView on unmount');
+    };
+  }, []);
 
   // OLD handlePlayAllAssets function - commented out (replaced by handlePlayAll)
   // const handlePlayAllAssets = React.useCallback(async () => {
@@ -3309,7 +3376,7 @@ export default function BibleAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
-          {assets.length > 0 && enablePlayAll && (
+          {assets.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
@@ -3644,7 +3711,7 @@ export default function BibleAssetsView() {
               //variant="destructive"
               // size="lg"
               className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
-              onPress={() => setShowRecording(true)}
+              onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
               <View className="ml-2 flex-col items-start justify-start gap-0">
