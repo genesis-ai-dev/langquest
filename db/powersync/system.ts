@@ -593,9 +593,8 @@ export class System {
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
-        const { checkAppUpgradeNeeded } = await import(
-          '../schemaVersionService'
-        );
+        const { checkAppUpgradeNeeded } =
+          await import('../schemaVersionService');
         // Create raw database wrapper from PowerSync for schema version check
         const dbForSchemaCheck = {
           getAll: async (sql: string, params?: unknown[]) => {
@@ -674,19 +673,6 @@ export class System {
       // This ensures NextGenProjectsView and other views don't show loading states
       useLocalStore.getState().setSystemReady(true);
       console.log('System marked as ready');
-
-      // Run migration cleanup after PowerSync is initialized and internet is available
-      // This handles duplicate languoids created during migration that later get synced
-      try {
-        const { migrationCleanup } = await import('@/db/migrations/cleanup');
-        await migrationCleanup();
-      } catch (error) {
-        // Non-critical - cleanup failure shouldn't block initialization
-        console.warn(
-          '[System] Migration cleanup failed (non-critical):',
-          error
-        );
-      }
 
       console.log('PowerSync initialization complete');
     } catch (error) {
@@ -1231,9 +1217,8 @@ export class System {
       // Fast check first - most users won't have corrupted attachments
       console.log('[System] Checking for corrupted attachments...');
       try {
-        const { getCorruptedCount, cleanupAllCorrupted } = await import(
-          '@/services/corruptedAttachmentsService'
-        );
+        const { getCorruptedCount, cleanupAllCorrupted } =
+          await import('@/services/corruptedAttachmentsService');
         const corruptedCount = await getCorruptedCount();
 
         if (corruptedCount > 0) {
@@ -1397,9 +1382,8 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, getMinimumSchemaVersion } = await import(
-        '../migrations/index'
-      );
+      const { runMigrations, getMinimumSchemaVersion } =
+        await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Create migrationDb if not already set (works for both pre-auth and post-auth)

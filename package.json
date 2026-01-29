@@ -122,6 +122,7 @@
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.10",
     "expo-updates": "~0.28.17",
+    "js-logger": "^1.6.1",
     "lucide-react-native": "^0.510.0",
     "moti": "^0.30.0",
     "nativewind": "^4.2.1",
