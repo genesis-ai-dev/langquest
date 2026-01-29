@@ -37,11 +37,11 @@
 
 import type { Migration } from './index';
 import {
-    ensureTableExists,
-    getRawTableName,
-    jsonExtractColumns,
-    rawJsonKeyExists,
-    rawTableExists
+  ensureTableExists,
+  getRawTableName,
+  jsonExtractColumns,
+  rawJsonKeyExists,
+  rawTableExists
 } from './utils';
 
 export const migration_1_0_to_2_0: Migration = {
@@ -365,7 +365,11 @@ export const migration_1_0_to_2_0: Migration = {
     // - profile_local.ui_language_id
     // Only create from local language table - synced languoids come from languoid synced table
     if (onProgress)
-      onProgress(3, 4, 'Creating languoid records for all non-orphan languages');
+      onProgress(
+        3,
+        4,
+        'Creating languoid records for all non-orphan languages'
+      );
     console.log(
       '[Migration 1.0→2.0] Creating languoid_local for all non-orphan languages...'
     );
@@ -393,25 +397,35 @@ export const migration_1_0_to_2_0: Migration = {
     const languoidLocalTableName = getRawTableName('languoid_local');
 
     // Check which reference tables exist and have the relevant JSON keys
-    const profileLocalRawExists = await rawTableExists(db, 'profile_local', 'local');
-    const hasUiLanguageId = profileLocalRawExists && await rawJsonKeyExists(
+    const profileLocalRawExists = await rawTableExists(
       db,
       'profile_local',
-      '$.ui_language_id',
       'local'
     );
-    const hasSourceLanguageIdInAsset = assetLocalRawExists && await rawJsonKeyExists(
-      db,
-      'asset_local',
-      '$.source_language_id',
-      'local'
-    );
-    const hasSourceLanguageIdInAcl = assetContentLinkRawExists && await rawJsonKeyExists(
-      db,
-      'asset_content_link_local',
-      '$.source_language_id',
-      'local'
-    );
+    const hasUiLanguageId =
+      profileLocalRawExists &&
+      (await rawJsonKeyExists(
+        db,
+        'profile_local',
+        '$.ui_language_id',
+        'local'
+      ));
+    const hasSourceLanguageIdInAsset =
+      assetLocalRawExists &&
+      (await rawJsonKeyExists(
+        db,
+        'asset_local',
+        '$.source_language_id',
+        'local'
+      ));
+    const hasSourceLanguageIdInAcl =
+      assetContentLinkRawExists &&
+      (await rawJsonKeyExists(
+        db,
+        'asset_content_link_local',
+        '$.source_language_id',
+        'local'
+      ));
 
     // Build a comprehensive query that finds ALL non-orphan languages
     // by checking all possible reference points
@@ -516,7 +530,6 @@ export const migration_1_0_to_2_0: Migration = {
       '[Migration 1.0→2.0] ✓ Created languoid_local records for all non-orphan languages'
     );
 
-
     // Handle asset_content_link_local - from local language
     // JSON-FIRST: Read source_language_id from raw JSON
     if (assetContentLinkRawExists) {
@@ -580,7 +593,6 @@ export const migration_1_0_to_2_0: Migration = {
             ${notExistsLocalLanguoid('l.id')}
         `
         );
-
       } else {
         // Fallback: use view if JSON key doesn't exist (newer data)
         await db.execute(
@@ -631,7 +643,6 @@ export const migration_1_0_to_2_0: Migration = {
             ${notExistsLocalLanguoid('l.id')}
         `
         );
-
       }
     }
 
