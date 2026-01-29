@@ -83,6 +83,11 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // async function init() {
+    //   await tagService.preloadTagsIntoCache();
+    // }
+    // void init();
+
     if (Platform.OS === 'web') return;
     console.log('[_layout] Setting up deep link handler');
 

@@ -136,6 +136,12 @@ const RecordingViewSimplified = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
+  const vadMinSegmentLength = useLocalStore(
+    (state) => state.vadMinSegmentLength
+  );
+  const setVadMinSegmentLength = useLocalStore(
+    (state) => state.setVadMinSegmentLength
+  );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
@@ -1306,17 +1312,22 @@ const RecordingViewSimplified = ({
     debugLog('🎬 VAD: Segment starting | order_index:', targetOrder);
 
     currentRecordingOrderRef.current = targetOrder;
-    vadCounterRef.current = targetOrder + 1; // Increment for next segment
+    // Don't increment yet - wait until it's confirmed not to be a transient
   }, []);
 
   const handleVADSegmentComplete = React.useCallback(
     (uri: string) => {
       if (!uri || uri === '') {
         debugLog('🗑️ VAD: Segment discarded');
+        // Do NOT increment counter - the next segment will reuse currentRecordingOrderRef.current
         return;
       }
 
       debugLog('📼 VAD: Segment complete');
+      // Increment counter only for valid segments
+      if (vadCounterRef.current !== null) {
+        vadCounterRef.current += 1;
+      }
       void handleRecordingComplete(uri, 0, []);
     },
     [handleRecordingComplete]
@@ -1327,7 +1338,8 @@ const RecordingViewSimplified = ({
     currentEnergy,
     isRecording: isVADRecording,
     energyShared,
-    isRecordingShared
+    isRecordingShared,
+    isDiscardedShared
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
@@ -1715,7 +1727,10 @@ const RecordingViewSimplified = ({
           });
         }
 
-        await audioSegmentService.deleteAudioSegment(second.id);
+        // CRITICAL: Preserve audio files when merging - they are now linked to the first asset
+        await audioSegmentService.deleteAudioSegment(second.id, {
+          preserveAudioFiles: true
+        });
 
         // Force re-load of segment count for the merged asset
         debugLog(
@@ -1751,15 +1766,15 @@ const RecordingViewSimplified = ({
     if (selectedOrdered.length < 2) return;
 
     RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssets'),
+      t('mergeAssetsConfirmation', { count: selectedOrdered.length }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Merge',
+          text: t('merge'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -1791,7 +1806,10 @@ const RecordingViewSimplified = ({
                     });
                   }
 
-                  await audioSegmentService.deleteAudioSegment(src.id);
+                  // CRITICAL: Preserve audio files when merging - they are now linked to the target asset
+                  await audioSegmentService.deleteAudioSegment(src.id, {
+                    preserveAudioFiles: true
+                  });
                 }
 
                 // Force re-load of segment count for the merged target asset
@@ -1819,10 +1837,7 @@ const RecordingViewSimplified = ({
                 debugLog('✅ Batch merge completed');
               } catch (e) {
                 console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
+                RNAlert.alert(t('error'), t('failedToMergeAssets'));
               }
             })();
           }
@@ -1845,15 +1860,15 @@ const RecordingViewSimplified = ({
     if (selectedOrdered.length < 1) return;
 
     RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssets'),
+      t('deleteAssetsConfirmation', { count: selectedOrdered.length }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -1873,10 +1888,7 @@ const RecordingViewSimplified = ({
                 );
               } catch (e) {
                 console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
+                RNAlert.alert(t('error'), t('failedToDeleteAssets'));
               }
             })();
           }
@@ -1918,7 +1930,7 @@ const RecordingViewSimplified = ({
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
           console.warn('⚠️ Rename blocked:', error.message);
-          RNAlert.alert('Error', error.message);
+          RNAlert.alert(t('error'), error.message);
         }
       }
     },
@@ -2161,9 +2173,7 @@ const RecordingViewSimplified = ({
   if (isOfflineLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted-foreground">
-          {t('loading') || 'Loading assets...'}
-        </Text>
+        <Text className="text-muted-foreground">{t('loading')}</Text>
       </View>
     );
   }
@@ -2172,7 +2182,7 @@ const RecordingViewSimplified = ({
   if (isError && offlineError) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-destructive">Error loading assets</Text>
+        <Text className="text-destructive">{t('errorLoadingAssets')}</Text>
         <Text className="text-xs text-muted-foreground">
           {offlineError.message}
         </Text>
@@ -2192,6 +2202,7 @@ const RecordingViewSimplified = ({
           energyShared={energyShared}
           vadThreshold={vadThreshold}
           isRecordingShared={isRecordingShared}
+          isDiscardedShared={isDiscardedShared}
           onCancel={() => {
             // Cancel VAD mode
             setIsVADLocked(false);
@@ -2237,7 +2248,7 @@ const RecordingViewSimplified = ({
         {assets.length === 0 && (
           <View className="items-center justify-center py-16">
             <Text className="text-center text-muted-foreground">
-              No assets yet. Start recording to create your first asset.
+              {t('noAssetsYetStartRecording')}
             </Text>
           </View>
         )}
@@ -2297,6 +2308,7 @@ const RecordingViewSimplified = ({
             vadThreshold={vadThreshold}
             energyShared={energyShared}
             isRecordingShared={isRecordingShared}
+            isDiscardedShared={isDiscardedShared}
             displayMode={vadDisplayMode}
           />
         )}
@@ -2329,6 +2341,8 @@ const RecordingViewSimplified = ({
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
+        minSegmentLength={vadMinSegmentLength}
+        onMinSegmentLengthChange={setVadMinSegmentLength}
         isVADLocked={isVADLocked}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}

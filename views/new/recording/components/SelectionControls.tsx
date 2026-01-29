@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Merge, Trash2, X } from 'lucide-react-native';
+import { ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -21,13 +21,19 @@ interface SelectionControlsProps {
   onCancel: () => void;
   onMerge: () => void;
   onDelete: () => void;
+  allowSelectAll?: boolean;
+  allSelected?: boolean;
+  onSelectAll?: () => void;
 }
 
 export const SelectionControls = React.memo(function SelectionControls({
   selectedCount,
   onCancel,
   onMerge,
-  onDelete
+  onDelete,
+  allowSelectAll = false,
+  allSelected = false,
+  onSelectAll
 }: SelectionControlsProps) {
   const { t } = useLocalization();
   return (
@@ -35,6 +41,11 @@ export const SelectionControls = React.memo(function SelectionControls({
       <Text className="text-sm text-muted-foreground">({selectedCount})</Text>
       <View className="align-between flex-row">
         <View className="flex-row gap-2">
+          {allowSelectAll && onSelectAll && (
+            <Button variant="default" onPress={onSelectAll}>
+              <Icon as={allSelected ? ListX : ListChecks} />
+            </Button>
+          )}
           <Button
             variant="default"
             disabled={selectedCount < 2}

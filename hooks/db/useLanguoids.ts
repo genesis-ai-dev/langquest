@@ -6,6 +6,7 @@
 
 import { languoid } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { SUPPORTED_LANGUAGE_NAMES } from '@/services/localizations';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -17,12 +18,14 @@ export type Languoid = InferSelectModel<typeof languoid>;
 /**
  * Returns { languoids, isLoading, error }
  * Fetches all ui_ready languoids from Supabase (online) or local Drizzle DB (offline)
+ * Filters to only include languages with local app support to prevent
+ * showing languages from newer DB versions that the app can't render.
  */
 export function useUIReadyLanguoids() {
   const { db, supabaseConnector } = system;
 
   const {
-    data: languoids,
+    data: rawLanguoids,
     isLoading: isLanguoidsLoading,
     ...rest
   } = useHybridData({
@@ -49,6 +52,16 @@ export function useUIReadyLanguoids() {
       return data;
     }
   });
+
+  // Filter to only include languages with local app support
+  // This prevents older app versions from showing languages they can't render
+  const languoids = useMemo(
+    () =>
+      rawLanguoids.filter(
+        (l) => l.name && SUPPORTED_LANGUAGE_NAMES.has(l.name.toLowerCase())
+      ),
+    [rawLanguoids]
+  );
 
   return { languoids, isLanguoidsLoading, ...rest };
 }

@@ -53,6 +53,7 @@ export default function SettingsView() {
   );
   const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
@@ -77,6 +78,9 @@ export default function SettingsView() {
   const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
+  );
+  const setEnableVerseMarkers = useLocalStore(
+    (state) => state.setEnableVerseMarkers
   );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
@@ -125,6 +129,10 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
+  };
+
+  const handleVerseMarkersToggle = (value: boolean) => {
+    setEnableVerseMarkers(value);
   };
 
   const handleTranscriptionToggle = (value: boolean) => {
@@ -274,21 +282,25 @@ export default function SettingsView() {
         },
         {
           id: 'questExport',
-          title: t('questExport') || 'Quest Export',
-          description:
-            t('questExportDescription') ||
-            'Export bible chapters as audio files for sharing and distribution',
+          title: t('questExport'),
+          description: t('questExportDescription'),
           type: 'toggle',
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
           disabled: !isOnline
         },
         {
+          id: 'verseMarkers',
+          title: t('verseMarkers'),
+          description: t('verseMarkersDescription'),
+          type: 'toggle',
+          value: enableVerseMarkers,
+          onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
+        },
+        {
           id: 'transcription',
-          title: t('transcription') || 'Transcription',
-          description:
-            t('transcriptionDescription') ||
-            'Enable automatic transcription of audio recordings',
+          title: t('transcription'),
+          description: t('transcriptionDescription'),
           type: 'toggle',
           value: enableTranscription,
           onPress: () => handleTranscriptionToggle(!enableTranscription)
