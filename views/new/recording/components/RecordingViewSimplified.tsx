@@ -1576,15 +1576,15 @@ const RecordingViewSimplified = ({
     if (selectedOrdered.length < 2) return;
 
     RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssets'),
+      t('mergeAssetsConfirmation', { count: selectedOrdered.length }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Merge',
+          text: t('merge'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -1647,10 +1647,7 @@ const RecordingViewSimplified = ({
                 debugLog('✅ Batch merge completed');
               } catch (e) {
                 console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
+                RNAlert.alert(t('error'), t('failedToMergeAssets'));
               }
             })();
           }
@@ -1673,15 +1670,15 @@ const RecordingViewSimplified = ({
     if (selectedOrdered.length < 1) return;
 
     RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssets'),
+      t('deleteAssetsConfirmation', { count: selectedOrdered.length }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -1701,10 +1698,7 @@ const RecordingViewSimplified = ({
                 );
               } catch (e) {
                 console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
+                RNAlert.alert(t('error'), t('failedToDeleteAssets'));
               }
             })();
           }
@@ -1746,7 +1740,7 @@ const RecordingViewSimplified = ({
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
           console.warn('⚠️ Rename blocked:', error.message);
-          RNAlert.alert('Error', error.message);
+          RNAlert.alert(t('error'), error.message);
         }
       }
     },
@@ -1997,9 +1991,7 @@ const RecordingViewSimplified = ({
   if (isOfflineLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted-foreground">
-          {t('loading') || 'Loading assets...'}
-        </Text>
+        <Text className="text-muted-foreground">{t('loading')}</Text>
       </View>
     );
   }
@@ -2008,7 +2000,7 @@ const RecordingViewSimplified = ({
   if (isError && offlineError) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-destructive">Error loading assets</Text>
+        <Text className="text-destructive">{t('errorLoadingAssets')}</Text>
         <Text className="text-xs text-muted-foreground">
           {offlineError.message}
         </Text>
@@ -2072,7 +2064,7 @@ const RecordingViewSimplified = ({
         {assets.length === 0 && (
           <View className="items-center justify-center py-16">
             <Text className="text-center text-muted-foreground">
-              No assets yet. Start recording to create your first asset.
+              {t('noAssetsYetStartRecording')}
             </Text>
           </View>
         )}

@@ -903,10 +903,10 @@ export default function NextGenProjectsView() {
                   <View className="flex-col items-center gap-2">
                     <Text className="text-muted-foreground">
                       {searchQuery
-                        ? 'No projects found'
+                        ? t('noProjectsFound')
                         : activeTab === 'my'
-                          ? 'No projects yet'
-                          : 'No projects available'}
+                          ? t('noProjectsYet')
+                          : t('noProjectsAvailable')}
                     </Text>
                     {activeTab === 'my' && !searchQuery && (
                       <Button

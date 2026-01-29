@@ -4,6 +4,8 @@ import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
@@ -27,6 +29,8 @@ export function BibleBookList({
   canCreateNew = false,
   onCloudLoadingChange
 }: BibleBookListProps) {
+  const { t } = useLocalization();
+  const getBookName = useBibleBookNameGetter();
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
 
@@ -79,6 +83,7 @@ export function BibleBookList({
     const iconSource = BOOK_ICON_MAP[book.id];
     const bookExists = existingBookIds?.has(book.id);
     const isDisabled = !bookExists && !canCreateNew;
+    const { abbrev } = getBookName(book.id);
 
     if (!bookExists && isDisabled) {
       return;
@@ -106,11 +111,8 @@ export function BibleBookList({
           resizeMode="contain"
         />
         <View className="flex-col items-center gap-0.5">
-          <Text
-            className="text-xs font-bold uppercase"
-            style={{ letterSpacing: 0.5 }}
-          >
-            {book.id}
+          <Text className="text-xs font-bold" style={{ letterSpacing: 0.5 }}>
+            {abbrev}
           </Text>
           <Text className="text-xxs text-muted-foreground">
             {book.chapters}
@@ -138,8 +140,8 @@ export function BibleBookList({
     <View className="mb-safe flex-1 gap-6">
       <QuestionModal
         visible={showPromptModal}
-        title="Enable Verse Labels?"
-        description="This experimental feature helps organize Bible resources using verse labels. You can enable / disable it anytime at the Settings menu."
+        title={t('enableVerseLabelsQuestion')}
+        description={t('enableVerseLabelsDescription')}
         onYes={handleYes}
         onNo={handleNo}
       />
