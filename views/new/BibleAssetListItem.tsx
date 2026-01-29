@@ -27,7 +27,7 @@ import {
   PlayIcon,
   SquareArrowOutUpRightIcon,
   // Plus,
-  SquareIcon,
+  SquareIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
@@ -178,7 +178,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
       questData: currentQuestData // Pass quest data forward!
       // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
       // relationships which aren't loaded in the list view
-    });    
+    });
   };
 
   const handlePress = () => {
@@ -198,7 +198,6 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
     onToggleSelect?.(asset.id);
 
     // handleOpenAsset();
-
 
     // layerStatus.setLayerStatus(
     //   LayerType.ASSET,
@@ -319,7 +318,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                         e.stopPropagation();
                         void onPlay(asset.id);
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40 ml-2"
+                      className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <Icon
@@ -391,9 +390,9 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                     isLoading={isDownloading}
                     onPress={handleDownloadToggle}
                     size={16}
-                    iconColor='text-primary/50'
+                    iconColor="text-primary/50"
                   />
-                  <Pressable onPress={handleOpenAsset} className='mr-2'>
+                  <Pressable onPress={handleOpenAsset} className="mr-2">
                     <Icon
                       as={SquareArrowOutUpRightIcon}
                       size={16}

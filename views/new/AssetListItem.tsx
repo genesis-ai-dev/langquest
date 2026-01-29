@@ -241,7 +241,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   isLoading={isDownloading}
                   onPress={handleDownloadToggle}
                   size={16}
-                  iconColor='text-primary/50'
+                  iconColor="text-primary/50"
                 />
                 <Pressable onPress={handleOpenAsset}>
                   <Icon
