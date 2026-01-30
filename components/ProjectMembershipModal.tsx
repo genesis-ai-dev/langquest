@@ -48,7 +48,8 @@ import {
   UserIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 const MAX_INVITE_ATTEMPTS = 3;
 
