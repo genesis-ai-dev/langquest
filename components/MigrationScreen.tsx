@@ -23,6 +23,7 @@ import {
   resetRetryCount,
   shouldRetryMigration
 } from '@/services/degradedModeService';
+import { useThemeColor } from '@/utils/styleUtils';
 import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -56,6 +57,8 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [isDegraded, setIsDegraded] = useState(false);
+  const [shouldSkipAutoStart, setShouldSkipAutoStart] = useState(false);
+  const [degradedCheckComplete, setDegradedCheckComplete] = useState(false);
 
   // Check degraded mode on mount and auto-proceed if already in degraded mode
   useEffect(() => {
@@ -74,6 +77,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
             total: 1,
             step: 'Continuing in degraded mode...'
           });
+          setShouldSkipAutoStart(true); // Prevent normal migration start
 
           // Auto-proceed after a brief delay to show the message
           setTimeout(() => {
@@ -86,8 +90,20 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
               system.clearMigrationNeeded();
             }
           }, 1500);
+        } else {
+          // Version changed - allow normal migration flow to proceed
+          console.log(
+            '[MigrationScreen] App version changed - migration will retry automatically'
+          );
+          setProgress({
+            current: 0,
+            total: 1,
+            step: 'App version updated - retrying migration...'
+          });
+          // Don't skip auto-start - let the normal flow handle it
         }
       }
+      setDegradedCheckComplete(true);
     })();
   }, [onComplete, setMigrationNeeded]);
 
@@ -199,9 +215,20 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   }, [runMigration]);
 
   useEffect(() => {
+    // Wait for degraded mode check to complete before starting migration
+    if (!degradedCheckComplete) {
+      return;
+    }
+    // Skip auto-start if we're in degraded mode and shouldn't retry
+    if (shouldSkipAutoStart) {
+      console.log(
+        '[MigrationScreen] Skipping auto-start - in degraded mode without version change'
+      );
+      return;
+    }
     // Use scheduleOnRN instead of queueMicrotask per workspace rules
     scheduleOnRN(startMigration);
-  }, [startMigration]);
+  }, [startMigration, shouldSkipAutoStart, degradedCheckComplete]);
 
   function handleRetry() {
     setError(null);
@@ -214,6 +241,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
       ? Math.round((progress.current / progress.total) * 100)
       : 0;
 
+  const primaryColor = useThemeColor('primary');
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
       <View className="w-full max-w-md">
@@ -225,7 +253,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
             ) : isComplete ? (
               <Icon as={CheckIcon} size={40} />
             ) : (
-              <ActivityIndicator size="large" />
+              <ActivityIndicator size="large" color={primaryColor} />
             )}
           </View>
 

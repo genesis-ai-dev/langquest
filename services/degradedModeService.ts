@@ -2,30 +2,42 @@
  * Degraded Mode Service
  *
  * Manages degraded mode state when migrations fail repeatedly.
- * Stores state in AsyncStorage and only retries migrations when app version changes.
+ * Stores state in AsyncStorage and only retries migrations when schema version changes.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 
 const DEGRADED_MODE_KEY = '@langquest:degraded_mode';
 const MIGRATION_RETRY_COUNT_KEY = '@langquest:migration_retry_count';
-const LAST_APP_VERSION_KEY = '@langquest:last_app_version';
+const LAST_SCHEMA_VERSION_KEY = '@langquest:last_schema_version';
 
-const MAX_RETRY_ATTEMPTS = 3;
+const MAX_RETRY_ATTEMPTS = 1;
 
 interface DegradedModeState {
   isDegraded: boolean;
   lastFailedVersion: string | null;
   retryCount: number;
-  lastAppVersion: string | null;
+  lastSchemaVersion: string | null;
 }
 
 /**
- * Get current app version from Constants
+ * Get current schema version
  */
-function getCurrentAppVersion(): string {
-  return Constants.expoConfig?.version || 'unknown';
+async function getCurrentSchemaVersion(): Promise<string> {
+  try {
+    const { APP_SCHEMA_VERSION } = await import('../db/constants');
+    return APP_SCHEMA_VERSION;
+  } catch (error) {
+    console.error('[DegradedModeService] Error getting schema version:', error);
+    return 'unknown';
+  }
+}
+
+/**
+ * Get current schema version (exported for testing/debugging)
+ */
+export async function getCurrentSchemaVersionForTesting(): Promise<string> {
+  return getCurrentSchemaVersion();
 }
 
 /**
@@ -33,19 +45,19 @@ function getCurrentAppVersion(): string {
  */
 export async function getDegradedModeState(): Promise<DegradedModeState> {
   try {
-    const [isDegraded, lastFailedVersion, retryCount, lastAppVersion] =
+    const [isDegraded, lastFailedVersion, retryCount, lastSchemaVersion] =
       await Promise.all([
         AsyncStorage.getItem(DEGRADED_MODE_KEY),
         AsyncStorage.getItem(`${DEGRADED_MODE_KEY}:failed_version`),
         AsyncStorage.getItem(MIGRATION_RETRY_COUNT_KEY),
-        AsyncStorage.getItem(LAST_APP_VERSION_KEY)
+        AsyncStorage.getItem(LAST_SCHEMA_VERSION_KEY)
       ]);
 
     return {
       isDegraded: isDegraded === 'true',
       lastFailedVersion: lastFailedVersion || null,
       retryCount: retryCount ? parseInt(retryCount, 10) : 0,
-      lastAppVersion: lastAppVersion || null
+      lastSchemaVersion: lastSchemaVersion || null
     };
   } catch (error) {
     console.error(
@@ -56,37 +68,51 @@ export async function getDegradedModeState(): Promise<DegradedModeState> {
       isDegraded: false,
       lastFailedVersion: null,
       retryCount: 0,
-      lastAppVersion: null
+      lastSchemaVersion: null
     };
   }
 }
 
 /**
- * Check if app version has changed since last migration attempt
+ * Check if schema version has changed since last successful migration
+ * Note: Does NOT update stored version - that only happens after successful migration
  */
-export async function hasAppVersionChanged(): Promise<boolean> {
+export async function hasSchemaVersionChanged(): Promise<boolean> {
   try {
-    const currentVersion = getCurrentAppVersion();
-    const lastVersion = await AsyncStorage.getItem(LAST_APP_VERSION_KEY);
+    const currentVersion = await getCurrentSchemaVersion();
+    const lastVersion = await AsyncStorage.getItem(LAST_SCHEMA_VERSION_KEY);
+
+    console.log(
+      `[DegradedModeService] Schema version check - Current: ${currentVersion}, Stored: ${lastVersion || 'none'}`
+    );
 
     if (!lastVersion) {
-      // First time - store current version
-      await AsyncStorage.setItem(LAST_APP_VERSION_KEY, currentVersion);
+      // First time - don't store yet, wait for successful migration
+      // Return false so we don't trigger retry on first check
+      console.log(
+        `[DegradedModeService] First time schema version check - will store after successful migration`
+      );
       return false;
     }
 
     const versionChanged = lastVersion !== currentVersion;
     if (versionChanged) {
       console.log(
-        `[DegradedModeService] App version changed: ${lastVersion} → ${currentVersion}`
+        `[DegradedModeService] ✓ Schema version changed: ${lastVersion} → ${currentVersion}`
       );
-      // Update stored version
-      await AsyncStorage.setItem(LAST_APP_VERSION_KEY, currentVersion);
+      // Don't update stored version here - only update after successful migration
+    } else {
+      console.log(
+        `[DegradedModeService] Schema version unchanged: ${currentVersion}`
+      );
     }
 
     return versionChanged;
   } catch (error) {
-    console.error('[DegradedModeService] Error checking app version:', error);
+    console.error(
+      '[DegradedModeService] Error checking schema version:',
+      error
+    );
     return false;
   }
 }
@@ -98,7 +124,7 @@ export async function incrementRetryCount(): Promise<boolean> {
   try {
     const state = await getDegradedModeState();
     const newRetryCount = state.retryCount + 1;
-    const currentVersion = getCurrentAppVersion();
+    const currentVersion = await getCurrentSchemaVersion();
 
     await AsyncStorage.setItem(
       MIGRATION_RETRY_COUNT_KEY,
@@ -129,25 +155,25 @@ export async function incrementRetryCount(): Promise<boolean> {
 }
 
 /**
- * Check if we should retry migration (only if app version changed)
+ * Check if we should retry migration (only if schema version changed)
  */
 export async function shouldRetryMigration(): Promise<boolean> {
   const state = await getDegradedModeState();
-  const versionChanged = await hasAppVersionChanged();
+  const versionChanged = await hasSchemaVersionChanged();
 
   // Only retry if:
   // 1. We're in degraded mode AND
-  // 2. App version has changed
+  // 2. Schema version has changed
   if (state.isDegraded && versionChanged) {
     console.log(
-      '[DegradedModeService] App version changed - allowing migration retry'
+      '[DegradedModeService] Schema version changed - allowing migration retry'
     );
     return true;
   }
 
   if (state.isDegraded) {
     console.log(
-      '[DegradedModeService] In degraded mode but app version unchanged - skipping retry'
+      '[DegradedModeService] In degraded mode but schema version unchanged - skipping retry'
     );
   }
 
@@ -159,10 +185,13 @@ export async function shouldRetryMigration(): Promise<boolean> {
  */
 export async function clearDegradedMode(): Promise<void> {
   try {
+    const currentVersion = await getCurrentSchemaVersion();
     await Promise.all([
       AsyncStorage.removeItem(DEGRADED_MODE_KEY),
       AsyncStorage.removeItem(`${DEGRADED_MODE_KEY}:failed_version`),
-      AsyncStorage.removeItem(MIGRATION_RETRY_COUNT_KEY)
+      AsyncStorage.removeItem(MIGRATION_RETRY_COUNT_KEY),
+      // Update schema version to current so we don't immediately retry
+      AsyncStorage.setItem(LAST_SCHEMA_VERSION_KEY, currentVersion)
     ]);
     console.log('[DegradedModeService] Cleared degraded mode state');
   } catch (error) {
