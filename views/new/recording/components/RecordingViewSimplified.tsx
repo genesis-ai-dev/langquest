@@ -125,7 +125,7 @@ const RecordingViewSimplified = ({
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
-  const [isVADLocked, setIsVADLocked] = React.useState(false);
+  const [isVADActive, setIsVADActive] = React.useState(false);
 
   // VAD settings - persisted in local store for consistent UX
   // These settings are automatically saved to AsyncStorage and restored on app restart
@@ -893,7 +893,7 @@ const RecordingViewSimplified = ({
 
   // Initialize VAD counter when VAD mode activates
   React.useEffect(() => {
-    if (isVADLocked && vadCounterRef.current === null) {
+    if (isVADActive && vadCounterRef.current === null) {
       // CRITICAL: Use ref to get the LATEST insertionIndex value
       // This prevents issues when fullscreen overlay blocks the wheel and causes
       // insertionIndex state updates to be delayed or missed
@@ -950,13 +950,13 @@ const RecordingViewSimplified = ({
 
         vadCounterRef.current = targetOrder;
       })();
-    } else if (!isVADLocked) {
+    } else if (!isVADActive) {
       vadCounterRef.current = null;
     }
-    // IMPORTANT: Only depend on isVADLocked and currentQuestId
+    // IMPORTANT: Only depend on isVADActive and currentQuestId
     // insertionIndex is read from ref to avoid stale closure issues
     // assets is captured from closure (intentional - we want the state at activation time)
-  }, [isVADLocked, currentQuestId, assets, insertionIndex]);
+  }, [isVADActive, currentQuestId, assets, insertionIndex]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
@@ -1022,13 +1022,13 @@ const RecordingViewSimplified = ({
         // Generate name immediately and reserve it to prevent duplicates
         // In VAD mode: Use the VAD counter which is already incremented per segment
         // In manual mode: Use total count (existing + pending) for simple sequential naming
-        const nextNumber = isVADLocked
+        const nextNumber = isVADActive
           ? targetOrder + 1 // VAD: use order_index + 1 for naming (order is 0-based, names are 1-based)
           : assets.length + pendingAssetNamesRef.current.size + 1;
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
         debugLog(
-          `🏷️ Reserved name: ${assetName} (${isVADLocked ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
+          `🏷️ Reserved name: ${assetName} (${isVADActive ? 'VAD mode' : 'manual mode'}) | order_index: ${targetOrder}, asset count: ${assets.length}, pending: ${pendingAssetNamesRef.current.size}`
         );
 
         // Native module flushes the file before sending onSegmentComplete event.
@@ -1085,7 +1085,7 @@ const RecordingViewSimplified = ({
         await dbWriteQueueRef.current;
 
         // Invalidate queries to refresh asset list
-        if (!isVADLocked) {
+        if (!isVADActive) {
           await queryClient.invalidateQueries({
             queryKey: ['assets', 'by-quest', currentQuestId],
             exact: false
@@ -1105,7 +1105,7 @@ const RecordingViewSimplified = ({
       currentProject,
       currentUser,
       queryClient,
-      isVADLocked,
+      isVADActive,
       assets,
       targetLanguoidId
     ]
@@ -1153,7 +1153,7 @@ const RecordingViewSimplified = ({
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
-    isVADActive: isVADLocked,
+    isVADActive: isVADActive,
     onSegmentStart: handleVADSegmentStart,
     onSegmentComplete: handleVADSegmentComplete,
     isManualRecording: isRecording
@@ -1161,13 +1161,13 @@ const RecordingViewSimplified = ({
 
   // Invalidate queries when VAD mode ends
   React.useEffect(() => {
-    if (!isVADLocked) {
+    if (!isVADActive) {
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
       });
     }
-  }, [isVADLocked, currentQuestId, queryClient]);
+  }, [isVADActive, currentQuestId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2008,8 +2008,8 @@ const RecordingViewSimplified = ({
     );
   }
 
-  // Show full-screen overlay when VAD is locked and display mode is fullscreen
-  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+  // Show full-screen overlay when VAD is active and display mode is fullscreen
+  const showFullScreenOverlay = isVADActive && vadDisplayMode === 'fullscreen';
 
   return (
     <View className="flex-1 bg-background">
@@ -2023,7 +2023,7 @@ const RecordingViewSimplified = ({
           isDiscardedShared={isDiscardedShared}
           onCancel={() => {
             // Cancel VAD mode
-            setIsVADLocked(false);
+            setIsVADActive(false);
           }}
         />
       )}
@@ -2113,8 +2113,8 @@ const RecordingViewSimplified = ({
             onRecordingComplete={handleRecordingComplete}
             onRecordingDiscarded={handleRecordingDiscarded}
             onLayout={setFooterHeight}
-            isVADLocked={isVADLocked}
-            onVADLockChange={setIsVADLocked}
+            isVADActive={isVADActive}
+            onVADActiveChange={setIsVADActive}
             onSettingsPress={() => setShowVADSettings(true)}
             onAutoCalibratePress={() => {
               setAutoCalibrateOnOpen(true);
@@ -2159,7 +2159,7 @@ const RecordingViewSimplified = ({
         onSilenceDurationChange={setVadSilenceDuration}
         minSegmentLength={vadMinSegmentLength}
         onMinSegmentLengthChange={setVadMinSegmentLength}
-        isVADLocked={isVADLocked}
+        isVADActive={isVADActive}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
         autoCalibrateOnOpen={autoCalibrateOnOpen}

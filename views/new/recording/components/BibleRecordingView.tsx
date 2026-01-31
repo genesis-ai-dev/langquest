@@ -191,7 +191,7 @@ const BibleRecordingView = ({
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
-  const [isVADLocked, setIsVADLocked] = React.useState(false);
+  const [isVADActive, setIsVADActive] = React.useState(false);
 
   // VAD settings - persisted in local store for consistent UX
   // These settings are automatically saved to AsyncStorage and restored on app restart
@@ -726,7 +726,7 @@ const BibleRecordingView = ({
     // This is done in the next useEffect that monitors allItems.length change
 
     // If VAD is active, update recording context to use the new pill
-    if (isVADLocked) {
+    if (isVADActive) {
       const newVerse = { from: verseToAdd, to: verseToAdd };
       currentRecordingVerseRef.current = newVerse;
       vadCounterRef.current = newOrderIndex + 1;
@@ -734,7 +734,7 @@ const BibleRecordingView = ({
         `🎯 VAD: Updated to verse ${verseToAdd} | order_index: ${newOrderIndex + 1}`
       );
     }
-  }, [verseToAdd, isVADLocked, addVersePill]);
+  }, [verseToAdd, isVADActive, addVersePill]);
 
   // Stable item list that only updates when content actually changes
   // We intentionally use assetContentKey instead of allItems to prevent re-renders
@@ -1372,7 +1372,7 @@ const BibleRecordingView = ({
 
   // Initialize VAD counter and verse when VAD mode activates
   React.useEffect(() => {
-    if (isVADLocked && vadCounterRef.current === null) {
+    if (isVADActive && vadCounterRef.current === null) {
       // Capture current position when VAD starts
       vadInsertionIndexRef.current = insertionIndexRef.current;
 
@@ -1398,7 +1398,7 @@ const BibleRecordingView = ({
       debugLog(
         `🎯 VAD initialized ${contextIsAtEnd ? 'at END' : 'in MIDDLE'} | index: ${insertionIndexRef.current} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
       );
-    } else if (!isVADLocked) {
+    } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
       console.log(
@@ -1409,7 +1409,7 @@ const BibleRecordingView = ({
       vadIsAtEndRef.current = false;
     }
   }, [
-    isVADLocked,
+    isVADActive,
     allItems,
     currentDynamicVerse,
     assets.length,
@@ -1677,7 +1677,7 @@ const BibleRecordingView = ({
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
-    isVADActive: isVADLocked,
+    isVADActive: isVADActive,
     onSegmentStart: handleVADSegmentStart,
     onSegmentComplete: handleVADSegmentComplete,
     isManualRecording: isRecording
@@ -1685,13 +1685,13 @@ const BibleRecordingView = ({
 
   // Invalidate queries when VAD mode ends
   React.useEffect(() => {
-    if (!isVADLocked) {
+    if (!isVADActive) {
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
       });
     }
-  }, [isVADLocked, currentQuestId, queryClient]);
+  }, [isVADActive, currentQuestId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2549,8 +2549,8 @@ const BibleRecordingView = ({
   // SESSION-ONLY MODE: No loading/error states needed
   // The list starts empty and only shows assets recorded in this session
 
-  // Show full-screen overlay when VAD is locked and display mode is fullscreen
-  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+  // Show full-screen overlay when VAD is active and display mode is fullscreen
+  const showFullScreenOverlay = isVADActive && vadDisplayMode === 'fullscreen';
 
   const addButtonComponent = useMemo(() => {
     // Apply same conditions as floating button (line 3050)
@@ -2635,7 +2635,7 @@ const BibleRecordingView = ({
           isRecordingShared={isRecordingShared}
           onCancel={() => {
             // Cancel VAD mode
-            setIsVADLocked(false);
+            setIsVADActive(false);
           }}
         />
       )}
@@ -2687,10 +2687,10 @@ const BibleRecordingView = ({
         </View>
       </View>
       <View
-        className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive' : 'bg-primary/70'}`}
+        className={`flex-0 w-full items-center justify-center py-2 ${isVADActive ? 'bg-destructive' : 'bg-primary/70'}`}
       >
         {/* {(isRecording || isVADRecording)? ( */}
-        {isVADLocked ? (
+        {isVADActive ? (
           <Text className="text-center text-sm font-semibold text-white">
             {highlightedItemVerse
               ? `${t('recording')}: ${formatVerseRange(highlightedItemVerse)}`
@@ -2754,8 +2754,8 @@ const BibleRecordingView = ({
             onRecordingComplete={handleRecordingComplete}
             onRecordingDiscarded={handleRecordingDiscarded}
             onLayout={setFooterHeight}
-            isVADLocked={isVADLocked}
-            onVADLockChange={setIsVADLocked}
+            isVADActive={isVADActive}
+            onVADActiveChange={setIsVADActive}
             onSettingsPress={() => setShowVADSettings(true)}
             onAutoCalibratePress={() => {
               setAutoCalibrateOnOpen(true);
@@ -2799,7 +2799,7 @@ const BibleRecordingView = ({
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
-        isVADLocked={isVADLocked}
+        isVADActive={isVADActive}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
         autoCalibrateOnOpen={autoCalibrateOnOpen}

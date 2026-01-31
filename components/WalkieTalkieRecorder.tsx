@@ -1,32 +1,22 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
-import { colors } from '@/styles/theme';
 import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
-import { LockIcon, MicIcon, X } from 'lucide-react-native';
+import { MicIcon, Square } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
   cancelAnimation,
-  interpolate,
-  interpolateColor,
-  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming
 } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
-import { scheduleOnRN } from 'react-native-worklets';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
-// Create animated SVG components
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedView = Animated.View;
 
 interface WalkieTalkieRecorderProps {
@@ -41,8 +31,8 @@ interface WalkieTalkieRecorderProps {
   onWaveformUpdate?: (waveformData: number[]) => void;
   isRecording: boolean;
   // VAD mode props (native module handles recording, this is just for UI)
-  isVADLocked?: boolean;
-  onVADLockChange?: (locked: boolean) => void;
+  isVADActive?: boolean;
+  onVADActiveChange?: (active: boolean) => void;
   // VAD visual feedback
   currentEnergy?: number;
   vadThreshold?: number;
@@ -63,8 +53,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   onRecordingDiscarded,
   onWaveformUpdate: _onWaveformUpdate,
   isRecording,
-  isVADLocked = false,
-  onVADLockChange,
+  isVADActive = false,
+  onVADActiveChange,
   currentEnergy: _currentEnergy = 0,
   vadThreshold: _vadThreshold = 0.03,
   canRecord = true,
@@ -81,130 +71,41 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // Permission check removed - handled by parent RecordingControls via canRecord prop
   const isPressedRef = useRef(false);
   const isActivatingRef = useRef(false);
-  const [isSlideGestureActive, setIsSlideGestureActive] = useState(false);
+  const pressStartTimeRef = useRef<number | null>(null);
 
   // Track all recorded samples for final waveform data
   const [recordedSamples, setRecordedSamples] = useState<number[]>([]);
 
   // Reanimated shared values for smooth UI-thread animations
-  const scaleAnim = useSharedValue(1);
+  // scaleAnim removed - no scale animations
   const pulseAnim = useSharedValue(1);
   // Use provided SharedValue or create local one
   const internalActivationProgress = useSharedValue(0);
   const activationProgress =
     activationProgressShared ?? internalActivationProgress;
-  const slideX = useSharedValue(0);
-  const lockOpacity = useSharedValue(0.3);
 
   // Timers and state
   const activationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isSliding, setIsSliding] = useState(false);
 
   // Constants
   const MIN_RECORDING_DURATION = 1000;
-  const ACTIVATION_TIME = 500;
-  const RELEASE_DELAY = 300;
-  const SLIDE_THRESHOLD = 120;
-  const LOCK_HAPTIC_THRESHOLD = 100;
+  const ACTIVATION_TIME = 200;
+  const RELEASE_DELAY = 0;
 
   // Avoid React refs inside worklets: mutating `.current` after passing the ref
   // into a worklet triggers Reanimated's "Tried to modify key `current`..." warning.
   // Use SharedValues for any state that must be read from a worklet callback.
   const isRecordingShared = useSharedValue(isRecording);
-  const isVADLockedRef = useRef(isVADLocked);
+  const isVADActiveShared = useSharedValue(isVADActive);
+  const isVADActiveRef = useRef(isVADActive);
 
   useEffect(() => {
-    isVADLockedRef.current = isVADLocked;
+    isVADActiveRef.current = isVADActive;
+    isVADActiveShared.value = isVADActive;
     isRecordingShared.value = isRecording;
-  }, [isVADLocked, isRecording, isRecordingShared]);
+  }, [isVADActive, isRecording, isRecordingShared, isVADActiveShared]);
 
-  // Callbacks wrapped for scheduleOnRN
-  const handleSlideStart = () => {
-    setIsSliding(true);
-    setIsSlideGestureActive(true);
-
-    if (activationTimer.current) {
-      clearTimeout(activationTimer.current);
-      activationTimer.current = null;
-    }
-    isActivatingRef.current = false;
-  };
-
-  const handleSlideComplete = () => {
-    console.log('🔒 Slide-to-lock completed - activating VAD mode');
-    void successHaptic();
-    onVADLockChange?.(true);
-  };
-
-  const handleSlideCancel = () => {
-    setIsSliding(false);
-    setTimeout(() => {
-      setIsSlideGestureActive(false);
-    }, 100);
-  };
-
-  const triggerHaptic = () => {
-    void mediumHaptic();
-  };
-
-  // Pan gesture for slide-to-lock
-  const panGesture = Gesture.Pan()
-    .enabled(!isVADLocked && !isRecording)
-    .activeOffsetX(5)
-    .failOffsetY([-10, 10])
-    .onStart(() => {
-      'worklet';
-      scheduleOnRN(handleSlideStart);
-      activationProgress.value = 0;
-      lockOpacity.value = withTiming(1, { duration: 150 });
-    })
-    .onUpdate((event) => {
-      'worklet';
-      const dx = Math.max(0, Math.min(SLIDE_THRESHOLD, event.translationX));
-      slideX.value = dx;
-
-      if (dx > LOCK_HAPTIC_THRESHOLD && dx < LOCK_HAPTIC_THRESHOLD + 5) {
-        scheduleOnRN(triggerHaptic);
-      }
-    })
-    .onEnd((event) => {
-      'worklet';
-      const dx = event.translationX;
-
-      if (dx >= SLIDE_THRESHOLD) {
-        slideX.value = withSpring(SLIDE_THRESHOLD, {
-          damping: 15,
-          stiffness: 150
-        });
-        lockOpacity.value = withTiming(1, { duration: 200 });
-        scheduleOnRN(handleSlideComplete);
-      } else {
-        slideX.value = withSpring(0, {
-          damping: 12,
-          stiffness: 200
-        });
-        lockOpacity.value = withTiming(0.3, { duration: 200 });
-      }
-
-      scheduleOnRN(handleSlideCancel);
-    })
-    .onFinalize(() => {
-      'worklet';
-      if (slideX.value > 0 && slideX.value < SLIDE_THRESHOLD) {
-        slideX.value = withSpring(0);
-        lockOpacity.value = withTiming(0.3, { duration: 200 });
-        scheduleOnRN(handleSlideCancel);
-      }
-    });
-
-  // Reset slide position when unlocked externally
-  useEffect(() => {
-    if (!isVADLocked) {
-      slideX.value = withSpring(0);
-      lockOpacity.value = withTiming(0.3, { duration: 200 });
-    }
-  }, [isVADLocked, slideX, lockOpacity]);
 
   // Append a live sample for recording playback
   const appendLiveSample = (amplitude01: number) => {
@@ -427,32 +328,34 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   };
 
   const handlePressIn = () => {
-    if (isVADLocked) {
-      console.log('🔒 VAD mode is locked - manual recording disabled');
-      return;
-    }
-
-    if (isSlideGestureActive) {
-      console.log('🔒 Slide gesture active - ignoring press');
+    // If VAD is active, allow tap to stop it
+    if (isVADActive) {
+      pressStartTimeRef.current = Date.now();
+      isPressedRef.current = true; // Set pressed state so handlePressOut can process the stop
       return;
     }
 
     console.log('🎙️ Press in detected, starting activation timer...');
+
+    // Record press start time for tap detection
+    pressStartTimeRef.current = Date.now();
 
     void mediumHaptic();
 
     isPressedRef.current = true;
     isActivatingRef.current = true;
 
-    scaleAnim.value = withSpring(0.9, {
-      damping: 15,
-      stiffness: 150
-    });
+    // No scale animation - keep button static
+    // scaleAnim.value = withSpring(0.9, {
+    //   damping: 15,
+    //   stiffness: 150
+    // });
 
-    activationProgress.value = withTiming(1, {
-      duration: ACTIVATION_TIME,
-      easing: Easing.linear
-    });
+    // No activation progress animation
+    // activationProgress.value = withTiming(1, {
+    //   duration: ACTIVATION_TIME,
+    //   easing: Easing.linear
+    // });
 
     activationTimer.current = setTimeout(() => {
       console.log('✅ Activation complete, starting recording...');
@@ -468,22 +371,25 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const handlePressOut = () => {
     if (!isPressedRef.current) return;
 
-    if (isSlideGestureActive) {
-      console.log('🔒 Slide gesture was active - ignoring press out');
-      isPressedRef.current = false;
-      activationProgress.value = withTiming(0, { duration: 150 });
-      scaleAnim.value = withSpring(1, {
-        damping: 15,
-        stiffness: 150
-      });
-      return;
-    }
-
     void mediumHaptic();
     isPressedRef.current = false;
 
+    const pressDuration = pressStartTimeRef.current
+      ? Date.now() - pressStartTimeRef.current
+      : Infinity;
+    pressStartTimeRef.current = null;
+
+    // If VAD is active, any tap stops VAD
+    if (isVADActive) {
+      console.log('👆 Tap detected - stopping VAD mode');
+      void successHaptic();
+      onVADActiveChange?.(false);
+      // No animations when stopping VAD - immediate response
+      return;
+    }
+
+    // If released before activation completes, check if it was a tap
     if (isActivatingRef.current) {
-      console.log('❌ Released before activation complete, canceling...');
       isActivatingRef.current = false;
 
       if (activationTimer.current) {
@@ -491,69 +397,45 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         activationTimer.current = null;
       }
 
-      activationProgress.value = withTiming(0, { duration: 150 });
-      scaleAnim.value = withSpring(1, {
-        damping: 15,
-        stiffness: 150
-      });
+      // If press duration < ACTIVATION_TIME, it's a tap - start VAD
+      if (pressDuration < ACTIVATION_TIME) {
+        console.log('👆 Tap detected - starting VAD mode');
+        void successHaptic();
+        onVADActiveChange?.(true);
+      } else {
+        console.log('❌ Released before activation complete, canceling...');
+      }
+
+      // No animations
+      // activationProgress.value = withTiming(0, { duration: 150 });
+      // scaleAnim.value = withSpring(1, {
+      //   damping: 15,
+      //   stiffness: 150
+      // });
       return;
     }
 
+    // If recording was active, stop it
     if (isRecording) {
-      console.log(
-        `⏳ Release detected, will stop recording in ${RELEASE_DELAY}ms to capture audio tail`
-      );
-
-      if (releaseDelayTimer.current) {
-        clearTimeout(releaseDelayTimer.current);
-      }
-
-      releaseDelayTimer.current = setTimeout(() => {
-        console.log('🛑 Stopping recording after delay');
-        void stopRecording();
-        releaseDelayTimer.current = null;
-      }, RELEASE_DELAY);
+      console.log('🛑 Stopping recording immediately');
+      void stopRecording();
     }
 
-    activationProgress.value = withTiming(0, { duration: 150 });
-    scaleAnim.value = withSpring(1, {
-      damping: 15,
-      stiffness: 150
-    });
+    // No animations
+    // activationProgress.value = withTiming(0, { duration: 150 });
+    // scaleAnim.value = withSpring(1, {
+    //   damping: 15,
+    //   stiffness: 150
+    // });
   };
-
-  const progressCircumference = 2 * Math.PI * 28;
 
   // Animated styles (background animation removed)
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    // Keep button static - no scale animations
     return {
-      transform: [
-        { translateX: slideX.value },
-        { scale: scaleAnim.value },
-        { scale: pulseAnim.value }
-      ]
-    };
-  });
-
-  const lockIndicatorAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: lockOpacity.value
-    };
-  });
-
-  const progressCircleAnimatedProps = useAnimatedProps(() => {
-    return {
-      stroke: interpolateColor(
-        activationProgress.value,
-        [0, 1],
-        ['#3b82f6', '#ef4444']
-      ),
-      strokeDashoffset: interpolate(
-        activationProgress.value,
-        [0, 1],
-        [progressCircumference, 0]
-      )
+      transform: [{ scale: 1 }]
     };
   });
 
@@ -563,101 +445,34 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   }
 
   return (
-    <View className="items-center rounded-3xl py-4">
-      <View className="min-h-[80px] w-full flex-row-reverse items-center justify-center px-4">
-        {/* Lock indicator */}
-        {!isVADLocked ? (
-          <AnimatedView
-            className="align-end absolute right-1 flex-row items-center gap-1 rounded-2xl px-3 py-2 pl-6"
-            style={[
-              { backgroundColor: colors.textSecondary },
-              lockIndicatorAnimatedStyle
-            ]}
-          >
-            <Icon as={LockIcon} className="text-secondary-foreground" />
-            <Text className="text-sm font-semibold text-primary">
-              {isSliding ? 'Release to lock' : 'Slide →'}
-            </Text>
-          </AnimatedView>
-        ) : (
-          <></>
-        )}
-
-        {/* Button with gesture detector */}
-        <GestureDetector gesture={panGesture}>
-          <View className="relative h-[64px] w-[64px] items-center justify-center">
-            <AnimatedView style={buttonAnimatedStyle}>
-              {/* Circular progress indicator */}
-              <View className="pointer-events-none absolute left-[38.5%] top-1/2 -ml-[32px] -mt-[32px] h-[64px] w-[64px] items-center justify-center">
-                <Svg width="64" height="64" viewBox="0 0 64 64">
-                  {(isActivatingRef.current || isRecording) && (
-                    <Circle
-                      cx="32"
-                      cy="32"
-                      r="28"
-                      stroke={isRecording ? '#fca5a5' : '#e5e7eb'}
-                      strokeWidth="5"
-                      fill="none"
-                      opacity={0.3}
-                    />
-                  )}
-                  {(isActivatingRef.current || isRecording) && (
-                    <AnimatedCircle
-                      cx="32"
-                      cy="32"
-                      r="28"
-                      strokeWidth="5"
-                      fill="none"
-                      strokeDasharray={progressCircumference}
-                      strokeLinecap="round"
-                      rotation="-90"
-                      origin="32, 32"
-                      animatedProps={progressCircleAnimatedProps}
-                    />
-                  )}
-                </Svg>
-              </View>
-              <Button
-                variant={isRecording ? 'destructive' : 'default'}
-                size="icon-lg"
-                className={cn(
-                  'items-center justify-center overflow-hidden rounded-full'
-                )}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                disabled={isVADLocked}
-              >
-                {isVADLocked ? (
-                  <View className="flex-col items-center">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="mt-0.5 h-auto p-0"
-                      onPress={() => {
-                        console.log(
-                          '🔓 Canceling VAD mode - immediate response'
-                        );
-                        // Trigger haptic feedback for instant tactile response
-                        void mediumHaptic();
-                        // Call immediately without any delay for instant UI response
-                        onVADLockChange?.(false);
-                      }}
-                    >
-                      <Icon
-                        as={X}
-                        size={32}
-                        className="text-primary-foreground"
-                      />
-                    </Button>
-                  </View>
-                ) : (
-                  <Icon as={MicIcon} size={24} className="text-background" />
-                )}
-              </Button>
-            </AnimatedView>
-          </View>
-        </GestureDetector>
-      </View>
+    <View className="w-full">
+      <AnimatedView style={buttonAnimatedStyle} className="w-full">
+        <Button
+          variant={isVADActive || isRecording ? 'destructive' : 'default'}
+          size="lg"
+          className={cn(
+            'h-20 w-full items-center justify-center rounded-[10px]'
+          )}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          {isVADActive ? (
+            <View className="flex-row items-center gap-2">
+              <Icon as={Square} size={24} className="text-primary-foreground" />
+              <Text className="text-lg font-semibold text-primary-foreground">
+                Stop Recording
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center gap-2">
+              <Icon as={MicIcon} size={24} className="text-background" />
+              <Text className="text-lg font-semibold text-background">
+                {isRecording ? 'Recording...' : 'Start Recording'}
+              </Text>
+            </View>
+          )}
+        </Button>
+      </AnimatedView>
     </View>
   );
 };
