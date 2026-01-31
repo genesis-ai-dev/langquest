@@ -108,7 +108,6 @@ import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
-import BibleRecordingView from './recording/components/BibleRecordingView';
 import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
@@ -313,7 +312,7 @@ export default function BibleAssetsView() {
     currentQuestData,
     currentBookId
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -607,7 +606,6 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-  const [showRecording, setShowRecording] = React.useState(false);
 
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
@@ -1825,8 +1823,9 @@ export default function BibleAssetsView() {
   // When returning from BibleRecordingView, normalize order_index for recorded verses
   // Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
   // This function reads assets from DB and reassigns order_index with thousand scale
+  // NOTE: This function is now available in assetService.ts and is called by RecordingView
   // ============================================================================
-  const normalizeOrderIndexForVerses = React.useCallback(
+  const _normalizeOrderIndexForVerses = React.useCallback(
     async (verses: number[]) => {
       if (!currentQuestId || verses.length === 0) return;
 
@@ -2868,9 +2867,38 @@ export default function BibleAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    // Now show recording
-    setShowRecording(true);
-  }, [audioContext]);
+    // Navigate to recording view
+    const recordingOrderIndex =
+      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
+    
+    navigate({
+      view: 'recording',
+      questId: currentQuestId,
+      projectId: currentProjectId,
+      recordingData: {
+        bookChapterLabel: bookChapterLabel,
+        bookChapterLabelFull: selectedQuest?.name,
+        initialOrderIndex: recordingOrderIndex,
+        verse: selectedForRecording?.metadata?.verse,
+        nextVerse: nextVerse,
+        limitVerse: limitVerse,
+        label: selectedForRecording?.verseName
+      }
+    });
+  }, [
+    audioContext,
+    navigate,
+    currentQuestId,
+    currentProjectId,
+    bookChapterLabel,
+    selectedQuest?.name,
+    selectedForRecording?.orderIndex,
+    selectedForRecording?.metadata?.verse,
+    selectedForRecording?.verseName,
+    lastUnassignedOrderIndex,
+    nextVerse,
+    limitVerse
+  ]);
 
   // Cleanup effect: Stop audio when component unmounts
   React.useEffect(() => {
@@ -3296,42 +3324,6 @@ export default function BibleAssetsView() {
     );
   }
 
-  // Recording mode UI
-  if (showRecording) {
-    // Calculate initialOrderIndex:
-    // - If an asset is selected, use its order_index
-    // - Otherwise, use the last unassigned order_index (to continue from where we left off)
-    // - If no unassigned assets exist, undefined will trigger default in BibleRecordingView
-    const recordingOrderIndex =
-      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <BibleRecordingView
-        onBack={async (recordedVerses) => {
-          setShowRecording(false);
-          setSelectedForRecording(null); // Clear selection when exiting
-
-          // Normalize order_index for recorded verses before refetching
-          // This converts unit-scale (7001001) to thousand-scale (7001000)
-          if (recordedVerses && recordedVerses.length > 0) {
-            await normalizeOrderIndexForVerses(recordedVerses);
-          }
-
-          // Refetch to show newly recorded assets with normalized order_index
-          void refetch();
-        }}
-        initialAssets={assets}
-        label={selectedForRecording?.verseName}
-        initialOrderIndex={recordingOrderIndex}
-        verse={selectedForRecording?.metadata?.verse}
-        bookChapterLabel={bookChapterLabel}
-        bookChapterLabelFull={selectedQuest?.name}
-        nextVerse={nextVerse}
-        limitVerse={limitVerse}
-      />
-    );
-  }
 
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
