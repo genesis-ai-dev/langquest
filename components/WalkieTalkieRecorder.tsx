@@ -1,15 +1,15 @@
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
 import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
 import { MicIcon, Square } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   Easing,
   cancelAnimation,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming
@@ -79,9 +79,9 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // Reanimated shared values for smooth UI-thread animations
   // scaleAnim removed - no scale animations
   const pulseAnim = useSharedValue(1);
-  // Use provided SharedValue or create local one
+  // Use provided SharedValue or create local one (kept for potential future use)
   const internalActivationProgress = useSharedValue(0);
-  const activationProgress =
+  const _activationProgress =
     activationProgressShared ?? internalActivationProgress;
 
   // Timers and state
@@ -99,6 +99,16 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const isRecordingShared = useSharedValue(isRecording);
   const isVADActiveShared = useSharedValue(isVADActive);
   const isVADActiveRef = useRef(isVADActive);
+
+  // ============================================================================
+  // RIPPLE ANIMATION STATE (Material Design-style radial wipe)
+  // ============================================================================
+  // Ripple expands from center of button, transitioning from white (50% opacity)
+  // to red (100% opacity) over ACTIVATION_TIME duration
+  // This creates a "wipe" effect that reveals the red recording state
+  const { width: windowWidth } = useWindowDimensions();
+  const rippleProgress = useSharedValue(0); // 0 to 1, maps to ACTIVATION_TIME
+  const rippleOpacity = useSharedValue(0); // Controls white overlay opacity (fades out as red shows through)
 
   useEffect(() => {
     isVADActiveRef.current = isVADActive;
@@ -345,18 +355,31 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     isPressedRef.current = true;
     isActivatingRef.current = true;
 
-    // No scale animation - keep button static
-    // scaleAnim.value = withSpring(0.9, {
-    //   damping: 15,
-    //   stiffness: 150
-    // });
+    // ============================================================================
+    // START RIPPLE ANIMATION
+    // ============================================================================
+    // Initialize ripple: starts at center, 50% opacity white
+    rippleProgress.value = 0;
+    rippleOpacity.value = 0.5;
 
-    // No activation progress animation
-    // activationProgress.value = withTiming(1, {
-    //   duration: ACTIVATION_TIME,
-    //   easing: Easing.linear
-    // });
+    // Animate ripple expanding from center over ACTIVATION_TIME
+    // The ripple expands outward, revealing red underneath as white overlay fades
+    rippleProgress.value = withTiming(1, {
+      duration: ACTIVATION_TIME, // 200ms - matches activation time
+      easing: Easing.linear,
+    });
 
+    // Fade white overlay to reveal red underneath
+    // White starts at 50% opacity, fades to 0% as red shows through
+    rippleOpacity.value = withTiming(0, {
+      duration: ACTIVATION_TIME,
+      easing: Easing.linear,
+    });
+
+    // ============================================================================
+    // ACTIVATION TIMER
+    // ============================================================================
+    // Start recording after ACTIVATION_TIME completes
     activationTimer.current = setTimeout(() => {
       console.log('✅ Activation complete, starting recording...');
       isActivatingRef.current = false;
@@ -384,7 +407,12 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       console.log('👆 Tap detected - stopping VAD mode');
       void successHaptic();
       onVADActiveChange?.(false);
-      // No animations when stopping VAD - immediate response
+      
+      // ============================================================================
+      // RESET RIPPLE ANIMATION (VAD stopped)
+      // ============================================================================
+      rippleProgress.value = withTiming(0, { duration: 200 });
+      rippleOpacity.value = withTiming(0, { duration: 200 });
       return;
     }
 
@@ -398,20 +426,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       }
 
       // If press duration < ACTIVATION_TIME, it's a tap - start VAD
+      // NOTE: Don't reset ripple animation here - let it complete since VAD is starting
+      // The button will turn red (VAD active) and ripple animation completes naturally
       if (pressDuration < ACTIVATION_TIME) {
         console.log('👆 Tap detected - starting VAD mode');
         void successHaptic();
         onVADActiveChange?.(true);
       } else {
+        // Edge case: released after ACTIVATION_TIME but before timer fired
+        // Reset ripple since nothing is starting
         console.log('❌ Released before activation complete, canceling...');
+        rippleProgress.value = withTiming(0, { duration: 150 });
+        rippleOpacity.value = withTiming(0, { duration: 150 });
       }
 
-      // No animations
-      // activationProgress.value = withTiming(0, { duration: 150 });
-      // scaleAnim.value = withSpring(1, {
-      //   damping: 15,
-      //   stiffness: 150
-      // });
       return;
     }
 
@@ -421,15 +449,16 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       void stopRecording();
     }
 
-    // No animations
-    // activationProgress.value = withTiming(0, { duration: 150 });
-    // scaleAnim.value = withSpring(1, {
-    //   damping: 15,
-    //   stiffness: 150
-    // });
+    // ============================================================================
+    // RESET RIPPLE ANIMATION (recording stopped)
+    // ============================================================================
+    rippleProgress.value = withTiming(0, { duration: 200 });
+    rippleOpacity.value = withTiming(0, { duration: 200 });
   };
 
-  // Animated styles (background animation removed)
+  // ============================================================================
+  // ANIMATED STYLES
+  // ============================================================================
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
@@ -439,23 +468,90 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     };
   });
 
+  // ============================================================================
+  // RIPPLE ANIMATION STYLE (GPU-accelerated with transform: scale)
+  // ============================================================================
+  // PERFORMANCE OPTIMIZATION:
+  // - Uses transform: scale instead of width/height (GPU-accelerated)
+  // - Uses interpolateColor (optimized color transitions)
+  // - Fixed position/size - only scale and color animate
+  // - Reduces animated properties from 6 to 2 (scale + backgroundColor)
+  
+  // Pre-calculate ripple size (only depends on window width, not animated)
+  // The circle must be large enough to cover the button diagonal when scale=1
+  const buttonWidth = windowWidth - 32; // Account for px-4 padding
+  const buttonHeight = 80; // h-20 = 80px
+  const maxRadius = Math.sqrt(
+    Math.pow(buttonWidth / 2, 2) + Math.pow(buttonHeight / 2, 2)
+  );
+  const rippleDiameter = maxRadius * 2;
+
+  const rippleStyle = useAnimatedStyle(() => {
+    'worklet';
+    const progress = rippleProgress.value;
+    
+    // Use interpolateColor for optimized color transition
+    // White (50% opacity) -> Destructive red (100% opacity)
+    // Note: interpolateColor handles opacity via alpha channel
+    const backgroundColor = interpolateColor(
+      progress,
+      [0, 1],
+      ['rgba(255, 255, 255, 0.5)', 'rgba(255, 84, 112, 1)']
+    );
+    
+    return {
+      // GPU-accelerated transform instead of width/height
+      transform: [{ scale: progress }],
+      backgroundColor,
+    };
+  });
+
   // Permission check is now handled by parent component
   if (!canRecord) {
     return null;
   }
 
+  // Determine button background color class based on state
+  const buttonBgClass = isVADActive || isRecording ? 'bg-destructive' : 'bg-primary';
+
   return (
     <View className="w-full">
       <AnimatedView style={buttonAnimatedStyle} className="w-full">
-        <Button
-          variant={isVADActive || isRecording ? 'destructive' : 'default'}
-          size="lg"
-          className={cn(
-            'h-20 w-full items-center justify-center rounded-[10px]'
-          )}
+        {/* Custom button structure for proper ripple layering */}
+        <Pressable
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
+          className={cn(
+            'relative h-20 w-full items-center justify-center overflow-hidden rounded-[10px]',
+            buttonBgClass
+          )}
         >
+          {/* ============================================================================
+              RIPPLE OVERLAY (GPU-accelerated with transform: scale)
+              ============================================================================
+              Material Design-style radial wipe animation
+              - Fixed size circle, scaled from 0 to 1 (GPU-accelerated)
+              - Positioned at center, uses transform: scale for expansion
+              - Color transitions from white (50%) to red (100%)
+              - When scale=0, invisible; when scale=1, covers entire button
+          */}
+          <Animated.View
+            style={[
+              rippleStyle,
+              {
+                // Fixed position and size - only scale animates
+                position: 'absolute',
+                left: buttonWidth / 2 - rippleDiameter / 2,
+                top: buttonHeight / 2 - rippleDiameter / 2,
+                width: rippleDiameter,
+                height: rippleDiameter,
+                borderRadius: rippleDiameter / 2,
+                pointerEvents: 'none',
+              },
+            ]}
+          />
+
+          {/* Button content - rendered after ripple so it appears on top */}
           {isVADActive ? (
             <View className="flex-row items-center gap-2">
               <Icon as={Square} size={24} className="text-primary-foreground" />
@@ -471,7 +567,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
               </Text>
             </View>
           )}
-        </Button>
+        </Pressable>
       </AnimatedView>
     </View>
   );
