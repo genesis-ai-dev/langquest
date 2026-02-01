@@ -69,9 +69,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   // Permission check removed - handled by parent RecordingControls via canRecord prop
-  const isPressedRef = useRef(false);
   const isActivatingRef = useRef(false);
   const pressStartTimeRef = useRef<number | null>(null);
+  // Track when startRecording() has been called but isRecording prop hasn't updated yet
+  const isPendingStartRef = useRef(false);
+  // Cancellation flag - set when user releases during async setup
+  const shouldCancelRecordingRef = useRef(false);
+  
+  // ============================================================================
+  // BUSY LOCK - Prevents race conditions during state transitions
+  // ============================================================================
+  // When true, ignores new press events to prevent conflicting actions
+  const isBusyRef = useRef(false);
 
   // Track all recorded samples for final waveform data
   const [recordedSamples, setRecordedSamples] = useState<number[]>([]);
@@ -114,7 +123,42 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     isVADActiveRef.current = isVADActive;
     isVADActiveShared.value = isVADActive;
     isRecordingShared.value = isRecording;
+    
+    // Clear pending start flag when recording actually starts
+    if (isRecording) {
+      isPendingStartRef.current = false;
+    }
   }, [isVADActive, isRecording, isRecordingShared, isVADActiveShared]);
+
+  // ============================================================================
+  // RIPPLE SYNC EFFECT - Ensures ripple matches actual state
+  // ============================================================================
+  // This is a safety net: if state changes externally (or due to race conditions),
+  // this effect ensures the ripple animation matches the actual recording/VAD state
+  useEffect(() => {
+    const shouldBeActive = isVADActive || isRecording;
+    
+    if (shouldBeActive) {
+      // If we should be active but ripple is not at 1, snap it to 1
+      // (This handles cases where state changed before animation completed)
+      if (rippleProgress.value < 0.9) {
+        rippleProgress.value = withTiming(1, { duration: 100 });
+        rippleOpacity.value = withTiming(0, { duration: 100 });
+      }
+    } else {
+      // If we should be inactive but ripple is not at 0, reset it
+      // (This is the main sync: ensures ripple resets when recording/VAD stops)
+      if (rippleProgress.value > 0.1) {
+        cancelAnimation(rippleProgress);
+        cancelAnimation(rippleOpacity);
+        rippleProgress.value = withTiming(0, { duration: 200 });
+        rippleOpacity.value = withTiming(0, { duration: 200 });
+      }
+      
+      // Also clear busy state when becoming inactive
+      isBusyRef.current = false;
+    }
+  }, [isVADActive, isRecording, rippleProgress, rippleOpacity]);
 
 
   // Append a live sample for recording playback
@@ -211,6 +255,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       // Permission check removed - parent RecordingControls ensures canRecord=true
       // before this component is even rendered/interactive
 
+      // Reset cancellation flag at start
+      shouldCancelRecordingRef.current = false;
+
+      // ✅ Notify parent IMMEDIATELY - we're in "recording mode" now
+      // This ensures isRecording is true synchronously, preventing race conditions
+      // where user releases before async setup completes
+      onRecordingStart();
+
       // Heavy operations - but user already sees feedback
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
@@ -235,6 +287,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       const activeRecording = result.recording;
       activeRecording.setProgressUpdateInterval(9);
 
+      // Check if we were cancelled during async setup (user released early)
+      if (shouldCancelRecordingRef.current) {
+        console.log('⚠️ Recording cancelled during setup - cleaning up');
+        await activeRecording.stopAndUnloadAsync();
+        shouldCancelRecordingRef.current = false;
+        return;
+      }
+
       const duration = performance.now() - startTime;
       console.log(`✅ Recording ready in ${duration.toFixed(0)}ms`);
 
@@ -243,9 +303,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       // Track energy range for logging
       const energyRange = { min: Infinity, max: -Infinity };
-
-      // ✅ Notify parent AFTER recording is ready
-      onRecordingStart();
 
       // Set up status monitoring
       activeRecording.setOnRecordingStatusUpdate((status) => {
@@ -287,7 +344,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   const stopRecording = async () => {
     if (!recording) {
-      console.warn('⚠️ stopRecording called but no active recording');
+      // Recording object not created yet (user released during async setup)
+      // Set cancellation flag so startRecording() knows to abort
+      console.log('⚠️ stopRecording called before recording created - signaling cancellation');
+      shouldCancelRecordingRef.current = true;
+      onRecordingStop();
       return;
     }
 
@@ -337,12 +398,54 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
   };
 
+  // ============================================================================
+  // CLEANUP HELPER - Resets all interaction state
+  // ============================================================================
+  const cleanupInteractionState = () => {
+    // Clear any pending timers
+    if (activationTimer.current) {
+      clearTimeout(activationTimer.current);
+      activationTimer.current = null;
+    }
+    
+    // Reset refs
+    isActivatingRef.current = false;
+    pressStartTimeRef.current = null;
+    isPendingStartRef.current = false;
+  };
+
   const handlePressIn = () => {
+    // ============================================================================
+    // GUARD: Prevent interactions during busy state or active recording
+    // ============================================================================
+    if (isBusyRef.current) {
+      console.log('🔒 Busy - ignoring press');
+      return;
+    }
+    
+    // If already recording (push-to-talk), ignore new presses
+    if (isRecording && !isVADActive) {
+      console.log('🔒 Already recording - ignoring press');
+      return;
+    }
+
     // If VAD is active, allow tap to stop it
     if (isVADActive) {
       pressStartTimeRef.current = Date.now();
-      isPressedRef.current = true; // Set pressed state so handlePressOut can process the stop
       return;
+    }
+
+    // ============================================================================
+    // CLEANUP: Cancel any existing activation in progress
+    // ============================================================================
+    if (isActivatingRef.current) {
+      console.log('⚠️ Canceling previous activation');
+      cleanupInteractionState();
+      // Cancel existing ripple animation
+      cancelAnimation(rippleProgress);
+      cancelAnimation(rippleOpacity);
+      rippleProgress.value = 0;
+      rippleOpacity.value = 0;
     }
 
     console.log('🎙️ Press in detected, starting activation timer...');
@@ -352,25 +455,26 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
     void mediumHaptic();
 
-    isPressedRef.current = true;
     isActivatingRef.current = true;
 
     // ============================================================================
     // START RIPPLE ANIMATION
     // ============================================================================
+    // Cancel any existing animation first
+    cancelAnimation(rippleProgress);
+    cancelAnimation(rippleOpacity);
+    
     // Initialize ripple: starts at center, 50% opacity white
     rippleProgress.value = 0;
     rippleOpacity.value = 0.5;
 
     // Animate ripple expanding from center over ACTIVATION_TIME
-    // The ripple expands outward, revealing red underneath as white overlay fades
     rippleProgress.value = withTiming(1, {
-      duration: ACTIVATION_TIME, // 200ms - matches activation time
+      duration: ACTIVATION_TIME,
       easing: Easing.linear,
     });
 
     // Fade white overlay to reveal red underneath
-    // White starts at 50% opacity, fades to 0% as red shows through
     rippleOpacity.value = withTiming(0, {
       duration: ACTIVATION_TIME,
       easing: Easing.linear,
@@ -379,23 +483,27 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     // ============================================================================
     // ACTIVATION TIMER
     // ============================================================================
-    // Start recording after ACTIVATION_TIME completes
     activationTimer.current = setTimeout(() => {
+      // Double-check we're still in activating state (prevents stale timer execution)
+      if (!isActivatingRef.current) {
+        console.log('⚠️ Activation timer fired but no longer activating - ignoring');
+        return;
+      }
+      
       console.log('✅ Activation complete, starting recording...');
       isActivatingRef.current = false;
+      
+      // Mark that we're pending start - this bridges the gap between
+      // calling startRecording() and isRecording prop becoming true
+      isPendingStartRef.current = true;
+      
       void heavyHaptic();
-
-      requestAnimationFrame(() => {
-        void startRecording();
-      });
+      void startRecording();
     }, ACTIVATION_TIME);
   };
 
   const handlePressOut = () => {
-    if (!isPressedRef.current) return;
-
     void mediumHaptic();
-    isPressedRef.current = false;
 
     const pressDuration = pressStartTimeRef.current
       ? Date.now() - pressStartTimeRef.current
@@ -406,11 +514,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     if (isVADActive) {
       console.log('👆 Tap detected - stopping VAD mode');
       void successHaptic();
+      
+      // Set busy to prevent rapid re-activation
+      isBusyRef.current = true;
+      setTimeout(() => {
+        isBusyRef.current = false;
+      }, 300); // Brief lock after stopping VAD
+      
       onVADActiveChange?.(false);
       
       // ============================================================================
       // RESET RIPPLE ANIMATION (VAD stopped)
       // ============================================================================
+      cancelAnimation(rippleProgress);
+      cancelAnimation(rippleOpacity);
       rippleProgress.value = withTiming(0, { duration: 200 });
       rippleOpacity.value = withTiming(0, { duration: 200 });
       return;
@@ -427,7 +544,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       // If press duration < ACTIVATION_TIME, it's a tap - start VAD
       // NOTE: Don't reset ripple animation here - let it complete since VAD is starting
-      // The button will turn red (VAD active) and ripple animation completes naturally
       if (pressDuration < ACTIVATION_TIME) {
         console.log('👆 Tap detected - starting VAD mode');
         void successHaptic();
@@ -436,6 +552,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         // Edge case: released after ACTIVATION_TIME but before timer fired
         // Reset ripple since nothing is starting
         console.log('❌ Released before activation complete, canceling...');
+        cancelAnimation(rippleProgress);
+        cancelAnimation(rippleOpacity);
         rippleProgress.value = withTiming(0, { duration: 150 });
         rippleOpacity.value = withTiming(0, { duration: 150 });
       }
@@ -443,15 +561,20 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       return;
     }
 
-    // If recording was active, stop it
-    if (isRecording) {
-      console.log('🛑 Stopping recording immediately');
+    // If recording was active OR pending start, stop it
+    // isPendingStartRef handles the race condition where user releases after
+    // activation timer fired but before isRecording prop updated
+    if (isRecording || isPendingStartRef.current) {
+      console.log('🛑 Stopping recording immediately', { isRecording, isPending: isPendingStartRef.current });
+      isPendingStartRef.current = false;
       void stopRecording();
     }
 
     // ============================================================================
     // RESET RIPPLE ANIMATION (recording stopped)
     // ============================================================================
+    cancelAnimation(rippleProgress);
+    cancelAnimation(rippleOpacity);
     rippleProgress.value = withTiming(0, { duration: 200 });
     rippleOpacity.value = withTiming(0, { duration: 200 });
   };
