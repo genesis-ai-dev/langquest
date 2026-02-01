@@ -5875,12 +5875,12 @@ export const localizations = {
     nepali: 'VAD रेकर्डिङ सेटिङहरू'
   },
   startRecording: {
-    english: 'Start Recording',
-    spanish: 'Iniciar Grabación',
-    brazilian_portuguese: 'Iniciar Gravação',
-    tok_pisin: 'Statim Rekodim',
-    indonesian: 'Mulai Merekam',
-    nepali: 'रेकर्डिङ सुरु गर्नुहोस्'
+    english: 'Record',
+    spanish: 'Grabar',
+    brazilian_portuguese: 'Gravar',
+    tok_pisin: 'Rekodim',
+    indonesian: 'Rekam',
+    nepali: 'रेकर्ड'
   },
   stopRecording: {
     english: 'Stop Recording',
