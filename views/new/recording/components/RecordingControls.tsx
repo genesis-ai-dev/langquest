@@ -418,11 +418,7 @@ export const RecordingControls = React.memo(
               </Button>
               <Tooltip>
                 <TooltipTrigger hitSlop={10}>
-                  <Icon
-                    as={CircleHelp}
-                    size={20}
-                    className="text-muted-foreground"
-                  />
+                  <Icon as={CircleHelp} size={20} />
                 </TooltipTrigger>
                 <TooltipContent
                   className="w-72"

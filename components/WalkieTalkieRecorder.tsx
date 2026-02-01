@@ -100,7 +100,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const releaseDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Constants
-  const MIN_RECORDING_DURATION = 1000;
+  const MIN_RECORDING_DURATION = 500;
   const ACTIVATION_TIME = 200;
   const RELEASE_DELAY = 0;
 
