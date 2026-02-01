@@ -5930,16 +5930,13 @@ export const localizations = {
   },
   recordingHelpPushToTalk: {
     english: 'to record a single segment, release to stop recording.',
-    spanish:
-      'para grabar un solo segmento, suelta para detener la grabación.',
+    spanish: 'para grabar un solo segmento, suelta para detener la grabación.',
     brazilian_portuguese:
       'para gravar um único segmento, solte para parar a gravação.',
-    tok_pisin:
-      'bilong rekodim wanpela hap, lusim bilong stopim rekoding.',
+    tok_pisin: 'bilong rekodim wanpela hap, lusim bilong stopim rekoding.',
     indonesian:
       'untuk merekam satu segmen, lepaskan untuk menghentikan perekaman.',
-    nepali:
-      'एउटा खण्ड रेकर्ड गर्न, रेकर्डिङ रोक्न छोड्नुहोस्।'
+    nepali: 'एउटा खण्ड रेकर्ड गर्न, रेकर्डिङ रोक्न छोड्नुहोस्।'
   },
   tap: {
     english: 'Tap',

@@ -37,7 +37,9 @@ export const storage = {
 
   async hasRecordingHelpBeenShown(): Promise<boolean> {
     try {
-      const value = await AsyncStorage.getItem(STORAGE_KEYS.RECORDING_HELP_SHOWN);
+      const value = await AsyncStorage.getItem(
+        STORAGE_KEYS.RECORDING_HELP_SHOWN
+      );
       console.log('[storage] RECORDING_HELP_SHOWN value:', value);
       return value === 'true';
     } catch (error) {

@@ -18,7 +18,12 @@ import {
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
-import { CircleHelp, MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
+import {
+  CircleHelp,
+  MicOffIcon,
+  Settings,
+  Sparkles
+} from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -409,7 +414,7 @@ export const RecordingControls = React.memo(
                 variant="ghost"
                 size="sm"
                 onPress={onSettingsPress}
-                className="h-auto -ml-2 flex-row items-center gap-2"
+                className="-ml-2 h-auto flex-row items-center gap-2"
               >
                 <Icon as={Settings} size={20} />
                 <Text className="text-sm text-muted-foreground">

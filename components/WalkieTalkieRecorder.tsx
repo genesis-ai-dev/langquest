@@ -20,6 +20,11 @@ import { Text } from './ui/text';
 
 const AnimatedView = Animated.View;
 
+// Extend Recording type to include custom energy range tracking
+interface RecordingWithEnergyRange extends Audio.Recording {
+  _energyRange?: { min: number; max: number };
+}
+
 interface WalkieTalkieRecorderProps {
   onRecordingComplete: (
     uri: string,
@@ -76,7 +81,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const isPendingStartRef = useRef(false);
   // Cancellation flag - set when user releases during async setup
   const shouldCancelRecordingRef = useRef(false);
-  
+
   // ============================================================================
   // BUSY LOCK - Prevents race conditions during state transitions
   // ============================================================================
@@ -124,7 +129,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     isVADActiveRef.current = isVADActive;
     isVADActiveShared.value = isVADActive;
     isRecordingShared.value = isRecording;
-    
+
     // Clear pending start flag when recording actually starts
     if (isRecording) {
       isPendingStartRef.current = false;
@@ -138,7 +143,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // this effect ensures the ripple animation matches the actual recording/VAD state
   useEffect(() => {
     const shouldBeActive = isVADActive || isRecording;
-    
+
     if (shouldBeActive) {
       // If we should be active but ripple is not at 1, snap it to 1
       // (This handles cases where state changed before animation completed)
@@ -155,18 +160,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         rippleProgress.value = withTiming(0, { duration: 200 });
         rippleOpacity.value = withTiming(0, { duration: 200 });
       }
-      
+
       // Also clear busy state when becoming inactive
       isBusyRef.current = false;
     }
   }, [isVADActive, isRecording, rippleProgress, rippleOpacity]);
-
 
   // Append a live sample for recording playback
   const appendLiveSample = (amplitude01: number) => {
     const clampedAmplitude = Math.max(0.01, Math.min(1, amplitude01));
     setRecordedSamples((prev) => [...prev, clampedAmplitude]);
     // Update SharedValue for waveform visualization during walkie-talkie recording
+    // Note: SharedValues are designed to be mutated - this is intentional and correct
     if (energyShared) {
       energyShared.value = clampedAmplitude;
     }
@@ -285,6 +290,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       activeRecording.setProgressUpdateInterval(9);
 
       // Check if we were cancelled during async setup (user released early)
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (shouldCancelRecordingRef.current) {
         await activeRecording.stopAndUnloadAsync();
         shouldCancelRecordingRef.current = false;
@@ -329,7 +335,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       });
 
       // Store energy range ref for logging on stop
-      (activeRecording as any)._energyRange = energyRange;
+      (activeRecording as RecordingWithEnergyRange)._energyRange = energyRange;
     } catch (error) {
       console.error('❌ Failed to start recording:', error);
       onRecordingStop(); // Clean up
@@ -393,7 +399,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       clearTimeout(releaseDelayTimer.current);
       releaseDelayTimer.current = null;
     }
-    
+
     // Reset refs
     isActivatingRef.current = false;
     pressStartTimeRef.current = null;
@@ -407,14 +413,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     if (isBusyRef.current) {
       return;
     }
-    
+
     // If release delay timer is active (user just released), cancel it to keep recording
     if (releaseDelayTimer.current) {
       clearTimeout(releaseDelayTimer.current);
       releaseDelayTimer.current = null;
       return; // Don't start new activation, just cancel the stop
     }
-    
+
     // If already recording (push-to-talk), ignore new presses
     if (isRecording && !isVADActive) {
       return;
@@ -432,6 +438,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     if (isActivatingRef.current) {
       cleanupInteractionState();
       // Cancel existing ripple animation
+      // Note: SharedValues are designed to be mutated - these mutations are intentional
       cancelAnimation(rippleProgress);
       cancelAnimation(rippleOpacity);
       rippleProgress.value = 0;
@@ -453,7 +460,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     // Cancel any existing animation first
     cancelAnimation(rippleProgress);
     cancelAnimation(rippleOpacity);
-    
+
     // Initialize ripple: starts at center, 50% opacity white
     rippleProgress.value = 0;
     rippleOpacity.value = 0.5;
@@ -461,13 +468,13 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     // Animate ripple expanding from center over ACTIVATION_TIME
     rippleProgress.value = withTiming(1, {
       duration: ACTIVATION_TIME,
-      easing: Easing.linear,
+      easing: Easing.linear
     });
 
     // Fade white overlay to reveal red underneath
     rippleOpacity.value = withTiming(0, {
       duration: ACTIVATION_TIME,
-      easing: Easing.linear,
+      easing: Easing.linear
     });
 
     // ============================================================================
@@ -478,13 +485,13 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       if (!isActivatingRef.current) {
         return;
       }
-      
+
       isActivatingRef.current = false;
-      
+
       // Mark that we're pending start - this bridges the gap between
       // calling startRecording() and isRecording prop becoming true
       isPendingStartRef.current = true;
-      
+
       void startRecording();
     }, ACTIVATION_TIME);
   };
@@ -499,18 +506,19 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     if (isVADActive) {
       // Haptic feedback when VAD stops
       void haptic();
-      
+
       // Set busy to prevent rapid re-activation
       isBusyRef.current = true;
       setTimeout(() => {
         isBusyRef.current = false;
       }, 300); // Brief lock after stopping VAD
-      
+
       onVADActiveChange?.(false);
-      
+
       // ============================================================================
       // RESET RIPPLE ANIMATION (VAD stopped)
       // ============================================================================
+      // Note: SharedValues are designed to be mutated - these mutations are intentional
       cancelAnimation(rippleProgress);
       cancelAnimation(rippleOpacity);
       rippleProgress.value = withTiming(0, { duration: 200 });
@@ -534,6 +542,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       } else {
         // Edge case: released after ACTIVATION_TIME but before timer fired
         // Reset ripple since nothing is starting
+        // Note: SharedValues are designed to be mutated - these mutations are intentional
         cancelAnimation(rippleProgress);
         cancelAnimation(rippleOpacity);
         rippleProgress.value = withTiming(0, { duration: 150 });
@@ -550,25 +559,25 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       // Haptic feedback when hold-to-record stops
       void haptic();
       isPendingStartRef.current = false;
-      
+
       // Clear any existing release delay timer
       if (releaseDelayTimer.current) {
         clearTimeout(releaseDelayTimer.current);
         releaseDelayTimer.current = null;
       }
-      
+
       // Delay stopping recording by RELEASE_DELAY
       releaseDelayTimer.current = setTimeout(() => {
         releaseDelayTimer.current = null;
         void stopRecording();
-        
+
         // Reset ripple animation after stopping
         cancelAnimation(rippleProgress);
         cancelAnimation(rippleOpacity);
         rippleProgress.value = withTiming(0, { duration: 200 });
         rippleOpacity.value = withTiming(0, { duration: 200 });
       }, RELEASE_DELAY);
-      
+
       return; // Don't reset ripple immediately - wait for delay
     }
 
@@ -601,7 +610,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // - Uses interpolateColor (optimized color transitions)
   // - Fixed position/size - only scale and color animate
   // - Reduces animated properties from 6 to 2 (scale + backgroundColor)
-  
+
   // Pre-calculate ripple size (only depends on window width, not animated)
   // The circle must be large enough to cover the button diagonal when scale=1
   const buttonWidth = windowWidth - 32; // Account for px-4 padding
@@ -614,7 +623,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const rippleStyle = useAnimatedStyle(() => {
     'worklet';
     const progress = rippleProgress.value;
-    
+
     // Use interpolateColor for optimized color transition
     // White (50% opacity) -> Destructive red (100% opacity)
     // Note: interpolateColor handles opacity via alpha channel
@@ -623,11 +632,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       [0, 1],
       ['rgba(255, 255, 255, 0.5)', 'rgba(255, 84, 112, 1)']
     );
-    
+
     return {
       // GPU-accelerated transform instead of width/height
       transform: [{ scale: progress }],
-      backgroundColor,
+      backgroundColor
     };
   });
 
@@ -637,7 +646,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   }
 
   // Determine button background color class based on state
-  const buttonBgClass = isVADActive || isRecording ? 'bg-destructive' : 'bg-primary';
+  const buttonBgClass =
+    isVADActive || isRecording ? 'bg-destructive' : 'bg-primary';
 
   return (
     <View className="w-full">
@@ -671,8 +681,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
                 width: rippleDiameter,
                 height: rippleDiameter,
                 borderRadius: rippleDiameter / 2,
-                pointerEvents: 'none',
-              },
+                pointerEvents: 'none'
+              }
             ]}
           />
 
