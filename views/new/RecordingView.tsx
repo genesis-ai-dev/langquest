@@ -6,13 +6,12 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { renameAsset } from '@/database_services/assetService';
+import { normalizeOrderIndexForVerses, renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation, useCurrentNavigation } from '@/hooks/useAppNavigation';
-import { normalizeOrderIndexForVerses } from '@/database_services/assetService';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
@@ -39,11 +38,11 @@ import {
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AssetCard } from './recording/components/AssetCard';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
+import { RecordAssetCard } from './recording/components/RecordAssetCard';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
-import { SelectionControls } from './recording/components/SelectionControls';
 import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
@@ -2493,7 +2492,7 @@ const RecordingView = () => {
       }
 
       return (
-        <AssetCard
+        <RecordAssetCard
           key={item.id}
           asset={item}
           index={index}
@@ -2723,8 +2722,8 @@ const RecordingView = () => {
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
         {isSelectionMode ? (
-          <View className="px-4" style={{ paddingBottom: insets.bottom }}>
-            <SelectionControls
+          <View style={{ paddingBottom: insets.bottom }}>
+            <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}

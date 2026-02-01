@@ -249,15 +249,23 @@ export async function saveAudioLocally(uri: string) {
   const newUri = `local/${uuid.v4()}.${extension}`;
   console.log('🔍 Saving audio file locally:', cleanSourceUri, newUri);
 
-  // Retry logic for file existence - iOS Simulator can have timing issues
-  // where the file isn't immediately available after Swift writes it
-  const maxRetries = 5;
-  const retryDelayMs = 100;
+  // Initial delay to allow native module to finish writing the file
+  // This is especially important for Android where the file write may not be fully flushed
+  console.log('⏳ Waiting 100ms for native module to flush file...');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  // Retry logic for file existence - iOS Simulator and Android can have timing issues
+  // where the file isn't immediately available after native module writes it
+  const maxRetries = 10; // Increased from 5 to 10
+  const retryDelayMs = 200; // Increased from 100ms to 200ms
   let fileExistsNow = false;
 
+  console.log(`🔍 Checking if file exists: ${cleanSourceUri}`);
+  
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     fileExistsNow = await fileExists(cleanSourceUri);
     if (fileExistsNow) {
+      console.log(`✅ File found on attempt ${attempt + 1}/${maxRetries}`);
       break;
     }
 
@@ -266,14 +274,29 @@ export async function saveAudioLocally(uri: string) {
         `⏳ File not found yet (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelayMs}ms...`
       );
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    } else {
+      console.error(
+        `❌ File not found after ${maxRetries} attempts (total ${maxRetries * retryDelayMs}ms)`
+      );
     }
   }
 
   if (!fileExistsNow) {
     // Get file info for better error message
     const fileInfo = await getFileInfo(cleanSourceUri);
-    const errorMsg = `File does not exist after ${maxRetries} attempts: ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
+    const errorMsg = `File does not exist after ${maxRetries} attempts (${maxRetries * retryDelayMs}ms total): ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
     console.error('❌', errorMsg);
+    
+    // Additional debugging: check if parent directory exists
+    const parentDir = getDirectory(cleanSourceUri);
+    console.error('❌ Checking parent directory:', parentDir);
+    try {
+      const dirInfo = await getFileInfo(parentDir);
+      console.error('❌ Parent directory info:', JSON.stringify(dirInfo));
+    } catch (dirError) {
+      console.error('❌ Failed to get parent directory info:', dirError);
+    }
+    
     throw new Error(errorMsg);
   }
 
@@ -292,14 +315,32 @@ export async function saveAudioLocally(uri: string) {
     await moveFile(cleanSourceUri, newPath);
   } catch (error) {
     // Enhanced error logging for debugging
+    const sourceStillExists = await fileExists(cleanSourceUri);
     console.error('❌ moveFile error details:', {
       error,
       sourceUri: cleanSourceUri,
       targetUri: newPath,
-      sourceExists: await fileExists(cleanSourceUri),
+      sourceExists: sourceStillExists,
       targetExists: await fileExists(newPath)
     });
-    throw error;
+    
+    // Fallback: try to copy instead of move
+    // This can happen if the source file was already moved/deleted or has permission issues
+    if (sourceStillExists) {
+      console.log('⚠️ Move failed but source exists, attempting copy as fallback...');
+      try {
+        await copyFile(cleanSourceUri, newPath);
+        console.log('✅ Copy succeeded, now deleting source...');
+        await deleteIfExists(cleanSourceUri);
+        console.log('✅ File saved via copy + delete fallback');
+      } catch (copyError) {
+        console.error('❌ Copy fallback also failed:', copyError);
+        throw error; // Throw original error
+      }
+    } else {
+      // Source doesn't exist - this is the main error
+      throw error;
+    }
   }
 
   console.log('✅ Audio file saved locally:', getLocalAttachmentUri(newUri));
