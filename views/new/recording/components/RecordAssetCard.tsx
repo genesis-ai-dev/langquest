@@ -2,14 +2,15 @@
  * RecordAssetCard - Individual asset display with actions
  *
  * Features:
- * - Tap card to play/pause audio (except when tapping label to rename)
+ * - Play button to play/pause audio
  * - Visual progress bar during playback
  * - Duration display (monospace, muted) next to label
  * - Delete and merge actions
  * - Selection mode (WhatsApp-style long-press)
  *
  * Interaction:
- * - Tap card → play/pause audio (or toggle selection if in selection mode)
+ * - Tap play button → play/pause audio
+ * - Tap card → toggle selection (only in selection mode)
  * - Tap label → rename asset (when renameable)
  * - Long press → enter selection mode
  *
@@ -24,8 +25,9 @@ import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
+import { CheckCircleIcon, CircleIcon, PauseIcon, PlayIcon } from 'lucide-react-native';
 import React from 'react';
+import type { GestureResponderEvent } from 'react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
@@ -134,14 +136,22 @@ function RecordAssetCardInternal({
     };
   });
 
-  // Handle card press: play/pause in normal mode, toggle selection in selection mode
+  // Handle card press: only toggle selection in selection mode
   const handleCardPress = React.useCallback(() => {
     if (isSelectionMode) {
       onPress(); // Toggle selection
-    } else {
-      onPlay(asset.id); // Play/pause audio
     }
-  }, [isSelectionMode, onPress, onPlay, asset.id]);
+  }, [isSelectionMode, onPress]);
+
+  // Handle play button press
+  const handlePlayPress = React.useCallback(
+    (e: GestureResponderEvent) => {
+      // Stop event propagation to prevent card press
+      e.stopPropagation();
+      onPlay(asset.id);
+    },
+    [onPlay, asset.id]
+  );
 
   const { t } = useLocalization();
   return (
@@ -177,6 +187,20 @@ function RecordAssetCardInternal({
             {index + 1}
           </Text>
         </View>
+        {/* Play/Pause Button */}
+        <TouchableOpacity
+          onPress={handlePlayPress}
+          // className="items-center justify-center rounded-full bg-primary/50 active:bg-primary/40 p-2"
+          className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+          activeOpacity={0.7}
+        >
+          <Icon
+            as={isPlaying ? PauseIcon : PlayIcon}
+            size={16}
+            className={isPlaying ? 'text-primary' : 'text-primary/80'}
+          />
+        </TouchableOpacity>
+
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
             {/* Label with rename functionality - prevents card play when tapped */}
