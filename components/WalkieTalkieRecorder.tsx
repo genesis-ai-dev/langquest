@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
+import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
 import { MicIcon, Square } from 'lucide-react-native';
@@ -66,6 +67,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const heavyHaptic = useHaptic('heavy');
   const successHaptic = useHaptic('success');
   const { currentUser: _currentUser } = useAuth();
+  const { t } = useLocalization();
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   // Permission check removed - handled by parent RecordingControls via canRecord prop
@@ -679,14 +681,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             <View className="flex-row items-center gap-2">
               <Icon as={Square} size={24} className="text-primary-foreground" />
               <Text className="text-lg font-semibold text-primary-foreground">
-                Stop Recording
+                {t('stopRecording')}
               </Text>
             </View>
           ) : (
             <View className="flex-row items-center gap-2">
               <Icon as={MicIcon} size={24} className="text-background" />
               <Text className="text-lg font-semibold text-background">
-                {isRecording ? 'Recording...' : 'Start Recording'}
+                {isRecording ? t('recording') : t('startRecording')}
               </Text>
             </View>
           )}

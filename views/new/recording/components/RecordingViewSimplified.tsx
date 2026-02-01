@@ -1,5 +1,6 @@
 import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
 import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
+import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -2165,6 +2166,9 @@ const RecordingViewSimplified = ({
         autoCalibrateOnOpen={autoCalibrateOnOpen}
         energyShared={energyShared}
       />
+
+      {/* Recording Help Dialog - shown once on first visit */}
+      <RecordingHelpDialog />
     </View>
   );
 };

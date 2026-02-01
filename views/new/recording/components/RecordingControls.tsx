@@ -11,9 +11,14 @@ import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
-import { MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
+import { CircleHelp, MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -395,22 +400,51 @@ export const RecordingControls = React.memo(
           {isVADActive ? (
             <View className="items-center justify-center px-4 pb-4">
               <Text className="text-sm font-semibold text-foreground">
-                VAD recording active
+                {t('vadRecordingActive')}
               </Text>
             </View>
           ) : (
-            <View className="flex-row items-center gap-2 px-4 pb-4">
+            <View className="flex-row items-center justify-between px-4 pb-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onPress={onSettingsPress}
-                className="h-auto -ml-2"
+                className="h-auto -ml-2 flex-row items-center gap-2"
               >
                 <Icon as={Settings} size={20} />
+                <Text className="text-sm text-muted-foreground">
+                  {t('vadRecordingSettings')}
+                </Text>
               </Button>
-              <Text className="text-sm text-muted-foreground">
-                Recording settings
-              </Text>
+              <Tooltip>
+                <TooltipTrigger hitSlop={10}>
+                  <Icon
+                    as={CircleHelp}
+                    size={20}
+                    className="text-muted-foreground"
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  className="w-72"
+                  side="top"
+                  align="end"
+                  sideOffset={8}
+                >
+                  <View>
+                    <Text className="text-base font-bold">
+                      {t('recordingHelpTitle')}
+                    </Text>
+                    <Text className="mt-2">
+                      1. <Text className="font-bold">{t('tap')}</Text>{' '}
+                      {t('recordingHelpVAD')}
+                    </Text>
+                    <Text className="mt-2">
+                      2. <Text className="font-bold">{t('pressAndHold')}</Text>{' '}
+                      {t('recordingHelpPushToTalk')}
+                    </Text>
+                  </View>
+                </TooltipContent>
+              </Tooltip>
             </View>
           )}
 

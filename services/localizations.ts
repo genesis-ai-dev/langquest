@@ -5866,6 +5866,97 @@ export const localizations = {
     nepali:
       'न्यूनतम खण्ड लम्बाइले सेट गरिएको अवधिभन्दा कम धेरै छोटो खण्डहरू सेभ गर्नबाट रोक्छ, जस्तै खोकी वा ढोका ठोक्ने आवाज।'
   },
+  vadRecordingSettings: {
+    english: 'VAD recording settings',
+    spanish: 'Configuración de grabación VAD',
+    brazilian_portuguese: 'Configurações de gravação VAD',
+    tok_pisin: 'VAD rekoding seting',
+    indonesian: 'Pengaturan perekaman VAD',
+    nepali: 'VAD रेकर्डिङ सेटिङहरू'
+  },
+  startRecording: {
+    english: 'Start Recording',
+    spanish: 'Iniciar Grabación',
+    brazilian_portuguese: 'Iniciar Gravação',
+    tok_pisin: 'Statim Rekodim',
+    indonesian: 'Mulai Merekam',
+    nepali: 'रेकर्डिङ सुरु गर्नुहोस्'
+  },
+  stopRecording: {
+    english: 'Stop Recording',
+    spanish: 'Detener Grabación',
+    brazilian_portuguese: 'Parar Gravação',
+    tok_pisin: 'Stopim Rekodim',
+    indonesian: 'Hentikan Perekaman',
+    nepali: 'रेकर्डिङ रोक्नुहोस्'
+  },
+  recording: {
+    english: 'Recording...',
+    spanish: 'Grabando...',
+    brazilian_portuguese: 'Gravando...',
+    tok_pisin: 'Rekodim...',
+    indonesian: 'Merekam...',
+    nepali: 'रेकर्डिङ...'
+  },
+  vadRecordingActive: {
+    english: 'VAD recording active',
+    spanish: 'Grabación VAD activa',
+    brazilian_portuguese: 'Gravação VAD ativa',
+    tok_pisin: 'VAD rekoding i wok',
+    indonesian: 'Perekaman VAD aktif',
+    nepali: 'VAD रेकर्डिङ सक्रिय'
+  },
+  recordingHelpTitle: {
+    english: 'Two ways to record',
+    spanish: 'Dos formas de grabar',
+    brazilian_portuguese: 'Duas formas de gravar',
+    tok_pisin: 'Tupela rot bilong rekodim',
+    indonesian: 'Dua cara merekam',
+    nepali: 'रेकर्ड गर्ने दुई तरिका'
+  },
+  recordingHelpVAD: {
+    english:
+      'the record button to start Voice Activity Detection (VAD) recording. This will automatically create new audio segments whenever you pause as you talk. Tap again to end the VAD session.',
+    spanish:
+      'el botón de grabación para iniciar la grabación con Detección de Actividad de Voz (VAD). Esto creará automáticamente nuevos segmentos de audio cada vez que hagas una pausa mientras hablas. Toca de nuevo para finalizar la sesión VAD.',
+    brazilian_portuguese:
+      'o botão de gravação para iniciar a gravação com Detecção de Atividade de Voz (VAD). Isso criará automaticamente novos segmentos de áudio sempre que você pausar enquanto fala. Toque novamente para encerrar a sessão VAD.',
+    tok_pisin:
+      'baten bilong rekodim bilong statim Voice Activity Detection (VAD) rekoding. Em bai wokim nupela ol hap taim yu stopim toktok. Paitim gen bilong pinisim VAD sesion.',
+    indonesian:
+      'tombol rekam untuk memulai perekaman Voice Activity Detection (VAD). Ini akan secara otomatis membuat segmen audio baru setiap kali Anda berhenti sejenak saat berbicara. Ketuk lagi untuk mengakhiri sesi VAD.',
+    nepali:
+      'भ्वाइस एक्टिभिटी डिटेक्शन (VAD) रेकर्डिङ सुरु गर्न रेकर्ड बटन थिच्नुहोस्। यसले तपाईंले बोल्दा रोक्दा स्वचालित रूपमा नयाँ अडियो खण्डहरू सिर्जना गर्नेछ। VAD सत्र समाप्त गर्न फेरि ट्याप गर्नुहोस्।'
+  },
+  recordingHelpPushToTalk: {
+    english: 'to record a single segment, release to stop recording.',
+    spanish:
+      'para grabar un solo segmento, suelta para detener la grabación.',
+    brazilian_portuguese:
+      'para gravar um único segmento, solte para parar a gravação.',
+    tok_pisin:
+      'bilong rekodim wanpela hap, lusim bilong stopim rekoding.',
+    indonesian:
+      'untuk merekam satu segmen, lepaskan untuk menghentikan perekaman.',
+    nepali:
+      'एउटा खण्ड रेकर्ड गर्न, रेकर्डिङ रोक्न छोड्नुहोस्।'
+  },
+  tap: {
+    english: 'Tap',
+    spanish: 'Toca',
+    brazilian_portuguese: 'Toque',
+    tok_pisin: 'Paitim',
+    indonesian: 'Ketuk',
+    nepali: 'ट्याप गर्नुहोस्'
+  },
+  pressAndHold: {
+    english: 'Press and hold',
+    spanish: 'Mantén presionado',
+    brazilian_portuguese: 'Pressione e segure',
+    tok_pisin: 'Presim na holim',
+    indonesian: 'Tekan dan tahan',
+    nepali: 'थिच्नुहोस् र होल्ड गर्नुहोस्'
+  },
   vadAutoCalibrate: {
     english: 'Auto-Calibrate',
     spanish: 'Auto-Calibrar',
