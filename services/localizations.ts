@@ -5890,14 +5890,6 @@ export const localizations = {
     indonesian: 'Hentikan Perekaman',
     nepali: 'रेकर्डिङ रोक्नुहोस्'
   },
-  recording: {
-    english: 'Recording...',
-    spanish: 'Grabando...',
-    brazilian_portuguese: 'Gravando...',
-    tok_pisin: 'Rekodim...',
-    indonesian: 'Merekam...',
-    nepali: 'रेकर्डिङ...'
-  },
   vadRecordingActive: {
     english: 'VAD recording active',
     spanish: 'Grabación VAD activa',

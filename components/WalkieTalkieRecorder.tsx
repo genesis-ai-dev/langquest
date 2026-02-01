@@ -18,6 +18,13 @@ import Animated, {
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
+/**
+ * NOTE: This component intentionally mutates Reanimated SharedValues throughout.
+ * React Compiler warnings about SharedValue mutations are false positives.
+ * SharedValues are designed to be mutated - this is their intended usage pattern.
+ * These mutations do not cause re-renders and are safe.
+ */
+
 const AnimatedView = Animated.View;
 
 // Extend Recording type to include custom energy range tracking
@@ -173,6 +180,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     // Update SharedValue for waveform visualization during walkie-talkie recording
     // Note: SharedValues are designed to be mutated - this is intentional and correct
     if (energyShared) {
+      // React Compiler warning here is a false positive - SharedValues are meant to be mutated
       energyShared.value = clampedAmplitude;
     }
   };
@@ -698,7 +706,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
             <View className="flex-row items-center gap-2">
               <Icon as={MicIcon} size={24} className="text-background" />
               <Text className="text-lg font-semibold text-background">
-                {isRecording ? t('recording') : t('startRecording')}
+                {isRecording ? `${t('recording')}...` : t('startRecording')}
               </Text>
             </View>
           )}
