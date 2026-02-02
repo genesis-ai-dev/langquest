@@ -48,6 +48,12 @@ function getScheme(variant: string) {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
+  const experiments = {
+    typedRoutes: true,
+    reactCompiler: true,
+    buildCacheProvider: 'eas'
+  } as unknown as ExpoConfig['experiments'];
+
   const expoConfig: ExpoConfig = {
     ...config,
     owner: 'eten-genesis',
@@ -126,11 +132,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-dev-client',
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
     ],
-    experiments: {
-      typedRoutes: true,
-      reactCompiler: true,
-      buildCacheProvider: 'eas'
-    },
+    experiments,
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
