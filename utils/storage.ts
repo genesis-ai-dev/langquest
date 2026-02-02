@@ -1,16 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STORAGE_KEYS = {
-  OFFLINE_UNDOWNLOAD_WARNING: '@offline_undownload_warning'
-} as const;
+import { useLocalStore } from '@/store/localStore';
 
 export const storage = {
   async getOfflineUndownloadWarningEnabled(): Promise<boolean> {
     try {
-      const value = await AsyncStorage.getItem(
-        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING
-      );
-      return value === null ? true : value === 'true';
+      const state = useLocalStore.getState();
+      return state.offlineUndownloadWarningEnabled;
     } catch (error) {
       console.error(
         'Error reading offline undownload warning preference:',
@@ -22,10 +16,8 @@ export const storage = {
 
   async setOfflineUndownloadWarningEnabled(enabled: boolean): Promise<void> {
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING,
-        enabled.toString()
-      );
+      const { setOfflineUndownloadWarningEnabled } = useLocalStore.getState();
+      setOfflineUndownloadWarningEnabled(enabled);
     } catch (error) {
       console.error(
         'Error saving offline undownload warning preference:',

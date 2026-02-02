@@ -42,6 +42,9 @@ export interface NavigationStackItem {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+// AsyncStorage keys for user preferences
+export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
+
 // VAD (Voice Activity Detection) constants - single source of truth
 export const VAD_THRESHOLD_MIN = 0.001;
 export const VAD_THRESHOLD_MAX = 1.0;
@@ -113,6 +116,8 @@ export interface LocalState {
   setDebugMode: (enabled: boolean) => void;
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
+  offlineUndownloadWarningEnabled: boolean;
+  setOfflineUndownloadWarningEnabled: (enabled: boolean) => void;
 
   // Experimental features
   enableAiSuggestions: boolean;
@@ -201,6 +206,18 @@ export interface LocalState {
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
 
+  // Version tracking and migration state
+  lastAppVersion: string | null;
+  setLastAppVersion: (version: string | null) => void;
+  lastSchemaVersion: string | null;
+  setLastSchemaVersion: (version: string | null) => void;
+  lastUpdateId: string | null;
+  setLastUpdateId: (updateId: string | null) => void;
+  degradedMode: boolean;
+  setDegradedMode: (enabled: boolean) => void;
+  migrationRetryCount: number;
+  setMigrationRetryCount: (count: number) => void;
+
   // Onboarding dismissal tracking
   onboardingDismissed: boolean;
   setOnboardingDismissed: (dismissed: boolean) => void;
@@ -261,6 +278,7 @@ export const useLocalStore = create<LocalState>()(
       autoBackup: false,
       debugMode: false,
       showHiddenContent: false,
+      offlineUndownloadWarningEnabled: true, // Default to showing warning
 
       // Experimental features (defaults)
       enableAiSuggestions: false,
@@ -337,6 +355,19 @@ export const useLocalStore = create<LocalState>()(
           dismissedUpdateVersion: null
         }),
 
+      // Version tracking and migration state
+      lastAppVersion: null,
+      setLastAppVersion: (version) => set({ lastAppVersion: version }),
+      lastSchemaVersion: null,
+      setLastSchemaVersion: (version) => set({ lastSchemaVersion: version }),
+      lastUpdateId: null,
+      setLastUpdateId: (updateId) => set({ lastUpdateId: updateId }),
+      degradedMode: false,
+      setDegradedMode: (enabled) => set({ degradedMode: enabled }),
+      migrationRetryCount: 0,
+      setMigrationRetryCount: (count) =>
+        set({ migrationRetryCount: Math.max(0, count) }),
+
       // Onboarding dismissal tracking
       onboardingDismissed: false,
       setOnboardingDismissed: (dismissed) =>
@@ -370,6 +401,8 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
+      setOfflineUndownloadWarningEnabled: (enabled) =>
+        set({ offlineUndownloadWarningEnabled: enabled }),
 
       // Experimental features setters
       setEnableAiSuggestions: (enabled) =>
@@ -530,7 +563,7 @@ export const useLocalStore = create<LocalState>()(
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
       // skipHydration: true,
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
           colorScheme.set(state.theme);
@@ -544,6 +577,29 @@ export const useLocalStore = create<LocalState>()(
               `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
             );
             state.vadThreshold = VAD_THRESHOLD_DEFAULT;
+          }
+
+          // Migrate offline undownload warning preference from old AsyncStorage key
+          if (!state.offlineUndownloadWarningEnabled) {
+            try {
+              const oldValue = await AsyncStorage.getItem(
+                OFFLINE_UNDOWNLOAD_WARNING_KEY
+              );
+              if (oldValue !== null) {
+                const migratedValue = oldValue === 'true';
+                state.offlineUndownloadWarningEnabled = migratedValue;
+                // Optionally remove the old key after migration
+                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
+                console.log(
+                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+                );
+              }
+            } catch (error) {
+              console.error(
+                '[LocalStore] Error migrating offline undownload warning preference:',
+                error
+              );
+            }
           }
         }
       },

@@ -573,9 +573,9 @@ export class System {
             const shouldRetry = await shouldRetryMigration();
 
             if (isDegraded && !shouldRetry) {
-              // In degraded mode and schema version hasn't changed - don't block app
+              // In degraded mode and no OTA update applied - don't block app
               console.log(
-                '[System] ⚠️  Migration needed but in degraded mode - schema version unchanged, allowing app to continue'
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
               );
               // Don't throw error - allow app to continue in degraded mode
             } else {
@@ -608,9 +608,9 @@ export class System {
             const shouldRetry = await shouldRetryMigration();
 
             if (isDegraded && !shouldRetry) {
-              // In degraded mode and schema version hasn't changed - don't block app
+              // In degraded mode and no OTA update applied - don't block app
               console.log(
-                '[System] ⚠️  Migration needed but in degraded mode - schema version unchanged, allowing app to continue'
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
               );
               // Clear migrationNeeded flag to allow app to continue
               this.migrationNeeded = false;

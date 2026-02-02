@@ -68,7 +68,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
       if (degraded) {
         const shouldRetry = await shouldRetryMigration();
         if (!shouldRetry) {
-          // Already in degraded mode and version hasn't changed - auto-proceed
+          // Already in degraded mode and no OTA update applied - auto-proceed
           console.log(
             '[MigrationScreen] Already in degraded mode - allowing app to continue'
           );
@@ -91,14 +91,14 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
             }
           }, 1500);
         } else {
-          // Version changed - allow normal migration flow to proceed
+          // OTA update applied - allow normal migration flow to proceed
           console.log(
-            '[MigrationScreen] App version changed - migration will retry automatically'
+            '[MigrationScreen] OTA update applied - migration will retry automatically'
           );
           setProgress({
             current: 0,
             total: 1,
-            step: 'App version updated - retrying migration...'
+            step: 'OTA update detected - retrying migration...'
           });
           // Don't skip auto-start - let the normal flow handle it
         }
@@ -131,7 +131,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
 
       // Clear degraded mode and reset retry count on success
       await clearDegradedMode();
-      await resetRetryCount();
+      resetRetryCount();
 
       setIsComplete(true);
       setProgress({
@@ -222,7 +222,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
     // Skip auto-start if we're in degraded mode and shouldn't retry
     if (shouldSkipAutoStart) {
       console.log(
-        '[MigrationScreen] Skipping auto-start - in degraded mode without version change'
+        '[MigrationScreen] Skipping auto-start - in degraded mode without OTA update'
       );
       return;
     }
