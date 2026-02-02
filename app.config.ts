@@ -10,6 +10,15 @@ const iconLight = './assets/icons/icon_light.png';
 const siteHost = 'langquest.org';
 const uniqueIdentifier = 'com.etengenesis.langquest';
 
+type ExpoConfigWithBuildCache = ExpoConfig & {
+  buildCacheProvider?:
+    | string
+    | {
+        plugin: string;
+        options?: Record<string, unknown>;
+      };
+};
+
 const appVariant =
   process.env.EXPO_PUBLIC_APP_VARIANT ||
   (process.env.NODE_ENV === 'development' ? 'development' : 'production');
@@ -47,8 +56,8 @@ function getScheme(variant: string) {
   }
 }
 
-export default ({ config }: ConfigContext): ExpoConfig =>
-  withUseThirdPartySQLitePod({
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const expoConfig: ExpoConfigWithBuildCache = {
     ...config,
     owner: 'eten-genesis',
     name: getAppName(appVariant),
@@ -145,7 +154,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     runtimeVersion: {
       policy: 'appVersion'
     }
-  });
+  };
+
+  return withUseThirdPartySQLitePod(expoConfig);
+};
 
 const withUseThirdPartySQLitePod: ConfigPlugin = (expoConfig) => {
   return withPodfileProperties(expoConfig, (config) => {
