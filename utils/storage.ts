@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useLocalStore } from '@/store/localStore';
 
 export const storage = {
@@ -79,7 +81,7 @@ export const checkAndClearStorage = async (): Promise<void> => {
 
       // Clear React Query cache keys (they often start with 'REACT_QUERY')
       const cacheKeys = keys.filter(
-        (key) =>
+        (key: string) =>
           key.includes('REACT_QUERY') ||
           key.includes('cache') ||
           key.includes('temp_')
@@ -100,7 +102,7 @@ export const clearAllCacheData = async (): Promise<void> => {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter(
-      (key) =>
+      (key: string) =>
         key.includes('REACT_QUERY') ||
         key.includes('cache') ||
         key.includes('temp_') ||

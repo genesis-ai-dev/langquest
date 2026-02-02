@@ -213,6 +213,8 @@ export interface LocalState {
   setLastSchemaVersion: (version: string | null) => void;
   lastUpdateId: string | null;
   setLastUpdateId: (updateId: string | null) => void;
+  lastFailedVersion: string | null;
+  setLastFailedVersion: (version: string | null) => void;
   degradedMode: boolean;
   setDegradedMode: (enabled: boolean) => void;
   migrationRetryCount: number;
@@ -362,6 +364,8 @@ export const useLocalStore = create<LocalState>()(
       setLastSchemaVersion: (version) => set({ lastSchemaVersion: version }),
       lastUpdateId: null,
       setLastUpdateId: (updateId) => set({ lastUpdateId: updateId }),
+      lastFailedVersion: null,
+      setLastFailedVersion: (version) => set({ lastFailedVersion: version }),
       degradedMode: false,
       setDegradedMode: (enabled) => set({ degradedMode: enabled }),
       migrationRetryCount: 0,

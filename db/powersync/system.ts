@@ -536,23 +536,7 @@ export class System {
           this.migrationDb = {
             getAll: async (sql: string, params?: unknown[]) => {
               const result = await rawDb.execute(sql, params);
-              // Convert DBAdapter result format to array
-              if (result.rows && '_array' in result.rows) {
-                return result.rows._array as unknown[];
-              }
-              if (Array.isArray(result.rows)) {
-                return result.rows;
-              }
-              // Try accessing rows as an object with item() method (PowerSync style)
-              if (result.rows && typeof result.rows.item === 'function') {
-                const rows: unknown[] = [];
-                for (let i = 0; i < result.rows.length; i++) {
-                  const item = result.rows.item(i);
-                  if (item) rows.push(item);
-                }
-                return rows;
-              }
-              return [];
+              return (result.rows?._array ?? []) as unknown[];
             },
             execute: async (sql: string) => {
               await rawDb.execute(sql);

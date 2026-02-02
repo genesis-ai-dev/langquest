@@ -2,14 +2,14 @@
  * Degraded Mode Service
  *
  * Manages degraded mode state when migrations fail repeatedly.
- * Stores state in local store and only retries migrations when:
+ * All state is stored in the Zustand store (which persists via AsyncStorage).
+ * Only retries migrations when:
  * - An OTA update has been applied (updateId changes), OR
  * - App version has changed (new build installed)
  */
 
 import { APP_SCHEMA_VERSION } from '@/db/constants';
-import { DEGRADED_MODE_KEY, useLocalStore } from '@/store/localStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalStore } from '@/store/localStore';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
@@ -72,14 +72,10 @@ export function getCurrentAppVersionForTesting(): string {
 export async function getDegradedModeState(): Promise<DegradedModeState> {
   try {
     const store = useLocalStore.getState();
-    // lastFailedVersion is still stored in AsyncStorage (not migrated to store)
-    const lastFailedVersion = await AsyncStorage.getItem(
-      `${DEGRADED_MODE_KEY}:failed_version`
-    );
 
     return {
       isDegraded: store.degradedMode,
-      lastFailedVersion: lastFailedVersion || null,
+      lastFailedVersion: store.lastFailedVersion,
       retryCount: store.migrationRetryCount,
       lastUpdateId: store.lastUpdateId,
       lastAppVersion: store.lastAppVersion,
@@ -201,14 +197,9 @@ export async function incrementRetryCount(): Promise<boolean> {
     const newRetryCount = store.migrationRetryCount + 1;
     const currentUpdateId = getCurrentUpdateId();
 
-    // Update retry count in store
+    // Update retry count and failed version in store
     store.setMigrationRetryCount(newRetryCount);
-
-    // Store failed version in AsyncStorage (not migrated to store yet)
-    await AsyncStorage.setItem(
-      `${DEGRADED_MODE_KEY}:failed_version`,
-      currentUpdateId
-    );
+    store.setLastFailedVersion(currentUpdateId);
 
     // Enter degraded mode if we've exceeded max retries
     if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
@@ -268,14 +259,12 @@ export async function clearDegradedMode(): Promise<void> {
     // Clear degraded mode and reset retry count in store
     store.setDegradedMode(false);
     store.setMigrationRetryCount(0);
+    store.setLastFailedVersion(null);
 
     // Update stored updateId, app version, and schema version to current so we don't immediately retry
     store.setLastUpdateId(currentUpdateId);
     store.setLastAppVersion(currentAppVersion);
     store.setLastSchemaVersion(currentSchemaVersion);
-
-    // Remove failed version from AsyncStorage (not migrated to store yet)
-    await AsyncStorage.removeItem(`${DEGRADED_MODE_KEY}:failed_version`);
 
     console.log('[DegradedModeService] Cleared degraded mode state');
   } catch (error) {
