@@ -1,0 +1,121 @@
+name: Create PR previews
+
+on:
+  pull_request:
+    branches: ['*']
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!readme_images/**'
+      - '!scripts/**'
+      - '!tooling/**'
+      - '!restore-remote-db-backup/**'
+      - '!debug_closure_issue.sql'
+      - '!supabase/**'
+      - '!**/*.backup'
+      - '!.github/**'
+      - '!.prettierignore'
+      - '!prettier.config.mjs'
+      - '!eslint.config.mts'
+      - '!knip.json'
+      - '!deno.json'
+      - '!.cursor/**'
+      - '!.vscode/**'
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: development
+
+  get_android_build:
+    name: Check for existing android build
+    needs: [fingerprint]
+    type: get-build
+    environment: development
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: development
+
+  get_ios_build:
+    name: Check for existing ios build
+    needs: [fingerprint]
+    type: get-build
+    environment: development
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: development
+
+  get_ios_simulator_build:
+    name: Check for existing ios simulator build
+    needs: [fingerprint]
+    type: get-build
+    environment: development
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: development-simulator
+      simulator: true
+
+  android_development_build:
+    name: Build Android (if necessary)
+    type: build
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    environment: development
+    params:
+      platform: android
+      profile: development
+
+  ios_device_development_build:
+    name: Build iOS (if necessary)
+    type: build
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    environment: development
+    params:
+      platform: ios
+      profile: development
+
+  ios_simulator_development_build:
+    name: Build iOS simulator (if necessary)
+    type: build
+    needs: [get_ios_simulator_build]
+    if: ${{ !needs.get_ios_simulator_build.outputs.build_id }}
+    environment: development
+    params:
+      platform: ios
+      profile: development-simulator
+
+  publish_android_update:
+    name: Publish Android update
+    needs: [get_android_build]
+    after: [android_development_build]
+    if: ${{ needs.get_android_build.outputs.build_id || after.android_development_build.status == 'success' }}
+    type: update
+    environment: development
+    params:
+      platform: android
+      branch: pr-${{ github.event.pull_request.number }}
+
+  publish_ios_update:
+    name: Publish iOS update
+    needs: [get_ios_build]
+    after: [ios_device_development_build]
+    if: ${{ needs.get_ios_build.outputs.build_id || after.ios_device_development_build.status == 'success' }}
+    type: update
+    environment: development
+    params:
+      platform: ios
+      branch: pr-${{ github.event.pull_request.number }}
+
+  comment_on_pr:
+    name: Post Results to PR
+    after:
+      [
+        android_development_build,
+        ios_device_development_build,
+        ios_simulator_development_build,
+        publish_android_update,
+        publish_ios_update
+      ]
+    type: github-comment

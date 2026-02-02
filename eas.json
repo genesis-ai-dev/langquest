@@ -10,10 +10,12 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "developmentClient": true,
+      "developmentClient": true
+    },
+    "development-simulator": {
+      "extends": "development",
       "ios": {
-        "simulator": true,
-        "distribution": "store"
+        "simulator": true
       }
     },
     "preview": {
