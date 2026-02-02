@@ -128,7 +128,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     ],
     experiments: {
       typedRoutes: true,
-      reactCompiler: true
+      reactCompiler: true,
+      buildCacheProvider: 'eas'
     },
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
