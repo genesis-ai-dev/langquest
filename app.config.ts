@@ -126,6 +126,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-dev-client',
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
     ],
+    buildCacheProvider: 'eas',
     experiments: {
       typedRoutes: true,
       reactCompiler: true
