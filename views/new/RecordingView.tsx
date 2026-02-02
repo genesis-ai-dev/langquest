@@ -1,5 +1,5 @@
-import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
-import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
+import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
+import RecordingSelectionList from '@/components/RecordingSelectionList';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -40,6 +40,7 @@ import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
+import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardSkeleton';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -49,8 +50,6 @@ import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
 import { useHybridData } from './useHybridData';
 
-// Feature flag: true = use ArrayInsertionWheel, false = use LegendList
-// const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -301,11 +300,11 @@ const RecordingView = () => {
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
+  const listRef = React.useRef<RecordingSelectionListHandle>(null);
 
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
-  const ROW_HEIGHT = 80;
+  const ROW_HEIGHT = 66;
 
   // Dynamic verse tracking for automatic progression
   // Initialize with _verse.from if available, otherwise null (user must click "Add verse" button)
@@ -484,9 +483,6 @@ const RecordingView = () => {
     [sessionItems]
   );
 
-  // All items (assets + pills) for the wheel
-  const allItems = sessionItems;
-
   // Normalize assets
   // ARCHITECTURE:
   // - Asset: A single recording or merged group of recordings
@@ -555,19 +551,19 @@ const RecordingView = () => {
 
   // Check if we're at the end of the list (for add verse button behavior)
   const isAtEndOfList = React.useMemo(
-    () => allItems.length === 0 || insertionIndex >= allItems.length,
-    [allItems.length, insertionIndex]
+    () => sessionItems.length === 0 || insertionIndex >= sessionItems.length,
+    [sessionItems.length, insertionIndex]
   );
 
   // Get the item at the current insertion position (center of wheel)
   // This can be either an asset or a verse pill
   const highlightedItem = React.useMemo(() => {
-    if (allItems.length === 0) return null;
-    // insertionIndex can be 0 to allItems.length (inclusive)
-    // When at the end (insertionIndex >= allItems.length), we still want to show the last item
-    const idx = Math.min(insertionIndex, allItems.length - 1);
-    return allItems[idx] ?? null;
-  }, [allItems, insertionIndex]);
+    if (sessionItems.length === 0) return null;
+    // insertionIndex can be 0 to sessionItems.length (inclusive)
+    // When at the end (insertionIndex >= sessionItems.length), we still want to show the last item
+    const idx = Math.min(insertionIndex, sessionItems.length - 1);
+    return sessionItems[idx] ?? null;
+  }, [sessionItems, insertionIndex]);
 
   // Get the highlighted item as an asset (null if it's a pill)
   // Prefixed with _ as it may not be used directly but kept for potential future use
@@ -713,7 +709,7 @@ const RecordingView = () => {
     setCurrentDynamicVerse(verseToAdd);
 
     // Move insertion index to the end (where the pill was added)
-    // This is done in the next useEffect that monitors allItems.length change
+    // This is done in the next useEffect that monitors sessionItems.length change
 
     // If VAD is active, update recording context to use the new pill
     if (isVADLocked) {
@@ -726,21 +722,16 @@ const RecordingView = () => {
     }
   }, [verseToAdd, isVADLocked, addVersePill]);
 
-  // Stable item list that only updates when content actually changes
-  // We intentionally use assetContentKey instead of allItems to prevent re-renders
-  // when items array reference changes but content is identical
-  const itemsForWheel = React.useMemo(() => allItems, [allItems]);
-
   // Clamp insertion index when item count changes
   React.useEffect(() => {
-    const maxIndex = allItems.length; // Can insert at 0..N (after last item)
+    const maxIndex = sessionItems.length; // Can insert at 0..N (after last item)
     if (insertionIndex > maxIndex) {
       setInsertionIndex(maxIndex);
     }
-  }, [allItems.length, insertionIndex]);
+  }, [sessionItems.length, insertionIndex]);
 
   // Track item count to detect new insertions
-  const previousItemCountRef = React.useRef(allItems.length);
+  const previousItemCountRef = React.useRef(sessionItems.length);
 
   // Track if the last recording was in the middle (not at end)
   // Used to determine if we should move insertionIndex to the new item
@@ -751,7 +742,7 @@ const RecordingView = () => {
 
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
-    const currentCount = allItems.length;
+    const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
 
     // Only scroll if a new item was added (count increased)
@@ -782,7 +773,7 @@ const RecordingView = () => {
         // Scroll to the end
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+            listRef.current?.scrollToIndex(currentCount, true);
           } catch (error) {
             console.error('Failed to scroll after pill added:', error);
           }
@@ -800,7 +791,7 @@ const RecordingView = () => {
         // Scroll to the new item
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(newIndex, true);
+            listRef.current?.scrollToIndex(newIndex, true);
           } catch (error) {
             console.error('Failed to scroll:', error);
           }
@@ -817,7 +808,7 @@ const RecordingView = () => {
         // Scroll to the end
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+            listRef.current?.scrollToIndex(currentCount, true);
           } catch (error) {
             console.error('Failed to scroll:', error);
           }
@@ -828,7 +819,7 @@ const RecordingView = () => {
     }
 
     previousItemCountRef.current = currentCount;
-  }, [allItems.length, insertionIndex]);
+  }, [sessionItems.length, insertionIndex]);
 
   // ============================================================================
   // AUDIO PLAYBACK
@@ -1173,7 +1164,7 @@ const RecordingView = () => {
         return;
       }
 
-      if (itemsForWheel.length === 0) {
+      if (sessionItems.length === 0) {
         console.warn('⚠️ No items to play');
         return;
       }
@@ -1186,8 +1177,8 @@ const RecordingView = () => {
 
       let assetsPlayed = 0;
 
-      // Iterate directly through itemsForWheel starting from insertionIndex
-      for (let wheelIndex = insertionIndex; wheelIndex < itemsForWheel.length; wheelIndex++) {
+      // Iterate directly through sessionItems starting from insertionIndex
+      for (let wheelIndex = insertionIndex; wheelIndex < sessionItems.length; wheelIndex++) {
         // Check if cancelled
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!isPlayAllRunningRef.current) {
@@ -1196,7 +1187,7 @@ const RecordingView = () => {
           return;
         }
 
-        const item = itemsForWheel[wheelIndex];
+        const item = sessionItems[wheelIndex];
         
         // Skip if no item or if it's a pill
         if (!item || isPill(item)) {
@@ -1217,9 +1208,9 @@ const RecordingView = () => {
         // HIGHLIGHT THIS ASSET
         setCurrentlyPlayingAssetId(asset.id);
         
-        // Scroll to this position in the wheel (wheelIndex is the direct position)
-        if (wheelRef.current) {
-          wheelRef.current.scrollItemToTop(wheelIndex - 1, true);
+        // Scroll to this position in the list
+        if (listRef.current) {
+          listRef.current.scrollToIndex(wheelIndex - 1, true);
         }
         
         assetsPlayed++;
@@ -1279,7 +1270,7 @@ const RecordingView = () => {
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     }
-  }, [getAssetAudioUris, insertionIndex, itemsForWheel]);
+  }, [getAssetAudioUris, insertionIndex, sessionItems]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1297,12 +1288,12 @@ const RecordingView = () => {
    */
   const getInsertionContext = React.useCallback(
     (currentIndex: number = insertionIndex) => {
-      const isAtEnd = allItems.length === 0 || currentIndex >= allItems.length;
+      const isAtEnd = sessionItems.length === 0 || currentIndex >= sessionItems.length;
       console.log(
         '🔍 getInsertionContext | currentIndex:',
         currentIndex,
-        '| allItems.length:',
-        allItems.length,
+        '| sessionItems.length:',
+        sessionItems.length,
         '| isAtEnd:',
         isAtEnd
       );
@@ -1310,7 +1301,7 @@ const RecordingView = () => {
       if (isAtEnd) {
         // At end: calculate order_index based on last item, not appendOrderIndexRef
         // appendOrderIndexRef is only used as a cache and gets updated after recording
-        const lastItem = allItems[allItems.length - 1];
+        const lastItem = sessionItems[sessionItems.length - 1];
         const orderIndex = lastItem
           ? lastItem.order_index + 1
           : appendOrderIndexRef.current; // Fallback for empty list
@@ -1328,7 +1319,7 @@ const RecordingView = () => {
         return { orderIndex, verse, isAtEnd: true };
       } else {
         // In middle: use selected item's context
-        const selectedItem = allItems[currentIndex];
+        const selectedItem = sessionItems[currentIndex];
         const orderIndex = selectedItem
           ? selectedItem.order_index + 1
           : currentIndex + 1;
@@ -1337,7 +1328,7 @@ const RecordingView = () => {
         return { orderIndex, verse, isAtEnd: false };
       }
     },
-    [allItems, insertionIndex]
+    [sessionItems, insertionIndex]
   );
 
   // Store insertion index in ref to prevent stale closure issues
@@ -1371,8 +1362,8 @@ const RecordingView = () => {
       currentRecordingVerseRef.current = verse;
 
       const selectedItem = contextIsAtEnd
-        ? allItems[allItems.length - 1]
-        : allItems[insertionIndexRef.current];
+        ? sessionItems[sessionItems.length - 1]
+        : sessionItems[insertionIndexRef.current];
       const itemName = selectedItem
         ? isPill(selectedItem)
           ? `pill-${selectedItem.verse?.from ?? 'null'}`
@@ -1394,7 +1385,7 @@ const RecordingView = () => {
     }
   }, [
     isVADLocked,
-    allItems,
+    sessionItems,
     currentDynamicVerse,
     assets.length,
     getInsertionContext
@@ -1407,7 +1398,7 @@ const RecordingView = () => {
     const currentInsertionIndex = insertionIndexRef.current;
 
     console.log(
-      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | allItems.length: ${allItems.length}`
+      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length}`
     );
 
     // Get insertion context (order_index and verse) based on current position
@@ -1441,8 +1432,8 @@ const RecordingView = () => {
     setIsRecording(true);
 
     const selectedItem = isAtEnd
-      ? allItems[allItems.length - 1]
-      : allItems[currentInsertionIndex];
+      ? sessionItems[sessionItems.length - 1]
+      : sessionItems[currentInsertionIndex];
     const itemName = selectedItem
       ? isPill(selectedItem)
         ? `pill-${selectedItem.verse?.from ?? 'null'}`
@@ -1452,7 +1443,7 @@ const RecordingView = () => {
     console.log(
       `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
     );
-  }, [isRecording, allItems, getInsertionContext]);
+  }, [isRecording, sessionItems, getInsertionContext]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -2396,27 +2387,45 @@ const RecordingView = () => {
   // Create a memoized factory for asset callbacks
   // This prevents creating new inline functions in wheelChildren useMemo
   const createAssetCallbacks = React.useCallback(
-    (assetId: string) => ({
+    (assetId: string, index: number) => ({
       onPress: () => {
         if (isSelectionMode) {
           stableToggleSelect(assetId);
         } else {
-          void stableHandlePlayAsset(assetId);
+          // Toggle highlight: if clicking on already highlighted card, move to end
+          if (insertionIndex === index) {
+            setInsertionIndex(sessionItems.length);
+          } else {
+            setInsertionIndex(index);
+          }
         }
       },
       onLongPress: () => {
-        stableEnterSelection(assetId);
+        // Long press enters selection mode and selects this asset
+        if (!isSelectionMode) {
+          stableEnterSelection(assetId);
+        }
       },
       onPlay: () => {
         void stableHandlePlayAsset(assetId);
       }
     }),
-    [
-      isSelectionMode,
-      stableToggleSelect,
-      stableHandlePlayAsset,
-      stableEnterSelection
-    ]
+    [isSelectionMode, stableToggleSelect, stableEnterSelection, stableHandlePlayAsset, insertionIndex, sessionItems.length]
+  );
+
+  // Create a memoized factory for pill callbacks
+  const createPillCallbacks = React.useCallback(
+    (index: number) => ({
+      onPress: () => {
+        // Toggle highlight: if clicking on already highlighted pill, move to end
+        if (insertionIndex === index) {
+          setInsertionIndex(sessionItems.length);
+        } else {
+          setInsertionIndex(index);
+        }
+      }
+    }),
+    [insertionIndex, sessionItems.length]
   );
 
   // Create a Map of callbacks per asset (only recreates when dependencies change)
@@ -2431,33 +2440,57 @@ const RecordingView = () => {
       }
     >();
 
-    itemsForWheel.forEach((item) => {
+    sessionItems.forEach((item, index) => {
       if (isAsset(item)) {
-        map.set(item.id, createAssetCallbacks(item.id));
+        map.set(item.id, createAssetCallbacks(item.id, index));
       }
     });
 
     return map;
-  }, [itemsForWheel, createAssetCallbacks]);
+  }, [sessionItems, createAssetCallbacks]);
 
-  // Lazy renderItem for ArrayInsertionWheel
-  // OPTIMIZED: Only renders items when they become visible (virtualização)
+  // Create a Map of callbacks per pill (only recreates when dependencies change)
+  const pillCallbacksMap = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        onPress: () => void;
+      }
+    >();
+
+    sessionItems.forEach((item, index) => {
+      if (isPill(item)) {
+        map.set(item.id, createPillCallbacks(index));
+      }
+    });
+
+    return map;
+  }, [sessionItems, createPillCallbacks]);
+
+  // Lazy renderItem for RecordingSelectionList
+  // OPTIMIZED: Only renders items when they become visible (virtualization)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
   // This is much more efficient than pre-creating all children
-  const renderWheelItem = React.useCallback(
-    (item: ListItem, index: number) => {
+  // Third parameter 'isListSelected' indicates if this item is the current insertion point
+  const renderListItem = React.useCallback(
+    (item: ListItem, index: number, _isListSelected: boolean) => {
       // Render verse pill items differently from asset items
       if (isPill(item)) {
         const pillText = item.verse
           ? (formatVerseRange(item.verse) ?? 'No Label')
           : 'No Label';
+        const isHighlighted = insertionIndex === index;
+
+        // Get stable callbacks from Map (avoids creating new functions)
+        const callbacks = pillCallbacksMap.get(item.id);
+
         return (
-          <View
+          <VersePill
             key={item.id}
-            className="flex-row items-center justify-center py-2"
-          >
-            <VersePill text={pillText} />
-          </View>
+            text={pillText}
+            isHighlighted={isHighlighted}
+            onPress={callbacks?.onPress}
+          />
         );
       }
 
@@ -2469,18 +2502,19 @@ const RecordingView = () => {
         isPlayAllRunning && currentlyPlayingAssetId === item.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      const isSelected = selectedAssetIds.has(item.id);
+      // isInBatchSelection = selected for batch operations (delete, merge)
+      const isInBatchSelection = selectedAssetIds.has(item.id);
 
       // Check if next item is an asset (not a pill) and not from cloud
-      const nextItem = itemsForWheel[index + 1];
+      const nextItem = sessionItems[index + 1];
       const canMergeDown =
-        index < itemsForWheel.length - 1 &&
+        index < sessionItems.length - 1 &&
         nextItem &&
         isAsset(nextItem) &&
         nextItem.source !== 'cloud';
 
-      // Duration from lazy-loaded metadata
-      const duration = item.duration;
+      // Duration from lazy-loaded metadata (get from map, not from item which may be stale)
+      const duration = assetDurations.get(item.id) ?? item.duration;
 
       // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
@@ -2491,12 +2525,15 @@ const RecordingView = () => {
         return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
+      const isHighlighted = insertionIndex === index;
+
       return (
         <RecordAssetCard
           key={item.id}
           asset={item}
           index={index}
-          isSelected={isSelected}
+          isSelected={isInBatchSelection}
+          isHighlighted={isHighlighted}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
           duration={duration}
@@ -2519,12 +2556,56 @@ const RecordingView = () => {
       currentlyPlayingAssetId,
       selectedAssetIds,
       isSelectionMode,
-      itemsForWheel,
+      insertionIndex,
+      sessionItems,
       assetCallbacksMap,
+      pillCallbacksMap,
+      assetDurations,
       stableHandleDeleteLocalAsset,
       stableHandleMergeDownLocal,
       stableHandleRenameAsset
     ]
+  );
+
+  // List callbacks (memoized to prevent unnecessary re-renders)
+  const handleListIndexChange = React.useCallback(
+    (newIndex: number) => {
+      const item = sessionItems[newIndex];
+      const itemDesc = item
+        ? isPill(item)
+          ? `pill-${item.verse?.from ?? 'null'}`
+          : item.name
+        : 'end';
+      
+      // In selection mode, clicking on an asset toggles its selection instead of changing insertion index
+      if (isSelectionMode && item && isAsset(item)) {
+        console.log(`📋 List onChange (selection mode): toggling ${item.name}`);
+        stableToggleSelect(item.id);
+        return;
+      }
+      
+      console.log(
+        `📋 List onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
+      );
+      setInsertionIndex(newIndex);
+    },
+    [sessionItems, insertionIndex, isSelectionMode, stableToggleSelect]
+  );
+
+  const handleListLongPress = React.useCallback(
+    (index: number) => {
+      // Enter batch selection mode when long pressing an asset
+      const item = sessionItems[index];
+      if (item && isAsset(item)) {
+        stableEnterSelection(item.id);
+      }
+    },
+    [sessionItems, stableEnterSelection]
+  );
+
+  const canListItemLongPress = React.useCallback(
+    (item: ListItem) => isAsset(item),
+    []
   );
 
   // SESSION-ONLY MODE: No loading/error states needed
@@ -2573,6 +2654,10 @@ const RecordingView = () => {
 
   const boundaryComponent = useMemo(
     () => (
+    <>
+      <View className="px-2">
+        <RecordAssetCardSkeleton />
+      </View>
       <View
         style={{ height: ROW_HEIGHT }}
         className="flex-row items-center justify-center px-4"
@@ -2601,6 +2686,7 @@ const RecordingView = () => {
         </View>
         <View className="flex-1">{addButtonComponent}</View>
       </View>
+    </>
     ),
     [addButtonComponent]
   );
@@ -2694,27 +2780,19 @@ const RecordingView = () => {
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
         <View className="relative h-full flex-1">
-          <ArrayInsertionWheel<ListItem>
-            ref={wheelRef}
+          <RecordingSelectionList<ListItem>
+            ref={listRef}
             value={insertionIndex}
-            onChange={(newIndex) => {
-              const item = itemsForWheel[newIndex];
-              const itemDesc = item
-                ? isPill(item)
-                  ? `pill-${item.verse?.from ?? 'null'}`
-                  : item.name
-                : 'end';
-              console.log(
-                `🎡 Wheel onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
-              );
-              setInsertionIndex(newIndex);
-            }}
+            onChange={handleListIndexChange}
+            onLongPress={handleListLongPress}
+            canLongPress={canListItemLongPress}
             rowHeight={ROW_HEIGHT}
             className="h-full flex-1"
             bottomInset={footerHeight}
             boundaryComponent={boundaryComponent}
-            data={itemsForWheel}
-            renderItem={renderWheelItem}
+            data={sessionItems}
+            renderItem={renderListItem}
+            extraData={{ isSelectionMode, selectedAssetIds }}
           />
         </View>
       </View>

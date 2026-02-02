@@ -45,7 +45,8 @@ interface AssetCardProps {
     order_index?: number | null;
   };
   index: number;
-  isSelected: boolean;
+  isSelected: boolean; // Batch selection (for merge/delete operations)
+  isHighlighted: boolean; // Visual highlight (recording insertion point)
   isSelectionMode: boolean;
   isPlaying: boolean;
   // progress removed - now calculated from SharedValues for 0 re-renders!
@@ -55,7 +56,7 @@ interface AssetCardProps {
   // If provided, this overrides the default global progress calculation
   customProgress?: SharedValue<number>;
   onPress: () => void;
-  onLongPress: () => void;
+  onLongPress?: () => void;
   onPlay: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
   // Note: These callbacks are still passed but no longer used (batch operations only)
@@ -77,6 +78,7 @@ function RecordAssetCardInternal({
   asset,
   index,
   isSelected,
+  isHighlighted,
   isSelectionMode,
   isPlaying,
   duration,
@@ -136,34 +138,54 @@ function RecordAssetCardInternal({
     };
   });
 
-  // Handle card press: only toggle selection in selection mode
-  const handleCardPress = React.useCallback(() => {
-    if (isSelectionMode) {
-      onPress(); // Toggle selection
-    }
-  }, [isSelectionMode, onPress]);
-
   // Handle play button press
   const handlePlayPress = React.useCallback(
     (e: GestureResponderEvent) => {
-      // Stop event propagation to prevent card press
+      // Stop event propagation to prevent list selection
       e.stopPropagation();
       onPlay(asset.id);
     },
     [onPlay, asset.id]
   );
 
+  // Handle selection toggle in batch selection mode
+  const handleSelectionToggle = React.useCallback(
+    (e: GestureResponderEvent) => {
+      e.stopPropagation();
+      onPress(); // Toggle batch selection or highlight
+    },
+    [onPress]
+  );
+
+  // Handle card press
+  const handleCardPress = React.useCallback(() => {
+    onPress();
+  }, [onPress]);
+
+  // Handle card long press
+  const handleCardLongPress = React.useCallback(() => {
+    onLongPress?.();
+  }, [onLongPress]);
+
   const { t } = useLocalization();
   return (
     <TouchableOpacity
-      className={cn(
-        'relative overflow-hidden rounded-lg border p-3',
-        isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
-      )}
       onPress={handleCardPress}
-      onLongPress={onLongPress}
+      onLongPress={onLongPress ? handleCardLongPress : undefined}
+      delayLongPress={500}
       activeOpacity={0.7}
+      disabled={isSelectionMode} // Disable card press in selection mode (use checkbox instead)
     >
+      <View
+        className={cn(
+          'relative overflow-hidden rounded-lg border p-3',
+          isHighlighted && !isSelectionMode
+            ? 'border-primary bg-card'
+            : isSelected
+              ? 'border-primary bg-primary/10'
+              : 'border-border bg-card'
+        )}
+      >
       {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
       {isPlaying && (
         <View
@@ -214,7 +236,7 @@ function RecordAssetCardInternal({
               activeOpacity={0.7}
             >
               <Text
-                className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
               >
                 {asset.name || t('unnamedAsset')}
               </Text>
@@ -228,7 +250,7 @@ function RecordAssetCardInternal({
             )}
           </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-sm text-muted-foreground">
+            <Text className="text-xs text-muted-foreground">
               {asset.created_at && new Date(asset.created_at).toLocaleString()}
             </Text>
           </View>
@@ -244,15 +266,21 @@ function RecordAssetCardInternal({
 
         {/* Selection checkbox - only show for local assets in selection mode */}
         {isSelectionMode && isLocal && (
-          <View className="pl-2" style={{ zIndex: 1 }}>
+          <TouchableOpacity
+            onPress={handleSelectionToggle}
+            className="pl-2"
+            style={{ zIndex: 1 }}
+            activeOpacity={0.7}
+          >
             <Icon
               as={isSelected ? CheckCircleIcon : CircleIcon}
               size={20}
               className={isSelected ? 'text-primary' : 'text-muted-foreground'}
             />
-          </View>
+          </TouchableOpacity>
         )}
       </View>
+    </View>
     </TouchableOpacity>
   );
 }
@@ -272,6 +300,7 @@ export const RecordAssetCard = React.memo(RecordAssetCardInternal, (prev, next) 
     prev.asset.source === next.asset.source &&
     prev.index === next.index &&
     prev.isSelected === next.isSelected &&
+    prev.isHighlighted === next.isHighlighted &&
     prev.isSelectionMode === next.isSelectionMode &&
     prev.isPlaying === next.isPlaying &&
     // prev.progress removed - uses SharedValues now!
