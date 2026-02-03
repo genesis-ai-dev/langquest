@@ -1916,8 +1916,10 @@ export default function BibleAssetsView() {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
 
+  // Only watch attachment states for PUBLISHED quests
+  // Unpublished assets have local audio files - no sync queue involved
   const { attachmentStates, isLoading: isAttachmentStatesLoading } =
-    useAttachmentStates(assetIds);
+    useAttachmentStates(isPublished ? assetIds : [], isPublished);
 
   const safeAttachmentStates = attachmentStates;
 
@@ -3704,7 +3706,12 @@ export default function BibleAssetsView() {
           autoscrollThreshold={0.15}
           autoscrollSpeedScale={1.5}
           onScroll={scrollHandler}
-          ItemSeparatorComponent={() => <View className="h-1" />}
+          ItemSeparatorComponent={() => <View className="h-1.5" />}
+          // Virtualization optimization props
+          windowSize={5} // Render 5 screens worth (2 above, current, 2 below)
+          maxToRenderPerBatch={10} // Render 10 items per batch
+          initialNumToRender={15} // Start with 15 items
+          updateCellsBatchingPeriod={50} // Batch updates every 50ms
           ListFooterComponent={
             <>
               {/* Loading indicator for infinite scroll */}

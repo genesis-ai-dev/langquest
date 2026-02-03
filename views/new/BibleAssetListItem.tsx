@@ -109,11 +109,11 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   //   void loadTags();
   // }, [asset.tag_ids, fetchManyTags]);
 
-  // Download mutation
-  const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
-    'asset',
-    asset.id
-  );
+  // Download mutation - only used when published (has download button)
+  // For unpublished assets, this hook is wasted overhead
+  const downloadMutation = useItemDownload('asset', asset.id);
+  const downloadAsset = downloadMutation.mutate;
+  const isDownloading = downloadMutation.isPending;
 
   // Tag modal state - commented out
   // const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
