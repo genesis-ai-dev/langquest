@@ -1,16 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { useLocalStore } from '@/store/localStore';
 const STORAGE_KEYS = {
-  OFFLINE_UNDOWNLOAD_WARNING: '@offline_undownload_warning'
+  OFFLINE_UNDOWNLOAD_WARNING: '@offline_undownload_warning',
+  RECORDING_HELP_SHOWN: '@recording_help_shown'
 } as const;
 
 export const storage = {
   async getOfflineUndownloadWarningEnabled(): Promise<boolean> {
     try {
-      const value = await AsyncStorage.getItem(
-        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING
-      );
-      return value === null ? true : value === 'true';
+      const state = useLocalStore.getState();
+      return state.offlineUndownloadWarningEnabled;
     } catch (error) {
       console.error(
         'Error reading offline undownload warning preference:',
@@ -22,15 +22,45 @@ export const storage = {
 
   async setOfflineUndownloadWarningEnabled(enabled: boolean): Promise<void> {
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING,
-        enabled.toString()
-      );
+      const { setOfflineUndownloadWarningEnabled } = useLocalStore.getState();
+      setOfflineUndownloadWarningEnabled(enabled);
     } catch (error) {
       console.error(
         'Error saving offline undownload warning preference:',
         error
       );
+    }
+  },
+
+  async hasRecordingHelpBeenShown(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(
+        STORAGE_KEYS.RECORDING_HELP_SHOWN
+      );
+      console.log('[storage] RECORDING_HELP_SHOWN value:', value);
+      return value === 'true';
+    } catch (error) {
+      console.error('Error reading recording help shown state:', error);
+      return false;
+    }
+  },
+
+  async setRecordingHelpShown(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.RECORDING_HELP_SHOWN, 'true');
+      console.log('[storage] Recording help marked as shown');
+    } catch (error) {
+      console.error('Error saving recording help shown state:', error);
+    }
+  },
+
+  // For testing: reset the recording help shown state
+  async resetRecordingHelpShown(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.RECORDING_HELP_SHOWN);
+      console.log('[storage] Recording help state reset');
+    } catch (error) {
+      console.error('Error resetting recording help shown state:', error);
     }
   }
 };
@@ -87,7 +117,7 @@ export const checkAndClearStorage = async (): Promise<void> => {
 
       // Clear React Query cache keys (they often start with 'REACT_QUERY')
       const cacheKeys = keys.filter(
-        (key) =>
+        (key: string) =>
           key.includes('REACT_QUERY') ||
           key.includes('cache') ||
           key.includes('temp_')
@@ -108,7 +138,7 @@ export const clearAllCacheData = async (): Promise<void> => {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter(
-      (key) =>
+      (key: string) =>
         key.includes('REACT_QUERY') ||
         key.includes('cache') ||
         key.includes('temp_') ||

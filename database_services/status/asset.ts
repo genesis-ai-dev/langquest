@@ -32,7 +32,9 @@ export function useAssetStatuses(
     data: assetData = [],
     refetch: assetRefetch,
     isLoading: isAssetLoading,
-    isError: isAssetError
+    isError: isAssetError,
+    offlineError: assetOfflineError,
+    cloudError: assetCloudError
   } = useHybridData({
     dataType: 'asset-settings',
     queryKeyParams: [assetId],
@@ -58,23 +60,14 @@ export function useAssetStatuses(
     }
   });
 
-  if (isAssetError) {
-    console.error('Error fetching asset status:', isAssetError);
-    return {
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      refetch: () => null
-    };
-  }
-
-  full = assetData[0] ?? { active: true, visible: true, source: 'local' };
-
+  // Always call all hooks before any early returns to maintain hook order
   const {
     data: assetQuestDataArray = [],
     refetch: assetQuestRefetch,
     isLoading: isAssetQuestLoading,
-    isError: isAssetQuestError
+    isError: isAssetQuestError,
+    offlineError: assetQuestOfflineError,
+    cloudError: assetQuestCloudError
   } = useHybridData({
     dataType: 'quest-asset-settings',
     queryKeyParams: [questId, assetId],
@@ -103,6 +96,33 @@ export function useAssetStatuses(
     },
     enableCloudQuery: assetData[0] && assetData[0].source !== 'local' // Only fetch cloud data if the asset is not local
   });
+
+  // Handle error case after all hooks have been called
+  if (isAssetError) {
+    console.error('Error fetching asset status:', {
+      offlineError: assetOfflineError,
+      cloudError: assetCloudError,
+      assetId
+    });
+    return {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: () => null
+    };
+  }
+
+  // Log quest-asset link errors if they occur
+  if (isAssetQuestError) {
+    console.error('Error fetching quest-asset link status:', {
+      offlineError: assetQuestOfflineError,
+      cloudError: assetQuestCloudError,
+      questId,
+      assetId
+    });
+  }
+
+  full = assetData[0] ?? { active: true, visible: true, source: 'local' };
 
   currentQuest = assetQuestDataArray[0] ?? {
     active: true,

@@ -3,7 +3,7 @@
  *
  * - Waveform displayed above the controls
  * - Prevents re-renders from frequent currentEnergy updates
- * - Only re-renders when critical props change (isRecording, isVADLocked)
+ * - Only re-renders when critical props change (isRecording, isVADActive)
  */
 
 import WalkieTalkieRecorder from '@/components/WalkieTalkieRecorder';
@@ -11,9 +11,19 @@ import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { Audio } from 'expo-av';
-import { MicOffIcon, Settings, Sparkles } from 'lucide-react-native';
+import {
+  CircleHelp,
+  MicOffIcon,
+  Settings,
+  Sparkles
+} from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -38,8 +48,8 @@ interface RecordingControlsProps {
   onRecordingDiscarded?: () => void;
   onLayout?: (height: number) => void;
   // VAD props
-  isVADLocked?: boolean;
-  onVADLockChange?: (locked: boolean) => void;
+  isVADActive?: boolean;
+  onVADActiveChange?: (active: boolean) => void;
   onSettingsPress?: () => void;
   onAutoCalibratePress?: () => void; // Callback to open settings drawer with auto-calibrate
   // VAD visual feedback (native module handles recording)
@@ -47,6 +57,7 @@ interface RecordingControlsProps {
   vadThreshold?: number;
   energyShared?: SharedValue<number>; // For UI performance
   isRecordingShared?: SharedValue<boolean>; // NEW: For instant waveform updates
+  isDiscardedShared?: SharedValue<number>; // NEW: For retroactive blue effect
   displayMode?: 'fullscreen' | 'footer'; // Display mode preference
 }
 
@@ -58,14 +69,15 @@ export const RecordingControls = React.memo(
     onRecordingComplete,
     onRecordingDiscarded,
     onLayout,
-    isVADLocked,
-    onVADLockChange,
+    isVADActive,
+    onVADActiveChange,
     onSettingsPress,
     onAutoCalibratePress,
     currentEnergy,
     vadThreshold,
     energyShared,
     isRecordingShared,
+    isDiscardedShared,
     displayMode: _displayMode = 'footer'
   }: RecordingControlsProps) {
     const { t } = useLocalization();
@@ -154,8 +166,8 @@ export const RecordingControls = React.memo(
 
     // Animate display progress to lag slightly behind activation progress
     // This makes the bar complete around the same time recording actually starts
-    // Activation completes in 500ms, but recording takes ~50-100ms more to actually start
-    // So we'll make display progress animate slightly slower (~550ms total)
+    // Activation completes in 200ms, but recording takes ~50-100ms more to actually start
+    // So we'll make display progress animate slightly slower (~250ms total)
     useAnimatedReaction(
       () => activationProgressShared.value,
       (currentProgress, previous) => {
@@ -163,10 +175,10 @@ export const RecordingControls = React.memo(
         if (!isRecording) {
           // Detect when activation starts (progress goes from 0 to >0)
           if (previous === 0 && currentProgress > 0) {
-            // Start display animation - animate to 1 over 550ms (slightly longer than activation's 500ms)
+            // Start display animation - animate to 1 over 250ms (slightly longer than activation's 200ms)
             // This makes it complete around the same time recording actually starts
             displayProgressShared.value = withTiming(1, {
-              duration: 550, // Slightly longer than activation (500ms) to sync with recording start
+              duration: 250, // Slightly longer than activation (200ms) to sync with recording start
               easing: Easing.linear
             });
           } else if (currentProgress === 0) {
@@ -179,11 +191,11 @@ export const RecordingControls = React.memo(
     );
 
     // Animated style for progress bar - shows activation progress, hides when recording starts
-    // Only shown during walkie-talkie mode (not during VAD lock)
+    // Only shown during walkie-talkie mode (not during VAD active)
     const progressBarStyle = useAnimatedStyle(() => {
       'worklet';
-      // Hide progress bar entirely when VAD locked or when recording has started
-      if (isVADLocked || isRecording) {
+      // Hide progress bar entirely when VAD active or when recording has started
+      if (isVADActive || isRecording) {
         return {
           width: 0,
           opacity: 0
@@ -199,7 +211,7 @@ export const RecordingControls = React.memo(
         opacity: progress > 0 ? 1 : 0,
         backgroundColor: '#3b82f6' // Blue during activation
       };
-    }, [isRecording, isVADLocked, width]);
+    }, [isRecording, isVADActive, width]);
 
     // Fallback SharedValues for backward compatibility
     // Note: useSharedValue is already imported at the top, don't require it again
@@ -233,10 +245,10 @@ export const RecordingControls = React.memo(
     // Update walkie-talkie recording state SharedValue (for waveform bar color)
     // Only update when NOT in VAD mode
     useEffect(() => {
-      if (!isVADLocked) {
+      if (!isVADActive) {
         walkieTalkieIsRecordingShared.value = isRecording;
       }
-    }, [isRecording, isVADLocked, walkieTalkieIsRecordingShared]);
+    }, [isRecording, isVADActive, walkieTalkieIsRecordingShared]);
 
     // Continuously tick walkie-talkie energy during recording to progress waveform
     // This ensures the waveform progresses even during silence - it's time-based, not just energy-based
@@ -246,7 +258,7 @@ export const RecordingControls = React.memo(
     const tickToggleRef = useRef<boolean>(false);
 
     useEffect(() => {
-      if (!isRecording || isVADLocked) {
+      if (!isRecording || isVADActive) {
         // Reset when not recording
         walkieTalkieEnergyShared.value = 0;
         tickToggleRef.current = false;
@@ -272,7 +284,7 @@ export const RecordingControls = React.memo(
       return () => {
         clearInterval(interval);
       };
-    }, [isRecording, isVADLocked, walkieTalkieEnergyShared]);
+    }, [isRecording, isVADActive, walkieTalkieEnergyShared]);
 
     // Show permission UI only if we explicitly know permission is denied (not while checking)
     // During check (hasPermission === null), show controls optimistically
@@ -364,68 +376,101 @@ export const RecordingControls = React.memo(
             ]}
           />
 
-          {/* Waveform visualization above controls - visible during VAD lock or walkie-talkie recording */}
+          {/* Waveform visualization above controls - visible during VAD active or walkie-talkie recording */}
           <WaveformVisualization
-            isVisible={(isVADLocked ?? false) || isRecording}
+            isVisible={(isVADActive ?? false) || isRecording}
             energyShared={
-              // Use VAD energy during VAD lock, walkie-talkie energy during walkie-talkie recording
-              isVADLocked
+              // Use VAD energy during VAD active, walkie-talkie energy during walkie-talkie recording
+              isVADActive
                 ? (energyShared ?? fallbackEnergyShared)
                 : isRecording
                   ? walkieTalkieEnergyShared
                   : (energyShared ?? fallbackEnergyShared)
             }
-            vadThreshold={vadThreshold ?? 0.085}
+            vadThreshold={vadThreshold ?? 0.05}
             isRecordingShared={
-              // Use VAD recording state during VAD lock, walkie-talkie state during walkie-talkie recording
-              isVADLocked
+              // Use VAD recording state during VAD active, walkie-talkie state during walkie-talkie recording
+              isVADActive
                 ? (isRecordingShared ?? fallbackIsRecordingShared)
                 : isRecording
                   ? walkieTalkieIsRecordingShared
                   : (isRecordingShared ?? fallbackIsRecordingShared)
             }
+            isDiscardedShared={isDiscardedShared}
             barCount={60}
             maxHeight={24}
           />
 
-          {/* Controls row */}
-          <View className="flex-row items-center justify-between px-4 py-2">
-            {/* Settings button on the left */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onPress={onSettingsPress}
-              className="h-20 w-20"
-            >
-              <Icon as={Settings} size={24} />
-            </Button>
-
-            {/* Recorder in center - takes remaining space */}
-            <View className="flex-1 items-center">
-              <WalkieTalkieRecorder
-                onRecordingComplete={onRecordingComplete}
-                onRecordingStart={onRecordingStart}
-                onRecordingStop={onRecordingStop}
-                onRecordingDiscarded={onRecordingDiscarded}
-                onWaveformUpdate={undefined}
-                isRecording={isRecording}
-                isVADLocked={isVADLocked}
-                onVADLockChange={onVADLockChange}
-                // Energy values passed directly - ring buffer handles updates efficiently
-                currentEnergy={currentEnergy}
-                vadThreshold={vadThreshold}
-                canRecord={hasPermission !== false} // Allow recording if granted or still checking
-                activationProgressShared={activationProgressShared}
-                energyShared={walkieTalkieEnergyShared}
-                onRecordingDurationUpdate={(_duration) => {
-                  // Duration tracking for other purposes if needed
-                  // Progress bar uses activationProgressShared instead
-                }}
-              />
+          {/* Settings row or VAD active message - above recorder */}
+          {isVADActive ? (
+            <View className="items-center justify-center px-4 pb-4">
+              <Text className="text-sm font-semibold text-foreground">
+                {t('vadRecordingActive')}
+              </Text>
             </View>
+          ) : (
+            <View className="flex-row items-center justify-between px-4 pb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={onSettingsPress}
+                className="-ml-2 h-auto flex-row items-center gap-2"
+              >
+                <Icon as={Settings} size={20} />
+                <Text className="text-sm text-muted-foreground">
+                  {t('vadRecordingSettings')}
+                </Text>
+              </Button>
+              <Tooltip>
+                <TooltipTrigger hitSlop={10}>
+                  <Icon as={CircleHelp} size={20} />
+                </TooltipTrigger>
+                <TooltipContent
+                  className="w-72"
+                  side="top"
+                  align="end"
+                  sideOffset={8}
+                >
+                  <View>
+                    <Text className="text-base font-bold">
+                      {t('recordingHelpTitle')}
+                    </Text>
+                    <Text className="mt-2">
+                      1. <Text className="font-bold">{t('tap')}</Text>{' '}
+                      {t('recordingHelpVAD')}
+                    </Text>
+                    <Text className="mt-2">
+                      2. <Text className="font-bold">{t('pressAndHold')}</Text>{' '}
+                      {t('recordingHelpPushToTalk')}
+                    </Text>
+                  </View>
+                </TooltipContent>
+              </Tooltip>
+            </View>
+          )}
 
-            {/* Spacer to balance layout */}
-            <View className="h-20 w-20" />
+          {/* Recorder - full width */}
+          <View className="px-4 pb-2">
+            <WalkieTalkieRecorder
+              onRecordingComplete={onRecordingComplete}
+              onRecordingStart={onRecordingStart}
+              onRecordingStop={onRecordingStop}
+              onRecordingDiscarded={onRecordingDiscarded}
+              onWaveformUpdate={undefined}
+              isRecording={isRecording}
+              isVADActive={isVADActive}
+              onVADActiveChange={onVADActiveChange}
+              // Energy values passed directly - ring buffer handles updates efficiently
+              currentEnergy={currentEnergy}
+              vadThreshold={vadThreshold}
+              canRecord={hasPermission !== false} // Allow recording if granted or still checking
+              activationProgressShared={activationProgressShared}
+              energyShared={walkieTalkieEnergyShared}
+              onRecordingDurationUpdate={(_duration) => {
+                // Duration tracking for other purposes if needed
+                // Progress bar uses activationProgressShared instead
+              }}
+            />
           </View>
         </View>
       </>
@@ -433,9 +478,9 @@ export const RecordingControls = React.memo(
   },
   // **OPTIMIZATION: Custom equality check - only re-render for critical prop changes**
   (prevProps, nextProps) => {
-    // FIX: Allow immediate re-render when VAD lock changes for responsive cancel button
-    if (prevProps.isVADLocked !== nextProps.isVADLocked) {
-      return false; // Force re-render immediately on VAD lock change
+    // FIX: Allow immediate re-render when VAD active changes for responsive cancel button
+    if (prevProps.isVADActive !== nextProps.isVADActive) {
+      return false; // Force re-render immediately on VAD active change
     }
 
     // Re-render ONLY if these props change:
@@ -443,14 +488,15 @@ export const RecordingControls = React.memo(
     // The progress bar uses a SharedValue that updates smoothly without causing re-renders
     return (
       prevProps.isRecording === nextProps.isRecording &&
-      // isVADLocked already checked above
+      // isVADActive already checked above
       prevProps.onRecordingStart === nextProps.onRecordingStart &&
       prevProps.onRecordingStop === nextProps.onRecordingStop &&
       prevProps.onRecordingComplete === nextProps.onRecordingComplete &&
       prevProps.onRecordingDiscarded === nextProps.onRecordingDiscarded &&
-      prevProps.onVADLockChange === nextProps.onVADLockChange &&
+      prevProps.onVADActiveChange === nextProps.onVADActiveChange &&
       prevProps.onSettingsPress === nextProps.onSettingsPress
       // Still ignoring currentEnergy, vadThreshold, and recordingDuration changes to prevent cascade
+      // isVADActive already checked above
     );
   }
 );

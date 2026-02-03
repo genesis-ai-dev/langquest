@@ -22,7 +22,8 @@ const signupEmailSubjects = {
   fr: 'Confirmez votre compte LangQuest',
   'pt-BR': 'Confirme sua conta LangQuest',
   'id-ID': 'Konfirmasi Akun LangQuest Anda',
-  'tpi-PG': 'Strongim LangQuest Akaun bilong yu'
+  'tpi-PG': 'Strongim LangQuest Akaun bilong yu',
+  ne: 'तपाईंको LangQuest खाता पुष्टि गर्नुहोस्'
 };
 // Email subject translations
 const emailSubjects = {
@@ -34,7 +35,8 @@ const emailSubjects = {
     fr: 'Réinitialisez votre mot de passe LangQuest',
     'pt-BR': 'Redefina sua senha do LangQuest',
     'id-ID': 'Atur Ulang Kata Sandi LangQuest Anda',
-    'tpi-PG': 'Resetim LangQuest Password bilong yu'
+    'tpi-PG': 'Resetim LangQuest Password bilong yu',
+    ne: 'तपाईंको LangQuest पासवर्ड रिसेट गर्नुहोस्'
   },
   invite: {
     en: "You've been invited to join a project on LangQuest",
@@ -42,7 +44,8 @@ const emailSubjects = {
     fr: 'Vous avez été invité à rejoindre un projet sur LangQuest',
     'pt-BR': 'Você foi convidado para participar de um projeto no LangQuest',
     'id-ID': 'Anda telah diundang untuk bergabung dalam proyek di LangQuest',
-    'tpi-PG': 'Yu telah strongim langquest bilong yu'
+    'tpi-PG': 'Yu telah strongim langquest bilong yu',
+    ne: 'तपाईंलाई LangQuest मा एउटा प्रोजेक्टमा सामेल हुन आमन्त्रित गरिएको छ'
   }
 };
 const emailTypeEndpoint = {
@@ -68,7 +71,8 @@ function mapLanguoidNameToLocale(
     'brazilian portuguese': 'pt-BR',
     'tok pisin': 'tpi-PG',
     'standard indonesian': 'id-ID',
-    indonesian: 'id-ID' // Also handle just "Indonesian"
+    indonesian: 'id-ID', // Also handle just "Indonesian"
+    nepali: 'ne'
   };
 
   return mapping[normalized] ?? 'en';

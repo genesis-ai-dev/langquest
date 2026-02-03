@@ -9,7 +9,7 @@ import {
   tag
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { WithSource } from '@/utils/dbUtils';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
 import { getOptionShowHiddenContent } from '@/utils/settingsUtils';
 import {
@@ -17,6 +17,7 @@ import {
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery } from '@tanstack/react-query';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import {
   and,
@@ -29,9 +30,10 @@ import {
   isNull,
   like,
   notInArray,
-  or
+  or,
+  sql
 } from 'drizzle-orm';
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   createHybridQueryConfig,
   useHybridInfiniteQuery,
@@ -1030,6 +1032,7 @@ export function useAssetsQuestLinkById(
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  tag_ids?: string[];
 };
 
 export function useAssetsByQuest(
@@ -1079,7 +1082,12 @@ export function useAssetsByQuest(
           .select({
             ...getTableColumns(asset),
             quest_visible: quest_asset_link.visible,
-            quest_active: quest_asset_link.active
+            quest_active: quest_asset_link.active,
+            tag_ids: sql<string>`(
+              SELECT json_group_array(${asset_tag_link.tag_id}) 
+              FROM ${asset_tag_link} 
+              WHERE ${asset_tag_link.asset_id} = ${asset.id}
+            )`
           })
           .from(asset)
           .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
@@ -1092,7 +1100,34 @@ export function useAssetsByQuest(
           .limit(pageSize)
           .offset(offset);
 
-        return assets;
+        // Convert tag_ids from JSON string to array for consistency with cloud query
+        const processedAssets = assets.map((asset) => {
+          let tagIds: string[] = [];
+          try {
+            if (asset.tag_ids) {
+              const parsed = JSON.parse(String(asset.tag_ids));
+              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
+            }
+            if (asset.metadata) {
+              const parsed = JSON.parse(String(asset.metadata));
+              asset.metadata = parsed as string | null;
+            }
+          } catch (error) {
+            console.warn(
+              '[useAssetsByQuest] Failed to parse tag_ids:',
+              asset.tag_ids,
+              error
+            );
+            tagIds = [];
+          }
+
+          return {
+            ...asset,
+            tag_ids: tagIds
+          } as AssetQuestLink;
+        });
+
+        return processedAssets;
       } catch (error) {
         console.error('[ASSETS] Offline query error:', error);
         return [];
@@ -1116,7 +1151,8 @@ export function useAssetsByQuest(
           visible,
           active,
           asset:asset_id (
-            *
+            *,
+            asset_tag_link(tag_id)
           )
         `
         )
@@ -1144,7 +1180,8 @@ export function useAssetsByQuest(
         query = query.filter('asset.name', 'ilike', `%${searchQuery.trim()}%`);
       }
 
-      // Order by order_index, then created_at, then name
+      // Order by created_at for cloud query
+      // Note: order_index ordering is handled client-side for cloud data
       query = query.order('created_at', { ascending: true });
 
       // Add pagination
@@ -1159,16 +1196,21 @@ export function useAssetsByQuest(
       if (error) throw error;
 
       // Map to AssetQuestLink format with quest_visible and quest_active
-      const assets: AssetQuestLink[] = data
-        .map((item) => {
-          if (!item.asset) return null;
-          return {
-            ...item.asset,
-            quest_visible: item.visible,
-            quest_active: item.active
-          } as AssetQuestLink;
-        })
-        .filter((item): item is AssetQuestLink => item !== null);
+      const assets: AssetQuestLink[] = data.map((item) => {
+        // Extract tag IDs from asset_tag_link array
+        const assetWithTags = item.asset as Asset & {
+          asset_tag_link?: { tag_id: string }[];
+        };
+        const tag_ids: string[] =
+          assetWithTags.asset_tag_link?.map((link) => link.tag_id) || [];
+
+        return {
+          ...item.asset,
+          quest_visible: item.visible,
+          quest_active: item.active,
+          tag_ids
+        } as AssetQuestLink;
+      });
 
       return assets;
     },
@@ -1186,3 +1228,327 @@ export function useAssetsByQuest(
     refetch
   };
 }
+
+export function useLocalAssetsByQuest(
+  quest_id: string,
+  searchQuery: string,
+  showHiddenContent: boolean
+) {
+  const { currentUser } = useAuth();
+  const isOnline = useNetworkStatus(); // 🔧 Get real network status
+
+  // For local-only quests, use simple query (no pagination needed for ~200 records)
+  // This is wrapped to maintain API compatibility with infinite scroll structure
+  const simpleQuery = useQuery({
+    queryKey: ['assets', 'by-quest-local-simple', quest_id || '', searchQuery],
+    queryFn: async () => {
+      if (!quest_id || !currentUser) return [];
+
+      try {
+        const conditions = [
+          isNull(asset.source_asset_id),
+          eq(quest_asset_link.quest_id, quest_id),
+          or(
+            !showHiddenContent ? eq(asset.visible, true) : undefined,
+            eq(asset.creator_id, currentUser.id)
+          ),
+          or(
+            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+            eq(asset.creator_id, currentUser.id)
+          ),
+          notInArray(asset.id, blockedContentQuery(currentUser.id, 'asset')),
+          notInArray(asset.creator_id, blockedUsersQuery(currentUser.id)),
+          searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
+        ];
+
+        // Query all assets at once (no pagination for local data)
+        const assets = await system.db
+          .select({
+            ...getTableColumns(asset),
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active,
+            tag_ids: sql<string>`(
+              SELECT json_group_array(${asset_tag_link.tag_id}) 
+              FROM ${asset_tag_link} 
+              WHERE ${asset_tag_link.asset_id} = ${asset.id}
+            )`
+          })
+          .from(asset)
+          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+          .where(and(...conditions.filter(Boolean)))
+          .orderBy(
+            asc(asset.order_index),
+            asc(asset.created_at),
+            asc(asset.name)
+          );
+        // No .limit() or .offset() - fetch everything
+
+        // Process tag_ids and metadata
+        const processedAssets = assets.map((asset) => {
+          let tagIds: string[] = [];
+          try {
+            if (asset.tag_ids) {
+              const parsed = JSON.parse(String(asset.tag_ids));
+              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
+            }
+            if (asset.metadata) {
+              const parsed = JSON.parse(String(asset.metadata));
+              asset.metadata = parsed as string | null;
+            }
+          } catch (error) {
+            console.warn(
+              '[useLocalAssetsByQuest] Failed to parse tag_ids:',
+              asset.tag_ids,
+              error
+            );
+            tagIds = [];
+          }
+
+          return {
+            ...asset,
+            tag_ids: tagIds
+          } as AssetQuestLink;
+        });
+
+        return processedAssets;
+      } catch (error) {
+        console.error('[useLocalAssetsByQuest] Query error:', error);
+        return [];
+      }
+    },
+    enabled: !!quest_id && !!currentUser
+  });
+
+  // Wrap simple query result to match infinite query structure
+  // This maintains API compatibility with code expecting infinite scroll data
+  const wrappedData = React.useMemo(() => {
+    if (!simpleQuery.data) {
+      return { pages: [], pageParams: [] };
+    }
+    // Wrap all data in a single page to match InfiniteData<{ data: T[] }> structure
+    return {
+      pages: [{ data: simpleQuery.data }],
+      pageParams: [0]
+    };
+  }, [simpleQuery.data]);
+
+  // Return structure compatible with useInfiniteQuery
+  return {
+    data: wrappedData,
+    fetchNextPage: () =>
+      Promise.resolve({
+        data: wrappedData,
+        pageParam: undefined
+      }), // No-op for local data (all loaded)
+    hasNextPage: false, // All data loaded in one query
+    isFetchingNextPage: false,
+    isLoading: simpleQuery.isLoading,
+    isOnline, // 🔧 Use real network status (needed for publish/bookmark buttons)
+    isFetching: simpleQuery.isFetching,
+    refetch: simpleQuery.refetch
+  };
+}
+
+/**
+ * Legacy infinite scroll version (not used, kept for reference)
+ * This was the old implementation using pagination for local data
+ * Now replaced with simple query above since local data is small (~200 records)
+ */
+/*
+function _useLocalAssetsByQuestInfinite(
+  quest_id: string,
+  searchQuery: string,
+  showHiddenContent: boolean
+) {
+  const { currentUser } = useAuth();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline,
+    isFetching,
+    refetch
+  } = useSimpleHybridInfiniteData<AssetQuestLink>(
+    'assets',
+    ['by-quest', quest_id || '', searchQuery],
+    // Offline query function - Assets must be downloaded to use
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      const limit = pageSize > 1000 ? pageSize : 1000;
+
+      try {
+        const offset = pageParam * limit;
+
+        const conditions = [
+          isNull(asset.source_asset_id),
+          eq(quest_asset_link.quest_id, quest_id),
+          or(
+            !showHiddenContent ? eq(asset.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
+          or(
+            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
+            eq(asset.creator_id, currentUser!.id)
+          ),
+          notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
+          notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
+          searchQuery.trim() && and(like(asset.name, `%${searchQuery.trim()}%`))
+        ];
+
+        // Normal pagination without search
+        const assets = await system.db
+          .select({
+            ...getTableColumns(asset),
+            quest_visible: quest_asset_link.visible,
+            quest_active: quest_asset_link.active,
+            tag_ids: sql<string>`(
+              SELECT json_group_array(${asset_tag_link.tag_id}) 
+              FROM ${asset_tag_link} 
+              WHERE ${asset_tag_link.asset_id} = ${asset.id}
+            )`
+          })
+          .from(asset)
+          .innerJoin(quest_asset_link, eq(asset.id, quest_asset_link.asset_id))
+          .where(and(...conditions.filter(Boolean)))
+          .orderBy(
+            asc(asset.order_index),
+            asc(asset.created_at),
+            asc(asset.name)
+          )
+          .limit(limit)
+          .offset(offset);
+
+        // Convert tag_ids from JSON string to array for consistency with cloud query
+        const processedAssets = assets.map((asset) => {
+          let tagIds: string[] = [];
+          try {
+            if (asset.tag_ids) {
+              const parsed = JSON.parse(String(asset.tag_ids));
+              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
+            }
+            if (asset.metadata) {
+              const parsed = JSON.parse(String(asset.metadata));
+              asset.metadata = parsed as string | null;
+            }
+          } catch (error) {
+            console.warn(
+              '[useAssetsByQuest] Failed to parse tag_ids:',
+              asset.tag_ids,
+              error
+            );
+            tagIds = [];
+          }
+
+          return {
+            ...asset,
+            tag_ids: tagIds
+          } as AssetQuestLink;
+        });
+
+        return processedAssets;
+      } catch (error) {
+        console.error('[ASSETS] Offline query error:', error);
+        return [];
+      }
+    },
+    // Cloud query function - For anonymous users, fetch assets directly from cloud
+    // For authenticated users, assets must be downloaded to use offline, but cloud query
+    // can still be used for browsing (anonymous-style access)
+    async ({ pageParam, pageSize }) => {
+      if (!quest_id) return [];
+
+      const offset = pageParam * pageSize;
+      const from = offset;
+      const to = offset + pageSize - 1;
+
+      // Build query from quest_asset_link to get both asset data and link metadata
+      let query = system.supabaseConnector.client
+        .from('quest_asset_link')
+        .select(
+          `
+          visible,
+          active,
+          asset:asset_id (
+            *,
+            asset_tag_link(tag_id)
+          )
+        `
+        )
+        .eq('quest_id', quest_id)
+        .is('asset.source_asset_id', null); // Only get original assets, not variants
+
+      // Filter by visibility - anonymous users can only see visible assets
+      // Authenticated users can see their own hidden assets if showHiddenContent is true
+      if (!showHiddenContent) {
+        // Show only visible assets
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+      } else if (currentUser?.id) {
+        // Show all assets, but still filter by link visibility for non-creators
+        // For creators, show all their assets even if hidden
+        query = query.or(
+          `visible.eq.true,asset.creator_id.eq.${currentUser.id}`
+        );
+      } else {
+        // Anonymous users with showHiddenContent=true still only see visible (for safety)
+        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+      }
+
+      // Add search filtering
+      if (searchQuery.trim()) {
+        query = query.filter('asset.name', 'ilike', `%${searchQuery.trim()}%`);
+      }
+
+      // Order by created_at for cloud query
+      // Note: order_index ordering is handled client-side for cloud data
+      query = query.order('created_at', { ascending: true });
+
+      // Add pagination
+      const { data, error } = await query.range(from, to).overrideTypes<
+        {
+          visible: boolean;
+          active: boolean;
+          asset: Asset;
+        }[]
+      >();
+
+      if (error) throw error;
+
+      // Map to AssetQuestLink format with quest_visible and quest_active
+      const assets: AssetQuestLink[] = data.map((item) => {
+        // Extract tag IDs from asset_tag_link array
+        const assetWithTags = item.asset as Asset & {
+          asset_tag_link?: { tag_id: string }[];
+        };
+        const tag_ids: string[] =
+          assetWithTags.asset_tag_link?.map((link) => link.tag_id) || [];
+
+        return {
+          ...item.asset,
+          quest_visible: item.visible,
+          quest_active: item.active,
+          tag_ids
+        } as AssetQuestLink;
+      });
+
+      return assets;
+    },
+    1000 // pageSize
+  );
+
+  return {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isOnline,
+    isFetching,
+    refetch
+  };
+}
+*/
+// End of legacy infinite scroll implementation (commented out)

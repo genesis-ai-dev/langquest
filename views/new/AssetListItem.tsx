@@ -8,14 +8,26 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+// import type { Tag } from '@/database_services/tagCache';
+// import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+// import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
-import { EyeOffIcon, HardDriveIcon, PauseIcon } from 'lucide-react-native';
+import {
+  EyeOffIcon,
+  HardDriveIcon,
+  PauseIcon,
+  SquareArrowOutUpRightIcon
+  // Plus,
+  // TagIcon
+} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
+// import { TagModal } from '../../components/TagModal';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -25,19 +37,29 @@ type Asset = typeof asset_type.$inferSelect;
 type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
+  // tag_ids?: string[] | undefined;
 };
 export interface AssetListItemProps {
   asset: AssetQuestLink;
+  isPublished: boolean;
   questId: string;
+  onUpdate?: () => void;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
+  // Selection props (visual highlight for playAll)
+  isSelected?: boolean;
+  onToggleSelect?: (assetId: string) => void;
 }
 
 export const AssetListItem: React.FC<AssetListItemProps> = ({
   asset,
   questId,
-  attachmentState,
-  isCurrentlyPlaying = false
+  isCurrentlyPlaying = false,
+  isPublished: _isPublished,
+  onUpdate: _onUpdate,
+  attachmentState: _attachmentState,
+  isSelected = false,
+  onToggleSelect
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -46,11 +68,56 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
 
+  // Tags temporarily disabled
+  // const fetchManyTags = useTagStore((s) => s.fetchManyTags);
+  // const [tags, setTags] = React.useState<
+  //   { id: string; key: string; value?: string }[]
+  // >([]);
+
+  // React.useEffect(() => {
+  //   const loadTags = async () => {
+  //     if (asset.tag_ids && asset.tag_ids.length > 0) {
+  //       const fetchedTags = await fetchManyTags(asset.tag_ids);
+  //       setTags(fetchedTags);
+  //     }
+  //   };
+  //   void loadTags();
+  // }, [asset.tag_ids, fetchManyTags]);
+
   // Download mutation
   const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
     'asset',
     asset.id
   );
+
+  // Tag modal state - temporarily disabled
+  // const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
+
+  // const handleOpenTagModal = () => {
+  //   console.log('Opening tag modal for asset:', asset.id);
+  //   setIsTagModalVisible(true);
+  // };
+
+  // const handleAssignTags = async (tags: Tag[]) => {
+  //   try {
+  //     // Extract tag IDs from the tags array
+  //     const tagIds = tags.map((tag) => tag.id);
+
+  //     // Use the tagService to assign tags to the asset
+  //     await tagService.assignTagsToAssetLocal(asset.id, tagIds);
+
+  //     onUpdate?.();
+
+  //     console.log(
+  //       `Successfully assigned ${tagIds.length} tags to asset ${asset.id}`
+  //     );
+  //   } catch (error) {
+  //     console.error('Failed to assign tags to asset:', error);
+  //     // TODO: Show error toast/alert to user
+  //   } finally {
+  //     setIsTagModalVisible(false);
+  //   }
+  // };
 
   const layerStatus = useStatusContext();
   const { allowEditing, invisible } = layerStatus.getStatusParams(
@@ -64,7 +131,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     questId
   );
 
-  const handlePress = () => {
+  const handleOpenAsset = () => {
     layerStatus.setLayerStatus(
       LayerType.ASSET,
       {
@@ -90,6 +157,11 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     });
   };
 
+  const handlePress = () => {
+    // Always toggle selection when clicking on the card
+    onToggleSelect?.(asset.id);
+  };
+
   const handleDownloadToggle = () => {
     if (!currentUser?.id) return;
 
@@ -97,15 +169,22 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
     downloadAsset({ userId: currentUser.id, download: !isDownloaded });
   };
 
+  // const tag = tags.length > 0 ? tags[0] : null;
+
   return (
     <Pressable onPress={handlePress}>
       <Card
-        className={`${!allowEditing ? 'opacity-50' : ''} ${invisible ? 'opacity-30' : ''} ${isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''}`}
+        className={cn(
+          !allowEditing && 'opacity-50',
+          invisible && 'opacity-30',
+          isCurrentlyPlaying && 'border-2 border-primary bg-primary/5',
+          isSelected && 'border-2 border-primary bg-primary/10'
+        )}
       >
         <CardHeader className="flex flex-row items-start justify-between">
           <View className="flex flex-1 gap-1">
-            <View className="flex flex-row items-center">
-              <View className="flex flex-1 flex-row gap-2">
+            <View className="flex flex-row items-center justify-between gap-2">
+              <View className="flex flex-1 flex-row items-center gap-2">
                 {(!allowEditing || invisible) && (
                   <View className="flex flex-row items-center gap-1.5">
                     {invisible && (
@@ -129,12 +208,49 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   </CardTitle>
                 </View>
               </View>
-              <DownloadIndicator
-                isFlaggedForDownload={isDownloaded}
-                isLoading={isDownloading}
-                onPress={handleDownloadToggle}
-                size={20}
-              />
+              {/* Tags temporarily disabled */}
+              {/* <View className="flex flex-row items-center justify-center gap-2">
+                <Pressable
+                  onPress={isPublished ? undefined : handleOpenTagModal}
+                >
+                  {tags.length === 0 ? (
+                    !isPublished && (
+                      <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
+                        <Icon as={Plus} size={10} className="text-white" />
+                        <Icon as={TagIcon} size={10} className="text-white" />
+                      </View>
+                    )
+                  ) : (
+                    <View pointerEvents="none">
+                      <Badge
+                        variant="default"
+                        className="flex flex-row items-center gap-1"
+                      >
+                        <Icon as={TagIcon} size={12} className="text-white" />
+                        <CardTitle className="text-xs text-white">
+                          {tag && `${tag.key}${tag.value && `: ${tag.value}`}`}
+                        </CardTitle>
+                      </Badge>
+                    </View>
+                  )}
+                </Pressable>
+              </View> */}
+              <View className="flex flex-row items-center gap-2">
+                <DownloadIndicator
+                  isFlaggedForDownload={isDownloaded}
+                  isLoading={isDownloading}
+                  onPress={handleDownloadToggle}
+                  size={16}
+                  iconColor="text-primary/50"
+                />
+                <Pressable onPress={handleOpenAsset}>
+                  <Icon
+                    as={SquareArrowOutUpRightIcon}
+                    size={16}
+                    className="text-primary"
+                  />
+                </Pressable>
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
@@ -148,6 +264,16 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
           </Text>
         </CardContent> */}
       </Card>
+
+      {/* Tags temporarily disabled */}
+      {/* <TagModal
+        isVisible={isTagModalVisible}
+        searchTerm=""
+        limit={200}
+        initialSelectedTags={tags}
+        onClose={() => setIsTagModalVisible(false)}
+        onAssignTags={handleAssignTags}
+      /> */}
     </Pressable>
   );
 };

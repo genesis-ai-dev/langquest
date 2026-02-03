@@ -172,7 +172,7 @@ export async function getMinimumSchemaVersion(
 
     for (const table of tables) {
       try {
-        const rawTableName = getRawTableName(table, 'local');
+        const rawTableName = getRawTableName(table);
 
         // Check if raw table exists
         const result = await db.getAll(

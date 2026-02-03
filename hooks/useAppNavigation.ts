@@ -7,6 +7,7 @@ import type { AppView, NavigationStackItem } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { profiler } from '@/utils/profiler';
 import { useCallback, useMemo } from 'react';
+import { useLocalization } from './useLocalization';
 
 export interface NavigationState {
   view: AppView;
@@ -31,8 +32,10 @@ export function useAppNavigation() {
     navigationStack,
     setNavigationStack,
     addRecentQuest,
-    addRecentAsset
+    addRecentAsset,
+    enableVerseMarkers
   } = useLocalStore();
+  const { t } = useLocalization();
 
   // Ensure navigationStack is always an array - safe access pattern
   const safeNavigationStack = useMemo(() => {
@@ -169,6 +172,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
+      const assetView =
+        questData.projectData?.template === 'bible' && enableVerseMarkers
+          ? 'bible-assets'
+          : 'assets';
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -180,7 +187,7 @@ export function useAppNavigation() {
       // Check if we're already at this quest
       if (
         currentState.questId === questData.id &&
-        currentState.view === 'assets'
+        currentState.view === assetView
       ) {
         // Already here, do nothing
         return;
@@ -191,11 +198,11 @@ export function useAppNavigation() {
         currentState.questId === questData.id &&
         currentState.view === 'asset-detail'
       ) {
-        goBackToView('assets');
+        goBackToView(assetView);
       } else {
         // Navigate fresh, pass data forward and preserve bookId (for Bible navigation)
         navigate({
-          view: 'assets',
+          view: assetView,
           questId: questData.id,
           questName: questData.name,
           projectId: questData.project_id,
@@ -205,7 +212,7 @@ export function useAppNavigation() {
         });
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView]
+    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
   );
 
   const goToAsset = useCallback(
@@ -279,24 +286,26 @@ export function useAppNavigation() {
   const breadcrumbs = useMemo(() => {
     const crumbs: { label: string; onPress?: () => void }[] = [];
 
+    const projectsLabel = t('projects');
+
     // Guard against malformed currentState (should always have view based on useMemo logic)
     if (!('view' in currentState)) {
-      return [{ label: 'Projects', onPress: goToProjects }];
+      return [{ label: projectsLabel, onPress: goToProjects }];
     }
 
     const state = currentState;
 
     if (state.view === 'projects') {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
     } else if (state.view === 'quests' && state.projectName) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({ label: state.projectName, onPress: undefined });
     } else if (
       state.view === 'assets' &&
       state.projectName &&
       state.questName
     ) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
         label: state.projectName,
         onPress: () =>
@@ -313,7 +322,7 @@ export function useAppNavigation() {
       state.questName &&
       state.assetName
     ) {
-      crumbs.push({ label: 'Projects', onPress: goToProjects });
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
         label: state.projectName,
         onPress: () =>
@@ -329,7 +338,8 @@ export function useAppNavigation() {
           goToQuest({
             id: state.questId!,
             project_id: state.projectId!,
-            name: state.questName
+            name: state.questName,
+            projectData: state.projectData
           })
       });
       crumbs.push({ label: state.assetName, onPress: undefined });
@@ -338,8 +348,8 @@ export function useAppNavigation() {
     // Always return at least one crumb to prevent empty array errors
     return crumbs.length > 0
       ? crumbs
-      : [{ label: 'Projects', onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest]);
+      : [{ label: projectsLabel, onPress: goToProjects }];
+  }, [currentState, goToProjects, goToProject, goToQuest, t]);
 
   return {
     // Current state

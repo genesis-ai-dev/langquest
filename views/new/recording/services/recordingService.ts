@@ -14,6 +14,14 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, gte } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
+// Asset metadata interface (verse information)
+export interface AssetMetadata {
+  verse?: {
+    from: number;
+    to: number;
+  };
+}
+
 export interface SaveRecordingParams {
   questId: string;
   projectId: string;
@@ -22,6 +30,7 @@ export interface SaveRecordingParams {
   orderIndex: number;
   audioUri: string;
   assetName: string; // Pre-determined asset name (reserved to prevent duplicates)
+  metadata?: AssetMetadata | null; // Optional verse metadata
 }
 
 /**
@@ -41,7 +50,8 @@ export async function saveRecording(
     userId,
     orderIndex,
     audioUri,
-    assetName
+    assetName,
+    metadata
   } = params;
 
   const newAssetId = String(uuid.v4());
@@ -93,7 +103,8 @@ export async function saveRecording(
         order_index: orderIndex,
         project_id: projectId,
         creator_id: userId,
-        download_profiles: [userId]
+        download_profiles: [userId],
+        metadata: metadata ? JSON.stringify(metadata) : null
       })
       .returning();
 

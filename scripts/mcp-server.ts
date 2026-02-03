@@ -560,7 +560,7 @@ function main() {
         reconnectTimeout = setTimeout(() => {
           reconnectTimeout = null;
           void connectToExpoDevtools();
-        }, delay);
+        }, delay) as unknown as NodeJS.Timeout;
       } else {
         console.error(
           '💡 The MCP server will continue running. Start your Expo app to enable database queries.'
@@ -665,7 +665,7 @@ function main() {
         reconnectTimeout = setTimeout(() => {
           reconnectTimeout = null;
           void connectToExpoDevtools();
-        }, delay);
+        }, delay) as unknown as NodeJS.Timeout;
       } else {
         console.error(
           '💡 The MCP server will continue running. Start your Expo app to enable database queries.'

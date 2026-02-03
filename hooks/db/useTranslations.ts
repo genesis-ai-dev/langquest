@@ -119,13 +119,15 @@ export function useTargetAssetsWithVoteCountByAssetId(
   voteRefreshKey: string,
   useOfflineData: boolean,
   sort: 'voteCount' | 'dateSubmitted',
-  sortOrder: SortOrder = 'desc'
+  sortOrder: SortOrder = 'desc',
+  contentTypeFilter: 'translation' | 'transcription' = 'translation'
 ) {
   const { sql: _, ...operators } = getOrderByOperators();
   const { currentUser } = useAuth();
 
   const conditions = [
     eq(asset.source_asset_id, asset_id),
+    eq(asset.content_type, contentTypeFilter),
     !retrieveHiddenContent && eq(asset.visible, true),
     // Only filter blocked content/users if user is authenticated
     currentUser?.id &&
@@ -146,7 +148,8 @@ export function useTargetAssetsWithVoteCountByAssetId(
       translationsRefreshKey || 0,
       voteRefreshKey,
       sort,
-      sortOrder
+      sortOrder,
+      contentTypeFilter
     ],
 
     // PowerSync query using Drizzle
@@ -208,8 +211,10 @@ export function useTargetAssetsWithVoteCountByAssetId(
         `
       );
 
-      // Filter by source asset
-      query = query.eq('source_asset_id', asset_id);
+      // Filter by source asset and content type
+      query = query
+        .eq('source_asset_id', asset_id)
+        .eq('content_type', contentTypeFilter);
 
       // Filter by visibility if not retrieving hidden content
       if (!retrieveHiddenContent) {

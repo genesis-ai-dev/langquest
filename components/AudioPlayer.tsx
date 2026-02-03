@@ -132,7 +132,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             style={styles.audioProgressBar}
             max={duration || 100}
             value={isThisAudioPlaying ? position : 0}
-            onValueChange={(value) => handleSliderChange(value[0]!)}
+            onValueChange={(value) => handleSliderChange(value)}
           />
           <View style={styles.audioTimeContainer}>
             <Text style={styles.audioTimeText}>

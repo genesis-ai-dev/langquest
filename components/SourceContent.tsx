@@ -7,7 +7,7 @@ import MiniAudioPlayer from './MiniAudioPlayer';
 
 interface SourceContentProps {
   content: typeof asset_content_link.$inferSelect;
-  sourceLanguage: typeof languoid.$inferSelect | null;
+  sourceLanguoid: typeof languoid.$inferSelect | null;
   audioSegments?: string[] | null;
   isLoading?: boolean;
   onTranscribe?: (uri: string) => void;
@@ -16,7 +16,7 @@ interface SourceContentProps {
 
 export const SourceContent: React.FC<SourceContentProps> = ({
   content,
-  sourceLanguage,
+  sourceLanguoid,
   audioSegments,
   isLoading = false,
   onTranscribe,
@@ -25,33 +25,48 @@ export const SourceContent: React.FC<SourceContentProps> = ({
   const { t } = useLocalization();
 
   return (
-    <View className="flex h-[260px] max-h-[260px] flex-col items-center justify-center gap-4 rounded bg-muted p-2">
-      {/* <ScrollView className="flex-1"> */}
-      <Text className="text-base font-bold">
-        {sourceLanguage?.name || ''}
-      </Text>
-      <View className="flex max-h-36 w-full flex-col gap-2 rounded bg-primary-foreground p-2">
-        <ScrollView>
-          <Text className="text-muted-foreground">{content.text}</Text>
+    <View className="flex h-[200px] flex-col items-center gap-2 rounded bg-muted p-3">
+      {/* Language name header */}
+      {sourceLanguoid && (
+        <Text className="text-sm font-semibold text-muted-foreground">
+          {sourceLanguoid.name}
+        </Text>
+      )}
+
+      {/* Text content - scrollable */}
+      <View className="w-full flex-1 rounded bg-primary-foreground p-3">
+        <ScrollView
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          <Text className="text-base leading-relaxed text-foreground">
+            {content.text}
+          </Text>
         </ScrollView>
       </View>
-      {/* </ScrollView> */}
-      <View className="flex w-full items-center justify-center">
-        {content.audio && audioSegments ? (
-          <MiniAudioPlayer
-            audioSegments={audioSegments}
-            id={content.id}
-            title={content.text ?? ''}
-            onTranscribe={onTranscribe}
-            isTranscribing={isTranscribing}
-          />
-        ) : content.audio && isLoading ? (
-          <View className="flex flex-row items-center justify-center gap-2">
-            <ActivityIndicator size="small" color={getThemeColor('primary')} />
-            <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
-          </View>
-        ) : null}
-      </View>
+
+      {/* Audio player */}
+      {(content.audio && audioSegments) || (content.audio && isLoading) ? (
+        <View className="w-full items-center justify-center">
+          {audioSegments ? (
+            <MiniAudioPlayer
+              audioSegments={audioSegments}
+              id={content.id}
+              title={content.text ?? ''}
+              onTranscribe={onTranscribe}
+              isTranscribing={isTranscribing}
+            />
+          ) : (
+            <View className="flex-row items-center justify-center gap-2 py-2">
+              <ActivityIndicator
+                size="small"
+                color={getThemeColor('primary')}
+              />
+              <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
+            </View>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 };

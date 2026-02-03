@@ -4,11 +4,10 @@ import { LegendList } from '@legendapp/list';
 import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
-export interface DrawerLegendListProps<T>
-  extends Omit<
-    LegendListProps<T>,
-    'renderScrollComponent' | 'style' | 'contentContainerStyle'
-  > {
+export interface DrawerLegendListProps<T> extends Omit<
+  LegendListProps<T>,
+  'renderScrollComponent' | 'style' | 'contentContainerStyle'
+> {
   /**
    * Optional ref for the LegendList
    */

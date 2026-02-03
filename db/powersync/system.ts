@@ -539,11 +539,7 @@ export class System {
           this.migrationDb = {
             getAll: async (sql: string, params?: unknown[]) => {
               const result = await rawDb.execute(sql, params);
-              // Convert DBAdapter result format to array
-              if (result.rows && '_array' in result.rows) {
-                return result.rows._array as unknown[];
-              }
-              return Array.isArray(result.rows) ? result.rows : [];
+              return (result.rows?._array ?? []) as unknown[];
             },
             execute: async (sql: string) => {
               await rawDb.execute(sql);
@@ -557,14 +553,31 @@ export class System {
           );
 
           if (needsMigration) {
-            console.log('[System] ⚠️  Pre-init migration needed');
-            this.migrationNeeded = true;
+            // Check degraded mode - only throw MigrationNeededError if we should retry
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
+            const isDegraded = await isDegradedMode();
+            const shouldRetry = await shouldRetryMigration();
 
-            const currentVersion =
-              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+            if (isDegraded && !shouldRetry) {
+              // In degraded mode and no OTA update applied - don't block app
+              console.log(
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
+              );
+              // Don't throw error - allow app to continue in degraded mode
+            } else {
+              console.log('[System] ⚠️  Pre-init migration needed');
+              this.migrationNeeded = true;
 
-            // Throw to trigger MigrationScreen. Migrations will run before re-init.
-            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+              const currentVersion =
+                (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+
+              // Throw to trigger MigrationScreen. Migrations will run before re-init.
+              throw new MigrationNeededError(
+                currentVersion,
+                APP_SCHEMA_VERSION
+              );
+            }
           }
 
           console.log('[System] ✓ Pre-init migrations check passed');
@@ -575,14 +588,68 @@ export class System {
             console.log(
               '[System] ⚠️  Migration still needed after pre-auth check'
             );
-            const { getMinimumSchemaVersion, MigrationNeededError } =
-              await import('../migrations/index');
-            const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
-            const currentVersion =
-              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
-            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+            // Check degraded mode - only throw MigrationNeededError if we should retry
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
+            const isDegraded = await isDegradedMode();
+            const shouldRetry = await shouldRetryMigration();
+
+            if (isDegraded && !shouldRetry) {
+              // In degraded mode and no OTA update applied - don't block app
+              console.log(
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
+              );
+              // Clear migrationNeeded flag to allow app to continue
+              this.migrationNeeded = false;
+            } else {
+              const { getMinimumSchemaVersion, MigrationNeededError } =
+                await import('../migrations/index');
+              const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+              const currentVersion =
+                (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+              throw new MigrationNeededError(
+                currentVersion,
+                APP_SCHEMA_VERSION
+              );
+            }
           }
           console.log('[System] ✓ Migrations already checked pre-auth');
+        }
+
+        // CRITICAL: Check degraded mode before PowerSync initialization
+        // In degraded mode, we skip sync to prevent data corruption with outdated schema
+        const { isDegradedMode: checkDegradedMode } =
+          await import('../../services/degradedModeService');
+        const isDegraded = await checkDegradedMode();
+
+        if (isDegraded) {
+          console.log(
+            '[System] ⚠️  Degraded mode detected - blocking PowerSync sync'
+          );
+          console.log(
+            '[System] ⚠️  App will function in read-only mode until migration succeeds'
+          );
+
+          // If PowerSync is already connected, disconnect it
+          if (this.powersync.connected) {
+            console.log(
+              '[System] Disconnecting PowerSync due to degraded mode...'
+            );
+            try {
+              await this.powersync.disconnect();
+              console.log('[System] PowerSync disconnected');
+            } catch (error) {
+              console.error('[System] Error disconnecting PowerSync:', error);
+            }
+          }
+
+          // Skip PowerSync init and connect - app can still use local database
+          this.initialized = true; // Mark as initialized so app can continue
+          // Don't initialize attachment queues - they require sync
+          this.attachmentQueuesInitialized = false;
+          useLocalStore.getState().setSystemReady(true);
+          console.log('[System] System ready (degraded mode - no sync)');
+          return; // Exit early, skip all sync-related initialization
         }
 
         console.log('Initializing PowerSync...');
@@ -596,9 +663,8 @@ export class System {
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
-        const { checkAppUpgradeNeeded } = await import(
-          '../schemaVersionService'
-        );
+        const { checkAppUpgradeNeeded } =
+          await import('../schemaVersionService');
         // Create raw database wrapper from PowerSync for schema version check
         const dbForSchemaCheck = {
           getAll: async (sql: string, params?: unknown[]) => {
@@ -677,19 +743,6 @@ export class System {
       // This ensures NextGenProjectsView and other views don't show loading states
       useLocalStore.getState().setSystemReady(true);
       console.log('System marked as ready');
-
-      // Run migration cleanup after PowerSync is initialized and internet is available
-      // This handles duplicate languoids created during migration that later get synced
-      try {
-        const { migrationCleanup } = await import('@/db/migrations/cleanup');
-        await migrationCleanup();
-      } catch (error) {
-        // Non-critical - cleanup failure shouldn't block initialization
-        console.warn(
-          '[System] Migration cleanup failed (non-critical):',
-          error
-        );
-      }
 
       console.log('PowerSync initialization complete');
     } catch (error) {
@@ -1230,9 +1283,8 @@ export class System {
       // Fast check first - most users won't have corrupted attachments
       console.log('[System] Checking for corrupted attachments...');
       try {
-        const { getCorruptedCount, cleanupAllCorrupted } = await import(
-          '@/services/corruptedAttachmentsService'
-        );
+        const { getCorruptedCount, cleanupAllCorrupted } =
+          await import('@/services/corruptedAttachmentsService');
         const corruptedCount = await getCorruptedCount();
 
         if (corruptedCount > 0) {
@@ -1396,9 +1448,8 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, getMinimumSchemaVersion } = await import(
-        '../migrations/index'
-      );
+      const { runMigrations, getMinimumSchemaVersion } =
+        await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Create migrationDb if not already set (works for both pre-auth and post-auth)
@@ -1468,6 +1519,17 @@ export class System {
   }
 
   /**
+   * Clear migration needed flag without resetting system
+   * Used when entering degraded mode to allow app to continue
+   */
+  clearMigrationNeeded(): void {
+    console.log('[System] Clearing migration needed flag (degraded mode)');
+    this.migrationNeeded = false;
+    // Set system ready to allow app to continue
+    useLocalStore.getState().setSystemReady(true);
+  }
+
+  /**
    * Check if migrations are needed before authentication
    * This allows migrations to run before login, improving UX
    *
@@ -1480,6 +1542,12 @@ export class System {
       // Dynamic import to avoid circular dependencies
       const { checkNeedsMigration } = await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+      // Check degraded mode first
+      const { shouldRetryMigration, isDegradedMode } =
+        await import('../../services/degradedModeService');
+      const isDegraded = await isDegradedMode();
+      const shouldRetry = await shouldRetryMigration();
 
       // Open direct SQLite handle for pre-auth migration check
       const rawDb = this.factory.openDB();
@@ -1506,6 +1574,14 @@ export class System {
       );
 
       if (needsMigration) {
+        // If in degraded mode and schema version hasn't changed, don't block
+        if (isDegraded && !shouldRetry) {
+          console.log(
+            '[System] ⚠️  Migration needed but in degraded mode - schema version unchanged, allowing app to continue'
+          );
+          return false; // Don't block app
+        }
+
         console.log('[System] ⚠️  Pre-auth migration needed');
         // Store migrationDb for use in runMigrations
         this.migrationDb = migrationDb;
