@@ -813,7 +813,7 @@ export default function NextGenNewTranslationModal({
                     ) : enableAiSuggestions &&
                       predictionDetails?.hasApiKey === false ? (
                       // Show examples button when API key is missing
-                      <View className="border-warning/30 bg-warning/5 rounded-lg border-2 p-4">
+                      <View className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
                         <View className="mb-2 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
                             <Icon
@@ -821,7 +821,7 @@ export default function NextGenNewTranslationModal({
                               size={18}
                               className="text-warning"
                             />
-                            <Text className="text-warning-foreground text-sm font-semibold">
+                            <Text className="text-sm font-semibold text-warning-foreground">
                               API Key Not Configured
                             </Text>
                           </View>
@@ -829,7 +829,7 @@ export default function NextGenNewTranslationModal({
                             {predictionDetails.examples.length > 0 && (
                               <Pressable
                                 onPress={() => setShowDetailsModal(true)}
-                                className="border-warning/30 rounded-md border bg-background p-2"
+                                className="rounded-md border border-warning/30 bg-background p-2"
                               >
                                 <Icon
                                   as={EyeIcon}
@@ -844,7 +844,7 @@ export default function NextGenNewTranslationModal({
                               }}
                               disabled={isButtonDisabled}
                               className={cn(
-                                'border-warning/30 rounded-md border bg-background p-2',
+                                'rounded-md border border-warning/30 bg-background p-2',
                                 isButtonDisabled && 'opacity-50'
                               )}
                             >
@@ -860,7 +860,7 @@ export default function NextGenNewTranslationModal({
                             </Pressable>
                           </View>
                         </View>
-                        <Text className="text-warning-foreground text-sm">
+                        <Text className="text-sm text-warning-foreground">
                           {predictionDetails.examples.length > 0
                             ? `${predictionDetails.examples.length} contextually relevant examples found. View details to see them.`
                             : 'No examples available. Configure API key to enable translation prediction.'}
@@ -1077,11 +1077,11 @@ export default function NextGenNewTranslationModal({
                   <ScrollView className="max-h-[80%]">
                     {/* API Key Warning */}
                     {predictionDetails?.hasApiKey === false && (
-                      <View className="border-warning bg-warning/10 mb-6 rounded-lg border-2 p-4">
-                        <Text className="text-warning-foreground mb-2 text-base font-semibold">
+                      <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
+                        <Text className="mb-2 text-base font-semibold text-warning-foreground">
                           API Key Not Configured
                         </Text>
-                        <Text className="text-warning-foreground text-sm">
+                        <Text className="text-sm text-warning-foreground">
                           Translation prediction requires an OpenRouter API key
                           to be configured. The examples below show contextually
                           relevant translation examples that would be used for

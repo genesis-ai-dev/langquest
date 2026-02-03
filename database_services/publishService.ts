@@ -189,7 +189,6 @@ interface ChapterData {
     id: string;
     name: string | null;
     order_index: number;
-    source_language_id: string | null;
     project_id: string | null;
     source_asset_id: string | null;
     content_type: 'translation' | 'transcription' | null;
@@ -204,8 +203,7 @@ interface ChapterData {
   translationContentLinks: {
     id: string;
     asset_id: string;
-    source_language_id: string | null;
-    languoid_id: string | null;
+    languoid_id: string;
     text: string | null;
     audio: string[] | null;
     download_profiles: string[] | null;
@@ -1568,7 +1566,6 @@ async function executePublishTransaction(
               id: assetData.id,
               name: assetData.name,
               order_index: assetData.order_index,
-              source_language_id: assetData.source_language_id,
               project_id: assetData.project_id,
               source_asset_id: assetData.source_asset_id,
               content_type: assetData.content_type,
@@ -1608,7 +1605,6 @@ async function executePublishTransaction(
               id: assetData.id,
               name: assetData.name,
               order_index: assetData.order_index,
-              source_language_id: assetData.source_language_id,
               project_id: assetData.project_id,
               source_asset_id: assetData.source_asset_id,
               content_type: assetData.content_type,
@@ -1790,10 +1786,17 @@ async function executePublishTransaction(
           .limit(1);
 
         if (!existing) {
+          // languoid_id is required, ensure it's not null
+          if (!link.languoid_id) {
+            console.warn(
+              `⚠️  Skipping content link ${link.id}: missing languoid_id`
+            );
+            skipped++;
+            continue;
+          }
           await tx.insert(assetContentLink).values({
             id: link.id,
             asset_id: link.asset_id,
-            source_language_id: link.source_language_id,
             languoid_id: link.languoid_id,
             text: link.text,
             audio: link.audio,
