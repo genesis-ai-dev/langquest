@@ -1,7 +1,7 @@
+import RNAlert from '@blazejkustra/react-native-alert';
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import { Platform } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import type { System } from '@/db/powersync/system'; // actual System instance type
 import type { ProgressCallback } from '@/utils/backupUtils';
@@ -318,6 +318,8 @@ async function restoreFromBackup(
           await FileSystem.writeAsStringAsync(tempFileUri, contentBase64, {
             encoding: FileSystem.EncodingType.Base64
           });
+          // Ensure attachment queues are ready before saving audio
+          await system.ensureAttachmentQueuesReady();
           if (!system.permAttachmentQueue) {
             throw new Error('Permanent attachment queue not initialized');
           }

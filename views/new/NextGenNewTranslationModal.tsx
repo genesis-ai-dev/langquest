@@ -464,16 +464,22 @@ export default function NextGenNewTranslationModal({
       }
 
       let audioAttachment: string | null = null;
-      if (data.audioUri && system.permAttachmentQueue) {
-        // Convert recording to local attachment path
-        // - On web: converts blob URL to OPFS file
-        // - On native: moves from cache dir to local attachments dir
-        const localAudioPath = await saveAudioLocally(data.audioUri);
+      if (data.audioUri) {
+        // Ensure attachment queues are ready before saving audio
+        // This handles the case where the app started offline and queues weren't initialized
+        await system.ensureAttachmentQueuesReady();
 
-        const attachment = await system.permAttachmentQueue.saveAudio(
-          getLocalAttachmentUri(localAudioPath)
-        );
-        audioAttachment = attachment.filename;
+        if (system.permAttachmentQueue) {
+          // Convert recording to local attachment path
+          // - On web: converts blob URL to OPFS file
+          // - On native: moves from cache dir to local attachments dir
+          const localAudioPath = await saveAudioLocally(data.audioUri);
+
+          const attachment = await system.permAttachmentQueue.saveAudio(
+            getLocalAttachmentUri(localAudioPath)
+          );
+          audioAttachment = attachment.filename;
+        }
       }
 
       // Guard against anonymous users
