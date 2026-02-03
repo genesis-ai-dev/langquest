@@ -3704,7 +3704,7 @@ export default function BibleAssetsView() {
           autoscrollThreshold={0.15}
           autoscrollSpeedScale={1.5}
           onScroll={scrollHandler}
-          ItemSeparatorComponent={() => <View className="h-3" />}
+          ItemSeparatorComponent={() => <View className="h-1" />}
           ListFooterComponent={
             <>
               {/* Loading indicator for infinite scroll */}

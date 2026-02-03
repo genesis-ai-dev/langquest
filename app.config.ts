@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.0.11',
+    version: '2.0.12',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),
