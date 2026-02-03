@@ -250,7 +250,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
       <Pressable
         onLongPress={isDragFixed ? undefined : onDrag}
         delayLongPress={100}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={8}
       >
         <Icon
           as={GripVerticalIcon}
@@ -326,7 +326,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                         void onPlay(asset.id);
                       }}
                       className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={8}
                     >
                       <Icon
                         as={isCurrentlyPlaying ? PauseIcon : PlayIcon}
@@ -382,7 +382,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                     onRename(asset.id, asset.name);
                   }}
                   className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={8}
                 >
                   <Icon
                     as={PencilLineIcon}
