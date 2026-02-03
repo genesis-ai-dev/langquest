@@ -9,7 +9,6 @@ import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
-import { useAsyncStorageDevTools } from '@dev-plugins/async-storage';
 import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
@@ -74,7 +73,6 @@ export default function RootLayout() {
 
   // Initialize dev tools plugin for database MCP access
   useExpoDb();
-  useAsyncStorageDevTools();
 
   // Load Noto Sans fonts
   const [fontsLoaded] = useFonts({
