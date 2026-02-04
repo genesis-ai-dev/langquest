@@ -105,8 +105,10 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import type {
+  ReorderableListReorderEvent
+} from 'react-native-reorderable-list';
 import ReorderableList, {
-  ReorderableListReorderEvent,
   reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
@@ -747,6 +749,7 @@ export default function BibleAssetsView() {
     orderIndex: number;
     metadata: AssetMetadata | null;
     verseName: string; // e.g., "1:5" or "1:5-7"
+    name?: string;
   } | null>(null);
 
   const { membership } = useUserPermissions(
@@ -977,7 +980,8 @@ export default function BibleAssetsView() {
         assetId,
         orderIndex,
         metadata,
-        verseName
+        verseName,
+        name: asset.name ?? undefined as string | undefined
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -3812,8 +3816,8 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                    : t('noLabelSelected')}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `${("- After "+selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name ? `${("After "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
                   {/* {selectedForRecording?.verseName
                   ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                   : t('doRecord')} */}
