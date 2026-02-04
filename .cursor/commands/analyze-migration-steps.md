@@ -17,10 +17,6 @@ Analyze migration steps and verify migration status:
      ```bash
      git checkout testing/client-migrations/{@version}.db
      ```
-   - Consolidate the test database copy into a single file (no WAL/SHM):
-     ```bash
-     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}-test-cases.db
-     ```
 
 ---
 
@@ -84,14 +80,6 @@ Analyze migration steps and verify migration status:
      - [ ] Verify test data matches pre-migration state (no fields that migrations will create/populate)
      - [ ] Use real UUIDs for all ID fields
      - [ ] Ensure version 0.0 records have NO `_metadata` field (migration will add it)
-
-4. **Consolidate Test Database After Test Data Insertion**
-   - **CRITICAL**: After inserting test data, consolidate the test database again to ensure all changes are checkpointed and WAL/SHM files are removed:
-     ```bash
-     ./testing/client-migrations/consolidate-db.sh testing/client-migrations/{@version}-test-cases.db
-     ```
-   - This ensures the database is a clean single file before copying to the device
-   - SQLite operations during test data insertion may create WAL/SHM files that need to be consolidated
 
 ---
 

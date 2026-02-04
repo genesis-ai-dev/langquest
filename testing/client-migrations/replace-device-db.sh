@@ -174,22 +174,22 @@ if [ "$PLATFORM" = "ios" ]; then
     echo -e "${YELLOW}Replacing database...${NC}"
     cp "$TEST_DB" "$DB_PATH"
     
-    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
-    TEST_DB_SHM="${TEST_DB}-shm"
-    TEST_DB_WAL="${TEST_DB}-wal"
+    # Ensure WAL/SHM files are removed after copying (SQLite will recreate them when opened)
+    echo -e "${YELLOW}Removing WAL/SHM files after copy...${NC}"
+    rm -f "$DB_SHM" "$DB_WAL"
     
-    if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
-        cp "$TEST_DB_SHM" "$DB_SHM"
-    else
-        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
-    fi
-    
-    if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file from source...${NC}"
-        cp "$TEST_DB_WAL" "$DB_WAL"
-    else
-        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
+    # Clean up test-cases database file and WAL/SHM files (only if it's a test-cases database)
+    if [[ "$TEST_DB" == *"test-cases"* ]]; then
+        TEST_DB_SHM="${TEST_DB}-shm"
+        TEST_DB_WAL="${TEST_DB}-wal"
+        if [ -f "$TEST_DB_SHM" ] || [ -f "$TEST_DB_WAL" ]; then
+            echo -e "${YELLOW}Cleaning up WAL/SHM files from test-cases database...${NC}"
+            rm -f "$TEST_DB_SHM" "$TEST_DB_WAL"
+        fi
+        if [ -f "$TEST_DB" ]; then
+            echo -e "${YELLOW}Cleaning up test-cases database file...${NC}"
+            rm -f "$TEST_DB"
+        fi
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
@@ -292,7 +292,11 @@ elif [ "$PLATFORM" = "android" ]; then
     # This ensures compatibility regardless of which location PowerSync actually uses
     if [ "$DB_PATH" = "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db" ]; then
         FILES_DB_PATH="/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
+        FILES_DB_SHM="${FILES_DB_PATH}-shm"
+        FILES_DB_WAL="${FILES_DB_PATH}-wal"
         echo -e "${YELLOW}Also copying to files/ directory for compatibility...${NC}"
+        # Remove existing WAL/SHM files in files/ directory
+        adb shell "run-as $APP_BUNDLE_ID rm -f $FILES_DB_SHM $FILES_DB_WAL" 2>/dev/null || adb shell "rm -f $FILES_DB_SHM $FILES_DB_WAL" 2>/dev/null || true
         TEMP_DB="/data/local/tmp/temp_sqlite.db"
         adb push "$TEST_DB" "$TEMP_DB" 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -300,6 +304,8 @@ elif [ "$PLATFORM" = "android" ]; then
             adb push "$TEST_DB" "$FILES_DB_PATH" 2>/dev/null || true
             adb shell "run-as $APP_BUNDLE_ID chmod 664 $FILES_DB_PATH" 2>/dev/null || adb shell "chmod 664 $FILES_DB_PATH" 2>/dev/null || true
             adb shell "rm -f $TEMP_DB" 2>/dev/null || true
+            # Ensure WAL/SHM files are removed after copying
+            adb shell "run-as $APP_BUNDLE_ID rm -f $FILES_DB_SHM $FILES_DB_WAL" 2>/dev/null || adb shell "rm -f $FILES_DB_SHM $FILES_DB_WAL" 2>/dev/null || true
             echo -e "${GREEN}✓ Also copied to files/ directory${NC}"
         fi
     fi
@@ -354,32 +360,22 @@ elif [ "$PLATFORM" = "android" ]; then
     # Set proper permissions using run-as
     adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_PATH" 2>/dev/null || adb shell "chmod 664 $DB_PATH" 2>/dev/null || true
     
-    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
-    TEST_DB_SHM="${TEST_DB}-shm"
-    TEST_DB_WAL="${TEST_DB}-wal"
+    # Ensure WAL/SHM files are removed after copying (SQLite will recreate them when opened)
+    echo -e "${YELLOW}Removing WAL/SHM files after copy...${NC}"
+    adb shell "run-as $APP_BUNDLE_ID rm -f $DB_SHM $DB_WAL" 2>/dev/null || adb shell "rm -f $DB_SHM $DB_WAL" 2>/dev/null || true
     
-    if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
-        TEMP_SHM="/data/local/tmp/temp_sqlite.db-shm"
-        adb push "$TEST_DB_SHM" "$TEMP_SHM" 2>/dev/null && \
-        adb shell "run-as $APP_BUNDLE_ID cp $TEMP_SHM $DB_SHM" 2>/dev/null || \
-        adb push "$TEST_DB_SHM" "$DB_SHM" 2>/dev/null
-        adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_SHM" 2>/dev/null || adb shell "chmod 664 $DB_SHM" 2>/dev/null || true
-        adb shell "rm -f $TEMP_SHM" 2>/dev/null || true
-    else
-        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
-    fi
-    
-    if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file from source...${NC}"
-        TEMP_WAL="/data/local/tmp/temp_sqlite.db-wal"
-        adb push "$TEST_DB_WAL" "$TEMP_WAL" 2>/dev/null && \
-        adb shell "run-as $APP_BUNDLE_ID cp $TEMP_WAL $DB_WAL" 2>/dev/null || \
-        adb push "$TEST_DB_WAL" "$DB_WAL" 2>/dev/null
-        adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_WAL" 2>/dev/null || adb shell "chmod 664 $DB_WAL" 2>/dev/null || true
-        adb shell "rm -f $TEMP_WAL" 2>/dev/null || true
-    else
-        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
+    # Clean up test-cases database file and WAL/SHM files (only if it's a test-cases database)
+    if [[ "$TEST_DB" == *"test-cases"* ]]; then
+        TEST_DB_SHM="${TEST_DB}-shm"
+        TEST_DB_WAL="${TEST_DB}-wal"
+        if [ -f "$TEST_DB_SHM" ] || [ -f "$TEST_DB_WAL" ]; then
+            echo -e "${YELLOW}Cleaning up WAL/SHM files from test-cases database...${NC}"
+            rm -f "$TEST_DB_SHM" "$TEST_DB_WAL"
+        fi
+        if [ -f "$TEST_DB" ]; then
+            echo -e "${YELLOW}Cleaning up test-cases database file...${NC}"
+            rm -f "$TEST_DB"
+        fi
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
