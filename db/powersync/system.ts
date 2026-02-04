@@ -885,6 +885,50 @@ export class System {
           if (row.name) existingByName.set(row.name, normalize(row.sql));
         }
       }
+
+      // CLEANUP: Find and remove orphaned views that are no longer in drizzleSchema
+      // This handles cases where tables are renamed or removed from the schema
+      console.log('[createUnionViews] Checking for orphaned views...');
+      const plannedViewNames = new Set(plannedStatements.map((p) => p.view));
+      
+      // Query all existing union views (those that have corresponding _synced and _local tables)
+      // We identify union views by checking if they have a corresponding synced table
+      const allExistingViews = await this.powersync.getAll<{ name: string }>(
+        `SELECT DISTINCT v.name 
+         FROM sqlite_master v
+         WHERE v.type = 'view'
+         AND EXISTS (
+           SELECT 1 FROM sqlite_master t 
+           WHERE t.type = 'table' 
+           AND t.name = v.name || '_synced'
+         )`
+      );
+      
+      const orphanedViews = allExistingViews
+        .filter((v) => !plannedViewNames.has(v.name))
+        .map((v) => v.name);
+      
+      if (orphanedViews.length > 0) {
+        console.log(
+          `[createUnionViews] Found ${orphanedViews.length} orphaned view(s): ${orphanedViews.join(', ')}`
+        );
+        
+        // Drop orphaned views
+        for (const viewName of orphanedViews) {
+          try {
+            await this.powersync.execute(`DROP VIEW IF EXISTS "${viewName}"`);
+            console.log(`[createUnionViews] ✓ Dropped orphaned view: ${viewName}`);
+          } catch (error) {
+            console.warn(
+              `[createUnionViews] Failed to drop orphaned view ${viewName}:`,
+              error
+            );
+          }
+        }
+      } else {
+        console.log('[createUnionViews] No orphaned views found');
+      }
+
       await this.powersync.writeTransaction(async (tx) => {
         // Compare with existing view SQL and apply only when different
         for (const { view, dropSql, createSql } of plannedStatements) {
