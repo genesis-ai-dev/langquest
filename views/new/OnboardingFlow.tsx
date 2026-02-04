@@ -1,4 +1,4 @@
-import { LanguageListSkeleton } from '@/components/LanguageListSkeleton';
+import { LanguoidListSkeleton } from '@/components/LanguoidListSkeleton';
 import type { OnboardingStep } from '@/components/OnboardingProgressIndicator';
 import { OnboardingProgressIndicator } from '@/components/OnboardingProgressIndicator';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { useLanguagesByRegion } from '@/hooks/useLanguagesByRegion';
+import { useLanguoidsByRegion } from '@/hooks/useLanguoidsByRegion';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useProjectsByLanguage } from '@/hooks/useProjectsByLanguage';
 import { useRegions } from '@/hooks/useRegions';
@@ -109,12 +109,12 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     'nation'
   ]);
 
-  // Query languages by region
-  const { data: languagesByRegion, isLoading: isLoadingLanguages } =
-    useLanguagesByRegion(selectedRegionId);
+  // Query languoids by region
+  const { data: languoidsByRegion, isLoading: isLoadingLanguoids } =
+    useLanguoidsByRegion(selectedRegionId);
 
   // Query projects by selected languoid
-  const { data: projectsByLanguage = [], isLoading: isLoadingProjects } =
+  const { data: projectsByLanguoid = [], isLoading: isLoadingProjects } =
     useProjectsByLanguage(selectedLanguoidId);
 
   // Create project mutation (uses synced tables for immediate project publishing)
@@ -234,7 +234,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
 
   const handleFormSubmit = languoidForm.handleSubmit(handleCreateLanguage);
 
-  const handleProjectSelect = (project: (typeof projectsByLanguage)[0]) => {
+  const handleProjectSelect = (project: (typeof projectsByLanguoid)[0]) => {
     // Navigate to existing project
     goToProject({
       id: project.id,
@@ -290,8 +290,8 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   const isLoading = isCreatingLanguoid || isCreatingProject;
 
   // Get selected languoid name for display
-  const selectedLanguageName =
-    languagesByRegion.find((l) => l.id === selectedLanguoidId)?.name || '';
+  const selectedLanguoidName =
+    languoidsByRegion.find((l) => l.id === selectedLanguoidId)?.name || '';
 
   if (!visible) return null;
 
@@ -388,9 +388,9 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                 {t('selectYourLanguage')}
               </Text>
 
-              {isLoadingLanguages ? (
-                <LanguageListSkeleton />
-              ) : languagesByRegion.length === 0 ? (
+              {isLoadingLanguoids ? (
+                <LanguoidListSkeleton />
+              ) : languoidsByRegion.length === 0 ? (
                 <View className="flex-1 items-center justify-center py-8">
                   <Icon
                     as={LanguagesIcon}
@@ -421,7 +421,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     className="flex-1"
                     contentContainerStyle={{ gap: 12 }}
                   >
-                    {languagesByRegion.map((languoid) => (
+                    {languoidsByRegion.map((languoid) => (
                       <Button
                         key={languoid.id}
                         variant="outline"
@@ -536,28 +536,28 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                       className="text-primary-foreground"
                     />
                     <Text className="text-primary-foreground">
-                      {projectsByLanguage.length === 0
+                      {projectsByLanguoid.length === 0
                         ? t('createFirstProject')
                         : t('createNewProject')}
                     </Text>
                   </Button>
 
                   {/* Existing Projects List */}
-                  {projectsByLanguage.length > 0 ? (
+                  {projectsByLanguoid.length > 0 ? (
                     <View className="gap-4">
                       <Text
                         variant="default"
                         className="text-center text-muted-foreground"
                       >
                         {t('existingProjectsInLanguage', {
-                          language: selectedLanguageName
+                          language: selectedLanguoidName
                         })}
                       </Text>
                       <ScrollView
                         className="flex-1"
                         contentContainerStyle={{ gap: 12 }}
                       >
-                        {projectsByLanguage.map((project) => (
+                        {projectsByLanguoid.map((project) => (
                           <Pressable
                             key={project.id}
                             onPress={() => handleProjectSelect(project)}
@@ -579,7 +579,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                         className="text-center text-muted-foreground"
                       >
                         {t('noProjectsInLanguage', {
-                          language: selectedLanguageName
+                          language: selectedLanguoidName
                         })}
                       </Text>
                     </View>

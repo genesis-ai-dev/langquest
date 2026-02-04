@@ -1544,7 +1544,7 @@ const BibleRecordingView = ({
         dbWriteQueueRef.current = dbWriteQueueRef.current
           .then(async () => {
             if (!targetLanguoidId) {
-              throw new Error('Target languoid not found for project');
+              throw new Error('Target language not found for project');
             }
             // Use the verse that was captured when recording started
             // This ensures we use the correct verse for middle-of-list recordings

@@ -41,7 +41,7 @@ import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
-import { LanguageCombobox } from '@/components/language-combobox';
+import { LanguoidCombobox } from '@/components/languoid-combobox';
 import {
   Drawer,
   DrawerClose,
@@ -918,7 +918,7 @@ export default function NextGenProjectsView() {
                   return (
                     <FormItem>
                       <FormControl>
-                        <LanguageCombobox
+                        <LanguoidCombobox
                           value={field.value}
                           onChange={(languoid) => {
                             field.onChange(languoid.id);

@@ -318,7 +318,7 @@ export default function NextGenTranslationModal({
 
         if (!sourceLanguoidId) {
           throw new Error(
-            'Source languoid is missing. This is an unexpected error.'
+            'Source language is missing. This is an unexpected error.'
           );
         }
 

@@ -55,7 +55,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
-  // Fetch project source languoids from project_language_link
+  // Fetch project source languoids from project_languoid_link
   const { data: sourceLanguoids = [], isLoading: isSourceLangLoading } =
     useHybridData<
       Pick<typeof languoid.$inferSelect, 'id' | 'name'>,
@@ -104,7 +104,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       enableOfflineQuery: contentType === 'project' && !!content.id
     });
 
-  // Fetch target languoid from project_language_link
+  // Fetch target languoid from project_languoid_link
   const { data: targetLanguoidArr = [], isLoading: isTargetLangLoading } =
     useHybridData<
       Pick<typeof languoid.$inferSelect, 'id' | 'name'>,

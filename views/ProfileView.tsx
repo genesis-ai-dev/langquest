@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguoidSelect } from '@/components/languoid-select';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -467,7 +467,7 @@ export default function ProfileView() {
           name="selectedLanguoidId"
           render={({ field }) => (
             <FormItem>
-              <LanguageSelect
+              <LanguoidSelect
                 {...field}
                 uiReadyOnly
                 onChange={(languoid) => field.onChange(languoid.id)}

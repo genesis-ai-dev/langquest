@@ -11,7 +11,7 @@ export interface Languoid {
   last_updated: string;
 }
 
-export interface LanguageByRegion extends Languoid {
+export interface LanguoidByRegion extends Languoid {
   region_id: string;
   region_name: string;
 }
@@ -20,9 +20,9 @@ export interface LanguageByRegion extends Languoid {
  * Hook to query languoids filtered by region
  * Uses the languoid_region join table to connect languoids to regions
  */
-export function useLanguagesByRegion(regionId: string | null) {
-  return useHybridData<LanguageByRegion>({
-    dataType: 'languages-by-region',
+export function useLanguoidsByRegion(regionId: string | null) {
+  return useHybridData<LanguoidByRegion>({
+    dataType: 'languoids-by-region',
     queryKeyParams: [regionId || ''],
 
     // Note: languoid and languoid_region tables don't exist in local SQLite
@@ -60,7 +60,7 @@ export function useLanguagesByRegion(regionId: string | null) {
       if (error) throw error;
 
       // Transform the nested data structure
-      const languages: LanguageByRegion[] = (data || []).map((item: any) => {
+      const languoids: LanguoidByRegion[] = (data || []).map((item: any) => {
         const languoid = item.languoid;
         const region = item.region;
 
@@ -78,9 +78,9 @@ export function useLanguagesByRegion(regionId: string | null) {
       });
 
       // Sort by name
-      languages.sort((a, b) => a.name.localeCompare(b.name));
+      languoids.sort((a, b) => a.name.localeCompare(b.name));
 
-      return languages;
+      return languoids;
     },
 
     enableCloudQuery: !!regionId,

@@ -20,14 +20,14 @@ import { getRawTableName, rawTableExists } from './utils';
 export const migration_2_2_to_2_3: Migration = {
   fromVersion: '2.2',
   toVersion: '2.3',
-  description: 'Migrate language preferences from Language to Languoid format',
+  description: 'Migrate languoid preferences from Language to Languoid format',
 
   async migrate(db, onProgress) {
     console.log(
-      '[Migration 2.2→2.3] Migrating language preferences from Language to Languoid format...'
+      '[Migration 2.2→2.3] Migrating languoid preferences from Language to Languoid format...'
     );
 
-    if (onProgress) onProgress(1, 1, 'Migrating language preferences');
+    if (onProgress) onProgress(1, 1, 'Migrating languoid preferences');
 
     try {
       const storeKey = 'local-store';
@@ -60,7 +60,7 @@ export const migration_2_2_to_2_3: Migration = {
       };
 
       // Helper to migrate a Language object to Languoid
-      const migrateLanguageToLanguoid = async (lang: unknown) => {
+      const migrateLanguoidToLanguoid = async (lang: unknown) => {
         if (!lang || typeof lang !== 'object') return null;
 
         const langObj = lang as {
@@ -107,7 +107,7 @@ export const migration_2_2_to_2_3: Migration = {
             if (results.length > 0 && results[0]?.data) {
               const languoid = JSON.parse(results[0].data);
               console.log(
-                `[Migration 2.2→2.3] Migrated language ${langObj.id} to languoid ${(languoid as { id?: string }).id} (synced)`
+                `[Migration 2.2→2.3] Migrated languoid ${langObj.id} to languoid ${(languoid as { id?: string }).id} (synced)`
               );
               return languoid;
             }
@@ -123,7 +123,7 @@ export const migration_2_2_to_2_3: Migration = {
             if (results.length > 0 && results[0]?.data) {
               const languoid = JSON.parse(results[0].data);
               console.log(
-                `[Migration 2.2→2.3] Migrated language ${langObj.id} to languoid ${(languoid as { id?: string }).id} (local)`
+                `[Migration 2.2→2.3] Migrated languoid ${langObj.id} to languoid ${(languoid as { id?: string }).id} (local)`
               );
               return languoid;
             }
@@ -137,7 +137,7 @@ export const migration_2_2_to_2_3: Migration = {
 
         // If we can't find a match, return null to clear it
         console.warn(
-          `[Migration 2.2→2.3] Could not migrate language ${langObj.id}, clearing`
+          `[Migration 2.2→2.3] Could not migrate languoid ${langObj.id}, clearing`
         );
         return null;
       };
@@ -146,7 +146,7 @@ export const migration_2_2_to_2_3: Migration = {
 
       // Migrate uiLanguage to uiLanguoid
       if (state.uiLanguage) {
-        const migrated = await migrateLanguageToLanguoid(state.uiLanguage);
+        const migrated = await migrateLanguoidToLanguoid(state.uiLanguage);
         if (migrated) {
           delete state.uiLanguage;
           state.uiLanguoid = migrated;
@@ -161,7 +161,7 @@ export const migration_2_2_to_2_3: Migration = {
 
       // Migrate savedLanguage to savedLanguoid
       if (state.savedLanguage) {
-        const migrated = await migrateLanguageToLanguoid(state.savedLanguage);
+        const migrated = await migrateLanguoidToLanguoid(state.savedLanguage);
         if (migrated) {
           state.savedLanguage = migrated;
           state.savedLanguoid = migrated;
@@ -181,11 +181,11 @@ export const migration_2_2_to_2_3: Migration = {
         // Preserve Zustand's structure: { state: {...}, version: number }
         const updated = parsed.state ? { ...parsed, state } : state;
         await AsyncStorage.setItem(storeKey, JSON.stringify(updated));
-        console.log('[Migration 2.2→2.3] ✓ Migrated language preferences');
+        console.log('[Migration 2.2→2.3] ✓ Migrated languoid preferences');
       }
     } catch (error) {
       console.warn(
-        '[Migration 2.2→2.3] Could not migrate Zustand language preferences:',
+        '[Migration 2.2→2.3] Could not migrate Zustand languoid preferences:',
         error
       );
       // Continue migration - this is not critical

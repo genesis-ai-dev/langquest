@@ -1,4 +1,4 @@
-import { LanguageCombobox } from '@/components/language-combobox';
+import { LanguoidCombobox } from '@/components/languoid-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,7 +41,7 @@ export default function RegisterView({
 }) {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
-  const currentLanguage = useLocalStore((state) => state.uiLanguoid);
+  const currentLanguoid = useLocalStore((state) => state.uiLanguoid);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const formSchema = z
     .object({
@@ -74,7 +74,7 @@ export default function RegisterView({
         throw new Error(t('internetConnectionRequired'));
       }
       // Get languoid name
-      const languoidName = currentLanguage?.name || 'english';
+      const languoidName = currentLanguoid?.name || 'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
@@ -85,7 +85,7 @@ export default function RegisterView({
             terms_accepted: data.termsAccepted,
             terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
             ui_language: languoidName.toLowerCase(),
-            ui_languoid_id: currentLanguage?.id,
+            ui_languoid_id: currentLanguoid?.id,
             email_verified: false
           },
           emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
@@ -151,7 +151,7 @@ export default function RegisterView({
             </Text>
             <Text>{t('newUserRegistration')}</Text>
           </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
+          <LanguoidCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="username"

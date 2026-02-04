@@ -1059,7 +1059,7 @@ const RecordingViewSimplified = ({
         dbWriteQueueRef.current = dbWriteQueueRef.current
           .then(async () => {
             if (!targetLanguoidId) {
-              throw new Error('Target languoid not found for project');
+              throw new Error('Target language not found for project');
             }
             await saveRecording({
               questId: currentQuestId,
