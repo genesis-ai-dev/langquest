@@ -21,17 +21,17 @@
  * - Web: Uses OPFS (Origin Private File System) via fileUtils.web.ts
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import {
   copyFile,
   deleteIfExists,
   ensureDir,
   fileExists,
   getDocumentDirectory,
-  writeFile,
-  readFile
+  readFile,
+  writeFile
 } from '@/utils/fileUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Constants
 const BACKUP_DIR = 'migration_backups';
@@ -114,7 +114,10 @@ async function ensureBackupDir(): Promise<void> {
   const backupDir = getBackupDir();
   try {
     await ensureDir(backupDir);
-    console.log('[MigrationBackup] Ensured backup directory exists:', backupDir);
+    console.log(
+      '[MigrationBackup] Ensured backup directory exists:',
+      backupDir
+    );
   } catch (error) {
     console.error('[MigrationBackup] Error creating backup directory:', error);
     throw error;
