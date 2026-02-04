@@ -19,13 +19,9 @@ interface VerseSeparatorProps {
   // Selection for recording: clicking the separator text selects it for recording
   isSelectedForRecording?: boolean;
   onSelectForRecording?: () => void;
-  dragHandleComponent?: React.ComponentType<{
-    mode?: 'fixed-order' | 'draggable';
-    children?: React.ReactNode;
-  }>;
-  dragHandleProps?: {
-    mode?: 'fixed-order' | 'draggable';
-  };
+  // Drag function from reorderable list (replaces dragHandleComponent)
+  onDrag?: () => void;
+  isDragFixed?: boolean;
 }
 
 export function VerseSeparator({
@@ -38,8 +34,8 @@ export function VerseSeparator({
   onPress,
   isSelectedForRecording = false,
   onSelectForRecording,
-  dragHandleComponent: DragHandleComponent,
-  dragHandleProps
+  onDrag,
+  isDragFixed = false
 }: VerseSeparatorProps) {
   const hasNumbers = from !== undefined || to !== undefined;
 
@@ -122,10 +118,19 @@ export function VerseSeparator({
     <View
       className={`mx-2 flex flex-row items-center gap-1.5 rounded-full px-3 py-1 ${pillBgClass}`}
     >
-      {DragHandleComponent && editable && (
-        <View className="flex size-5 items-center justify-center overflow-hidden rounded-full">
-          <Icon as={MoveVerticalIcon} size={14} className="text-primary" />
-        </View>
+      {onDrag && editable && (
+        <Pressable
+          onLongPress={isDragFixed ? undefined : onDrag}
+          delayLongPress={100}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          className="flex size-5 items-center justify-center overflow-hidden rounded-full"
+        >
+          <Icon
+            as={MoveVerticalIcon}
+            size={14}
+            className={isDragFixed ? 'text-primary/30' : 'text-primary'}
+          />
+        </Pressable>
       )}
       {/* Text is clickable for recording selection when onSelectForRecording is provided */}
       {onSelectForRecording ? (
@@ -166,13 +171,7 @@ export function VerseSeparator({
   return (
     <View className={`w-full flex-row items-center py-1 ${className}`}>
       <View className="h-px flex-1 bg-primary/20" />
-      {DragHandleComponent && editable ? (
-        <DragHandleComponent {...dragHandleProps}>
-          {pillContent}
-        </DragHandleComponent>
-      ) : (
-        pillContent
-      )}
+      {pillContent}
       <View className="h-px flex-1 bg-primary/20" />
     </View>
   );
