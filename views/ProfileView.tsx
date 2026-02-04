@@ -317,31 +317,31 @@ export default function ProfileView() {
             >
               <Text>Wipe local attachments</Text>
             </Button>
+            {isDegraded && (
+              <Button
+                variant="secondary"
+                loading={clearDegradedModePending}
+                className="w-full"
+                onPress={() => {
+                  RNAlert.alert(
+                    'Clear Degraded Mode',
+                    'This will clear the degraded mode state and allow migrations to retry. Continue?',
+                    [
+                      { text: t('cancel'), style: 'cancel' },
+                      {
+                        text: t('confirm'),
+                        onPress: () => {
+                          void clearDegradedModeState();
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Text>Clear degraded mode</Text>
+              </Button>
+            )}
           </View>
-        )}
-        {isDegraded && (
-          <Button
-            variant="secondary"
-            loading={clearDegradedModePending}
-            className="w-full"
-            onPress={() => {
-              RNAlert.alert(
-                'Clear Degraded Mode',
-                'This will clear the degraded mode state and allow migrations to retry. Continue?',
-                [
-                  { text: t('cancel'), style: 'cancel' },
-                  {
-                    text: t('confirm'),
-                    onPress: () => {
-                      void clearDegradedModeState();
-                    }
-                  }
-                ]
-              );
-            }}
-          >
-            <Text>Clear Degraded Mode</Text>
-          </Button>
         )}
         {!posthog.isDisabled && (
           <Button

@@ -10,6 +10,7 @@
 
 import { APP_SCHEMA_VERSION } from '@/db/constants';
 import { useLocalStore } from '@/store/localStore';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
@@ -56,7 +57,11 @@ export function getCurrentUpdateIdForTesting(): string {
  * Get current app version from Constants
  */
 function getCurrentAppVersion(): string {
-  return Constants.expoConfig?.version || 'unknown';
+  return (
+    Application.nativeApplicationVersion ||
+    Constants.expoConfig?.version ||
+    'unknown'
+  );
 }
 
 /**
@@ -196,6 +201,8 @@ export async function incrementRetryCount(): Promise<boolean> {
     const store = useLocalStore.getState();
     const newRetryCount = store.migrationRetryCount + 1;
     const currentUpdateId = getCurrentUpdateId();
+    const currentAppVersion = getCurrentAppVersion();
+    const currentSchemaVersion = APP_SCHEMA_VERSION;
 
     // Update retry count and failed version in store
     store.setMigrationRetryCount(newRetryCount);
@@ -204,8 +211,12 @@ export async function incrementRetryCount(): Promise<boolean> {
     // Enter degraded mode if we've exceeded max retries
     if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
       store.setDegradedMode(true);
+      // Store current versions so updates can trigger a retry
+      store.setLastUpdateId(currentUpdateId);
+      store.setLastAppVersion(currentAppVersion);
+      store.setLastSchemaVersion(currentSchemaVersion);
       console.log(
-        `[DegradedModeService] Entered degraded mode after ${newRetryCount} retry attempts`
+        `[DegradedModeService] Entered degraded mode after ${newRetryCount} retry attempts (stored app version: ${currentAppVersion})`
       );
       return true;
     }
@@ -225,6 +236,15 @@ export async function incrementRetryCount(): Promise<boolean> {
  */
 export async function shouldRetryMigration(): Promise<boolean> {
   const state = await getDegradedModeState();
+
+  // If degraded mode has no stored version info (legacy state), allow a retry
+  if (state.isDegraded && !state.lastUpdateId && !state.lastAppVersion) {
+    console.log(
+      '[DegradedModeService] Degraded mode without stored version info - allowing migration retry'
+    );
+    return true;
+  }
+
   const updateOrVersionChanged = hasUpdateOrVersionChanged();
 
   // Only retry if:
@@ -266,7 +286,9 @@ export async function clearDegradedMode(): Promise<void> {
     store.setLastAppVersion(currentAppVersion);
     store.setLastSchemaVersion(currentSchemaVersion);
 
-    console.log('[DegradedModeService] Cleared degraded mode state');
+    console.log(
+      `[DegradedModeService] Cleared degraded mode state (stored app version: ${currentAppVersion})`
+    );
   } catch (error) {
     console.error('[DegradedModeService] Error clearing degraded mode:', error);
   }

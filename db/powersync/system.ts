@@ -46,6 +46,7 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
 
+import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
@@ -1581,6 +1582,12 @@ export class System {
           '[System] ⚠️ Backup creation failed, proceeding with migration anyway:',
           backupResult.error
         );
+        // Track backup creation failure
+        posthog.capture('migration_backup_failed', {
+          error: backupResult.error ?? 'Unknown error',
+          from_version: currentVersion,
+          to_version: APP_SCHEMA_VERSION
+        });
         // Continue with migration even if backup fails
         // The migration might still succeed
       }
@@ -1594,11 +1601,24 @@ export class System {
       );
 
       if (!result.success) {
+        // Track migration execution failure
+        posthog.capture('migration_execution_failed', {
+          errors: result.errors,
+          from_version: currentVersion,
+          to_version: APP_SCHEMA_VERSION,
+          had_backup: !!backupInfo
+        });
         throw new Error(`Migration failed: ${result.errors.join(', ')}`);
       }
 
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
+
+      // Track successful migration
+      posthog.capture('migration_succeeded', {
+        from_version: currentVersion,
+        to_version: APP_SCHEMA_VERSION
+      });
 
       // === CLEAN UP BACKUP ON SUCCESS ===
       if (backupInfo) {
@@ -1628,22 +1648,50 @@ export class System {
             console.log(
               `[System]   - Local store restored: ${restoreResult.localStoreRestored}`
             );
+            // Track successful restoration after failure
+            posthog.capture('migration_restore_succeeded', {
+              db_restored: restoreResult.dbRestored,
+              local_store_restored: restoreResult.localStoreRestored,
+              from_version: backupInfo.fromVersion,
+              to_version: backupInfo.toVersion
+            });
           } else {
             console.error(
               '[System] ✗ Failed to restore from backup:',
               restoreResult.error
             );
+            // Track restoration failure
+            posthog.capture('migration_restore_failed', {
+              error: restoreResult.error ?? 'Unknown error',
+              from_version: backupInfo.fromVersion,
+              to_version: backupInfo.toVersion
+            });
           }
         } catch (restoreError) {
           console.error(
             '[System] ✗ Error during backup restoration:',
             restoreError
           );
+          // Track restoration error
+          const errorMsg =
+            restoreError instanceof Error
+              ? restoreError.message
+              : String(restoreError);
+          posthog.capture('migration_restore_failed', {
+            error: errorMsg,
+            from_version: backupInfo.fromVersion,
+            to_version: backupInfo.toVersion
+          });
         }
       } else {
         console.warn(
           '[System] No backup available to restore from - data may be in inconsistent state'
         );
+        // Track that migration failed without backup
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        posthog.capture('migration_failed_no_backup', {
+          error: errorMsg
+        });
       }
 
       throw error;
