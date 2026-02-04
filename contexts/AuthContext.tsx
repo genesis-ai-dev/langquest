@@ -1,6 +1,8 @@
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
+import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AuthError,
   AuthResponse,
@@ -195,41 +197,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('[AuthContext] Setting up auth listener...');
 
-    // Check for existing session
-    void system.supabaseConnector.client.auth
-      .getSession()
-      .then(({ data: { session }, error }) => {
-        if (error) {
-          console.error('[AuthContext] Error getting session:', error);
-        } else if (session) {
-          console.log('[AuthContext] Found existing session');
-          const detectedSessionType = getSessionType(session);
-          console.log(
-            '[AuthContext] Detected session type for existing session:',
-            detectedSessionType
-          );
-          setSession(session);
-          setSessionType(detectedSessionType);
-
-          // Update the session in SupabaseConnector
-          system.supabaseConnector.updateSession(session);
-
-          // Always initialize system for existing sessions
-          console.log(
-            '[AuthContext] Starting system initialization from existing session'
-          );
-          void initializeSystem();
-        } else {
-          // No session - anonymous mode
-          console.log('[AuthContext] No session found - anonymous mode');
-          setSession(null);
-          setSessionType(null);
-          // Skip PowerSync initialization for anonymous users
-          // Set system ready immediately to allow TanStack Query to work
-          setIsSystemReady(true);
-        }
-        setIsLoading(false);
-      });
+    // IMPORTANT: We rely entirely on onAuthStateChange for session initialization.
+    // The INITIAL_SESSION event fires when Supabase loads the session from AsyncStorage.
+    // This does NOT trigger network calls, so it works offline with expired tokens.
+    // Previously we called getSession() which tries to refresh expired tokens over
+    // the network, causing infinite hangs when offline.
 
     // Listen for auth state changes
     const {
@@ -248,6 +220,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         system.supabaseConnector.updateSession(session);
 
         switch (event) {
+          case 'INITIAL_SESSION': {
+            // INITIAL_SESSION fires when Supabase loads the session from AsyncStorage.
+            // IMPORTANT: When offline with expired token, Supabase may clear the session
+            // and fire INITIAL_SESSION with null. We need to fall back to reading
+            // the raw session from AsyncStorage to support offline-first usage.
+            let effectiveSession = session;
+
+            if (!effectiveSession) {
+              console.log(
+                '[AuthContext] INITIAL_SESSION has null session - checking AsyncStorage directly'
+              );
+              try {
+                const authKey = await getSupabaseAuthKey();
+                if (authKey) {
+                  const sessionString = await AsyncStorage.getItem(authKey);
+                  if (sessionString) {
+                    const storedData = JSON.parse(sessionString) as Record<
+                      string,
+                      unknown
+                    >;
+                    // Supabase stores session in a specific format
+                    if (storedData?.access_token && storedData?.user) {
+                      console.log(
+                        '[AuthContext] Found session in AsyncStorage (may be expired)'
+                      );
+                      effectiveSession = storedData as unknown as Session;
+                      // Update the session state and connector
+                      setSession(effectiveSession);
+                      system.supabaseConnector.updateSession(effectiveSession);
+                    }
+                  }
+                }
+              } catch (error) {
+                console.warn(
+                  '[AuthContext] Failed to read session from AsyncStorage:',
+                  error
+                );
+              }
+            }
+
+            if (effectiveSession) {
+              console.log(
+                '[AuthContext] Found existing session via INITIAL_SESSION'
+              );
+              const detectedSessionType = getSessionType(effectiveSession);
+              console.log(
+                '[AuthContext] Detected session type:',
+                detectedSessionType
+              );
+              setSessionType(detectedSessionType);
+
+              // Initialize system for existing sessions
+              console.log(
+                '[AuthContext] Starting system initialization from INITIAL_SESSION'
+              );
+              await initializeSystem();
+              console.log(
+                '[AuthContext] System initialization complete from INITIAL_SESSION'
+              );
+            } else {
+              // No session found in storage - anonymous mode
+              console.log('[AuthContext] No session found - anonymous mode');
+              setSessionType(null);
+              // Skip PowerSync initialization for anonymous users
+              // Set system ready immediately to allow TanStack Query to work
+              setIsSystemReady(true);
+            }
+            setIsLoading(false);
+            break;
+          }
+
           case 'SIGNED_IN': {
             console.log('[AuthContext] User signed in');
             const detectedSessionType = getSessionType(session);
@@ -265,6 +308,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(
               '[AuthContext] System initialization complete from SIGNED_IN event'
             );
+            setIsLoading(false);
             break;
           }
 

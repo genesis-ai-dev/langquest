@@ -55,7 +55,8 @@ interface CompositeKeyConfig {
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
-  private currentSession: Session | null = null;
+  // Made public to allow AuthContext to access cached session when offline
+  currentSession: Session | null = null;
 
   constructor(protected system: System) {
     console.log('Creating Supabase client (supabaseConnector constructor');
