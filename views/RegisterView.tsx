@@ -14,11 +14,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
-import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
-import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
@@ -43,7 +41,7 @@ export default function RegisterView({
 }) {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
-  const currentLanguage = useLocalStore((state) => state.uiLanguage);
+  const currentLanguage = useLocalStore((state) => state.uiLanguoid);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const formSchema = z
     .object({
@@ -75,13 +73,8 @@ export default function RegisterView({
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
       }
-      // Get languoid name - handle both Languoid (name) and old Language (english_name) types
-      const languoidName =
-        (currentLanguage as unknown as Languoid | undefined)?.name ||
-        ('english_name' in (currentLanguage || {}) &&
-          (currentLanguage as unknown as { english_name?: string })
-            ?.english_name) ||
-        'english';
+      // Get languoid name
+      const languoidName = currentLanguage?.name || 'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),

@@ -60,7 +60,7 @@ export function useLocalization(languageOverride?: string | null) {
   // This allows useLocalization to work even before login as documented
   const authContext = useContext(AuthContext);
   const currentUser = authContext?.currentUser ?? null;
-  const currentLanguage = useLocalStore((state) => state.uiLanguage);
+  const currentLanguoid = useLocalStore((state) => state.uiLanguoid);
 
   // Get ui_languoid_id from user metadata
   const uiLanguoidId = currentUser?.user_metadata.ui_languoid_id;
@@ -98,23 +98,19 @@ export function useLocalization(languageOverride?: string | null) {
   // Get language with priority:
   // 1. Manual override (provided as prop)
   // 2. Authenticated user's profile languoid name
-  // 3. Selected language from LanguageContext (for non-authenticated pages)
+  // 3. UI languoid from store (for non-authenticated users or users without profile languoid)
   // 4. Default to English
-  let resolvedLanguageName: string | null | undefined = null;
+  let resolvedLanguoidName: string | null | undefined = null;
 
   if (languageOverride) {
-    resolvedLanguageName = languageOverride;
+    resolvedLanguoidName = languageOverride;
   } else if (profileLanguoid?.name) {
-    resolvedLanguageName = profileLanguoid.name;
-  } else if (
-    currentLanguage &&
-    'name' in currentLanguage &&
-    typeof currentLanguage.name === 'string'
-  ) {
-    resolvedLanguageName = currentLanguage.name;
+    resolvedLanguoidName = profileLanguoid.name;
+  } else if (currentLanguoid?.name) {
+    resolvedLanguoidName = currentLanguoid.name;
   }
 
-  const userLanguage = mapLanguoidNameToSupportedLanguage(resolvedLanguageName);
+  const userLanguage = mapLanguoidNameToSupportedLanguage(resolvedLanguoidName);
 
   // t function to accept optional interpolation values and use 'localizations'
   const t = (

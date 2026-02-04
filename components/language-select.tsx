@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { languoid } from '@/db/drizzleSchema';
+import type { Languoid } from '@/hooks/db/useLanguoids';
 import {
   useLanguoidEndonyms,
   useLanguoids,
@@ -20,8 +20,6 @@ import React, { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './ui/icon';
-
-type Languoid = typeof languoid.$inferSelect;
 
 interface LanguageSelectProps {
   setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -65,10 +63,10 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
     right: 21
   };
 
-  const setUILanguage = useLocalStore((state) => state.setUILanguage);
-  const uiLanguage = useLocalStore((state) => state.uiLanguage);
+  const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+  const uiLanguoid = useLocalStore((state) => state.uiLanguoid);
 
-  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+  const setSavedLanguoid = useLocalStore((state) => state.setSavedLanguoid);
 
   const { t } = useLocalization();
 
@@ -91,14 +89,8 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
   // Don't set a default language on mount - let it be empty until user selects
   const selectedLanguage = value
     ? languoids.find((l) => l.id === value)
-    : uiLanguage
-      ? languoids.find((l) => {
-          // Handle backward compatibility: uiLanguage might be old Language type
-          if ('name' in (uiLanguage as any)) {
-            return l.id === (uiLanguage as any).id;
-          }
-          return false;
-        })
+    : uiLanguoid
+      ? languoids.find((l) => l.id === uiLanguoid.id)
       : languoids.find((lang) => lang.name === 'English');
 
   const selectedOption = getAllLanguageOption(selectedLanguage, endonymMap);
@@ -111,10 +103,8 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
         const lang = languoids.find((l) => l.id === option.value);
         if (lang) {
           // Always save the language and set UI language
-          // TODO: Update store to support Languoid type
-          // For now, use type assertion to handle transition
-          setSavedLanguage(lang as any);
-          setUILanguage(lang as any);
+          setSavedLanguoid(lang);
+          setUILanguoid(lang);
           // If onChange is provided, call it as well (for controlled mode)
           if (onChange) onChange(lang);
         }

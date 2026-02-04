@@ -1,4 +1,4 @@
-import { languoid } from '@/db/drizzleSchema';
+import type { languoid } from '@/db/drizzleSchema';
 import {
   useLanguoidEndonyms,
   useUIReadyLanguoids
@@ -30,8 +30,8 @@ interface LanguageSelectProps {
 const LanguageSelect: React.FC<LanguageSelectProps> = memo(
   ({ value, onChange, setLanguagesLoaded }) => {
     const [showLanguages, setShowLanguages] = useState(false);
-    const setLanguage = useLocalStore((state) => state.setUILanguage);
-    const savedLanguage = useLocalStore((state) => state.uiLanguage);
+    const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+    const savedLanguoid = useLocalStore((state) => state.uiLanguoid);
     const { t } = useLocalization();
 
     // Use useUIReadyLanguoids hook
@@ -49,20 +49,16 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
 
     const defaultLanguage = languoids.find((l) => l.name === 'English');
 
-    // Find selected language - handle both Languoid and old Language types
+    // Find selected language
     const selectedLanguage = useMemo(() => {
       if (value) {
         return languoids.find((l) => l.id === value);
       }
-      if (savedLanguage) {
-        // Check if it's a Languoid (has 'name' property) or old Language (has 'english_name')
-        const langAny = savedLanguage as any;
-        if (langAny.id && typeof langAny.id === 'string') {
-          return languoids.find((l) => l.id === langAny.id);
-        }
+      if (savedLanguoid?.id) {
+        return languoids.find((l) => l.id === savedLanguoid.id);
       }
       return defaultLanguage;
-    }, [value, savedLanguage, languoids, defaultLanguage]);
+    }, [value, savedLanguoid, languoids, defaultLanguage]);
 
     const handleSelect = useCallback(
       (displayName: string) => {
@@ -73,13 +69,11 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
           return display === displayName;
         });
         if (lang) {
-          // TODO: Update store to support Languoid type
-          // For now, use type assertion to handle transition
-          setLanguage(lang as any);
+          setUILanguoid(lang);
           onChange?.(lang);
         }
       },
-      [languoids, endonymMap, setLanguage, onChange]
+      [languoids, endonymMap, setUILanguoid, onChange]
     );
 
     const handleToggle = useCallback(() => {

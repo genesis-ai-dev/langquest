@@ -2,8 +2,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import type { languoid } from '@/db/drizzleSchema';
-import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
+import type { Languoid, LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
   useLanguoidById,
   useLanguoidEndonyms,
@@ -29,8 +28,6 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { ButtonPressable } from './ui/button';
-
-type Languoid = typeof languoid.$inferSelect;
 
 // Extended type for dropdown items that includes the "create new" option
 interface DropdownItem {
@@ -114,9 +111,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onCreateNew
 }) => {
   const primaryColor = useThemeColor('primary');
-  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
-  const setUILanguage = useLocalStore((state) => state.setUILanguage);
-  const uiLanguage = useLocalStore((state) => state.uiLanguage);
+  const setSavedLanguoid = useLocalStore((state) => state.setSavedLanguoid);
+  const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+  const uiLanguoid = useLocalStore((state) => state.uiLanguoid);
   const { t } = useLocalization();
   const { isAuthenticated, currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -328,8 +325,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   // Use controlled value if provided, otherwise fall back to UI language from store
   const effectiveValue = useMemo(() => {
     if (value) return value;
-    return uiLanguage?.id ?? null;
-  }, [value, uiLanguage]);
+    return uiLanguoid?.id ?? null;
+  }, [value, uiLanguoid]);
 
   // Handle creating a new languoid
   const handleCreateNew = useCallback(
@@ -362,7 +359,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
         // Store the selected languoid to keep it in dropdown data
         setSelectedLanguoid(newLanguoid);
-        setSavedLanguage(newLanguoid as any);
+        // LanguoidSearchResult needs cast due to type incompatibility (level: string | null vs enum)
+        setSavedLanguoid(newLanguoid as unknown as Languoid);
         onChange?.(newLanguoid);
 
         // Clear search
@@ -373,7 +371,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         setIsCreating(false);
       }
     },
-    [currentUser?.id, onCreateNew, onChange, setSavedLanguage, setSearchQuery]
+    [currentUser?.id, onCreateNew, onChange, setSavedLanguoid, setSearchQuery]
   );
 
   const handleValueChange = useCallback(
@@ -388,9 +386,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
       if (item.languoid) {
         // Store the selected languoid to keep it in dropdown data
         setSelectedLanguoid(item.languoid);
-        setSavedLanguage(item.languoid as any);
+        // LanguoidSearchResult needs cast due to type incompatibility (level: string | null vs enum)
+        setSavedLanguoid(item.languoid as unknown as Languoid);
         if (toggleUILocalization) {
-          setUILanguage(item.languoid as any);
+          setUILanguoid(item.languoid as unknown as Languoid);
         }
         onChange?.(item.languoid);
       }
@@ -401,9 +400,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     [
       handleCreateNew,
       onChange,
-      setSavedLanguage,
+      setSavedLanguoid,
       toggleUILocalization,
-      setUILanguage,
+      setUILanguoid,
       setSearchQuery
     ]
   );
