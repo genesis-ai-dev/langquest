@@ -889,38 +889,62 @@ export class System {
         }
       }
 
-      // CLEANUP: Find and remove orphaned views that are no longer in drizzleSchema
+      // CLEANUP: Find and remove orphaned union views that are no longer in drizzleSchema
       // This handles cases where tables are renamed or removed from the schema
-      console.log('[createUnionViews] Checking for orphaned views...');
+      // Only cleans up union views (views that combine _synced and _local tables)
+      console.log('[createUnionViews] Checking for orphaned union views...');
       const plannedViewNames = new Set(plannedStatements.map((p) => p.view));
-      
-      // Query all existing union views (those that have corresponding _synced and _local tables)
-      // We identify union views by checking if they have a corresponding synced table
-      const allExistingViews = await this.powersync.getAll<{ name: string }>(
-        `SELECT DISTINCT v.name 
+
+      // Query ALL existing views with their SQL to identify union views
+      const allExistingViews = await this.powersync.getAll<{
+        name: string;
+        sql: string;
+      }>(
+        `SELECT DISTINCT v.name, v.sql
          FROM sqlite_master v
-         WHERE v.type = 'view'
-         AND EXISTS (
-           SELECT 1 FROM sqlite_master t 
-           WHERE t.type = 'table' 
-           AND t.name = v.name || '_synced'
-         )`
+         WHERE v.type = 'view'`
       );
-      
-      const orphanedViews = allExistingViews
-        .filter((v) => !plannedViewNames.has(v.name))
-        .map((v) => v.name);
-      
+
+      // Check each view to see if it's an orphaned union view
+      // A view is an orphaned union view if:
+      // 1. It's not in the planned views list (not in drizzleSchema anymore)
+      // 2. AND its SQL matches our union view pattern (combines _synced and _local tables)
+      const orphanedViews: string[] = [];
+      for (const view of allExistingViews) {
+        const viewName = view.name;
+        const viewSql = view.sql?.toLowerCase() || '';
+
+        // Skip if it's in the planned views (still valid)
+        if (plannedViewNames.has(viewName)) {
+          continue;
+        }
+
+        // Only consider views that match our union view pattern:
+        // - Contains both _synced and _local table references
+        // - Contains UNION ALL
+        // This ensures we only clean up union views we created, not other views
+        const isUnionView =
+          viewSql.includes(`${viewName}_synced`) &&
+          viewSql.includes(`${viewName}_local`) &&
+          viewSql.includes('union all');
+
+        if (isUnionView) {
+          orphanedViews.push(viewName);
+        }
+      }
+
       if (orphanedViews.length > 0) {
         console.log(
           `[createUnionViews] Found ${orphanedViews.length} orphaned view(s): ${orphanedViews.join(', ')}`
         );
-        
+
         // Drop orphaned views
         for (const viewName of orphanedViews) {
           try {
             await this.powersync.execute(`DROP VIEW IF EXISTS "${viewName}"`);
-            console.log(`[createUnionViews] ✓ Dropped orphaned view: ${viewName}`);
+            console.log(
+              `[createUnionViews] ✓ Dropped orphaned view: ${viewName}`
+            );
           } catch (error) {
             console.warn(
               `[createUnionViews] Failed to drop orphaned view ${viewName}:`,
