@@ -1502,6 +1502,13 @@ export class System {
    * Works both pre-auth and post-auth by creating migrationDb if needed
    * Called from MigrationScreen when user needs to migrate data
    *
+   * BACKUP STRATEGY:
+   * - Before running migrations, we create backups of:
+   *   1. The SQLite database file
+   *   2. The local store (AsyncStorage)
+   * - If migrations fail, we restore from backup before entering degraded mode
+   * - On success, we clean up the backup files
+   *
    * @param onProgress - Callback for progress updates (current, total, step)
    */
   async runMigrations(
@@ -1511,6 +1518,15 @@ export class System {
       console.warn('[System] Migration already in progress');
       return;
     }
+
+    // Import backup service
+    const { createMigrationBackup, restoreFromBackup, deleteBackup } =
+      await import('../../services/migrationBackupService');
+    type BackupInfo = Awaited<
+      ReturnType<typeof createMigrationBackup>
+    >['backupInfo'];
+
+    let backupInfo: BackupInfo | null = null;
 
     try {
       this.migratingNow = true;
@@ -1546,6 +1562,29 @@ export class System {
         `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
       );
 
+      // === CREATE BACKUP BEFORE MIGRATION ===
+      console.log('[System] Creating backup before migration...');
+      if (onProgress) {
+        onProgress(0, 100, 'Creating backup...');
+      }
+
+      const backupResult = await createMigrationBackup(
+        currentVersion,
+        APP_SCHEMA_VERSION
+      );
+
+      if (backupResult.success && backupResult.backupInfo) {
+        backupInfo = backupResult.backupInfo;
+        console.log('[System] ✓ Backup created successfully');
+      } else {
+        console.warn(
+          '[System] ⚠️ Backup creation failed, proceeding with migration anyway:',
+          backupResult.error
+        );
+        // Continue with migration even if backup fails
+        // The migration might still succeed
+      }
+
       // Use raw database for migration operations
       const result = await runMigrations(
         this.migrationDb,
@@ -1561,10 +1600,52 @@ export class System {
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
 
+      // === CLEAN UP BACKUP ON SUCCESS ===
+      if (backupInfo) {
+        console.log(
+          '[System] Cleaning up backup after successful migration...'
+        );
+        await deleteBackup(backupInfo);
+      }
+
       // Note: Cleanup will be called after PowerSync initialization completes
       // This ensures PowerSync is ready and internet connectivity can be checked
     } catch (error) {
       console.error('[System] Migration failed:', error);
+
+      // === RESTORE FROM BACKUP ON FAILURE ===
+      if (backupInfo) {
+        console.log('[System] Attempting to restore from backup...');
+        try {
+          const restoreResult = await restoreFromBackup(backupInfo);
+          if (restoreResult.success) {
+            console.log(
+              '[System] ✓ Restored from backup after migration failure'
+            );
+            console.log(
+              `[System]   - Database restored: ${restoreResult.dbRestored}`
+            );
+            console.log(
+              `[System]   - Local store restored: ${restoreResult.localStoreRestored}`
+            );
+          } else {
+            console.error(
+              '[System] ✗ Failed to restore from backup:',
+              restoreResult.error
+            );
+          }
+        } catch (restoreError) {
+          console.error(
+            '[System] ✗ Error during backup restoration:',
+            restoreError
+          );
+        }
+      } else {
+        console.warn(
+          '[System] No backup available to restore from - data may be in inconsistent state'
+        );
+      }
+
       throw error;
     } finally {
       this.migratingNow = false;
