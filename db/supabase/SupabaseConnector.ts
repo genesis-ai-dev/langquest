@@ -663,10 +663,26 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   updateSession(session: Session | null) {
-    console.log(
-      '[SupabaseConnector] Updating session:',
-      session ? 'Session present' : 'Session cleared'
-    );
-    this.currentSession = session;
+    // Safety net: Refuse to clear session in production
+    // End users should never be signed out - they stay authenticated forever
+    // This prevents offline-induced session clearing from Supabase
+    if (!session && this.currentSession) {
+      if (__DEV__) {
+        console.log('[SupabaseConnector] Clearing session (dev mode allowed)');
+        this.currentSession = null;
+      } else {
+        console.log(
+          '[SupabaseConnector] Refusing to clear session in production - users stay authenticated'
+        );
+        // Keep existing session - don't clear
+        return;
+      }
+    } else {
+      console.log(
+        '[SupabaseConnector] Updating session:',
+        session ? 'Session present' : 'No existing session to clear'
+      );
+      this.currentSession = session;
+    }
   }
 }
