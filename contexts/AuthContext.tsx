@@ -3,13 +3,20 @@ import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import type {
   AuthError,
   AuthResponse,
   Session,
   User
 } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
@@ -194,16 +201,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Track whether auth has been initialized (to prevent double init from race)
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
     console.log('[AuthContext] Setting up auth listener...');
 
-    // IMPORTANT: We rely entirely on onAuthStateChange for session initialization.
-    // The INITIAL_SESSION event fires when Supabase loads the session from AsyncStorage.
-    // This does NOT trigger network calls, so it works offline with expired tokens.
-    // Previously we called getSession() which tries to refresh expired tokens over
-    // the network, causing infinite hangs when offline.
+    // =========================================================================
+    // FAST OFFLINE PATH
+    // =========================================================================
+    // When offline with an expired token, Supabase's onAuthStateChange won't fire
+    // INITIAL_SESSION until it exhausts its token refresh retries (~25+ seconds).
+    // To avoid this delay, we race between:
+    // 1. Fast path: Check network, if offline load session from AsyncStorage directly
+    // 2. Normal path: Wait for Supabase's INITIAL_SESSION event
+    // Whichever completes first wins, the other is skipped via hasInitializedRef.
+    // =========================================================================
 
-    // Listen for auth state changes
+    const tryFastOfflinePath = async () => {
+      try {
+        const netState = await NetInfo.fetch();
+
+        // Only use fast path if we're offline
+        if (netState.isConnected) {
+          console.log(
+            '[AuthContext] Device is online - using normal Supabase flow'
+          );
+          return;
+        }
+
+        console.log(
+          '[AuthContext] Device is offline - trying fast session load from AsyncStorage'
+        );
+
+        const authKey = await getSupabaseAuthKey();
+        if (!authKey) {
+          console.log('[AuthContext] No auth key found');
+          return;
+        }
+
+        const sessionString = await AsyncStorage.getItem(authKey);
+        if (!sessionString) {
+          console.log('[AuthContext] No session in AsyncStorage');
+          return;
+        }
+
+        const storedData = JSON.parse(sessionString) as Record<string, unknown>;
+        if (!storedData?.access_token || !storedData?.user) {
+          console.log('[AuthContext] Invalid session format in AsyncStorage');
+          return;
+        }
+
+        // Check if we already initialized via INITIAL_SESSION (race lost)
+        if (hasInitializedRef.current) {
+          console.log(
+            '[AuthContext] Fast path: Already initialized via INITIAL_SESSION, skipping'
+          );
+          return;
+        }
+
+        // Win the race - mark as initialized
+        hasInitializedRef.current = true;
+        console.log(
+          '[AuthContext] Fast path: Loading session from AsyncStorage (offline mode)'
+        );
+
+        const offlineSession = storedData as unknown as Session;
+        setSession(offlineSession);
+        system.supabaseConnector.updateSession(offlineSession);
+
+        const detectedSessionType = getSessionType(offlineSession);
+        console.log(
+          '[AuthContext] Fast path: Detected session type:',
+          detectedSessionType
+        );
+        setSessionType(detectedSessionType);
+
+        // Initialize system
+        console.log('[AuthContext] Fast path: Starting system initialization');
+        await initializeSystem();
+        console.log(
+          '[AuthContext] Fast path: System initialization complete (offline mode)'
+        );
+        setIsLoading(false);
+      } catch (error) {
+        console.warn('[AuthContext] Fast offline path failed:', error);
+        // Don't set hasInitializedRef - let normal flow handle it
+      }
+    };
+
+    // Start the fast offline path immediately (non-blocking)
+    void tryFastOfflinePath();
+
+    // =========================================================================
+    // NORMAL SUPABASE PATH
+    // =========================================================================
+    // Listen for auth state changes - this is the normal flow when online
+    // or as fallback when offline fast path fails.
+
     const {
       data: { subscription }
     } = system.supabaseConnector.client.auth.onAuthStateChange(
@@ -221,6 +316,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         switch (event) {
           case 'INITIAL_SESSION': {
+            // Check if fast offline path already initialized
+            if (hasInitializedRef.current) {
+              console.log(
+                '[AuthContext] INITIAL_SESSION: Already initialized via fast path, skipping'
+              );
+              return;
+            }
+
+            // Win the race - mark as initialized
+            hasInitializedRef.current = true;
+
             // INITIAL_SESSION fires when Supabase loads the session from AsyncStorage.
             // IMPORTANT: When offline with expired token, Supabase may clear the session
             // and fire INITIAL_SESSION with null. We need to fall back to reading
