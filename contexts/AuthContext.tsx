@@ -326,18 +326,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           sessionType: session ? getSessionType(session) : null
         });
 
-        setSession(session);
-
-        // Update the session in SupabaseConnector
-        system.supabaseConnector.updateSession(session);
+        // =======================================================================
+        // CRITICAL FIX: Do NOT update session before the switch statement!
+        // Previously, setSession(session) and updateSession(session) ran here,
+        // which would clear the session even when we should skip the event.
+        // Now session updates happen INSIDE each case, AFTER skip checks.
+        // =======================================================================
 
         switch (event) {
           case 'INITIAL_SESSION': {
             // Check if fast offline path already initialized
             if (hasInitializedRef.current) {
               console.log(
-                '[AuthContext] INITIAL_SESSION: Already initialized via fast path, skipping'
+                '[AuthContext] INITIAL_SESSION: Already initialized via fast path, ignoring completely'
               );
+              // CRITICAL: Do NOT update session - keep the one from fast path
               return;
             }
 
@@ -369,9 +372,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         '[AuthContext] Found session in AsyncStorage (may be expired)'
                       );
                       effectiveSession = storedData as unknown as Session;
-                      // Update the session state and connector
-                      setSession(effectiveSession);
-                      system.supabaseConnector.updateSession(effectiveSession);
                     }
                   }
                 }
@@ -382,6 +382,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 );
               }
             }
+
+            // Now update session state (only after we've determined effectiveSession)
+            setSession(effectiveSession);
+            system.supabaseConnector.updateSession(effectiveSession);
 
             if (effectiveSession) {
               console.log(
@@ -415,6 +419,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'SIGNED_IN': {
+            // Update session for sign in events
+            setSession(session);
+            system.supabaseConnector.updateSession(session);
+
             console.log('[AuthContext] User signed in');
             const detectedSessionType = getSessionType(session);
             console.log(
@@ -436,29 +444,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'PASSWORD_RECOVERY':
+            // Update session for password recovery
+            setSession(session);
+            system.supabaseConnector.updateSession(session);
+
             console.log('[AuthContext] Password recovery session');
             setSessionType('password-reset');
             // Don't initialize system for password reset
             break;
 
           case 'SIGNED_OUT':
-            console.log('[AuthContext] User signed out');
-            setSessionType(null);
-            await cleanupSystem();
-            // Clear authView from localStore to prevent showing auth modal after sign out
-            useLocalStore.getState().setAuthView(null);
-            // Set system ready for anonymous browsing after sign out
-            setIsSystemReady(true);
+            // Only process sign out in dev mode - production users never sign out
+            // This prevents offline-induced SIGNED_OUT events from clearing the session
+            if (__DEV__) {
+              console.log('[AuthContext] User signed out (dev mode)');
+              setSession(null);
+              system.supabaseConnector.updateSession(null);
+              setSessionType(null);
+              await cleanupSystem();
+              // Clear authView from localStore to prevent showing auth modal after sign out
+              useLocalStore.getState().setAuthView(null);
+              // Set system ready for anonymous browsing after sign out
+              setIsSystemReady(true);
+            } else {
+              console.log(
+                '[AuthContext] SIGNED_OUT event ignored in production - users stay authenticated'
+              );
+            }
             break;
 
           case 'TOKEN_REFRESHED':
-            console.log('[AuthContext] Token refreshed');
-            // Just update the session, no need to reinitialize
+            // Only update session if we have a valid new session
+            if (session) {
+              setSession(session);
+              system.supabaseConnector.updateSession(session);
+              console.log('[AuthContext] Token refreshed successfully');
+            } else {
+              console.log(
+                '[AuthContext] TOKEN_REFRESHED with null session - ignoring'
+              );
+            }
             break;
 
           case 'USER_UPDATED':
+            // Update session for user updates
+            if (session) {
+              setSession(session);
+              system.supabaseConnector.updateSession(session);
+            }
             console.log('[AuthContext] User updated');
-            // Handle user updates if needed
             break;
 
           default:
