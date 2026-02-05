@@ -4,6 +4,7 @@
   "version": "2.0.12",
   "scripts": {
     "start": "expo start --dev-client",
+    "start:offline:android": "expo start --dev-client -- --localhost --android",
     "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
     "export:ios": "EXPO_ATLAS=true npx expo export --platform ios",
@@ -48,7 +49,9 @@
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
     "shadcn": "shadcn",
     "knip": "knip",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "adb:tunnel": "adb reverse tcp:8081 tcp:8081",
+    "android:eas:build:preview": "eas build --platform android --profile preview"
   },
   "jest": {
     "preset": "jest-expo"

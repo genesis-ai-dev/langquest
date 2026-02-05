@@ -108,7 +108,7 @@ export default function NextGenNewTranslationModal({
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isSystemReady } = useAuth();
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
@@ -129,11 +129,8 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
 
-  // Query project data using hybrid data (supports anonymous users)
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
+  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
+  const isPowerSyncReady = isSystemReady;
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(() => {
