@@ -108,7 +108,7 @@ export default function NextGenNewTranslationModal({
   const { currentProjectId, currentQuestId, currentProjectData } =
     useAppNavigation();
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isSystemReady } = useAuth();
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
@@ -129,11 +129,8 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
 
-  // Query project data using hybrid data (supports anonymous users)
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
+  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
+  const isPowerSyncReady = isSystemReady;
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(() => {
@@ -464,16 +461,22 @@ export default function NextGenNewTranslationModal({
       }
 
       let audioAttachment: string | null = null;
-      if (data.audioUri && system.permAttachmentQueue) {
-        // Convert recording to local attachment path
-        // - On web: converts blob URL to OPFS file
-        // - On native: moves from cache dir to local attachments dir
-        const localAudioPath = await saveAudioLocally(data.audioUri);
+      if (data.audioUri) {
+        // Ensure attachment queues are ready before saving audio
+        // This handles the case where the app started offline and queues weren't initialized
+        await system.ensureAttachmentQueuesReady();
 
-        const attachment = await system.permAttachmentQueue.saveAudio(
-          getLocalAttachmentUri(localAudioPath)
-        );
-        audioAttachment = attachment.filename;
+        if (system.permAttachmentQueue) {
+          // Convert recording to local attachment path
+          // - On web: converts blob URL to OPFS file
+          // - On native: moves from cache dir to local attachments dir
+          const localAudioPath = await saveAudioLocally(data.audioUri);
+
+          const attachment = await system.permAttachmentQueue.saveAudio(
+            getLocalAttachmentUri(localAudioPath)
+          );
+          audioAttachment = attachment.filename;
+        }
       }
 
       // Guard against anonymous users
