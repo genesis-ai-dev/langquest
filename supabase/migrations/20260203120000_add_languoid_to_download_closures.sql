@@ -272,7 +272,7 @@ begin
         when ra.download_profiles @> array[profile_id_param] then ra.download_profiles
         else array_append(coalesce(ra.download_profiles, '{}'), profile_id_param)
     end
-    where ra.region_id in (
+    where ra.subject_region_id in (
       select lr.region_id
       from languoid_region lr
       where lr.languoid_id in (
@@ -749,7 +749,7 @@ begin
         when ra.download_profiles @> array[profile_id_param] then ra.download_profiles
         else array_append(coalesce(ra.download_profiles, '{}'), profile_id_param)
     end
-    where ra.region_id in (
+    where ra.subject_region_id in (
       select lr.region_id
       from languoid_region lr
       where lr.languoid_id in (
@@ -1027,7 +1027,7 @@ begin
     update region_alias ra
     set download_profiles = rp.download_profiles
     from region_profiles rp
-    where ra.region_id = rp.id
+    where ra.subject_region_id = rp.id
       and (ra.download_profiles is null or ra.download_profiles <> rp.download_profiles);
     get diagnostics region_aliases_backfilled = row_count;
     raise notice '[backfill] Updated region_alias: % rows', region_aliases_backfilled;

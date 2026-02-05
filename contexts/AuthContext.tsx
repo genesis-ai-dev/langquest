@@ -3,7 +3,6 @@ import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import type {
   AuthError,
   AuthResponse,
@@ -220,18 +219,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const tryFastOfflinePath = async () => {
       try {
-        const netState = await NetInfo.fetch();
+        // Use RPC call with timeout to definitively check if we're online
+        // NetInfo can be unreliable with VPNs - RPC is a sure way to know
+        const RPC_TIMEOUT_MS = 3000;
 
-        // Only use fast path if we're offline
-        if (netState.isConnected) {
+        const rpcCheck = async (): Promise<boolean> => {
+          try {
+            const { error } =
+              await system.supabaseConnector.client.rpc('get_schema_info');
+            return !error;
+          } catch {
+            return false;
+          }
+        };
+
+        const timeoutPromise = new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), RPC_TIMEOUT_MS)
+        );
+
+        const isOnline = await Promise.race([rpcCheck(), timeoutPromise]);
+
+        // Only use fast path if we're offline (RPC failed or timed out)
+        if (isOnline) {
           console.log(
-            '[AuthContext] Device is online - using normal Supabase flow'
+            '[AuthContext] Server reachable - using normal Supabase flow'
           );
           return;
         }
 
         console.log(
-          '[AuthContext] Device is offline - trying fast session load from AsyncStorage'
+          '[AuthContext] Server unreachable - trying fast session load from AsyncStorage'
         );
 
         const authKey = await getSupabaseAuthKey();
