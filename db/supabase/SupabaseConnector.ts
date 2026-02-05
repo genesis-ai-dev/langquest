@@ -668,9 +668,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     // This prevents offline-induced session clearing from Supabase
     if (!session && this.currentSession) {
       if (__DEV__) {
-        console.log(
-          '[SupabaseConnector] Clearing session (dev mode allowed)'
-        );
+        console.log('[SupabaseConnector] Clearing session (dev mode allowed)');
         this.currentSession = null;
       } else {
         console.log(
