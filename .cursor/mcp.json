@@ -5,9 +5,9 @@
       "args": ["-y", "@upstash/context7-mcp"],
       "alwaysAllow": ["resolve-library-id", "get-library-docs"]
     },
-    "local-db": {
+    "shadcn": {
       "command": "npx",
-      "args": ["tsx", "scripts/mcp-server.ts"]
+      "args": ["shadcn@latest", "mcp"]
     },
     "lucide-icons": {
       "command": "npx",
@@ -32,10 +32,6 @@
     "powersync": {
       "name": "PowerSync",
       "url": "https://powersync.mintlify.app/mcp"
-    },
-    "shadcn": {
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
     }
   }
 }

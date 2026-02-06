@@ -112,7 +112,8 @@ const suffixStyledVariants = cva('h-full border-l border-border', {
 });
 
 interface InputProps
-  extends TextInputProps, VariantProps<typeof inputVariants> {
+  extends TextInputProps,
+    VariantProps<typeof inputVariants> {
   prefix?: React.ReactNode | LucideIcon;
   suffix?: React.ReactNode | LucideIcon;
   prefixStyling?: boolean;

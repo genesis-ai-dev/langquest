@@ -18,7 +18,7 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-function useDrizzleStudioDev() {
+export function useDrizzleStudio() {
   const db = system.factory.openDB();
   const client = useDevToolsPluginClient('expo-drizzle-studio-plugin');
 
@@ -103,15 +103,3 @@ function useDrizzleStudioDev() {
     };
   }, [client, db]);
 }
-
-let useDrizzleStudio: typeof useDrizzleStudioDev;
-
-if (__DEV__) {
-  useDrizzleStudio = useDrizzleStudioDev;
-} else {
-  useDrizzleStudio = () => {
-    // No-op in production
-  };
-}
-
-export { useDrizzleStudio };

@@ -78,7 +78,7 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <View>
+        <View className="px-4 pb-4">
           <Text className="mb-2 text-sm text-muted-foreground">
             {t('typeToConfirm').replace('{text}', `"${confirmationString}"`)}
           </Text>

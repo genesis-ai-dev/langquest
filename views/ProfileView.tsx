@@ -22,10 +22,6 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
-import {
-  clearDegradedMode,
-  isDegradedMode
-} from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { resetDatabase } from '@/utils/dbUtils';
@@ -68,7 +64,6 @@ export default function ProfileView() {
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [isDegraded, setIsDegraded] = useState(false);
 
   // Derive analytics enabled state (opposite of opt-out)
   const analyticsEnabled = !analyticsOptOut;
@@ -141,15 +136,6 @@ export default function ProfileView() {
     }
   }, [currentUser, form]);
 
-  // Check degraded mode on mount
-  useEffect(() => {
-    const checkDegradedMode = async () => {
-      const degraded = await isDegradedMode();
-      setIsDegraded(degraded);
-    };
-    void checkDegradedMode();
-  }, []);
-
   const { mutateAsync: updateProfile } = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!currentUser) return;
@@ -206,23 +192,6 @@ export default function ProfileView() {
       await deleteIfExists(getLocalUri(path));
       await ensureDir(getLocalUri(path));
       await system.permAttachmentQueue?.init();
-    }
-  });
-
-  const {
-    mutateAsync: clearDegradedModeState,
-    isPending: clearDegradedModePending
-  } = useMutation({
-    mutationFn: async () => {
-      await clearDegradedMode();
-      setIsDegraded(false);
-    },
-    onSuccess: () => {
-      RNAlert.alert(t('success'), 'Degraded mode cleared successfully');
-    },
-    onError: (error) => {
-      console.error('Error clearing degraded mode:', error);
-      RNAlert.alert(t('error'), 'Failed to clear degraded mode');
     }
   });
 
@@ -317,30 +286,6 @@ export default function ProfileView() {
             >
               <Text>Wipe local attachments</Text>
             </Button>
-            {isDegraded && (
-              <Button
-                variant="secondary"
-                loading={clearDegradedModePending}
-                className="w-full"
-                onPress={() => {
-                  RNAlert.alert(
-                    'Clear Degraded Mode',
-                    'This will clear the degraded mode state and allow migrations to retry. Continue?',
-                    [
-                      { text: t('cancel'), style: 'cancel' },
-                      {
-                        text: t('confirm'),
-                        onPress: () => {
-                          void clearDegradedModeState();
-                        }
-                      }
-                    ]
-                  );
-                }}
-              >
-                <Text>Clear degraded mode</Text>
-              </Button>
-            )}
           </View>
         )}
         {!posthog.isDisabled && (
