@@ -5,31 +5,19 @@
  * Automatically runs migrations and provides progress feedback.
  *
  * Flow:
- * 1. Displayed when AuthContext detects MigrationNeededError (post-auth)
- *    OR when PreAuthMigrationCheck detects migrations needed (pre-auth)
+ * 1. Displayed when AuthContext detects MigrationNeededError
  * 2. Automatically starts migration on mount
  * 3. Shows progress bar and current step
- * 4. On success: triggers app reload (post-auth) or calls onComplete (pre-auth)
+ * 4. On success: triggers app reload to continue with new schema
  * 5. On error: shows error message with retry option
  */
 
-import { useAuth } from '@/contexts/AuthContext';
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import {
-  clearDegradedMode,
-  incrementRetryCount,
-  isDegradedMode,
-  resetRetryCount,
-  shouldRetryMigration
-} from '@/services/degradedModeService';
-import { useThemeColor } from '@/utils/styleUtils';
-import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from './ui/button';
-import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
 interface MigrationProgress {
@@ -38,17 +26,7 @@ interface MigrationProgress {
   step: string;
 }
 
-interface MigrationScreenProps {
-  /**
-   * Callback when migration completes.
-   * If provided, migration proceeds without restart (pre-auth mode).
-   * If not provided, app restarts/reinitializes after migration (post-auth fallback).
-   */
-  onComplete?: () => void;
-}
-
-export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
-  const { setMigrationNeeded } = useAuth();
+export function MigrationScreen() {
   const [progress, setProgress] = useState<MigrationProgress>({
     current: 0,
     total: 1,
@@ -56,70 +34,18 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   });
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
-  const [isDegraded, setIsDegraded] = useState(false);
-  const [shouldSkipAutoStart, setShouldSkipAutoStart] = useState(false);
-  const [degradedCheckComplete, setDegradedCheckComplete] = useState(false);
 
-  // Check degraded mode on mount and auto-proceed if already in degraded mode
-  useEffect(() => {
-    void (async () => {
-      const degraded = await isDegradedMode();
-      setIsDegraded(degraded);
-      if (degraded) {
-        const shouldRetry = await shouldRetryMigration();
-        if (!shouldRetry) {
-          // Already in degraded mode and no OTA update applied - auto-proceed
-          console.log(
-            '[MigrationScreen] Already in degraded mode - allowing app to continue'
-          );
-          setProgress({
-            current: 0,
-            total: 1,
-            step: 'Continuing in degraded mode...'
-          });
-          setShouldSkipAutoStart(true); // Prevent normal migration start
-
-          // Auto-proceed after a brief delay to show the message
-          setTimeout(() => {
-            if (onComplete) {
-              // Pre-auth: proceed normally
-              onComplete();
-            } else {
-              // Post-auth: clear migration needed flag and allow app to continue
-              setMigrationNeeded(false);
-              system.clearMigrationNeeded();
-            }
-          }, 1500);
-        } else {
-          // OTA update applied - allow normal migration flow to proceed
-          console.log(
-            '[MigrationScreen] OTA update applied - migration will retry automatically'
-          );
-          setProgress({
-            current: 0,
-            total: 1,
-            step: 'OTA update detected - retrying migration...'
-          });
-          // Don't skip auto-start - let the normal flow handle it
-        }
-      }
-      setDegradedCheckComplete(true);
-    })();
-  }, [onComplete, setMigrationNeeded]);
-
-  // Memoize runMigration with proper dependencies
-  const runMigration = useCallback(async () => {
+  async function runMigration() {
     try {
       console.log('[MigrationScreen] Starting migration...');
       setError(null);
-      setIsDegraded(false);
       setProgress({
         current: 0,
         total: 1,
         step: 'Preparing database migration...'
       });
 
-      // Run migrations via system (works for both pre-auth and post-auth)
+      // Run migrations via system
       await system.runMigrations((current, total, step) => {
         console.log(
           `[MigrationScreen] Progress: ${current}/${total} - ${step}`
@@ -128,107 +54,49 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
       });
 
       console.log('[MigrationScreen] Migration complete!');
-
-      // Clear degraded mode and reset retry count on success
-      await clearDegradedMode();
-      resetRetryCount();
-
       setIsComplete(true);
       setProgress({
         current: 1,
         total: 1,
-        step: 'Migration complete!'
+        step: 'Migration complete! Restarting app...'
       });
 
       // Give user a moment to see success message
       setTimeout(() => {
-        if (onComplete) {
-          // Pre-auth mode: no restart needed since PowerSync hasn't been initialized yet
-          // Just proceed to AuthProvider which will initialize normally
-          console.log(
-            '[MigrationScreen] Migration complete, proceeding to auth...'
-          );
-          onComplete();
-        } else {
-          // Post-auth fallback: PowerSync was already initialized with old schema
-          // Need to reset and reinitialize with new schema
-          console.log(
-            '[MigrationScreen] Reinitializing system with new schema...'
-          );
+        // Trigger app reload to reinitialize with new schema
+        console.log('[MigrationScreen] Reloading app...');
 
-          // On web, reload the page to ensure clean state
-          if (typeof window !== 'undefined') {
-            window.location.reload();
-          } else {
-            // On native, reset system state so useAuth will re-run system.init()
-            system.resetForMigration();
-          }
+        // On web, reload the page
+        if (typeof window !== 'undefined' && window.location) {
+          window.location.reload();
+        } else {
+          // On native, we need to reset the system state and reinitialize
+          // This will cause useAuth to re-run system.init()
+          system.resetForMigration();
         }
       }, 1500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('[MigrationScreen] Migration failed:', errorMessage);
-
-      // Increment retry count and check if we should enter degraded mode
-      const enteredDegradedMode = await incrementRetryCount();
-
-      if (enteredDegradedMode) {
-        setIsDegraded(true);
-        setError(
-          'Migration failed multiple times. The app will continue in degraded mode. Please update the app to retry migration.'
-        );
-        setProgress({
-          current: 0,
-          total: 1,
-          step: 'Entering degraded mode...'
-        });
-
-        // Auto-proceed after showing the message - no restart needed
-        setTimeout(() => {
-          console.log(
-            '[MigrationScreen] Entered degraded mode - allowing app to continue'
-          );
-          if (onComplete) {
-            // Pre-auth: proceed normally
-            onComplete();
-          } else {
-            // Post-auth: clear migration needed flag and allow app to continue
-            setMigrationNeeded(false);
-            system.clearMigrationNeeded();
-          }
-        }, 2000);
-      } else {
-        setError(errorMessage);
-        setProgress({
-          current: 0,
-          total: 1,
-          step: 'Migration failed'
-        });
-      }
+      setError(errorMessage);
+      setProgress({
+        current: 0,
+        total: 1,
+        step: 'Migration failed'
+      });
     }
-  }, [onComplete, setMigrationNeeded]);
+  }
 
   // Memoize wrapper function to pass as reference to scheduleOnRN
   // Per workspace rules: must pass function references, never inline arrow functions
   const startMigration = useCallback(() => {
     void runMigration();
-  }, [runMigration]);
+  }, []); // Empty deps: runMigration uses stable state setters
 
   useEffect(() => {
-    // Wait for degraded mode check to complete before starting migration
-    if (!degradedCheckComplete) {
-      return;
-    }
-    // Skip auto-start if we're in degraded mode and shouldn't retry
-    if (shouldSkipAutoStart) {
-      console.log(
-        '[MigrationScreen] Skipping auto-start - in degraded mode without OTA update'
-      );
-      return;
-    }
     // Use scheduleOnRN instead of queueMicrotask per workspace rules
     scheduleOnRN(startMigration);
-  }, [startMigration, shouldSkipAutoStart, degradedCheckComplete]);
+  }, [startMigration]);
 
   function handleRetry() {
     setError(null);
@@ -241,7 +109,6 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
       ? Math.round((progress.current / progress.total) * 100)
       : 0;
 
-  const primaryColor = useThemeColor('primary');
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
       <View className="w-full max-w-md">
@@ -251,9 +118,9 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
             {error ? (
               <Text className="text-4xl">⚠️</Text>
             ) : isComplete ? (
-              <Icon as={CheckIcon} size={40} />
+              <Text className="text-4xl">✓</Text>
             ) : (
-              <ActivityIndicator size="large" color={primaryColor} />
+              <ActivityIndicator size="large" />
             )}
           </View>
 
@@ -323,16 +190,13 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
         {/* Action Buttons */}
         {error && (
           <View className="space-y-3">
-            {!isDegraded && (
-              <Button onPress={handleRetry} className="w-full">
-                <Text>Retry Migration</Text>
-              </Button>
-            )}
+            <Button onPress={handleRetry} className="w-full">
+              <Text>Retry Migration</Text>
+            </Button>
 
             <Text className="mt-4 text-center text-xs text-muted-foreground">
-              {isDegraded
-                ? 'Please update the app to retry migration. The app will continue in degraded mode until updated.'
-                : 'If this error persists, please contact support or reinstall the app.'}
+              If this error persists, please contact support or reinstall the
+              app.
             </Text>
           </View>
         )}
@@ -369,7 +233,7 @@ export function MigrationScreenMinimal() {
         setStatus('Migration complete! Restarting...');
 
         setTimeout(() => {
-          if (typeof window !== 'undefined') {
+          if (typeof window !== 'undefined' && window.location) {
             window.location.reload();
           } else {
             system.resetForMigration();

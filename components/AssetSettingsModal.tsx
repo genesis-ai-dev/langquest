@@ -61,6 +61,10 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
     }
   }, [isError, onClose, t]);
 
+  if (isError) {
+    return null;
+  }
+
   const assetData = statusData?.full;
   const assetQuestData = statusData?.currentQuest;
 
@@ -157,7 +161,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
 
   return (
     <Drawer
-      open={isVisible && !isError}
+      open={isVisible}
       onOpenChange={(open) => {
         if (!open) {
           onClose();
@@ -171,78 +175,76 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
           <DrawerTitle>{t('assetSettings')}</DrawerTitle>
         </DrawerHeader>
 
-        {!isError && (
-          <View className="flex-1 gap-2">
-            {/* Changing settings to the Asset itself. This will affect all quests */}
-            <Text className="mb-1 text-base font-semibold">{t('general')}</Text>
-            <Text className="mb-2 text-xs text-muted-foreground">
-              {t('assetGeneralSettingsDescription')}
-            </Text>
-            <SwitchBox
-              title={t('visibility')}
-              description={
-                assetData?.visible
-                  ? t('visibilityDescription')
-                  : t('assetHiddenAllQuests')
-              }
-              value={assetData?.visible ?? false}
-              onChange={() => handleToggleStatusGeneral('visible')}
-              disabled={isLoading || !isOwner}
-              icon={assetData?.visible ? EyeIcon : EyeOffIcon}
-            />
+        <View className="flex-1 gap-2">
+          {/* Changing settings to the Asset itself. This will affect all quests */}
+          <Text className="mb-1 text-base font-semibold">{t('general')}</Text>
+          <Text className="mb-2 text-xs text-muted-foreground">
+            {t('assetGeneralSettingsDescription')}
+          </Text>
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              assetData?.visible
+                ? t('visibilityDescription')
+                : t('assetHiddenAllQuests')
+            }
+            value={assetData?.visible ?? false}
+            onChange={() => handleToggleStatusGeneral('visible')}
+            disabled={isLoading || !isOwner}
+            icon={assetData?.visible ? EyeIcon : EyeOffIcon}
+          />
 
-            <SwitchBox
-              title={t('active')}
-              description={
-                assetData?.active
-                  ? t('activeDescription')
-                  : t('assetDisabledAllQuests')
-              }
-              value={assetData?.active ?? false}
-              onChange={() => handleToggleStatusGeneral('active')}
-              disabled={isLoading || !isOwner}
-              icon={assetData?.active ? CheckCircleIcon : PauseIcon}
-            />
+          <SwitchBox
+            title={t('active')}
+            description={
+              assetData?.active
+                ? t('activeDescription')
+                : t('assetDisabledAllQuests')
+            }
+            value={assetData?.active ?? false}
+            onChange={() => handleToggleStatusGeneral('active')}
+            disabled={isLoading || !isOwner}
+            icon={assetData?.active ? CheckCircleIcon : PauseIcon}
+          />
 
-            <View className="h-6" />
+          <View className="h-6" />
 
-            {/* Changing settings to the Asset related to this quest only */}
-            <Text className="mb-1 text-base font-semibold">
-              {t('currentQuest')}
-            </Text>
-            <Text className="mb-2 text-xs text-muted-foreground">
-              {assetData?.active
-                ? t('questSpecificSettingsDescription')
-                : t('assetDisabledWarning')}
-            </Text>
+          {/* Changing settings to the Asset related to this quest only */}
+          <Text className="mb-1 text-base font-semibold">
+            {t('currentQuest')}
+          </Text>
+          <Text className="mb-2 text-xs text-muted-foreground">
+            {assetData?.active
+              ? t('questSpecificSettingsDescription')
+              : t('assetDisabledWarning')}
+          </Text>
 
-            <SwitchBox
-              title={t('visibility')}
-              description={
-                assetQuestData?.visible
-                  ? t('assetVisibleThisQuest')
-                  : t('assetHiddenThisQuest')
-              }
-              value={assetQuestData?.visible ?? false}
-              onChange={() => handleToggleStatusQuest('visible')}
-              disabled={isLoading || !isOwner || !assetData?.active}
-              icon={assetQuestData?.visible ? EyeIcon : EyeOffIcon}
-            />
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              assetQuestData?.visible
+                ? t('assetVisibleThisQuest')
+                : t('assetHiddenThisQuest')
+            }
+            value={assetQuestData?.visible ?? false}
+            onChange={() => handleToggleStatusQuest('visible')}
+            disabled={isLoading || !isOwner || !assetData?.active}
+            icon={assetQuestData?.visible ? EyeIcon : EyeOffIcon}
+          />
 
-            <SwitchBox
-              title={t('active')}
-              description={
-                assetQuestData?.active
-                  ? t('assetActiveThisQuest')
-                  : t('assetInactiveThisQuest')
-              }
-              value={assetQuestData?.active ?? false}
-              onChange={() => handleToggleStatusQuest('active')}
-              disabled={isLoading || !isOwner || !assetData?.active}
-              icon={assetQuestData?.active ? CheckCircleIcon : PauseIcon}
-            />
-          </View>
-        )}
+          <SwitchBox
+            title={t('active')}
+            description={
+              assetQuestData?.active
+                ? t('assetActiveThisQuest')
+                : t('assetInactiveThisQuest')
+            }
+            value={assetQuestData?.active ?? false}
+            onChange={() => handleToggleStatusQuest('active')}
+            disabled={isLoading || !isOwner || !assetData?.active}
+            icon={assetQuestData?.active ? CheckCircleIcon : PauseIcon}
+          />
+        </View>
       </DrawerContent>
     </Drawer>
   );

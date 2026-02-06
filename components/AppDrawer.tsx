@@ -1,4 +1,3 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -15,7 +14,6 @@ import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
-import { isDegradedMode } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import * as Updates from 'expo-updates';
@@ -201,19 +199,12 @@ export default function AppDrawer({
 
   // Track if drawer has ever been opened to ensure proper initialization
   const [hasOpened, setHasOpened] = React.useState(false);
-  const [isDegraded, setIsDegraded] = React.useState(false);
 
-  // Check degraded mode when drawer opens
   React.useEffect(() => {
     if (drawerIsVisible) {
       setHasOpened(true);
       // Dismiss keyboard when drawer opens
       Keyboard.dismiss();
-      // Check degraded mode
-      void (async () => {
-        const degraded = await isDegradedMode();
-        setIsDegraded(degraded);
-      })();
     }
   }, [drawerIsVisible]);
 
@@ -409,16 +400,6 @@ export default function AppDrawer({
           <DrawerTitle>{t('menu')}</DrawerTitle>
         </DrawerHeader>
         <View className="flex flex-col gap-4 pt-4">
-          {/* Degraded Mode Warning */}
-          {isDegraded && (
-            <Alert variant="warn" icon={AlertTriangle}>
-              <AlertTitle>Degraded Mode</AlertTitle>
-              <AlertDescription>
-                Please update the app to fix database issues and enable sync.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* OTA Patch Version */}
           <View className="rounded-md bg-muted p-3">
             <Text className="text-center text-xs text-muted-foreground">

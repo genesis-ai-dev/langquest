@@ -47,7 +47,6 @@
     "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
-    "package-lock:fix": "npm install --package-lock-only",
     "shadcn": "shadcn",
     "knip": "knip",
     "postinstall": "patch-package",
@@ -126,7 +125,6 @@
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.10",
     "expo-updates": "~0.28.17",
-    "js-logger": "^1.6.1",
     "lucide-react-native": "^0.510.0",
     "moti": "^0.30.0",
     "nativewind": "^4.2.1",
@@ -167,7 +165,6 @@
     "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@eslint/compat": "^1.2.4",
     "@libsql/client": "^0.14.0",
-    "@modelcontextprotocol/sdk": "^1.0.4",
     "@react-native-community/cli": "latest",
     "@react-native/debugger-frontend": "^0.83.1",
     "@react-native/dev-middleware": "^0.83.1",
@@ -211,12 +208,6 @@
   },
   "overrides": {
     "ajv": "^6.12.6",
-    "@modelcontextprotocol/sdk": {
-      "ajv": "^8.17.1",
-      "ajv-formats": {
-        "ajv": "^8.17.1"
-      }
-    },
     "schema-utils": "3.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
