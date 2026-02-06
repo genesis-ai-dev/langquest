@@ -347,15 +347,6 @@ export default function NextGenAssetDetailView() {
     }
   }, [activeAsset]);
 
-  useEffect(() => {
-    if (__DEV__ && projectData && !projectData.target_language_id) {
-      console.warn(
-        '[ASSET DETAIL] WARNING: Project data loaded but target_language_id is missing!',
-        projectData
-      );
-    }
-  }, [projectData]);
-
   const currentStatus = useStatusContext();
 
   const { allowEditing, allowSettings } = !activeAsset
@@ -385,12 +376,11 @@ export default function NextGenAssetDetailView() {
   const { attachmentStates, isLoading: isLoadingAttachments } =
     useAttachmentStates(allAttachmentIds);
 
-  // Collect content-level languoid IDs for this asset (prefer languoid_id, fallback to source_language_id)
+  // Collect content-level languoid IDs for this asset
   const contentLanguoidIds = React.useMemo(() => {
     const ids = new Set<string>();
     activeAsset?.content?.forEach((c) => {
-      const languoidId = c.languoid_id || c.source_language_id;
-      if (languoidId) ids.add(languoidId);
+      if (c.languoid_id) ids.add(c.languoid_id);
     });
     return Array.from(ids);
   }, [activeAsset?.content]);
@@ -414,7 +404,7 @@ export default function NextGenAssetDetailView() {
   // Get the current content's language ID for transcription localization
   const currentContentLanguageId = React.useMemo(() => {
     const content = activeAsset?.content?.[currentContentIndex];
-    return content?.languoid_id || content?.source_language_id || '';
+    return content?.languoid_id || '';
   }, [activeAsset?.content, currentContentIndex]);
 
   // Fetch orthography examples for transcription localization
@@ -898,8 +888,7 @@ export default function NextGenAssetDetailView() {
                   })}
                   style={{ height: 200 }}
                   renderItem={({ item: content, index }) => {
-                    const languoidId =
-                      content.languoid_id || content.source_language_id;
+                    const languoidId = content.languoid_id;
                     const languoid = languoidId
                       ? (languoidById.get(languoidId) ?? null)
                       : null;
@@ -911,8 +900,7 @@ export default function NextGenAssetDetailView() {
                       >
                         <SourceContent
                           content={content}
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          sourceLanguage={languoid as any}
+                          sourceLanguoid={languoid}
                           audioSegments={
                             isCurrentItem ? resolvedAudioUris : undefined
                           }

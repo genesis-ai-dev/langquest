@@ -21,7 +21,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   project,
   onClose
 }) => {
-  // Fetch project source languoids from project_language_link
+  // Fetch project source languoids from project_languoid_link
   const { data: sourceLanguoids = [] } = useHybridData<
     Pick<Languoid, 'id' | 'name'>,
     Languoid

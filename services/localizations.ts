@@ -1179,6 +1179,13 @@ export const localizations = {
     indonesian: 'Nama dalam Bahasa Inggris',
     nepali: 'अंग्रेजी नाम'
   },
+  name: {
+    english: 'Name',
+    spanish: 'Nombre',
+    brazilian_portuguese: 'Nome',
+    tok_pisin: 'Name',
+    indonesian: 'Nama'
+  },
   iso6393Code: {
     english: 'ISO 639-3 Code',
     spanish: 'Código ISO 639-3',

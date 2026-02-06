@@ -23,6 +23,7 @@ import { migration_0_0_to_1_0 } from './0.0-to-1.0';
 import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
 import { migration_2_1_to_2_2 } from './2.1-to-2.2';
+import { migration_2_2_to_2_3 } from './2.2-to-2.3';
 import { updateMetadataVersion } from './utils';
 
 // Type alias for database with common query methods
@@ -72,7 +73,9 @@ export const migrations: Migration[] = [
   migration_1_0_to_2_0,
   migration_2_0_to_2_1,
   // Add content_type column to asset table
-  migration_2_1_to_2_2
+  migration_2_1_to_2_2,
+  // Migrate language preferences from Language to Languoid format
+  migration_2_2_to_2_3
   // Add future migrations here:
 ];
 
@@ -126,7 +129,6 @@ export async function getMinimumSchemaVersion(
     // The views filter to show only local (non-synced) records
     const tables = [
       'profile_local',
-      'language_local',
       'project_local',
       'quest_local',
       'asset_local',

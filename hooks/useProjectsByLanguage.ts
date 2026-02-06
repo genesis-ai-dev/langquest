@@ -1,8 +1,20 @@
-import { project, profile_project_link } from '@/db/drizzleSchema';
+import {
+  project,
+  project_language_link,
+  profile_project_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, getTableColumns, notInArray, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  notInArray,
+  or,
+  sql
+} from 'drizzle-orm';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalStore } from '@/store/localStore';
@@ -10,11 +22,11 @@ import { useLocalStore } from '@/store/localStore';
 type Project = typeof project.$inferSelect;
 
 /**
- * Hook to query projects filtered by target language ID
+ * Hook to query projects filtered by target languoid ID
  * Excludes projects the user is already a member of
  * Respects user's privacy settings and blocked content/users
  */
-export function useProjectsByLanguage(languageId: string | null) {
+export function useProjectsByLanguage(languoidId: string | null) {
   const { currentUser } = useAuth();
   const userId = currentUser?.id;
 
@@ -37,25 +49,32 @@ export function useProjectsByLanguage(languageId: string | null) {
   );
 
   return useHybridData<Project>({
-    dataType: 'projects-by-language',
+    dataType: 'projects-by-languoid',
     queryKeyParams: [
-      languageId || '',
+      languoidId || '',
       userId || '',
       showInvisibleContent ? 'show-hidden' : ''
     ],
 
-    // Offline query - get projects by target language
+    // Offline query - get projects by target languoid via project_language_link
     offlineQuery: toCompilableQuery(
       system.db
         .select({
           ...getTableColumns(project)
         })
         .from(project)
+        .innerJoin(
+          project_language_link,
+          and(
+            eq(project_language_link.project_id, project.id),
+            eq(project_language_link.language_type, 'target')
+          )
+        )
         .where(
           and(
             ...[
-              languageId
-                ? eq(project.target_language_id, languageId)
+              languoidId
+                ? eq(project_language_link.languoid_id, languoidId)
                 : undefined,
               eq(project.active, true),
               // Exclude projects user is already a member of
@@ -82,9 +101,9 @@ export function useProjectsByLanguage(languageId: string | null) {
         )
     ),
 
-    // Cloud query - get projects by target language
+    // Cloud query - get projects by target languoid via project_language_link
     cloudQueryFn: async () => {
-      if (!languageId) return [];
+      if (!languoidId) return [];
 
       // Get projects user is already a member of (to exclude)
       const userProjectIds = userId
@@ -96,10 +115,23 @@ export function useProjectsByLanguage(languageId: string | null) {
             .then(({ data }) => data?.map((p) => p.project_id) || [])
         : [];
 
+      // First, get project IDs that match the target languoid
+      const { data: projectLinks, error: linkError } =
+        await system.supabaseConnector.client
+          .from('project_language_link')
+          .select('project_id')
+          .eq('languoid_id', languoidId)
+          .eq('language_type', 'target');
+
+      if (linkError) throw linkError;
+      if (!projectLinks || projectLinks.length === 0) return [];
+
+      const matchingProjectIds = projectLinks.map((link) => link.project_id);
+
       let query = system.supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('target_language_id', languageId)
+        .in('id', matchingProjectIds)
         .eq('active', true);
 
       // Exclude projects user is already a member of
@@ -130,7 +162,7 @@ export function useProjectsByLanguage(languageId: string | null) {
       return data || [];
     },
 
-    enableCloudQuery: !!languageId,
-    enableOfflineQuery: !!languageId
+    enableCloudQuery: !!languoidId,
+    enableOfflineQuery: !!languoidId
   });
 }

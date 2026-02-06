@@ -8,7 +8,6 @@ import {
   createBlockedContentTable,
   createBlockedUsersTable,
   createInviteTable,
-  createLanguageTable,
   createLanguoidAliasTable,
   createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
@@ -45,12 +44,6 @@ import {
 export const profile_synced = createProfileTable('synced');
 
 export const userRelations = relations(profile_synced, ({ many, one }) => ({
-  created_languages: many(language_synced, { relationName: 'creator' }),
-  ui_language: one(language_synced, {
-    fields: [profile_synced.ui_language_id],
-    references: [language_synced.id],
-    relationName: 'uiLanguage'
-  }),
   ui_languoid: one(languoid_synced, {
     fields: [profile_synced.ui_languoid_id],
     references: [languoid_synced.id],
@@ -60,28 +53,6 @@ export const userRelations = relations(profile_synced, ({ many, one }) => ({
   received_invites: many(invite_synced, { relationName: 'invite_receiver' }),
   sent_requests: many(request_synced, { relationName: 'request_sender' })
 }));
-
-export const language_synced = createLanguageTable('synced', {
-  profile: profile_synced
-});
-
-export const language_syncedRelations = relations(
-  language_synced,
-  ({ one, many }) => ({
-    creator: one(profile_synced, {
-      fields: [language_synced.creator_id],
-      references: [profile_synced.id],
-      relationName: 'creator'
-    }),
-    uiUsers: many(profile_synced, { relationName: 'uiLanguage' }),
-    sourceLanguageProjects: many(project_synced, {
-      relationName: 'sourceLanguage'
-    }),
-    targetLanguageProjects: many(project_synced, {
-      relationName: 'targetLanguage'
-    })
-  })
-);
 
 // Languoid tables
 export const languoid_synced = createLanguoidTable('synced', {
@@ -292,18 +263,12 @@ export const languoid_region_syncedRelations = relations(
 );
 
 export const project_synced = createProjectTable('synced', {
-  language: language_synced,
   profile: profile_synced
 });
 
 export const project_syncedRelations = relations(
   project_synced,
-  ({ one, many }) => ({
-    target_language: one(language_synced, {
-      fields: [project_synced.target_language_id],
-      references: [language_synced.id],
-      relationName: 'targetLanguage'
-    }),
+  ({ many }) => ({
     quests: many(quest_synced),
     profile_project_links: many(profile_project_link_synced),
     source_languages: many(project_language_link_synced),
@@ -363,7 +328,6 @@ export const quest_tag_link_syncedRelations = relations(
 );
 
 export const asset_synced = createAssetTable('synced', {
-  language: language_synced,
   project: project_synced,
   profile: profile_synced
 });
@@ -371,10 +335,6 @@ export const asset_synced = createAssetTable('synced', {
 export const asset_syncedRelations = relations(
   asset_synced,
   ({ one, many }) => ({
-    source_language: one(language_synced, {
-      fields: [asset_synced.source_language_id],
-      references: [language_synced.id]
-    }),
     project: one(project_synced, {
       fields: [asset_synced.project_id],
       references: [project_synced.id]
@@ -434,8 +394,7 @@ export const quest_asset_link_syncedRelations = relations(
 export const project_language_link_synced = createProjectLanguageLinkTable(
   'synced',
   {
-    project: project_synced,
-    language: language_synced
+    project: project_synced
   }
 );
 
@@ -445,10 +404,6 @@ export const project_language_link_syncedRelations = relations(
     project: one(project_synced, {
       fields: [project_language_link_synced.project_id],
       references: [project_synced.id]
-    }),
-    language: one(language_synced, {
-      fields: [project_language_link_synced.language_id],
-      references: [language_synced.id]
     }),
     languoid: one(languoid_synced, {
       fields: [project_language_link_synced.languoid_id],
@@ -525,8 +480,7 @@ export const vote_syncedRelations = relations(vote_synced, ({ one }) => ({
 }));
 
 export const asset_content_link_synced = createAssetContentLinkTable('synced', {
-  asset: asset_synced,
-  language: language_synced
+  asset: asset_synced
 });
 
 export const asset_content_link_syncedRelations = relations(
@@ -535,10 +489,6 @@ export const asset_content_link_syncedRelations = relations(
     asset: one(asset_synced, {
       fields: [asset_content_link_synced.asset_id],
       references: [asset_synced.id]
-    }),
-    source_language: one(language_synced, {
-      fields: [asset_content_link_synced.source_language_id],
-      references: [language_synced.id]
     }),
     languoid: one(languoid_synced, {
       fields: [asset_content_link_synced.languoid_id],

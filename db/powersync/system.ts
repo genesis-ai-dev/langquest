@@ -72,6 +72,9 @@ const Schema = SchemaNative || SchemaWeb;
 
 Logger.useDefaults();
 
+// English languoid ID constant (matches seed data)
+const ENGLISH_LANGUOID_ID = 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd';
+
 export class System {
   private static instance: System | null = null;
 
@@ -819,40 +822,43 @@ export class System {
     const time = performance.now();
     // Create a profile first
     const PROFILE_ID = 'c111d43b-5983-4342-9d9e-5fc8d09d77b9';
-    const ENGLISH_LANGUAGE_ID = uuid.v4();
-
-    // Insert language
-    await this.db.insert(drizzleSchemaLocal.language_local).values({
-      id: ENGLISH_LANGUAGE_ID,
-      creator_id: PROFILE_ID,
-      native_name: 'Generated English',
-      english_name: 'Generated English',
-      iso639_3: 'gen-eng',
-      locale: 'gen-en',
-      ui_ready: false,
-      download_profiles: [PROFILE_ID]
-    });
 
     async function createProject(
       i: number,
       db: PowerSyncSQLiteDatabase<typeof drizzleSchemaLocal>
     ) {
+      const projectId = uuid.v4();
       const project = {
-        id: uuid.v4(),
+        id: projectId,
         creator_id: PROFILE_ID,
         name: `Project ${i + 1}`,
         description: `Description for project ${i + 1}`,
-        download_profiles: [PROFILE_ID],
-        target_language_id: ENGLISH_LANGUAGE_ID
+        download_profiles: [PROFILE_ID]
       };
 
       const profile_project_link = {
-        id: `${PROFILE_ID}_${project.id}`,
-        project_id: project.id,
+        id: `${PROFILE_ID}_${projectId}`,
+        project_id: projectId,
         profile_id: PROFILE_ID,
         membership: 'owner' as const,
         download_profiles: [PROFILE_ID]
       };
+
+      // Create project language links (source and target)
+      const project_language_links = [
+        {
+          project_id: projectId,
+          languoid_id: ENGLISH_LANGUOID_ID,
+          language_type: 'source' as const,
+          download_profiles: [PROFILE_ID]
+        },
+        {
+          project_id: projectId,
+          languoid_id: ENGLISH_LANGUOID_ID,
+          language_type: 'target' as const,
+          download_profiles: [PROFILE_ID]
+        }
+      ];
 
       const quests: InsertQuest[] = Array.from({ length: 5 }, (_, i) => {
         return {
@@ -938,6 +944,9 @@ export class System {
       await db
         .insert(drizzleSchemaLocal.profile_project_link_local)
         .values(profile_project_link);
+      await db
+        .insert(drizzleSchemaLocal.project_language_link_local)
+        .values(project_language_links);
 
       const allQuests = [
         ...quests,
@@ -974,21 +983,12 @@ export class System {
             name: `Asset ${i + 1}`,
             images: [],
             download_profiles: [PROFILE_ID],
-            source_language_id: ENGLISH_LANGUAGE_ID,
             project_id: project.id,
             source_asset_id: null
           };
-          // const assetContentLink: InsertAssetContentLink = {
-          //   id: uuid.v4(),
-          //   asset_id: asset.id,
-          //   source_language_id: ENGLISH_LANGUAGE_ID,
-          //   text: 'Test',
-          //   download_profiles: [PROFILE_ID]
-          // };
           const translationAsset: InsertAsset = {
             id: uuid.v4(),
             source_asset_id: asset.id,
-            source_language_id: ENGLISH_LANGUAGE_ID,
             name: 'Test',
             download_profiles: [PROFILE_ID],
             creator_id: PROFILE_ID,
@@ -1019,7 +1019,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: asset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUOID_ID,
             text: 'Source text',
             download_profiles: [PROFILE_ID],
             created_at: contentCreatedAt.toISOString()
@@ -1028,7 +1028,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: asset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUOID_ID,
             text: 'Second source text',
             download_profiles: [PROFILE_ID],
             // audio: [uuid.v4()],
@@ -1045,7 +1045,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: translationAsset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUOID_ID,
             text: 'Translation text',
             download_profiles: [PROFILE_ID]
             // audio: [uuid.v4()]
@@ -1053,7 +1053,7 @@ export class System {
           assetContentLinks.push({
             id: uuid.v4(),
             asset_id: translationAsset.id!,
-            source_language_id: ENGLISH_LANGUAGE_ID,
+            languoid_id: ENGLISH_LANGUOID_ID,
             text: 'Second translation text',
             download_profiles: [PROFILE_ID]
           });
@@ -1090,7 +1090,6 @@ export class System {
     //     name: `Asset ${i + 1}`,
     //     images: [],
     //     download_profiles: [PROFILE_ID],
-    //     source_language_id: ENGLISH_LANGUAGE_ID,
     //     project_id: projects[i % projects.length]?.id,
     //     source_asset_id: null,
     //     target_asset_id: null

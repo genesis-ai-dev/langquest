@@ -34,7 +34,6 @@ bucket_definitions:
       - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
       - SELECT project_id || '_' || languoid_id as id, * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
       - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
-      - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles

@@ -1,4 +1,4 @@
-import { LanguageCombobox } from '@/components/language-combobox';
+import { LanguoidCombobox } from '@/components/languoid-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,11 +14,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
-import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
-import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
@@ -43,7 +41,7 @@ export default function RegisterView({
 }) {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
-  const currentLanguage = useLocalStore((state) => state.uiLanguage);
+  const currentLanguoid = useLocalStore((state) => state.uiLanguoid);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
   const formSchema = z
     .object({
@@ -75,11 +73,8 @@ export default function RegisterView({
       if (!isOnline) {
         throw new Error(t('internetConnectionRequired'));
       }
-      // Get languoid name - handle both Languoid (name) and old Language (english_name) types
-      const languoidName =
-        (currentLanguage as unknown as Languoid | undefined)?.name ||
-        (currentLanguage as unknown as Language | undefined)?.english_name ||
-        'english';
+      // Get languoid name
+      const languoidName = currentLanguoid?.name || 'english';
 
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
@@ -90,8 +85,7 @@ export default function RegisterView({
             terms_accepted: data.termsAccepted,
             terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
             ui_language: languoidName.toLowerCase(),
-            ui_languoid_id: currentLanguage?.id, // New languoid reference
-            ui_language_id: currentLanguage?.id, // Keep for backward compatibility
+            ui_languoid_id: currentLanguoid?.id,
             email_verified: false
           },
           emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
@@ -157,7 +151,7 @@ export default function RegisterView({
             </Text>
             <Text>{t('newUserRegistration')}</Text>
           </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
+          <LanguoidCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="username"

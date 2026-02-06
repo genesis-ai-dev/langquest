@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguoidSelect } from '@/components/languoid-select';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -120,11 +120,7 @@ export default function ProfileView() {
       currentPassword: '',
       newPassword: '',
       confirmPassword: '',
-      // Prefer ui_languoid_id, fallback to ui_language_id for backward compatibility
-      selectedLanguoidId:
-        currentUser?.user_metadata.ui_languoid_id ??
-        currentUser?.user_metadata.ui_language_id ??
-        '',
+      selectedLanguoidId: currentUser?.user_metadata.ui_languoid_id ?? '',
       termsAccepted: !!currentUser?.user_metadata.terms_accepted
     }
   });
@@ -288,6 +284,30 @@ export default function ProfileView() {
             </Button>
           </View>
         )}
+        {isDegraded && (
+          <Button
+            variant="secondary"
+            loading={clearDegradedModePending}
+            className="w-full"
+            onPress={() => {
+              RNAlert.alert(
+                'Clear Degraded Mode',
+                'This will clear the degraded mode state and allow migrations to retry. Continue?',
+                [
+                  { text: t('cancel'), style: 'cancel' },
+                  {
+                    text: t('confirm'),
+                    onPress: () => {
+                      void clearDegradedModeState();
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Text>Clear Degraded Mode</Text>
+          </Button>
+        )}
         {!posthog.isDisabled && (
           <Button
             onPress={async () => {
@@ -416,7 +436,7 @@ export default function ProfileView() {
           name="selectedLanguoidId"
           render={({ field }) => (
             <FormItem>
-              <LanguageSelect
+              <LanguoidSelect
                 {...field}
                 uiReadyOnly
                 onChange={(languoid) => field.onChange(languoid.id)}

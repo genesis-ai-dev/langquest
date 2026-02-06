@@ -60,12 +60,10 @@ export function useLocalization(languageOverride?: string | null) {
   // This allows useLocalization to work even before login as documented
   const authContext = useContext(AuthContext);
   const currentUser = authContext?.currentUser ?? null;
-  const currentLanguage = useLocalStore((state) => state.uiLanguage);
+  const currentLanguoid = useLocalStore((state) => state.uiLanguoid);
 
-  // Try ui_languoid_id first, fallback to ui_language_id for backward compatibility
-  const uiLanguoidId =
-    currentUser?.user_metadata.ui_languoid_id ??
-    currentUser?.user_metadata.ui_language_id;
+  // Get ui_languoid_id from user metadata
+  const uiLanguoidId = currentUser?.user_metadata.ui_languoid_id;
 
   // Use useHybridData directly to fetch the user's languoid preference
   const { data } = useHybridData({
@@ -100,32 +98,19 @@ export function useLocalization(languageOverride?: string | null) {
   // Get language with priority:
   // 1. Manual override (provided as prop)
   // 2. Authenticated user's profile languoid name
-  // 3. Selected language from LanguageContext (for non-authenticated pages)
-  //    - Check if currentLanguage is a Languoid (has 'name' property)
-  //    - Fallback to old Language type (has 'english_name' property)
+  // 3. UI languoid from store (for non-authenticated users or users without profile languoid)
   // 4. Default to English
-  let resolvedLanguageName: string | null | undefined = null;
+  let resolvedLanguoidName: string | null | undefined = null;
 
   if (languageOverride) {
-    resolvedLanguageName = languageOverride;
+    resolvedLanguoidName = languageOverride;
   } else if (profileLanguoid?.name) {
-    resolvedLanguageName = profileLanguoid.name;
-  } else if (currentLanguage) {
-    // Check if it's a Languoid (has 'name' property) or old Language (has 'english_name')
-    const langAny = currentLanguage as any;
-    if (langAny.name && typeof langAny.name === 'string') {
-      resolvedLanguageName = langAny.name;
-    } else if (
-      langAny.english_name &&
-      typeof langAny.english_name === 'string'
-    ) {
-      resolvedLanguageName = langAny.english_name;
-    }
+    resolvedLanguoidName = profileLanguoid.name;
+  } else if (currentLanguoid?.name) {
+    resolvedLanguoidName = currentLanguoid.name;
   }
 
-  const userLanguage = mapLanguoidNameToSupportedLanguage(
-    resolvedLanguageName
-  ) as SupportedLanguage;
+  const userLanguage = mapLanguoidNameToSupportedLanguage(resolvedLanguoidName);
 
   // t function to accept optional interpolation values and use 'localizations'
   const t = (

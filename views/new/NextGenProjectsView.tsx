@@ -8,6 +8,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { invite, profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
+import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
@@ -40,7 +41,7 @@ import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
-import { LanguageCombobox } from '@/components/language-combobox';
+import { LanguoidCombobox } from '@/components/languoid-combobox';
 import {
   Drawer,
   DrawerClose,
@@ -67,10 +68,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { resolveTable } from '@/utils/dbUtils';
-import {
-  ensureLanguoidDownloadProfile,
-  findOrCreateLanguoidByName
-} from '@/utils/languoidUtils';
+import { ensureLanguoidDownloadProfile } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -127,14 +125,13 @@ export default function NextGenProjectsView() {
 
         // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
-          // Create project (target_language_id is deprecated but still required by schema)
+          // Create project
           const { target_languoid_id, ...projectValues } = values;
           const [newProject] = await tx
             .insert(resolveTable('project', { localOverride: false }))
             .values({
               ...projectValues,
               template: projectValues.template,
-              target_language_id: target_languoid_id, // Deprecated field, kept for backward compatibility
               creator_id: currentUser.id,
               download_profiles: [currentUser.id]
             })
@@ -164,7 +161,6 @@ export default function NextGenProjectsView() {
           );
           await tx.insert(projectLanguageLinkSynced).values({
             project_id: newProject.id,
-            language_id: null, // Optional - for backward compatibility
             languoid_id: target_languoid_id, // Required - part of PK
             language_type: 'target',
             active: true,
@@ -185,33 +181,14 @@ export default function NextGenProjectsView() {
       }
     });
 
-  const savedLanguage = useLocalStore((state) => state.savedLanguage);
-  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
+  const savedLanguoid = useLocalStore((state) => state.savedLanguoid);
+  const setSavedLanguoid = useLocalStore((state) => state.setSavedLanguoid);
 
   const resetForm = () => {
     form.reset(defaultValues);
-    // Handle savedLanguage - it might be a Language (old) or Languoid (new)
-    // If it's a Language, we'll need to find/create the corresponding languoid
-    if (savedLanguage) {
-      // Check if savedLanguage has a 'name' property (Languoid) or 'native_name' (Language)
-      if ('name' in savedLanguage && savedLanguage.name) {
-        // It's a Languoid
-        form.setValue('target_languoid_id', savedLanguage.id);
-      } else if (
-        'native_name' in savedLanguage ||
-        'english_name' in savedLanguage
-      ) {
-        // It's a Language - find or create corresponding languoid
-        const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
-        if (languageName && currentUser?.id) {
-          findOrCreateLanguoidByName(languageName, currentUser.id).then(
-            (languoidId) => {
-              form.setValue('target_languoid_id', languoidId);
-            }
-          );
-        }
-      }
+    // Handle savedLanguoid (should be a Languoid)
+    if (savedLanguoid?.id) {
+      form.setValue('target_languoid_id', savedLanguoid.id);
     }
   };
 
@@ -229,28 +206,10 @@ export default function NextGenProjectsView() {
   });
 
   useEffect(() => {
-    if (savedLanguage && !form.getValues('target_languoid_id')) {
-      // Handle savedLanguage - it might be a Language (old) or Languoid (new)
-      if ('name' in savedLanguage && savedLanguage.name) {
-        // It's a Languoid
-        form.setValue('target_languoid_id', savedLanguage.id);
-      } else if (
-        'native_name' in savedLanguage ||
-        'english_name' in savedLanguage
-      ) {
-        // It's a Language - find or create corresponding languoid
-        const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
-        if (languageName && currentUser?.id) {
-          findOrCreateLanguoidByName(languageName, currentUser.id).then(
-            (languoidId) => {
-              form.setValue('target_languoid_id', languoidId);
-            }
-          );
-        }
-      }
+    if (savedLanguoid?.id && !form.getValues('target_languoid_id')) {
+      form.setValue('target_languoid_id', savedLanguoid.id);
     }
-  }, [form, savedLanguage, currentUser?.id]);
+  }, [form, savedLanguoid]);
 
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
@@ -967,13 +926,12 @@ export default function NextGenProjectsView() {
                   return (
                     <FormItem>
                       <FormControl>
-                        <LanguageCombobox
+                        <LanguoidCombobox
                           value={field.value}
                           onChange={(languoid) => {
                             field.onChange(languoid.id);
-                            // Note: We don't save languoid to savedLanguage store
-                            // because the store still expects Language type (with native_name, etc.)
-                            // The form will handle languoid selection directly
+                            // LanguoidSearchResult needs cast due to type incompatibility
+                            setSavedLanguoid(languoid as unknown as Languoid);
                           }}
                           allowCreate
                           onCreateNew={(languoidId) => {

@@ -125,10 +125,10 @@ Deno.serve(async (req) => {
         // Get sender details
         const { data: sender } = await supabase
           .from('profile')
-          .select('username, ui_language_id, ui_languoid_id')
+          .select('username, ui_languoid_id')
           .eq('id', record.sender_profile_id)
           .single();
-        // Get languoid for localization (prefer ui_languoid_id, fallback to ui_language_id)
+        // Get languoid for localization
         let locale = 'en';
         if (sender?.ui_languoid_id) {
           const { data: languoid } = await supabase
@@ -137,14 +137,6 @@ Deno.serve(async (req) => {
             .eq('id', sender.ui_languoid_id)
             .single();
           locale = mapLanguoidNameToLocale(languoid?.name);
-        } else if (sender?.ui_language_id) {
-          // Fallback to old language table for backward compatibility
-          const { data: language } = await supabase
-            .from('language')
-            .select('locale')
-            .eq('id', sender.ui_language_id)
-            .single();
-          locale = language?.locale ?? 'en';
         }
         const joinUrl = `${Deno.env.get('PLAY_STORE_URL')}`;
         const inviteComponent = React.createElement(InviteEmail, {
@@ -194,16 +186,14 @@ Deno.serve(async (req) => {
     // Get user profile from database
     const { data: profile } = await supabase
       .from('profile')
-      .select('ui_language_id, ui_languoid_id')
+      .select('ui_languoid_id')
       .eq('username', user.user_metadata?.username)
       .single();
 
-    // Get locale from languoid (prefer ui_languoid_id, fallback to ui_language_id)
+    // Get locale from languoid
     let locale = 'en';
     const uiLanguoidId =
       profile?.ui_languoid_id ?? user.user_metadata?.ui_languoid_id;
-    const uiLanguageId =
-      profile?.ui_language_id ?? user.user_metadata?.ui_language_id;
 
     if (uiLanguoidId) {
       const { data: languoid } = await supabase
@@ -212,14 +202,6 @@ Deno.serve(async (req) => {
         .eq('id', uiLanguoidId)
         .single();
       locale = mapLanguoidNameToLocale(languoid?.name);
-    } else if (uiLanguageId) {
-      // Fallback to old language table for backward compatibility
-      const { data: language } = await supabase
-        .from('language')
-        .select('locale')
-        .eq('id', uiLanguageId)
-        .single();
-      locale = language?.locale ?? 'en';
     }
     const parsedRedirectTo = new URL(redirect_to);
     const parsedSiteUrl = new URL(site_url);

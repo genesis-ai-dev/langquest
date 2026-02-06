@@ -52,7 +52,6 @@ interface ChapterData {
     id: string;
     name: string;
     description: string | null;
-    target_language_id: string | null; // Now nullable - languoid_id is the canonical reference
     creator_id: string | null;
     private: boolean;
     visible: boolean;
@@ -104,7 +103,6 @@ interface ChapterData {
     id: string;
     name: string | null;
     order_index: number;
-    source_language_id: string | null;
     project_id: string | null;
     source_asset_id: string | null;
     content_type: 'source' | 'translation' | 'transcription' | null;
@@ -129,8 +127,7 @@ interface ChapterData {
   assetContentLinks: {
     id: string;
     asset_id: string;
-    source_language_id: string | null;
-    languoid_id: string | null; // New languoid reference
+    languoid_id: string | null;
     text: string | null;
     audio: string[] | null;
     download_profiles: string[] | null;
@@ -153,7 +150,6 @@ interface ChapterData {
   projectLanguageLinks?: {
     id: string;
     project_id: string;
-    language_id: string | null; // Now nullable - for backward compatibility
     languoid_id: string; // Required - part of new PK
     language_type: 'source' | 'target';
     download_profiles: string[] | null;
@@ -193,7 +189,6 @@ interface ChapterData {
     id: string;
     name: string | null;
     order_index: number;
-    source_language_id: string | null;
     project_id: string | null;
     source_asset_id: string | null;
     content_type: 'translation' | 'transcription' | null;
@@ -208,8 +203,7 @@ interface ChapterData {
   translationContentLinks: {
     id: string;
     asset_id: string;
-    source_language_id: string | null;
-    languoid_id: string | null;
+    languoid_id: string;
     text: string | null;
     audio: string[] | null;
     download_profiles: string[] | null;
@@ -1300,7 +1294,6 @@ async function executePublishTransaction(
             id: data.project.id,
             name: data.project.name,
             description: data.project.description,
-            target_language_id: data.project.target_language_id,
             creator_id: data.project.creator_id,
             private: data.project.private,
             visible: data.project.visible,
@@ -1397,7 +1390,6 @@ async function executePublishTransaction(
           if (!existing) {
             await tx.insert(projectLanguageLinkTable).values({
               project_id: link.project_id,
-              language_id: link.language_id || null, // Optional - for backward compatibility
               languoid_id: link.languoid_id, // Required - part of PK
               language_type: link.language_type,
               download_profiles: link.download_profiles,
@@ -1574,7 +1566,6 @@ async function executePublishTransaction(
               id: assetData.id,
               name: assetData.name,
               order_index: assetData.order_index,
-              source_language_id: assetData.source_language_id,
               project_id: assetData.project_id,
               source_asset_id: assetData.source_asset_id,
               content_type: assetData.content_type,
@@ -1614,7 +1605,6 @@ async function executePublishTransaction(
               id: assetData.id,
               name: assetData.name,
               order_index: assetData.order_index,
-              source_language_id: assetData.source_language_id,
               project_id: assetData.project_id,
               source_asset_id: assetData.source_asset_id,
               content_type: assetData.content_type,
@@ -1655,7 +1645,6 @@ async function executePublishTransaction(
             id: assetData.id,
             name: assetData.name,
             order_index: assetData.order_index,
-            source_language_id: assetData.source_language_id,
             project_id: assetData.project_id,
             source_asset_id: assetData.source_asset_id,
             content_type: assetData.content_type,
@@ -1762,12 +1751,11 @@ async function executePublishTransaction(
           .where(eq(assetContentLink.id, link.id))
           .limit(1);
 
-        if (!existing) {
+        if (!existing && link.languoid_id) {
           await tx.insert(assetContentLink).values({
             id: link.id,
             asset_id: link.asset_id,
-            source_language_id: link.source_language_id, // Keep for backward compatibility
-            languoid_id: link.languoid_id, // Include new languoid reference
+            languoid_id: link.languoid_id,
             text: link.text,
             audio: link.audio,
             download_profiles: link.download_profiles,
@@ -1798,10 +1786,17 @@ async function executePublishTransaction(
           .limit(1);
 
         if (!existing) {
+          // languoid_id is required, ensure it's not null
+          if (!link.languoid_id) {
+            console.warn(
+              `⚠️  Skipping content link ${link.id}: missing languoid_id`
+            );
+            skipped++;
+            continue;
+          }
           await tx.insert(assetContentLink).values({
             id: link.id,
             asset_id: link.asset_id,
-            source_language_id: link.source_language_id,
             languoid_id: link.languoid_id,
             text: link.text,
             audio: link.audio,

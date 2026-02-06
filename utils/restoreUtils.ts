@@ -9,7 +9,11 @@ import { requestBackupDirectory } from '@/utils/backupUtils';
 import { and, eq, isNotNull } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
-import { asset, asset_content_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  project_language_link
+} from '@/db/drizzleSchema';
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { LocalizationKey } from '@/services/localizations';
 import { resolveTable } from './dbUtils';
@@ -297,16 +301,24 @@ async function restoreFromBackup(
               `Could not find quest ${questLink.quest_id} linked to asset ${assetIdFromFile}`
             );
           }
-          const projectRecord = await system.db.query.project.findFirst({
-            where: (p) => eq(p.id, questRecord.project_id),
-            columns: { target_language_id: true }
-          });
-          if (!projectRecord?.target_language_id) {
+          // Get target languoid from project_language_link
+          const targetLanguoidLink = await system.db
+            .select({ languoid_id: project_language_link.languoid_id })
+            .from(project_language_link)
+            .where(
+              and(
+                eq(project_language_link.project_id, questRecord.project_id),
+                eq(project_language_link.language_type, 'target')
+              )
+            )
+            .limit(1);
+
+          if (!targetLanguoidLink[0]?.languoid_id) {
             throw new Error(
-              `Could not find target language for asset ${assetIdFromFile}`
+              `Could not find target languoid for asset ${assetIdFromFile}`
             );
           }
-          const targetLanguageId = projectRecord.target_language_id;
+          const targetLanguoidId = targetLanguoidLink[0].languoid_id;
 
           const contentBase64 = await StorageAccessFramework.readAsStringAsync(
             fileUri,
@@ -330,7 +342,7 @@ async function restoreFromBackup(
           await system.db.insert(resolveTable('asset_content_link')).values({
             asset_id: assetIdFromFile,
             audio: [attachmentRecord.id], // Use the new audio ID
-            source_language_id: targetLanguageId,
+            languoid_id: targetLanguoidId,
             download_profiles: [creatorId]
           });
           audioCopied++;

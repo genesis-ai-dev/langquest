@@ -2,8 +2,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import type { languoid } from '@/db/drizzleSchema';
-import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
+import type { Languoid, LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
   useLanguoidById,
   useLanguoidEndonyms,
@@ -30,8 +29,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ButtonPressable } from './ui/button';
 
-type Languoid = typeof languoid.$inferSelect;
-
 // Extended type for dropdown items that includes the "create new" option
 interface DropdownItem {
   value: string;
@@ -43,18 +40,18 @@ interface DropdownItem {
   matchedAlias?: string | null;
 }
 
-interface LanguageComboboxProps {
-  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
+interface LanguoidComboboxProps {
+  setLanguoidsLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string | null;
   onChange?: (languoid: Languoid | LanguoidSearchResult) => void;
   className?: string;
-  /** Only show UI-ready languages (for UI language selection) */
+  /** Only show UI-ready languoids (for UI languoid selection) */
   uiReadyOnly?: boolean;
   /** Update the UI localization when selection changes */
   toggleUILocalization?: boolean;
-  /** Allow creating new languages when search has no results */
+  /** Allow creating new languoids when search has no results */
   allowCreate?: boolean;
-  /** Callback when a new language is created (receives the new languoid ID) */
+  /** Callback when a new languoid is created (receives the new languoid ID) */
   onCreateNew?: (languoidId: string, name: string) => void;
 }
 
@@ -103,10 +100,10 @@ function LoadingState() {
   );
 }
 
-export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
+export const LanguoidCombobox: React.FC<LanguoidComboboxProps> = ({
   value,
   onChange,
-  setLanguagesLoaded,
+  setLanguoidsLoaded,
   className,
   uiReadyOnly = false,
   toggleUILocalization,
@@ -114,9 +111,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   onCreateNew
 }) => {
   const primaryColor = useThemeColor('primary');
-  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
-  const setUILanguage = useLocalStore((state) => state.setUILanguage);
-  const uiLanguage = useLocalStore((state) => state.uiLanguage);
+  const setSavedLanguoid = useLocalStore((state) => state.setSavedLanguoid);
+  const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+  const uiLanguoid = useLocalStore((state) => state.uiLanguoid);
   const { t } = useLocalization();
   const { isAuthenticated, currentUser } = useAuth();
   const isOnline = useNetworkStatus();
@@ -147,8 +144,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     enabled: shouldUseServerSearch
   });
 
-  // Only fetch local languoids for uiReadyOnly mode (small dataset for UI language selection)
-  // For general language selection, rely on server search to avoid loading 300k+ records
+  // Only fetch local languoids for uiReadyOnly mode (small dataset for UI languoid selection)
+  // For general languoid selection, rely on server search to avoid loading 300k+ records
   const { languoids: uiReadyLanguoids, isLanguoidsLoading: isLoadingUIReady } =
     useUIReadyLanguoids();
 
@@ -198,18 +195,18 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     });
   }, [localLanguoids, debouncedSearchQuery, endonymMap, useServerResults]);
 
-  // Notify parent when languages are loaded
+  // Notify parent when languoids are loaded
   // For uiReadyOnly mode, wait for local data. For general mode, ready immediately.
   useEffect(() => {
     if (uiReadyOnly) {
       if (localLanguoids.length > 0) {
-        setLanguagesLoaded?.(true);
+        setLanguoidsLoaded?.(true);
       }
     } else {
       // For general mode, we use server search, so it's ready immediately
-      setLanguagesLoaded?.(true);
+      setLanguoidsLoaded?.(true);
     }
-  }, [localLanguoids, setLanguagesLoaded, uiReadyOnly]);
+  }, [localLanguoids, setLanguoidsLoaded, uiReadyOnly]);
 
   // Build dropdown data from the appropriate source
   const dropdownData = useMemo(() => {
@@ -325,11 +322,11 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     selectedLanguoid
   ]);
 
-  // Use controlled value if provided, otherwise fall back to UI language from store
+  // Use controlled value if provided, otherwise fall back to UI languoid from store
   const effectiveValue = useMemo(() => {
     if (value) return value;
-    return uiLanguage?.id ?? null;
-  }, [value, uiLanguage]);
+    return uiLanguoid?.id ?? null;
+  }, [value, uiLanguoid]);
 
   // Handle creating a new languoid
   const handleCreateNew = useCallback(
@@ -362,7 +359,8 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
         // Store the selected languoid to keep it in dropdown data
         setSelectedLanguoid(newLanguoid);
-        setSavedLanguage(newLanguoid as any);
+        // LanguoidSearchResult needs cast due to type incompatibility (level: string | null vs enum)
+        setSavedLanguoid(newLanguoid as unknown as Languoid);
         onChange?.(newLanguoid);
 
         // Clear search
@@ -373,7 +371,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         setIsCreating(false);
       }
     },
-    [currentUser?.id, onCreateNew, onChange, setSavedLanguage, setSearchQuery]
+    [currentUser?.id, onCreateNew, onChange, setSavedLanguoid, setSearchQuery]
   );
 
   const handleValueChange = useCallback(
@@ -388,9 +386,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
       if (item.languoid) {
         // Store the selected languoid to keep it in dropdown data
         setSelectedLanguoid(item.languoid);
-        setSavedLanguage(item.languoid as any);
+        // LanguoidSearchResult needs cast due to type incompatibility (level: string | null vs enum)
+        setSavedLanguoid(item.languoid as unknown as Languoid);
         if (toggleUILocalization) {
-          setUILanguage(item.languoid as any);
+          setUILanguoid(item.languoid as unknown as Languoid);
         }
         onChange?.(item.languoid);
       }
@@ -401,9 +400,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     [
       handleCreateNew,
       onChange,
-      setSavedLanguage,
+      setSavedLanguoid,
       toggleUILocalization,
-      setUILanguage,
+      setUILanguoid,
       setSearchQuery
     ]
   );
@@ -463,7 +462,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           overflow: 'hidden'
         }}
         // activeColor={getThemeColor('primary')}
-        activeColor={getThemeColor('primary')}
+        activeColor={primaryColor}
         data={sortedData}
         search
         maxHeight={400}
@@ -477,7 +476,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             <Input
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
-              placeholder={t('searchLanguages') || 'Search languages...'}
+              placeholder={t('searchLanguages')}
               prefix={SearchIcon}
               size="sm"
               className="border-0"
@@ -505,7 +504,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                 {isSearchLoading
                   ? t('searching') || 'Searching...'
                   : debouncedSearchQuery.length >= 2
-                    ? t('noLanguagesFound') || 'No languages found'
+                    ? t('noLanguagesFound')
                     : t('typeToSearch', { min: 2 }) ||
                       'Type at least 2 characters to search'}
               </Text>
@@ -581,4 +580,4 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   );
 };
 
-LanguageCombobox.displayName = 'LanguageCombobox';
+LanguoidCombobox.displayName = 'LanguoidCombobox';

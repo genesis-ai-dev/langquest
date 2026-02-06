@@ -94,14 +94,13 @@ export async function saveRecording(
       }
     }
 
-    // 2. Insert new asset (source_language_id is deprecated, kept for backward compatibility)
+    // 2. Insert new asset
     const [newAsset] = await tx
       .insert(assetLocal)
       .values({
         id: newAssetId,
         name: assetName,
         order_index: orderIndex,
-        source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
         project_id: projectId,
         creator_id: userId,
         download_profiles: [userId],
@@ -124,8 +123,7 @@ export async function saveRecording(
     // 4. Add audio content with languoid_id
     await tx.insert(contentLocal).values({
       asset_id: newAssetId,
-      source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
-      languoid_id: targetLanguoidId, // New languoid reference
+      languoid_id: targetLanguoidId,
       text: assetName,
       audio: [audioUri],
       download_profiles: [userId]

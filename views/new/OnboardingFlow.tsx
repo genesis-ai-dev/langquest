@@ -1,4 +1,4 @@
-import { LanguageListSkeleton } from '@/components/LanguageListSkeleton';
+import { LanguoidListSkeleton } from '@/components/LanguoidListSkeleton';
 import type { OnboardingStep } from '@/components/OnboardingProgressIndicator';
 import { OnboardingProgressIndicator } from '@/components/OnboardingProgressIndicator';
 import { Button } from '@/components/ui/button';
@@ -7,18 +7,16 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import type { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
-import { useLanguagesByRegion } from '@/hooks/useLanguagesByRegion';
+import { useLanguoidsByRegion } from '@/hooks/useLanguoidsByRegion';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useProjectsByLanguage } from '@/hooks/useProjectsByLanguage';
 import { useRegions } from '@/hooks/useRegions';
 import { resolveTable } from '@/utils/dbUtils';
+import { createLanguoidOffline } from '@/utils/languoidUtils';
 import { getThemeColor } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpenIcon,
@@ -28,7 +26,7 @@ import {
   PlusIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -42,11 +40,8 @@ import {
   KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import uuid from 'react-native-uuid';
 import { z } from 'zod';
 import { ProjectListItem } from './ProjectListItem';
-
-type Language = typeof languageTable.$inferSelect;
 
 interface OnboardingFlowProps {
   visible: boolean;
@@ -67,12 +62,46 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     'bible' | 'unstructured' | null
   >(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
-  const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(
+  const [selectedLanguoidId, setSelectedLanguoidId] = useState<string | null>(
     null
   );
   const [showCreateLanguage, setShowCreateLanguage] = useState(false);
 
   const { db } = system;
+
+  // Languoid creation form schema
+  const languoidFormSchema = z.object({
+    name: z.string().min(1, t('nameRequired')).trim(),
+    iso639_3: z.string().optional().or(z.literal(''))
+  });
+
+  type LanguoidFormData = z.infer<typeof languoidFormSchema>;
+
+  const languoidForm = useForm<LanguoidFormData>({
+    resolver: zodResolver(languoidFormSchema),
+    defaultValues: {
+      name: '',
+      iso639_3: ''
+    }
+  });
+
+  // Create languoid mutation
+  const { mutateAsync: createLanguoid, isPending: isCreatingLanguoid } =
+    useMutation({
+      mutationFn: async (values: LanguoidFormData) => {
+        if (!currentUser?.id) throw new Error('User not authenticated');
+
+        const result = await createLanguoidOffline({
+          name: values.name.trim(),
+          level: 'language',
+          iso639_3: values.iso639_3?.trim() || undefined,
+          creator_id: currentUser.id,
+          ui_ready: false
+        });
+
+        return result.languoid_id;
+      }
+    });
 
   // Query regions
   const { data: regions, isLoading: isLoadingRegions } = useRegions([
@@ -80,87 +109,27 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     'nation'
   ]);
 
-  // Query languages by region
-  const { data: languagesByRegion, isLoading: isLoadingLanguages } =
-    useLanguagesByRegion(selectedRegionId);
+  // Query languoids by region
+  const { data: languoidsByRegion, isLoading: isLoadingLanguoids } =
+    useLanguoidsByRegion(selectedRegionId);
 
-  // Query projects by selected language
-  const { data: projectsByLanguage = [], isLoading: isLoadingProjects } =
-    useProjectsByLanguage(selectedLanguageId);
-
-  // Query existing languages to map languoids to language records
-  const { data: existingLanguages = [] } = useHybridData({
-    dataType: 'all-languages-for-onboarding',
-    queryKeyParams: [],
-    offlineQuery: toCompilableQuery(
-      system.db.query.language.findMany({
-        where: (language, { eq }) => eq(language.active, true)
-      })
-    ),
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('language')
-        .select('*')
-        .eq('active', true)
-        .overrideTypes<Language[]>();
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: true,
-    enableOfflineQuery: true
-  });
-
-  // Language creation form schema
-  const languageFormSchema = z.object({
-    native_name: z.string().min(1, t('nameRequired')).trim(),
-    english_name: z.string().optional().or(z.literal('')),
-    iso639_3: z.string().optional(),
-    locale: z.string().optional()
-  });
-
-  type LanguageFormData = z.infer<typeof languageFormSchema>;
-
-  const languageForm = useForm<LanguageFormData>({
-    resolver: zodResolver(languageFormSchema),
-    defaultValues: {
-      native_name: '',
-      english_name: '',
-      iso639_3: '',
-      locale: ''
-    }
-  });
-
-  // Create language mutation (uses synced table for immediate project publishing)
-  const { mutateAsync: createLanguage, isPending: isCreatingLanguage } =
-    useMutation({
-      mutationFn: async (values: LanguageFormData) => {
-        const newLanguage = await db
-          .insert(resolveTable('language', { localOverride: false }))
-          .values({
-            id: uuid.v4(),
-            native_name: values.native_name,
-            english_name: values.english_name || null,
-            iso639_3: values.iso639_3 || null,
-            locale: values.locale || null,
-            ui_ready: false,
-            creator_id: currentUser!.id,
-            download_profiles: [currentUser!.id]
-          })
-          .returning();
-
-        if (!newLanguage[0]) throw new Error('Failed to create language');
-        return newLanguage[0] as Language;
-      }
-    });
+  // Query projects by selected languoid
+  const { data: projectsByLanguoid = [], isLoading: isLoadingProjects } =
+    useProjectsByLanguage(selectedLanguoidId);
 
   // Create project mutation (uses synced tables for immediate project publishing)
   const { mutateAsync: createProject, isPending: isCreatingProject } =
     useMutation({
-      mutationFn: async (languageId: string) => {
+      mutationFn: async (languoidId: string) => {
+        // Get languoid name for project name
+        const { data: languoid } = await system.supabaseConnector.client
+          .from('languoid')
+          .select('name')
+          .eq('id', languoidId)
+          .single();
+
         const languageName =
-          existingLanguages.find((l) => l.id === languageId)?.native_name ||
-          existingLanguages.find((l) => l.id === languageId)?.english_name ||
-          'Unknown Language';
+          (languoid as { name?: string } | null)?.name || 'Unknown Language';
         const projectName =
           projectType === 'bible'
             ? `Bible Translation - ${languageName}`
@@ -175,7 +144,6 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
             .values({
               name: projectName,
               template: projectType!,
-              target_language_id: languageId,
               creator_id: currentUser!.id,
               download_profiles: [currentUser!.id],
               private: true,
@@ -195,6 +163,19 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
               profile_id: currentUser!.id,
               membership: 'owner'
               // download_profiles will be set by database trigger
+            });
+
+          // Create project_language_link with languoid_id
+          await tx
+            .insert(
+              resolveTable('project_language_link', { localOverride: true })
+            )
+            .values({
+              project_id: project.id,
+              languoid_id: languoidId,
+              language_type: 'target',
+              active: true,
+              download_profiles: [currentUser!.id]
             });
 
           newProject = project as {
@@ -229,73 +210,31 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
       }
     });
 
-  // Map languoids to language records - create language record if it doesn't exist
-  const mappedLanguages = useMemo(() => {
-    if (!Array.isArray(languagesByRegion) || !Array.isArray(existingLanguages))
-      return [];
-
-    return languagesByRegion.map((languoid) => {
-      // Try to find existing language by matching names
-      const existingLang = existingLanguages.find(
-        (lang) =>
-          lang.native_name?.toLowerCase() === languoid.name.toLowerCase() ||
-          lang.english_name?.toLowerCase() === languoid.name.toLowerCase()
-      );
-
-      return {
-        ...languoid,
-        languageId: existingLang?.id || null,
-        language: existingLang || null,
-        // Store languoid info for creating language if needed
-        languoidName: languoid.name
-      };
-    });
-  }, [languagesByRegion, existingLanguages]);
-
   const handleRegionSelect = (regionId: string) => {
     setSelectedRegionId(regionId);
     setStep('language');
   };
 
-  const handleLanguageSelect = async (
-    languageId: string | null,
-    languoidName?: string
-  ) => {
-    if (!languageId && languoidName) {
-      // Need to create language record first
-      try {
-        const newLanguage = await createLanguage({
-          native_name: languoidName,
-          english_name: languoidName,
-          iso639_3: '',
-          locale: ''
-        });
-        setSelectedLanguageId(newLanguage.id);
-        setStep('projects');
-      } catch (error) {
-        console.error('Failed to create language', error);
-      }
-    } else if (languageId) {
-      setSelectedLanguageId(languageId);
-      setStep('projects');
-    }
+  const handleLanguageSelect = (languoidId: string) => {
+    setSelectedLanguoidId(languoidId);
+    setStep('projects');
   };
 
-  const handleCreateLanguage = async (values: LanguageFormData) => {
+  const handleCreateLanguage = async (values: LanguoidFormData) => {
     try {
-      const newLanguage = await createLanguage(values);
-      setSelectedLanguageId(newLanguage.id);
+      const newLanguoidId = await createLanguoid(values);
+      setSelectedLanguoidId(newLanguoidId);
       setShowCreateLanguage(false);
-      languageForm.reset();
+      languoidForm.reset();
       setStep('projects');
     } catch (error) {
-      console.error('Failed to create language', error);
+      console.error('Failed to create languoid', error);
     }
   };
 
-  const handleFormSubmit = languageForm.handleSubmit(handleCreateLanguage);
+  const handleFormSubmit = languoidForm.handleSubmit(handleCreateLanguage);
 
-  const handleProjectSelect = (project: (typeof projectsByLanguage)[0]) => {
+  const handleProjectSelect = (project: (typeof projectsByLanguoid)[0]) => {
     // Navigate to existing project
     goToProject({
       id: project.id,
@@ -311,10 +250,10 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   };
 
   const handleProjectTypeSelect = async (type: 'bible' | 'unstructured') => {
-    if (!selectedLanguageId) return;
+    if (!selectedLanguoidId) return;
     setProjectType(type);
     try {
-      await createProject(selectedLanguageId);
+      await createProject(selectedLanguoidId);
     } catch (error) {
       console.error('Failed to create project', error);
     }
@@ -326,14 +265,14 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
       setSelectedRegionId(null);
     } else if (step === 'projects') {
       setStep('language');
-      setSelectedLanguageId(null);
+      setSelectedLanguoidId(null);
     } else if (step === 'create-project') {
       setStep('projects');
       setProjectType(null);
     } else if (step === 'create-language') {
       setStep('language');
       setShowCreateLanguage(false);
-      languageForm.reset();
+      languoidForm.reset();
     }
   };
 
@@ -342,20 +281,17 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     setStep('region');
     setProjectType(null);
     setSelectedRegionId(null);
-    setSelectedLanguageId(null);
+    setSelectedLanguoidId(null);
     setShowCreateLanguage(false);
-    languageForm.reset();
+    languoidForm.reset();
     onClose();
   };
 
-  const isLoading = isCreatingLanguage || isCreatingProject;
+  const isLoading = isCreatingLanguoid || isCreatingProject;
 
-  // Get selected language name for display
-  const selectedLanguageName = useMemo(() => {
-    if (!selectedLanguageId) return '';
-    const lang = existingLanguages.find((l) => l.id === selectedLanguageId);
-    return lang?.native_name || lang?.english_name || '';
-  }, [selectedLanguageId, existingLanguages]);
+  // Get selected languoid name for display
+  const selectedLanguoidName =
+    languoidsByRegion.find((l) => l.id === selectedLanguoidId)?.name || '';
 
   if (!visible) return null;
 
@@ -452,9 +388,9 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                 {t('selectYourLanguage')}
               </Text>
 
-              {isLoadingLanguages ? (
-                <LanguageListSkeleton />
-              ) : mappedLanguages.length === 0 ? (
+              {isLoadingLanguoids ? (
+                <LanguoidListSkeleton />
+              ) : languoidsByRegion.length === 0 ? (
                 <View className="flex-1 items-center justify-center py-8">
                   <Icon
                     as={LanguagesIcon}
@@ -485,35 +421,24 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     className="flex-1"
                     contentContainerStyle={{ gap: 12 }}
                   >
-                    {mappedLanguages.map((lang) => {
-                      const languageId = lang.languageId;
-
-                      return (
-                        <Button
-                          key={lang.id}
-                          variant="outline"
-                          onPress={() =>
-                            handleLanguageSelect(languageId, lang.languoidName)
-                          }
-                          className="h-16 flex-row items-center justify-between px-6"
-                          disabled={isLoading}
-                        >
-                          <View className="flex-row items-center gap-3">
-                            <Icon
-                              as={LanguagesIcon}
-                              size={20}
-                              className="text-primary"
-                            />
-                            <Text variant="default">{lang.name}</Text>
-                            {!languageId && (
-                              <Text className="text-xs text-muted-foreground">
-                                ({t('willCreateLanguage')})
-                              </Text>
-                            )}
-                          </View>
-                        </Button>
-                      );
-                    })}
+                    {languoidsByRegion.map((languoid) => (
+                      <Button
+                        key={languoid.id}
+                        variant="outline"
+                        onPress={() => handleLanguageSelect(languoid.id)}
+                        className="h-16 flex-row items-center justify-between px-6"
+                        disabled={isLoading}
+                      >
+                        <View className="flex-row items-center gap-3">
+                          <Icon
+                            as={LanguagesIcon}
+                            size={20}
+                            className="text-primary"
+                          />
+                          <Text variant="default">{languoid.name}</Text>
+                        </View>
+                      </Button>
+                    ))}
                   </ScrollView>
 
                   <Button
@@ -526,6 +451,62 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   </Button>
                 </>
               )}
+            </View>
+          )}
+
+          {/* Step: Create Language */}
+          {(step === 'create-language' || showCreateLanguage) && (
+            <View className="flex-1 gap-6">
+              <Text
+                variant="default"
+                className="text-center text-muted-foreground"
+              >
+                {t('createNewLanguage')}
+              </Text>
+
+              <View className="gap-4">
+                <Input
+                  placeholder={t('name')}
+                  value={languoidForm.watch('name')}
+                  onChangeText={(text: string) =>
+                    languoidForm.setValue('name', text)
+                  }
+                  type="next"
+                  editable={!isLoading}
+                />
+
+                <Input
+                  placeholder={
+                    (t('iso6393Code') || 'ISO 639-3 Code') + ' (Optional)'
+                  }
+                  value={languoidForm.watch('iso639_3')}
+                  onChangeText={(text: string) =>
+                    languoidForm.setValue('iso639_3', text)
+                  }
+                  onSubmitEditing={() => {
+                    if (!isLoading && languoidForm.formState.isValid) {
+                      void handleFormSubmit();
+                    }
+                  }}
+                  returnKeyType="done"
+                  editable={!isLoading}
+                />
+
+                <Button
+                  onPress={handleFormSubmit}
+                  disabled={isLoading || !languoidForm.formState.isValid}
+                  className="mt-4"
+                >
+                  {isCreatingLanguoid ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary-foreground')}
+                    />
+                  ) : (
+                    <Text>{t('createAndContinue')}</Text>
+                  )}
+                </Button>
+              </View>
             </View>
           )}
 
@@ -555,28 +536,28 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                       className="text-primary-foreground"
                     />
                     <Text className="text-primary-foreground">
-                      {projectsByLanguage.length === 0
+                      {projectsByLanguoid.length === 0
                         ? t('createFirstProject')
                         : t('createNewProject')}
                     </Text>
                   </Button>
 
                   {/* Existing Projects List */}
-                  {projectsByLanguage.length > 0 ? (
+                  {projectsByLanguoid.length > 0 ? (
                     <View className="gap-4">
                       <Text
                         variant="default"
                         className="text-center text-muted-foreground"
                       >
                         {t('existingProjectsInLanguage', {
-                          language: selectedLanguageName
+                          language: selectedLanguoidName
                         })}
                       </Text>
                       <ScrollView
                         className="flex-1"
                         contentContainerStyle={{ gap: 12 }}
                       >
-                        {projectsByLanguage.map((project) => (
+                        {projectsByLanguoid.map((project) => (
                           <Pressable
                             key={project.id}
                             onPress={() => handleProjectSelect(project)}
@@ -598,7 +579,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                         className="text-center text-muted-foreground"
                       >
                         {t('noProjectsInLanguage', {
-                          language: selectedLanguageName
+                          language: selectedLanguoidName
                         })}
                       </Text>
                     </View>
@@ -687,78 +668,6 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     </View>
                   </Pressable>
                 </Card>
-              </View>
-            </View>
-          )}
-
-          {/* Step 5: Create Language */}
-          {(step === 'create-language' || showCreateLanguage) && (
-            <View className="flex-1 gap-6">
-              <Text
-                variant="default"
-                className="text-center text-muted-foreground"
-              >
-                {t('createNewLanguage')}
-              </Text>
-
-              <View className="gap-4">
-                <Input
-                  placeholder={t('nativeName')}
-                  value={languageForm.watch('native_name')}
-                  onChangeText={(text) =>
-                    languageForm.setValue('native_name', text)
-                  }
-                  type="next"
-                  editable={!isLoading}
-                />
-
-                <Input
-                  placeholder={t('englishName') + ' (Optional)'}
-                  value={languageForm.watch('english_name')}
-                  onChangeText={(text) =>
-                    languageForm.setValue('english_name', text)
-                  }
-                  type="next"
-                  editable={!isLoading}
-                />
-
-                <Input
-                  placeholder={t('iso6393Code') + ' (Optional)'}
-                  value={languageForm.watch('iso639_3')}
-                  onChangeText={(text) =>
-                    languageForm.setValue('iso639_3', text)
-                  }
-                  type="next"
-                  editable={!isLoading}
-                />
-
-                <Input
-                  placeholder={t('locale') + ' (Optional)'}
-                  value={languageForm.watch('locale')}
-                  onChangeText={(text) => languageForm.setValue('locale', text)}
-                  onSubmitEditing={() => {
-                    if (!isLoading && languageForm.formState.isValid) {
-                      void handleFormSubmit();
-                    }
-                  }}
-                  returnKeyType="done"
-                  editable={!isLoading}
-                />
-
-                <Button
-                  onPress={handleFormSubmit}
-                  disabled={isLoading || !languageForm.formState.isValid}
-                  className="mt-4"
-                >
-                  {isCreatingLanguage ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary-foreground')}
-                    />
-                  ) : (
-                    <Text>{t('createAndContinue')}</Text>
-                  )}
-                </Button>
               </View>
             </View>
           )}

@@ -22,10 +22,9 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
-import type { asset_content_link, language } from '@/db/drizzleSchema';
+import type { asset_content_link, languoid } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -81,7 +80,7 @@ interface NextGenNewTranslationModalProps {
   assetId: string;
   assetName?: string | null;
   assetContent?: AssetContent[];
-  sourceLanguage?: typeof language.$inferSelect | null;
+  sourceLanguage?: typeof languoid.$inferSelect | null;
   translationLanguageId: string; // The language of the new translation asset being created
   isLocalSource?: boolean; // Whether the source asset is local (prepublished) - translations will be stored locally
   initialContentType?: 'translation' | 'transcription'; // Initial content type from parent toggle
@@ -361,24 +360,17 @@ export default function NextGenNewTranslationModal({
   };
 
   // Get source language ID from asset content or prop
-  const sourceLanguageId =
-    assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
 
   // Get languoid ID from asset content (for transcriptions - this is the source languoid)
   const sourceLanguoidId = assetContent?.[0]?.languoid_id || null;
 
-  // Query language names (source language is optional, target is required)
+  // Query languoid names (source languoid is optional, target languoid is required)
   // Only query when modal is visible to avoid unnecessary queries
-  const { language: sourceLanguageData } = useLanguageById(
-    visible ? sourceLanguageId || undefined : undefined
-  );
-  const { language: targetLanguageData } = useLanguageById(
-    visible ? translationLanguageId : ''
-  );
-
-  // Query languoid for transcription placeholder
   const { languoid: sourceLanguoidData } = useLanguoidById(
     visible ? sourceLanguoidId || undefined : undefined
+  );
+  const { languoid: targetLanguoidData } = useLanguoidById(
+    visible ? translationLanguageId : ''
   );
 
   // Get orthography examples for transcription localization
@@ -499,8 +491,7 @@ export default function NextGenNewTranslationModal({
           .insert(resolveTable('asset', tableOptions))
           .values({
             source_asset_id: assetId,
-            source_language_id: translationLanguageId,
-            content_type: contentType,
+            content_type: 'translation',
             project_id: currentProjectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]
@@ -513,13 +504,13 @@ export default function NextGenNewTranslationModal({
 
         const contentValues: {
           asset_id: string;
-          source_language_id: string;
+          languoid_id: string;
           download_profiles: string[];
           text?: string;
           audio?: string[];
         } = {
           asset_id: newAsset.id,
-          source_language_id: translationLanguageId,
+          languoid_id: translationLanguageId,
           download_profiles: [currentUser.id]
         };
 
@@ -599,7 +590,7 @@ export default function NextGenNewTranslationModal({
       return;
     }
 
-    if (!targetLanguageData) {
+    if (!targetLanguoidData) {
       RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
@@ -615,16 +606,8 @@ export default function NextGenNewTranslationModal({
 
     try {
       // Source language is optional - use "Unknown" if not available
-      const sourceLanguageName =
-        sourceLanguageData?.native_name ||
-        sourceLanguageData?.english_name ||
-        sourceLanguage?.native_name ||
-        sourceLanguage?.english_name ||
-        'Unknown';
-      const targetLanguageName =
-        targetLanguageData.native_name ||
-        targetLanguageData.english_name ||
-        'Unknown';
+      const sourceLanguageName = 'Unknown';
+      const targetLanguageName = targetLanguoidData.name || 'Unknown';
 
       const result = await predictTranslation({
         sourceText,
@@ -740,10 +723,7 @@ export default function NextGenNewTranslationModal({
                   {assetName || t('unknown')}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
-                  {sourceLanguage?.native_name ||
-                    sourceLanguage?.english_name ||
-                    t('unknown')}{' '}
-                  → {t('targetLanguage')}
+                  {sourceLanguage?.name || t('unknown')} → {t('targetLanguage')}
                 </Text>
               </View>
 
@@ -834,10 +814,9 @@ export default function NextGenNewTranslationModal({
                         </View>
                       </View>
                     ) : enableAiSuggestions &&
-                      predictionDetails &&
-                      predictionDetails.hasApiKey === false ? (
+                      predictionDetails?.hasApiKey === false ? (
                       // Show examples button when API key is missing
-                      <View className="border-warning/30 bg-warning/5 rounded-lg border-2 p-4">
+                      <View className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
                         <View className="mb-2 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
                             <Icon
@@ -845,7 +824,7 @@ export default function NextGenNewTranslationModal({
                               size={18}
                               className="text-warning"
                             />
-                            <Text className="text-warning-foreground text-sm font-semibold">
+                            <Text className="text-sm font-semibold text-warning-foreground">
                               API Key Not Configured
                             </Text>
                           </View>
@@ -853,7 +832,7 @@ export default function NextGenNewTranslationModal({
                             {predictionDetails.examples.length > 0 && (
                               <Pressable
                                 onPress={() => setShowDetailsModal(true)}
-                                className="border-warning/30 rounded-md border bg-background p-2"
+                                className="rounded-md border border-warning/30 bg-background p-2"
                               >
                                 <Icon
                                   as={EyeIcon}
@@ -868,7 +847,7 @@ export default function NextGenNewTranslationModal({
                               }}
                               disabled={isButtonDisabled}
                               className={cn(
-                                'border-warning/30 rounded-md border bg-background p-2',
+                                'rounded-md border border-warning/30 bg-background p-2',
                                 isButtonDisabled && 'opacity-50'
                               )}
                             >
@@ -884,7 +863,7 @@ export default function NextGenNewTranslationModal({
                             </Pressable>
                           </View>
                         </View>
-                        <Text className="text-warning-foreground text-sm">
+                        <Text className="text-sm text-warning-foreground">
                           {predictionDetails.examples.length > 0
                             ? `${predictionDetails.examples.length} contextually relevant examples found. View details to see them.`
                             : 'No examples available. Configure API key to enable translation prediction.'}
@@ -1100,21 +1079,20 @@ export default function NextGenNewTranslationModal({
 
                   <ScrollView className="max-h-[80%]">
                     {/* API Key Warning */}
-                    {predictionDetails &&
-                      predictionDetails.hasApiKey === false && (
-                        <View className="border-warning bg-warning/10 mb-6 rounded-lg border-2 p-4">
-                          <Text className="text-warning-foreground mb-2 text-base font-semibold">
-                            API Key Not Configured
-                          </Text>
-                          <Text className="text-warning-foreground text-sm">
-                            Translation prediction requires an OpenRouter API
-                            key to be configured. The examples below show
-                            contextually relevant translation examples that
-                            would be used for prediction, but no AI translation
-                            can be generated without an API key.
-                          </Text>
-                        </View>
-                      )}
+                    {predictionDetails?.hasApiKey === false && (
+                      <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
+                        <Text className="mb-2 text-base font-semibold text-warning-foreground">
+                          API Key Not Configured
+                        </Text>
+                        <Text className="text-sm text-warning-foreground">
+                          Translation prediction requires an OpenRouter API key
+                          to be configured. The examples below show contextually
+                          relevant translation examples that would be used for
+                          prediction, but no AI translation can be generated
+                          without an API key.
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Examples Section */}
                     {predictionDetails && (
@@ -1162,8 +1140,7 @@ export default function NextGenNewTranslationModal({
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
                               • No translations exist yet in{' '}
-                              {targetLanguageData?.native_name ||
-                                targetLanguageData?.english_name ||
+                              {targetLanguoidData?.name ||
                                 'the target language'}{' '}
                               for assets in this quest
                             </Text>

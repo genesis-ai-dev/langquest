@@ -1,4 +1,4 @@
-import { LanguageCombobox } from '@/components/language-combobox';
+import { LanguoidCombobox } from '@/components/languoid-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import {
   Button,
@@ -114,7 +114,7 @@ export default function SignInView({
             </Text>
             <Text>{t('welcome')}</Text>
           </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
+          <LanguoidCombobox uiReadyOnly toggleUILocalization />
           <FormField
             control={form.control}
             name="email"

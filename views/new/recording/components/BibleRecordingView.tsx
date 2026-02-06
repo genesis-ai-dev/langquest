@@ -1544,7 +1544,7 @@ const BibleRecordingView = ({
         dbWriteQueueRef.current = dbWriteQueueRef.current
           .then(async () => {
             if (!targetLanguoidId) {
-              throw new Error('Target languoid not found for project');
+              throw new Error('Target language not found for project');
             }
             // Use the verse that was captured when recording started
             // This ensures we use the correct verse for middle-of-list recordings
@@ -2056,10 +2056,16 @@ const BibleRecordingView = ({
 
         for (const c of secondContent) {
           if (!c.audio) continue;
+          // languoid_id is required, skip if missing
+          if (!c.languoid_id) {
+            console.warn(
+              `⚠️  Skipping content for asset ${first.id}: missing languoid_id`
+            );
+            continue;
+          }
           await system.db.insert(contentLocal).values({
             asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
+            languoid_id: c.languoid_id,
             text: c.text || '',
             audio: c.audio,
             download_profiles: [currentUser.id]
@@ -2134,11 +2140,16 @@ const BibleRecordingView = ({
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
+                    // languoid_id is required, skip if missing
+                    if (!c.languoid_id) {
+                      console.warn(
+                        `⚠️  Skipping content for asset ${target.id}: missing languoid_id`
+                      );
+                      continue;
+                    }
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
+                      languoid_id: c.languoid_id,
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]

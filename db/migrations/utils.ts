@@ -295,7 +295,6 @@ export async function updateMetadataVersion(
   // Query through views (they expose _metadata column from Drizzle schema)
   const tables = [
     'profile_local',
-    'language_local',
     'project_local',
     'quest_local',
     'asset_local',
@@ -526,7 +525,6 @@ export async function resetMetadataVersionForTesting(
 
   const tables = [
     'profile_local',
-    'language_local',
     'project_local',
     'quest_local',
     'asset_local',
