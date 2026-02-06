@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { APP_SCHEMA_VERSION } from './constants';
 import type { DrizzleDB } from './migrations/index';
 
@@ -91,12 +92,23 @@ export async function fetchServerSchemaInfo(
   console.log('[SchemaVersionService] Fetching server schema info...');
 
   try {
-    // Add timeout to prevent infinite hanging
+    // Quick network check - skip RPC entirely if offline
+    // This avoids waiting for timeout when we know we can't reach the server
+    if (!getNetworkStatus()) {
+      console.log(
+        '[SchemaVersionService] Device is offline, skipping server check'
+      );
+      throw new Error('Device is offline');
+    }
+
+    // Add timeout to prevent hanging on slow networks
+    // Reduced from 5s to 2s for faster offline-first experience
+    const TIMEOUT_MS = 2000;
     const rpcPromise = supabaseClient.rpc('get_schema_info');
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Schema info check timed out after 5 seconds'));
-      }, 5000);
+        reject(new Error(`Schema info check timed out after ${TIMEOUT_MS}ms`));
+      }, TIMEOUT_MS);
     });
 
     const result = await Promise.race([rpcPromise, timeoutPromise]);

@@ -53,6 +53,22 @@ function useUnsyncedAttachmentsCount(): {
   return { unsyncedCount, isLoading };
 }
 
+/**
+ * Check if an error is a transient JWT expiration error.
+ * These errors auto-resolve when the token refreshes, so we don't show them to users.
+ */
+function isTransientAuthError(error: Error | undefined): boolean {
+  if (!error) return false;
+  const message = error.message || '';
+  // PowerSync JWT expiration errors (PSYNC_S2103)
+  // These resolve automatically when Supabase refreshes the token
+  return (
+    message.includes('JWT has expired') ||
+    message.includes('PSYNC_S2103') ||
+    message.includes('jwt expired')
+  );
+}
+
 function getCurrentSyncStateWithoutAttachments() {
   try {
     // Get the current sync status from PowerSync
@@ -65,9 +81,16 @@ function getCurrentSyncStateWithoutAttachments() {
     // Data flow status for downloads and uploads
     const dataFlow = status.dataFlowStatus;
 
-    // Error information
-    const downloadError = dataFlow.downloadError;
-    const uploadError = dataFlow.uploadError;
+    // Error information - filter out transient auth errors
+    // JWT expiration errors auto-resolve when Supabase refreshes the token
+    const rawDownloadError = dataFlow.downloadError;
+    const rawUploadError = dataFlow.uploadError;
+    const downloadError = isTransientAuthError(rawDownloadError)
+      ? undefined
+      : rawDownloadError;
+    const uploadError = isTransientAuthError(rawUploadError)
+      ? undefined
+      : rawUploadError;
 
     // If there's an error, don't report operations as in progress
     // This prevents eternal syncing loops when errors occur
