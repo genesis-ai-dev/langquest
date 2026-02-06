@@ -29,11 +29,6 @@
  * PowerSync JSON storage (ps_data_local__*.data) instead of view columns. This allows
  * the migration to work even after these columns are removed from Drizzle views.
  *
- * JSON-FIRST MIGRATION:
- * This migration reads legacy fields (target_language_id, source_language_id) from raw
- * PowerSync JSON storage (ps_data_local__*.data) instead of view columns. This allows
- * the migration to work even after these columns are removed from Drizzle views.
- *
  * NOTE: The languoid_id and ui_languoid_id columns are already defined in the Drizzle schema.
  * PowerSync creates tables with all schema-defined columns automatically.
  * DO NOT use addColumn() for schema-defined columns - it corrupts raw PowerSync tables.
