@@ -50,6 +50,7 @@ interface AssetCardProps {
   isHighlighted: boolean; // Visual highlight (recording insertion point)
   isSelectionMode: boolean;
   isPlaying: boolean;
+  hideButtons?: boolean; // Hide action buttons 
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
@@ -115,6 +116,7 @@ function RecordAssetCardInternal({
   isHighlighted,
   isSelectionMode,
   isPlaying,
+  hideButtons,
   duration,
   segmentCount,
   customProgress,
@@ -242,7 +244,7 @@ function RecordAssetCardInternal({
         className={cn(
           'relative overflow-hidden rounded-lg border p-3',
           isHighlighted && !isSelectionMode
-            ? (actionType === 'replace' ? 'border-destructive bg-destructive/10' : 'border-primary bg-card')
+            ? (actionType === 'replace' ? 'border-destructive border-dashed bg-destructive/10' : 'border-primary bg-card')
             : isSelected
               ? 'border-primary bg-primary/10'
               : 'border-border bg-card'
@@ -346,7 +348,7 @@ function RecordAssetCardInternal({
               className={isSelected ? 'text-primary' : 'text-muted-foreground'}
               />
               </TouchableOpacity>
-            ) : isHighlighted ? (
+            ) : isHighlighted && !hideButtons ? (
               <AssetActionButtons 
                 selectedType={actionType}
                 onSelectionChange={setActionType}
@@ -377,6 +379,7 @@ export const RecordAssetCard = React.memo(RecordAssetCardInternal, (prev, next) 
     prev.isHighlighted === next.isHighlighted &&
     prev.isSelectionMode === next.isSelectionMode &&
     prev.isPlaying === next.isPlaying &&
+    prev.hideButtons === next.hideButtons &&
     // prev.progress removed - uses SharedValues now!
     prev.duration === next.duration &&
     prev.segmentCount === next.segmentCount &&

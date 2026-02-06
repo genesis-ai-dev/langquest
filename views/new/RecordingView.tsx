@@ -28,11 +28,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
-  ArrowDownNarrowWide,
   ArrowLeft,
   ChevronLeft,
+  Ellipsis,
   ListVideo,
-  Mic,
   PauseIcon,
   Plus
 } from 'lucide-react-native';
@@ -212,6 +211,8 @@ const RecordingView = () => {
     from: number;
     to: number;
   } | null>(null);
+  // Track asset to replace (when replace mode is active)
+  const assetToReplaceRef = React.useRef<string | null>(null);
   const vadCounterRef = React.useRef<number | null>(null);
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
@@ -743,6 +744,10 @@ const RecordingView = () => {
   // Used to determine if we should move insertionIndex to the new item
   const wasRecordingInMiddleRef = React.useRef<boolean>(false);
 
+  // Track if the last recording was a replace operation
+  // When replacing, we don't move insertionIndex since we're staying on the same position
+  const wasReplaceRef = React.useRef<boolean>(false);
+
   // Track if a pill was just added (to distinguish from asset recording)
   const wasPillAddedRef = React.useRef<boolean>(false);
 
@@ -754,20 +759,17 @@ const RecordingView = () => {
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
       console.log(
-        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current}`
-      );
-
-      console.log(
-        '[recording in the middle]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
-        wasRecordingInMiddleRef.current
+        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
       );
 
       const wasInMiddle = wasRecordingInMiddleRef.current;
       const wasPillAdded = wasPillAddedRef.current;
+      const wasReplace = wasReplaceRef.current;
 
       // Reset the flags
       wasRecordingInMiddleRef.current = false;
       wasPillAddedRef.current = false;
+      wasReplaceRef.current = false;
 
       if (wasPillAdded) {
         // A pill was added - move to the end
@@ -782,6 +784,22 @@ const RecordingView = () => {
             listRef.current?.scrollToIndex(currentCount, true);
           } catch (error) {
             console.error('Failed to scroll after pill added:', error);
+          }
+          timeoutIdsRef.current.delete(timeoutId);
+        }, 100);
+        timeoutIdsRef.current.add(timeoutId);
+      } else if (wasReplace) {
+        // REPLACE MODE: Stay on the same position - new asset replaced the old one
+        console.log(
+          `📍 Replace mode - staying at position: ${insertionIndex}`
+        );
+        // Don't change insertionIndex - we're staying on the newly replaced asset
+        // Scroll to current position to ensure visibility
+        const timeoutId = setTimeout(() => {
+          try {
+            listRef.current?.scrollToIndex(insertionIndex, true);
+          } catch (error) {
+            console.error('Failed to scroll after replace:', error);
           }
           timeoutIdsRef.current.delete(timeoutId);
         }, 100);
@@ -1398,6 +1416,17 @@ const RecordingView = () => {
       const selectedItem = contextIsAtEnd
         ? sessionItems[sessionItems.length - 1]
         : sessionItems[insertionIndexRef.current];
+      
+      // REPLACE MODE: Capture the asset to replace when VAD starts (only first segment will delete it)
+      const highlightedItem = sessionItems[insertionIndexRef.current];
+      console.log(`🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+      
+      if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
+        assetToReplaceRef.current = highlightedItem.id;
+        console.log(`🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+      }
+      // Note: Don't reset assetToReplaceRef here if not replacing - it might have been set by manual recording
+      
       const itemName = selectedItem
         ? isPill(selectedItem)
           ? `pill-${selectedItem.verse?.from ?? 'null'}`
@@ -1422,17 +1451,19 @@ const RecordingView = () => {
     sessionItems,
     currentDynamicVerse,
     assets.length,
-    getInsertionContext
+    getInsertionContext,
+    isReplacing
   ]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
+    console.log('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
     if (isRecording) return;
 
     const currentInsertionIndex = insertionIndexRef.current;
 
     console.log(
-      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length}`
+      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length} | isReplacing: ${isReplacing}`
     );
 
     // Get insertion context (order_index and verse) based on current position
@@ -1446,6 +1477,22 @@ const RecordingView = () => {
 
     // Track if we're recording in the middle (for auto-scroll behavior)
     wasRecordingInMiddleRef.current = !isAtEnd;
+
+    // REPLACE MODE: Capture the asset to replace (only if highlighted item is an asset)
+    // Use insertionIndex directly to get the highlighted item
+    const highlightedItem = sessionItems[currentInsertionIndex];
+    
+    console.log(`🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+    
+    if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
+      assetToReplaceRef.current = highlightedItem.id;
+      console.log(`🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+    } else {
+      assetToReplaceRef.current = null;
+      if (isReplacing) {
+        console.log(`⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`);
+      }
+    }
 
     // Update appendOrderIndexRef to point to next position after this recording
     // This serves as a fallback for empty lists or initial state
@@ -1465,19 +1512,16 @@ const RecordingView = () => {
 
     setIsRecording(true);
 
-    const selectedItem = isAtEnd
-      ? sessionItems[sessionItems.length - 1]
-      : sessionItems[currentInsertionIndex];
-    const itemName = selectedItem
-      ? isPill(selectedItem)
-        ? `pill-${selectedItem.verse?.from ?? 'null'}`
-        : selectedItem.name
+    const itemName = highlightedItem
+      ? isPill(highlightedItem)
+        ? `pill-${highlightedItem.verse?.from ?? 'null'}`
+        : highlightedItem.name
       : 'none';
 
     console.log(
       `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
     );
-  }, [isRecording, sessionItems, getInsertionContext]);
+  }, [isRecording, sessionItems, getInsertionContext, isReplacing]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -1491,6 +1535,31 @@ const RecordingView = () => {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
+      // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
+      console.log(`🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`);
+      if (assetToReplaceRef.current) {
+        const assetIdToReplace = assetToReplaceRef.current;
+        assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
+        setIsReplacing(false); // Reset replace mode after first recording
+        wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
+        
+        console.log(`🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`);
+        
+        try {
+          await audioSegmentService.deleteAudioSegment(assetIdToReplace);
+          // Remove from session assets list
+          setSessionItems((prev) => prev.filter((a) => a.id !== assetIdToReplace));
+          await queryClient.invalidateQueries({
+            queryKey: ['assets', 'by-quest', currentQuestId],
+            exact: false
+          });
+          console.log(`✅ REPLACE: Asset deleted successfully`);
+        } catch (e) {
+          console.error('❌ REPLACE: Failed to delete asset', e);
+          wasReplaceRef.current = false; // Reset on error
+        }
+      }
+
       // Recalculate order_index based on current list state
       // This ensures each consecutive recording gets a unique incremented order_index
       const currentContext = getInsertionContext(insertionIndexRef.current);
@@ -2530,8 +2599,8 @@ const RecordingView = () => {
               isHighlighted={isHighlighted}
               onPress={callbacks?.onPress}
             />
-          {isHighlighted && !isReplacing && <View className="mt-1">
-<RecordAssetCardSkeleton />
+          {isHighlighted && <View className="mt-2.5">
+            <RecordAssetCardSkeleton />
           </View>}
           </>
         );
@@ -2580,6 +2649,7 @@ const RecordingView = () => {
           isHighlighted={isHighlighted}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          hideButtons={isRecording || isVADActive}
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
@@ -2614,7 +2684,9 @@ const RecordingView = () => {
       stableHandleMergeDownLocal,
       stableHandleRenameAsset,
       isReplacing,
-      stableHandleActionTypeChange
+      stableHandleActionTypeChange,
+      isRecording,
+      isVADActive
     ]
   );
 
@@ -2706,10 +2778,13 @@ const RecordingView = () => {
   const boundaryComponent = useMemo(
     () => (
     <>
-      {!insertionIndex && !isReplacing && (
-      <View className="px-2">
-        <RecordAssetCardSkeleton />
-      </View>)}
+      {
+        (sessionItems.length === 0 || insertionIndex >= sessionItems.length) && (
+          <View className="px-2 mt-0.5">
+            <RecordAssetCardSkeleton />
+          </View>
+        )
+      }
       <View
         style={{ height: ROW_HEIGHT }}
         className="flex-row items-center justify-center px-4"
@@ -2721,19 +2796,19 @@ const RecordingView = () => {
         >
           {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
           <View
-            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 p-2"
+            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 px-2"
             style={{
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Icon as={Mic} size={20} className="text-secondary-foreground/50" />
-            <Icon
+            <Icon as={Ellipsis} size={20} className="text-secondary-foreground/50" />
+            {/* <Icon
               as={ArrowDownNarrowWide}
               size={20}
               style={{ marginLeft: 4 }}
               className="text-secondary-foreground/50"
-            />
+            /> */}
           </View>
         </View>
         <View className="flex-1">{addButtonComponent}</View>
