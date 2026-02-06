@@ -5,134 +5,57 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 /**
- * Ensures a user's profile_id is in a languoid's download_profiles array.
- * Also updates related tables (languoid_source, languoid_alias, etc.)
- * This is needed when using an existing languoid for a project/asset.
+ * Ensures the authenticated user is in a languoid's download_profiles array,
+ * along with all related tables (languoid_alias, languoid_source, languoid_property,
+ * languoid_region, region, region_alias, region_source, region_property).
+ *
+ * This is needed when using an existing languoid for a project/asset. The function
+ * calls a server-side RPC that handles all updates atomically and idempotently.
  *
  * @param languoid_id - The languoid ID to update
- * @param profile_id - The user's profile ID to add
+ * @param _profile_id - Unused (kept for API compatibility); RPC uses auth.uid()
  */
 export async function ensureLanguoidDownloadProfile(
   languoid_id: string,
-  profile_id: string
+  _profile_id: string
 ): Promise<void> {
-  // Use raw SQL to append profile_id to download_profiles if not already present
-  // This works with PowerSync's SQLite and will sync the change
-  const languoidSynced = resolveTable('languoid', { localOverride: false });
+  // Always call the server RPC to update download_profiles for the languoid
+  // and ALL related tables (aliases, sources, properties, regions, etc.)
+  //
+  // Why not update locally first?
+  // - Even if the languoid exists locally (e.g., ui_ready=true languoids are auto-synced),
+  //   the related tables (languoid_alias, languoid_source, languoid_property,
+  //   languoid_region, region, etc.) likely don't exist locally yet
+  // - The RPC handles everything server-side in a single atomic operation
+  // - The RPC is idempotent (won't duplicate-add the user to any array)
+  // - After the RPC succeeds, PowerSync will sync down all the newly-accessible records
+  //
+  // Note: _profile_id param is kept for API compatibility but the RPC uses auth.uid()
 
-  // Check if profile is already in download_profiles
-  const [existing] = await system.db
-    .select()
-    .from(languoidSynced)
-    .where(eq(languoidSynced.id, languoid_id))
-    .limit(1);
+  console.log(
+    `[ensureLanguoidDownloadProfile] Calling server RPC for languoid ${languoid_id}`
+  );
 
-  if (!existing) {
-    // Languoid doesn't exist locally, nothing to update
-    // The languoid will sync down once download_profiles is updated server-side
-    return;
+  const { error } = await system.supabaseConnector.client.rpc(
+    'add_languoid_to_download_profiles',
+    { p_languoid_id: languoid_id }
+  );
+
+  if (error) {
+    console.error(
+      '[ensureLanguoidDownloadProfile] Failed to update languoid on server:',
+      error
+    );
+    throw error;
   }
 
-  const currentProfiles = (existing.download_profiles as string[] | null) || [];
-
-  // Check if profile is already in the array
-  if (currentProfiles.includes(profile_id)) {
-    return; // Already has the profile
-  }
-
-  // Add the profile to download_profiles
-  const updatedProfiles = [...currentProfiles, profile_id];
-
-  await system.db
-    .update(languoidSynced)
-    .set({
-      download_profiles: updatedProfiles,
-      last_updated: sql`(datetime('now'))`
-    })
-    .where(eq(languoidSynced.id, languoid_id));
-
-  // Also update related tables that have download_profiles
-  // These tables reference the languoid and should sync together
-  await updateRelatedLanguoidTables(languoid_id, profile_id);
-}
-
-/**
- * Updates download_profiles on languoid-related tables
- * @internal
- */
-async function updateRelatedLanguoidTables(
-  languoid_id: string,
-  profile_id: string
-): Promise<void> {
-  // Update languoid_source records
-  const languoidSourceSynced = resolveTable('languoid_source', {
-    localOverride: false
-  });
-  const sources = await system.db
-    .select()
-    .from(languoidSourceSynced)
-    .where(eq(languoidSourceSynced.languoid_id, languoid_id));
-
-  for (const source of sources) {
-    const currentProfiles = (source.download_profiles as string[] | null) || [];
-    if (!currentProfiles.includes(profile_id)) {
-      await system.db
-        .update(languoidSourceSynced)
-        .set({
-          download_profiles: [...currentProfiles, profile_id],
-          last_updated: sql`(datetime('now'))`
-        })
-        .where(eq(languoidSourceSynced.id, source.id));
-    }
-  }
-
-  // Update languoid_alias records
-  const languoidAliasSynced = resolveTable('languoid_alias', {
-    localOverride: false
-  });
-  const aliases = await system.db
-    .select()
-    .from(languoidAliasSynced)
-    .where(eq(languoidAliasSynced.subject_languoid_id, languoid_id));
-
-  for (const alias of aliases) {
-    const currentProfiles = (alias.download_profiles as string[] | null) || [];
-    if (!currentProfiles.includes(profile_id)) {
-      await system.db
-        .update(languoidAliasSynced)
-        .set({
-          download_profiles: [...currentProfiles, profile_id],
-          last_updated: sql`(datetime('now'))`
-        })
-        .where(eq(languoidAliasSynced.id, alias.id));
-    }
-  }
-
-  // Update languoid_property records
-  const languoidPropertySynced = resolveTable('languoid_property', {
-    localOverride: false
-  });
-  const properties = await system.db
-    .select()
-    .from(languoidPropertySynced)
-    .where(eq(languoidPropertySynced.languoid_id, languoid_id));
-
-  for (const prop of properties) {
-    const currentProfiles = (prop.download_profiles as string[] | null) || [];
-    if (!currentProfiles.includes(profile_id)) {
-      await system.db
-        .update(languoidPropertySynced)
-        .set({
-          download_profiles: [...currentProfiles, profile_id],
-          last_updated: sql`(datetime('now'))`
-        })
-        .where(eq(languoidPropertySynced.id, prop.id));
-    }
-  }
+  console.log(
+    `[ensureLanguoidDownloadProfile] Successfully added user to languoid ${languoid_id} and related tables`
+  );
 }
 
 export interface CreateLanguoidParams {
