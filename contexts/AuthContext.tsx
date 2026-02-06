@@ -29,6 +29,7 @@ interface AuthContextType {
   // System state
   isSystemReady: boolean;
   migrationNeeded: boolean;
+  setMigrationNeeded: (needed: boolean) => void;
   appUpgradeNeeded: boolean;
   upgradeError: {
     localVersion: string;
@@ -75,6 +76,9 @@ export function useAuth() {
       currentUser: currentUserFromStore || null,
       isSystemReady: true, // Allow queries to work for anonymous browsing
       migrationNeeded: false,
+      setMigrationNeeded: () => {
+        // No-op fallback for components outside AuthProvider
+      },
       appUpgradeNeeded: false,
       upgradeError: null,
       signIn: async () => {
@@ -562,6 +566,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUser: session?.user || null,
     isSystemReady,
     migrationNeeded,
+    setMigrationNeeded,
     appUpgradeNeeded,
     upgradeError,
     signIn,
