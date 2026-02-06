@@ -1,3 +1,4 @@
+import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
 import RecordingSelectionList from '@/components/RecordingSelectionList';
 import { VersePill } from '@/components/VersePill';
@@ -178,7 +179,8 @@ const RecordingView = () => {
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
-  const [isVADLocked, setIsVADLocked] = React.useState(false);
+  const [isVADActive, setIsVADActive] = React.useState(false);
+  const [isReplacing, setIsReplacing] = React.useState(false);
 
   // VAD settings - persisted in local store for consistent UX
   // These settings are automatically saved to AsyncStorage and restored on app restart
@@ -305,6 +307,10 @@ const RecordingView = () => {
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
   const ROW_HEIGHT = 66;
+  const ROW_HEIGHT_INSERTION = 132;
+  const PILL_HEIGHT = 56;
+  const PILL_HEIGHT_INSERTION = 122;
+
 
   // Dynamic verse tracking for automatic progression
   // Initialize with _verse.from if available, otherwise null (user must click "Add verse" button)
@@ -712,7 +718,7 @@ const RecordingView = () => {
     // This is done in the next useEffect that monitors sessionItems.length change
 
     // If VAD is active, update recording context to use the new pill
-    if (isVADLocked) {
+    if (isVADActive) {
       const newVerse = { from: verseToAdd, to: verseToAdd };
       currentRecordingVerseRef.current = newVerse;
       vadCounterRef.current = newOrderIndex + 1;
@@ -720,7 +726,7 @@ const RecordingView = () => {
         `🎯 VAD: Updated to verse ${verseToAdd} | order_index: ${newOrderIndex + 1}`
       );
     }
-  }, [verseToAdd, isVADLocked, addVersePill]);
+  }, [verseToAdd, isVADActive, addVersePill]);
 
   // Clamp insertion index when item count changes
   React.useEffect(() => {
@@ -1160,6 +1166,9 @@ const RecordingView = () => {
         }
         
         setCurrentlyPlayingAssetId(null);
+        // Reset SharedValues when stopping
+        audioContext.positionShared.value = 0;
+        audioContext.durationShared.value = 0;
         debugLog('⏸️ Stopped play all');
         return;
       }
@@ -1184,6 +1193,9 @@ const RecordingView = () => {
         if (!isPlayAllRunningRef.current) {
           debugLog('⏸️ Play all cancelled');
           setCurrentlyPlayingAssetId(null);
+          // Reset SharedValues when cancelled
+          audioContext.positionShared.value = 0;
+          audioContext.durationShared.value = 0;
           return;
         }
 
@@ -1224,6 +1236,9 @@ const RecordingView = () => {
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (!isPlayAllRunningRef.current) {
             setCurrentlyPlayingAssetId(null);
+            // Reset SharedValues when cancelled
+            audioContext.positionShared.value = 0;
+            audioContext.durationShared.value = 0;
             return;
           }
 
@@ -1236,7 +1251,16 @@ const RecordingView = () => {
                 sound.setOnPlaybackStatusUpdate((status) => {
                   if (!status.isLoaded) return;
 
+                  // Update SharedValues for progress bar animation (60fps on UI thread)
+                  if (status.isPlaying) {
+                    audioContext.positionShared.value = status.positionMillis;
+                    audioContext.durationShared.value = status.durationMillis ?? 0;
+                  }
+
                   if (status.didJustFinish) {
+                    // Reset SharedValues when segment finishes
+                    audioContext.positionShared.value = 0;
+                    audioContext.durationShared.value = 0;
                     currentPlayAllSoundRef.current = null;
                     void sound.unloadAsync().then(() => {
                       resolve();
@@ -1260,17 +1284,23 @@ const RecordingView = () => {
       // Done playing all
       debugLog('✅ Finished playing all assets');
       setCurrentlyPlayingAssetId(null);
+      // Reset SharedValues when finished
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
       setCurrentlyPlayingAssetId(null);
+      // Reset SharedValues on error
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     }
-  }, [getAssetAudioUris, insertionIndex, sessionItems]);
+  }, [audioContext, getAssetAudioUris, insertionIndex, sessionItems]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1347,7 +1377,7 @@ const RecordingView = () => {
 
   // Initialize VAD counter and verse when VAD mode activates
   React.useEffect(() => {
-    if (isVADLocked && vadCounterRef.current === null) {
+    if (isVADActive && vadCounterRef.current === null) {
       // Capture current position when VAD starts
       vadInsertionIndexRef.current = insertionIndexRef.current;
 
@@ -1373,7 +1403,7 @@ const RecordingView = () => {
       debugLog(
         `🎯 VAD initialized ${contextIsAtEnd ? 'at END' : 'in MIDDLE'} | index: ${insertionIndexRef.current} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
       );
-    } else if (!isVADLocked) {
+    } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
       console.log(
@@ -1384,7 +1414,7 @@ const RecordingView = () => {
       vadIsAtEndRef.current = false;
     }
   }, [
-    isVADLocked,
+    isVADActive,
     sessionItems,
     currentDynamicVerse,
     assets.length,
@@ -1652,7 +1682,7 @@ const RecordingView = () => {
   } = useVADRecording({
     threshold: vadThreshold,
     silenceDuration: vadSilenceDuration,
-    isVADActive: isVADLocked,
+    isVADActive: isVADActive,
     onSegmentStart: handleVADSegmentStart,
     onSegmentComplete: handleVADSegmentComplete,
     isManualRecording: isRecording
@@ -1660,13 +1690,13 @@ const RecordingView = () => {
 
   // Invalidate queries when VAD mode ends
   React.useEffect(() => {
-    if (!isVADLocked) {
+    if (!isVADActive) {
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
       });
     }
-  }, [isVADLocked, currentQuestId, queryClient]);
+  }, [isVADActive, currentQuestId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2379,6 +2409,10 @@ const RecordingView = () => {
   const stableHandleRenameAsset = React.useCallback(handleRenameAsset, [
     handleRenameAsset
   ]);
+  
+  const stableHandleActionTypeChange = React.useCallback((isReplacingMode: boolean) => {
+    setIsReplacing(isReplacingMode);
+  }, []);
 
   // ============================================================================
   // OPTIMIZED CALLBACKS MAP - Prevents creating new functions in wheelChildren
@@ -2485,12 +2519,17 @@ const RecordingView = () => {
         const callbacks = pillCallbacksMap.get(item.id);
 
         return (
-          <VersePill
-            key={item.id}
-            text={pillText}
-            isHighlighted={isHighlighted}
-            onPress={callbacks?.onPress}
-          />
+          <>
+            <VersePill
+              key={item.id}
+              text={pillText}
+              isHighlighted={isHighlighted}
+              onPress={callbacks?.onPress}
+            />
+          {isHighlighted && !isReplacing && <View className="mt-1">
+<RecordAssetCardSkeleton />
+          </View>}
+          </>
         );
       }
 
@@ -2528,6 +2567,7 @@ const RecordingView = () => {
       const isHighlighted = insertionIndex === index;
 
       return (
+        <>
         <RecordAssetCard
           key={item.id}
           asset={item}
@@ -2545,7 +2585,12 @@ const RecordingView = () => {
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
           onRename={stableHandleRenameAsset}
-        />
+          onActionTypeChange={stableHandleActionTypeChange}
+          />
+          {isHighlighted && !isReplacing && <View className="mt-1">
+            <RecordAssetCardSkeleton />
+          </View>}
+        </>
       );
     },
     [
@@ -2563,7 +2608,9 @@ const RecordingView = () => {
       assetDurations,
       stableHandleDeleteLocalAsset,
       stableHandleMergeDownLocal,
-      stableHandleRenameAsset
+      stableHandleRenameAsset,
+      isReplacing,
+      stableHandleActionTypeChange
     ]
   );
 
@@ -2612,7 +2659,7 @@ const RecordingView = () => {
   // The list starts empty and only shows assets recorded in this session
 
   // Show full-screen overlay when VAD is locked and display mode is fullscreen
-  const showFullScreenOverlay = isVADLocked && vadDisplayMode === 'fullscreen';
+  const showFullScreenOverlay = isVADActive && vadDisplayMode === 'fullscreen';
 
   const addButtonComponent = useMemo(() => {
     // Apply same conditions as floating button (line 3050)
@@ -2655,9 +2702,10 @@ const RecordingView = () => {
   const boundaryComponent = useMemo(
     () => (
     <>
+      {!insertionIndex && !isReplacing && (
       <View className="px-2">
         <RecordAssetCardSkeleton />
-      </View>
+      </View>)}
       <View
         style={{ height: ROW_HEIGHT }}
         className="flex-row items-center justify-center px-4"
@@ -2688,7 +2736,23 @@ const RecordingView = () => {
       </View>
     </>
     ),
-    [addButtonComponent]
+    [addButtonComponent, insertionIndex, isReplacing]
+  );
+
+  // Calculate dynamic height for each item based on type and highlight state
+  const getItemHeight = React.useCallback(
+    (item: ListItem, index: number, _isSelected: boolean) => {
+      const isHighlighted = insertionIndex === index;
+      
+      if (isPill(item)) {
+        // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
+        return isHighlighted && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
+      }
+      
+      // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
+      return isHighlighted && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
+    },
+    [insertionIndex, isReplacing]
   );
 
   return (
@@ -2702,7 +2766,7 @@ const RecordingView = () => {
           isRecordingShared={isRecordingShared}
           onCancel={() => {
             // Cancel VAD mode
-            setIsVADLocked(false);
+            setIsVADActive(false);
           }}
         />
       )}
@@ -2760,10 +2824,10 @@ const RecordingView = () => {
         </View>
       </View>
       <View
-        className={`flex-0 w-full items-center justify-center py-2 ${isVADLocked ? 'bg-destructive' : 'bg-primary/70'}`}
+        className={`flex-0 w-full items-center justify-center py-2 ${isVADActive ? 'bg-destructive' : 'bg-primary/70'}`}
       >
         {/* {(isRecording || isVADRecording)? ( */}
-        {isVADLocked ? (
+        {isVADActive ? (
           <Text className="text-center text-sm font-semibold text-white">
             {highlightedItemVerse
               ? `${t('recording')}: ${formatVerseRange(highlightedItemVerse)}`
@@ -2784,9 +2848,8 @@ const RecordingView = () => {
             ref={listRef}
             value={insertionIndex}
             onChange={handleListIndexChange}
-            onLongPress={handleListLongPress}
-            canLongPress={canListItemLongPress}
             rowHeight={ROW_HEIGHT}
+            getItemHeight={getItemHeight}
             className="h-full flex-1"
             bottomInset={footerHeight}
             boundaryComponent={boundaryComponent}
@@ -2819,8 +2882,8 @@ const RecordingView = () => {
             onRecordingComplete={handleRecordingComplete}
             onRecordingDiscarded={handleRecordingDiscarded}
             onLayout={setFooterHeight}
-            isVADLocked={isVADLocked}
-            onVADLockChange={setIsVADLocked}
+            isVADActive={isVADActive}
+            onVADActiveChange={setIsVADActive}
             onSettingsPress={() => setShowVADSettings(true)}
             onAutoCalibratePress={() => {
               setAutoCalibrateOnOpen(true);
@@ -2864,12 +2927,13 @@ const RecordingView = () => {
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
         onSilenceDurationChange={setVadSilenceDuration}
-        isVADLocked={isVADLocked}
+        isVADActive={isVADActive}
         displayMode={vadDisplayMode}
         onDisplayModeChange={setVadDisplayMode}
         autoCalibrateOnOpen={autoCalibrateOnOpen}
         energyShared={energyShared}
       />
+      <RecordingHelpDialog />
     </View>
   );
 };

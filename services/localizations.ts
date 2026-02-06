@@ -4108,6 +4108,14 @@ export const localizations = {
     indonesian: 'Rekam ke',
     nepali: 'रेकर्ड गर्नुहोस्'
   },
+  after: {
+    english: 'After',
+    spanish: 'Después de',
+    brazilian_portuguese: 'Depois de',
+    tok_pisin: 'Despela',
+    indonesian: 'Setelah',
+    nepali: 'बादमा'
+  },
   noLabelSelected: {
     english: 'No label selected',
     spanish: 'Sin etiqueta seleccionada',

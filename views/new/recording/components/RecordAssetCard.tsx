@@ -19,6 +19,7 @@
  * - Memoized to prevent unnecessary re-renders
  */
 
+import { ButtonNewAssetAction } from '@/components/ButtonNewAssetAction';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -59,6 +60,7 @@ interface AssetCardProps {
   onLongPress?: () => void;
   onPlay: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
+  onActionTypeChange?: (isReplacing: boolean) => void; // Notifies when action type changes
   // Note: These callbacks are still passed but no longer used (batch operations only)
   onDelete?: (assetId: string) => void;
   onMerge?: (index: number) => void;
@@ -74,6 +76,38 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+// Component to manage mutually exclusive button selection
+function AssetActionButtons({ 
+  selectedType, 
+  onSelectionChange 
+}: { 
+  selectedType: 'new' | 'replace';
+  onSelectionChange: (type: 'new' | 'replace') => void;
+}) {
+  const handleNewPress = React.useCallback(() => {
+    onSelectionChange('new');
+  }, [onSelectionChange]);
+
+  const handleReplacePress = React.useCallback(() => {
+    onSelectionChange('replace');
+  }, [onSelectionChange]);
+
+  return (
+    <View className="flex-row items-center justify-center gap-1" style={{ zIndex: 1 }}>
+      <ButtonNewAssetAction 
+        type="new" 
+        onPress={handleNewPress} 
+        selected={selectedType === 'new'} 
+      />
+      <ButtonNewAssetAction 
+        type="replace" 
+        onPress={handleReplacePress} 
+        selected={selectedType === 'replace'} 
+      />
+    </View>
+  );
+}
+
 function RecordAssetCardInternal({
   asset,
   index,
@@ -87,9 +121,37 @@ function RecordAssetCardInternal({
   onPress,
   onLongPress,
   onPlay,
-  onRename
+  onRename,
+  onActionTypeChange
 }: AssetCardProps) {
   const audioContext = useAudio();
+
+  // State for action button selection (always one selected, default is 'new')
+  const [actionType, setActionType] = React.useState<'new' | 'replace'>('new');
+
+  // Reset action type to 'new' when card is no longer highlighted
+  React.useEffect(() => {
+    if (!isHighlighted) {
+      setActionType('new');
+    }
+  }, [isHighlighted]);
+
+  // Notify parent when action type changes
+  React.useEffect(() => {
+    onActionTypeChange?.(actionType === 'replace');
+  }, [actionType, onActionTypeChange]);
+
+  // Theme colors based on action type (memoized for performance)
+  const themeColors = React.useMemo(() => {
+    const isReplace = actionType === 'replace';
+    return {
+      playButtonBg: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
+      playButtonActive: isReplace ? 'active:bg-destructive/40' : 'active:bg-primary/40',
+      progressBar: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
+      segmentBadge: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
+      textColor: isReplace ? 'text-red-500' : 'text-primary'
+    };
+  }, [actionType]);
 
   // CRITICAL: Only local-only assets can be renamed/edited/deleted (synced assets are immutable)
   const isLocal = asset.source === 'local';
@@ -180,7 +242,7 @@ function RecordAssetCardInternal({
         className={cn(
           'relative overflow-hidden rounded-lg border p-3',
           isHighlighted && !isSelectionMode
-            ? 'border-primary bg-card'
+            ? (actionType === 'replace' ? 'border-destructive bg-destructive/10' : 'border-primary bg-card')
             : isSelected
               ? 'border-primary bg-primary/10'
               : 'border-border bg-card'
@@ -193,7 +255,7 @@ function RecordAssetCardInternal({
           pointerEvents="none"
         >
           <Animated.View
-            className="h-full bg-primary/20"
+            className={cn('h-full', themeColors.progressBar)}
             style={progressBarStyle}
           />
         </View>
@@ -212,14 +274,17 @@ function RecordAssetCardInternal({
         {/* Play/Pause Button */}
         <TouchableOpacity
           onPress={handlePlayPress}
-          // className="items-center justify-center rounded-full bg-primary/50 active:bg-primary/40 p-2"
-          className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+          className={cn(
+            'ml-2 flex h-7 w-7 items-center justify-center rounded-full',
+            themeColors.playButtonBg,
+            themeColors.playButtonActive
+          )}
           activeOpacity={0.7}
         >
           <Icon
             as={isPlaying ? PauseIcon : PlayIcon}
             size={16}
-            className={isPlaying ? 'text-primary' : 'text-primary/80'}
+            className={isPlaying ? themeColors.textColor : `${themeColors.textColor}`  }
           />
         </TouchableOpacity>
 
@@ -242,7 +307,7 @@ function RecordAssetCardInternal({
               </Text>
             </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
-              <View className="rounded bg-primary/20 px-1.5 py-0.5">
+              <View className={cn('rounded px-1.5 py-0.5', themeColors.segmentBadge)}>
                 <Text className="text-xs font-medium text-primary">
                   {segmentCount}
                 </Text>
@@ -250,35 +315,44 @@ function RecordAssetCardInternal({
             )}
           </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-xs text-muted-foreground">
+            {/* <Text className="text-xs text-muted-foreground">
               {asset.created_at && new Date(asset.created_at).toLocaleString()}
-            </Text>
-          </View>
-        </View>
+            </Text> */}
         {duration !== undefined && duration > 0 && (
           <Text
-            className="font-mono text-sm text-muted-foreground"
+            className="font-mono text-xs text-muted-foreground"
             style={{ letterSpacing: 0.5 }}
           >
             {formatDuration(duration)}
           </Text>
-        )}
+        )}            
+          </View>
+        </View>
+
 
         {/* Selection checkbox - only show for local assets in selection mode */}
-        {isSelectionMode && isLocal && (
-          <TouchableOpacity
-            onPress={handleSelectionToggle}
-            className="pl-2"
-            style={{ zIndex: 1 }}
-            activeOpacity={0.7}
-          >
-            <Icon
+        {
+          isLocal && (
+            isSelectionMode ? (
+              <TouchableOpacity
+              onPress={handleSelectionToggle}
+              className="pl-2"
+              style={{ zIndex: 1 }}
+              activeOpacity={0.7}
+              >
+              <Icon
               as={isSelected ? CheckCircleIcon : CircleIcon}
               size={20}
               className={isSelected ? 'text-primary' : 'text-muted-foreground'}
-            />
-          </TouchableOpacity>
-        )}
+              />
+              </TouchableOpacity>
+            ) : isHighlighted ? (
+              <AssetActionButtons 
+                selectedType={actionType}
+                onSelectionChange={setActionType}
+              />
+            ) : null 
+          ) }
       </View>
     </View>
     </TouchableOpacity>
@@ -314,6 +388,7 @@ export const RecordAssetCard = React.memo(RecordAssetCardInternal, (prev, next) 
     prev.onLongPress === next.onLongPress &&
     prev.onPlay === next.onPlay &&
     prev.onRename === next.onRename &&
+    prev.onActionTypeChange === next.onActionTypeChange &&
     prev.onDelete === next.onDelete &&
     prev.onMerge === next.onMerge &&
     prev.onEdit === next.onEdit

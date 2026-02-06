@@ -26,13 +26,14 @@ export interface RecordingSelectionListHandle {
 interface RecordingSelectionListPropsBase {
   value: number; // selected index (0..N, where N is "insert at end")
   onChange?: (index: number) => void;
-  onLongPress?: (index: number) => void; // Long press on an item
-  rowHeight: number;
+  rowHeight: number; // Default/base height for items
   className?: string;
   bottomInset?: number;
   boundaryComponent?: React.ReactNode;
   /** Extra data that triggers re-render when changed (e.g., isSelectionMode) */
   extraData?: unknown;
+  /** Optional function to calculate height for each item dynamically */
+  getItemHeight?: (item: unknown, index: number, isSelected: boolean) => number;
 }
 
 // Lazy rendering with data + renderItem
@@ -44,8 +45,6 @@ interface RecordingSelectionListPropsLazy<T>
     index: number,
     isSelected: boolean
   ) => React.ReactElement;
-  /** Return true if this item supports long press (for batch selection mode) */
-  canLongPress?: (item: T, index: number) => boolean;
 }
 
 type RecordingSelectionListProps<T = unknown> =
@@ -64,7 +63,8 @@ function RecordingSelectionListInternal<T>(
     boundaryComponent,
     data,
     renderItem,
-    extraData
+    extraData,
+    getItemHeight
   } = props;
 
   const listRef = React.useRef<LegendListRef>(null);
@@ -121,10 +121,37 @@ function RecordingSelectionListInternal<T>(
     return items;
   }, [data]);
 
+  // Optimize LegendList by providing item types (items with same type have similar heights)
+  const getItemType = React.useCallback(
+    (item: { type: 'item' | 'boundary'; index: number; data?: T }) => {
+      if (item.type === 'boundary') return 'boundary';
+      
+      // If getItemHeight is provided, calculate the height and categorize
+      if (getItemHeight && item.data) {
+        const isSelected = item.index === value;
+        const height = getItemHeight(item.data, item.index, isSelected);
+        // Categorize by height ranges for better list performance
+        if (height <= 66) return 'small';
+        if (height <= 132) return 'medium';
+        return 'large';
+      }
+      
+      return 'default';
+    },
+    [getItemHeight, value]
+  );
+
   // Render list item
   const renderListItem = React.useCallback(
     ({ item }: { item: (typeof listData)[number] }) => {
       const isSelected = item.index === value;
+
+      // Calculate height for this item
+      const itemHeight = item.type === 'boundary' 
+        ? rowHeight 
+        : getItemHeight 
+          ? getItemHeight(item.data!, item.index, isSelected)
+          : rowHeight;
 
       // Render boundary item
       if (item.type === 'boundary') {
@@ -135,7 +162,7 @@ function RecordingSelectionListInternal<T>(
             //   activeOpacity={0.7}
             // >
               <View
-                style={{ height: rowHeight }}
+                style={{ height: itemHeight }}
                 // className={isSelected ? 'bg-primary/10' : ''}
               >
                 {boundaryComponent}
@@ -151,7 +178,7 @@ function RecordingSelectionListInternal<T>(
             activeOpacity={0.7}
           >
             <View
-              style={{ height: rowHeight }}
+              style={{ height: itemHeight }}
               className={`flex-row items-center justify-center px-4`}
             >
               <View className="flex-row items-center gap-2">
@@ -172,7 +199,7 @@ function RecordingSelectionListInternal<T>(
       // Render data item - card handles its own press and long press
       return (
         <View
-          style={{ height: rowHeight, justifyContent: 'center' }}
+          style={{ height: itemHeight, justifyContent: 'center' }}
           className="px-2"
         >
           {renderItem(item.data!, item.index, isSelected)}
@@ -182,6 +209,7 @@ function RecordingSelectionListInternal<T>(
     [
       value,
       rowHeight,
+      getItemHeight,
       boundaryComponent,
       handleItemPress,
       renderItem
@@ -198,6 +226,7 @@ function RecordingSelectionListInternal<T>(
           item.type === 'boundary' ? 'boundary' : `item-${item.index}`
         }
         estimatedItemSize={rowHeight}
+        getItemType={getItemType}
         showsVerticalScrollIndicator={true}
         contentContainerStyle={{
           paddingBottom: bottomInset

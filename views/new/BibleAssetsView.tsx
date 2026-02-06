@@ -3816,8 +3816,8 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `${("- After "+selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name ? `${("After "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
                   {/* {selectedForRecording?.verseName
                   ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                   : t('doRecord')} */}
