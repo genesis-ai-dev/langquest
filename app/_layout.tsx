@@ -11,6 +11,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
+import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -83,6 +84,11 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // async function init() {
+    //   await tagService.preloadTagsIntoCache();
+    // }
+    // void init();
+
     if (Platform.OS === 'web') return;
     console.log('[_layout] Setting up deep link handler');
 

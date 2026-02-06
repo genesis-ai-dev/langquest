@@ -11,6 +11,7 @@ export type AppView =
   | 'quests'
   | 'assets'
   | 'asset-detail'
+  | 'bible-assets'
   | 'profile'
   | 'notifications'
   | 'settings'
@@ -41,15 +42,34 @@ export interface NavigationStackItem {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+// AsyncStorage keys for user preferences
+export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
+
 // VAD (Voice Activity Detection) constants - single source of truth
 export const VAD_THRESHOLD_MIN = 0.001;
 export const VAD_THRESHOLD_MAX = 1.0;
-export const VAD_THRESHOLD_DEFAULT = 0.05;
+export const VAD_THRESHOLD_DEFAULT = 0.1;
 
 // VAD silence duration constants (in milliseconds)
 export const VAD_SILENCE_DURATION_MIN = 100; // 0.1 seconds
 export const VAD_SILENCE_DURATION_MAX = 3000; // 3 seconds
-export const VAD_SILENCE_DURATION_DEFAULT = 300; // 0.3 seconds
+export const VAD_SILENCE_DURATION_DEFAULT = 1000; // 1.0 seconds
+
+// New VAD algorithm settings
+export const VAD_ONSET_MULTIPLIER_MIN = 0.05;
+export const VAD_ONSET_MULTIPLIER_MAX = 0.5;
+export const VAD_ONSET_MULTIPLIER_DEFAULT = 0.1;
+
+export const VAD_MAX_ONSET_DURATION_MIN = 50;
+export const VAD_MAX_ONSET_DURATION_MAX = 500;
+export const VAD_MAX_ONSET_DURATION_DEFAULT = 250;
+
+export const VAD_REWIND_HALF_PAUSE_DEFAULT = true;
+
+// Min segment length - discard clips with less than this much active audio (in ms)
+export const VAD_MIN_SEGMENT_LENGTH_MIN = 0;
+export const VAD_MIN_SEGMENT_LENGTH_MAX = 500;
+export const VAD_MIN_SEGMENT_LENGTH_DEFAULT = 200;
 
 // Recently visited item types
 export interface RecentProject {
@@ -96,6 +116,8 @@ export interface LocalState {
   setDebugMode: (enabled: boolean) => void;
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
+  offlineUndownloadWarningEnabled: boolean;
+  setOfflineUndownloadWarningEnabled: (enabled: boolean) => void;
 
   // Experimental features
   enableAiSuggestions: boolean;
@@ -104,6 +126,10 @@ export interface LocalState {
   setEnablePlayAll: (enabled: boolean) => void;
   enableQuestExport: boolean;
   setEnableQuestExport: (enabled: boolean) => void;
+  enableVerseMarkers: boolean;
+  setEnableVerseMarkers: (enabled: boolean) => void;
+  verseMarkersFeaturePrompted: boolean;
+  setVerseMarkersFeaturePrompted: (prompted: boolean) => void;
   enableTranscription: boolean;
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
@@ -119,6 +145,15 @@ export interface LocalState {
   setVadSilenceDuration: (duration: number) => void;
   vadDisplayMode: 'fullscreen' | 'footer';
   setVadDisplayMode: (mode: 'fullscreen' | 'footer') => void;
+  // New VAD algorithm settings
+  vadOnsetMultiplier: number;
+  setVadOnsetMultiplier: (multiplier: number) => void;
+  vadMaxOnsetDuration: number;
+  setVadMaxOnsetDuration: (duration: number) => void;
+  vadRewindHalfPause: boolean;
+  setVadRewindHalfPause: (enabled: boolean) => void;
+  vadMinSegmentLength: number;
+  setVadMinSegmentLength: (duration: number) => void;
 
   // Authentication view state
   authView:
@@ -170,6 +205,20 @@ export interface LocalState {
   dismissedUpdateVersion: string | null;
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
+
+  // Version tracking and migration state
+  lastAppVersion: string | null;
+  setLastAppVersion: (version: string | null) => void;
+  lastSchemaVersion: string | null;
+  setLastSchemaVersion: (version: string | null) => void;
+  lastUpdateId: string | null;
+  setLastUpdateId: (updateId: string | null) => void;
+  lastFailedVersion: string | null;
+  setLastFailedVersion: (version: string | null) => void;
+  degradedMode: boolean;
+  setDegradedMode: (enabled: boolean) => void;
+  migrationRetryCount: number;
+  setMigrationRetryCount: (count: number) => void;
 
   // Onboarding dismissal tracking
   onboardingDismissed: boolean;
@@ -231,11 +280,14 @@ export const useLocalStore = create<LocalState>()(
       autoBackup: false,
       debugMode: false,
       showHiddenContent: false,
+      offlineUndownloadWarningEnabled: true, // Default to showing warning
 
       // Experimental features (defaults)
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
+      enableVerseMarkers: false,
+      verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
 
@@ -243,6 +295,11 @@ export const useLocalStore = create<LocalState>()(
       vadThreshold: VAD_THRESHOLD_DEFAULT,
       vadSilenceDuration: VAD_SILENCE_DURATION_DEFAULT,
       vadDisplayMode: 'footer', // Default to footer mode
+      // New VAD algorithm settings (defaults)
+      vadOnsetMultiplier: VAD_ONSET_MULTIPLIER_DEFAULT,
+      vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
+      vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
+      vadMinSegmentLength: VAD_MIN_SEGMENT_LENGTH_DEFAULT,
 
       // Authentication view state
       authView: null,
@@ -300,6 +357,21 @@ export const useLocalStore = create<LocalState>()(
           dismissedUpdateVersion: null
         }),
 
+      // Version tracking and migration state
+      lastAppVersion: null,
+      setLastAppVersion: (version) => set({ lastAppVersion: version }),
+      lastSchemaVersion: null,
+      setLastSchemaVersion: (version) => set({ lastSchemaVersion: version }),
+      lastUpdateId: null,
+      setLastUpdateId: (updateId) => set({ lastUpdateId: updateId }),
+      lastFailedVersion: null,
+      setLastFailedVersion: (version) => set({ lastFailedVersion: version }),
+      degradedMode: false,
+      setDegradedMode: (enabled) => set({ degradedMode: enabled }),
+      migrationRetryCount: 0,
+      setMigrationRetryCount: (count) =>
+        set({ migrationRetryCount: Math.max(0, count) }),
+
       // Onboarding dismissal tracking
       onboardingDismissed: false,
       setOnboardingDismissed: (dismissed) =>
@@ -333,19 +405,30 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
+      setOfflineUndownloadWarningEnabled: (enabled) =>
+        set({ offlineUndownloadWarningEnabled: enabled }),
 
       // Experimental features setters
       setEnableAiSuggestions: (enabled) =>
         set({ enableAiSuggestions: enabled }),
       setEnablePlayAll: (enabled) => set({ enablePlayAll: enabled }),
       setEnableQuestExport: (enabled) => set({ enableQuestExport: enabled }),
+      setEnableVerseMarkers: (enabled) => set({ enableVerseMarkers: enabled }),
+      setVerseMarkersFeaturePrompted: (prompted) =>
+        set({ verseMarkersFeaturePrompted: prompted }),
       setEnableTranscription: (enabled) =>
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
 
       // VAD settings setters
-      setVadThreshold: (threshold) => set({ vadThreshold: threshold }),
+      setVadThreshold: (threshold) =>
+        set({
+          vadThreshold: Math.max(
+            VAD_THRESHOLD_MIN,
+            Math.min(VAD_THRESHOLD_MAX, threshold)
+          )
+        }),
       setVadSilenceDuration: (duration) =>
         set({
           vadSilenceDuration: Math.max(
@@ -354,6 +437,29 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
       setVadDisplayMode: (mode) => set({ vadDisplayMode: mode }),
+      // New VAD algorithm setters
+      setVadOnsetMultiplier: (multiplier) =>
+        set({
+          vadOnsetMultiplier: Math.max(
+            VAD_ONSET_MULTIPLIER_MIN,
+            Math.min(VAD_ONSET_MULTIPLIER_MAX, multiplier)
+          )
+        }),
+      setVadMaxOnsetDuration: (duration) =>
+        set({
+          vadMaxOnsetDuration: Math.max(
+            VAD_MAX_ONSET_DURATION_MIN,
+            Math.min(VAD_MAX_ONSET_DURATION_MAX, duration)
+          )
+        }),
+      setVadRewindHalfPause: (enabled) => set({ vadRewindHalfPause: enabled }),
+      setVadMinSegmentLength: (duration) =>
+        set({
+          vadMinSegmentLength: Math.max(
+            VAD_MIN_SEGMENT_LENGTH_MIN,
+            Math.min(VAD_MIN_SEGMENT_LENGTH_MAX, duration)
+          )
+        }),
 
       // Navigation context setters
       setCurrentContext: (projectId, questId, assetId) =>
@@ -461,9 +567,45 @@ export const useLocalStore = create<LocalState>()(
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
       // skipHydration: true,
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
-        if (state) colorScheme.set(state.theme);
+        if (state) {
+          colorScheme.set(state.theme);
+          // Validate and clamp VAD threshold if invalid
+          if (
+            typeof state.vadThreshold !== 'number' ||
+            state.vadThreshold < VAD_THRESHOLD_MIN ||
+            state.vadThreshold > VAD_THRESHOLD_MAX
+          ) {
+            console.warn(
+              `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
+            );
+            state.vadThreshold = VAD_THRESHOLD_DEFAULT;
+          }
+
+          // Migrate offline undownload warning preference from old AsyncStorage key
+          if (!state.offlineUndownloadWarningEnabled) {
+            try {
+              const oldValue = await AsyncStorage.getItem(
+                OFFLINE_UNDOWNLOAD_WARNING_KEY
+              );
+              if (oldValue !== null) {
+                const migratedValue = oldValue === 'true';
+                state.offlineUndownloadWarningEnabled = migratedValue;
+                // Optionally remove the old key after migration
+                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
+                console.log(
+                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+                );
+              }
+            } catch (error) {
+              console.error(
+                '[LocalStore] Error migrating offline undownload warning preference:',
+                error
+              );
+            }
+          }
+        }
       },
       partialize: (state) =>
         Object.fromEntries(

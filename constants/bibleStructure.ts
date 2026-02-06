@@ -4,6 +4,7 @@ import type { Quest, Segment, TemplatedProject } from './templates';
 export interface BibleBook {
   id: string;
   name: string;
+  shortName: string;
   chapters: number;
   verses: number[]; // verses per chapter
 }
@@ -19,6 +20,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'gen',
     name: 'Genesis',
+    shortName: 'Gen',
     chapters: 50,
     verses: [
       31, 25, 24, 26, 32, 22, 24, 22, 29, 32, 32, 20, 18, 24, 21, 16, 27, 33,
@@ -29,6 +31,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'exo',
     name: 'Exodus',
+    shortName: 'Exod',
     chapters: 40,
     verses: [
       22, 25, 22, 31, 23, 30, 25, 32, 35, 29, 10, 51, 22, 31, 27, 36, 16, 27,
@@ -39,6 +42,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'lev',
     name: 'Leviticus',
+    shortName: 'Lev',
     chapters: 27,
     verses: [
       17, 16, 17, 35, 19, 30, 38, 36, 24, 20, 47, 8, 59, 57, 33, 34, 16, 30, 37,
@@ -48,6 +52,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'num',
     name: 'Numbers',
+    shortName: 'Num',
     chapters: 36,
     verses: [
       54, 34, 51, 49, 31, 27, 89, 26, 23, 36, 35, 16, 33, 45, 41, 50, 13, 32,
@@ -57,6 +62,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'deu',
     name: 'Deuteronomy',
+    shortName: 'Deut',
     chapters: 34,
     verses: [
       46, 37, 29, 49, 33, 25, 26, 20, 29, 22, 32, 32, 18, 29, 23, 22, 20, 22,
@@ -66,6 +72,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'jos',
     name: 'Joshua',
+    shortName: 'Josh',
     chapters: 24,
     verses: [
       18, 24, 17, 24, 15, 27, 26, 35, 27, 43, 23, 24, 33, 15, 63, 10, 18, 28,
@@ -75,16 +82,24 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'jdg',
     name: 'Judges',
+    shortName: 'Judg',
     chapters: 21,
     verses: [
       36, 23, 31, 24, 31, 40, 25, 35, 57, 18, 40, 15, 25, 20, 20, 31, 13, 31,
       30, 48, 25
     ]
   },
-  { id: 'rut', name: 'Ruth', chapters: 4, verses: [22, 23, 18, 22] },
+  {
+    id: 'rut',
+    name: 'Ruth',
+    shortName: 'Ruth',
+    chapters: 4,
+    verses: [22, 23, 18, 22]
+  },
   {
     id: '1sa',
     name: '1 Samuel',
+    shortName: '1 Sam',
     chapters: 31,
     verses: [
       28, 36, 21, 22, 12, 21, 17, 22, 27, 27, 15, 25, 23, 52, 35, 23, 58, 30,
@@ -94,6 +109,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: '2sa',
     name: '2 Samuel',
+    shortName: '2 Sam',
     chapters: 24,
     verses: [
       27, 32, 39, 12, 25, 23, 29, 18, 13, 19, 27, 31, 39, 33, 37, 23, 29, 33,
@@ -103,6 +119,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: '1ki',
     name: '1 Kings',
+    shortName: '1 Kgs',
     chapters: 22,
     verses: [
       53, 46, 28, 34, 18, 38, 51, 66, 28, 29, 43, 33, 34, 31, 34, 34, 24, 46,
@@ -112,6 +129,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: '2ki',
     name: '2 Kings',
+    shortName: '2 Kgs',
     chapters: 25,
     verses: [
       18, 25, 27, 44, 27, 33, 20, 29, 37, 36, 21, 21, 25, 29, 38, 20, 41, 37,
@@ -121,6 +139,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: '1ch',
     name: '1 Chronicles',
+    shortName: '1 Chr',
     chapters: 29,
     verses: [
       54, 55, 24, 43, 26, 81, 40, 40, 44, 14, 47, 40, 14, 17, 29, 43, 27, 17,
@@ -130,6 +149,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: '2ch',
     name: '2 Chronicles',
+    shortName: '2 Chr',
     chapters: 36,
     verses: [
       17, 18, 17, 22, 14, 42, 22, 18, 31, 19, 23, 16, 22, 15, 19, 14, 19, 34,
@@ -139,24 +159,28 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'ezr',
     name: 'Ezra',
+    shortName: 'Ezra',
     chapters: 10,
     verses: [11, 70, 13, 24, 17, 22, 28, 36, 15, 44]
   },
   {
     id: 'neh',
     name: 'Nehemiah',
+    shortName: 'Neh',
     chapters: 13,
     verses: [11, 20, 32, 23, 19, 19, 73, 18, 38, 39, 36, 47, 31]
   },
   {
     id: 'est',
     name: 'Esther',
+    shortName: 'Esth',
     chapters: 10,
     verses: [22, 23, 15, 17, 14, 14, 10, 17, 32, 3]
   },
   {
     id: 'job',
     name: 'Job',
+    shortName: 'Job',
     chapters: 42,
     verses: [
       22, 13, 26, 21, 27, 30, 21, 22, 35, 22, 20, 25, 28, 22, 35, 22, 16, 21,
@@ -167,6 +191,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'psa',
     name: 'Psalms',
+    shortName: 'Ps',
     chapters: 150,
     verses: [
       6, 12, 8, 8, 12, 10, 17, 9, 20, 18, 7, 8, 6, 7, 5, 11, 15, 50, 14, 9, 13,
@@ -182,6 +207,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'pro',
     name: 'Proverbs',
+    shortName: 'Prov',
     chapters: 31,
     verses: [
       33, 22, 35, 27, 23, 35, 27, 36, 18, 32, 31, 28, 25, 35, 33, 33, 28, 24,
@@ -191,18 +217,21 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'ecc',
     name: 'Ecclesiastes',
+    shortName: 'Eccl',
     chapters: 12,
     verses: [18, 26, 22, 16, 20, 12, 29, 17, 18, 20, 10, 14]
   },
   {
     id: 'sng',
     name: 'Song of Solomon',
+    shortName: 'Song',
     chapters: 8,
     verses: [17, 17, 11, 16, 16, 13, 13, 14]
   },
   {
     id: 'isa',
     name: 'Isaiah',
+    shortName: 'Isa',
     chapters: 66,
     verses: [
       31, 22, 26, 6, 30, 13, 25, 22, 21, 34, 16, 6, 22, 32, 9, 14, 14, 7, 25, 6,
@@ -214,6 +243,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'jer',
     name: 'Jeremiah',
+    shortName: 'Jer',
     chapters: 52,
     verses: [
       19, 37, 25, 31, 31, 30, 34, 22, 26, 25, 23, 17, 27, 22, 21, 21, 27, 23,
@@ -224,12 +254,14 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'lam',
     name: 'Lamentations',
+    shortName: 'Lam',
     chapters: 5,
     verses: [22, 22, 66, 22, 22]
   },
   {
     id: 'ezk',
     name: 'Ezekiel',
+    shortName: 'Ezek',
     chapters: 48,
     verses: [
       28, 10, 27, 17, 17, 14, 27, 18, 11, 22, 25, 28, 23, 23, 8, 63, 24, 32, 14,
@@ -240,46 +272,94 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'dan',
     name: 'Daniel',
+    shortName: 'Dan',
     chapters: 12,
     verses: [21, 49, 30, 37, 31, 28, 28, 27, 27, 21, 45, 13]
   },
   {
     id: 'hos',
     name: 'Hosea',
+    shortName: 'Hos',
     chapters: 14,
     verses: [11, 23, 5, 19, 15, 11, 16, 14, 17, 15, 12, 14, 16, 9]
   },
-  { id: 'joe', name: 'Joel', chapters: 3, verses: [20, 32, 21] },
+  {
+    id: 'joe',
+    name: 'Joel',
+    shortName: 'Joel',
+    chapters: 3,
+    verses: [20, 32, 21]
+  },
   {
     id: 'amo',
     name: 'Amos',
+    shortName: 'Amos',
     chapters: 9,
     verses: [15, 16, 15, 13, 27, 14, 17, 14, 15]
   },
-  { id: 'oba', name: 'Obadiah', chapters: 1, verses: [21] },
-  { id: 'jon', name: 'Jonah', chapters: 4, verses: [17, 10, 10, 11] },
+  { id: 'oba', name: 'Obadiah', shortName: 'Obad', chapters: 1, verses: [21] },
+  {
+    id: 'jon',
+    name: 'Jonah',
+    shortName: 'Jonah',
+    chapters: 4,
+    verses: [17, 10, 10, 11]
+  },
   {
     id: 'mic',
     name: 'Micah',
+    shortName: 'Mic',
     chapters: 7,
     verses: [16, 13, 12, 13, 15, 16, 20]
   },
-  { id: 'nah', name: 'Nahum', chapters: 3, verses: [15, 13, 19] },
-  { id: 'hab', name: 'Habakkuk', chapters: 3, verses: [17, 20, 19] },
-  { id: 'zep', name: 'Zephaniah', chapters: 3, verses: [18, 15, 20] },
-  { id: 'hag', name: 'Haggai', chapters: 2, verses: [15, 23] },
+  {
+    id: 'nah',
+    name: 'Nahum',
+    shortName: 'Nah',
+    chapters: 3,
+    verses: [15, 13, 19]
+  },
+  {
+    id: 'hab',
+    name: 'Habakkuk',
+    shortName: 'Hab',
+    chapters: 3,
+    verses: [17, 20, 19]
+  },
+  {
+    id: 'zep',
+    name: 'Zephaniah',
+    shortName: 'Zeph',
+    chapters: 3,
+    verses: [18, 15, 20]
+  },
+  {
+    id: 'hag',
+    name: 'Haggai',
+    shortName: 'Hag',
+    chapters: 2,
+    verses: [15, 23]
+  },
   {
     id: 'zec',
     name: 'Zechariah',
+    shortName: 'Zech',
     chapters: 14,
     verses: [21, 13, 10, 14, 11, 15, 14, 23, 17, 12, 17, 14, 9, 21]
   },
-  { id: 'mal', name: 'Malachi', chapters: 4, verses: [14, 17, 18, 6] },
+  {
+    id: 'mal',
+    name: 'Malachi',
+    shortName: 'Mal',
+    chapters: 4,
+    verses: [14, 17, 18, 6]
+  },
 
   // New Testament
   {
     id: 'mat',
     name: 'Matthew',
+    shortName: 'Matt',
     chapters: 28,
     verses: [
       25, 23, 17, 25, 48, 34, 29, 34, 38, 42, 30, 50, 58, 36, 39, 28, 27, 35,
@@ -289,12 +369,14 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'mar',
     name: 'Mark',
+    shortName: 'Mark',
     chapters: 16,
     verses: [45, 28, 35, 41, 43, 56, 37, 38, 50, 52, 33, 44, 37, 72, 47, 20]
   },
   {
     id: 'luk',
     name: 'Luke',
+    shortName: 'Luke',
     chapters: 24,
     verses: [
       80, 52, 38, 44, 39, 49, 50, 56, 62, 42, 54, 59, 35, 35, 32, 31, 37, 43,
@@ -304,6 +386,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'jhn',
     name: 'John',
+    shortName: 'John',
     chapters: 21,
     verses: [
       51, 25, 36, 54, 47, 71, 53, 59, 41, 42, 57, 50, 38, 31, 27, 33, 26, 40,
@@ -313,6 +396,7 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'act',
     name: 'Acts',
+    shortName: 'Acts',
     chapters: 28,
     verses: [
       26, 47, 26, 37, 42, 15, 60, 40, 43, 48, 30, 25, 52, 28, 41, 40, 34, 28,
@@ -322,67 +406,130 @@ export const BIBLE_BOOKS: BibleBook[] = [
   {
     id: 'rom',
     name: 'Romans',
+    shortName: 'Rom',
     chapters: 16,
     verses: [32, 29, 31, 25, 21, 23, 25, 39, 33, 21, 36, 21, 14, 23, 33, 27]
   },
   {
     id: '1co',
     name: '1 Corinthians',
+    shortName: '1 Cor',
     chapters: 16,
     verses: [31, 16, 23, 21, 13, 20, 40, 13, 27, 33, 34, 31, 13, 40, 58, 24]
   },
   {
     id: '2co',
     name: '2 Corinthians',
+    shortName: '2 Cor',
     chapters: 13,
     verses: [24, 17, 18, 18, 21, 18, 16, 24, 15, 18, 33, 21, 14]
   },
   {
     id: 'gal',
     name: 'Galatians',
+    shortName: 'Gal',
     chapters: 6,
     verses: [24, 21, 29, 31, 26, 18]
   },
   {
     id: 'eph',
     name: 'Ephesians',
+    shortName: 'Eph',
     chapters: 6,
     verses: [23, 22, 21, 32, 33, 24]
   },
-  { id: 'phi', name: 'Philippians', chapters: 4, verses: [30, 30, 21, 23] },
-  { id: 'col', name: 'Colossians', chapters: 4, verses: [29, 23, 25, 18] },
+  {
+    id: 'phi',
+    name: 'Philippians',
+    shortName: 'Phil',
+    chapters: 4,
+    verses: [30, 30, 21, 23]
+  },
+  {
+    id: 'col',
+    name: 'Colossians',
+    shortName: 'Col',
+    chapters: 4,
+    verses: [29, 23, 25, 18]
+  },
   {
     id: '1th',
     name: '1 Thessalonians',
+    shortName: '1 Thess',
     chapters: 5,
     verses: [10, 20, 13, 18, 28]
   },
-  { id: '2th', name: '2 Thessalonians', chapters: 3, verses: [12, 17, 18] },
+  {
+    id: '2th',
+    name: '2 Thessalonians',
+    shortName: '2 Thess',
+    chapters: 3,
+    verses: [12, 17, 18]
+  },
   {
     id: '1ti',
     name: '1 Timothy',
+    shortName: '1 Tim',
     chapters: 6,
     verses: [20, 15, 16, 16, 25, 21]
   },
-  { id: '2ti', name: '2 Timothy', chapters: 4, verses: [18, 26, 17, 22] },
-  { id: 'tit', name: 'Titus', chapters: 3, verses: [16, 15, 15] },
-  { id: 'phm', name: 'Philemon', chapters: 1, verses: [25] },
+  {
+    id: '2ti',
+    name: '2 Timothy',
+    shortName: '2 Tim',
+    chapters: 4,
+    verses: [18, 26, 17, 22]
+  },
+  {
+    id: 'tit',
+    name: 'Titus',
+    shortName: 'Titus',
+    chapters: 3,
+    verses: [16, 15, 15]
+  },
+  { id: 'phm', name: 'Philemon', shortName: 'Phlm', chapters: 1, verses: [25] },
   {
     id: 'heb',
     name: 'Hebrews',
+    shortName: 'Heb',
     chapters: 13,
     verses: [14, 18, 19, 16, 14, 20, 28, 13, 28, 39, 40, 29, 25]
   },
-  { id: 'jas', name: 'James', chapters: 5, verses: [27, 26, 18, 17, 20] },
-  { id: '1pe', name: '1 Peter', chapters: 5, verses: [25, 25, 22, 19, 14] },
-  { id: '2pe', name: '2 Peter', chapters: 3, verses: [21, 22, 18] },
-  { id: '1jn', name: '1 John', chapters: 5, verses: [10, 29, 24, 21, 21] },
-  { id: '2jn', name: '2 John', chapters: 1, verses: [13] },
-  { id: '3jn', name: '3 John', chapters: 1, verses: [14] },
-  { id: 'jud', name: 'Jude', chapters: 1, verses: [25] },
+  {
+    id: 'jas',
+    name: 'James',
+    shortName: 'Jas',
+    chapters: 5,
+    verses: [27, 26, 18, 17, 20]
+  },
+  {
+    id: '1pe',
+    name: '1 Peter',
+    shortName: '1 Pet',
+    chapters: 5,
+    verses: [25, 25, 22, 19, 14]
+  },
+  {
+    id: '2pe',
+    name: '2 Peter',
+    shortName: '2 Pet',
+    chapters: 3,
+    verses: [21, 22, 18]
+  },
+  {
+    id: '1jn',
+    name: '1 John',
+    shortName: '1 John',
+    chapters: 5,
+    verses: [10, 29, 24, 21, 21]
+  },
+  { id: '2jn', name: '2 John', shortName: '2 John', chapters: 1, verses: [13] },
+  { id: '3jn', name: '3 John', shortName: '3 John', chapters: 1, verses: [14] },
+  { id: 'jud', name: 'Jude', shortName: 'Jude', chapters: 1, verses: [25] },
   {
     id: 'rev',
     name: 'Revelation',
+    shortName: 'Rev',
     chapters: 22,
     verses: [
       20, 29, 22, 11, 14, 17, 17, 13, 21, 11, 19, 17, 18, 20, 8, 21, 18, 24, 21,

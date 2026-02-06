@@ -8,6 +8,31 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
+/**
+ * NO-OP: This function is kept for API compatibility but does nothing.
+ *
+ * Previously, this function called an RPC to add the user to a languoid's
+ * download_profiles. This is now handled automatically by a database trigger
+ * (propagate_pll_to_languoid_download_profiles_trigger) that fires when
+ * project_language_link rows are inserted.
+ *
+ * The trigger-based approach is simpler and handles all cases uniformly:
+ * - Old app users (no app-side call needed)
+ * - New app users (trigger fires when insert syncs)
+ * - Offline users (trigger fires when they come online)
+ *
+ * @param _languoid_id - Unused
+ * @param _profile_id - Unused
+ * @deprecated This function is a no-op. The database trigger handles everything.
+ */
+export async function ensureLanguoidDownloadProfile(
+  _languoid_id: string,
+  _profile_id: string
+): Promise<void> {
+  // No-op: Database trigger handles this automatically when project_language_link
+  // is inserted. See migration: 20260205150100_add_project_language_link_languoid_trigger.sql
+}
+
 export interface CreateLanguoidParams {
   name: string;
   level?: 'family' | 'language' | 'dialect';
@@ -22,8 +47,8 @@ export interface CreateLanguoidResult {
 }
 
 /**
- * Creates a new languoid in local storage (for offline use)
- * When the user comes online, PowerSync will upload it to the server
+ * Creates a new languoid in synced storage
+ * When offline, PowerSync queues for upload when user comes online
  *
  * @param params - Languoid creation parameters
  * @returns The created languoid ID
@@ -39,16 +64,16 @@ export async function createLanguoidOffline(
     ui_ready = false
   } = params;
 
-  // Check if a languoid with this name already exists locally
-  const languoidLocal = resolveTable('languoid', { localOverride: true });
+  // Check if a languoid with this name already exists in synced table
+  const languoidSynced = resolveTable('languoid', { localOverride: false });
   const existing = await system.db
     .select()
-    .from(languoidLocal)
-    .where(eq(languoidLocal.name, name))
+    .from(languoidSynced)
+    .where(eq(languoidSynced.name, name))
     .limit(1);
 
   if (existing.length > 0 && existing[0]) {
-    // Languoid already exists locally
+    // Languoid already exists
     return {
       languoid_id: existing[0].id,
       created: false
@@ -58,10 +83,10 @@ export async function createLanguoidOffline(
   // Generate a new ID for the languoid
   const languoidId = uuid.v4() as string;
 
-  // Create the languoid in local storage
+  // Create the languoid in synced storage
   await system.db.transaction(async (tx) => {
     // Insert languoid
-    await tx.insert(languoidLocal).values({
+    await tx.insert(languoidSynced).values({
       id: languoidId,
       name: name.trim(),
       level,
@@ -73,12 +98,12 @@ export async function createLanguoidOffline(
 
     // If iso639_3 code is provided, create languoid_source record
     if (iso639_3 && iso639_3.trim() !== '') {
-      const languoidSourceLocal = resolveTable('languoid_source', {
-        localOverride: true
+      const languoidSourceSynced = resolveTable('languoid_source', {
+        localOverride: false
       });
 
       const sourceId = uuid.v4() as string;
-      await tx.insert(languoidSourceLocal).values({
+      await tx.insert(languoidSourceSynced).values({
         id: sourceId,
         name: 'iso639-3',
         languoid_id: languoidId,
@@ -98,8 +123,7 @@ export async function createLanguoidOffline(
 
 /**
  * Finds or creates a languoid by name
- * First checks if a languoid with the given name exists (locally or synced)
- * If not found, creates a new one offline
+ * Checks synced table, creates in synced table if not found
  *
  * @param name - The languoid name to find or create
  * @param creator_id - The user creating the languoid
@@ -115,31 +139,21 @@ export async function findOrCreateLanguoidByName(
 
   const trimmedName = name.trim();
 
-  // First check synced table (might already exist from server)
+  // Check synced table (all languoids are now created in synced)
   const languoidSynced = resolveTable('languoid', { localOverride: false });
-  const [existingSynced] = await system.db
+  const [existing] = await system.db
     .select()
     .from(languoidSynced)
     .where(eq(languoidSynced.name, trimmedName))
     .limit(1);
 
-  if (existingSynced) {
-    return existingSynced.id;
+  if (existing) {
+    // Ensure the user's profile is in download_profiles for this existing languoid
+    await ensureLanguoidDownloadProfile(existing.id, creator_id);
+    return existing.id;
   }
 
-  // Check local table
-  const languoidLocal = resolveTable('languoid', { localOverride: true });
-  const [existingLocal] = await system.db
-    .select()
-    .from(languoidLocal)
-    .where(eq(languoidLocal.name, trimmedName))
-    .limit(1);
-
-  if (existingLocal) {
-    return existingLocal.id;
-  }
-
-  // Not found - create new languoid offline
+  // Not found - create new languoid in synced table
   const result = await createLanguoidOffline({
     name: trimmedName,
     level: 'language',
@@ -151,7 +165,8 @@ export async function findOrCreateLanguoidByName(
 
 /**
  * Creates a project_language_link with languoid_id
- * Handles both offline and online scenarios
+ * Creates in synced table for immediate project publishing
+ * Also ensures the languoid's download_profiles includes the creator
  *
  * PK is now (project_id, languoid_id, language_type) - languoid_id is required
  *
@@ -168,19 +183,19 @@ export async function createProjectLanguageLinkWithLanguoid(
   creator_id: string,
   language_id?: string // Optional for backward compatibility
 ): Promise<void> {
-  const projectLanguageLinkLocal = resolveTable('project_language_link', {
-    localOverride: true
+  const projectLanguageLinkSynced = resolveTable('project_language_link', {
+    localOverride: false
   });
 
   // Check if link already exists using new PK (project_id, languoid_id, language_type)
   const existing = await system.db
     .select()
-    .from(projectLanguageLinkLocal)
+    .from(projectLanguageLinkSynced)
     .where(
       and(
-        eq(projectLanguageLinkLocal.project_id, project_id),
-        eq(projectLanguageLinkLocal.languoid_id, languoid_id),
-        eq(projectLanguageLinkLocal.language_type, language_type)
+        eq(projectLanguageLinkSynced.project_id, project_id),
+        eq(projectLanguageLinkSynced.languoid_id, languoid_id),
+        eq(projectLanguageLinkSynced.language_type, language_type)
       )
     )
     .limit(1);
@@ -190,8 +205,12 @@ export async function createProjectLanguageLinkWithLanguoid(
     return;
   }
 
+  // Ensure the languoid's download_profiles includes this user
+  // This is critical for offline sync - the languoid must sync to the user's device
+  await ensureLanguoidDownloadProfile(languoid_id, creator_id);
+
   // Create new link - languoid_id is required (part of PK), language_id is optional
-  await system.db.insert(projectLanguageLinkLocal).values({
+  await system.db.insert(projectLanguageLinkSynced).values({
     project_id,
     language_id: language_id || null, // Optional - for backward compatibility
     languoid_id,
@@ -204,11 +223,12 @@ export async function createProjectLanguageLinkWithLanguoid(
 /**
  * Creates an asset_content_link with languoid_id
  * Handles both offline and online scenarios
+ * Also ensures the languoid's download_profiles includes the creator
  *
  * @param asset_id - The asset ID
  * @param languoid_id - The languoid ID
- * @param language_id - Optional language_id for backward compatibility
  * @param creator_id - The user creating the link
+ * @param language_id - Optional language_id for backward compatibility
  * @param text - Optional text content
  * @param audio - Optional audio file IDs
  */
@@ -223,6 +243,10 @@ export async function createAssetContentLinkWithLanguoid(
   const assetContentLinkLocal = resolveTable('asset_content_link', {
     localOverride: true
   });
+
+  // Ensure the languoid's download_profiles includes this user
+  // This is critical for offline sync - the languoid must sync to the user's device
+  await ensureLanguoidDownloadProfile(languoid_id, creator_id);
 
   const contentLinkId = uuid.v4();
 

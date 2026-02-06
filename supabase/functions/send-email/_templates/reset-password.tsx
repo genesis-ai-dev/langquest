@@ -90,6 +90,17 @@ export const ResetPassword = ({
       button: 'Resetim Password',
       orCopy: 'Or copyim pasteim link yu long yu browser:',
       expiry: 'Link yu no expireim long 24 hours.'
+    },
+    ne: {
+      preview: 'तपाईंको LangQuest पासवर्ड रिसेट गर्नुहोस्',
+      title: 'तपाईंको पासवर्ड रिसेट गर्नुहोस्',
+      greeting: 'नमस्कार,',
+      description:
+        'कसैले तपाईंको LangQuest खाताको लागि पासवर्ड रिसेट अनुरोध गरेको छ। यदि यो तपाईं होइन भने, कृपया यो इमेल बेवास्ता गर्नुहोस्।',
+      instruction: 'तपाईंको पासवर्ड रिसेट गर्न तलको बटनमा क्लिक गर्नुहोस्:',
+      button: 'पासवर्ड रिसेट गर्नुहोस्',
+      orCopy: 'वा यो लिंक तपाईंको ब्राउजरमा कपि र पेस्ट गर्नुहोस्:',
+      expiry: 'यो लिंक २४ घण्टामा समाप्त हुनेछ।'
     }
   };
 

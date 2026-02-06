@@ -46,6 +46,7 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
 
+import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
@@ -536,11 +537,7 @@ export class System {
           this.migrationDb = {
             getAll: async (sql: string, params?: unknown[]) => {
               const result = await rawDb.execute(sql, params);
-              // Convert DBAdapter result format to array
-              if (result.rows && '_array' in result.rows) {
-                return result.rows._array as unknown[];
-              }
-              return Array.isArray(result.rows) ? result.rows : [];
+              return (result.rows?._array ?? []) as unknown[];
             },
             execute: async (sql: string) => {
               await rawDb.execute(sql);
@@ -554,14 +551,31 @@ export class System {
           );
 
           if (needsMigration) {
-            console.log('[System] ⚠️  Pre-init migration needed');
-            this.migrationNeeded = true;
+            // Check degraded mode - only throw MigrationNeededError if we should retry
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
+            const isDegraded = await isDegradedMode();
+            const shouldRetry = await shouldRetryMigration();
 
-            const currentVersion =
-              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+            if (isDegraded && !shouldRetry) {
+              // In degraded mode and no OTA update applied - don't block app
+              console.log(
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
+              );
+              // Don't throw error - allow app to continue in degraded mode
+            } else {
+              console.log('[System] ⚠️  Pre-init migration needed');
+              this.migrationNeeded = true;
 
-            // Throw to trigger MigrationScreen. Migrations will run before re-init.
-            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+              const currentVersion =
+                (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+
+              // Throw to trigger MigrationScreen. Migrations will run before re-init.
+              throw new MigrationNeededError(
+                currentVersion,
+                APP_SCHEMA_VERSION
+              );
+            }
           }
 
           console.log('[System] ✓ Pre-init migrations check passed');
@@ -572,14 +586,68 @@ export class System {
             console.log(
               '[System] ⚠️  Migration still needed after pre-auth check'
             );
-            const { getMinimumSchemaVersion, MigrationNeededError } =
-              await import('../migrations/index');
-            const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
-            const currentVersion =
-              (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
-            throw new MigrationNeededError(currentVersion, APP_SCHEMA_VERSION);
+            // Check degraded mode - only throw MigrationNeededError if we should retry
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
+            const isDegraded = await isDegradedMode();
+            const shouldRetry = await shouldRetryMigration();
+
+            if (isDegraded && !shouldRetry) {
+              // In degraded mode and no OTA update applied - don't block app
+              console.log(
+                '[System] ⚠️  Migration needed but in degraded mode - no OTA update applied, allowing app to continue'
+              );
+              // Clear migrationNeeded flag to allow app to continue
+              this.migrationNeeded = false;
+            } else {
+              const { getMinimumSchemaVersion, MigrationNeededError } =
+                await import('../migrations/index');
+              const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+              const currentVersion =
+                (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+              throw new MigrationNeededError(
+                currentVersion,
+                APP_SCHEMA_VERSION
+              );
+            }
           }
           console.log('[System] ✓ Migrations already checked pre-auth');
+        }
+
+        // CRITICAL: Check degraded mode before PowerSync initialization
+        // In degraded mode, we skip sync to prevent data corruption with outdated schema
+        const { isDegradedMode: checkDegradedMode } =
+          await import('../../services/degradedModeService');
+        const isDegraded = await checkDegradedMode();
+
+        if (isDegraded) {
+          console.log(
+            '[System] ⚠️  Degraded mode detected - blocking PowerSync sync'
+          );
+          console.log(
+            '[System] ⚠️  App will function in read-only mode until migration succeeds'
+          );
+
+          // If PowerSync is already connected, disconnect it
+          if (this.powersync.connected) {
+            console.log(
+              '[System] Disconnecting PowerSync due to degraded mode...'
+            );
+            try {
+              await this.powersync.disconnect();
+              console.log('[System] PowerSync disconnected');
+            } catch (error) {
+              console.error('[System] Error disconnecting PowerSync:', error);
+            }
+          }
+
+          // Skip PowerSync init and connect - app can still use local database
+          this.initialized = true; // Mark as initialized so app can continue
+          // Don't initialize attachment queues - they require sync
+          this.attachmentQueuesInitialized = false;
+          useLocalStore.getState().setSystemReady(true);
+          console.log('[System] System ready (degraded mode - no sync)');
+          return; // Exit early, skip all sync-related initialization
         }
 
         console.log('Initializing PowerSync...');
@@ -593,9 +661,8 @@ export class System {
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
-        const { checkAppUpgradeNeeded } = await import(
-          '../schemaVersionService'
-        );
+        const { checkAppUpgradeNeeded } =
+          await import('../schemaVersionService');
         // Create raw database wrapper from PowerSync for schema version check
         const dbForSchemaCheck = {
           getAll: async (sql: string, params?: unknown[]) => {
@@ -614,81 +681,24 @@ export class System {
         console.log('[System] ✓ Schema is up to date');
       }
 
-      // If we're already connected, check if we need to reconnect
-      console.log('PowerSync connected:', this.powersync.connected);
-      // if (this.powersync.connected) {
-      //   // Check if the current user has changed
-      //   console.log('Getting current session...');
-      // const currentSession =
-      //   await this.supabaseConnector.client.auth.getSession();
-      // console.log('Current session:', currentSession);
-      // const currentUserId = currentSession.data.session?.user.id;
-      // console.log('Current user ID:', currentUserId);
-      //   const currentUserId = this.supabaseConnector.getUserProfile()?.id;
-
-      //   // Only disconnect and reconnect if there's a meaningful change
-      //   console.log('Last connected user ID:', this.lastConnectedUserId);
-      //   if (currentUserId && this.lastConnectedUserId !== currentUserId) {
-      //     console.log('User changed, reconnecting PowerSync...');
-      //     await this.powersync.disconnect();
-      //     // Reset attachment queue initialization state
-      //     this.attachmentQueuesInitialized = false;
-      //     this.attachmentQueueInitPromise = null;
-      //   } else {
-      //     // Already connected with the same user
-      //     console.log('Already connected with the same user');
-      //     this.initialized = true;
-      //     // Still need to ensure attachment queues are initialized
-      //     if (!this.attachmentQueuesInitialized) {
-      //       console.log('Initializing attachment queues...');
-      //       await this.initializeAttachmentQueues();
-      //     }
-      //     return;
-      //   }
-      // }
-
-      // Connect with the current user credentials
-      console.log('Connecting PowerSync...');
-      await this.powersync.connect(this.supabaseConnector);
-      console.log('PowerSync connected successfully');
-
-      // Store the current user ID
-      // console.log('Getting current session...');
-      // const session = await this.supabaseConnector.client.auth.getSession();
-      // this.lastConnectedUserId = session.data.session?.user.id;
-      // console.log('Current user ID:', this.lastConnectedUserId);
-
-      // Wait for the initial sync to complete
-      // await this.powersync.waitForFirstSync();
-
+      // OFFLINE-FIRST FIX: Mark system as initialized and ready BEFORE connect()
+      // PowerSync is designed for offline-first - the local SQLite database is fully
+      // functional after powersync.init() completes. connect() handles sync in the
+      // background with automatic retries, so we don't need to block on it.
       this.initialized = true;
-      console.log('PowerSync marked as initialized');
+      console.log('[System] PowerSync local database initialized');
 
-      // Initialize attachment queues BEFORE marking system as ready
-      // This prevents views from rendering before downloads can start
-      console.log('Starting attachment queues initialization...');
-      await this.initializeAttachmentQueues();
-      console.log('Attachment queues initialization completed');
-
-      // Mark system ready AFTER attachment queues are initialized
-      // This ensures NextGenProjectsView and other views don't show loading states
+      // Mark system ready so the app can render with local data immediately
       useLocalStore.getState().setSystemReady(true);
-      console.log('System marked as ready');
+      console.log('[System] System marked as ready (offline-first)');
 
-      // Run migration cleanup after PowerSync is initialized and internet is available
-      // This handles duplicate languoids created during migration that later get synced
-      try {
-        const { migrationCleanup } = await import('@/db/migrations/cleanup');
-        await migrationCleanup();
-      } catch (error) {
-        // Non-critical - cleanup failure shouldn't block initialization
-        console.warn(
-          '[System] Migration cleanup failed (non-critical):',
-          error
-        );
-      }
+      // Start sync and attachment queues in background (non-blocking)
+      // This prevents infinite spinner when offline with expired JWT
+      this.connectAndInitializeInBackground();
 
-      console.log('PowerSync initialization complete');
+      console.log(
+        '[System] PowerSync initialization complete (sync running in background)'
+      );
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;
@@ -696,6 +706,49 @@ export class System {
     } finally {
       this.connecting = false;
     }
+  }
+
+  /**
+   * Starts PowerSync sync and attachment queue initialization in the background.
+   * This is non-blocking to support offline-first usage - the app can render
+   * immediately with local data while sync establishes in the background.
+   *
+   * PowerSync handles reconnection automatically with exponential backoff,
+   * so we don't need to implement our own retry logic.
+   */
+  private connectAndInitializeInBackground(): void {
+    // Start PowerSync connection (non-blocking by design)
+    // PowerSync's connect() initiates the sync stream and handles retries internally
+    this.powersync
+      .connect(this.supabaseConnector)
+      .then(() => {
+        console.log('[System] ✓ PowerSync sync connection established');
+      })
+      .catch((error) => {
+        // Connection failed - PowerSync will auto-retry with backoff
+        // This is expected when offline or with expired tokens
+        console.warn(
+          '[System] PowerSync connection failed (will auto-retry):',
+          error instanceof Error ? error.message : error
+        );
+      });
+
+    // Initialize attachment queues in background
+    // These are needed for audio uploads but not for basic app functionality
+    this.initializeAttachmentQueues()
+      .then(() => {
+        console.log('[System] ✓ Attachment queues initialized');
+      })
+      .catch((error) => {
+        // Log but don't block - queues will be initialized on-demand if needed
+        console.warn(
+          '[System] Attachment queue initialization failed:',
+          error instanceof Error ? error.message : error
+        );
+        // Reset state so it can be retried later
+        this.attachmentQueuesInitialized = false;
+        this.attachmentQueueInitPromise = null;
+      });
   }
 
   private async createUnionViews() {
@@ -832,6 +885,74 @@ export class System {
           if (row.name) existingByName.set(row.name, normalize(row.sql));
         }
       }
+
+      // CLEANUP: Find and remove orphaned union views that are no longer in drizzleSchema
+      // This handles cases where tables are renamed or removed from the schema
+      // Only cleans up union views (views that combine _synced and _local tables)
+      console.log('[createUnionViews] Checking for orphaned union views...');
+      const plannedViewNames = new Set(plannedStatements.map((p) => p.view));
+
+      // Query ALL existing views with their SQL to identify union views
+      const allExistingViews = await this.powersync.getAll<{
+        name: string;
+        sql: string;
+      }>(
+        `SELECT DISTINCT v.name, v.sql
+         FROM sqlite_master v
+         WHERE v.type = 'view'`
+      );
+
+      // Check each view to see if it's an orphaned union view
+      // A view is an orphaned union view if:
+      // 1. It's not in the planned views list (not in drizzleSchema anymore)
+      // 2. AND its SQL matches our union view pattern (combines _synced and _local tables)
+      const orphanedViews: string[] = [];
+      for (const view of allExistingViews) {
+        const viewName = view.name;
+        const viewSql = view.sql?.toLowerCase() || '';
+
+        // Skip if it's in the planned views (still valid)
+        if (plannedViewNames.has(viewName)) {
+          continue;
+        }
+
+        // Only consider views that match our union view pattern:
+        // - Contains both _synced and _local table references
+        // - Contains UNION ALL
+        // This ensures we only clean up union views we created, not other views
+        const isUnionView =
+          viewSql.includes(`${viewName}_synced`) &&
+          viewSql.includes(`${viewName}_local`) &&
+          viewSql.includes('union all');
+
+        if (isUnionView) {
+          orphanedViews.push(viewName);
+        }
+      }
+
+      if (orphanedViews.length > 0) {
+        console.log(
+          `[createUnionViews] Found ${orphanedViews.length} orphaned view(s): ${orphanedViews.join(', ')}`
+        );
+
+        // Drop orphaned views
+        for (const viewName of orphanedViews) {
+          try {
+            await this.powersync.execute(`DROP VIEW IF EXISTS "${viewName}"`);
+            console.log(
+              `[createUnionViews] ✓ Dropped orphaned view: ${viewName}`
+            );
+          } catch (error) {
+            console.warn(
+              `[createUnionViews] Failed to drop orphaned view ${viewName}:`,
+              error
+            );
+          }
+        }
+      } else {
+        console.log('[createUnionViews] No orphaned views found');
+      }
+
       await this.powersync.writeTransaction(async (tx) => {
         // Compare with existing view SQL and apply only when different
         for (const { view, dropSql, createSql } of plannedStatements) {
@@ -1231,9 +1352,8 @@ export class System {
       // Fast check first - most users won't have corrupted attachments
       console.log('[System] Checking for corrupted attachments...');
       try {
-        const { getCorruptedCount, cleanupAllCorrupted } = await import(
-          '@/services/corruptedAttachmentsService'
-        );
+        const { getCorruptedCount, cleanupAllCorrupted } =
+          await import('@/services/corruptedAttachmentsService');
         const corruptedCount = await getCorruptedCount();
 
         if (corruptedCount > 0) {
@@ -1303,6 +1423,32 @@ export class System {
   // Add method to check attachment queue readiness specifically
   areAttachmentQueuesReady(): boolean {
     return this.attachmentQueuesInitialized;
+  }
+
+  /**
+   * Ensures attachment queues are initialized before performing operations that need them.
+   * Call this before saveAudio() or other attachment operations to handle the case where
+   * the app started offline and queues weren't initialized during startup.
+   *
+   * @returns Promise that resolves when attachment queues are ready
+   */
+  async ensureAttachmentQueuesReady(): Promise<void> {
+    // Already initialized - return immediately
+    if (this.attachmentQueuesInitialized) {
+      return;
+    }
+
+    // If currently initializing, wait for it
+    if (this.attachmentQueueInitPromise) {
+      await this.attachmentQueueInitPromise;
+      return;
+    }
+
+    // Not initialized and not initializing - start initialization
+    console.log(
+      '[System] Attachment queues not ready, initializing on-demand...'
+    );
+    await this.initializeAttachmentQueues();
   }
 
   async waitForLatestSync() {
@@ -1382,6 +1528,13 @@ export class System {
    * Works both pre-auth and post-auth by creating migrationDb if needed
    * Called from MigrationScreen when user needs to migrate data
    *
+   * BACKUP STRATEGY:
+   * - Before running migrations, we create backups of:
+   *   1. The SQLite database file
+   *   2. The local store (AsyncStorage)
+   * - If migrations fail, we restore from backup before entering degraded mode
+   * - On success, we clean up the backup files
+   *
    * @param onProgress - Callback for progress updates (current, total, step)
    */
   async runMigrations(
@@ -1392,14 +1545,22 @@ export class System {
       return;
     }
 
+    // Import backup service
+    const { createMigrationBackup, restoreFromBackup, deleteBackup } =
+      await import('../../services/migrationBackupService');
+    type BackupInfo = Awaited<
+      ReturnType<typeof createMigrationBackup>
+    >['backupInfo'];
+
+    let backupInfo: BackupInfo | null = null;
+
     try {
       this.migratingNow = true;
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, getMinimumSchemaVersion } = await import(
-        '../migrations/index'
-      );
+      const { runMigrations, getMinimumSchemaVersion } =
+        await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Create migrationDb if not already set (works for both pre-auth and post-auth)
@@ -1427,6 +1588,35 @@ export class System {
         `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
       );
 
+      // === CREATE BACKUP BEFORE MIGRATION ===
+      console.log('[System] Creating backup before migration...');
+      if (onProgress) {
+        onProgress(0, 100, 'Creating backup...');
+      }
+
+      const backupResult = await createMigrationBackup(
+        currentVersion,
+        APP_SCHEMA_VERSION
+      );
+
+      if (backupResult.success && backupResult.backupInfo) {
+        backupInfo = backupResult.backupInfo;
+        console.log('[System] ✓ Backup created successfully');
+      } else {
+        console.warn(
+          '[System] ⚠️ Backup creation failed, proceeding with migration anyway:',
+          backupResult.error
+        );
+        // Track backup creation failure
+        posthog.capture('migration_backup_failed', {
+          error: backupResult.error ?? 'Unknown error',
+          from_version: currentVersion,
+          to_version: APP_SCHEMA_VERSION
+        });
+        // Continue with migration even if backup fails
+        // The migration might still succeed
+      }
+
       // Use raw database for migration operations
       const result = await runMigrations(
         this.migrationDb,
@@ -1436,16 +1626,99 @@ export class System {
       );
 
       if (!result.success) {
+        // Track migration execution failure
+        posthog.capture('migration_execution_failed', {
+          errors: result.errors,
+          from_version: currentVersion,
+          to_version: APP_SCHEMA_VERSION,
+          had_backup: !!backupInfo
+        });
         throw new Error(`Migration failed: ${result.errors.join(', ')}`);
       }
 
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
 
+      // Track successful migration
+      posthog.capture('migration_succeeded', {
+        from_version: currentVersion,
+        to_version: APP_SCHEMA_VERSION
+      });
+
+      // === CLEAN UP BACKUP ON SUCCESS ===
+      if (backupInfo) {
+        console.log(
+          '[System] Cleaning up backup after successful migration...'
+        );
+        await deleteBackup(backupInfo);
+      }
+
       // Note: Cleanup will be called after PowerSync initialization completes
       // This ensures PowerSync is ready and internet connectivity can be checked
     } catch (error) {
       console.error('[System] Migration failed:', error);
+
+      // === RESTORE FROM BACKUP ON FAILURE ===
+      if (backupInfo) {
+        console.log('[System] Attempting to restore from backup...');
+        try {
+          const restoreResult = await restoreFromBackup(backupInfo);
+          if (restoreResult.success) {
+            console.log(
+              '[System] ✓ Restored from backup after migration failure'
+            );
+            console.log(
+              `[System]   - Database restored: ${restoreResult.dbRestored}`
+            );
+            console.log(
+              `[System]   - Local store restored: ${restoreResult.localStoreRestored}`
+            );
+            // Track successful restoration after failure
+            posthog.capture('migration_restore_succeeded', {
+              db_restored: restoreResult.dbRestored,
+              local_store_restored: restoreResult.localStoreRestored,
+              from_version: backupInfo.fromVersion,
+              to_version: backupInfo.toVersion
+            });
+          } else {
+            console.error(
+              '[System] ✗ Failed to restore from backup:',
+              restoreResult.error
+            );
+            // Track restoration failure
+            posthog.capture('migration_restore_failed', {
+              error: restoreResult.error ?? 'Unknown error',
+              from_version: backupInfo.fromVersion,
+              to_version: backupInfo.toVersion
+            });
+          }
+        } catch (restoreError) {
+          console.error(
+            '[System] ✗ Error during backup restoration:',
+            restoreError
+          );
+          // Track restoration error
+          const errorMsg =
+            restoreError instanceof Error
+              ? restoreError.message
+              : String(restoreError);
+          posthog.capture('migration_restore_failed', {
+            error: errorMsg,
+            from_version: backupInfo.fromVersion,
+            to_version: backupInfo.toVersion
+          });
+        }
+      } else {
+        console.warn(
+          '[System] No backup available to restore from - data may be in inconsistent state'
+        );
+        // Track that migration failed without backup
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        posthog.capture('migration_failed_no_backup', {
+          error: errorMsg
+        });
+      }
+
       throw error;
     } finally {
       this.migratingNow = false;
@@ -1469,6 +1742,17 @@ export class System {
   }
 
   /**
+   * Clear migration needed flag without resetting system
+   * Used when entering degraded mode to allow app to continue
+   */
+  clearMigrationNeeded(): void {
+    console.log('[System] Clearing migration needed flag (degraded mode)');
+    this.migrationNeeded = false;
+    // Set system ready to allow app to continue
+    useLocalStore.getState().setSystemReady(true);
+  }
+
+  /**
    * Check if migrations are needed before authentication
    * This allows migrations to run before login, improving UX
    *
@@ -1481,6 +1765,12 @@ export class System {
       // Dynamic import to avoid circular dependencies
       const { checkNeedsMigration } = await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
+
+      // Check degraded mode first
+      const { shouldRetryMigration, isDegradedMode } =
+        await import('../../services/degradedModeService');
+      const isDegraded = await isDegradedMode();
+      const shouldRetry = await shouldRetryMigration();
 
       // Open direct SQLite handle for pre-auth migration check
       const rawDb = this.factory.openDB();
@@ -1507,6 +1797,14 @@ export class System {
       );
 
       if (needsMigration) {
+        // If in degraded mode and schema version hasn't changed, don't block
+        if (isDegraded && !shouldRetry) {
+          console.log(
+            '[System] ⚠️  Migration needed but in degraded mode - schema version unchanged, allowing app to continue'
+          );
+          return false; // Don't block app
+        }
+
         console.log('[System] ⚠️  Pre-auth migration needed');
         // Store migrationDb for use in runMigrations
         this.migrationDb = migrationDb;
