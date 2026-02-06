@@ -1182,12 +1182,16 @@ const RecordingView = () => {
       isPlayAllRunningRef.current = true;
       setIsPlayAllRunning(true);
 
-      debugLog(`🎵 Starting play all from wheel position ${insertionIndex}`);
+      // If no item is selected (at end of list), start from the beginning
+      // Otherwise, start from the selected item
+      const startIndex = insertionIndex >= sessionItems.length ? 0 : insertionIndex;
+      
+      debugLog(`🎵 Starting play all from position ${startIndex} (insertionIndex: ${insertionIndex})`);
 
       let assetsPlayed = 0;
 
-      // Iterate directly through sessionItems starting from insertionIndex
-      for (let wheelIndex = insertionIndex; wheelIndex < sessionItems.length; wheelIndex++) {
+      // Iterate directly through sessionItems starting from startIndex
+      for (let wheelIndex = startIndex; wheelIndex < sessionItems.length; wheelIndex++) {
         // Check if cancelled
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!isPlayAllRunningRef.current) {
