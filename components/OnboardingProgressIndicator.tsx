@@ -136,8 +136,7 @@ export function OnboardingProgressIndicator({
           return (
             <View key={step} className="relative z-[20] items-center">
               {/* Step circle */}
-              <Pressable
-                testID={`onboarding-step-${step}`}
+              <View
                 className={cn(
                   'h-6 w-6 items-center justify-center rounded-full border-2',
                   isActive
