@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useLocalStore } from '@/store/localStore';
 const STORAGE_KEYS = {
   OFFLINE_UNDOWNLOAD_WARNING: '@offline_undownload_warning',
   RECORDING_HELP_SHOWN: '@recording_help_shown'
@@ -9,8 +8,10 @@ const STORAGE_KEYS = {
 export const storage = {
   async getOfflineUndownloadWarningEnabled(): Promise<boolean> {
     try {
-      const state = useLocalStore.getState();
-      return state.offlineUndownloadWarningEnabled;
+      const value = await AsyncStorage.getItem(
+        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING
+      );
+      return value === null ? true : value === 'true';
     } catch (error) {
       console.error(
         'Error reading offline undownload warning preference:',
@@ -22,8 +23,10 @@ export const storage = {
 
   async setOfflineUndownloadWarningEnabled(enabled: boolean): Promise<void> {
     try {
-      const { setOfflineUndownloadWarningEnabled } = useLocalStore.getState();
-      setOfflineUndownloadWarningEnabled(enabled);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.OFFLINE_UNDOWNLOAD_WARNING,
+        enabled.toString()
+      );
     } catch (error) {
       console.error(
         'Error saving offline undownload warning preference:',
@@ -117,7 +120,7 @@ export const checkAndClearStorage = async (): Promise<void> => {
 
       // Clear React Query cache keys (they often start with 'REACT_QUERY')
       const cacheKeys = keys.filter(
-        (key: string) =>
+        (key) =>
           key.includes('REACT_QUERY') ||
           key.includes('cache') ||
           key.includes('temp_')
@@ -138,7 +141,7 @@ export const clearAllCacheData = async (): Promise<void> => {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter(
-      (key: string) =>
+      (key) =>
         key.includes('REACT_QUERY') ||
         key.includes('cache') ||
         key.includes('temp_') ||

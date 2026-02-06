@@ -12,10 +12,23 @@
  *
  * There are TWO types of migrations with different database access patterns:
  *
- * All migrations use raw database access:
- * - Schema migrations (ALTER TABLE) use `db.execute(...)` with raw table names
- * - Data migrations (UPDATE/INSERT) use `db.execute(...)` with raw table names
- * - Queries use `db.getAll(...)` for direct SQL access
+ * 1. **SCHEMA MIGRATIONS** (ALTER TABLE operations):
+ *    - Add/rename/drop columns
+ *    - Modify table structure
+ *    - CANNOT work on views (views are virtual tables)
+ *    - MUST access raw PowerSync tables: `ps_data_local__table_name`
+ *    - Use: `rawPowerSync.execute()` on underlying tables
+ *
+ * 2. **DATA MIGRATIONS** (UPDATE/INSERT operations):
+ *    - Update existing data
+ *    - Transform values
+ *    - Update _metadata
+ *    - CAN work through views (SQLite redirects to underlying tables)
+ *    - Use: `db.run()` through Drizzle views
+ *
+ * The functions in this file handle both cases automatically:
+ * - Schema functions (addColumn, renameColumn, dropColumn) access raw PowerSync
+ * - Data functions (transformColumn, copyColumn, updateMetadataVersion) use views
  *
  * ⚠️  WARNING: DO NOT USE addColumn() FOR SCHEMA-DEFINED COLUMNS!
  * ================================================================
@@ -28,9 +41,11 @@
  * For most migrations, you only need DATA operations (UPDATE/INSERT via views).
  */
 
+import { sql } from 'drizzle-orm';
 import type { DrizzleDB } from './index';
 
 // Re-export for convenience in migration files
+export type { DrizzleDB };
 
 // ============================================================================
 // SCHEMA MANIPULATION
@@ -60,10 +75,21 @@ export async function addColumn(
 
   // Convert view name to PowerSync table name
   // 'asset_local' -> 'ps_data_local__asset_local'
-  const psTableName = getRawTableName(table);
+  const psTableName = `ps_data_local__${table}`;
 
   try {
-    await db.execute(`ALTER TABLE ${psTableName} ADD COLUMN ${columnDef}`);
+    // Use raw PowerSync to alter the underlying table
+    // Access via db.rawPowerSync (exposed by system.ts proxy)
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
+      throw new Error(
+        'Cannot access raw PowerSync instance for schema modification'
+      );
+    }
+
+    await rawPowerSync.execute(
+      `ALTER TABLE ${psTableName} ADD COLUMN ${columnDef}`
+    );
     console.log(`[Migration] ✓ Column added to ${psTableName}`);
   } catch (error) {
     // Column might already exist - check if that's the case
@@ -102,11 +128,19 @@ export async function renameColumn(
   );
 
   // Convert view name to PowerSync table name
-  const psTableName = getRawTableName(table);
+  const psTableName = `ps_data_local__${table}`;
 
   try {
+    // Use raw PowerSync to alter the underlying table
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
+      throw new Error(
+        'Cannot access raw PowerSync instance for schema modification'
+      );
+    }
+
     // Try direct rename (SQLite 3.25.0+)
-    await db.execute(
+    await rawPowerSync.execute(
       `ALTER TABLE ${psTableName} RENAME COLUMN ${oldName} TO ${newName}`
     );
     console.log(`[Migration] ✓ Column renamed in ${psTableName}`);
@@ -138,10 +172,20 @@ export async function dropColumn(
   console.log(`[Migration] Dropping column from ${table}: ${columnName}`);
 
   // Convert view name to PowerSync table name
-  const psTableName = getRawTableName(table);
+  const psTableName = `ps_data_local__${table}`;
 
   try {
-    await db.execute(`ALTER TABLE ${psTableName} DROP COLUMN ${columnName}`);
+    // Use raw PowerSync to alter the underlying table
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
+      throw new Error(
+        'Cannot access raw PowerSync instance for schema modification'
+      );
+    }
+
+    await rawPowerSync.execute(
+      `ALTER TABLE ${psTableName} DROP COLUMN ${columnName}`
+    );
     console.log(`[Migration] ✓ Column dropped from ${psTableName}`);
   } catch (error) {
     console.error(`[Migration] Failed to drop column:`, error);
@@ -181,7 +225,7 @@ export async function transformColumn(
 
   try {
     const query = `UPDATE ${table} SET ${column} = ${transform}${where}`;
-    await db.execute(query);
+    await db.run(sql.raw(query));
     console.log(`[Migration] ✓ Column transformed`);
   } catch (error) {
     console.error(`[Migration] Failed to transform column:`, error);
@@ -212,7 +256,9 @@ export async function copyColumn(
   );
 
   try {
-    await db.execute(`UPDATE ${table} SET ${toColumn} = ${fromColumn}${where}`);
+    await db.run(
+      sql.raw(`UPDATE ${table} SET ${toColumn} = ${fromColumn}${where}`)
+    );
     console.log(`[Migration] ✓ Column copied`);
   } catch (error) {
     console.error(`[Migration] Failed to copy column:`, error);
@@ -242,12 +288,11 @@ export async function updateMetadataVersion(
   version: string
 ): Promise<void> {
   console.log(
-    `[Migration] Updating all *_local raw PowerSync tables _metadata to version ${version}...`
+    `[Migration] Updating all *_local view _metadata to version ${version}...`
   );
 
-  // CRITICAL: Update raw PowerSync tables directly, not views
-  // PowerSync stores data as JSON in the 'data' column of raw tables (ps_data_local__*)
-  // We must update the JSON structure directly so getMinimumSchemaVersion can read it
+  // ONLY local views - synced tables are handled by server
+  // Query through views (they expose _metadata column from Drizzle schema)
   const tables = [
     'profile_local',
     'project_local',
@@ -285,86 +330,43 @@ export async function updateMetadataVersion(
 
   for (const table of tables) {
     try {
-      // Get raw PowerSync table name
-      const rawTableName = getRawTableName(table);
+      // Check if view exists
+      const viewExists = (await db.get(
+        sql`SELECT COUNT(*) as count FROM sqlite_master WHERE type='view' AND name=${table}`
+      )) as { count: number } | undefined;
 
-      // Check if raw table exists
-      const tableExistsResult = await db.getAll(
-        `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?`,
-        [rawTableName]
-      );
-      const tableExists = (tableExistsResult[0] as { count?: number }) || null;
-
-      if (!tableExists?.count) {
+      if (!viewExists || viewExists.count === 0) {
         continue;
       }
 
-      // Count records that need updating
-      const countResult = await db.getAll(
-        `SELECT COUNT(*) as count FROM ${rawTableName}
-         WHERE data IS NULL
-            OR data = ''
-            OR data = '{}'
-            OR json_extract(data, '$._metadata') IS NULL
-            OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') IS NULL
-            OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') != '${version}'`,
-        []
+      // Update _metadata for records that don't already have this version
+      // Query through the view - it exposes _metadata column
+      // Use .run() for Drizzle-wrapped database
+      const result = await db.run(
+        sql.raw(`
+        UPDATE ${table}
+        SET _metadata = json_object('schema_version', '${version}')
+        WHERE _metadata IS NULL 
+           OR json_extract(_metadata, '$.schema_version') IS NULL
+           OR json_extract(_metadata, '$.schema_version') != '${version}'
+      `)
       );
-      const countData = (countResult[0] as { count?: number }) || null;
-      const recordCount = countData?.count ?? 0;
 
-      if (recordCount === 0) {
-        console.log(
-          `[Migration]   - ${rawTableName}: Already at version ${version}`
-        );
-        continue;
+      const changes = result.changes || 0;
+
+      if (changes > 0) {
+        console.log(`[Migration]   - Updated ${changes} record(s) in ${table}`);
+        updatedTables++;
+        totalRecordsUpdated += changes;
       }
-
-      // Update _metadata in raw JSON data column
-      // _metadata is stored as a stringified JSON string, so we parse it before updating
-      await db.execute(`
-        UPDATE ${rawTableName}
-        SET data = CASE
-          WHEN data IS NULL OR data = '' OR data = '{}' THEN
-            json_object('_metadata', json('{"schema_version":"${version}"}'))
-          WHEN json_extract(data, '$._metadata') IS NULL THEN
-            json_set(
-              data,
-              '$._metadata',
-              json('{"schema_version":"${version}"}')
-            )
-          ELSE
-            json_set(
-              data,
-              '$._metadata',
-              json_set(
-                json(json_extract(data, '$._metadata')),
-                '$.schema_version',
-                '${version}'
-              )
-            )
-        END
-        WHERE data IS NULL
-           OR data = ''
-           OR data = '{}'
-           OR json_extract(data, '$._metadata') IS NULL
-           OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') IS NULL
-           OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') != '${version}'
-      `);
-
-      console.log(
-        `[Migration]   - Updated ${rawTableName}: ${recordCount} records`
-      );
-      updatedTables++;
-      totalRecordsUpdated += recordCount;
     } catch (error) {
-      // Table might not exist - skip it
-      console.log(`[Migration]   - Skipping ${table}: ${String(error)}`);
+      // View might not exist - skip it
+      console.log(`[Migration]   - Skipping ${table}: ${error}`);
     }
   }
 
   console.log(
-    `[Migration] ✓ Updated _metadata across ${updatedTables} table(s), ${totalRecordsUpdated} total records`
+    `[Migration] ✓ Updated _metadata on ${totalRecordsUpdated} record(s) across ${updatedTables} table(s)`
   );
 }
 
@@ -383,185 +385,19 @@ export async function getOutdatedRecordCount(
   currentVersion: string
 ): Promise<number> {
   try {
-    const result = await db.getAll(
-      `
+    const result = (await db.get(
+      sql.raw(`
       SELECT COUNT(*) as count FROM ${table}
       WHERE _metadata IS NULL
          OR json_extract(_metadata, '$.schema_version') IS NULL
          OR json_extract(_metadata, '$.schema_version') < '${currentVersion}'
-    `,
-      []
-    );
-    const countData = (result[0] as { count?: number }) || null;
-    return countData?.count ?? 0;
+    `)
+    )) as { count: number } | undefined;
+
+    return result?.count || 0;
   } catch (error) {
     console.warn(`Could not get outdated record count for ${table}:`, error);
     return 0;
-  }
-}
-
-// ============================================================================
-// JSON-FIRST MIGRATION UTILITIES
-// ============================================================================
-
-/**
- * JSON-first migration utilities for reading legacy fields from raw PowerSync JSON storage.
- * These utilities allow migrations to read legacy fields even after they've been removed
- * from Drizzle views, enabling v0→latest migrations.
- *
- * PowerSync stores data as JSON in `ps_data_local__{view}` and `ps_data__{view}` tables.
- * The `data` column contains the full JSON object with all fields.
- */
-
-type RawPowerSyncScope = 'local' | 'synced';
-
-/**
- * Get the raw PowerSync table name for a view
- * @param viewName - View name (e.g., 'project_local' or 'project')
- * @param scope - Optional override. If not provided, auto-detected from '_local' suffix
- * @returns Raw PowerSync table name (e.g., 'ps_data_local__project_local' or 'ps_data__project')
- */
-export function getRawTableName(
-  viewName: string,
-  scope?: RawPowerSyncScope
-): string {
-  // Auto-detect scope from _local suffix if not explicitly provided
-  const detectedScope: RawPowerSyncScope =
-    scope ?? (viewName.endsWith('_local') ? 'local' : 'synced');
-
-  if (detectedScope === 'local') {
-    return `ps_data_local__${viewName}`;
-  }
-  return `ps_data__${viewName}`;
-}
-
-// ============================================================================
-// TABLE CREATION
-// ============================================================================
-
-/**
- * Ensure a PowerSync raw table exists, creating it if necessary
- * PowerSync tables have a simple structure: id (TEXT PRIMARY KEY) and data (TEXT)
- * This is useful when migrations need to insert data into tables that PowerSync
- * hasn't created yet (e.g., when migrations run before PowerSync.init() completes)
- *
- * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'languoid_local')
- * @param scope - 'local' or 'synced' (default: 'local')
- */
-export async function ensureTableExists(
-  db: DrizzleDB,
-  viewName: string,
-  scope: RawPowerSyncScope = 'local'
-): Promise<void> {
-  const rawTableName = getRawTableName(viewName, scope);
-
-  // Check if table already exists
-  const exists = await rawTableExists(db, viewName, scope);
-  if (exists) {
-    console.log(`[Migration] Table ${rawTableName} already exists`);
-    return;
-  }
-
-  console.log(`[Migration] Creating PowerSync table ${rawTableName}...`);
-
-  try {
-    // PowerSync tables have a simple structure: id (PRIMARY KEY) and data (TEXT JSON)
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS ${rawTableName} (
-        id TEXT PRIMARY KEY,
-        data TEXT
-      )
-    `);
-    console.log(`[Migration] ✓ Created table ${rawTableName}`);
-  } catch (error) {
-    console.error(`[Migration] Failed to create table ${rawTableName}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Generate JSON extract SELECT clause for columns from raw PowerSync JSON data
- * Converts column names to json_extract(data, '$.column_name') as column_name
- *
- * @param columns - Array of column names to extract
- * @param indent - Optional indentation string (default: '            ')
- * @returns SQL SELECT clause fragment with JSON extracts
- *
- * @example
- * jsonExtractColumns(['id', 'name', 'active'])
- * // Returns: "json_extract(data, '$.id') as id,\n            json_extract(data, '$.name') as name,\n            json_extract(data, '$.active') as active"
- */
-export function jsonExtractColumns(
-  columns: string[],
-  indent = '            '
-): string {
-  return columns
-    .map((col) => `json_extract(data, '$.${col}') as ${col}`)
-    .join(`,\n${indent}`);
-}
-
-/**
- * Check if a raw PowerSync table exists
- * Uses sqlite_master to check table existence
- *
- * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'project_local')
- * @param scope - 'local' or 'synced' (default: 'local')
- * @returns true if table exists, false otherwise
- */
-export async function rawTableExists(
-  db: DrizzleDB,
-  viewName: string,
-  scope: RawPowerSyncScope = 'local'
-): Promise<boolean> {
-  const rawTableName = getRawTableName(viewName, scope);
-
-  try {
-    const result = await db.getAll(
-      `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?`,
-      [rawTableName]
-    );
-    const countData = (result[0] as { count?: number }) || null;
-    return (countData?.count ?? 0) > 0;
-  } catch (error) {
-    console.warn(
-      `[Migration] Could not check if raw table ${rawTableName} exists:`,
-      error
-    );
-    return false;
-  }
-}
-
-/**
- * Check if a JSON key exists in the data column of a raw PowerSync table
- * Checks if json_extract returns a non-null value for any record
- *
- * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'project_local')
- * @param jsonPath - JSON path (e.g., '$.target_language_id')
- * @param scope - 'local' or 'synced' (default: 'local')
- * @returns true if key exists in at least one record, false otherwise
- */
-export async function rawJsonKeyExists(
-  db: DrizzleDB,
-  viewName: string,
-  jsonPath: string,
-  scope: RawPowerSyncScope = 'local'
-): Promise<boolean> {
-  const rawTableName = getRawTableName(viewName, scope);
-  const query = `SELECT COUNT(*) as count FROM ${rawTableName} WHERE json_extract(data, '${jsonPath}') IS NOT NULL`;
-
-  try {
-    const result = await db.getAll(query, []);
-    const countData = (result[0] as { count?: number }) || null;
-    return (countData?.count ?? 0) > 0;
-  } catch (error) {
-    console.warn(
-      `[Migration] Could not check if JSON key ${jsonPath} exists in ${rawTableName}:`,
-      error
-    );
-    return false;
   }
 }
 
@@ -583,15 +419,25 @@ export async function columnExists(
   table: string,
   columnName: string
 ): Promise<boolean> {
-  const psTableName = getRawTableName(table);
+  const psTableName = `ps_data_local__${table}`;
 
   try {
-    const result = await db.getAll(
-      `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`,
-      []
+    const rawPowerSync = db?.rawPowerSync;
+    if (!rawPowerSync?.execute) {
+      // Fallback: try to check via pragma through the view
+      const result = (await db.get(
+        sql.raw(
+          `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`
+        )
+      )) as { count: number } | undefined;
+      return (result?.count || 0) > 0;
+    }
+
+    const result = await rawPowerSync.getAll(
+      `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = ?`,
+      [columnName]
     );
-    const countData = (result[0] as { count?: number }) || null;
-    return (countData?.count ?? 0) > 0;
+    return (result?.[0]?.count || 0) > 0;
   } catch (error) {
     console.warn(
       `[Migration] Could not check if column ${columnName} exists in ${table}:`,
@@ -627,12 +473,10 @@ export async function updateInBatches(
   console.log(`[Migration] Batch updating ${table}...`);
 
   // Get total count
-  const countResult = await db.getAll(
-    `SELECT COUNT(*) as count FROM ${table} WHERE ${whereClause}`,
-    []
-  );
-  const countData = (countResult[0] as { count?: number }) || null;
-  const total = countData?.count ?? 0;
+  const countResult = (await db.get(
+    sql.raw(`SELECT COUNT(*) as count FROM ${table} WHERE ${whereClause}`)
+  )) as { count: number } | undefined;
+  const total = countResult?.count || 0;
 
   if (total === 0) {
     console.log(`[Migration] No records to update in ${table}`);
@@ -646,7 +490,9 @@ export async function updateInBatches(
   let updated = 0;
 
   while (updated < total) {
-    await db.execute(`${updateSql} WHERE ${whereClause} LIMIT ${batchSize}`);
+    await db.run(
+      sql.raw(`${updateSql} WHERE ${whereClause} LIMIT ${batchSize}`)
+    );
 
     updated += batchSize;
 
@@ -711,15 +557,19 @@ export async function resetMetadataVersionForTesting(
 
   for (const table of tables) {
     try {
-      await db.execute(`
+      const result = await db.run(
+        sql.raw(`
                 UPDATE ${table}
                 SET _metadata = json_object('schema_version', '${version}')
                 WHERE _metadata IS NOT NULL
-            `);
+            `)
+      );
 
-      console.log(`[Migration]   - Reset ${table}`);
+      console.log(
+        `[Migration]   - Reset ${table}: ${result?.changes || 0} records`
+      );
     } catch (error) {
-      console.log(`[Migration]   - Skipping ${table}: ${String(error)}`);
+      console.log(`[Migration]   - Skipping ${table}: ${error}`);
     }
   }
 

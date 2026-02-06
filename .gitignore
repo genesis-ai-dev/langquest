@@ -45,18 +45,3 @@ langquest types.xlsx
 llm_supp_files
 /docs
 /.venv
-
-# include all version db files (1.0.db, 2.0.db, etc.)
-!testing/client-migrations/*.db
-# dont commit test cases db files
-testing/client-migrations/*-test-cases.db
-# exclude all scripts
-testing/client-migrations/*.sh
-# include these scripts only
-!testing/client-migrations/consolidate-db.sh
-!testing/client-migrations/replace-device-db.sh
-!testing/client-migrations/restart-device-app.sh
-# exclude analysis files
-*.md
-# include readme only
-!testing/client-migrations/README.md

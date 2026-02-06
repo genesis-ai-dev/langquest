@@ -17,8 +17,8 @@
  * - Minimum version can be raised gradually as adoption increases
  */
 
-import NetInfo from '@react-native-community/netinfo';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { APP_SCHEMA_VERSION } from './constants';
 import type { DrizzleDB } from './migrations/index';
 
@@ -94,8 +94,7 @@ export async function fetchServerSchemaInfo(
   try {
     // Quick network check - skip RPC entirely if offline
     // This avoids waiting for timeout when we know we can't reach the server
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
+    if (!getNetworkStatus()) {
       console.log(
         '[SchemaVersionService] Device is offline, skipping server check'
       );

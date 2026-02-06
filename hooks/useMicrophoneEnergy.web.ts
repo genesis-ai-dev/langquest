@@ -107,9 +107,8 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergyReturn {
       streamRef.current = stream;
 
       // Create audio context
-      const audioContext = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
       audioContextRef.current = audioContext;
 
       // Create analyser node

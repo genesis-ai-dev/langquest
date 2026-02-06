@@ -9,53 +9,28 @@ import { and, eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 /**
- * Ensures the authenticated user is in a languoid's download_profiles array,
- * along with all related tables (languoid_alias, languoid_source, languoid_property,
- * languoid_region, region, region_alias, region_source, region_property).
+ * NO-OP: This function is kept for API compatibility but does nothing.
  *
- * This is needed when using an existing languoid for a project/asset. The function
- * calls a server-side RPC that handles all updates atomically and idempotently.
+ * Previously, this function called an RPC to add the user to a languoid's
+ * download_profiles. This is now handled automatically by a database trigger
+ * (propagate_pll_to_languoid_download_profiles_trigger) that fires when
+ * project_language_link rows are inserted.
  *
- * @param languoid_id - The languoid ID to update
- * @param _profile_id - Unused (kept for API compatibility); RPC uses auth.uid()
+ * The trigger-based approach is simpler and handles all cases uniformly:
+ * - Old app users (no app-side call needed)
+ * - New app users (trigger fires when insert syncs)
+ * - Offline users (trigger fires when they come online)
+ *
+ * @param _languoid_id - Unused
+ * @param _profile_id - Unused
+ * @deprecated This function is a no-op. The database trigger handles everything.
  */
 export async function ensureLanguoidDownloadProfile(
-  languoid_id: string,
+  _languoid_id: string,
   _profile_id: string
 ): Promise<void> {
-  // Always call the server RPC to update download_profiles for the languoid
-  // and ALL related tables (aliases, sources, properties, regions, etc.)
-  //
-  // Why not update locally first?
-  // - Even if the languoid exists locally (e.g., ui_ready=true languoids are auto-synced),
-  //   the related tables (languoid_alias, languoid_source, languoid_property,
-  //   languoid_region, region, etc.) likely don't exist locally yet
-  // - The RPC handles everything server-side in a single atomic operation
-  // - The RPC is idempotent (won't duplicate-add the user to any array)
-  // - After the RPC succeeds, PowerSync will sync down all the newly-accessible records
-  //
-  // Note: _profile_id param is kept for API compatibility but the RPC uses auth.uid()
-
-  console.log(
-    `[ensureLanguoidDownloadProfile] Calling server RPC for languoid ${languoid_id}`
-  );
-
-  const { error } = await system.supabaseConnector.client.rpc(
-    'add_languoid_to_download_profiles',
-    { p_languoid_id: languoid_id }
-  );
-
-  if (error) {
-    console.error(
-      '[ensureLanguoidDownloadProfile] Failed to update languoid on server:',
-      error
-    );
-    throw error;
-  }
-
-  console.log(
-    `[ensureLanguoidDownloadProfile] Successfully added user to languoid ${languoid_id} and related tables`
-  );
+  // No-op: Database trigger handles this automatically when project_language_link
+  // is inserted. See migration: 20260205150100_add_project_language_link_languoid_trigger.sql
 }
 
 export interface CreateLanguoidParams {
