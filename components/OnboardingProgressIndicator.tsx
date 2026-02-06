@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui/text';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -162,7 +162,7 @@ export function OnboardingProgressIndicator({
                     {index + 1}
                   </Text>
                 )}
-              </Pressable>
+              </View>
 
               {/* Step label */}
               <Text
