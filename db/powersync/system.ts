@@ -681,68 +681,24 @@ export class System {
         console.log('[System] ✓ Schema is up to date');
       }
 
-      // If we're already connected, check if we need to reconnect
-      console.log('PowerSync connected:', this.powersync.connected);
-      // if (this.powersync.connected) {
-      //   // Check if the current user has changed
-      //   console.log('Getting current session...');
-      // const currentSession =
-      //   await this.supabaseConnector.client.auth.getSession();
-      // console.log('Current session:', currentSession);
-      // const currentUserId = currentSession.data.session?.user.id;
-      // console.log('Current user ID:', currentUserId);
-      //   const currentUserId = this.supabaseConnector.getUserProfile()?.id;
-
-      //   // Only disconnect and reconnect if there's a meaningful change
-      //   console.log('Last connected user ID:', this.lastConnectedUserId);
-      //   if (currentUserId && this.lastConnectedUserId !== currentUserId) {
-      //     console.log('User changed, reconnecting PowerSync...');
-      //     await this.powersync.disconnect();
-      //     // Reset attachment queue initialization state
-      //     this.attachmentQueuesInitialized = false;
-      //     this.attachmentQueueInitPromise = null;
-      //   } else {
-      //     // Already connected with the same user
-      //     console.log('Already connected with the same user');
-      //     this.initialized = true;
-      //     // Still need to ensure attachment queues are initialized
-      //     if (!this.attachmentQueuesInitialized) {
-      //       console.log('Initializing attachment queues...');
-      //       await this.initializeAttachmentQueues();
-      //     }
-      //     return;
-      //   }
-      // }
-
-      // Connect with the current user credentials
-      console.log('Connecting PowerSync...');
-      await this.powersync.connect(this.supabaseConnector);
-      console.log('PowerSync connected successfully');
-
-      // Store the current user ID
-      // console.log('Getting current session...');
-      // const session = await this.supabaseConnector.client.auth.getSession();
-      // this.lastConnectedUserId = session.data.session?.user.id;
-      // console.log('Current user ID:', this.lastConnectedUserId);
-
-      // Wait for the initial sync to complete
-      // await this.powersync.waitForFirstSync();
-
+      // OFFLINE-FIRST FIX: Mark system as initialized and ready BEFORE connect()
+      // PowerSync is designed for offline-first - the local SQLite database is fully
+      // functional after powersync.init() completes. connect() handles sync in the
+      // background with automatic retries, so we don't need to block on it.
       this.initialized = true;
-      console.log('PowerSync marked as initialized');
+      console.log('[System] PowerSync local database initialized');
 
-      // Initialize attachment queues BEFORE marking system as ready
-      // This prevents views from rendering before downloads can start
-      console.log('Starting attachment queues initialization...');
-      await this.initializeAttachmentQueues();
-      console.log('Attachment queues initialization completed');
-
-      // Mark system ready AFTER attachment queues are initialized
-      // This ensures NextGenProjectsView and other views don't show loading states
+      // Mark system ready so the app can render with local data immediately
       useLocalStore.getState().setSystemReady(true);
-      console.log('System marked as ready');
+      console.log('[System] System marked as ready (offline-first)');
 
-      console.log('PowerSync initialization complete');
+      // Start sync and attachment queues in background (non-blocking)
+      // This prevents infinite spinner when offline with expired JWT
+      this.connectAndInitializeInBackground();
+
+      console.log(
+        '[System] PowerSync initialization complete (sync running in background)'
+      );
     } catch (error) {
       console.error('PowerSync initialization error:', error);
       this.initialized = false;
@@ -750,6 +706,49 @@ export class System {
     } finally {
       this.connecting = false;
     }
+  }
+
+  /**
+   * Starts PowerSync sync and attachment queue initialization in the background.
+   * This is non-blocking to support offline-first usage - the app can render
+   * immediately with local data while sync establishes in the background.
+   *
+   * PowerSync handles reconnection automatically with exponential backoff,
+   * so we don't need to implement our own retry logic.
+   */
+  private connectAndInitializeInBackground(): void {
+    // Start PowerSync connection (non-blocking by design)
+    // PowerSync's connect() initiates the sync stream and handles retries internally
+    this.powersync
+      .connect(this.supabaseConnector)
+      .then(() => {
+        console.log('[System] ✓ PowerSync sync connection established');
+      })
+      .catch((error) => {
+        // Connection failed - PowerSync will auto-retry with backoff
+        // This is expected when offline or with expired tokens
+        console.warn(
+          '[System] PowerSync connection failed (will auto-retry):',
+          error instanceof Error ? error.message : error
+        );
+      });
+
+    // Initialize attachment queues in background
+    // These are needed for audio uploads but not for basic app functionality
+    this.initializeAttachmentQueues()
+      .then(() => {
+        console.log('[System] ✓ Attachment queues initialized');
+      })
+      .catch((error) => {
+        // Log but don't block - queues will be initialized on-demand if needed
+        console.warn(
+          '[System] Attachment queue initialization failed:',
+          error instanceof Error ? error.message : error
+        );
+        // Reset state so it can be retried later
+        this.attachmentQueuesInitialized = false;
+        this.attachmentQueueInitPromise = null;
+      });
   }
 
   private async createUnionViews() {
@@ -1424,6 +1423,32 @@ export class System {
   // Add method to check attachment queue readiness specifically
   areAttachmentQueuesReady(): boolean {
     return this.attachmentQueuesInitialized;
+  }
+
+  /**
+   * Ensures attachment queues are initialized before performing operations that need them.
+   * Call this before saveAudio() or other attachment operations to handle the case where
+   * the app started offline and queues weren't initialized during startup.
+   *
+   * @returns Promise that resolves when attachment queues are ready
+   */
+  async ensureAttachmentQueuesReady(): Promise<void> {
+    // Already initialized - return immediately
+    if (this.attachmentQueuesInitialized) {
+      return;
+    }
+
+    // If currently initializing, wait for it
+    if (this.attachmentQueueInitPromise) {
+      await this.attachmentQueueInitPromise;
+      return;
+    }
+
+    // Not initialized and not initializing - start initialization
+    console.log(
+      '[System] Attachment queues not ready, initializing on-demand...'
+    );
+    await this.initializeAttachmentQueues();
   }
 
   async waitForLatestSync() {

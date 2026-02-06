@@ -67,7 +67,10 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { resolveTable } from '@/utils/dbUtils';
-import { findOrCreateLanguoidByName } from '@/utils/languoidUtils';
+import {
+  ensureLanguoidDownloadProfile,
+  findOrCreateLanguoidByName
+} from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -114,6 +117,13 @@ export default function NextGenProjectsView() {
         if (!currentUser?.id) {
           throw new Error('Must be logged in to create projects');
         }
+
+        // Ensure the languoid has this user in download_profiles so it syncs offline
+        // This is critical for existing languoids the user didn't create
+        await ensureLanguoidDownloadProfile(
+          values.target_languoid_id,
+          currentUser.id
+        );
 
         // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {

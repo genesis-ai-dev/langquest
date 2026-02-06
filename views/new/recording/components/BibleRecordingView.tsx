@@ -1,5 +1,6 @@
 import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
 import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
+import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -45,7 +46,6 @@ import { saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
-import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
