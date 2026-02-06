@@ -13,7 +13,6 @@ import { PowerSyncContext } from '@powersync/react';
 // Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { UpdateBanner } from '@/components/UpdateBanner';
-import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpoDb } from '@/hooks/useExpoDb';
 import {

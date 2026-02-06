@@ -99,11 +99,7 @@ echo -e "${GREEN}Test database: $TEST_DB${NC}"
 
 # Close/terminate the app
 echo -e "${YELLOW}Closing app...${NC}"
-<<<<<<< HEAD
-"$SCRIPT_DIR/restart-device-app.sh" close
-=======
 "$SCRIPT_DIR/restart-device-app.sh" close "$PLATFORM"
->>>>>>> dev
 
 if [ "$PLATFORM" = "ios" ]; then
     # iOS Simulator path
@@ -178,24 +174,6 @@ if [ "$PLATFORM" = "ios" ]; then
     echo -e "${YELLOW}Replacing database...${NC}"
     cp "$TEST_DB" "$DB_PATH"
     
-<<<<<<< HEAD
-    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
-    TEST_DB_SHM="${TEST_DB}-shm"
-    TEST_DB_WAL="${TEST_DB}-wal"
-    
-    if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
-        cp "$TEST_DB_SHM" "$DB_SHM"
-    else
-        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
-    fi
-    
-    if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file from source...${NC}"
-        cp "$TEST_DB_WAL" "$DB_WAL"
-    else
-        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
-=======
     # Ensure WAL/SHM files are removed after copying (SQLite will recreate them when opened)
     echo -e "${YELLOW}Removing WAL/SHM files after copy...${NC}"
     rm -f "$DB_SHM" "$DB_WAL"
@@ -212,13 +190,10 @@ if [ "$PLATFORM" = "ios" ]; then
             echo -e "${YELLOW}Cleaning up test-cases database file...${NC}"
             rm -f "$TEST_DB"
         fi
->>>>>>> dev
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
-<<<<<<< HEAD
-=======
     
     # Clear degraded mode keys from AsyncStorage
     echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
@@ -254,7 +229,6 @@ if [ "$PLATFORM" = "ios" ]; then
     else
         echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
     fi
->>>>>>> dev
 
 elif [ "$PLATFORM" = "android" ]; then
     # Android Emulator path
@@ -275,20 +249,12 @@ elif [ "$PLATFORM" = "android" ]; then
     
     # Try to find database in common locations using run-as (for debuggable apps)
     # PowerSync typically stores databases in /data/data/{package}/files/ or /data/data/{package}/databases/
-<<<<<<< HEAD
-    DB_PATHS=(
-        "/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
-        "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db"
-        "/data/data/${APP_BUNDLE_ID}/files/powersync.db"
-        "/data/data/${APP_BUNDLE_ID}/databases/powersync.db"
-=======
     # CRITICAL: Check databases/ FIRST as PowerSync may prefer that location on Android
     DB_PATHS=(
         "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db"
         "/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
         "/data/data/${APP_BUNDLE_ID}/databases/powersync.db"
         "/data/data/${APP_BUNDLE_ID}/files/powersync.db"
->>>>>>> dev
     )
     
     DB_PATH=""
@@ -314,21 +280,14 @@ elif [ "$PLATFORM" = "android" ]; then
         
         echo -e "${GREEN}Found app with package: $APP_BUNDLE_ID${NC}"
         
-<<<<<<< HEAD
-        # Use default PowerSync location
-        DB_PATH="/data/data/${APP_BUNDLE_ID}/files/sqlite.db"
-=======
         # Use databases/ as default PowerSync location on Android (more common)
         DB_PATH="/data/data/${APP_BUNDLE_ID}/databases/sqlite.db"
->>>>>>> dev
         
         # Create directory if it doesn't exist (using run-as for debuggable apps)
         adb shell "run-as $APP_BUNDLE_ID mkdir -p $(dirname "$DB_PATH")" 2>/dev/null || \
         adb shell "mkdir -p $(dirname "$DB_PATH")" 2>/dev/null || true
     fi
     
-<<<<<<< HEAD
-=======
     # CRITICAL: Also copy to files/ directory if databases/ is being used, as PowerSync might check both
     # This ensures compatibility regardless of which location PowerSync actually uses
     if [ "$DB_PATH" = "/data/data/${APP_BUNDLE_ID}/databases/sqlite.db" ]; then
@@ -351,7 +310,6 @@ elif [ "$PLATFORM" = "android" ]; then
         fi
     fi
     
->>>>>>> dev
     echo -e "${GREEN}Target database: $DB_PATH${NC}"
     
     # CRITICAL: Remove existing WAL/SHM files BEFORE copying new database
@@ -402,34 +360,6 @@ elif [ "$PLATFORM" = "android" ]; then
     # Set proper permissions using run-as
     adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_PATH" 2>/dev/null || adb shell "chmod 664 $DB_PATH" 2>/dev/null || true
     
-<<<<<<< HEAD
-    # Handle WAL/SHM files from source - copy if they exist, otherwise leave removed
-    TEST_DB_SHM="${TEST_DB}-shm"
-    TEST_DB_WAL="${TEST_DB}-wal"
-    
-    if [ -f "$TEST_DB_SHM" ]; then
-        echo -e "${YELLOW}Copying WAL shared memory file from source...${NC}"
-        TEMP_SHM="/data/local/tmp/temp_sqlite.db-shm"
-        adb push "$TEST_DB_SHM" "$TEMP_SHM" 2>/dev/null && \
-        adb shell "run-as $APP_BUNDLE_ID cp $TEMP_SHM $DB_SHM" 2>/dev/null || \
-        adb push "$TEST_DB_SHM" "$DB_SHM" 2>/dev/null
-        adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_SHM" 2>/dev/null || adb shell "chmod 664 $DB_SHM" 2>/dev/null || true
-        adb shell "rm -f $TEMP_SHM" 2>/dev/null || true
-    else
-        echo -e "${GREEN}No WAL shared memory file in source (database is consolidated)${NC}"
-    fi
-    
-    if [ -f "$TEST_DB_WAL" ]; then
-        echo -e "${YELLOW}Copying WAL file from source...${NC}"
-        TEMP_WAL="/data/local/tmp/temp_sqlite.db-wal"
-        adb push "$TEST_DB_WAL" "$TEMP_WAL" 2>/dev/null && \
-        adb shell "run-as $APP_BUNDLE_ID cp $TEMP_WAL $DB_WAL" 2>/dev/null || \
-        adb push "$TEST_DB_WAL" "$DB_WAL" 2>/dev/null
-        adb shell "run-as $APP_BUNDLE_ID chmod 664 $DB_WAL" 2>/dev/null || adb shell "chmod 664 $DB_WAL" 2>/dev/null || true
-        adb shell "rm -f $TEMP_WAL" 2>/dev/null || true
-    else
-        echo -e "${GREEN}No WAL file in source (database is consolidated)${NC}"
-=======
     # Ensure WAL/SHM files are removed after copying (SQLite will recreate them when opened)
     echo -e "${YELLOW}Removing WAL/SHM files after copy...${NC}"
     adb shell "run-as $APP_BUNDLE_ID rm -f $DB_SHM $DB_WAL" 2>/dev/null || adb shell "rm -f $DB_SHM $DB_WAL" 2>/dev/null || true
@@ -446,13 +376,10 @@ elif [ "$PLATFORM" = "android" ]; then
             echo -e "${YELLOW}Cleaning up test-cases database file...${NC}"
             rm -f "$TEST_DB"
         fi
->>>>>>> dev
     fi
     
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
-<<<<<<< HEAD
-=======
     
     # Clear degraded mode keys from AsyncStorage
     echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
@@ -482,6 +409,5 @@ elif [ "$PLATFORM" = "android" ]; then
     adb shell "rm -f $ASYNC_PREFS_FILE $ASYNC_PREFS_FILE2" 2>/dev/null || true
     
     echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
->>>>>>> dev
 fi
 
