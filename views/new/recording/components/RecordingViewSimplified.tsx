@@ -39,6 +39,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
+import { useTrimModal } from '../hooks/useTrimModal';
 import { useVADRecording } from '../hooks/useVADRecording';
 import { getNextOrderIndex, saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
@@ -210,10 +211,7 @@ const RecordingViewSimplified = ({
     cancelSelection
   } = useSelectionMode();
 
-  const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
-  const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
-    string | null
-  >(null);
+  // (trim state managed by useTrimModal hook below)
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
@@ -230,9 +228,7 @@ const RecordingViewSimplified = ({
     Map<string, number>
   >(new Map());
 
-  const [assetWaveformData, setAssetWaveformData] = React.useState<
-    Map<string, number[]>
-  >(new Map());
+  // (waveform data managed by useTrimModal hook below)
 
   // Load assets from database
   // Use initialAssets if provided to avoid redundant query and instant render
@@ -1081,11 +1077,7 @@ const RecordingViewSimplified = ({
               assetName: assetName // Pass the reserved name
             });
 
-            setAssetWaveformData((prev) => {
-              const next = new Map(prev);
-              next.set(newAssetId, _waveformData);
-              return next;
-            });
+            setTrimWaveformData(newAssetId, _waveformData);
             // Release the reserved name after successful save
             pendingAssetNamesRef.current.delete(assetName);
             debugLog(
@@ -1724,39 +1716,21 @@ const RecordingViewSimplified = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
-  const handleOpenTrimModal = React.useCallback(() => {
-    if (selectedAssetIds.size < 1) return;
-    const selectedIds = Array.from(selectedAssetIds);
-    const firstSelectedId = selectedIds[0];
-    if (!firstSelectedId) return;
-    if (selectedIds.length > 1) {
-      console.warn(
-        'Trim modal opened with multiple selected assets; using first selection.'
-      );
-    }
-    setTrimTargetAssetId(firstSelectedId);
-    setIsTrimModalOpen(true);
-  }, [selectedAssetIds]);
-
-  const handleCloseTrimModal = React.useCallback(() => {
-    setIsTrimModalOpen(false);
-    setTrimTargetAssetId(null);
-  }, []);
-
-  const trimTargetAsset = React.useMemo(() => {
-    if (!trimTargetAssetId) return null;
-    return assets.find((asset) => asset.id === trimTargetAssetId) ?? null;
-  }, [assets, trimTargetAssetId]);
-
-  const trimWaveformData = React.useMemo(() => {
-    if (!trimTargetAssetId) return undefined;
-    return assetWaveformData.get(trimTargetAssetId);
-  }, [assetWaveformData, trimTargetAssetId]);
-
-  const canTrimSelected = React.useMemo(
-    () => !!trimWaveformData && trimWaveformData.length > 0,
-    [trimWaveformData]
-  );
+  // Trim modal (shared hook – waveform data is injected via setWaveformData
+  // after each recording completes)
+  const {
+    isTrimModalOpen,
+    handleOpenTrimModal,
+    handleCloseTrimModal,
+    trimTargetAsset,
+    trimWaveformData,
+    trimAudioUri,
+    canTrimSelected,
+    setWaveformData: setTrimWaveformData
+  } = useTrimModal({
+    selectedAssetIds,
+    assets
+  });
 
   // ============================================================================
   // RENAME ASSET
@@ -2186,6 +2160,7 @@ const RecordingViewSimplified = ({
         isOpen={isTrimModalOpen}
         segmentName={trimTargetAsset?.name ?? null}
         waveformData={trimWaveformData}
+        audioUri={trimAudioUri}
         onClose={handleCloseTrimModal}
       />
 

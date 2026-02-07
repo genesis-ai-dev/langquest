@@ -41,6 +41,7 @@ import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
+import { useTrimModal } from '../hooks/useTrimModal';
 import { useVADRecording } from '../hooks/useVADRecording';
 import { saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
@@ -352,10 +353,7 @@ const BibleRecordingView = ({
     selectMultiple
   } = useSelectionMode();
 
-  const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
-  const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
-    string | null
-  >(null);
+  // (trim state managed by useTrimModal hook below)
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
@@ -372,9 +370,7 @@ const BibleRecordingView = ({
     Map<string, number>
   >(new Map());
 
-  const [assetWaveformData, setAssetWaveformData] = React.useState<
-    Map<string, number[]>
-  >(new Map());
+  // (waveform data managed by useTrimModal hook below)
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
   // When user exits and returns, the list starts with just the initial verse pill
@@ -1585,11 +1581,7 @@ const BibleRecordingView = ({
               verse: verseToUse
             });
 
-            setAssetWaveformData((prev) => {
-              const next = new Map(prev);
-              next.set(newAssetId, _waveformData);
-              return next;
-            });
+            setTrimWaveformData(newAssetId, _waveformData);
 
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
@@ -2268,39 +2260,21 @@ const BibleRecordingView = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
-  const handleOpenTrimModal = React.useCallback(() => {
-    if (selectedAssetIds.size < 1) return;
-    const selectedIds = Array.from(selectedAssetIds);
-    const firstSelectedId = selectedIds[0];
-    if (!firstSelectedId) return;
-    if (selectedIds.length > 1) {
-      console.warn(
-        'Trim modal opened with multiple selected assets; using first selection.'
-      );
-    }
-    setTrimTargetAssetId(firstSelectedId);
-    setIsTrimModalOpen(true);
-  }, [selectedAssetIds]);
-
-  const handleCloseTrimModal = React.useCallback(() => {
-    setIsTrimModalOpen(false);
-    setTrimTargetAssetId(null);
-  }, []);
-
-  const trimTargetAsset = React.useMemo(() => {
-    if (!trimTargetAssetId) return null;
-    return assets.find((asset) => asset.id === trimTargetAssetId) ?? null;
-  }, [assets, trimTargetAssetId]);
-
-  const trimWaveformData = React.useMemo(() => {
-    if (!trimTargetAssetId) return undefined;
-    return assetWaveformData.get(trimTargetAssetId);
-  }, [assetWaveformData, trimTargetAssetId]);
-
-  const canTrimSelected = React.useMemo(
-    () => !!trimWaveformData && trimWaveformData.length > 0,
-    [trimWaveformData]
-  );
+  // Trim modal (shared hook – waveform data is injected via setWaveformData
+  // after each recording completes)
+  const {
+    isTrimModalOpen,
+    handleOpenTrimModal,
+    handleCloseTrimModal,
+    trimTargetAsset,
+    trimWaveformData,
+    trimAudioUri,
+    canTrimSelected,
+    setWaveformData: setTrimWaveformData
+  } = useTrimModal({
+    selectedAssetIds,
+    assets
+  });
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL
@@ -2827,6 +2801,7 @@ const BibleRecordingView = ({
         isOpen={isTrimModalOpen}
         segmentName={trimTargetAsset?.name ?? null}
         waveformData={trimWaveformData}
+        audioUri={trimAudioUri}
         onClose={handleCloseTrimModal}
       />
 

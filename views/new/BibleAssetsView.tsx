@@ -113,8 +113,11 @@ import ReorderableList, {
   useReorderableDrag
 } from 'react-native-reorderable-list';
 import { BibleAssetListItem } from './BibleAssetListItem';
+import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
+import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
+import { useTrimModal } from './recording/hooks/useTrimModal';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
@@ -3176,6 +3179,21 @@ export default function BibleAssetsView() {
   // Update ref so renderItem can use it
   handlePlayAssetRef.current = handlePlayAsset;
 
+  // Trim modal (shared hook – loads waveform from file on demand)
+  const {
+    isTrimModalOpen,
+    handleOpenTrimModal,
+    handleCloseTrimModal,
+    trimTargetAsset,
+    trimWaveformData,
+    trimAudioUri,
+    canTrimSelected
+  } = useTrimModal({
+    selectedAssetIds,
+    assets,
+    getAssetAudioUris
+  });
+
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
@@ -3794,11 +3812,12 @@ export default function BibleAssetsView() {
           className="px-2"
         >
           {isSelectionMode ? (
-            <SelectionControls
+            <BibleSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
           ) : (
@@ -3937,6 +3956,15 @@ export default function BibleAssetsView() {
           </DrawerContent>
         </Drawer>
       )}
+
+      {/* Trim Segment Modal */}
+      <TrimSegmentModal
+        isOpen={isTrimModalOpen}
+        segmentName={trimTargetAsset?.name ?? null}
+        waveformData={trimWaveformData}
+        audioUri={trimAudioUri}
+        onClose={handleCloseTrimModal}
+      />
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && showPrivateAccessModal && (
