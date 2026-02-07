@@ -557,7 +557,7 @@ export const useLocalStore = create<LocalState>()(
                 'currentProjectId',
                 'currentQuestId',
                 'currentAssetId',
-                'navigationStack'
+                //'navigationStack' //removing this allows the app to remember the last view
               ].includes(key)
           )
         )

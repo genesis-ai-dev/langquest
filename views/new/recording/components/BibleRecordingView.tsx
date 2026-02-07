@@ -1,5 +1,6 @@
 import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
 import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
+import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -16,9 +17,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS,
-  saveAudioLocally
+    fileExists,
+    getLocalAttachmentUriWithOPFS,
+    saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -27,13 +28,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
-  ArrowDownNarrowWide,
-  ArrowLeft,
-  ChevronLeft,
-  ListVideo,
-  Mic,
-  PauseIcon,
-  Plus
+    ArrowDownNarrowWide,
+    ArrowLeft,
+    ChevronLeft,
+    ListVideo,
+    Mic,
+    PauseIcon,
+    Plus
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
@@ -45,9 +46,9 @@ import { saveRecording } from '../services/recordingService';
 import { AssetCard } from './AssetCard';
 import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
-import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
+import { TrimSegmentModal } from './TrimSegmentModal';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
@@ -350,6 +351,11 @@ const BibleRecordingView = ({
     selectMultiple
   } = useSelectionMode();
 
+  const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
+  const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
+    string | null
+  >(null);
+
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
@@ -363,6 +369,10 @@ const BibleRecordingView = ({
   // Track durations for each asset (loaded lazily)
   const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
+  >(new Map());
+
+  const [assetWaveformData, setAssetWaveformData] = React.useState<
+    Map<string, number[]>
   >(new Map());
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
@@ -1574,6 +1584,12 @@ const BibleRecordingView = ({
               verse: verseToUse
             });
 
+            setAssetWaveformData((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, _waveformData);
+              return next;
+            });
+
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
             const verseToTrack = verseToUse?.from ?? 999;
@@ -2251,6 +2267,40 @@ const BibleRecordingView = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
+  const handleOpenTrimModal = React.useCallback(() => {
+    if (selectedAssetIds.size < 1) return;
+    const selectedIds = Array.from(selectedAssetIds);
+    const firstSelectedId = selectedIds[0];
+    if (!firstSelectedId) return;
+    if (selectedIds.length > 1) {
+      console.warn(
+        'Trim modal opened with multiple selected assets; using first selection.'
+      );
+    }
+    setTrimTargetAssetId(firstSelectedId);
+    setIsTrimModalOpen(true);
+  }, [selectedAssetIds]);
+
+  const handleCloseTrimModal = React.useCallback(() => {
+    setIsTrimModalOpen(false);
+    setTrimTargetAssetId(null);
+  }, []);
+
+  const trimTargetAsset = React.useMemo(() => {
+    if (!trimTargetAssetId) return null;
+    return assets.find((asset) => asset.id === trimTargetAssetId) ?? null;
+  }, [assets, trimTargetAssetId]);
+
+  const trimWaveformData = React.useMemo(() => {
+    if (!trimTargetAssetId) return undefined;
+    return assetWaveformData.get(trimTargetAssetId);
+  }, [assetWaveformData, trimTargetAssetId]);
+
+  const canTrimSelected = React.useMemo(
+    () => !!trimWaveformData && trimWaveformData.length > 0,
+    [trimWaveformData]
+  );
+
   // ============================================================================
   // SELECT ALL / DESELECT ALL
   // ============================================================================
@@ -2741,6 +2791,7 @@ const BibleRecordingView = ({
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
+              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
               onDelete={handleBatchDeleteSelected}
               allowSelectAll={true}
               allSelected={allSelected}
@@ -2770,6 +2821,13 @@ const BibleRecordingView = ({
           />
         )}
       </View>
+
+      <TrimSegmentModal
+        isOpen={isTrimModalOpen}
+        segmentName={trimTargetAsset?.name ?? null}
+        waveformData={trimWaveformData}
+        onClose={handleCloseTrimModal}
+      />
 
       {/* Rename drawer */}
       <RenameAssetDrawer

@@ -1563,6 +1563,22 @@ export const localizations = {
     indonesian: 'Gabungkan',
     nepali: 'मर्ज गर्नुहोस्'
   },
+  trim: {
+    english: 'Trim',
+    spanish: 'Recortar',
+    brazilian_portuguese: 'Cortar',
+    tok_pisin: 'Katim',
+    indonesian: 'Pangkas',
+    nepali: 'ट्रिम गर्नुहोस्'
+  },
+  trimSegment: {
+    english: 'Trim Segment',
+    spanish: 'Recortar segmento',
+    brazilian_portuguese: 'Cortar segmento',
+    tok_pisin: 'Katim segment',
+    indonesian: 'Pangkas segmen',
+    nepali: 'खण्ड ट्रिम गर्नुहोस्'
+  },
   failedToMergeAssets: {
     english: 'Failed to merge assets. Please try again.',
     spanish: 'Error al combinar los recursos. Por favor, inténtalo de nuevo.',

@@ -46,6 +46,7 @@ import { FullScreenVADOverlay } from './FullScreenVADOverlay';
 import { RecordingControls } from './RecordingControls';
 import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
+import { TrimSegmentModal } from './TrimSegmentModal';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
@@ -209,6 +210,11 @@ const RecordingViewSimplified = ({
     cancelSelection
   } = useSelectionMode();
 
+  const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
+  const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
+    string | null
+  >(null);
+
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
@@ -222,6 +228,10 @@ const RecordingViewSimplified = ({
   // Track durations for each asset (loaded lazily)
   const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
+  >(new Map());
+
+  const [assetWaveformData, setAssetWaveformData] = React.useState<
+    Map<string, number[]>
   >(new Map());
 
   // Load assets from database
@@ -1061,7 +1071,7 @@ const RecordingViewSimplified = ({
             if (!targetLanguoidId) {
               throw new Error('Target languoid not found for project');
             }
-            await saveRecording({
+            const newAssetId = await saveRecording({
               questId: currentQuestId,
               projectId: currentProjectId,
               targetLanguoidId: targetLanguoidId,
@@ -1069,6 +1079,12 @@ const RecordingViewSimplified = ({
               orderIndex: targetOrder,
               audioUri: localUri,
               assetName: assetName // Pass the reserved name
+            });
+
+            setAssetWaveformData((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, _waveformData);
+              return next;
             });
             // Release the reserved name after successful save
             pendingAssetNamesRef.current.delete(assetName);
@@ -1708,6 +1724,40 @@ const RecordingViewSimplified = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
+  const handleOpenTrimModal = React.useCallback(() => {
+    if (selectedAssetIds.size < 1) return;
+    const selectedIds = Array.from(selectedAssetIds);
+    const firstSelectedId = selectedIds[0];
+    if (!firstSelectedId) return;
+    if (selectedIds.length > 1) {
+      console.warn(
+        'Trim modal opened with multiple selected assets; using first selection.'
+      );
+    }
+    setTrimTargetAssetId(firstSelectedId);
+    setIsTrimModalOpen(true);
+  }, [selectedAssetIds]);
+
+  const handleCloseTrimModal = React.useCallback(() => {
+    setIsTrimModalOpen(false);
+    setTrimTargetAssetId(null);
+  }, []);
+
+  const trimTargetAsset = React.useMemo(() => {
+    if (!trimTargetAssetId) return null;
+    return assets.find((asset) => asset.id === trimTargetAssetId) ?? null;
+  }, [assets, trimTargetAssetId]);
+
+  const trimWaveformData = React.useMemo(() => {
+    if (!trimTargetAssetId) return undefined;
+    return assetWaveformData.get(trimTargetAssetId);
+  }, [assetWaveformData, trimTargetAssetId]);
+
+  const canTrimSelected = React.useMemo(
+    () => !!trimWaveformData && trimWaveformData.length > 0,
+    [trimWaveformData]
+  );
+
   // ============================================================================
   // RENAME ASSET
   // ============================================================================
@@ -2103,6 +2153,7 @@ const RecordingViewSimplified = ({
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
+              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
               onDelete={handleBatchDeleteSelected}
             />
           </View>
@@ -2130,6 +2181,13 @@ const RecordingViewSimplified = ({
           />
         )}
       </View>
+
+      <TrimSegmentModal
+        isOpen={isTrimModalOpen}
+        segmentName={trimTargetAsset?.name ?? null}
+        waveformData={trimWaveformData}
+        onClose={handleCloseTrimModal}
+      />
 
       {/* Rename drawer */}
       <RenameAssetDrawer

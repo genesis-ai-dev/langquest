@@ -109,7 +109,7 @@ import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Sortable from 'react-native-sortables';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import BibleRecordingView from './recording/components/BibleRecordingView';
-import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
+import { SelectionControls } from './recording/components/SelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -3708,7 +3708,7 @@ export default function BibleAssetsView() {
           className="px-2"
         >
           {isSelectionMode ? (
-            <BibleSelectionControls
+            <SelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
