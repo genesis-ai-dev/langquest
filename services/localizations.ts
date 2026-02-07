@@ -1525,6 +1525,14 @@ export const localizations = {
     nepali:
       'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेट(हरू) मेटाउन चाहनुहुन्छ? यो कार्य पूर्ववत गर्न सकिँदैन।'
   },
+  selected: {
+    english: 'selected',
+    spanish: 'seleccionado(s)',
+    brazilian_portuguese: 'selecionado(s)',
+    tok_pisin: 'selected',
+    indonesian: 'terpilih',
+    nepali: 'चयन गरिएको'
+  },
   delete: {
     english: 'Delete',
     spanish: 'Eliminar',
@@ -4115,6 +4123,14 @@ export const localizations = {
     tok_pisin: 'Rekodem long',
     indonesian: 'Rekam ke',
     nepali: 'रेकर्ड गर्नुहोस्'
+  },
+  after: {
+    english: 'After',
+    spanish: 'Después de',
+    brazilian_portuguese: 'Depois de',
+    tok_pisin: 'Despela',
+    indonesian: 'Setelah',
+    nepali: 'बादमा'
   },
   noLabelSelected: {
     english: 'No label selected',

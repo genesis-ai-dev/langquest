@@ -1,25 +1,25 @@
-import type { ArrayInsertionWheelHandle } from '@/components/ArrayInsertionWheel';
-import ArrayInsertionWheel from '@/components/ArrayInsertionWheel';
 import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
+import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
+import RecordingSelectionList from '@/components/RecordingSelectionList';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { renameAsset } from '@/database_services/assetService';
+import { normalizeOrderIndexForVerses, renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useCurrentNavigation } from '@/hooks/useAppNavigation';
+import { useAppNavigation, useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-    fileExists,
-    getLocalAttachmentUriWithOPFS,
-    saveAudioLocally
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -28,32 +28,28 @@ import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
-    ArrowDownNarrowWide,
-    ArrowLeft,
-    ChevronLeft,
-    ListVideo,
-    Mic,
-    PauseIcon,
-    Plus
+  ArrowLeft,
+  ChevronLeft,
+  Ellipsis,
+  ListVideo,
+  PauseIcon,
+  Plus
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useHybridData } from '../../useHybridData';
-import { useSelectionMode } from '../hooks/useSelectionMode';
-import { useVADRecording } from '../hooks/useVADRecording';
-import { saveRecording } from '../services/recordingService';
-import { AssetCard } from './AssetCard';
-import { FullScreenVADOverlay } from './FullScreenVADOverlay';
-import { RecordingControls } from './RecordingControls';
-import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
-import { RenameAssetDrawer } from './RenameAssetDrawer';
-import { SelectionControls } from './SelectionControls';
-import { TrimSegmentModal } from './TrimSegmentModal';
-import { VADSettingsDrawer } from './VADSettingsDrawer';
+import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
+import { RecordAssetCard } from './recording/components/RecordAssetCard';
+import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardSkeleton';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
+import { RecordingControls } from './recording/components/RecordingControls';
+import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
+import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
+import { useSelectionMode } from './recording/hooks/useSelectionMode';
+import { useVADRecording } from './recording/hooks/useVADRecording';
+import { saveRecording } from './recording/services/recordingService';
+import { useHybridData } from './useHybridData';
 
-// Feature flag: true = use ArrayInsertionWheel, false = use LegendList
-// const USE_INSERTION_WHEEL = true;
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -106,56 +102,44 @@ interface _AssetMetadata {
   verse?: VerseRange;
 }
 
-interface BibleRecordingViewProps {
-  // Callback when user navigates back - receives array of verse numbers that were recorded
-  // Used by parent to normalize order_index for those verses
-  onBack: (recordedVerses?: number[]) => void;
-  // Pass existing assets as initial data to avoid redundant query
-  initialAssets?: unknown[];
-  // Label for the recording session (e.g., verse reference like "5" or "5-7")
-  label?: string;
-  // Initial order_index for new recordings (default: 999001 for unassigned)
-  initialOrderIndex?: number;
-  // Verse metadata from the selected asset
-  verse?: VerseRange;
-  // Book chapter label for separators (short name, e.g., "Gen 1" or "Mat 3")
-  bookChapterLabel?: string;
-  // Book chapter label for header (full name from quest.name, e.g., "Genesis 1" or "Matthew 3")
-  bookChapterLabelFull?: string;
-  // Next verse number to record (for automatic progression)
-  nextVerse?: number | null;
-  // Limit verse number (for stopping automatic progression)
-  limitVerse?: number | null;
-}
-
-const BibleRecordingView = ({
-  onBack,
-  initialAssets: _initialAssets, // Not used - session mode starts with empty list
-  label: _label = '', // TODO: Display label in header
-  initialOrderIndex: _initialOrderIndex = DEFAULT_ORDER_INDEX, // TODO: Use for order_index calculation
-  verse: _verse, // TODO: Use for verse tracking and metadata
-  bookChapterLabel = 'Verse', // Book chapter label for separators (short name, e.g., "Gen 1")
-  bookChapterLabelFull, // Book chapter label for header (full name from quest, e.g., "Genesis 1")
-  nextVerse = null, // Next verse number to record (for automatic progression)
-  limitVerse = null // Limit verse number (for stopping automatic progression)
-}: BibleRecordingViewProps) => {
-  // Log props on mount
+const RecordingView = () => {
+  // Get navigation state and functions
+  const { goBack } = useAppNavigation();
+  const navigation = useCurrentNavigation();
+  const { currentQuestId, currentProjectId } = navigation;
+  
+  // Get recording-specific data from navigation state
+  const navigationState = useLocalStore((state) => {
+    const stack = state.navigationStack;
+    if (!Array.isArray(stack) || stack.length === 0) return null;
+    return stack[stack.length - 1]!;
+  });
+  
+  const recordingData = navigationState?.recordingData;
+  const bookChapterLabel = recordingData?.bookChapterLabel || 'Verse';
+  const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
+  const _initialOrderIndex = recordingData?.initialOrderIndex ?? DEFAULT_ORDER_INDEX;
+  const _verse = recordingData?.verse;
+  const nextVerse = recordingData?.nextVerse ?? null;
+  const limitVerse = recordingData?.limitVerse ?? null;
+  const _label = recordingData?.label || '';
+  
+  // Log recording data on mount
   React.useEffect(() => {
     console.log(
-      `📥 BibleRecordingView props | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
+      `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
     );
   }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
 
   const queryClient = useQueryClient();
   const { t } = useLocalization();
-  const navigation = useCurrentNavigation();
-  const { currentQuestId, currentProjectId } = navigation;
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
   // Get target languoid_id from project_language_link
+   
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
@@ -195,6 +179,7 @@ const BibleRecordingView = ({
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVADActive, setIsVADActive] = React.useState(false);
+  const [isReplacing, setIsReplacing] = React.useState(false);
 
   // VAD settings - persisted in local store for consistent UX
   // These settings are automatically saved to AsyncStorage and restored on app restart
@@ -205,12 +190,14 @@ const BibleRecordingView = ({
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
-
+   
   const vadMinSegmentLength = useLocalStore(
+     
     (state) => state.vadMinSegmentLength
   );
-
+   
   const setVadMinSegmentLength = useLocalStore(
+     
     (state) => state.setVadMinSegmentLength
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
@@ -224,6 +211,8 @@ const BibleRecordingView = ({
     from: number;
     to: number;
   } | null>(null);
+  // Track asset to replace (when replace mode is active)
+  const assetToReplaceRef = React.useRef<string | null>(null);
   const vadCounterRef = React.useRef<number | null>(null);
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
@@ -314,18 +303,22 @@ const BibleRecordingView = ({
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
-  const wheelRef = React.useRef<ArrayInsertionWheelHandle>(null);
+  const listRef = React.useRef<RecordingSelectionListHandle>(null);
 
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
-  const ROW_HEIGHT = 80;
+  const ROW_HEIGHT = 66;
+  const ROW_HEIGHT_INSERTION = 132;
+  const PILL_HEIGHT = 56;
+  const PILL_HEIGHT_INSERTION = 122;
+
 
   // Dynamic verse tracking for automatic progression
-  // Starts as null - only set when user clicks "Add verse" button
-  // This allows the initial verse (_verse) to be displayed first
+  // Initialize with _verse.from if available, otherwise null (user must click "Add verse" button)
+  // This ensures the correct verse is used when starting recording
   const [currentDynamicVerse, setCurrentDynamicVerse] = React.useState<
     number | null
-  >(null);
+  >(_verse?.from ?? null);
 
   // Persist initial props in refs - these should NOT change during the recording session
   // even when invalidateQueries causes re-renders. We capture them once on mount.
@@ -352,11 +345,6 @@ const BibleRecordingView = ({
     selectMultiple
   } = useSelectionMode();
 
-  const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
-  const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
-    string | null
-  >(null);
-
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
@@ -370,10 +358,6 @@ const BibleRecordingView = ({
   // Track durations for each asset (loaded lazily)
   const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
-  >(new Map());
-
-  const [assetWaveformData, setAssetWaveformData] = React.useState<
-    Map<string, number[]>
   >(new Map());
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
@@ -506,9 +490,6 @@ const BibleRecordingView = ({
     [sessionItems]
   );
 
-  // All items (assets + pills) for the wheel
-  const allItems = sessionItems;
-
   // Normalize assets
   // ARCHITECTURE:
   // - Asset: A single recording or merged group of recordings
@@ -577,19 +558,19 @@ const BibleRecordingView = ({
 
   // Check if we're at the end of the list (for add verse button behavior)
   const isAtEndOfList = React.useMemo(
-    () => allItems.length === 0 || insertionIndex >= allItems.length,
-    [allItems.length, insertionIndex]
+    () => sessionItems.length === 0 || insertionIndex >= sessionItems.length,
+    [sessionItems.length, insertionIndex]
   );
 
   // Get the item at the current insertion position (center of wheel)
   // This can be either an asset or a verse pill
   const highlightedItem = React.useMemo(() => {
-    if (allItems.length === 0) return null;
-    // insertionIndex can be 0 to allItems.length (inclusive)
-    // When at the end (insertionIndex >= allItems.length), we still want to show the last item
-    const idx = Math.min(insertionIndex, allItems.length - 1);
-    return allItems[idx] ?? null;
-  }, [allItems, insertionIndex]);
+    if (sessionItems.length === 0) return null;
+    // insertionIndex can be 0 to sessionItems.length (inclusive)
+    // When at the end (insertionIndex >= sessionItems.length), we still want to show the last item
+    const idx = Math.min(insertionIndex, sessionItems.length - 1);
+    return sessionItems[idx] ?? null;
+  }, [sessionItems, insertionIndex]);
 
   // Get the highlighted item as an asset (null if it's a pill)
   // Prefixed with _ as it may not be used directly but kept for potential future use
@@ -735,7 +716,7 @@ const BibleRecordingView = ({
     setCurrentDynamicVerse(verseToAdd);
 
     // Move insertion index to the end (where the pill was added)
-    // This is done in the next useEffect that monitors allItems.length change
+    // This is done in the next useEffect that monitors sessionItems.length change
 
     // If VAD is active, update recording context to use the new pill
     if (isVADActive) {
@@ -748,51 +729,47 @@ const BibleRecordingView = ({
     }
   }, [verseToAdd, isVADActive, addVersePill]);
 
-  // Stable item list that only updates when content actually changes
-  // We intentionally use assetContentKey instead of allItems to prevent re-renders
-  // when items array reference changes but content is identical
-  const itemsForWheel = React.useMemo(() => allItems, [allItems]);
-
   // Clamp insertion index when item count changes
   React.useEffect(() => {
-    const maxIndex = allItems.length; // Can insert at 0..N (after last item)
+    const maxIndex = sessionItems.length; // Can insert at 0..N (after last item)
     if (insertionIndex > maxIndex) {
       setInsertionIndex(maxIndex);
     }
-  }, [allItems.length, insertionIndex]);
+  }, [sessionItems.length, insertionIndex]);
 
   // Track item count to detect new insertions
-  const previousItemCountRef = React.useRef(allItems.length);
+  const previousItemCountRef = React.useRef(sessionItems.length);
 
   // Track if the last recording was in the middle (not at end)
   // Used to determine if we should move insertionIndex to the new item
   const wasRecordingInMiddleRef = React.useRef<boolean>(false);
+
+  // Track if the last recording was a replace operation
+  // When replacing, we don't move insertionIndex since we're staying on the same position
+  const wasReplaceRef = React.useRef<boolean>(false);
 
   // Track if a pill was just added (to distinguish from asset recording)
   const wasPillAddedRef = React.useRef<boolean>(false);
 
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
-    const currentCount = allItems.length;
+    const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
       console.log(
-        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current}`
-      );
-
-      console.log(
-        '[recording in the middle]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
-        wasRecordingInMiddleRef.current
+        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
       );
 
       const wasInMiddle = wasRecordingInMiddleRef.current;
       const wasPillAdded = wasPillAddedRef.current;
+      const wasReplace = wasReplaceRef.current;
 
       // Reset the flags
       wasRecordingInMiddleRef.current = false;
       wasPillAddedRef.current = false;
+      wasReplaceRef.current = false;
 
       if (wasPillAdded) {
         // A pill was added - move to the end
@@ -804,9 +781,25 @@ const BibleRecordingView = ({
         // Scroll to the end
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+            listRef.current?.scrollToIndex(currentCount, true);
           } catch (error) {
             console.error('Failed to scroll after pill added:', error);
+          }
+          timeoutIdsRef.current.delete(timeoutId);
+        }, 100);
+        timeoutIdsRef.current.add(timeoutId);
+      } else if (wasReplace) {
+        // REPLACE MODE: Stay on the same position - new asset replaced the old one
+        console.log(
+          `📍 Replace mode - staying at position: ${insertionIndex}`
+        );
+        // Don't change insertionIndex - we're staying on the newly replaced asset
+        // Scroll to current position to ensure visibility
+        const timeoutId = setTimeout(() => {
+          try {
+            listRef.current?.scrollToIndex(insertionIndex, true);
+          } catch (error) {
+            console.error('Failed to scroll after replace:', error);
           }
           timeoutIdsRef.current.delete(timeoutId);
         }, 100);
@@ -822,7 +815,7 @@ const BibleRecordingView = ({
         // Scroll to the new item
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(newIndex, true);
+            listRef.current?.scrollToIndex(newIndex, true);
           } catch (error) {
             console.error('Failed to scroll:', error);
           }
@@ -839,7 +832,7 @@ const BibleRecordingView = ({
         // Scroll to the end
         const timeoutId = setTimeout(() => {
           try {
-            wheelRef.current?.scrollToInsertionIndex(currentCount, true);
+            listRef.current?.scrollToIndex(currentCount, true);
           } catch (error) {
             console.error('Failed to scroll:', error);
           }
@@ -850,7 +843,7 @@ const BibleRecordingView = ({
     }
 
     previousItemCountRef.current = currentCount;
-  }, [allItems.length, insertionIndex]);
+  }, [sessionItems.length, insertionIndex]);
 
   // ============================================================================
   // AUDIO PLAYBACK
@@ -1178,7 +1171,7 @@ const BibleRecordingView = ({
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
         setIsPlayAllRunning(false);
-
+        
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
@@ -1189,13 +1182,16 @@ const BibleRecordingView = ({
             console.error('Error stopping sound:', error);
           }
         }
-
+        
         setCurrentlyPlayingAssetId(null);
+        // Reset SharedValues when stopping
+        audioContext.positionShared.value = 0;
+        audioContext.durationShared.value = 0;
         debugLog('⏸️ Stopped play all');
         return;
       }
 
-      if (itemsForWheel.length === 0) {
+      if (sessionItems.length === 0) {
         console.warn('⚠️ No items to play');
         return;
       }
@@ -1204,26 +1200,29 @@ const BibleRecordingView = ({
       isPlayAllRunningRef.current = true;
       setIsPlayAllRunning(true);
 
-      debugLog(`🎵 Starting play all from wheel position ${insertionIndex}`);
+      // If no item is selected (at end of list), start from the beginning
+      // Otherwise, start from the selected item
+      const startIndex = insertionIndex >= sessionItems.length ? 0 : insertionIndex;
+      
+      debugLog(`🎵 Starting play all from position ${startIndex} (insertionIndex: ${insertionIndex})`);
 
       let assetsPlayed = 0;
 
-      // Iterate directly through itemsForWheel starting from insertionIndex
-      for (
-        let wheelIndex = insertionIndex;
-        wheelIndex < itemsForWheel.length;
-        wheelIndex++
-      ) {
+      // Iterate directly through sessionItems starting from startIndex
+      for (let wheelIndex = startIndex; wheelIndex < sessionItems.length; wheelIndex++) {
         // Check if cancelled
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!isPlayAllRunningRef.current) {
           debugLog('⏸️ Play all cancelled');
           setCurrentlyPlayingAssetId(null);
+          // Reset SharedValues when cancelled
+          audioContext.positionShared.value = 0;
+          audioContext.durationShared.value = 0;
           return;
         }
 
-        const item = itemsForWheel[wheelIndex];
-
+        const item = sessionItems[wheelIndex];
+        
         // Skip if no item or if it's a pill
         if (!item || isPill(item)) {
           debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
@@ -1232,24 +1231,22 @@ const BibleRecordingView = ({
 
         // It's an asset - play it
         const asset = item;
-
+        
         // Get URIs for this asset
         const uris = await getAssetAudioUris(asset.id);
         if (uris.length === 0) {
-          debugLog(
-            `⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`
-          );
+          debugLog(`⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`);
           continue;
         }
 
         // HIGHLIGHT THIS ASSET
         setCurrentlyPlayingAssetId(asset.id);
-
-        // Scroll to this position in the wheel (wheelIndex is the direct position)
-        if (wheelRef.current) {
-          wheelRef.current.scrollItemToTop(wheelIndex - 1, true);
+        
+        // Scroll to this position in the list
+        if (listRef.current) {
+          listRef.current.scrollToIndex(wheelIndex - 1, true);
         }
-
+        
         assetsPlayed++;
         debugLog(
           `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
@@ -1261,6 +1258,9 @@ const BibleRecordingView = ({
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (!isPlayAllRunningRef.current) {
             setCurrentlyPlayingAssetId(null);
+            // Reset SharedValues when cancelled
+            audioContext.positionShared.value = 0;
+            audioContext.durationShared.value = 0;
             return;
           }
 
@@ -1269,11 +1269,20 @@ const BibleRecordingView = ({
             Audio.Sound.createAsync({ uri }, { shouldPlay: true })
               .then(({ sound }) => {
                 currentPlayAllSoundRef.current = sound;
-
+                
                 sound.setOnPlaybackStatusUpdate((status) => {
                   if (!status.isLoaded) return;
 
+                  // Update SharedValues for progress bar animation (60fps on UI thread)
+                  if (status.isPlaying) {
+                    audioContext.positionShared.value = status.positionMillis;
+                    audioContext.durationShared.value = status.durationMillis ?? 0;
+                  }
+
                   if (status.didJustFinish) {
+                    // Reset SharedValues when segment finishes
+                    audioContext.positionShared.value = 0;
+                    audioContext.durationShared.value = 0;
                     currentPlayAllSoundRef.current = null;
                     void sound.unloadAsync().then(() => {
                       resolve();
@@ -1297,17 +1306,23 @@ const BibleRecordingView = ({
       // Done playing all
       debugLog('✅ Finished playing all assets');
       setCurrentlyPlayingAssetId(null);
+      // Reset SharedValues when finished
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
       setCurrentlyPlayingAssetId(null);
+      // Reset SharedValues on error
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
       isPlayAllRunningRef.current = false;
       setIsPlayAllRunning(false);
       currentPlayAllSoundRef.current = null;
     }
-  }, [getAssetAudioUris, insertionIndex, itemsForWheel]);
+  }, [audioContext, getAssetAudioUris, insertionIndex, sessionItems]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1325,12 +1340,12 @@ const BibleRecordingView = ({
    */
   const getInsertionContext = React.useCallback(
     (currentIndex: number = insertionIndex) => {
-      const isAtEnd = allItems.length === 0 || currentIndex >= allItems.length;
+      const isAtEnd = sessionItems.length === 0 || currentIndex >= sessionItems.length;
       console.log(
         '🔍 getInsertionContext | currentIndex:',
         currentIndex,
-        '| allItems.length:',
-        allItems.length,
+        '| sessionItems.length:',
+        sessionItems.length,
         '| isAtEnd:',
         isAtEnd
       );
@@ -1338,7 +1353,7 @@ const BibleRecordingView = ({
       if (isAtEnd) {
         // At end: calculate order_index based on last item, not appendOrderIndexRef
         // appendOrderIndexRef is only used as a cache and gets updated after recording
-        const lastItem = allItems[allItems.length - 1];
+        const lastItem = sessionItems[sessionItems.length - 1];
         const orderIndex = lastItem
           ? lastItem.order_index + 1
           : appendOrderIndexRef.current; // Fallback for empty list
@@ -1356,7 +1371,7 @@ const BibleRecordingView = ({
         return { orderIndex, verse, isAtEnd: true };
       } else {
         // In middle: use selected item's context
-        const selectedItem = allItems[currentIndex];
+        const selectedItem = sessionItems[currentIndex];
         const orderIndex = selectedItem
           ? selectedItem.order_index + 1
           : currentIndex + 1;
@@ -1365,7 +1380,7 @@ const BibleRecordingView = ({
         return { orderIndex, verse, isAtEnd: false };
       }
     },
-    [allItems, insertionIndex]
+    [sessionItems, insertionIndex]
   );
 
   // Store insertion index in ref to prevent stale closure issues
@@ -1399,8 +1414,19 @@ const BibleRecordingView = ({
       currentRecordingVerseRef.current = verse;
 
       const selectedItem = contextIsAtEnd
-        ? allItems[allItems.length - 1]
-        : allItems[insertionIndexRef.current];
+        ? sessionItems[sessionItems.length - 1]
+        : sessionItems[insertionIndexRef.current];
+      
+      // REPLACE MODE: Capture the asset to replace when VAD starts (only first segment will delete it)
+      const highlightedItem = sessionItems[insertionIndexRef.current];
+      console.log(`🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+      
+      if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
+        assetToReplaceRef.current = highlightedItem.id;
+        console.log(`🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+      }
+      // Note: Don't reset assetToReplaceRef here if not replacing - it might have been set by manual recording
+      
       const itemName = selectedItem
         ? isPill(selectedItem)
           ? `pill-${selectedItem.verse?.from ?? 'null'}`
@@ -1422,20 +1448,22 @@ const BibleRecordingView = ({
     }
   }, [
     isVADActive,
-    allItems,
+    sessionItems,
     currentDynamicVerse,
     assets.length,
-    getInsertionContext
+    getInsertionContext,
+    isReplacing
   ]);
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
+    console.log('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
     if (isRecording) return;
 
     const currentInsertionIndex = insertionIndexRef.current;
 
     console.log(
-      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | allItems.length: ${allItems.length}`
+      `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length} | isReplacing: ${isReplacing}`
     );
 
     // Get insertion context (order_index and verse) based on current position
@@ -1449,6 +1477,22 @@ const BibleRecordingView = ({
 
     // Track if we're recording in the middle (for auto-scroll behavior)
     wasRecordingInMiddleRef.current = !isAtEnd;
+
+    // REPLACE MODE: Capture the asset to replace (only if highlighted item is an asset)
+    // Use insertionIndex directly to get the highlighted item
+    const highlightedItem = sessionItems[currentInsertionIndex];
+    
+    console.log(`🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+    
+    if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
+      assetToReplaceRef.current = highlightedItem.id;
+      console.log(`🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+    } else {
+      assetToReplaceRef.current = null;
+      if (isReplacing) {
+        console.log(`⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`);
+      }
+    }
 
     // Update appendOrderIndexRef to point to next position after this recording
     // This serves as a fallback for empty lists or initial state
@@ -1468,19 +1512,16 @@ const BibleRecordingView = ({
 
     setIsRecording(true);
 
-    const selectedItem = isAtEnd
-      ? allItems[allItems.length - 1]
-      : allItems[currentInsertionIndex];
-    const itemName = selectedItem
-      ? isPill(selectedItem)
-        ? `pill-${selectedItem.verse?.from ?? 'null'}`
-        : selectedItem.name
+    const itemName = highlightedItem
+      ? isPill(highlightedItem)
+        ? `pill-${highlightedItem.verse?.from ?? 'null'}`
+        : highlightedItem.name
       : 'none';
 
     console.log(
       `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
     );
-  }, [isRecording, allItems, getInsertionContext]);
+  }, [isRecording, sessionItems, getInsertionContext, isReplacing]);
 
   const handleRecordingStop = React.useCallback(() => {
     debugLog('🛑 Manual recording stop');
@@ -1494,6 +1535,31 @@ const BibleRecordingView = ({
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, _duration: number, _waveformData: number[]) => {
+      // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
+      console.log(`🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`);
+      if (assetToReplaceRef.current) {
+        const assetIdToReplace = assetToReplaceRef.current;
+        assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
+        setIsReplacing(false); // Reset replace mode after first recording
+        wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
+        
+        console.log(`🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`);
+        
+        try {
+          await audioSegmentService.deleteAudioSegment(assetIdToReplace);
+          // Remove from session assets list
+          setSessionItems((prev) => prev.filter((a) => a.id !== assetIdToReplace));
+          await queryClient.invalidateQueries({
+            queryKey: ['assets', 'by-quest', currentQuestId],
+            exact: false
+          });
+          console.log(`✅ REPLACE: Asset deleted successfully`);
+        } catch (e) {
+          console.error('❌ REPLACE: Failed to delete asset', e);
+          wasReplaceRef.current = false; // Reset on error
+        }
+      }
+
       // Recalculate order_index based on current list state
       // This ensures each consecutive recording gets a unique incremented order_index
       const currentContext = getInsertionContext(insertionIndexRef.current);
@@ -1583,12 +1649,6 @@ const BibleRecordingView = ({
               name: assetName,
               order_index: targetOrder,
               verse: verseToUse
-            });
-
-            setAssetWaveformData((prev) => {
-              const next = new Map(prev);
-              next.set(newAssetId, _waveformData);
-              return next;
             });
 
             // Track which verse was recorded (for order_index normalization on return)
@@ -2268,40 +2328,6 @@ const BibleRecordingView = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
-  const handleOpenTrimModal = React.useCallback(() => {
-    if (selectedAssetIds.size < 1) return;
-    const selectedIds = Array.from(selectedAssetIds);
-    const firstSelectedId = selectedIds[0];
-    if (!firstSelectedId) return;
-    if (selectedIds.length > 1) {
-      console.warn(
-        'Trim modal opened with multiple selected assets; using first selection.'
-      );
-    }
-    setTrimTargetAssetId(firstSelectedId);
-    setIsTrimModalOpen(true);
-  }, [selectedAssetIds]);
-
-  const handleCloseTrimModal = React.useCallback(() => {
-    setIsTrimModalOpen(false);
-    setTrimTargetAssetId(null);
-  }, []);
-
-  const trimTargetAsset = React.useMemo(() => {
-    if (!trimTargetAssetId) return null;
-    return assets.find((asset) => asset.id === trimTargetAssetId) ?? null;
-  }, [assets, trimTargetAssetId]);
-
-  const trimWaveformData = React.useMemo(() => {
-    if (!trimTargetAssetId) return undefined;
-    return assetWaveformData.get(trimTargetAssetId);
-  }, [assetWaveformData, trimTargetAssetId]);
-
-  const canTrimSelected = React.useMemo(
-    () => !!trimWaveformData && trimWaveformData.length > 0,
-    [trimWaveformData]
-  );
-
   // ============================================================================
   // SELECT ALL / DESELECT ALL
   // ============================================================================
@@ -2397,19 +2423,16 @@ const BibleRecordingView = ({
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-
+        
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          void currentPlayAllSoundRef.current.stopAsync().then(() => {
+            void currentPlayAllSoundRef.current?.unloadAsync();
+            currentPlayAllSoundRef.current = null;
+          }).catch(() => {
+            // Ignore errors during cleanup
+            currentPlayAllSoundRef.current = null;
+          });
         }
       }
 
@@ -2459,6 +2482,10 @@ const BibleRecordingView = ({
   const stableHandleRenameAsset = React.useCallback(handleRenameAsset, [
     handleRenameAsset
   ]);
+  
+  const stableHandleActionTypeChange = React.useCallback((isReplacingMode: boolean) => {
+    setIsReplacing(isReplacingMode);
+  }, []);
 
   // ============================================================================
   // OPTIMIZED CALLBACKS MAP - Prevents creating new functions in wheelChildren
@@ -2467,27 +2494,45 @@ const BibleRecordingView = ({
   // Create a memoized factory for asset callbacks
   // This prevents creating new inline functions in wheelChildren useMemo
   const createAssetCallbacks = React.useCallback(
-    (assetId: string) => ({
+    (assetId: string, index: number) => ({
       onPress: () => {
         if (isSelectionMode) {
           stableToggleSelect(assetId);
         } else {
-          void stableHandlePlayAsset(assetId);
+          // Toggle highlight: if clicking on already highlighted card, move to end
+          if (insertionIndex === index) {
+            setInsertionIndex(sessionItems.length);
+          } else {
+            setInsertionIndex(index);
+          }
         }
       },
       onLongPress: () => {
-        stableEnterSelection(assetId);
+        // Long press enters selection mode and selects this asset
+        if (!isSelectionMode) {
+          stableEnterSelection(assetId);
+        }
       },
       onPlay: () => {
         void stableHandlePlayAsset(assetId);
       }
     }),
-    [
-      isSelectionMode,
-      stableToggleSelect,
-      stableHandlePlayAsset,
-      stableEnterSelection
-    ]
+    [isSelectionMode, stableToggleSelect, stableEnterSelection, stableHandlePlayAsset, insertionIndex, sessionItems.length]
+  );
+
+  // Create a memoized factory for pill callbacks
+  const createPillCallbacks = React.useCallback(
+    (index: number) => ({
+      onPress: () => {
+        // Toggle highlight: if clicking on already highlighted pill, move to end
+        if (insertionIndex === index) {
+          setInsertionIndex(sessionItems.length);
+        } else {
+          setInsertionIndex(index);
+        }
+      }
+    }),
+    [insertionIndex, sessionItems.length]
   );
 
   // Create a Map of callbacks per asset (only recreates when dependencies change)
@@ -2502,33 +2547,62 @@ const BibleRecordingView = ({
       }
     >();
 
-    itemsForWheel.forEach((item) => {
+    sessionItems.forEach((item, index) => {
       if (isAsset(item)) {
-        map.set(item.id, createAssetCallbacks(item.id));
+        map.set(item.id, createAssetCallbacks(item.id, index));
       }
     });
 
     return map;
-  }, [itemsForWheel, createAssetCallbacks]);
+  }, [sessionItems, createAssetCallbacks]);
 
-  // Lazy renderItem for ArrayInsertionWheel
-  // OPTIMIZED: Only renders items when they become visible (virtualização)
+  // Create a Map of callbacks per pill (only recreates when dependencies change)
+  const pillCallbacksMap = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        onPress: () => void;
+      }
+    >();
+
+    sessionItems.forEach((item, index) => {
+      if (isPill(item)) {
+        map.set(item.id, createPillCallbacks(index));
+      }
+    });
+
+    return map;
+  }, [sessionItems, createPillCallbacks]);
+
+  // Lazy renderItem for RecordingSelectionList
+  // OPTIMIZED: Only renders items when they become visible (virtualization)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
   // This is much more efficient than pre-creating all children
-  const renderWheelItem = React.useCallback(
-    (item: ListItem, index: number) => {
+  // Third parameter 'isListSelected' indicates if this item is the current insertion point
+  const renderListItem = React.useCallback(
+    (item: ListItem, index: number, _isListSelected: boolean) => {
       // Render verse pill items differently from asset items
       if (isPill(item)) {
         const pillText = item.verse
           ? (formatVerseRange(item.verse) ?? 'No Label')
           : 'No Label';
+        const isHighlighted = insertionIndex === index;
+
+        // Get stable callbacks from Map (avoids creating new functions)
+        const callbacks = pillCallbacksMap.get(item.id);
+
         return (
-          <View
-            key={item.id}
-            className="flex-row items-center justify-center py-2"
-          >
-            <VersePill text={pillText} />
-          </View>
+          <>
+            <VersePill
+              key={item.id}
+              text={pillText}
+              isHighlighted={isHighlighted}
+              onPress={callbacks?.onPress}
+            />
+          {isHighlighted && <View className="mt-2.5">
+            <RecordAssetCardSkeleton />
+          </View>}
+          </>
         );
       }
 
@@ -2540,18 +2614,19 @@ const BibleRecordingView = ({
         isPlayAllRunning && currentlyPlayingAssetId === item.id;
       const isThisAssetPlaying =
         isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      const isSelected = selectedAssetIds.has(item.id);
+      // isInBatchSelection = selected for batch operations (delete, merge)
+      const isInBatchSelection = selectedAssetIds.has(item.id);
 
       // Check if next item is an asset (not a pill) and not from cloud
-      const nextItem = itemsForWheel[index + 1];
+      const nextItem = sessionItems[index + 1];
       const canMergeDown =
-        index < itemsForWheel.length - 1 &&
+        index < sessionItems.length - 1 &&
         nextItem &&
         isAsset(nextItem) &&
         nextItem.source !== 'cloud';
 
-      // Duration from lazy-loaded metadata
-      const duration = item.duration;
+      // Duration from lazy-loaded metadata (get from map, not from item which may be stale)
+      const duration = assetDurations.get(item.id) ?? item.duration;
 
       // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
@@ -2562,14 +2637,19 @@ const BibleRecordingView = ({
         return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
+      const isHighlighted = insertionIndex === index;
+
       return (
-        <AssetCard
+        <>
+        <RecordAssetCard
           key={item.id}
           asset={item}
           index={index}
-          isSelected={isSelected}
+          isSelected={isInBatchSelection}
+          isHighlighted={isHighlighted}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
+          hideButtons={isRecording || isVADActive}
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
@@ -2579,7 +2659,12 @@ const BibleRecordingView = ({
           onDelete={stableHandleDeleteLocalAsset}
           onMerge={stableHandleMergeDownLocal}
           onRename={stableHandleRenameAsset}
-        />
+          onActionTypeChange={stableHandleActionTypeChange}
+          />
+          {isHighlighted && !isReplacing && <View className="mt-1">
+            <RecordAssetCardSkeleton />
+          </View>}
+        </>
       );
     },
     [
@@ -2590,18 +2675,66 @@ const BibleRecordingView = ({
       currentlyPlayingAssetId,
       selectedAssetIds,
       isSelectionMode,
-      itemsForWheel,
+      insertionIndex,
+      sessionItems,
       assetCallbacksMap,
+      pillCallbacksMap,
+      assetDurations,
       stableHandleDeleteLocalAsset,
       stableHandleMergeDownLocal,
-      stableHandleRenameAsset
+      stableHandleRenameAsset,
+      isReplacing,
+      stableHandleActionTypeChange,
+      isRecording,
+      isVADActive
     ]
+  );
+
+  // List callbacks (memoized to prevent unnecessary re-renders)
+  const handleListIndexChange = React.useCallback(
+    (newIndex: number) => {
+      const item = sessionItems[newIndex];
+      const itemDesc = item
+        ? isPill(item)
+          ? `pill-${item.verse?.from ?? 'null'}`
+          : item.name
+        : 'end';
+      
+      // In selection mode, clicking on an asset toggles its selection instead of changing insertion index
+      if (isSelectionMode && item && isAsset(item)) {
+        console.log(`📋 List onChange (selection mode): toggling ${item.name}`);
+        stableToggleSelect(item.id);
+        return;
+      }
+      
+      console.log(
+        `📋 List onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
+      );
+      setInsertionIndex(newIndex);
+    },
+    [sessionItems, insertionIndex, isSelectionMode, stableToggleSelect]
+  );
+
+  const handleListLongPress = React.useCallback(
+    (index: number) => {
+      // Enter batch selection mode when long pressing an asset
+      const item = sessionItems[index];
+      if (item && isAsset(item)) {
+        stableEnterSelection(item.id);
+      }
+    },
+    [sessionItems, stableEnterSelection]
+  );
+
+  const canListItemLongPress = React.useCallback(
+    (item: ListItem) => isAsset(item),
+    []
   );
 
   // SESSION-ONLY MODE: No loading/error states needed
   // The list starts empty and only shows assets recorded in this session
 
-  // Show full-screen overlay when VAD is active and display mode is fullscreen
+  // Show full-screen overlay when VAD is locked and display mode is fullscreen
   const showFullScreenOverlay = isVADActive && vadDisplayMode === 'fullscreen';
 
   const addButtonComponent = useMemo(() => {
@@ -2644,6 +2777,14 @@ const BibleRecordingView = ({
 
   const boundaryComponent = useMemo(
     () => (
+    <>
+      {
+        (sessionItems.length === 0 || insertionIndex >= sessionItems.length) && (
+          <View className="px-2 mt-0.5">
+            <RecordAssetCardSkeleton />
+          </View>
+        )
+      }
       <View
         style={{ height: ROW_HEIGHT }}
         className="flex-row items-center justify-center px-4"
@@ -2655,25 +2796,42 @@ const BibleRecordingView = ({
         >
           {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
           <View
-            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 p-2"
+            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 px-2"
             style={{
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Icon as={Mic} size={20} className="text-secondary-foreground/50" />
-            <Icon
+            <Icon as={Ellipsis} size={20} className="text-secondary-foreground/50" />
+            {/* <Icon
               as={ArrowDownNarrowWide}
               size={20}
               style={{ marginLeft: 4 }}
               className="text-secondary-foreground/50"
-            />
+            /> */}
           </View>
         </View>
         <View className="flex-1">{addButtonComponent}</View>
       </View>
+    </>
     ),
-    [addButtonComponent]
+    [addButtonComponent, insertionIndex, isReplacing]
+  );
+
+  // Calculate dynamic height for each item based on type and highlight state
+  const getItemHeight = React.useCallback(
+    (item: ListItem, index: number, _isSelected: boolean) => {
+      const isHighlighted = insertionIndex === index;
+      
+      if (isPill(item)) {
+        // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
+        return isHighlighted && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
+      }
+      
+      // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
+      return isHighlighted && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
+    },
+    [insertionIndex, isReplacing]
   );
 
   return (
@@ -2698,15 +2856,21 @@ const BibleRecordingView = ({
           <Button
             variant="ghost"
             size="icon"
-            onPress={() => {
-              // Pass recorded verses to parent for order_index normalization
+            onPress={async () => {
+              // Normalize order_index for recorded verses before navigating back
               const recordedVerses = Array.from(recordedVersesRef.current);
-              if (recordedVerses.length > 0) {
+              if (recordedVerses.length > 0 && currentQuestId) {
                 console.log(
                   `📤 Returning with ${recordedVerses.length} recorded verse(s): [${recordedVerses.join(', ')}]`
                 );
+                try {
+                  await normalizeOrderIndexForVerses(currentQuestId, recordedVerses);
+                } catch (error) {
+                  console.error('Failed to normalize order_index:', error);
+                }
               }
-              onBack(recordedVerses.length > 0 ? recordedVerses : undefined);
+              // Navigate back
+              goBack();
             }}
           >
             <Icon as={ArrowLeft} />
@@ -2759,27 +2923,18 @@ const BibleRecordingView = ({
       {/* Scrollable list area - full height with padding for controls */}
       <View className="h-full flex-1 p-2">
         <View className="relative h-full flex-1">
-          <ArrayInsertionWheel<ListItem>
-            ref={wheelRef}
+          <RecordingSelectionList<ListItem>
+            ref={listRef}
             value={insertionIndex}
-            onChange={(newIndex) => {
-              const item = itemsForWheel[newIndex];
-              const itemDesc = item
-                ? isPill(item)
-                  ? `pill-${item.verse?.from ?? 'null'}`
-                  : item.name
-                : 'end';
-              console.log(
-                `🎡 Wheel onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
-              );
-              setInsertionIndex(newIndex);
-            }}
+            onChange={handleListIndexChange}
             rowHeight={ROW_HEIGHT}
+            getItemHeight={getItemHeight}
             className="h-full flex-1"
             bottomInset={footerHeight}
             boundaryComponent={boundaryComponent}
-            data={itemsForWheel}
-            renderItem={renderWheelItem}
+            data={sessionItems}
+            renderItem={renderListItem}
+            extraData={{ isSelectionMode, selectedAssetIds }}
           />
         </View>
       </View>
@@ -2787,12 +2942,11 @@ const BibleRecordingView = ({
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
         {isSelectionMode ? (
-          <View className="px-4" style={{ paddingBottom: insets.bottom }}>
-            <SelectionControls
+          <View style={{ paddingBottom: insets.bottom }}>
+            <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
-              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
               onDelete={handleBatchDeleteSelected}
               allowSelectAll={true}
               allSelected={allSelected}
@@ -2823,13 +2977,6 @@ const BibleRecordingView = ({
         )}
       </View>
 
-      <TrimSegmentModal
-        isOpen={isTrimModalOpen}
-        segmentName={trimTargetAsset?.name ?? null}
-        waveformData={trimWaveformData}
-        onClose={handleCloseTrimModal}
-      />
-
       {/* Rename drawer */}
       <RenameAssetDrawer
         isOpen={showRenameDrawer}
@@ -2853,8 +3000,8 @@ const BibleRecordingView = ({
             setAutoCalibrateOnOpen(false);
           }
         }}
-        minSegmentLength={vadMinSegmentLength}
-        onMinSegmentLengthChange={setVadMinSegmentLength}
+        minSegmentLength={vadMinSegmentLength}  
+        onMinSegmentLengthChange={setVadMinSegmentLength}  
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}
@@ -2865,11 +3012,9 @@ const BibleRecordingView = ({
         autoCalibrateOnOpen={autoCalibrateOnOpen}
         energyShared={energyShared}
       />
-
-      {/* Recording Help Dialog - shown once on first visit */}
       <RecordingHelpDialog />
     </View>
   );
 };
 
-export default BibleRecordingView;
+export default RecordingView;

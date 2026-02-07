@@ -58,7 +58,6 @@ import Animated, {
   cancelAnimation,
   Easing,
   runOnJS,
-  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -106,10 +105,14 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import Sortable from 'react-native-sortables';
+import type {
+  ReorderableListReorderEvent
+} from 'react-native-reorderable-list';
+import ReorderableList, {
+  reorderItems,
+  useReorderableDrag
+} from 'react-native-reorderable-list';
 import { BibleAssetListItem } from './BibleAssetListItem';
-import BibleRecordingView from './recording/components/BibleRecordingView';
-import { SelectionControls } from './recording/components/SelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -161,6 +164,136 @@ const RecordingPlaceIndicator = () => (
     <Text className="text-xs text-destructive">REC</Text>
   </View>
 );
+
+// ============================================================================
+// DRAGGABLE LIST ITEM WRAPPERS
+// These components call useReorderableDrag() and pass the drag function down
+// ============================================================================
+
+interface DraggableSeparatorProps {
+  item: ListItemSeparator;
+  isPublished: boolean;
+  isSelectionMode: boolean;
+  isSeparatorSelected: boolean;
+  isDragFixed: boolean;
+  bookChapterLabel: string;
+  onPress?: () => void;
+  onSelectForRecording?: () => void;
+}
+
+const DraggableSeparator = React.memo(function DraggableSeparator({
+  item,
+  isPublished,
+  isSelectionMode,
+  isSeparatorSelected,
+  isDragFixed,
+  bookChapterLabel,
+  onPress,
+  onSelectForRecording
+}: DraggableSeparatorProps) {
+  const drag = useReorderableDrag();
+
+  return (
+    <View>
+      <VerseSeparator
+        editable={!isPublished}
+        from={item.from}
+        to={item.to}
+        label={bookChapterLabel}
+        onPress={onPress}
+        isSelectedForRecording={!isPublished && isSeparatorSelected}
+        onSelectForRecording={onSelectForRecording}
+        onDrag={!isPublished ? drag : undefined}
+        isDragFixed={isDragFixed}
+      />
+      {!isPublished && !isSelectionMode && isSeparatorSelected && (
+        <RecordingPlaceIndicator />
+      )}
+    </View>
+  );
+});
+
+interface DraggableAssetItemProps {
+  asset: AssetQuestLink;
+  questId: string;
+  isPublished: boolean;
+  isPlaying: boolean;
+  isSelected: boolean;
+  isSelectionMode: boolean;
+  isAssetSelectedForRecording: boolean;
+  hasAvailableVerses: boolean;
+  showDragHandle: boolean;
+  isDragFixed: boolean;
+  onPlay: (assetId: string) => void;
+  onToggleSelect: (assetId: string) => void;
+  onEnterSelection?: (assetId: string) => void;
+  onSelectForRecording?: (assetId: string) => void;
+  onRename?: (assetId: string, currentName: string | null) => void;
+  onAddVersePress?: () => void;
+}
+
+const DraggableAssetItem = React.memo(function DraggableAssetItem({
+  asset,
+  questId,
+  isPublished,
+  isPlaying,
+  isSelected,
+  isSelectionMode,
+  isAssetSelectedForRecording,
+  hasAvailableVerses,
+  showDragHandle,
+  isDragFixed,
+  onPlay,
+  onToggleSelect,
+  onEnterSelection,
+  onSelectForRecording,
+  onRename,
+  onAddVersePress
+}: DraggableAssetItemProps) {
+  const drag = useReorderableDrag();
+
+  return (
+    <View className="relative">
+      {/* Add verse button - centered, only shown when asset is selected for recording */}
+      {!isPublished &&
+        !isSelectionMode &&
+        isAssetSelectedForRecording &&
+        hasAvailableVerses && (
+          <View className="flex flex-row items-center justify-center gap-1 py-2">
+            <Pressable
+              onPress={onAddVersePress}
+              className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 active:bg-primary/20"
+            >
+              <Icon as={BookmarkPlusIcon} size={14} className="text-primary" />
+              <Text className="text-xs font-medium text-primary">
+                Add Verse Label
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      <BibleAssetListItem
+        asset={asset}
+        questId={questId}
+        isPublished={isPublished}
+        isCurrentlyPlaying={isPlaying}
+        onPlay={onPlay}
+        showDragHandle={showDragHandle}
+        isDragFixed={isDragFixed}
+        onDrag={drag}
+        isSelectionMode={isSelectionMode}
+        isSelected={isSelected}
+        onToggleSelect={onToggleSelect}
+        onEnterSelection={onEnterSelection}
+        isSelectedForRecording={isAssetSelectedForRecording}
+        onSelectForRecording={onSelectForRecording}
+        onRename={onRename}
+      />
+      {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
+        <RecordingPlaceIndicator />
+      )}
+    </View>
+  );
+});
 
 // ============================================================================
 // HELPER FUNCTIONS (moved outside component for better performance)
@@ -313,7 +446,7 @@ export default function BibleAssetsView() {
     currentQuestData,
     currentBookId
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -421,8 +554,6 @@ export default function BibleAssetsView() {
   >((_assetId: string) => {
     // No-op: will be replaced by handlePlayAsset when defined
   });
-
-  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
   // Animation for refresh button
   const spinValue = useSharedValue(0);
@@ -607,7 +738,6 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-  const [showRecording, setShowRecording] = React.useState(false);
 
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
@@ -618,6 +748,7 @@ export default function BibleAssetsView() {
     orderIndex: number;
     metadata: AssetMetadata | null;
     verseName: string; // e.g., "1:5" or "1:5-7"
+    name?: string;
   } | null>(null);
 
   const { membership } = useUserPermissions(
@@ -848,7 +979,8 @@ export default function BibleAssetsView() {
         assetId,
         orderIndex,
         metadata,
-        verseName
+        verseName,
+        name: asset.name ?? undefined as string | undefined
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -1825,8 +1957,9 @@ export default function BibleAssetsView() {
   // When returning from BibleRecordingView, normalize order_index for recorded verses
   // Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
   // This function reads assets from DB and reassigns order_index with thousand scale
+  // NOTE: This function is now available in assetService.ts and is called by RecordingView
   // ============================================================================
-  const normalizeOrderIndexForVerses = React.useCallback(
+  const _normalizeOrderIndexForVerses = React.useCallback(
     async (verses: number[]) => {
       if (!currentQuestId || verses.length === 0) return;
 
@@ -2097,68 +2230,73 @@ export default function BibleAssetsView() {
     []
   );
 
+  // Stable callbacks for DraggableAssetItem (to prevent recreation on each render)
+  const handleAddVersePressRef = React.useRef<
+    ((assetId: string) => void) | undefined
+  >(undefined);
+  handleAddVersePressRef.current = (assetId: string) => {
+    const range = getRangeForAsset(assetId);
+    setAssetVerseSelectorState({
+      isOpen: true,
+      assetId,
+      from: range.from,
+      to: range.to
+    });
+  };
+
+  const handleEditSeparatorRef = React.useRef<
+    ((key: string, from?: number, to?: number) => void) | undefined
+  >(undefined);
+  handleEditSeparatorRef.current = (
+    key: string,
+    from?: number,
+    to?: number
+  ) => {
+    setEditSeparatorState({
+      isOpen: true,
+      separatorKey: key,
+      from,
+      to
+    });
+  };
+
+  // Render function for ReorderableList - uses the new draggable wrapper components
   const renderItem = React.useCallback(
-    ({
-      item,
-      isPublished,
-      index
-    }: {
-      item: ListItem;
-      isPublished: boolean;
-      index: number;
-    }) => {
+    ({ item, index }: { item: ListItem; index: number }) => {
       if (item.type === 'separator') {
-        // Check if this separator is selected for recording
         const isSeparatorSelected =
           selectedForRecording?.type === 'separator' &&
           selectedForRecording?.separatorKey === item.key;
 
         return (
-          <View>
-            <VerseSeparator
-              editable={!isPublished}
-              from={item.from}
-              to={item.to}
-              label={bookChapterLabelRef.current}
-              onPress={
-                !isPublished
-                  ? () => {
-                      setEditSeparatorState({
-                        isOpen: true,
-                        separatorKey: item.key,
-                        from: item.from,
-                        to: item.to
-                      });
-                    }
-                  : undefined
-              }
-              // Recording selection - clicking the separator text selects it for recording
-              isSelectedForRecording={!isPublished && isSeparatorSelected}
-              onSelectForRecording={
-                !isPublished
-                  ? () =>
-                      handleSelectSeparatorForRecording(
-                        item.key,
-                        item.from,
-                        item.to
-                      )
-                  : undefined
-              }
-              dragHandleComponent={!isPublished ? Sortable.Handle : undefined}
-              dragHandleProps={
-                !isPublished
-                  ? {
-                      mode: fixedItemsIndexesRef.current.includes(index)
-                        ? 'fixed-order'
-                        : 'draggable'
-                    }
-                  : undefined
-              }
-            />
-            {!isPublished && !isSelectionMode && isSeparatorSelected && (
-              <RecordingPlaceIndicator />
-            )}
-          </View>
+          <DraggableSeparator
+            item={item}
+            isPublished={isPublished}
+            isSelectionMode={isSelectionMode}
+            isSeparatorSelected={isSeparatorSelected}
+            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+            bookChapterLabel={bookChapterLabelRef.current}
+            onPress={
+              !isPublished
+                ? () =>
+                    handleEditSeparatorRef.current?.(
+                      item.key,
+                      item.from,
+                      item.to
+                    )
+                : undefined
+            }
+            onSelectForRecording={
+              !isPublished
+                ? () =>
+                    handleSelectSeparatorForRecording(
+                      item.key,
+                      item.from,
+                      item.to
+                    )
+                : undefined
+            }
+          />
         );
       }
 
@@ -2166,10 +2304,10 @@ export default function BibleAssetsView() {
       const asset = item.content;
       const isPlaying =
         (audioContext.isPlaying &&
-          (audioContext.currentAudioId === asset.id || // Individual play
+          (audioContext.currentAudioId === asset.id ||
             (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-              currentlyPlayingAssetId === asset.id))) || // Play all
-        currentlyPlayingAssetId === asset.id; // Visual highlight (preview mode)
+              currentlyPlayingAssetId === asset.id))) ||
+        currentlyPlayingAssetId === asset.id;
 
       const isSelected = selectedAssetIds.has(asset.id);
 
@@ -2178,7 +2316,6 @@ export default function BibleAssetsView() {
         selectedForRecording?.type === 'asset' &&
         selectedForRecording?.assetId === asset.id;
 
-      // Only calculate range if this asset is selected for recording (performance optimization)
       const assetRange = isAssetSelectedForRecording
         ? getRangeForAsset(asset.id)
         : null;
@@ -2187,72 +2324,38 @@ export default function BibleAssetsView() {
         : false;
 
       return (
-        <View className="relative">
-          {/* Add verse button - centered, only shown when asset is selected for recording */}
-          {!isPublished &&
-            !isSelectionMode &&
-            isAssetSelectedForRecording &&
-            hasAvailableVerses && (
-              <View className="flex flex-row items-center justify-center gap-1 py-2">
-                <Pressable
-                  onPress={() => {
-                    const range = getRangeForAsset(asset.id);
-                    setAssetVerseSelectorState({
-                      isOpen: true,
-                      assetId: asset.id,
-                      from: range.from,
-                      to: range.to
-                    });
-                  }}
-                  className="rounded-full bg-primary/80 p-1 shadow-sm active:bg-primary"
-                >
-                  <Icon
-                    as={BookmarkPlusIcon}
-                    size={12}
-                    className="text-primary-foreground"
-                  />
-                </Pressable>
-              </View>
-            )}
-          <BibleAssetListItem
-            key={asset.id}
-            asset={asset}
-            attachmentState={safeAttachmentStates.get(asset.id)}
-            questId={currentQuestId || ''}
-            isCurrentlyPlaying={isPlaying}
-            onUpdate={handleAssetUpdate}
-            onPlay={stableOnPlay}
-            isPublished={isPublished}
-            // Drag handle props (primitives instead of ReactNode)
-            showDragHandle={!isPublished && !isSelectionMode}
-            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
-            // Selection mode only works when NOT published
-            isSelectionMode={!isPublished && isSelectionMode}
-            // isSelected works for both published and unpublished (visual highlight)
-            isSelected={isSelected}
-            // onToggleSelect: single selection when published, multi-selection when not
-            onToggleSelect={handleToggleSelect}
-            onEnterSelection={!isPublished ? enterSelection : undefined}
-            // Recording insertion point selection
-            isSelectedForRecording={isAssetSelectedForRecording}
-            onSelectForRecording={
-              !isPublished ? handleSelectForRecording : undefined
-            }
-            onRename={!isPublished ? handleRenameAsset : undefined}
-          />
-          {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
-            <RecordingPlaceIndicator />
-          )}
-        </View>
+        <DraggableAssetItem
+          asset={asset}
+          questId={currentQuestId || ''}
+          isPublished={isPublished}
+          isPlaying={isPlaying}
+          isSelected={isSelected}
+          isSelectionMode={!isPublished && isSelectionMode}
+          isAssetSelectedForRecording={isAssetSelectedForRecording}
+          hasAvailableVerses={hasAvailableVerses}
+          showDragHandle={!isPublished && !isSelectionMode}
+          isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+          onPlay={stableOnPlay}
+          onToggleSelect={handleToggleSelect}
+          onEnterSelection={!isPublished ? enterSelection : undefined}
+          onSelectForRecording={
+            !isPublished ? handleSelectForRecording : undefined
+          }
+          onRename={!isPublished ? handleRenameAsset : undefined}
+          onAddVersePress={
+            isAssetSelectedForRecording && hasAvailableVerses
+              ? () => handleAddVersePressRef.current?.(asset.id)
+              : undefined
+          }
+        />
       );
     },
     [
+      isPublished,
       currentQuestId,
-      safeAttachmentStates,
       audioContext.isPlaying,
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
-      handleAssetUpdate,
       stableOnPlay,
       getRangeForAsset,
       isSelectionMode,
@@ -2868,9 +2971,38 @@ export default function BibleAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    // Now show recording
-    setShowRecording(true);
-  }, [audioContext]);
+    // Navigate to recording view
+    const recordingOrderIndex =
+      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
+    
+    navigate({
+      view: 'recording',
+      questId: currentQuestId,
+      projectId: currentProjectId,
+      recordingData: {
+        bookChapterLabel: bookChapterLabel,
+        bookChapterLabelFull: selectedQuest?.name,
+        initialOrderIndex: recordingOrderIndex,
+        verse: selectedForRecording?.metadata?.verse,
+        nextVerse: nextVerse,
+        limitVerse: limitVerse,
+        label: selectedForRecording?.verseName
+      }
+    });
+  }, [
+    audioContext,
+    navigate,
+    currentQuestId,
+    currentProjectId,
+    bookChapterLabel,
+    selectedQuest?.name,
+    selectedForRecording?.orderIndex,
+    selectedForRecording?.metadata?.verse,
+    selectedForRecording?.verseName,
+    lastUnassignedOrderIndex,
+    nextVerse,
+    limitVerse
+  ]);
 
   // Cleanup effect: Stop audio when component unmounts
   React.useEffect(() => {
@@ -3212,10 +3344,14 @@ export default function BibleAssetsView() {
   // ============================================================================
   const UNASSIGNED_VERSE_BASE = 999; // High value so unassigned assets appear at the end
 
-  const handleSorting = React.useCallback(
-    async (params: { indexToKey: string[]; data: ListItem[] }) => {
-      // Build a map of key -> item for quick lookup
-      const keyToItem = new Map(params.data.map((item) => [item.key, item]));
+  // Store listItems in a ref so handleReorder can access the current value
+  const listItemsRef = React.useRef(listItems);
+  listItemsRef.current = listItems;
+
+  const handleReorder = React.useCallback(
+    async ({ from, to }: ReorderableListReorderEvent) => {
+      // Use reorderItems to get the new order
+      const reorderedItems = reorderItems(listItemsRef.current, from, to);
 
       // Iterate through the new order and update asset metadata + order_index
       // based on the preceding separator
@@ -3223,10 +3359,7 @@ export default function BibleAssetsView() {
       let sequentialInGroup = 1; // Tracks position within current verse group (starts at 1)
       const updates: AssetUpdatePayload[] = [];
 
-      for (const key of params.indexToKey) {
-        const item = keyToItem.get(key);
-        if (!item) continue;
-
+      for (const item of reorderedItems) {
         if (item.type === 'separator') {
           currentSeparator = item;
           sequentialInGroup = 1; // Reset counter for new group (starts at 1)
@@ -3296,42 +3429,6 @@ export default function BibleAssetsView() {
     );
   }
 
-  // Recording mode UI
-  if (showRecording) {
-    // Calculate initialOrderIndex:
-    // - If an asset is selected, use its order_index
-    // - Otherwise, use the last unassigned order_index (to continue from where we left off)
-    // - If no unassigned assets exist, undefined will trigger default in BibleRecordingView
-    const recordingOrderIndex =
-      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <BibleRecordingView
-        onBack={async (recordedVerses) => {
-          setShowRecording(false);
-          setSelectedForRecording(null); // Clear selection when exiting
-
-          // Normalize order_index for recorded verses before refetching
-          // This converts unit-scale (7001001) to thousand-scale (7001000)
-          if (recordedVerses && recordedVerses.length > 0) {
-            await normalizeOrderIndexForVerses(recordedVerses);
-          }
-
-          // Refetch to show newly recorded assets with normalized order_index
-          void refetch();
-        }}
-        initialAssets={assets}
-        label={selectedForRecording?.verseName}
-        initialOrderIndex={recordingOrderIndex}
-        verse={selectedForRecording?.metadata?.verse}
-        bookChapterLabel={bookChapterLabel}
-        bookChapterLabelFull={selectedQuest?.name}
-        nextVerse={nextVerse}
-        limitVerse={limitVerse}
-      />
-    );
-  }
 
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
@@ -3593,50 +3690,39 @@ export default function BibleAssetsView() {
           <AssetListSkeleton />
         )
       ) : (
-        <Animated.ScrollView
-          // contentContainerStyle={styles.contentContainer}
-          ref={scrollableRef}
+        <ReorderableList
+          data={listItems}
+          keyExtractor={(item) => item.key}
+          renderItem={renderItem}
+          onReorder={handleReorder}
+          dragEnabled={!isSelectionMode && !isPublished}
+          autoscrollThreshold={0.15}
+          autoscrollSpeedScale={1.5}
           onScroll={scrollHandler}
-          scrollEventThrottle={16}
-        >
-          <Sortable.Grid
-            dragActivationDelay={100}
-            autoScrollEnabled={true}
-            columnGap={1}
-            columns={1}
-            data={listItems}
-            renderItem={({ item, index }) =>
-              renderItem({ item, isPublished, index })
-            }
-            rowGap={3}
-            scrollableRef={scrollableRef} // required for auto scroll
-            overDrag="vertical"
-            onDragEnd={(params) => void handleSorting(params)}
-            customHandle
-            sortEnabled={!isSelectionMode} // Disable sorting in selection mode
-            // autoScrollActivationOffset={75}
-            // autoScrollSpeed={1}
-            // autoScrollEnabled={true}
-          />
-          {/* Loading indicator for infinite scroll */}
-          {isFetchingNextPage && (
-            <View className="items-center justify-center py-4">
-              <ActivityIndicator
-                size="small"
-                color={getThemeColor('primary')}
-              />
-              <Text className="mt-2 text-sm text-muted-foreground">
-                {t('loading')}...
-              </Text>
-            </View>
-          )}
-          {/* End of list indicator */}
-          {!hasNextPage && assets.length > 0 && (
-            <View className="items-center justify-center py-4">
-              <Text className="text-sm text-muted-foreground">•••</Text>
-            </View>
-          )}
-        </Animated.ScrollView>
+          ItemSeparatorComponent={() => <View className="h-1" />}
+          ListFooterComponent={
+            <>
+              {/* Loading indicator for infinite scroll */}
+              {isFetchingNextPage && (
+                <View className="items-center justify-center py-4">
+                  <ActivityIndicator
+                    size="small"
+                    color={getThemeColor('primary')}
+                  />
+                  <Text className="mt-2 text-sm text-muted-foreground">
+                    {t('loading')}...
+                  </Text>
+                </View>
+              )}
+              {/* End of list indicator */}
+              {!hasNextPage && assets.length > 0 && (
+                <View className="items-center justify-center py-4">
+                  <Text className="text-sm text-muted-foreground">•••</Text>
+                </View>
+              )}
+            </>
+          }
+        />
       )}
 
       {/* Hide SpeedDial in selection mode */}
@@ -3729,8 +3815,8 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                    : t('noLabelSelected')}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
                   {/* {selectedForRecording?.verseName
                   ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                   : t('doRecord')} */}
