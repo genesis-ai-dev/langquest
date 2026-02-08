@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { useThemeColor, useThemeToken } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
 import { Sparkles } from 'lucide-react-native';
@@ -55,6 +57,10 @@ export function TrimSegmentModal({
   const soundRef = React.useRef<Audio.Sound | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const hasUserInteractedRef = React.useRef(false);
+  const trimPlayPreview = useLocalStore((state) => state.trimPlayPreview);
+  const setTrimPlayPreview = useLocalStore(
+    (state) => state.setTrimPlayPreview
+  );
 
   const clipDurations = React.useMemo(
     () => audioDurations ?? [],
@@ -323,9 +329,25 @@ export function TrimSegmentModal({
 
   // Trigger playback when trim points change (debounced) - but only when not dragging and user has interacted
   React.useEffect(() => {
-    if (!isOpen || !hasAudioSequence || isDragging || !hasUserInteractedRef.current) return;
+    if (
+      !isOpen ||
+      !hasAudioSequence ||
+      !trimPlayPreview ||
+      isDragging ||
+      !hasUserInteractedRef.current
+    ) {
+      return;
+    }
     debouncedPlaySegment();
-  }, [isOpen, hasAudioSequence, selectionStart, selectionEnd, isDragging, debouncedPlaySegment]);
+  }, [
+    isOpen,
+    hasAudioSequence,
+    trimPlayPreview,
+    selectionStart,
+    selectionEnd,
+    isDragging,
+    debouncedPlaySegment
+  ]);
 
   // Cleanup: stop and unload sound when modal closes or component unmounts
   React.useEffect(() => {
@@ -580,7 +602,9 @@ export function TrimSegmentModal({
           {segmentName ? (
             <Text className="mt-2 text-sm text-muted-foreground">
               {segmentName}
-              {audioUris && audioUris.length > 1 ? ' (merged segments)' : ''}
+              {audioUris && audioUris.length > 1
+                ? ` (${t('mergedAudio')})`
+                : ''}
             </Text>
           ) : null}
 
@@ -716,20 +740,34 @@ export function TrimSegmentModal({
 
           {/* Auto-trim button */}
           {hasWaveform && totalDuration > 0 && (
-            <View className="mt-4">
+            <View className="mt-4 gap-3">
+              <Pressable
+                className="flex-row items-center justify-center gap-2"
+                onPress={() => setTrimPlayPreview(!trimPlayPreview)}
+              >
+                <Checkbox
+                  checked={trimPlayPreview}
+                  onCheckedChange={(checked) =>
+                    setTrimPlayPreview(Boolean(checked))
+                  }
+                />
+                <Text className="text-muted-foreground text-sm">
+                  {t('playPreview')}
+                </Text>
+              </Pressable>
               <Button
                 variant="outline"
                 onPress={handleAutoTrim}
-                className="w-full"
+                className="w-full min-h-[48px] items-center justify-center"
               >
-                <View className="flex-row items-center gap-2">
+                <View className="flex-row flex-wrap items-center justify-center gap-2">
                   <Icon
                     as={Sparkles}
                     size={18}
                     className="text-primary"
                   />
-                  <Text className="text-primary">
-                    Auto-Trim
+                  <Text className="text-primary text-sm flex-wrap">
+                    {t('autoTrim')}
                   </Text>
                 </View>
               </Button>

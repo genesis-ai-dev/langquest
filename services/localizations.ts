@@ -1587,6 +1587,30 @@ export const localizations = {
     indonesian: 'Pangkas segmen',
     nepali: 'खण्ड ट्रिम गर्नुहोस्'
   },
+  autoTrim: {
+    english: 'Auto-Trim',
+    spanish: 'Recorte automático',
+    brazilian_portuguese: 'Corte automático',
+    tok_pisin: 'Auto-trim',
+    indonesian: 'Pangkas otomatis',
+    nepali: 'स्वचालित ट्रिम'
+  },
+  mergedAudio: {
+    english: 'merged audio',
+    spanish: 'audio combinado',
+    brazilian_portuguese: 'áudio mesclado',
+    tok_pisin: 'joinim audio',
+    indonesian: 'audio gabungan',
+    nepali: 'मर्ज गरिएको अडियो'
+  },
+  playPreview: {
+    english: 'Play preview',
+    spanish: 'Reproducir vista previa',
+    brazilian_portuguese: 'Reproduzir prévia',
+    tok_pisin: 'Pilaim preview',
+    indonesian: 'Putar pratinjau',
+    nepali: 'पूर्वावलोकन बजाउनुहोस्'
+  },
   failedToMergeAssets: {
     english: 'Failed to merge assets. Please try again.',
     spanish: 'Error al combinar los recursos. Por favor, inténtalo de nuevo.',
