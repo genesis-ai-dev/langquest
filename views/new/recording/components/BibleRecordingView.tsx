@@ -2268,12 +2268,14 @@ const BibleRecordingView = ({
     handleCloseTrimModal,
     trimTargetAsset,
     trimWaveformData,
-    trimAudioUri,
+    trimAudioUris,
+    trimAudioDurations,
     canTrimSelected,
     setWaveformData: setTrimWaveformData
   } = useTrimModal({
     selectedAssetIds,
-    assets
+    assets,
+    getAssetAudioUris
   });
 
   // ============================================================================
@@ -2801,7 +2803,8 @@ const BibleRecordingView = ({
         isOpen={isTrimModalOpen}
         segmentName={trimTargetAsset?.name ?? null}
         waveformData={trimWaveformData}
-        audioUri={trimAudioUri}
+        audioUris={trimAudioUris}
+        audioDurations={trimAudioDurations}
         onClose={handleCloseTrimModal}
       />
 

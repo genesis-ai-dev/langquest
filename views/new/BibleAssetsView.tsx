@@ -3186,7 +3186,8 @@ export default function BibleAssetsView() {
     handleCloseTrimModal,
     trimTargetAsset,
     trimWaveformData,
-    trimAudioUri,
+    trimAudioUris,
+    trimAudioDurations,
     canTrimSelected
   } = useTrimModal({
     selectedAssetIds,
@@ -3962,7 +3963,8 @@ export default function BibleAssetsView() {
         isOpen={isTrimModalOpen}
         segmentName={trimTargetAsset?.name ?? null}
         waveformData={trimWaveformData}
-        audioUri={trimAudioUri}
+        audioUris={trimAudioUris}
+        audioDurations={trimAudioDurations}
         onClose={handleCloseTrimModal}
       />
 

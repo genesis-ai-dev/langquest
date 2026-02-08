@@ -62,8 +62,8 @@ class MicrophoneEnergyModule : Module() {
     AsyncFunction("disableVAD") { promise: Promise -> disableVAD(); promise.resolve(null) }
     AsyncFunction("startSegment") { options: Map<String, Any?>?, promise: Promise -> startSegment(options, promise) }
     AsyncFunction("stopSegment") { promise: Promise -> stopSegment(promise) }
-    AsyncFunction("extractWaveform") { uri: String, barCount: Int, promise: Promise ->
-      extractWaveform(uri, barCount, promise)
+    AsyncFunction("extractWaveform") { uri: String, barCount: Int, normalize: Boolean?, promise: Promise ->
+      extractWaveform(uri, barCount, normalize ?: true, promise)
     }
   }
 
@@ -316,10 +316,10 @@ class MicrophoneEnergyModule : Module() {
     }
   }
 
-  private fun extractWaveform(uri: String, barCount: Int, promise: Promise) {
+  private fun extractWaveform(uri: String, barCount: Int, normalize: Boolean, promise: Promise) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
-        val amplitudes = extractWaveformNative(uri, barCount)
+        val amplitudes = extractWaveformNative(uri, barCount, normalize)
         withContext(Dispatchers.Main) { promise.resolve(amplitudes.toList()) }
       } catch (e: Exception) {
         withContext(Dispatchers.Main) {
@@ -329,7 +329,7 @@ class MicrophoneEnergyModule : Module() {
     }
   }
 
-  private fun extractWaveformNative(uri: String, barCount: Int): DoubleArray {
+  private fun extractWaveformNative(uri: String, barCount: Int, normalize: Boolean): DoubleArray {
     val extractor = MediaExtractor()
     val path = if (uri.startsWith("file://")) uri.removePrefix("file://") else uri
     extractor.setDataSource(path)
@@ -482,9 +482,11 @@ class MicrophoneEnergyModule : Module() {
       }
     }
 
-    val maxAmp = amplitudes.maxOrNull() ?: 0.0
-    if (maxAmp > 0) {
-      for (i in amplitudes.indices) amplitudes[i] = amplitudes[i] / maxAmp
+    if (normalize) {
+      val maxAmp = amplitudes.maxOrNull() ?: 0.0
+      if (maxAmp > 0) {
+        for (i in amplitudes.indices) amplitudes[i] = amplitudes[i] / maxAmp
+      }
     }
 
     return amplitudes

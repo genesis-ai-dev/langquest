@@ -63,8 +63,8 @@ public class MicrophoneEnergyModule: Module {
         AsyncFunction("disableVAD") { () -> Void in self.disableVAD() }
         AsyncFunction("startSegment") { (options: [String: Any?]?) -> Void in try await self.startSegment(options: options) }
         AsyncFunction("stopSegment") { () -> String? in return try await self.stopSegment() }
-        AsyncFunction("extractWaveform") { (uri: String, barCount: Int) async throws -> [Double] in
-            return try await self.extractWaveform(uri: uri, barCount: barCount)
+        AsyncFunction("extractWaveform") { (uri: String, barCount: Int, normalize: Bool?) async throws -> [Double] in
+            return try await self.extractWaveform(uri: uri, barCount: barCount, normalize: normalize ?? true)
         }
     }
     
@@ -419,7 +419,7 @@ public class MicrophoneEnergyModule: Module {
         return uri
     }
 
-    private func extractWaveform(uri: String, barCount: Int) async throws -> [Double] {
+    private func extractWaveform(uri: String, barCount: Int, normalize: Bool) async throws -> [Double] {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
@@ -479,7 +479,7 @@ public class MicrophoneEnergyModule: Module {
                         amplitudes[bar] = sqrt(sumSquares / Double(frameCount))
                     }
 
-                    if let maxAmplitude = amplitudes.max(), maxAmplitude > 0 {
+                    if normalize, let maxAmplitude = amplitudes.max(), maxAmplitude > 0 {
                         for i in 0..<amplitudes.count {
                             amplitudes[i] = amplitudes[i] / maxAmplitude
                         }

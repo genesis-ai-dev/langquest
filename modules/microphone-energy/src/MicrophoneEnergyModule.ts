@@ -39,7 +39,11 @@ declare class MicrophoneEnergyModule extends NativeModule<MicrophoneEnergyModule
   disableVAD(): Promise<void>;
   startSegment(options?: { prerollMs?: number }): Promise<void>;
   stopSegment(): Promise<string | null>;
-  extractWaveform(uri: string, barCount: number): Promise<number[]>;
+  extractWaveform(
+    uri: string,
+    barCount: number,
+    normalize?: boolean
+  ): Promise<number[]>;
 }
 
 // This call loads the native module object from the JSI.
