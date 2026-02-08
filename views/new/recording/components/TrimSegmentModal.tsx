@@ -1,10 +1,12 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useThemeColor, useThemeToken } from '@/utils/styleUtils';
 import { Audio } from 'expo-av';
+import { Sparkles } from 'lucide-react-native';
 import React from 'react';
 import {
     Modal,
@@ -434,6 +436,56 @@ export function TrimSegmentModal({
     ]
   );
 
+  // Auto-trim: detect silence thresholds and set trim points automatically
+  const handleAutoTrim = React.useCallback(() => {
+    if (!resampledWaveform.length || !audioDuration) return;
+
+    const SILENCE_THRESHOLD = 0.12; // Reasonable threshold for silence (12% of max amplitude)
+    const BUFFER_MS = 50; // Buffer before/after detected audio (50ms)
+    const bufferFraction = BUFFER_MS / audioDuration;
+
+    // Find first non-silent bar from left
+    let leftBarIndex = 0;
+    for (let i = 0; i < resampledWaveform.length; i++) {
+      if ((resampledWaveform[i] ?? 0) > SILENCE_THRESHOLD) {
+        leftBarIndex = i;
+        break;
+      }
+    }
+
+    // Find last non-silent bar from right
+    let rightBarIndex = resampledWaveform.length - 1;
+    for (let i = resampledWaveform.length - 1; i >= 0; i--) {
+      if ((resampledWaveform[i] ?? 0) > SILENCE_THRESHOLD) {
+        rightBarIndex = i;
+        break;
+      }
+    }
+
+    // Convert bar indices to fractions (0-1)
+    const leftFraction = leftBarIndex / (resampledWaveform.length - 1);
+    const rightFraction = rightBarIndex / (resampledWaveform.length - 1);
+
+    // Apply buffer (subtract from left, add to right)
+    const newStart = Math.max(0, leftFraction - bufferFraction);
+    const newEnd = Math.min(1, rightFraction + bufferFraction);
+
+    // Ensure minimum selection width
+    if (newEnd - newStart < minSelectionFraction) {
+      // If selection is too small, center it
+      const center = (newStart + newEnd) / 2;
+      const halfWidth = minSelectionFraction / 2;
+      setSelectionStart(Math.max(0, center - halfWidth));
+      setSelectionEnd(Math.min(1, center + halfWidth));
+    } else {
+      setSelectionStart(newStart);
+      setSelectionEnd(newEnd);
+    }
+
+    // Mark that user has interacted (so playback will trigger)
+    hasUserInteractedRef.current = true;
+  }, [resampledWaveform, audioDuration, minSelectionFraction]);
+
   return (
     <Modal
       visible={isOpen}
@@ -570,6 +622,28 @@ export function TrimSegmentModal({
               )}
             </View>
           </View>
+
+          {/* Auto-trim button */}
+          {hasWaveform && audioDuration && (
+            <View className="mt-4">
+              <Button
+                variant="outline"
+                onPress={handleAutoTrim}
+                className="w-full"
+              >
+                <View className="flex-row items-center gap-2">
+                  <Icon
+                    as={Sparkles}
+                    size={18}
+                    className="text-primary"
+                  />
+                  <Text className="text-primary">
+                    Auto-Trim
+                  </Text>
+                </View>
+              </Button>
+            </View>
+          )}
 
           <View className="mt-6">
             <View className="flex-row gap-3">

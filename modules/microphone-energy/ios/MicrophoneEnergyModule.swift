@@ -63,6 +63,9 @@ public class MicrophoneEnergyModule: Module {
         AsyncFunction("disableVAD") { () -> Void in self.disableVAD() }
         AsyncFunction("startSegment") { (options: [String: Any?]?) -> Void in try await self.startSegment(options: options) }
         AsyncFunction("stopSegment") { () -> String? in return try await self.stopSegment() }
+        AsyncFunction("extractWaveform") { (uri: String, barCount: Int) async throws -> [Double] in
+            return try await self.extractWaveform(uri: uri, barCount: barCount)
+        }
     }
     
     private func startEnergyDetection() async throws {
@@ -414,6 +417,80 @@ public class MicrophoneEnergyModule: Module {
         segmentFile = nil
         segmentBuffers.removeAll()
         return uri
+    }
+
+    private func extractWaveform(uri: String, barCount: Int) async throws -> [Double] {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let normalizedUri = uri.hasPrefix("file://")
+                        ? String(uri.dropFirst("file://".count))
+                        : uri
+                    let fileURL = URL(fileURLWithPath: normalizedUri)
+                    let audioFile = try AVAudioFile(forReading: fileURL)
+
+                    let processingFormat = audioFile.processingFormat
+                    let channelCount = Int(processingFormat.channelCount)
+                    let frameCount = AVAudioFrameCount(audioFile.length)
+
+                    if frameCount == 0 || barCount <= 0 {
+                        continuation.resume(returning: Array(repeating: 0, count: max(0, barCount)))
+                        return
+                    }
+
+                    guard let floatFormat = AVAudioFormat(
+                        commonFormat: .pcmFormatFloat32,
+                        sampleRate: processingFormat.sampleRate,
+                        channels: processingFormat.channelCount,
+                        interleaved: false
+                    ) else {
+                        throw NSError(domain: "MicrophoneEnergy", code: 10, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio format"])
+                    }
+
+                    guard let buffer = AVAudioPCMBuffer(pcmFormat: floatFormat, frameCapacity: frameCount) else {
+                        throw NSError(domain: "MicrophoneEnergy", code: 11, userInfo: [NSLocalizedDescriptionKey: "Failed to allocate audio buffer"])
+                    }
+
+                    try audioFile.read(into: buffer)
+
+                    guard let channelData = buffer.floatChannelData else {
+                        throw NSError(domain: "MicrophoneEnergy", code: 12, userInfo: [NSLocalizedDescriptionKey: "No audio data in file"])
+                    }
+
+                    let totalFrames = Int(buffer.frameLength)
+                    var amplitudes = Array(repeating: 0.0, count: barCount)
+
+                    for bar in 0..<barCount {
+                        let startFrame = (bar * totalFrames) / barCount
+                        let endFrame = ((bar + 1) * totalFrames) / barCount
+                        let frameCount = endFrame - startFrame
+                        if frameCount <= 0 { continue }
+
+                        var sumSquares = 0.0
+                        for frame in startFrame..<endFrame {
+                            var sample = 0.0
+                            for ch in 0..<channelCount {
+                                sample += Double(channelData[ch][frame])
+                            }
+                            sample /= Double(max(1, channelCount))
+                            sumSquares += sample * sample
+                        }
+
+                        amplitudes[bar] = sqrt(sumSquares / Double(frameCount))
+                    }
+
+                    if let maxAmplitude = amplitudes.max(), maxAmplitude > 0 {
+                        for i in 0..<amplitudes.count {
+                            amplitudes[i] = amplitudes[i] / maxAmplitude
+                        }
+                    }
+
+                    continuation.resume(returning: amplitudes)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
     
     private func writeWAVHeader(fileHandle: FileHandle, dataSize: Int64, sampleRate: Int, channels: Int, bitsPerSample: Int) throws {

@@ -10,6 +10,7 @@
  */
 
 import { extractWaveformFromFile } from '@/utils/audioWaveform';
+import { Audio } from 'expo-av';
 import React from 'react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -183,20 +184,39 @@ export function useTrimModal({
         if (!firstUri) return;
 
         console.log('🎵 Extracting waveform from:', firstUri.slice(-40));
-        const waveform = await extractWaveformFromFile(firstUri, 128);
-        console.log(
-          `🎵 Extracted ${waveform.length} bars, peak=${Math.max(...waveform).toFixed(3)}`
-        );
+        
+        try {
+          // Extract waveform from WAV file
+          const waveform = await extractWaveformFromFile(firstUri, 128);
+          console.log(
+            `🎵 Extracted ${waveform.length} bars, peak=${Math.max(...waveform).toFixed(3)}`
+          );
 
-        setInternalWaveformData((prev) => {
-          const next = new Map(prev);
-          next.set(firstSelectedId, waveform);
-          return next;
-        });
+          setInternalWaveformData((prev) => {
+            const next = new Map(prev);
+            next.set(firstSelectedId, waveform);
+            return next;
+          });
 
-        setTrimTargetAssetId(firstSelectedId);
-        setTrimAudioUri(firstUri);
-        setIsTrimModalOpen(true);
+          setTrimTargetAssetId(firstSelectedId);
+          setTrimAudioUri(firstUri);
+          setIsTrimModalOpen(true);
+        } catch (error) {
+          // If WAV parsing fails (non-WAV file, cloud URL, etc.), show error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error('⚠️ Failed to extract waveform:', errorMessage);
+          
+          // Check if it's a format issue
+          if (errorMessage.includes('RIFF header') || errorMessage.includes('WAV file')) {
+            console.warn(
+              '⚠️ Audio file is not in WAV format. Trimming requires WAV files with waveform data.'
+            );
+            // Could show user-facing error here if needed
+          }
+          
+          // Don't open modal if we can't get waveform data
+          // User will need to convert to WAV or use a file that has waveform data from recording
+        }
       } catch (error) {
         console.error('Failed to load audio for trimming:', error);
       }
