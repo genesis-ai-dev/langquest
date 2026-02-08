@@ -52,6 +52,7 @@ export function TrimSegmentModal({
   const selectionEndRef = React.useRef(selectionEnd);
   const leftDragStartRef = React.useRef(selectionStart);
   const rightDragStartRef = React.useRef(selectionEnd);
+  const activeHandleRef = React.useRef<'start' | 'end'>('start');
 
   // Audio playback state
   const soundRef = React.useRef<Audio.Sound | null>(null);
@@ -391,6 +392,9 @@ export function TrimSegmentModal({
   const [rightPanHandlers, setRightPanHandlers] = React.useState<
     ReturnType<typeof PanResponder.create>['panHandlers'] | undefined
   >(undefined);
+  const [waveformPanHandlers, setWaveformPanHandlers] = React.useState<
+    ReturnType<typeof PanResponder.create>['panHandlers'] | undefined
+  >(undefined);
 
   React.useEffect(() => {
     const leftResponder = PanResponder.create({
@@ -484,46 +488,94 @@ export function TrimSegmentModal({
     return positions;
   }, [clipDurations, hasAudioSequence, totalDuration, waveformWidth]);
 
-  const handleWaveformTap = React.useCallback(
-    (locationX: number) => {
-      if (waveformWidth <= 0) return;
-      hasUserInteractedRef.current = true; // Mark that user has interacted
-      const clampedX = clamp(locationX, 0, waveformWidth);
-      const fraction = clampedX / waveformWidth;
-      const distanceToStart = Math.abs(fraction - selectionStart);
-      const distanceToEnd = Math.abs(fraction - selectionEnd);
+  React.useEffect(() => {
+    const responder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event) => {
+        if (waveformWidth <= 0) return;
+        setIsDragging(true);
+        hasUserInteractedRef.current = true;
+        if (soundRef.current) {
+          void soundRef.current.stopAsync().catch(() => {
+            // Ignore errors
+          });
+        }
 
-      if (distanceToStart <= distanceToEnd) {
-        const nextStart = clamp(
-          fraction,
-          trimBounds.minStartFraction,
-          Math.min(
-            trimBounds.maxStartFraction,
-            selectionEnd - minSelectionFraction
-          )
+        const locationX = event.nativeEvent.locationX;
+        const clampedX = clamp(locationX, 0, waveformWidth);
+        const fraction = clampedX / waveformWidth;
+        const distanceToStart = Math.abs(
+          fraction - selectionStartRef.current
         );
-        setSelectionStart(nextStart);
-      } else {
-        const nextEnd = clamp(
-          fraction,
-          Math.max(
-            trimBounds.minEndFraction,
-            selectionStart + minSelectionFraction
-          ),
-          trimBounds.maxEndFraction
+        const distanceToEnd = Math.abs(
+          fraction - selectionEndRef.current
         );
-        setSelectionEnd(nextEnd);
+
+        if (distanceToStart <= distanceToEnd) {
+          const nextStart = clamp(
+            fraction,
+            trimBounds.minStartFraction,
+            Math.min(
+              trimBounds.maxStartFraction,
+              selectionEndRef.current - minSelectionFraction
+            )
+          );
+          activeHandleRef.current = 'start';
+          setSelectionStart(nextStart);
+          selectionStartRef.current = nextStart;
+          leftDragStartRef.current = nextStart;
+        } else {
+          const nextEnd = clamp(
+            fraction,
+            Math.max(
+              trimBounds.minEndFraction,
+              selectionStartRef.current + minSelectionFraction
+            ),
+            trimBounds.maxEndFraction
+          );
+          activeHandleRef.current = 'end';
+          setSelectionEnd(nextEnd);
+          selectionEndRef.current = nextEnd;
+          rightDragStartRef.current = nextEnd;
+        }
+      },
+      onPanResponderMove: (_, gesture) => {
+        if (waveformWidth <= 0) return;
+        const delta = gesture.dx / waveformWidth;
+        if (activeHandleRef.current === 'start') {
+          const nextStart = clamp(
+            leftDragStartRef.current + delta,
+            trimBounds.minStartFraction,
+            Math.min(
+              trimBounds.maxStartFraction,
+              selectionEndRef.current - minSelectionFraction
+            )
+          );
+          setSelectionStart(nextStart);
+          selectionStartRef.current = nextStart;
+        } else {
+          const nextEnd = clamp(
+            rightDragStartRef.current + delta,
+            Math.max(
+              trimBounds.minEndFraction,
+              selectionStartRef.current + minSelectionFraction
+            ),
+            trimBounds.maxEndFraction
+          );
+          setSelectionEnd(nextEnd);
+          selectionEndRef.current = nextEnd;
+        }
+      },
+      onPanResponderRelease: () => {
+        setIsDragging(false);
+      },
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
       }
-    },
-    [
-      clamp,
-      minSelectionFraction,
-      selectionEnd,
-      selectionStart,
-      trimBounds,
-      waveformWidth
-    ]
-  );
+    });
+    setWaveformPanHandlers(responder.panHandlers);
+  }, [clamp, minSelectionFraction, trimBounds, waveformWidth]);
 
   // Auto-trim: detect silence thresholds and set trim points automatically
   const handleAutoTrim = React.useCallback(() => {
@@ -695,7 +747,7 @@ export function TrimSegmentModal({
                 />
               ))}
 
-              <Pressable
+              <View
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -704,9 +756,7 @@ export function TrimSegmentModal({
                   bottom: 0,
                   zIndex: 1
                 }}
-                onPressIn={(event) =>
-                  handleWaveformTap(event.nativeEvent.locationX)
-                }
+                {...waveformPanHandlers}
               />
 
               <View
