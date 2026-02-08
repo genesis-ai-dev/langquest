@@ -2715,7 +2715,7 @@ const RecordingView = () => {
     [sessionItems, insertionIndex, isSelectionMode, stableToggleSelect]
   );
 
-  const handleListLongPress = React.useCallback(
+  const _handleListLongPress = React.useCallback(
     (index: number) => {
       // Enter batch selection mode when long pressing an asset
       const item = sessionItems[index];
@@ -2726,7 +2726,7 @@ const RecordingView = () => {
     [sessionItems, stableEnterSelection]
   );
 
-  const canListItemLongPress = React.useCallback(
+  const _canListItemLongPress = React.useCallback(
     (item: ListItem) => isAsset(item),
     []
   );
@@ -2779,6 +2779,7 @@ const RecordingView = () => {
     () => (
     <>
       {
+        !isReplacing &&
         (sessionItems.length === 0 || insertionIndex >= sessionItems.length) && (
           <View className="px-2 mt-0.5">
             <RecordAssetCardSkeleton />
@@ -2815,15 +2816,16 @@ const RecordingView = () => {
       </View>
     </>
     ),
-    [addButtonComponent, insertionIndex, isReplacing]
+    [addButtonComponent, insertionIndex, isReplacing, sessionItems.length]
   );
 
   // Calculate dynamic height for each item based on type and highlight state
   const getItemHeight = React.useCallback(
-    (item: ListItem, index: number, _isSelected: boolean) => {
+    (item: unknown, index: number, _isSelected: boolean) => {
+      const typedItem = item as ListItem;
       const isHighlighted = insertionIndex === index;
       
-      if (isPill(item)) {
+      if (isPill(typedItem)) {
         // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
         return isHighlighted && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
       }
@@ -2928,6 +2930,9 @@ const RecordingView = () => {
             value={insertionIndex}
             onChange={handleListIndexChange}
             rowHeight={ROW_HEIGHT}
+            getBoundaryHeight={(_index, isSelected) =>
+              isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT
+            }
             getItemHeight={getItemHeight}
             className="h-full flex-1"
             bottomInset={footerHeight}
