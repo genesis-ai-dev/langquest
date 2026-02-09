@@ -231,6 +231,7 @@ interface DraggableAssetItemProps {
   onSelectForRecording?: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
   onAddVersePress?: () => void;
+  onQuickAddVersePress?: () => void;
 }
 
 const DraggableAssetItem = React.memo(function DraggableAssetItem({
@@ -249,7 +250,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   onEnterSelection,
   onSelectForRecording,
   onRename,
-  onAddVersePress
+  onAddVersePress,
+  onQuickAddVersePress
 }: DraggableAssetItemProps) {
   const drag = useReorderableDrag();
 
@@ -262,7 +264,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         hasAvailableVerses && (
           <View className="flex flex-row items-center justify-center gap-1 py-2">
             <Pressable
-              onPress={onAddVersePress}
+              onPress={onQuickAddVersePress}
+              onLongPress={onAddVersePress}
               className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 active:bg-primary/20"
             >
               <Icon as={BookmarkPlusIcon} size={14} className="text-primary" />
@@ -2113,6 +2116,63 @@ export default function BibleAssetsView() {
     [listItems, verseCount]
   );
 
+  const getNextAvailableVerse = React.useCallback(
+    (assetId: string): number | null => {
+      const assetIndex = listItems.findIndex(
+        (item) => item.type === 'asset' && item.content.id === assetId
+      );
+
+      if (assetIndex === -1) {
+        return null;
+      }
+
+      // Find previous separator (looking backward)
+      let prevTo: number | undefined;
+      for (let i = assetIndex - 1; i >= 0; i--) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.to !== undefined) {
+          prevTo = item.to;
+          break;
+        }
+      }
+
+      // Find next separator (looking forward)
+      let nextFrom: number | undefined;
+      for (let i = assetIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (item && item.type === 'separator' && item.from !== undefined) {
+          nextFrom = item.from;
+          break;
+        }
+      }
+
+      // Calculate range - only between prevTo and nextFrom
+      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
+
+      // Ensure valid range and check if there's actually space available
+      const finalFrom = Math.max(1, rangeFrom);
+      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+
+      // Check if there's actually space between separators
+      // If prevTo + 1 > nextFrom - 1, there's no space
+      if (
+        prevTo !== undefined &&
+        nextFrom !== undefined &&
+        prevTo + 1 > nextFrom - 1
+      ) {
+        return null;
+      }
+
+      if (finalFrom > finalTo || finalFrom > (verseCount || 1)) {
+        return null;
+      }
+
+      return finalFrom;
+    },
+    [listItems, verseCount]
+  );
+
   // Get available verses for editing a separator (between previous and next separators)
   const getRangeForSeparator = React.useCallback(
     (separatorKey: string) => {
@@ -2245,6 +2305,19 @@ export default function BibleAssetsView() {
     });
   };
 
+  const handleQuickAddVersePressRef = React.useRef<
+    ((assetId: string) => void) | undefined
+  >(undefined);
+  handleQuickAddVersePressRef.current = (assetId: string) => {
+    const nextVerse = getNextAvailableVerse(assetId);
+    if (nextVerse === null) {
+      return;
+    }
+    addVerseSeparator(nextVerse, nextVerse, assetId);
+    // Clear recording selection when any label is added
+    setSelectedForRecording(null);
+  };
+
   const handleEditSeparatorRef = React.useRef<
     ((key: string, from?: number, to?: number) => void) | undefined
   >(undefined);
@@ -2346,6 +2419,11 @@ export default function BibleAssetsView() {
           onAddVersePress={
             isAssetSelectedForRecording && hasAvailableVerses
               ? () => handleAddVersePressRef.current?.(asset.id)
+              : undefined
+          }
+          onQuickAddVersePress={
+            isAssetSelectedForRecording && hasAvailableVerses
+              ? () => handleQuickAddVersePressRef.current?.(asset.id)
               : undefined
           }
         />
