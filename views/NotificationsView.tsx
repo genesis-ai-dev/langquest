@@ -8,7 +8,6 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerScrollView,
   DrawerTitle,
   DrawerView
 } from '@/components/ui/drawer';
@@ -223,7 +222,7 @@ function LanguoidLinkSuggestionGroup({
             setSelectedSuggestionId(defaultSuggestion);
           }
         }}
-        snapPoints={['50%', '90%']}
+        snapPoints={['60%', '90%']}
         enableDynamicSizing={false}
       >
         <DrawerContent className="pb-safe" asChild>
@@ -234,7 +233,7 @@ function LanguoidLinkSuggestionGroup({
               </DrawerTitle>
             </DrawerHeader>
 
-            <DrawerScrollView className="h-40 flex-1">
+            <ScrollView className="h-64 flex-1">
               <RadioGroup
                 value={selectedSuggestionId}
                 onValueChange={setSelectedSuggestionId}
@@ -249,7 +248,7 @@ function LanguoidLinkSuggestionGroup({
                   />
                 ))}
               </RadioGroup>
-            </DrawerScrollView>
+            </ScrollView>
 
             <DrawerFooter>
               <Button

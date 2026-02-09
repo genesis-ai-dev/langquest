@@ -68,11 +68,9 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  const { isAuthenticated } = useAuth();
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
+  const { isAuthenticated, isSystemReady } = useAuth();
+  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
+  const isPowerSyncReady = isSystemReady;
 
   // Only create offline query if PowerSync is initialized and user is authenticated
   const offlineQuery = React.useMemo(() => {

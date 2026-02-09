@@ -177,11 +177,11 @@ interface VADSettingsDrawerProps {
   onSilenceDurationChange: (duration: number) => void;
   minSegmentLength: number;
   onMinSegmentLengthChange: (duration: number) => void;
-  isVADLocked?: boolean; // Don't stop detection if VAD is locked
+  isVADActive?: boolean; // Don't stop detection if VAD is active
   displayMode: 'fullscreen' | 'footer';
   onDisplayModeChange: (mode: 'fullscreen' | 'footer') => void;
   autoCalibrateOnOpen?: boolean; // Automatically start calibration when drawer opens
-  energyShared?: SharedValue<number>; // Optional: Use this energy source when VAD is locked
+  energyShared?: SharedValue<number>; // Optional: Use this energy source when VAD is active
 }
 
 function VADSettingsDrawerInternal({
@@ -193,7 +193,7 @@ function VADSettingsDrawerInternal({
   onSilenceDurationChange,
   minSegmentLength,
   onMinSegmentLengthChange,
-  isVADLocked = false,
+  isVADActive = false,
   displayMode,
   onDisplayModeChange,
   autoCalibrateOnOpen = false,
@@ -207,9 +207,9 @@ function VADSettingsDrawerInternal({
     energyShared: internalEnergyShared
   } = useMicrophoneEnergy();
 
-  // Use external energy source when VAD is locked, otherwise use internal
+  // Use external energy source when VAD is active, otherwise use internal
   const energyShared =
-    isVADLocked && externalEnergyShared
+    isVADActive && externalEnergyShared
       ? externalEnergyShared
       : internalEnergyShared;
 
@@ -485,11 +485,11 @@ function VADSettingsDrawerInternal({
     // Only act on actual changes, not on every render
     if (isOpen && !wasOpen) {
       // Drawer just opened
-      // CRITICAL: If VAD is locked, energy detection is already running via useVADRecording
+      // CRITICAL: If VAD is active, energy detection is already running via useVADRecording
       // Don't call startEnergyDetection() again - it would interfere with the native module
-      if (isVADLocked) {
+      if (isVADActive) {
         console.log(
-          '🎯 VAD Settings: Drawer opened with VAD locked - using existing energy detection'
+          '🎯 VAD Settings: Drawer opened with VAD active - using existing energy detection'
         );
         // Don't reset energy or start detection - let useVADRecording manage it
       } else {
@@ -512,31 +512,31 @@ function VADSettingsDrawerInternal({
       // Drawer just closed - cancel any in-progress calibration
       cancelCalibration();
 
-      // CRITICAL: If VAD is locked, don't touch energy detection or reset values
+      // CRITICAL: If VAD is active, don't touch energy detection or reset values
       // useVADRecording is managing the native module and needs consistent state
-      if (!isVADLocked) {
-        // Reset energy values only when VAD is not locked
+      if (!isVADActive) {
+        // Reset energy values only when VAD is not active
         resetEnergy();
         latestEnergyRef.current = 0;
 
         if (currentIsActive) {
-          // Stop energy detection only if VAD is not locked
-          // If VAD is locked, let useVADRecording manage the energy detection
+          // Stop energy detection only if VAD is not active
+          // If VAD is active, let useVADRecording manage the energy detection
           console.log(
-            '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not locked)'
+            '🎯 VAD Settings: Stopping energy detection (drawer closed, VAD not active)'
           );
           void stopEnergyDetectionRef.current();
         }
       } else {
         console.log(
-          '🎯 VAD Settings: Drawer closed with VAD locked - leaving energy detection running'
+          '🎯 VAD Settings: Drawer closed with VAD active - leaving energy detection running'
         );
       }
     }
 
     // Update refs for next render
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, isVADLocked, cancelCalibration, resetEnergy]);
+  }, [isOpen, isVADActive, cancelCalibration, resetEnergy]);
 
   // Reset to default threshold
   const handleResetToDefault = React.useCallback(() => {
@@ -1508,7 +1508,7 @@ export const VADSettingsDrawer = React.memo(
       prevProps.threshold === nextProps.threshold &&
       prevProps.silenceDuration === nextProps.silenceDuration &&
       prevProps.minSegmentLength === nextProps.minSegmentLength &&
-      prevProps.isVADLocked === nextProps.isVADLocked &&
+      prevProps.isVADActive === nextProps.isVADActive &&
       prevProps.displayMode === nextProps.displayMode &&
       prevProps.autoCalibrateOnOpen === nextProps.autoCalibrateOnOpen &&
       prevProps.energyShared === nextProps.energyShared;
