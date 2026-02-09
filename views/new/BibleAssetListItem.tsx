@@ -374,24 +374,23 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   )}
                 </Pressable>
               </View> */}
-              {/* Show pencil button for local assets when not published, otherwise show download indicator */}
-              {!isPublished && onRename && asset.source === 'local' ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onRename(asset.id, asset.name);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                  hitSlop={8}
-                >
-                  <Icon
-                    as={PencilLineIcon}
-                    size={12}
-                    className="text-primary"
-                  />
-                </Pressable>
-              ) : (
-                <>
+              {/* Actions: Edit name + Open details (hidden in selection mode) */}
+              <View className="flex flex-row items-center gap-2">
+                {!isSelectionMode &&
+                !isPublished &&
+                onRename &&
+                asset.source === 'local' ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onRename(asset.id, asset.name);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                    hitSlop={8}
+                  >
+                    <Icon as={PencilLineIcon} size={12} className="text-primary" />
+                  </Pressable>
+                ) : (
                   <DownloadIndicator
                     isFlaggedForDownload={isDownloaded}
                     isLoading={isDownloading}
@@ -399,15 +398,25 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                     size={16}
                     iconColor="text-primary/50"
                   />
-                  <Pressable onPress={handleOpenAsset} className="mr-2">
+                )}
+
+                {!isSelectionMode && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenAsset();
+                    }}
+                    className="mr-2"
+                    hitSlop={8}
+                  >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
                       size={16}
                       className="text-primary"
                     />
                   </Pressable>
-                </>
-              )}
+                )}
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
