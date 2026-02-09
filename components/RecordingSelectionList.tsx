@@ -30,6 +30,8 @@ interface RecordingSelectionListPropsBase<T> {
   className?: string;
   bottomInset?: number;
   boundaryComponent?: React.ReactNode;
+  /** Stable key extractor for data items (recommended: use item.id) */
+  getItemKey?: (item: T, index: number) => string;
   /** Extra data that triggers re-render when changed (e.g., isSelectionMode) */
   extraData?: unknown;
   /** Optional function to calculate height for each item dynamically */
@@ -65,6 +67,7 @@ function RecordingSelectionListInternal<T>(
     boundaryComponent,
     data,
     renderItem,
+    getItemKey,
     extraData,
     getItemHeight,
     getBoundaryHeight
@@ -240,7 +243,11 @@ function RecordingSelectionListInternal<T>(
         data={listData}
         renderItem={renderListItem}
         keyExtractor={(item) =>
-          item.type === 'boundary' ? 'boundary' : `item-${item.index}`
+          item.type === 'boundary'
+            ? 'boundary'
+            : getItemKey
+              ? getItemKey(item.data!, item.index)
+              : `item-${item.index}`
         }
         estimatedItemSize={rowHeight}
         getItemType={getItemType}

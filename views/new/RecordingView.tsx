@@ -2930,6 +2930,7 @@ const RecordingView = () => {
             value={insertionIndex}
             onChange={handleListIndexChange}
             rowHeight={ROW_HEIGHT}
+            getItemKey={(item) => item.id}
             getBoundaryHeight={(_index, isSelected) =>
               isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT
             }
