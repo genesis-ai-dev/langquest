@@ -2,7 +2,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { Audio } from 'expo-av';
+import {
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState
+} from 'expo-audio';
 import { MicIcon, Square } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
@@ -27,9 +32,10 @@ import { Text } from './ui/text';
 
 const AnimatedView = Animated.View;
 
-// Extend Recording type to include custom energy range tracking
-interface RecordingWithEnergyRange extends Audio.Recording {
-  _energyRange?: { min: number; max: number };
+// Energy range tracking for a recording session
+interface EnergyRange {
+  min: number;
+  max: number;
 }
 
 interface WalkieTalkieRecorderProps {
@@ -79,7 +85,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const haptic = useHaptic('medium');
   const { currentUser: _currentUser } = useAuth();
   const { t } = useLocalization();
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [hasActiveRecording, setHasActiveRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   // Permission check removed - handled by parent RecordingControls via canRecord prop
   const isActivatingRef = useRef(false);
@@ -88,6 +94,58 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const isPendingStartRef = useRef(false);
   // Cancellation flag - set when user releases during async setup
   const shouldCancelRecordingRef = useRef(false);
+
+  // Energy range tracking for logging
+  const energyRangeRef = useRef<EnergyRange>({ min: Infinity, max: -Infinity });
+
+  // Audio recorder from expo-audio (manages lifecycle automatically)
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
+  // Poll recording state for duration and metering data
+  const recorderState = useAudioRecorderState(recorder, 50);
+
+  // Previous duration ref to avoid duplicate processing
+  const lastProcessedDurationRef = useRef(0);
+
+  // React to recorder state changes for duration tracking and metering
+  useEffect(() => {
+    if (!recorderState.isRecording) return;
+
+    const duration = recorderState.durationMillis || 0;
+
+    // Skip if we already processed this duration (avoid duplicate work)
+    if (duration === lastProcessedDurationRef.current) return;
+    lastProcessedDurationRef.current = duration;
+
+    setRecordingDuration(duration);
+    // Notify parent of duration updates for progress bar
+    onRecordingDurationUpdate?.(duration);
+
+    let amplitude: number;
+    if (typeof recorderState.metering === 'number') {
+      const db = recorderState.metering;
+      const normalizedDb = Math.max(-60, Math.min(0, db));
+      amplitude = Math.pow(10, normalizedDb / 20);
+      appendLiveSample(amplitude);
+    } else {
+      const t = duration / 1000;
+      const base = 0.3 + Math.sin(t * 24) * 0.15;
+      const noise = (Math.random() - 0.5) * 0.1;
+      amplitude = Math.max(0.02, Math.min(0.8, base + noise));
+      appendLiveSample(amplitude);
+    }
+
+    // Track energy range
+    energyRangeRef.current.min = Math.min(
+      energyRangeRef.current.min,
+      amplitude
+    );
+    energyRangeRef.current.max = Math.max(
+      energyRangeRef.current.max,
+      amplitude
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorderState]);
 
   // ============================================================================
   // BUSY LOCK - Prevents race conditions during state transitions
@@ -185,23 +243,18 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
   };
 
-  // Cleanup recording and timers on unmount
+  // Cleanup timers on unmount (recorder cleanup handled by useAudioRecorder hook)
   useEffect(() => {
     return () => {
-      const cleanup = async () => {
-        if (activationTimer.current) {
-          clearTimeout(activationTimer.current);
-        }
-        if (releaseDelayTimer.current) {
-          clearTimeout(releaseDelayTimer.current);
-        }
-        if (recording && !recording._isDoneRecording) {
-          await recording.stopAndUnloadAsync();
-        }
-      };
-      void cleanup();
+      if (activationTimer.current) {
+        clearTimeout(activationTimer.current);
+      }
+      if (releaseDelayTimer.current) {
+        clearTimeout(releaseDelayTimer.current);
+      }
+      // Recorder cleanup is handled automatically by useAudioRecorder hook
     };
-  }, [recording]);
+  }, []);
 
   // Pulse animation when recording
   useEffect(() => {
@@ -249,18 +302,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         requestAnimationFrame(() => resolve(undefined))
       );
 
-      const startTime = performance.now();
-
-      // Clean up any existing recording first
-      if (recording) {
-        try {
-          await recording.stopAndUnloadAsync();
-        } catch {
-          // Ignore cleanup errors
-        }
-        setRecording(null);
-      }
-
       setRecordedSamples([]);
 
       // Permission check removed - parent RecordingControls ensures canRecord=true
@@ -269,18 +310,19 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       // Reset cancellation flag at start
       shouldCancelRecordingRef.current = false;
 
-      // ✅ Notify parent IMMEDIATELY - we're in "recording mode" now
+      // Notify parent IMMEDIATELY - we're in "recording mode" now
       // This ensures isRecording is true synchronously, preventing race conditions
       // where user releases before async setup completes
       onRecordingStart();
 
       // Heavy operations - but user already sees feedback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true
       });
 
-      const highQuality = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+      // Prepare and start recording with metering-enabled options
+      const highQuality = RecordingPresets.HIGH_QUALITY;
       const options = {
         ...highQuality,
         ios: {
@@ -291,59 +333,24 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           ...(highQuality?.android ?? {}),
           isMeteringEnabled: true
         }
-      } as typeof highQuality;
+      };
 
-      const result = await Audio.Recording.createAsync(options);
-      const activeRecording = result.recording;
-      activeRecording.setProgressUpdateInterval(9);
+      await recorder.prepareToRecordAsync(options);
 
       // Check if we were cancelled during async setup (user released early)
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (shouldCancelRecordingRef.current) {
-        await activeRecording.stopAndUnloadAsync();
         shouldCancelRecordingRef.current = false;
         return;
       }
 
-      const _duration = performance.now() - startTime;
+      recorder.record();
 
-      setRecording(activeRecording);
+      setHasActiveRecording(true);
       setRecordingDuration(0);
 
-      // Track energy range for logging
-      const energyRange = { min: Infinity, max: -Infinity };
-
-      // Set up status monitoring
-      activeRecording.setOnRecordingStatusUpdate((status) => {
-        if (status.isRecording) {
-          const duration = status.durationMillis || 0;
-          setRecordingDuration(duration);
-          // Notify parent of duration updates for progress bar
-          onRecordingDurationUpdate?.(duration);
-
-          const anyStatus = status as unknown as { metering?: number };
-          let amplitude: number;
-          if (typeof anyStatus.metering === 'number') {
-            const db = anyStatus.metering;
-            const normalizedDb = Math.max(-60, Math.min(0, db));
-            amplitude = Math.pow(10, normalizedDb / 20);
-            appendLiveSample(amplitude);
-          } else {
-            const t = duration / 1000;
-            const base = 0.3 + Math.sin(t * 24) * 0.15;
-            const noise = (Math.random() - 0.5) * 0.1;
-            amplitude = Math.max(0.02, Math.min(0.8, base + noise));
-            appendLiveSample(amplitude);
-          }
-
-          // Track energy range
-          energyRange.min = Math.min(energyRange.min, amplitude);
-          energyRange.max = Math.max(energyRange.max, amplitude);
-        }
-      });
-
-      // Store energy range ref for logging on stop
-      (activeRecording as RecordingWithEnergyRange)._energyRange = energyRange;
+      // Reset energy range for this recording
+      energyRangeRef.current = { min: Infinity, max: -Infinity };
     } catch (error) {
       console.error('❌ Failed to start recording:', error);
       onRecordingStop(); // Clean up
@@ -351,8 +358,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   };
 
   const stopRecording = async () => {
-    if (!recording) {
-      // Recording object not created yet (user released during async setup)
+    if (!hasActiveRecording) {
+      // Recording not started yet (user released during async setup)
       // Set cancellation flag so startRecording() knows to abort
       shouldCancelRecordingRef.current = true;
       onRecordingStop();
@@ -360,16 +367,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     }
 
     try {
-      const status = await recording.getStatusAsync().catch(() => null);
-      if (!status) {
-        console.warn('⚠️ Recording no longer exists, skipping stop');
-        setRecording(null);
-        onRecordingStop();
-        return;
-      }
-
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await recorder.stop();
+      const uri = recorder.uri;
 
       if (uri) {
         if (recordingDuration >= MIN_RECORDING_DURATION) {
@@ -380,14 +379,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         }
       }
 
-      setRecording(null);
+      setHasActiveRecording(false);
       setRecordingDuration(0);
       setRecordedSamples([]);
 
       onRecordingStop();
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      setRecording(null);
+      setHasActiveRecording(false);
       setRecordingDuration(0);
       setRecordedSamples([]);
       onRecordingStop();

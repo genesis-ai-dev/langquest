@@ -105,6 +105,7 @@
     "eslint-plugin-drizzle": "^0.2.3",
     "expo": "^54.0.33",
     "expo-application": "~7.0.8",
+    "expo-audio": "~1.1.1",
     "expo-av": "~16.0.8",
     "expo-build-properties": "~1.0.10",
     "expo-clipboard": "^8.0.7",
