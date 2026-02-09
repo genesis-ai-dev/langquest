@@ -1389,6 +1389,17 @@ const RecordingView = () => {
     insertionIndexRef.current = insertionIndex;
   }, [insertionIndex]);
 
+  // Refs for values read inside card callbacks (prevents callback recreation on every click)
+  const sessionItemsRef = React.useRef(sessionItems);
+  React.useEffect(() => {
+    sessionItemsRef.current = sessionItems;
+  }, [sessionItems]);
+
+  const isSelectionModeRef = React.useRef(isSelectionMode);
+  React.useEffect(() => {
+    isSelectionModeRef.current = isSelectionMode;
+  }, [isSelectionMode]);
+
   // Track if we're currently in the middle of the list (for VAD continuous recording)
   // When VAD starts, we capture the position and use same order_index for all segments
   // until VAD stops or user moves the wheel
@@ -2464,14 +2475,20 @@ const RecordingView = () => {
   // RENDER HELPERS
   // ============================================================================
 
-  // Stable callbacks for AssetCard (don't change unless handlers change)
-  const stableHandlePlayAsset = React.useCallback(handlePlayAsset, [
-    handlePlayAsset
-  ]);
-  const stableToggleSelect = React.useCallback(toggleSelect, [toggleSelect]);
-  const stableEnterSelection = React.useCallback(enterSelection, [
-    enterSelection
-  ]);
+  // Callback refs for card factories - reading via refs makes factories stable
+  // (zero deps) so callback Maps are only recreated when sessionItems changes
+  // structurally (items added/removed), NOT when insertionIndex/isSelectionMode change.
+  const handlePlayAssetRef = React.useRef(handlePlayAsset);
+  React.useEffect(() => { handlePlayAssetRef.current = handlePlayAsset; }, [handlePlayAsset]);
+
+  const toggleSelectRef = React.useRef(toggleSelect);
+  React.useEffect(() => { toggleSelectRef.current = toggleSelect; }, [toggleSelect]);
+
+  const enterSelectionRef = React.useRef(enterSelection);
+  React.useEffect(() => { enterSelectionRef.current = enterSelection; }, [enterSelection]);
+
+  // These callbacks are passed directly to RecordAssetCard (not through factories)
+  // They change infrequently so useCallback wrappers are fine
   const stableHandleDeleteLocalAsset = React.useCallback(
     handleDeleteLocalAsset,
     [handleDeleteLocalAsset]
@@ -2488,20 +2505,28 @@ const RecordingView = () => {
   }, []);
 
   // ============================================================================
-  // OPTIMIZED CALLBACKS MAP - Prevents creating new functions in wheelChildren
+  // OPTIMIZED CALLBACKS MAP - Zero-dependency factories
   // ============================================================================
+  // By reading insertionIndex, sessionItems.length, isSelectionMode, and handler
+  // functions from refs, these factories have ZERO dependencies. This means the
+  // callback Maps below only recreate when sessionItems changes structurally
+  // (items added/removed), NOT on every card click or selection toggle.
+  //
+  // BEFORE: click card → insertionIndex changes → factories recreated →
+  //         Maps recreated → renderListItem recreated → ALL cards re-render
+  // AFTER:  click card → insertionIndex changes → factories STABLE →
+  //         Maps STABLE → only 2 cards re-render (old + new highlight)
 
-  // Create a memoized factory for asset callbacks
-  // This prevents creating new inline functions in wheelChildren useMemo
+  // Stable factory for asset callbacks (ZERO dependencies)
   const createAssetCallbacks = React.useCallback(
     (assetId: string, index: number) => ({
       onPress: () => {
-        if (isSelectionMode) {
-          stableToggleSelect(assetId);
+        if (isSelectionModeRef.current) {
+          toggleSelectRef.current(assetId);
         } else {
           // Toggle highlight: if clicking on already highlighted card, move to end
-          if (insertionIndex === index) {
-            setInsertionIndex(sessionItems.length);
+          if (insertionIndexRef.current === index) {
+            setInsertionIndex(sessionItemsRef.current.length);
           } else {
             setInsertionIndex(index);
           }
@@ -2509,34 +2534,33 @@ const RecordingView = () => {
       },
       onLongPress: () => {
         // Long press enters selection mode and selects this asset
-        if (!isSelectionMode) {
-          stableEnterSelection(assetId);
+        if (!isSelectionModeRef.current) {
+          enterSelectionRef.current(assetId);
         }
       },
       onPlay: () => {
-        void stableHandlePlayAsset(assetId);
+        void handlePlayAssetRef.current(assetId);
       }
     }),
-    [isSelectionMode, stableToggleSelect, stableEnterSelection, stableHandlePlayAsset, insertionIndex, sessionItems.length]
+    [] // Zero dependencies - all values read from refs
   );
 
-  // Create a memoized factory for pill callbacks
+  // Stable factory for pill callbacks (ZERO dependencies)
   const createPillCallbacks = React.useCallback(
     (index: number) => ({
       onPress: () => {
         // Toggle highlight: if clicking on already highlighted pill, move to end
-        if (insertionIndex === index) {
-          setInsertionIndex(sessionItems.length);
+        if (insertionIndexRef.current === index) {
+          setInsertionIndex(sessionItemsRef.current.length);
         } else {
           setInsertionIndex(index);
         }
       }
     }),
-    [insertionIndex, sessionItems.length]
+    [] // Zero dependencies - all values read from refs
   );
 
-  // Create a Map of callbacks per asset (only recreates when dependencies change)
-  // This is much more efficient than creating new functions in the render loop
+  // Callback Maps - only recreate when sessionItems changes structurally
   const assetCallbacksMap = React.useMemo(() => {
     const map = new Map<
       string,
@@ -2556,7 +2580,7 @@ const RecordingView = () => {
     return map;
   }, [sessionItems, createAssetCallbacks]);
 
-  // Create a Map of callbacks per pill (only recreates when dependencies change)
+  // Pill callback Map - only recreate when sessionItems changes structurally
   const pillCallbacksMap = React.useMemo(() => {
     const map = new Map<
       string,
@@ -2693,7 +2717,7 @@ const RecordingView = () => {
   // List callbacks (memoized to prevent unnecessary re-renders)
   const handleListIndexChange = React.useCallback(
     (newIndex: number) => {
-      const item = sessionItems[newIndex];
+      const item = sessionItemsRef.current[newIndex];
       const itemDesc = item
         ? isPill(item)
           ? `pill-${item.verse?.from ?? 'null'}`
@@ -2701,29 +2725,29 @@ const RecordingView = () => {
         : 'end';
       
       // In selection mode, clicking on an asset toggles its selection instead of changing insertion index
-      if (isSelectionMode && item && isAsset(item)) {
+      if (isSelectionModeRef.current && item && isAsset(item)) {
         console.log(`📋 List onChange (selection mode): toggling ${item.name}`);
-        stableToggleSelect(item.id);
+        toggleSelectRef.current(item.id);
         return;
       }
       
       console.log(
-        `📋 List onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
+        `📋 List onChange: ${insertionIndexRef.current} → ${newIndex} | ${itemDesc} ${item?.order_index}`
       );
       setInsertionIndex(newIndex);
     },
-    [sessionItems, insertionIndex, isSelectionMode, stableToggleSelect]
+    [] // Zero dependencies - all values read from refs
   );
 
   const _handleListLongPress = React.useCallback(
     (index: number) => {
       // Enter batch selection mode when long pressing an asset
-      const item = sessionItems[index];
+      const item = sessionItemsRef.current[index];
       if (item && isAsset(item)) {
-        stableEnterSelection(item.id);
+        enterSelectionRef.current(item.id);
       }
     },
-    [sessionItems, stableEnterSelection]
+    [] // Zero dependencies - all values read from refs
   );
 
   const _canListItemLongPress = React.useCallback(
