@@ -76,7 +76,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       }
     },
     android: {
-      edgeToEdgeEnabled: true,
       adaptiveIcon: {
         foregroundImage: './assets/icons/adaptive-icon.png',
         monochromeImage: './assets/icons/adaptive-icon-mono.png',
