@@ -219,7 +219,7 @@
     "react-dom": "19.2.0",
     "@types/react": "~19.2.2",
     "jest-snapshot-prettier": "npm:prettier@^3.6.2",
-    "$expo-drizzle-studio-plugin": {
+    "expo-drizzle-studio-plugin": {
       "expo": "^55.0.0-preview.10"
     }
   },
