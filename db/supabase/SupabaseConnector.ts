@@ -619,15 +619,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         // The DELETEs generate new CRUD entries; when PowerSync processes those,
         // the server-side DELETE of a non-existent row is a harmless no-op.
         for (const op of failedOps) {
-          if (
-            op.opType === UpdateType.PUT ||
-            op.opType === UpdateType.PATCH
-          ) {
+          if (op.op === UpdateType.PUT || op.op === UpdateType.PATCH) {
             try {
-              await database.execute(
-                `DELETE FROM ${op.table} WHERE id = ?`,
-                [op.id]
-              );
+              await database.execute(`DELETE FROM ${op.table} WHERE id = ?`, [
+                op.id
+              ]);
               console.log(
                 `[uploadData] Reverted failed ${op.table} record: ${op.id}`
               );
