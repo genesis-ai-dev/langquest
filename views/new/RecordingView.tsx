@@ -391,6 +391,7 @@ const RecordingView = () => {
       name: string;
       order_index: number;
       verse?: { from: number; to: number } | null;
+      duration?: number;
     }) => {
       const targetOrderIndex = newAsset.order_index;
 
@@ -402,7 +403,7 @@ const RecordingView = () => {
             const itemName = isAsset(item)
               ? item.name
               : `pill-${item.verse?.from ?? 'null'}`;
-            console.log(
+            debugLog(
               `📊 UI Shift: "${itemName}" ${item.order_index} → ${item.order_index + 1}`
             );
             return { ...item, order_index: item.order_index + 1 };
@@ -419,7 +420,7 @@ const RecordingView = () => {
           order_index: targetOrderIndex,
           source: 'local',
           segmentCount: 1,
-          duration: undefined,
+          duration: newAsset.duration, // Use duration from recording callback (avoids Audio.Sound.createAsync)
           verse: newAsset.verse ?? null
         };
 
@@ -427,7 +428,7 @@ const RecordingView = () => {
           allowAddVerseRef.current = false;
         }
 
-        console.log(
+        debugLog(
           `➕ Adding "${newAsset.name}" with order_index: ${targetOrderIndex} | verse: ${newAsset.verse ? `${newAsset.verse.from}-${newAsset.verse.to}` : 'null'}`
         );
 
@@ -671,7 +672,7 @@ const RecordingView = () => {
     const highlightedVerseStr = highlightedAssetVerse
       ? `${highlightedAssetVerse.from}-${highlightedAssetVerse.to}`
       : 'null';
-    console.log(
+    debugLog(
       `🔘 State | insertionIdx: ${insertionIndex} | assetsLen: ${assets.length} | isAtEnd: ${isAtEndOfList} | debouncedIsAtEnd: ${debouncedIsAtEnd} | highlightedVerse: ${highlightedVerseStr} | verseToAdd: ${verseToAdd} | currentDynamic: ${currentDynamicVerse} | pillText: ${versePillText}`
     );
   }, [
@@ -692,7 +693,7 @@ const RecordingView = () => {
   const handleAddNextVerse = React.useCallback(() => {
     if (verseToAdd === null) return;
 
-    console.log(`➕ Adding verse ${verseToAdd} as pill to list`);
+    debugLog(`➕ Adding verse ${verseToAdd} as pill to list`);
 
     // Calculate order_index for the first asset of this verse
     // Formula: (verse * 1000 + 1) * 1000
@@ -702,7 +703,7 @@ const RecordingView = () => {
     // Update appendOrderIndexRef to point to after this new pill
     appendOrderIndexRef.current = newOrderIndex + 1;
 
-    console.log(
+    debugLog(
       `📊 Adding pill for verse ${verseToAdd} | order_index: ${newOrderIndex} | next append: ${appendOrderIndexRef.current}`
     );
 
@@ -751,15 +752,44 @@ const RecordingView = () => {
   // Track if a pill was just added (to distinguish from asset recording)
   const wasPillAddedRef = React.useRef<boolean>(false);
 
+  // Auto-scroll request token to ignore stale scheduled scrolls
+  const scrollRequestIdRef = React.useRef(0);
+
+  // Schedule a single scroll after list/layout settle.
+  // If another insertion happens before this runs, the older request is ignored.
+  const scheduleScrollToIndex = React.useCallback(
+    (targetIndex: number, reason: string) => {
+      const requestId = ++scrollRequestIdRef.current;
+      const timeoutId = setTimeout(() => {
+        timeoutIdsRef.current.delete(timeoutId);
+        InteractionManager.runAfterInteractions(() => {
+          requestAnimationFrame(() => {
+            if (scrollRequestIdRef.current !== requestId) {
+              return;
+            }
+            try {
+              listRef.current?.scrollToIndex(targetIndex, true);
+            } catch (error) {
+              console.error(`Failed to scroll (${reason}):`, error);
+            }
+          });
+        });
+      }, 0);
+      timeoutIdsRef.current.add(timeoutId);
+    },
+    []
+  );
+
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
     const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
+    const currentInsertionIndex = insertionIndexRef.current;
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
-      console.log(
-        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
+      debugLog(
+        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${currentInsertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
       );
 
       const wasInMiddle = wasRecordingInMiddleRef.current;
@@ -772,78 +802,47 @@ const RecordingView = () => {
       wasReplaceRef.current = false;
 
       if (wasPillAdded) {
-        // A pill was added - move to the end
-        console.log(
-          `📍 Pill added - moving to end: ${insertionIndex} → ${currentCount}`
+        // A pill was added - focus the inserted pill (last item)
+        const targetIndex = Math.max(0, currentCount - 1);
+        debugLog(
+          `📍 Pill added - focusing inserted item: ${currentInsertionIndex} → ${targetIndex}`
         );
-        setInsertionIndex(currentCount);
-
-        // Scroll to the end
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(currentCount, true);
-          } catch (error) {
-            console.error('Failed to scroll after pill added:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(targetIndex, 'pill-added');
       } else if (wasReplace) {
         // REPLACE MODE: Stay on the same position - new asset replaced the old one
-        console.log(
-          `📍 Replace mode - staying at position: ${insertionIndex}`
+        const targetIndex = Math.max(
+          0,
+          Math.min(currentInsertionIndex, currentCount - 1)
         );
-        // Don't change insertionIndex - we're staying on the newly replaced asset
-        // Scroll to current position to ensure visibility
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(insertionIndex, true);
-          } catch (error) {
-            console.error('Failed to scroll after replace:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        debugLog(
+          `📍 Replace mode - staying at position: ${targetIndex}`
+        );
+        // Stay on replaced position and ensure it is visible
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(targetIndex, 'replace');
       } else if (wasInMiddle) {
         // Recorded in the middle - move to the new asset
-        const newIndex = insertionIndex + 1;
-        console.log(
-          `📍 Moving to new asset (recorded in middle): ${insertionIndex} → ${newIndex}`
+        const newIndex = Math.min(currentInsertionIndex + 1, currentCount - 1);
+        debugLog(
+          `📍 Moving to new asset (recorded in middle): ${currentInsertionIndex} → ${newIndex}`
         );
         setInsertionIndex(newIndex);
-
-        // Scroll to the new item
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(newIndex, true);
-          } catch (error) {
-            console.error('Failed to scroll:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        scheduleScrollToIndex(newIndex, 'recorded-in-middle');
       } else {
-        // Asset appended at the end - move to stay at end
-        console.log(
-          `📍 Moving to end (appended): ${insertionIndex} → ${currentCount}`
+        // Asset appended at the end - keep boundary selected (no card selected)
+        // while keeping scroll focus at the end of list.
+        const targetIndex = currentCount;
+        debugLog(
+          `📍 Appended at end - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex}`
         );
-        setInsertionIndex(currentCount);
-
-        // Scroll to the end
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(currentCount, true);
-          } catch (error) {
-            console.error('Failed to scroll:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(targetIndex, 'appended-at-end');
       }
     }
 
     previousItemCountRef.current = currentCount;
-  }, [sessionItems.length, insertionIndex]);
+  }, [sessionItems.length, scheduleScrollToIndex]);
 
   // ============================================================================
   // AUDIO PLAYBACK
@@ -1341,7 +1340,7 @@ const RecordingView = () => {
   const getInsertionContext = React.useCallback(
     (currentIndex: number = insertionIndex) => {
       const isAtEnd = sessionItems.length === 0 || currentIndex >= sessionItems.length;
-      console.log(
+      debugLog(
         '🔍 getInsertionContext | currentIndex:',
         currentIndex,
         '| sessionItems.length:',
@@ -1359,7 +1358,7 @@ const RecordingView = () => {
           : appendOrderIndexRef.current; // Fallback for empty list
         const verse = lastItem?.verse ?? persistedVerseRef.current ?? null;
 
-        console.log(
+        debugLog(
           '🔍 At END | lastItem order_index:',
           lastItem?.order_index,
           '| calculated orderIndex:',
@@ -1430,11 +1429,11 @@ const RecordingView = () => {
       
       // REPLACE MODE: Capture the asset to replace when VAD starts (only first segment will delete it)
       const highlightedItem = sessionItems[insertionIndexRef.current];
-      console.log(`🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+      debugLog(`🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
       
       if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
         assetToReplaceRef.current = highlightedItem.id;
-        console.log(`🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+        debugLog(`🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
       }
       // Note: Don't reset assetToReplaceRef here if not replacing - it might have been set by manual recording
       
@@ -1450,7 +1449,7 @@ const RecordingView = () => {
     } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
-      console.log(
+      debugLog(
         '[INSERTION INDEX REF 000X VAD]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
         vadInsertionIndexRef.current,
         insertionIndexRef.current
@@ -1468,12 +1467,12 @@ const RecordingView = () => {
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
-    console.log('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
+    debugLog('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
     if (isRecording) return;
 
     const currentInsertionIndex = insertionIndexRef.current;
 
-    console.log(
+    debugLog(
       `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length} | isReplacing: ${isReplacing}`
     );
 
@@ -1493,15 +1492,15 @@ const RecordingView = () => {
     // Use insertionIndex directly to get the highlighted item
     const highlightedItem = sessionItems[currentInsertionIndex];
     
-    console.log(`🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
+    debugLog(`🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
     
     if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
       assetToReplaceRef.current = highlightedItem.id;
-      console.log(`🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+      debugLog(`🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
     } else {
       assetToReplaceRef.current = null;
       if (isReplacing) {
-        console.log(`⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`);
+        debugLog(`⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`);
       }
     }
 
@@ -1529,7 +1528,7 @@ const RecordingView = () => {
         : highlightedItem.name
       : 'none';
 
-    console.log(
+    debugLog(
       `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
     );
   }, [isRecording, sessionItems, getInsertionContext, isReplacing]);
@@ -1545,16 +1544,16 @@ const RecordingView = () => {
   }, []);
 
   const handleRecordingComplete = React.useCallback(
-    async (uri: string, _duration: number, _waveformData: number[]) => {
+    async (uri: string, recordingDuration: number, _waveformData: number[]) => {
       // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
-      console.log(`🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`);
+      debugLog(`🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`);
       if (assetToReplaceRef.current) {
         const assetIdToReplace = assetToReplaceRef.current;
         assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
         setIsReplacing(false); // Reset replace mode after first recording
         wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
         
-        console.log(`🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`);
+        debugLog(`🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`);
         
         try {
           await audioSegmentService.deleteAudioSegment(assetIdToReplace);
@@ -1601,7 +1600,7 @@ const RecordingView = () => {
         nameCounterRef.current++; // Increment immediately to reserve this number
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
-        console.log(
+        debugLog(
           `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
         );
 
@@ -1659,8 +1658,25 @@ const RecordingView = () => {
               id: newAssetId,
               name: assetName,
               order_index: targetOrder,
-              verse: verseToUse
+              verse: verseToUse,
+              duration: recordingDuration > 0 ? recordingDuration : undefined
             });
+
+            // Pre-populate metadata Maps so the lazy loading effect
+            // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
+            loadedAssetIdsRef.current.add(newAssetId);
+            setAssetSegmentCounts((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, 1);
+              return next;
+            });
+            if (recordingDuration > 0) {
+              setAssetDurations((prev) => {
+                const next = new Map(prev);
+                next.set(newAssetId, recordingDuration);
+                return next;
+              });
+            }
 
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
@@ -2726,12 +2742,12 @@ const RecordingView = () => {
       
       // In selection mode, clicking on an asset toggles its selection instead of changing insertion index
       if (isSelectionModeRef.current && item && isAsset(item)) {
-        console.log(`📋 List onChange (selection mode): toggling ${item.name}`);
+        debugLog(`📋 List onChange (selection mode): toggling ${item.name}`);
         toggleSelectRef.current(item.id);
         return;
       }
       
-      console.log(
+      debugLog(
         `📋 List onChange: ${insertionIndexRef.current} → ${newIndex} | ${itemDesc} ${item?.order_index}`
       );
       setInsertionIndex(newIndex);
