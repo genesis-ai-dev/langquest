@@ -1526,7 +1526,7 @@ export default function BibleAssetsView() {
 
       // Get the CURRENT separator's "from" value (this is the ceiling for new range)
       let currentFrom: number | undefined;
-      if (currentSep && currentSep.type === 'separator') {
+      if (currentSep?.type === 'separator') {
         currentFrom = currentSep.from;
       }
 
@@ -1534,7 +1534,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = currentIdx - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2053,7 +2053,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = assetIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2063,7 +2063,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = assetIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2125,7 +2125,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = separatorIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2135,7 +2135,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2190,7 +2190,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -4006,20 +4006,18 @@ export default function BibleAssetsView() {
             <DrawerHeader>
               <DrawerTitle>Add Verse Label</DrawerTitle>
             </DrawerHeader>
-            <View className="p-4">
-              <VerseRangeSelector
-                availableVerses={getAvailableVerses()}
-                ScrollViewComponent={GHScrollView}
-                getMaxToForFrom={getMaxToForFrom}
-                onApply={(from, to) => {
-                  addVerseSeparator(from, to);
-                  // Clear recording selection when any label is added
-                  setSelectedForRecording(null);
-                  setNewLabelSelectorState({ isOpen: false });
-                }}
-                onCancel={() => setNewLabelSelectorState({ isOpen: false })}
-              />
-            </View>
+            <VerseRangeSelector
+              availableVerses={getAvailableVerses()}
+              ScrollViewComponent={GHScrollView}
+              getMaxToForFrom={getMaxToForFrom}
+              onApply={(from, to) => {
+                addVerseSeparator(from, to);
+                // Clear recording selection when any label is added
+                setSelectedForRecording(null);
+                setNewLabelSelectorState({ isOpen: false });
+              }}
+              onCancel={() => setNewLabelSelectorState({ isOpen: false })}
+            />
           </DrawerContent>
         </Drawer>
       )}
@@ -4089,46 +4087,44 @@ export default function BibleAssetsView() {
             <DrawerHeader>
               <DrawerTitle>Edit Verse Label</DrawerTitle>
             </DrawerHeader>
-            <View className="p-4">
-              {editSeparatorState.separatorKey && (
-                <VerseRangeSelector
-                  availableVerses={
-                    getRangeForSeparator(editSeparatorState.separatorKey)
-                      .availableVerses
+            {editSeparatorState.separatorKey && (
+              <VerseRangeSelector
+                availableVerses={
+                  getRangeForSeparator(editSeparatorState.separatorKey)
+                    .availableVerses
+                }
+                from={editSeparatorState.from}
+                to={editSeparatorState.to}
+                ScrollViewComponent={GHScrollView}
+                getMaxToForFrom={(selectedFrom) =>
+                  getMaxToForFromSeparator(
+                    editSeparatorState.separatorKey!,
+                    selectedFrom
+                  )
+                }
+                onApply={async (from, to) => {
+                  if (editSeparatorState.separatorKey) {
+                    await updateVerseSeparator(
+                      editSeparatorState.separatorKey,
+                      editSeparatorState.from,
+                      editSeparatorState.to,
+                      from,
+                      to
+                    );
                   }
-                  from={editSeparatorState.from}
-                  to={editSeparatorState.to}
-                  ScrollViewComponent={GHScrollView}
-                  getMaxToForFrom={(selectedFrom) =>
-                    getMaxToForFromSeparator(
-                      editSeparatorState.separatorKey!,
-                      selectedFrom
-                    )
-                  }
-                  onApply={async (from, to) => {
-                    if (editSeparatorState.separatorKey) {
-                      await updateVerseSeparator(
-                        editSeparatorState.separatorKey,
-                        editSeparatorState.from,
-                        editSeparatorState.to,
-                        from,
-                        to
-                      );
-                    }
-                    // Clear recording selection when any label is edited
-                    // This ensures we don't have stale order_index references
-                    setSelectedForRecording(null);
-                    setEditSeparatorState({
-                      isOpen: false,
-                      separatorKey: null
-                    });
-                  }}
-                  onCancel={() =>
-                    setEditSeparatorState({ isOpen: false, separatorKey: null })
-                  }
-                />
-              )}
-            </View>
+                  // Clear recording selection when any label is edited
+                  // This ensures we don't have stale order_index references
+                  setSelectedForRecording(null);
+                  setEditSeparatorState({
+                    isOpen: false,
+                    separatorKey: null
+                  });
+                }}
+                onCancel={() =>
+                  setEditSeparatorState({ isOpen: false, separatorKey: null })
+                }
+              />
+            )}
           </DrawerContent>
         </Drawer>
       )}

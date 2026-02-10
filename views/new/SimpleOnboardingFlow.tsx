@@ -183,7 +183,7 @@ export function SimpleOnboardingFlow({
         {/* Header */}
         <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
           <View className="flex-1" />
-          <Pressable onPress={handleClose}>
+          <Pressable onPress={handleClose} testID="onboarding-close-button">
             <Icon as={XIcon} size={24} className="text-muted-foreground" />
           </Pressable>
         </View>

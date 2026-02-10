@@ -35,8 +35,9 @@ function DrawerClose({
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
-interface DrawerContentProps
-  extends React.ComponentProps<typeof DrawerPrimitive.Content> {
+interface DrawerContentProps extends React.ComponentProps<
+  typeof DrawerPrimitive.Content
+> {
   /**
    * When true, the default wrapper is not applied.
    * On web, this prop is accepted for API compatibility but has no effect
