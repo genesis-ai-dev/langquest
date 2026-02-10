@@ -14,6 +14,10 @@ export interface AssetMetadata {
     from: number;
     to: number;
   };
+  trim?: {
+    startMs: number;
+    endMs: number;
+  };
 }
 
 /**
@@ -195,6 +199,41 @@ export async function updateAssetMetadata(
     console.error('Failed to update asset metadata:', error);
     throw error;
   }
+}
+
+/**
+ * Get asset metadata with a safe default.
+ */
+export function getAssetMetadata(
+  asset: { metadata?: AssetMetadata | null }
+): AssetMetadata {
+  return (asset.metadata ?? {}) as AssetMetadata;
+}
+
+/**
+ * Set a single metadata key without overwriting other metadata fields.
+ * Reads current metadata, merges, then writes back.
+ */
+export async function setAssetMetadataKey(
+  assetId: string,
+  key: keyof AssetMetadata,
+  value: AssetMetadata[keyof AssetMetadata]
+): Promise<void> {
+  const assetLocalTable = resolveTable('asset', { localOverride: true });
+  const localAsset = await system.db
+    .select({ metadata: assetLocalTable.metadata })
+    .from(assetLocalTable)
+    .where(eq(assetLocalTable.id, assetId))
+    .limit(1);
+
+  if (!localAsset || localAsset.length === 0) {
+    throw new Error('Asset not found in local table - cannot update metadata');
+  }
+
+  const currentMetadata = (localAsset[0]!.metadata ?? {}) as AssetMetadata;
+  const nextMetadata = { ...currentMetadata, [key]: value } as AssetMetadata;
+
+  await updateAssetMetadata(assetId, nextMetadata);
 }
 
 /**
