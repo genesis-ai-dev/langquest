@@ -235,6 +235,13 @@ export function ProjectListItem({
                   <Icon as={MailIcon} className="text-primary" size={16} />
                 </View>
               )}
+              {/* Always show harddrive icon for local projects */}
+              {project.source === 'local' && (
+                <Icon
+                  as={HardDriveIcon}
+                  className="text-secondary-foreground"
+                />
+              )}
               {(project.private ||
                 !!membership ||
                 project.source === 'local') && (
@@ -242,12 +249,6 @@ export function ProjectListItem({
                   {!project.visible && (
                     <Icon
                       as={EyeOffIcon}
-                      className="text-secondary-foreground"
-                    />
-                  )}
-                  {project.source === 'local' && (
-                    <Icon
-                      as={HardDriveIcon}
                       className="text-secondary-foreground"
                     />
                   )}
