@@ -1,13 +1,14 @@
 import { Icon } from '@/components/ui/icon';
 import RNAlert from '@blazejkustra/react-native-alert';
+import {
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder
+} from 'expo-audio';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useMicrophoneEnergy } from '../hooks/useMicrophoneEnergy';
 import { colors, fontSizes, spacing } from '../styles/theme';
-
-// Global recording state to prevent multiple concurrent recordings
-let globalRecordingInstance: Audio.Recording | null = null;
-let globalRecordingInProgress = false;
 
 interface EnergyVADRecorderProps {
   onRecordingComplete: (uri: string, segmentIndex: number) => void;
@@ -24,7 +25,10 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
   const [currentEnergy, setCurrentEnergy] = useState(0);
   const [threshold, setThreshold] = useState(energyThreshold);
   const [segmentCount, setSegmentCount] = useState(0);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  // Guard against concurrent recording attempts
+  const isRecordingInProgressRef = useRef(false);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const {
     isActive,
@@ -35,95 +39,53 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
     error
   } = useMicrophoneEnergy();
 
-  // Initialize: Clean up any orphaned recording state on mount
-  useEffect(() => {
-    if (globalRecordingInstance && !isRecording) {
-      console.log('Cleaning up orphaned recording on mount');
-      globalRecordingInstance.stopAndUnloadAsync().catch((_error) => {
-        console.log('Orphaned recording already cleaned up');
-      });
-      globalRecordingInstance = null;
-      globalRecordingInProgress = false;
-    }
-  }, [isRecording]); // Run only on mount
-
   const startRecording = useCallback(async () => {
     try {
-      // Prevent starting if already recording globally or locally
-      if (
-        globalRecordingInProgress ||
-        isRecording ||
-        recordingRef.current ||
-        globalRecordingInstance
-      ) {
-        console.log('Recording already in progress (global or local)');
+      // Prevent starting if already recording
+      if (isRecordingInProgressRef.current || isRecording) {
+        console.log('Recording already in progress');
         return;
       }
 
-      console.log('Starting expo-av recording (energy-triggered)...');
-      globalRecordingInProgress = true;
+      console.log('Starting recording (energy-triggered)...');
+      isRecordingInProgressRef.current = true;
 
       // Small delay to ensure any previous recording is fully cleaned up
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
 
-      globalRecordingInstance = recording;
-      recordingRef.current = recording;
       setIsRecording(true);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
     } catch (error) {
       console.error('Failed to start recording:', error);
-      // Clean up all state on error
-      globalRecordingInstance = null;
-      recordingRef.current = null;
       setIsRecording(false);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
     }
-  }, [isRecording]);
+  }, [isRecording, recorder]);
 
   const stopRecording = useCallback(async () => {
     try {
-      console.log('Stopping expo-av recording...');
+      console.log('Stopping recording...');
 
-      const recordingToStop = recordingRef.current || globalRecordingInstance;
-
-      if (!recordingToStop || !isRecording) {
+      if (!isRecording) {
         console.log('No active recording to stop');
-        // Clean up all state
-        globalRecordingInstance = null;
-        recordingRef.current = null;
         setIsRecording(false);
-        globalRecordingInProgress = false;
+        isRecordingInProgressRef.current = false;
         return;
       }
 
-      // Check if recording is actually in progress
-      const status = await recordingToStop.getStatusAsync();
-      if (!status.isRecording) {
-        console.log('Recording is not active, cleaning up reference');
-        globalRecordingInstance = null;
-        recordingRef.current = null;
-        setIsRecording(false);
-        globalRecordingInProgress = false;
-        return;
-      }
+      await recorder.stop();
+      const uri = recorder.uri;
 
-      await recordingToStop.stopAndUnloadAsync();
-      const uri = recordingToStop.getURI();
-
-      // Clean up all references
-      globalRecordingInstance = null;
-      recordingRef.current = null;
       setIsRecording(false);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
 
       if (uri) {
         const currentSegment = segmentCount;
@@ -136,13 +98,10 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      // Clean up all state even if stopping failed
-      globalRecordingInstance = null;
-      recordingRef.current = null;
       setIsRecording(false);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
     }
-  }, [onRecordingComplete, isRecording, segmentCount]);
+  }, [onRecordingComplete, isRecording, segmentCount, recorder]);
 
   // Handle energy levels and control recording
   useEffect(() => {
@@ -177,9 +136,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
         }
         await stopEnergyDetection();
 
-        // Clean up global state when stopping energy detection
-        globalRecordingInstance = null;
-        globalRecordingInProgress = false;
+        isRecordingInProgressRef.current = false;
         setSegmentCount(0); // Reset segment count when stopping detection
       } else {
         await startEnergyDetection();
@@ -187,11 +144,8 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
     } catch (error) {
       RNAlert.alert('Error', 'Failed to toggle energy detection');
       console.error('Energy detection toggle error:', error);
-      // Clean up state on error
-      globalRecordingInstance = null;
-      recordingRef.current = null;
       setIsRecording(false);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
     }
   }, [
     isActive,
@@ -201,23 +155,10 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
     startEnergyDetection
   ]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount (recorder lifecycle handled by useAudioRecorder hook)
   useEffect(() => {
     return () => {
-      // Clean up recording if it exists (check both local and global)
-      const recordingToCleanup =
-        recordingRef.current || globalRecordingInstance;
-      if (recordingToCleanup) {
-        recordingToCleanup.stopAndUnloadAsync().catch((_error) => {
-          console.log('Cleanup: Recording already stopped or released');
-        });
-      }
-
-      // Reset all recording state
-      globalRecordingInstance = null;
-      recordingRef.current = null;
-      setIsRecording(false);
-      globalRecordingInProgress = false;
+      isRecordingInProgressRef.current = false;
     };
   }, []);
 

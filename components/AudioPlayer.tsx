@@ -3,13 +3,14 @@ import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
+import { setAudioModeAsync } from 'expo-audio';
 import React, { useEffect } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Carousel from './Carousel';
 
@@ -49,10 +50,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   useEffect(() => {
     const setupAudioMode = async () => {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true
       });
     };
 

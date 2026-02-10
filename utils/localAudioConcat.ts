@@ -15,7 +15,7 @@ import {
   normalizeFileUri
 } from '@/utils/fileUtils';
 import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
@@ -551,7 +551,8 @@ export async function concatenateAndShareQuestAudio(
 
       if (isWav) {
         // Convert .wav to .m4a
-        const tempM4aPath = `${FileSystem.cacheDirectory}temp_${Date.now()}_${i}.m4a`;
+        const cacheUri = Paths.cache.uri;
+        const tempM4aPath = `${cacheUri}/temp_${Date.now()}_${i}.m4a`;
         const tempM4aNativePath = getNativePath(tempM4aPath);
         tempFiles.push(tempM4aPath);
         console.log(`Converting ${nativePath} to ${tempM4aNativePath}...`);
@@ -713,7 +714,8 @@ export async function concatenateAndShareQuestAudio(
     if (parts.length === 0) parts.push('quest');
 
     const outputFileName = `${parts.join('-')}-${dateStr}.m4a`;
-    const outputPath = `${FileSystem.cacheDirectory}${outputFileName}`;
+    const cacheDir = Paths.cache.uri;
+    const outputPath = `${cacheDir}/${outputFileName}`;
     const outputNativePath = getNativePath(outputPath);
 
     // Convert audio URIs to the format expected by concatAudioFiles
@@ -739,7 +741,10 @@ export async function concatenateAndShareQuestAudio(
     // Clean up temporary converted files
     for (const tempFile of tempFiles) {
       try {
-        await FileSystem.deleteAsync(tempFile, { idempotent: true });
+        const file = new File(tempFile);
+        if (file.exists) {
+          file.delete();
+        }
       } catch (error) {
         console.warn(`Failed to delete temp file ${tempFile}:`, error);
       }

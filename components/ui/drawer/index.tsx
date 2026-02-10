@@ -29,9 +29,8 @@ import {
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetScrollViewProps } from '@gorhom/bottom-sheet/src/components/bottomSheetScrollable/types';
 import { memo } from 'react';
-import type { KeyboardAwareScrollViewProps } from 'react-native-keyboard-controller';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Reanimated from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 interface DrawerContextValue extends DrawerProps {
   ref: React.RefObject<BSModalType | null> | null;
@@ -349,10 +348,9 @@ function DrawerDescription({
   );
 }
 
-const AnimatedScrollView =
-  Reanimated.createAnimatedComponent<KeyboardAwareScrollViewProps>(
-    KeyboardAwareScrollView
-  );
+const AnimatedScrollView = Animated.createAnimatedComponent(
+  KeyboardAwareScrollView
+);
 const BottomSheetScrollViewComponent = createBottomSheetScrollableComponent<
   BottomSheetScrollViewMethods,
   BottomSheetScrollViewProps

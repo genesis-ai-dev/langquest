@@ -8,14 +8,15 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface TranscriptionEditModalProps {
   visible: boolean;
