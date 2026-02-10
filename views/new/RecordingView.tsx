@@ -795,6 +795,10 @@ const RecordingView = () => {
       const wasInMiddle = wasRecordingInMiddleRef.current;
       const wasPillAdded = wasPillAddedRef.current;
       const wasReplace = wasReplaceRef.current;
+      // Source of truth for "card selected vs no selection" before insertion:
+      // - selected card: index < previousCount
+      // - no selection (boundary): index >= previousCount
+      const hadCardSelectedBeforeInsert = currentInsertionIndex < previousCount;
 
       // Reset the flags
       wasRecordingInMiddleRef.current = false;
@@ -821,23 +825,24 @@ const RecordingView = () => {
         // Stay on replaced position and ensure it is visible
         setInsertionIndex(targetIndex);
         scheduleScrollToIndex(targetIndex, 'replace');
-      } else if (wasInMiddle) {
-        // Recorded in the middle - move to the new asset
+      } else if (hadCardSelectedBeforeInsert) {
+        // A card was selected before insertion - move to the newly inserted asset
         const newIndex = Math.min(currentInsertionIndex + 1, currentCount - 1);
         debugLog(
-          `📍 Moving to new asset (recorded in middle): ${currentInsertionIndex} → ${newIndex}`
+          `📍 Card selected before insert - moving to new asset: ${currentInsertionIndex} → ${newIndex} | wasInMiddleFlag: ${wasInMiddle}`
         );
         setInsertionIndex(newIndex);
-        scheduleScrollToIndex(newIndex, 'recorded-in-middle');
+        scheduleScrollToIndex(newIndex, 'selected-before-insert');
       } else {
-        // Asset appended at the end - keep boundary selected (no card selected)
-        // while keeping scroll focus at the end of list.
+        // No card selected before insertion (boundary) - keep boundary selected
+        // while keeping scroll visually anchored near the last inserted card.
         const targetIndex = currentCount;
+        const scrollIndex = Math.max(0, currentCount - 1);
         debugLog(
-          `📍 Appended at end - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex}`
+          `📍 No card selected before insert - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex} | scrollIndex: ${scrollIndex} | wasInMiddleFlag: ${wasInMiddle}`
         );
         setInsertionIndex(targetIndex);
-        scheduleScrollToIndex(targetIndex, 'appended-at-end');
+        scheduleScrollToIndex(scrollIndex, 'appended-at-end-keep-boundary');
       }
     }
 

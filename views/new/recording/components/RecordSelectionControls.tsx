@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
+import { Bookmark, ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -24,6 +24,8 @@ interface RecordSelectionControlsProps {
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
+  allowAssignVerse?: boolean;
+  onAssignVerse?: () => void;
 }
 
 export const RecordSelectionControls = React.memo(function RecordSelectionControls({
@@ -33,27 +35,37 @@ export const RecordSelectionControls = React.memo(function RecordSelectionContro
   onDelete,
   allowSelectAll = false,
   allSelected = false,
-  onSelectAll
+  onSelectAll,
+  allowAssignVerse = false,
+  onAssignVerse
 }: RecordSelectionControlsProps) {
   const { t } = useLocalization();
   return (
-    <View className="mb-3 w-full flex-row items-center justify-between bg-card p-3 px-4">
-      <Text className="text-xs text-muted-foreground font-bold flex-1">{selectedCount} {t('selected')}</Text>
+    <View className="mb-3 w-full flex-row items-center justify-between bg-card py-3 px-2">
+      <Text 
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      className="text-xs text-muted-foreground font-bold flex-1">{selectedCount} {t('selected')}</Text>
       <View className="align-between flex-row">
         <View className="flex-row gap-2 h-full items-center">
+          {allowAssignVerse && onAssignVerse && (
+            <Button variant="default" onPress={onAssignVerse} size="default">
+              <Icon as={Bookmark} />
+            </Button>
+          )}
           {allowSelectAll && onSelectAll && (
-            <Button variant="default" onPress={onSelectAll} size="sm">
+            <Button variant="default" onPress={onSelectAll} size="default">
               <Icon as={allSelected ? ListX : ListChecks} />
             </Button>
           )}
           <Button
             variant="default"
-            size="sm"
+            size="default"
             disabled={selectedCount < 2}
             onPress={onMerge}
             className='p-1'
           >
-            <View className="flex-row items-center px-2">
+            <View className="flex-row items-center px-0">
               <Icon as={Merge} />
               <Text className="ml-2 text-xs">{t('merge')}</Text>
             </View>
@@ -62,12 +74,12 @@ export const RecordSelectionControls = React.memo(function RecordSelectionContro
             variant="destructive"
             disabled={selectedCount < 1}
             onPress={onDelete}
-            size="sm"
+            size="default"
           >
             <Icon as={Trash2} />
           </Button>
         </View>
-          <Button variant="ghost" onPress={onCancel} className='ml-3' size="sm">
+          <Button variant="ghost" onPress={onCancel} className='ml-1 mt-1' size="icon">
             <Icon as={X} />
           </Button>
       </View>

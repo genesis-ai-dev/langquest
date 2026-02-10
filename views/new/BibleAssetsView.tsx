@@ -113,7 +113,7 @@ import ReorderableList, {
   useReorderableDrag
 } from 'react-native-reorderable-list';
 import { BibleAssetListItem } from './BibleAssetListItem';
-import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -3833,7 +3833,7 @@ export default function BibleAssetsView() {
                   ) : null}
                 </>
               ) : null}
-              {!isPublished && (
+              {!isPublished && currentUser && (
                 <SpeedDialItem
                   icon={BrushCleaning}
                   variant="outline"
@@ -3865,22 +3865,32 @@ export default function BibleAssetsView() {
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
       {!isPublished && currentUser && (
-        <View
-          style={{
-            paddingBottom: insets.bottom,
-            paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
-          }}
-          className="px-2"
-        >
-          {isSelectionMode ? (
-            <BibleSelectionControls
+
+          isSelectionMode ? (
+            <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="absolute bottom-0 left-0 right-0 z-40"
+          >            
+            <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
+            </View>
           ) : (
+            <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="px-2"
+          >
             <Pressable
               //variant="destructive"
               // size="lg"
@@ -3903,9 +3913,9 @@ export default function BibleAssetsView() {
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-          )}
-        </View>
-      )}
+            </View>
+          ))}
+       {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
