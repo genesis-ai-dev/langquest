@@ -608,8 +608,38 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         } catch {
           // In non-RN contexts, Alert may be unavailable; ignore
         }
+        // Save failed ops before completing the transaction
+        const failedOps = [...transaction.crud];
+
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
+
+        // Revert local synced records that failed to upload.
+        // This prevents the UI from showing a "synced" badge for data that never reached the cloud.
+        // The DELETEs generate new CRUD entries; when PowerSync processes those,
+        // the server-side DELETE of a non-existent row is a harmless no-op.
+        for (const op of failedOps) {
+          if (
+            op.opType === UpdateType.PUT ||
+            op.opType === UpdateType.PATCH
+          ) {
+            try {
+              await database.execute(
+                `DELETE FROM ${op.table} WHERE id = ?`,
+                [op.id]
+              );
+              console.log(
+                `[uploadData] Reverted failed ${op.table} record: ${op.id}`
+              );
+            } catch (revertError) {
+              console.warn(
+                `[uploadData] Failed to revert ${op.table} record ${op.id}:`,
+                revertError
+              );
+            }
+          }
+        }
+
         return;
       }
 
