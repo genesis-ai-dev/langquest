@@ -64,6 +64,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.8",
     "@hookform/resolvers": "^5.0.1",
+    "@journeyapps/wa-sqlite": "^1.4.1",
     "@legendapp/list": "^2.0.12",
     "@op-engineering/op-sqlite": "^15.2.5",
     "@powersync/attachments": "^2.4.0",
