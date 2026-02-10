@@ -23,6 +23,7 @@ import {
   tag_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import {
   and,
   eq,
@@ -32,8 +33,28 @@ import {
   sql
 } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { aliasedColumn, toColumns } from './dbUtils';
+import { aliasedColumn, resolveTable, toColumns } from './dbUtils';
 import { getLocalAttachmentUri } from './fileUtils';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface PublishQuestResult {
+  success: boolean;
+  status: 'queued' | 'error';
+  message: string;
+  publishedQuestIds?: string[];
+  publishedAssetIds?: string[];
+  publishedProjectId?: string;
+  pendingAttachments?: number;
+  errors: string[];
+  warnings: string[];
+}
+
+// ============================================================================
+// RECURSIVE CTE HELPERS
+// ============================================================================
 
 async function getParentQuests(questId: string) {
   const parentQuests = system.db
@@ -60,7 +81,7 @@ async function getParentQuests(questId: string) {
       .innerJoin(recursiveQueryName, eq(quest.id, parentQuestsAlias.parent_id))
   );
 
-  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery} 
+  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery}
     SELECT * FROM ${recursiveQueryName}
     ORDER BY ${parentQuestsAlias.depth}, ${parentQuestsAlias.id}`;
 
@@ -81,11 +102,9 @@ async function getNestedQuests(questId: string) {
     .select({
       id: quest.id,
       parent_id: quest.parent_id,
-      // asset_id: quest_asset_link.asset_id,
       depth: sql`0`.as('depth')
     })
     .from(quest)
-    // .leftJoin(quest_asset_link, eq(quest.id, quest_asset_link.quest_id))
     .where(and(eq(quest.id, questId)));
 
   const alias = 'nested_quests';
@@ -97,15 +116,13 @@ async function getNestedQuests(questId: string) {
       .select({
         id: quest.id,
         parent_id: quest.parent_id,
-        // asset_id: quest_asset_link.asset_id,
         depth: sql`${nestedQuestsAlias.depth} + 1`
       })
       .from(quest)
-      // .leftJoin(quest_asset_link, eq(quest.id, quest_asset_link.quest_id))
       .innerJoin(recursiveQueryName, eq(quest.parent_id, nestedQuestsAlias.id))
   );
 
-  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery} 
+  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery}
     SELECT * FROM ${recursiveQueryName}
     ORDER BY ${nestedQuestsAlias.depth}, ${nestedQuestsAlias.id}`;
 
@@ -156,7 +173,7 @@ async function getNestedAssets(questIds: string[]) {
       )
   );
 
-  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery} 
+  const query = sql`WITH RECURSIVE ${recursiveQueryName} AS ${recursiveQuery}
     SELECT * FROM ${recursiveQueryName}
     ORDER BY ${nestedAssetsAlias.depth}, ${nestedAssetsAlias.quest_id}`;
 
@@ -178,7 +195,105 @@ function getTableColumns<T extends SQLiteTable>(table: T) {
     .join(', ');
 }
 
-export async function publishQuest(questId: string, projectId: string) {
+// ============================================================================
+// MAIN PUBLISH FUNCTION
+// ============================================================================
+
+export async function publishQuest(
+  questId: string,
+  projectId: string
+): Promise<PublishQuestResult> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // ==========================================================================
+  // PHASE 1: VALIDATE (fail-fast, no DB writes)
+  // ==========================================================================
+
+  // 1a. Offline check
+  if (!getNetworkStatus()) {
+    return {
+      success: false,
+      status: 'error',
+      message: 'Cannot publish while offline',
+      errors: ['Cannot publish while offline'],
+      warnings: []
+    };
+  }
+
+  // 1b. Project existence — check local, then synced
+  const projectLocal = resolveTable('project', { localOverride: true });
+  const [projectInLocal] = await system.db
+    .select({ id: projectLocal.id })
+    .from(projectLocal)
+    .where(eq(projectLocal.id, projectId))
+    .limit(1);
+
+  const isLocalProject = !!projectInLocal;
+
+  if (!isLocalProject) {
+    const projectSynced = resolveTable('project', { localOverride: false });
+    const [projectInSynced] = await system.db
+      .select({ id: projectSynced.id })
+      .from(projectSynced)
+      .where(eq(projectSynced.id, projectId))
+      .limit(1);
+
+    if (!projectInSynced) {
+      return {
+        success: false,
+        status: 'error',
+        message: 'Project not found in local or synced tables',
+        errors: ['Project not found in local or synced tables'],
+        warnings: []
+      };
+    }
+  }
+
+  // 1c. RLS membership pre-check (only when project is already published)
+  if (!isLocalProject) {
+    try {
+      const {
+        data: { session }
+      } = await system.supabaseConnector.client.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (userId) {
+        const { data: linkData, error } = await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('profile_id', userId)
+          .in('membership', ['owner', 'member'])
+          .eq('active', true)
+          .limit(1);
+
+        if (error) {
+          warnings.push('Could not verify project membership in cloud');
+        } else if (!linkData || linkData.length === 0) {
+          return {
+            success: false,
+            status: 'error',
+            message:
+              'You must be a project owner or member to publish. The project may need to be published first.',
+            errors: [
+              'No active membership link found in cloud for this project'
+            ],
+            warnings: []
+          };
+        }
+      }
+    } catch {
+      warnings.push(
+        'Could not verify project membership — publish may fail with RLS error'
+      );
+    }
+  }
+
+  // ==========================================================================
+  // PHASE 2: GATHER (recursive CTEs)
+  // ==========================================================================
+
   const parentQuestIds = Array.from(
     new Set(
       (await getParentQuests(questId))
@@ -231,315 +346,278 @@ export async function publishQuest(questId: string, projectId: string) {
       new Set(projectLanguageLinks.map((link) => link.languoid_id))
     );
 
+    // Combine all quest IDs
+    const allQuestIds = Array.from(
+      new Set([...parentQuestIds, ...nestedQuestsIds])
+    );
+
+    // Gather tag IDs
+    const tagsForQuests = (
+      await system.db.query.quest_tag_link.findMany({
+        where: and(
+          inArray(quest_tag_link.quest_id, allQuestIds),
+          eq(quest_tag_link.source, 'local')
+        ),
+        columns: { tag_id: true }
+      })
+    ).map((link) => link.tag_id);
+
+    const tagsForAssets =
+      nestedAssetIds.length > 0
+        ? (
+            await system.db.query.asset_tag_link.findMany({
+              where: and(
+                inArray(asset_tag_link.asset_id, nestedAssetIds),
+                eq(asset_tag_link.source, 'local')
+              ),
+              columns: { tag_id: true }
+            })
+          ).map((link) => link.tag_id)
+        : [];
+
+    const allTagIds = Array.from(new Set(tagsForQuests.concat(tagsForAssets)));
+
+    // Check for tag key conflicts with online tags before inserting
+    const localTags = await system.db.query.tag.findMany({
+      where: and(inArray(tag.id, allTagIds), eq(tag.source, 'local')),
+      columns: { id: true, key: true }
+    });
+
+    const localTagKeys = localTags.map((t) => t.key);
+    let tagsToPublish = allTagIds;
+
+    if (localTagKeys.length > 0) {
+      const { data: conflictingOnlineTags } =
+        await system.supabaseConnector.client
+          .from('tag')
+          .select('key')
+          .in('key', localTagKeys)
+          .overrideTypes<{ key: string }[]>();
+
+      if (conflictingOnlineTags && conflictingOnlineTags.length > 0) {
+        const conflictingKeys = conflictingOnlineTags.map((t) => t.key);
+        warnings.push(
+          `Skipping tags with conflicting keys: ${conflictingKeys.join(', ')}`
+        );
+
+        const conflictingTagIds = localTags
+          .filter((t) => conflictingKeys.includes(t.key))
+          .map((t) => t.id);
+
+        tagsToPublish = allTagIds.filter(
+          (id) => !conflictingTagIds.includes(id)
+        );
+      }
+    }
+
+    // ========================================================================
+    // PHASE 3: TRANSACT (single atomic transaction, bulk SQL)
+    // ========================================================================
+
     // IMPORTANT: Insert ALL data in a SINGLE transaction to maintain ordering
     // PowerSync preserves the order of operations within a transaction
-    // Order: project → profile_project_link → languoids → project_language_link → parent quests → child quests → assets → links
+    // Order: project → profile_project_link → languoids → project_language_link
+    //        → parent quests → child quests → assets → links
     const audioUploadResults = await system.db.transaction(async (tx) => {
-      // Step 1: Insert project FIRST (required for foreign keys)
-      // IDEMPOTENT: Use INSERT OR IGNORE to allow re-publishing
+      // 1. Insert project (required for foreign keys)
       const projectColumns = getTableColumns(project_synced);
       const projectQuery = `INSERT OR IGNORE INTO project_synced(${projectColumns}) SELECT ${projectColumns} FROM project_local WHERE id = '${projectId}' AND source = 'local'`;
-      console.log('projectQuery', projectQuery);
       await tx.run(sql.raw(projectQuery));
 
-      // Step 2: Insert profile_project_link (depends on project)
-      // FIXED: Filter by specific link IDs to avoid uploading links for other projects
+      // 2. Insert profile_project_link (depends on project)
       if (profileProjectLinkIds.length > 0) {
         const profileProjectLinkColumns = getTableColumns(
           profile_project_link_synced
         );
         const profileProjectLinkQuery = `INSERT OR IGNORE INTO profile_project_link_synced(${profileProjectLinkColumns}) SELECT ${profileProjectLinkColumns} FROM profile_project_link_local WHERE id IN (${toColumns(profileProjectLinkIds)}) AND source = 'local'`;
-        console.log('profileProjectLinkQuery', profileProjectLinkQuery);
         await tx.run(sql.raw(profileProjectLinkQuery));
-      } else {
-        console.log(
-          '⏭️ No new profile_project_links to publish (already synced)'
-        );
       }
 
-      // Step 2b: Insert languoids FIRST (required for foreign key in project_language_link)
+      // 3. Insert languoids (required for FK in project_language_link)
       if (languoidIds.length > 0) {
         const languoidColumns = getTableColumns(languoid_synced);
         const languoidQuery = `INSERT OR IGNORE INTO languoid_synced(${languoidColumns}) SELECT ${languoidColumns} FROM languoid_local WHERE id IN (${toColumns(languoidIds)}) AND source = 'local'`;
-        console.log('languoidQuery', languoidQuery);
         await tx.run(sql.raw(languoidQuery));
       }
 
-      // Step 2c: Insert project_language_link (depends on project and languoid)
-      // PK is now (project_id, languoid_id, language_type) - languoid_id is required
+      // 4. Insert project_language_link (depends on project and languoid)
       const projectLanguageLinkColumns = getTableColumns(
         project_language_link_synced
       );
-      // Only publish links with languoid_id (required for PK)
       const projectLanguageLinkQuery = `INSERT OR IGNORE INTO project_language_link_synced(${projectLanguageLinkColumns}) SELECT ${projectLanguageLinkColumns} FROM project_language_link_local WHERE project_id = '${projectId}' AND languoid_id IS NOT NULL AND source = 'local'`;
-      console.log('projectLanguageLinkQuery', projectLanguageLinkQuery);
       await tx.run(sql.raw(projectLanguageLinkQuery));
 
-      // Step 3: Insert quests (parents first, then children)
+      // 5. Insert quests (parents first, then target + children)
       const questColumns = getTableColumns(quest_synced);
 
-      // Combine all quest IDs for use throughout transaction
-      const allQuestIds = Array.from(
-        new Set([...parentQuestIds, ...nestedQuestsIds])
-      );
-
-      // Step 3a: Insert parent quests FIRST (order matters for foreign keys)
       if (parentQuestIds.length > 0) {
         const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestIds)}) AND source = 'local'`;
-        console.log('parentQuestQuery', parentQuestQuery);
         await tx.run(sql.raw(parentQuestQuery));
       }
 
-      // Step 3b: Insert nested quests (children) - parents are now in queue first
       const nestedQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;
-      console.log('nestedQuestQuery', nestedQuestQuery);
       await tx.run(sql.raw(nestedQuestQuery));
 
-      // Step 4: Insert assets and related records
-      // CRITICAL: Insert SOURCE assets FIRST (no source_asset_id), then CHILD assets (with source_asset_id)
-      // This ensures foreign key constraints are satisfied (children reference parents)
+      // 6. Insert assets (source assets first, then children with EXISTS check)
       const assetColumns = getTableColumns(asset_synced);
 
-      // Step 4a: Insert SOURCE assets first (assets without source_asset_id)
       const sourceAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) SELECT ${assetColumns} FROM asset_local WHERE id IN (${toColumns(nestedAssetIds)}) AND source = 'local' AND source_asset_id IS NULL`;
-      console.log('sourceAssetQuery', sourceAssetQuery);
       await tx.run(sql.raw(sourceAssetQuery));
 
-      // Step 4b: Insert CHILD assets second (translations/transcriptions with source_asset_id)
-      // CRITICAL: Only insert child assets where the source_asset_id actually exists
-      const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns}) 
+      const childAssetQuery = `INSERT OR IGNORE INTO asset_synced(${assetColumns})
         SELECT ${assetColumns
           .split(', ')
           .map((c) => `child.${c}`)
-          .join(', ')} 
+          .join(', ')}
         FROM asset_local child
-        WHERE child.id IN (${toColumns(nestedAssetIds)}) 
-          AND child.source = 'local' 
+        WHERE child.id IN (${toColumns(nestedAssetIds)})
+          AND child.source = 'local'
           AND child.source_asset_id IS NOT NULL
           AND EXISTS (SELECT 1 FROM asset_local parent WHERE parent.id = child.source_asset_id)`;
-      console.log('childAssetQuery', childAssetQuery);
       await tx.run(sql.raw(childAssetQuery));
 
-      // CRITICAL: Only insert quest_asset_links where the referenced asset actually exists
-      // This prevents FK constraint violations when PowerSync uploads to Supabase
+      // 7. Insert quest_asset_link (with EXISTS(asset) guard)
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
-      const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns}) 
+      const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns})
         SELECT ${questAssetLinkColumns
           .split(', ')
           .map((c) => `qal.${c}`)
-          .join(', ')} 
+          .join(', ')}
         FROM quest_asset_link_local qal
-        WHERE qal.quest_id IN (${toColumns(allQuestIds)}) 
+        WHERE qal.quest_id IN (${toColumns(allQuestIds)})
           AND qal.source = 'local'
           AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = qal.asset_id)`;
-      console.log('questAssetLinkQuery', questAssetLinkQuery);
       await tx.run(sql.raw(questAssetLinkQuery));
 
+      // 8. Insert asset_content_link (with EXISTS(asset) guard + REPLACE audio)
       const assetContentLinkColumns = getTableColumns(
         asset_content_link_synced
       );
 
-      const localAudioFilesForAssets = await Promise.all(
-        (
-          await tx.query.asset_content_link.findMany({
-            columns: {
-              audio: true
-            },
-            where: and(
-              inArray(asset_content_link.asset_id, nestedAssetIds),
-              isNotNull(asset_content_link.audio),
-              eq(asset_content_link.source, 'local')
+      const localAudioFilesForAssets =
+        nestedAssetIds.length > 0
+          ? await Promise.all(
+              (
+                await tx.query.asset_content_link.findMany({
+                  columns: { audio: true },
+                  where: and(
+                    inArray(asset_content_link.asset_id, nestedAssetIds),
+                    isNotNull(asset_content_link.audio),
+                    eq(asset_content_link.source, 'local')
+                  )
+                })
+              )
+                .flatMap((link) => link.audio)
+                .filter(Boolean)
+                .map(getLocalAttachmentUri)
             )
-          })
-        )
-          .flatMap((link) => link.audio)
-          .filter(Boolean)
-          .map(getLocalAttachmentUri) // without OPFS
-      );
+          : [];
 
-      // CRITICAL: Only insert asset_content_links where the referenced asset actually exists
-      // Build prefixed columns manually to avoid splitting issues with REPLACE function
       const aclColumnsPrefixed = assetContentLinkColumns
         .split(', ')
         .map((col) => {
           if (col === 'audio') {
-            // Special handling for audio column - strip 'local/' prefix
             return `REPLACE(acl.audio, 'local/', '') AS audio`;
           }
           return `acl.${col}`;
         })
         .join(', ');
-      const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns}) 
-        SELECT ${aclColumnsPrefixed} 
+      const assetContentLinkQuery = `INSERT OR IGNORE INTO asset_content_link_synced(${assetContentLinkColumns})
+        SELECT ${aclColumnsPrefixed}
         FROM asset_content_link_local acl
-        WHERE acl.asset_id IN (${toColumns(nestedAssetIds)}) 
+        WHERE acl.asset_id IN (${toColumns(nestedAssetIds)})
           AND acl.source = 'local'
           AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = acl.asset_id)`;
-      console.log('assetContentLinkQuery', assetContentLinkQuery);
       await tx.run(sql.raw(assetContentLinkQuery));
 
-      const tagsForQuests = (
-        await tx.query.quest_tag_link.findMany({
-          where: and(
-            inArray(quest_tag_link.quest_id, allQuestIds),
-            eq(quest_tag_link.source, 'local')
-          ),
-          columns: {
-            tag_id: true
-          }
-        })
-      ).map((link) => link.tag_id);
-
-      const tagsForAssets = (
-        await tx.query.asset_tag_link.findMany({
-          where: and(
-            inArray(asset_tag_link.asset_id, nestedAssetIds),
-            eq(asset_tag_link.source, 'local')
-          ),
-          columns: {
-            tag_id: true
-          }
-        })
-      ).map((link) => link.tag_id);
-
-      const allTagsIds = Array.from(
-        new Set(tagsForQuests.concat(tagsForAssets))
-      );
-
-      // Check for tag key conflicts with online tags before inserting
-      const localTags = await tx.query.tag.findMany({
-        where: and(inArray(tag.id, allTagsIds), eq(tag.source, 'local')),
-        columns: {
-          id: true,
-          key: true
-        }
-      });
-
-      const localTagKeys = localTags.map((t) => t.key);
-
-      let tagsToPublish = allTagsIds;
-
-      if (localTagKeys.length > 0) {
-        const { data: conflictingOnlineTags } =
-          await system.supabaseConnector.client
-            .from('tag')
-            .select('key')
-            .in('key', localTagKeys)
-            .overrideTypes<{ key: string }[]>();
-
-        if (conflictingOnlineTags && conflictingOnlineTags.length > 0) {
-          const conflictingKeys = conflictingOnlineTags.map((t) => t.key);
-          console.warn(
-            `Skipping tags with conflicting keys that already exist online: ${conflictingKeys.join(', ')}`
-          );
-
-          // Filter out tags with conflicting keys
-          const conflictingTagIds = localTags
-            .filter((t) => conflictingKeys.includes(t.key))
-            .map((t) => t.id);
-
-          tagsToPublish = allTagsIds.filter(
-            (id) => !conflictingTagIds.includes(id)
-          );
-        }
-      }
-
+      // 9. Insert tags
       const tagColumns = getTableColumns(tag_synced);
       const tagQuery = `INSERT OR IGNORE INTO tag_synced(${tagColumns}) SELECT ${tagColumns} FROM tag_local WHERE id IN (${toColumns(tagsToPublish)}) AND source = 'local'`;
       await tx.run(sql.raw(tagQuery));
 
-      // CRITICAL: Only insert quest_tag_links where both quest and tag exist
+      // 10. Insert quest_tag_link (with EXISTS(quest) AND EXISTS(tag))
       const questTagLinkColumns = getTableColumns(quest_tag_link_synced);
-      const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns}) 
+      const questTagLinkQuery = `INSERT OR IGNORE INTO quest_tag_link_synced(${questTagLinkColumns})
         SELECT ${questTagLinkColumns
           .split(', ')
           .map((c) => `qtl.${c}`)
-          .join(', ')} 
+          .join(', ')}
         FROM quest_tag_link_local qtl
-        WHERE qtl.quest_id IN (${toColumns(allQuestIds)}) 
+        WHERE qtl.quest_id IN (${toColumns(allQuestIds)})
           AND qtl.source = 'local'
           AND EXISTS (SELECT 1 FROM quest_local q WHERE q.id = qtl.quest_id)
           AND EXISTS (SELECT 1 FROM tag_local t WHERE t.id = qtl.tag_id)`;
-      console.log('questTagLinkQuery', questTagLinkQuery);
       await tx.run(sql.raw(questTagLinkQuery));
 
-      // CRITICAL: Only insert asset_tag_links where both asset and tag exist
+      // 11. Insert asset_tag_link (with EXISTS(asset) AND EXISTS(tag))
       const assetTagLinkColumns = getTableColumns(asset_tag_link_synced);
-      const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns}) 
+      const assetTagLinkQuery = `INSERT OR IGNORE INTO asset_tag_link_synced(${assetTagLinkColumns})
         SELECT ${assetTagLinkColumns
           .split(', ')
           .map((c) => `atl.${c}`)
-          .join(', ')} 
+          .join(', ')}
         FROM asset_tag_link_local atl
-        WHERE atl.asset_id IN (${toColumns(nestedAssetIds)}) 
+        WHERE atl.asset_id IN (${toColumns(nestedAssetIds)})
           AND atl.source = 'local'
           AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = atl.asset_id)
           AND EXISTS (SELECT 1 FROM tag_local t WHERE t.id = atl.tag_id)`;
-      console.log('assetTagLinkQuery', assetTagLinkQuery);
       await tx.run(sql.raw(assetTagLinkQuery));
 
-      console.log('localAudioFilesForAssets', localAudioFilesForAssets);
-
+      // Queue audio attachments for upload
       const audioUploadResults = await Promise.allSettled(
         localAudioFilesForAssets.map(async (audio) => {
           const record = await system.permAttachmentQueue?.saveAudio(audio, tx);
-          // easy way to tell if audio file exists locally
           if (!record?.size) {
-            console.warn(
-              `Will fail to add audio to perm attachment queue, could not find size for ${audio}`
-            );
             return Promise.reject(
-              new Error(
-                `Will fail to add audio to perm attachment queue, could not find size for ${audio}`
-              )
+              new Error(`Could not find size for audio attachment: ${audio}`)
             );
           }
           return audio;
         })
       );
 
-      // TODO: upload image attachments if uploading images locally will be a thin
-
-      // ============================================================================
-      // CRITICAL: LOCAL RECORDS ARE PRESERVED FOR DATA SAFETY
-      // ============================================================================
-      // We intentionally DO NOT delete local records during publishing.
-      //
-      // Reasons:
-      // 1. PowerSync may fail to upload to Supabase (network issues, RLS errors, etc.)
-      // 2. If we delete local records before confirming cloud upload, data loss can occur
-      // 3. Local records serve as a backup if the remote database has issues
-      //
-      // Future cleanup strategy:
-      // - Create a separate manual cleanup service (NOT part of publish flow)
-      // - That service should:
-      //   1. Query Supabase to confirm record exists
-      //   2. Verify the data matches (checksums, timestamps, etc.)
-      //   3. Only then delete from *_local tables
-      // - Run cleanup manually or on a scheduled basis
-      // - Never tie cleanup to PowerSync upload success (could be false positive)
-      //
-      // For now: Local records remain indefinitely as a safety measure.
-      // ============================================================================
-
       return audioUploadResults;
     });
 
-    const failedAudioUploadResults = audioUploadResults
-      .filter((result) => result.status === 'rejected')
-      .map((result) => result.reason as string);
+    // ========================================================================
+    // PHASE 4: REPORT
+    // ========================================================================
 
-    if (failedAudioUploadResults.length > 0) {
-      console.error(
-        'Failed to save audio attachments',
-        failedAudioUploadResults
-      );
+    const failedAudioResults = audioUploadResults.filter(
+      (result) => result.status === 'rejected'
+    );
+
+    if (failedAudioResults.length > 0) {
+      for (const result of failedAudioResults) {
+        warnings.push(`Audio attachment failed: ${result.reason}`);
+      }
     }
 
+    const pendingAttachments = audioUploadResults.length;
+
     console.log('Quest published successfully');
-    return { success: true, message: 'Quest published successfully' };
+    return {
+      success: true,
+      status: 'queued' as const,
+      message: 'Quest published successfully',
+      publishedQuestIds: [...parentQuestIds, ...nestedQuestsIds],
+      publishedAssetIds: nestedAssetIds,
+      publishedProjectId: isLocalProject ? projectId : undefined,
+      pendingAttachments,
+      errors,
+      warnings
+    };
   } catch (error) {
     console.error('Failed to publish quest:', error);
-    return { success: false, message: 'Failed to publish quest' };
+    return {
+      success: false,
+      status: 'error' as const,
+      message: 'Failed to publish quest',
+      errors: [
+        ...errors,
+        error instanceof Error ? error.message : String(error)
+      ],
+      warnings
+    };
   }
 }
