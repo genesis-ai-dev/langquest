@@ -1,4 +1,3 @@
-import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -26,7 +25,7 @@ export function AddVerseLabelButton({
           disabled ? 'opacity-40' : ''
         }`}
       >
-        <Icon as={PlusCircleIcon} size={12} className="text-primary/70" />
+        <Icon name="plus-circle" size={12} className="text-primary/70" />
         <Text className="text-[10.5px] font-semibold text-primary/70">
           Add verse
         </Text>

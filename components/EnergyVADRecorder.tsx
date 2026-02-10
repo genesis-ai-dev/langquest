@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { Icon } from '@/components/ui/icon';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { useMicrophoneEnergy } from '../hooks/useMicrophoneEnergy';
 import { colors, fontSizes, spacing } from '../styles/theme';
 
@@ -231,8 +230,8 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
         style={[styles.vadButton, isActive && styles.vadButtonActive]}
         onPress={handleToggleEnergyDetection}
       >
-        <Ionicons
-          name={isActive ? 'stop-circle' : 'play-circle'}
+        <Icon
+          name={isActive ? 'circle-stop' : 'circle-play'}
           size={40}
           color="white"
         />

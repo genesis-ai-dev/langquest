@@ -20,26 +20,18 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  BookOpenIcon,
-  ChurchIcon,
-  GlobeIcon,
-  LanguagesIcon,
-  PlusIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  View
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    View
 } from 'react-native';
 import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
+    KeyboardAwareScrollView,
+    KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
@@ -386,7 +378,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
             {step === 'create-language' && t('createLanguage')}
           </Text>
           <Pressable onPress={handleClose} disabled={isLoading}>
-            <Icon as={XIcon} size={24} className="text-muted-foreground" />
+            <Icon name="x" size={24} className="text-muted-foreground" />
           </Pressable>
         </View>
 
@@ -426,7 +418,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     >
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          as={GlobeIcon}
+                          name="globe"
                           size={20}
                           className="text-primary"
                         />
@@ -457,7 +449,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
               ) : mappedLanguages.length === 0 ? (
                 <View className="flex-1 items-center justify-center py-8">
                   <Icon
-                    as={LanguagesIcon}
+                    name="languages"
                     size={48}
                     className="mb-4 text-muted-foreground"
                   />
@@ -500,7 +492,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                         >
                           <View className="flex-row items-center gap-3">
                             <Icon
-                              as={LanguagesIcon}
+                              name="languages"
                               size={20}
                               className="text-primary"
                             />
@@ -550,7 +542,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     disabled={isLoading}
                   >
                     <Icon
-                      as={PlusIcon}
+                      name="plus"
                       size={20}
                       className="text-primary-foreground"
                     />
@@ -626,7 +618,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     <View className="flex-row items-center p-6">
                       <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
                         <Icon
-                          as={BookOpenIcon}
+                          name="book-open"
                           size={32}
                           className="text-primary"
                         />
@@ -662,7 +654,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     <View className="flex-row items-center p-6">
                       <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
                         <Icon
-                          as={ChurchIcon}
+                          name="church"
                           size={32}
                           className="text-primary"
                         />

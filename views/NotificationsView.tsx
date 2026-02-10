@@ -3,36 +3,36 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerView
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerView
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  invite,
-  profile,
-  profile_project_link,
-  project,
-  request
+    invite,
+    profile,
+    profile_project_link,
+    project,
+    request
 } from '@/db/drizzleSchema';
 import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
+    invite_synced,
+    profile_project_link_synced,
+    request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { LanguoidLinkSuggestionWithDetails } from '@/hooks/db/useLanguoidLinkSuggestions';
 import {
-  useAcceptLanguoidLinkSuggestion,
-  useKeepCustomLanguoid,
-  useLanguoidLinkSuggestions
+    useAcceptLanguoidLinkSuggestion,
+    useKeepCustomLanguoid,
+    useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -46,22 +46,12 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray, or } from 'drizzle-orm';
-import {
-  BellIcon,
-  CheckIcon,
-  HomeIcon,
-  LinkIcon,
-  MailIcon,
-  UserPlusIcon,
-  WifiIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  View
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    View
 } from 'react-native';
 
 interface NotificationItem {
@@ -160,7 +150,7 @@ function LanguoidLinkSuggestionGroup({
             <View className="flex gap-4">
               <View className="flex-col gap-1">
                 <View className="flex flex-row items-center gap-2">
-                  <Icon as={LinkIcon} size={20} className="text-primary" />
+                  <Icon name="link" size={20} className="text-primary" />
                   <Text className="font-semibold text-foreground" variant="h4">
                     {t('languoidLinkSuggestionTitle')}
                   </Text>
@@ -882,7 +872,7 @@ export default function NotificationsView() {
             <View className="flex gap-2">
               <View className="flex-row items-center gap-2">
                 <Icon
-                  as={item.type === 'invite' ? MailIcon : UserPlusIcon}
+                  name={item.type === 'invite' ? 'mail' : 'user-plus'}
                   size={24}
                   color={colors.primary}
                 />
@@ -948,7 +938,7 @@ export default function NotificationsView() {
                   </View>
                   {!shouldDownload && (
                     <View style={styles.warningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Icon name="alert-triangle" size={16} color={colors.alert} />
                       <Text style={styles.warningText}>
                         {t('projectNotAvailableOfflineWarning')}
                       </Text>
@@ -979,7 +969,7 @@ export default function NotificationsView() {
                   />
                 ) : (
                   <>
-                    <Icon as={CheckIcon} className="text-foreground" />
+                    <Icon name="check" className="text-foreground" />
                     <Text className="text-foreground">{t('accept')}</Text>
                   </>
                 )}
@@ -992,7 +982,7 @@ export default function NotificationsView() {
                 onPress={() => handleDecline(item.id, item.type)}
                 loading={isProcessing}
               >
-                <Icon as={XIcon} />
+                <Icon name="x" />
                 <Text>{t('decline')}</Text>
               </Button>
             </View>
@@ -1109,7 +1099,7 @@ export default function NotificationsView() {
       <Text className="text-2xl font-bold">{t('notifications')}</Text>
 
       {!isOnline && (
-        <Alert icon={WifiIcon}>
+        <Alert icon="wifi">
           <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
         </Alert>
       )}
@@ -1127,7 +1117,7 @@ export default function NotificationsView() {
             <View className="flex-1 items-center justify-center py-14">
               <View className="flex-col items-center gap-4">
                 <Icon
-                  as={BellIcon}
+                  name="bell"
                   size={48}
                   className="text-muted-foreground"
                 />
@@ -1144,7 +1134,7 @@ export default function NotificationsView() {
                     onPress={goToProjects}
                     className="mt-4"
                   >
-                    <Icon as={HomeIcon} className="text-primary-foreground" />
+                    <Icon name="home" className="text-primary-foreground" />
                   </Button>
                 </View>
               </View>

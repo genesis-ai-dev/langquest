@@ -1,13 +1,12 @@
 import { Icon } from '@/components/ui/icon';
-import { BookOpenIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 
 export function QuestListAnimation() {
@@ -48,10 +47,10 @@ export function QuestListAnimation() {
   return (
     <View className="flex-row items-center justify-center gap-3">
       <Animated.View style={book1Style}>
-        <Icon as={BookOpenIcon} size={28} className="text-primary" />
+        <Icon name="book-open" size={28} className="text-primary" />
       </Animated.View>
       <Animated.View style={book2Style}>
-        <Icon as={BookOpenIcon} size={28} className="text-primary" />
+        <Icon name="book-open" size={28} className="text-primary" />
       </Animated.View>
     </View>
   );

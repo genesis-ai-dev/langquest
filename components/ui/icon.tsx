@@ -1,35 +1,53 @@
 import { cn, getThemeToken } from '@/utils/styleUtils';
-import type { LucideIcon, LucideProps } from 'lucide-react-native';
+import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import type { MotiProps } from 'moti';
 import { useMotify } from 'moti';
 import { cssInterop } from 'nativewind';
-
-type IconProps = MotiProps<LucideProps> &
-  LucideProps & {
-    as: LucideIcon;
-  };
-
 import React from 'react';
+import { Text, type TextProps, type TextStyle } from 'react-native';
 import { TextClassContext } from './text';
 
-const MotiIconImpl = React.forwardRef<
-  React.ComponentRef<LucideIcon>,
-  IconProps
->(function IconImpl({ as: IconComponent, ...props }, ref) {
-  const animated = useMotify<LucideProps>(props);
-  return (
-    // @ts-expect-error - style from animated is compatible but types don't match exactly
-    <IconComponent {...props} style={animated.style} ref={ref} />
-  );
-});
+type BaseIconProps = TextProps & {
+  name: LucideIconName;
+  size?: number;
+  color?: TextStyle['color'];
+  className?: string;
+};
 
-const IconImpl = React.forwardRef<React.ComponentRef<LucideIcon>, IconProps>(
-  function IconImpl({ as: IconComponent, ...props }, ref) {
+type IconProps = MotiProps<BaseIconProps> & BaseIconProps;
+
+const MotiIconImpl = React.forwardRef<React.ComponentRef<typeof Text>, IconProps>(
+  function MotiIconImpl({ name, size, color, className, style, ...props }, ref) {
+    const animated = useMotify<BaseIconProps>(props);
+    const textClass = React.useContext(TextClassContext);
+    
     return (
-      <IconComponent
+      <Lucide
+        name={name}
+        size={size}
+        color={color}
+        style={[animated.style, style]}
+        className={cn('text-foreground', textClass, className)}
+        innerRef={ref}
         {...props}
-        // @ts-expect-error - ref type mismatch
-        ref={ref}
+      />
+    );
+  }
+);
+
+const IconImpl = React.forwardRef<React.ComponentRef<typeof Text>, IconProps>(
+  function IconImpl({ name, size, color, className, style, ...props }, ref) {
+    const textClass = React.useContext(TextClassContext);
+    
+    return (
+      <Lucide
+        name={name}
+        size={size}
+        color={color}
+        style={style}
+        className={cn('text-foreground', textClass, className)}
+        innerRef={ref}
+        {...props}
       />
     );
   }
@@ -39,9 +57,8 @@ cssInterop(IconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
-      height: 'size',
-      width: 'size',
-      fill: 'fill'
+      fontSize: 'size',
+      color: 'color'
     }
   }
 });
@@ -50,11 +67,8 @@ cssInterop(MotiIconImpl, {
   className: {
     target: 'style',
     nativeStyleToProp: {
-      height: 'size',
-      width: 'size',
-      fill: 'fill',
-      scaleX: 'scaleX',
-      scaleY: 'scaleY'
+      fontSize: 'size',
+      color: 'color'
     }
   }
 });
@@ -63,50 +77,54 @@ cssInterop(MotiIconImpl, {
  * A wrapper component for Lucide icons with Nativewind `className` support via `cssInterop`.
  *
  * This component allows you to render any Lucide icon while applying utility classes
- * using `nativewind`. It avoids the need to wrap or configure each icon individually.
+ * using `nativewind`. It uses @react-native-vector-icons/lucide for icon rendering.
  *
  * @component
  * @example
  * ```tsx
- * import { ArrowRight } from 'lucide-react-native';
- * import { Icon } from '@/registry/components/ui/icon';
+ * import { Icon } from '@/components/ui/icon';
  *
- * <Icon as={ArrowRight} className="text-red-500" size={16} />
+ * <Icon name="arrow-right" className="text-red-500" size={16} />
  * ```
  *
- * @param {LucideIcon} as - The Lucide icon component to render.
+ * @param {LucideIconName} name - The name of the Lucide icon to render.
  * @param {string} className - Utility classes to style the icon using Nativewind.
  * @param {number} size - Icon size (defaults to --default-icon-size).
- * @param {...LucideProps} ...props - Additional Lucide icon props passed to the "as" icon.
+ * @param {string} color - Icon color (can also be set via className).
+ * @param {...TextProps} ...props - Additional Text props passed to the icon.
  */
 function Icon({
-  as: IconComponent,
+  name,
   className,
   size = getThemeToken('default-icon-size'),
+  color,
   ...props
 }: IconProps) {
   const textClass = React.useContext(TextClassContext);
   return (
     <IconImpl
-      as={IconComponent}
+      name={name}
       className={cn('text-foreground', textClass, className)}
       size={size}
+      color={color}
       {...props}
     />
   );
 }
 
 function MotiIcon({
-  as: IconComponent,
+  name,
   className,
   size = getThemeToken('default-icon-size'),
+  color,
   ...props
 }: IconProps) {
   return (
     <MotiIconImpl
-      as={IconComponent}
+      name={name}
       className={cn('text-foreground', className)}
       size={size}
+      color={color}
       {...props}
     />
   );

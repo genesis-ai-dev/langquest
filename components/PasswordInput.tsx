@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
 import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -37,7 +37,7 @@ export const PasswordInput = ({
         activeOpacity={1}
         style={styles.icon}
       >
-        <Ionicons
+        <Icon
           name={showPassword ? 'eye-off' : 'eye'}
           size={24}
           color={placeholderTextColor}

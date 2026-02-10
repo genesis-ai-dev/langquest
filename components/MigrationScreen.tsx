@@ -17,14 +17,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import {
-  clearDegradedMode,
-  incrementRetryCount,
-  isDegradedMode,
-  resetRetryCount,
-  shouldRetryMigration
+    clearDegradedMode,
+    incrementRetryCount,
+    isDegradedMode,
+    resetRetryCount,
+    shouldRetryMigration
 } from '@/services/degradedModeService';
 import { useThemeColor } from '@/utils/styleUtils';
-import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -251,7 +250,7 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
             {error ? (
               <Text className="text-4xl">⚠️</Text>
             ) : isComplete ? (
-              <Icon as={CheckIcon} size={40} />
+              <Icon name="check" size={40} />
             ) : (
               <ActivityIndicator size="large" color={primaryColor} />
             )}

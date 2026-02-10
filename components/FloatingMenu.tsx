@@ -1,10 +1,11 @@
+import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export interface FloatingMenuItem {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: LucideIconName;
   label: string;
   action: () => void;
 }
@@ -164,8 +165,8 @@ export const FloatingMenu = ({
           activeOpacity={0.8}
         >
           <View style={styles.buttonBackground}></View>
-          <Ionicons
-            name={isOpen ? 'close' : 'menu'}
+          <Icon
+            name={isOpen ? 'x' : 'menu'}
             size={20}
             color={colors.text}
           />
@@ -183,7 +184,7 @@ const ItemButton = ({ icon, action }: FloatingMenuItem) => {
       activeOpacity={0.7}
     >
       <View style={styles.buttonBackground}></View>
-      <Ionicons name={icon} size={20} color={colors.text} />
+      <Icon name={icon} size={20} color={colors.text} />
     </TouchableOpacity>
   );
 };
@@ -194,7 +195,7 @@ export function createMenuItem(
   onClick: () => void
 ) {
   return {
-    icon: iconString as keyof typeof Ionicons.glyphMap,
+    icon: iconString as LucideIconName,
     label,
     action: () => {
       onClick();

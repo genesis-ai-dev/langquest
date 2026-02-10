@@ -20,13 +20,6 @@ import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  ChevronLeft,
-  HomeIcon,
-  InfoIcon,
-  Trash2
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -138,7 +131,7 @@ export default function AccountDeletionView() {
         <View className="flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-3">
             <Button variant="ghost" size="icon" onPress={goBack}>
-              <Icon as={ChevronLeft} size={24} className="text-foreground" />
+              <Icon name="chevron-left" size={24} className="text-foreground" />
             </Button>
             <Text className="text-2xl font-bold text-foreground">
               {step === 1
@@ -147,13 +140,13 @@ export default function AccountDeletionView() {
             </Text>
           </View>
           <Button variant="ghost" size="icon" onPress={goToProjects}>
-            <Icon as={HomeIcon} size={24} className="text-foreground" />
+            <Icon name="home" size={24} className="text-foreground" />
           </Button>
         </View>
 
         {/* Offline Warning */}
         {!isOnline && (
-          <Alert icon={InfoIcon} variant="destructive">
+          <Alert icon="info" variant="destructive">
             <AlertTitle>{t('accountDeletionRequiresOnline')}</AlertTitle>
           </Alert>
         )}
@@ -161,7 +154,7 @@ export default function AccountDeletionView() {
         {/* Step 1: Warning and Information */}
         {step === 1 && (
           <View className="flex flex-col gap-6">
-            <Alert icon={AlertTriangle} variant="destructive">
+            <Alert icon="alert-triangle" variant="destructive">
               <AlertTitle>{t('accountDeletionWarning')}</AlertTitle>
             </Alert>
 
@@ -186,7 +179,7 @@ export default function AccountDeletionView() {
         {/* Step 2: Final Confirmation */}
         {step === 2 && (
           <View className="flex flex-col gap-6">
-            <Alert icon={AlertTriangle} variant="destructive">
+            <Alert icon="alert-triangle" variant="destructive">
               <AlertTitle>{t('accountDeletionConfirm')}</AlertTitle>
             </Alert>
 
@@ -240,7 +233,7 @@ export default function AccountDeletionView() {
               >
                 {!isPending && (
                   <Icon
-                    as={Trash2}
+                    name="trash-2"
                     size={20}
                     className="mr-2 text-destructive-foreground"
                   />

@@ -1,10 +1,10 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 // import { Badge } from '@/components/ui/badge';
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,18 +17,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
-import {
-  CheckSquareIcon,
-  EyeOffIcon,
-  GripVerticalIcon,
-  HardDriveIcon,
-  PauseIcon,
-  PencilLineIcon,
-  PlayIcon,
-  SquareArrowOutUpRightIcon,
-  // Plus,
-  SquareIcon
-} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
@@ -253,7 +241,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
         hitSlop={8}
       >
         <Icon
-          as={GripVerticalIcon}
+          name="grip-vertical"
           size={24}
           className={
             isDragFixed ? 'text-muted-foreground/30' : 'text-muted-foreground'
@@ -271,7 +259,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Icon
-        as={isSelected ? CheckSquareIcon : SquareIcon}
+        name={isSelected ? 'check-square' : 'square'}
         size={22}
         className={isSelected ? 'text-primary' : 'text-muted-foreground'}
       />
@@ -299,14 +287,14 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   <View className="flex flex-row gap-1">
                     {invisible && (
                       <Icon
-                        as={EyeOffIcon}
+                        name="eye-off"
                         size={14}
                         className="text-secondary-foreground"
                       />
                     )}
                     {!allowEditing && (
                       <Icon
-                        as={PauseIcon}
+                        name="pause"
                         size={14}
                         className="text-secondary-foreground"
                       />
@@ -316,7 +304,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                 {selectionOrDragElement}
                 <View className="flex flex-row items-center gap-1.5">
                   {asset.source === 'local' && (
-                    <Icon as={HardDriveIcon} size={14} />
+                    <Icon name="hard-drive" size={14} />
                   )}
                   {/* Play button - only show if onPlay is provided */}
                   {onPlay && (
@@ -329,7 +317,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                       hitSlop={8}
                     >
                       <Icon
-                        as={isCurrentlyPlaying ? PauseIcon : PlayIcon}
+                        name={isCurrentlyPlaying ? 'pause' : 'play'}
                         size={14}
                         className={
                           isCurrentlyPlaying
@@ -355,8 +343,8 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   {tags.length === 0 ? (
                     !isPublished && (
                       <View className="flex h-6 w-7 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30">
-                        <Icon as={Plus} size={10} className="text-white" />
-                        <Icon as={TagIcon} size={10} className="text-white" />
+                        <Icon name="plus" size={10} className="text-white" />
+                        <Icon name="tag" size={10} className="text-white" />
                       </View>
                     )
                   ) : (
@@ -365,7 +353,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                         variant="default"
                         className="flex flex-row items-center gap-1 px-2 py-0.5"
                       >
-                        <Icon as={TagIcon} size={11} className="text-white" />
+                        <Icon name="tag" size={11} className="text-white" />
                         <CardTitle className="text-[11px] leading-tight text-white">
                           {tag && `${tag.key}${tag.value && `: ${tag.value}`}`}
                         </CardTitle>
@@ -385,7 +373,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   hitSlop={8}
                 >
                   <Icon
-                    as={PencilLineIcon}
+                    name="pencil-line"
                     size={12}
                     className="text-primary"
                   />
@@ -401,7 +389,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   />
                   <Pressable onPress={handleOpenAsset} className="mr-2">
                     <Icon
-                      as={SquareArrowOutUpRightIcon}
+                      name="square-arrow-out-up-right"
                       size={16}
                       className="text-primary"
                     />

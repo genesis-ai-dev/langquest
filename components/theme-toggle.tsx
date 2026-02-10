@@ -1,10 +1,9 @@
 import {
-  ToggleGroup,
-  ToggleGroupIcon,
-  ToggleGroupItem
+    ToggleGroup,
+    ToggleGroupIcon,
+    ToggleGroupItem
 } from '@/components/ui/toggle-group';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { MonitorIcon, MoonStarIcon, SunIcon } from 'lucide-react-native';
 
 export function ThemeToggle() {
   const { stateTheme, setColorScheme } = useColorScheme();
@@ -19,13 +18,13 @@ export function ThemeToggle() {
       variant="default"
     >
       <ToggleGroupItem value="light" aria-label="Light theme">
-        <ToggleGroupIcon as={SunIcon} size={20} />
+        <ToggleGroupIcon name="sun" size={20} />
       </ToggleGroupItem>
       <ToggleGroupItem value="system" aria-label="System theme">
-        <ToggleGroupIcon as={MonitorIcon} size={20} />
+        <ToggleGroupIcon name="monitor" size={20} />
       </ToggleGroupItem>
       <ToggleGroupItem value="dark" aria-label="Dark theme">
-        <ToggleGroupIcon as={MoonStarIcon} size={20} />
+        <ToggleGroupIcon name="moon-star" size={20} />
       </ToggleGroupItem>
     </ToggleGroup>
   );

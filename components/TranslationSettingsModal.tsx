@@ -1,29 +1,29 @@
+import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-  updateTranslationStatus,
-  useTranslationStatuses
+    updateTranslationStatus,
+    useTranslationStatuses
 } from '@/database_services/status/translation';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
+    borderRadius,
+    colors,
+    fontSizes,
+    sharedStyles,
+    spacing
 } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useState } from 'react';
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { SwitchBox } from './SwitchBox';
 
 interface TranslationSettingsModalProps {
@@ -122,7 +122,7 @@ export const TranslationSettingsModal: React.FC<
                   {'Translation Settings'}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
+                  <Icon name="x" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
 

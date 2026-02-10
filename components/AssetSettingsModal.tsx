@@ -1,19 +1,13 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-  updateAssetStatus,
-  useAssetStatuses
+    updateAssetStatus,
+    useAssetStatuses
 } from '@/database_services/status/asset';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import RNAlert from '@blazejkustra/react-native-alert';
-import {
-  CheckCircleIcon,
-  EyeIcon,
-  EyeOffIcon,
-  PauseIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { SwitchBox } from './SwitchBox';
@@ -188,7 +182,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               value={assetData?.visible ?? false}
               onChange={() => handleToggleStatusGeneral('visible')}
               disabled={isLoading || !isOwner}
-              icon={assetData?.visible ? EyeIcon : EyeOffIcon}
+              icon={assetData?.visible ? 'eye' : 'eye-off'}
             />
 
             <SwitchBox
@@ -201,7 +195,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               value={assetData?.active ?? false}
               onChange={() => handleToggleStatusGeneral('active')}
               disabled={isLoading || !isOwner}
-              icon={assetData?.active ? CheckCircleIcon : PauseIcon}
+              icon={assetData?.active ? 'circle-check' : 'pause'}
             />
 
             <View className="h-6" />
@@ -239,7 +233,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               value={assetQuestData?.active ?? false}
               onChange={() => handleToggleStatusQuest('active')}
               disabled={isLoading || !isOwner || !assetData?.active}
-              icon={assetQuestData?.active ? CheckCircleIcon : PauseIcon}
+              icon={assetQuestData?.active ? 'circle-check' : 'pause'}
             />
           </View>
         )}

@@ -10,13 +10,13 @@
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -24,7 +24,6 @@ import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getThemeColor } from '@/utils/styleUtils';
 import { eq } from 'drizzle-orm';
-import { Pause, Play, ScissorsIcon, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -171,7 +170,7 @@ export function VerseSegmentModal({
                       onPress={() => handlePlaySegment(segment)}
                     >
                       <Icon
-                        as={isThisPlaying ? Pause : Play}
+                        name={isThisPlaying ? 'pause' : 'play'}
                         className="text-foreground"
                         size={16}
                       />
@@ -191,7 +190,7 @@ export function VerseSegmentModal({
                       onPress={() => handleDeleteSegment(segment.id)}
                     >
                       <Icon
-                        as={Trash2}
+                        name="trash-2"
                         className="text-destructive"
                         size={16}
                       />
@@ -206,7 +205,7 @@ export function VerseSegmentModal({
         <DrawerFooter className="flex-row gap-2">
           {isMerged && onUnmerge && (
             <Button variant="outline" onPress={onUnmerge} className="flex-1">
-              <Icon as={ScissorsIcon} size={16} className="mr-2" />
+              <Icon name="scissors" size={16} className="mr-2" />
               <Text>Unmerge (Mock)</Text>
             </Button>
           )}

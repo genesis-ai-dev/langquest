@@ -3,12 +3,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerView
+    Drawer,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerView
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -16,17 +16,17 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile, request } from '@/db/drizzleSchema';
 import { invite, project as projectTable } from '@/db/drizzleSchema';
 import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
+    invite_synced,
+    profile_project_link_synced,
+    request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -37,16 +37,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
 import { and, eq } from 'drizzle-orm';
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-  CrownIcon,
-  InfoIcon,
-  LogOutIcon,
-  RefreshCcwIcon,
-  Trash2Icon,
-  UserIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -793,10 +783,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {member.name || member.email} {isCurrentUser && `(${t('you')})`}
               </Text>
               {member.role === 'owner' ? (
-                <Icon as={CrownIcon} size={16} className="text-primary" />
+                <Icon name="crown" size={16} className="text-primary" />
               ) : (
                 <Icon
-                  as={UserIcon}
+                  name="user"
                   size={16}
                   className="text-muted-foreground"
                 />
@@ -819,7 +809,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     handlePromoteToOwner(member.id, member.name || member.email)
                   }
                 >
-                  <Icon as={CrownIcon} size={20} className="text-primary" />
+                  <Icon name="crown" size={20} className="text-primary" />
                 </Button>
               )}
               {member.role === 'member' && removePermissions.hasAccess && (
@@ -831,7 +821,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   }
                 >
                   <Icon
-                    as={Trash2Icon}
+                    name="trash-2"
                     size={20}
                     className="text-destructive"
                   />
@@ -845,7 +835,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               size="icon-sm"
               onPress={handleLeaveProject}
             >
-              <Icon as={LogOutIcon} size={20} className="text-destructive" />
+              <Icon name="log-out" size={20} className="text-destructive" />
             </Button>
           )}
         </View>
@@ -901,7 +891,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 {invitation.email}
               </Text>
               {invitation.role === 'owner' && (
-                <Icon as={CrownIcon} size={16} className="text-primary" />
+                <Icon name="crown" size={16} className="text-primary" />
               )}
             </View>
             <Badge
@@ -921,7 +911,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 size="icon-sm"
                 onPress={() => void handleResendInvitation(invitation.id)}
               >
-                <Icon as={RefreshCcwIcon} size={20} className="text-primary" />
+                <Icon name="refresh-ccw" size={20} className="text-primary" />
               </Button>
             )}
           {withdrawInvitePermissions.hasAccess &&
@@ -931,7 +921,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 size="icon-sm"
                 onPress={() => void handleWithdrawInvitation(invitation.id)}
               >
-                <Icon as={CircleXIcon} size={20} className="text-destructive" />
+                <Icon name="circle-x" size={20} className="text-destructive" />
               </Button>
             )}
         </View>
@@ -981,7 +971,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 )
               }
             >
-              <Icon as={CircleCheckIcon} size={20} className="text-green-600" />
+              <Icon name="circle-check" size={20} className="text-green-600" />
             </Button>
             <Button
               variant="outline"
@@ -993,7 +983,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 )
               }
             >
-              <Icon as={CircleXIcon} size={20} className="text-destructive" />
+              <Icon name="circle-x" size={20} className="text-destructive" />
             </Button>
           </View>
         )}
@@ -1158,7 +1148,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       <Tooltip>
                         <TooltipTrigger hitSlop={10}>
                           <Icon
-                            as={InfoIcon}
+                            name="info"
                             size={20}
                             className="text-primary"
                           />
@@ -1189,7 +1179,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 ) : (
                   <View className="items-center justify-center gap-2 py-6">
                     <Icon
-                      as={CrownIcon}
+                      name="crown"
                       size={24}
                       className="text-muted-foreground"
                     />

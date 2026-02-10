@@ -1,7 +1,6 @@
 import type { AuthView } from '@/navigators/AuthNavigator';
 import { AuthNavigator } from '@/navigators/AuthNavigator';
 import { useThemeColor } from '@/utils/styleUtils';
-import { XIcon } from 'lucide-react-native';
 import React from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -34,7 +33,7 @@ export function AuthModal({
             className="rounded-full bg-background/80 p-2"
             hitSlop={10}
           >
-            <Icon as={XIcon} size={24} className="text-foreground" />
+            <Icon name="x" size={24} className="text-foreground" />
           </Pressable>
         </View>
         <AuthNavigator key={initialView} initialView={initialView} />

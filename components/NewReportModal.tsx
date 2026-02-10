@@ -11,12 +11,11 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
 import { useLocalStore } from '@/store/localStore';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
 import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
+    KeyboardAwareScrollView,
+    KeyboardToolbar
 } from 'react-native-keyboard-controller';
 
 interface ReportModalProps {
@@ -173,7 +172,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <View className="mb-4 flex-row items-center justify-between">
                 <Text variant="h3">{modalTitle}</Text>
                 <Pressable className="p-1" onPress={onClose}>
-                  <Icon as={XIcon} size={24} className="text-foreground" />
+                  <Icon name="x" size={24} className="text-foreground" />
                 </Pressable>
               </View>
 

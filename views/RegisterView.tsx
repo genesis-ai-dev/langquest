@@ -3,13 +3,13 @@ import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -25,7 +25,6 @@ import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
@@ -172,7 +171,7 @@ export default function RegisterView({
                     returnKeyType="next"
                     submitBehavior="submit"
                     autoCapitalize="none"
-                    prefix={UserIcon}
+                    prefix="user"
                     prefixStyling={false}
                     placeholder={t('username')}
                   />
@@ -194,7 +193,7 @@ export default function RegisterView({
                     submitBehavior="submit"
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    prefix={MailIcon}
+                    prefix="mail"
                     prefixStyling={false}
                     placeholder={t('enterYourEmail')}
                   />
@@ -216,7 +215,7 @@ export default function RegisterView({
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoComplete="password"
-                    prefix={LockIcon}
+                    prefix="lock"
                     prefixStyling={false}
                     placeholder={t('password')}
                     secureTextEntry
@@ -239,7 +238,7 @@ export default function RegisterView({
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoComplete="password"
-                    prefix={LockIcon}
+                    prefix="lock"
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}
                     secureTextEntry

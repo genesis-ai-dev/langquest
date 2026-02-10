@@ -1,8 +1,7 @@
 import { cn, useThemeColor } from '@/utils/styleUtils';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import type { LucideIcon } from 'lucide-react-native';
-import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, TextInput, View } from 'react-native';
@@ -113,8 +112,8 @@ const suffixStyledVariants = cva('h-full border-l border-border', {
 
 interface InputProps
   extends TextInputProps, VariantProps<typeof inputVariants> {
-  prefix?: React.ReactNode | LucideIcon;
-  suffix?: React.ReactNode | LucideIcon;
+  prefix?: React.ReactNode | LucideIconName;
+  suffix?: React.ReactNode | LucideIconName;
   prefixStyling?: boolean;
   suffixStyling?: boolean;
   drawerInput?: boolean;
@@ -182,7 +181,7 @@ const Input = React.forwardRef<
               prefix
             ) : (
               <Icon
-                as={prefix as LucideIcon}
+                name={prefix as LucideIconName}
                 className="text-muted-foreground"
                 size={iconSizeVariants({ size })}
               />
@@ -227,7 +226,7 @@ const Input = React.forwardRef<
             hitSlop={10}
           >
             <Icon
-              as={showPassword ? EyeOffIcon : EyeIcon}
+              name={showPassword ? 'eye-off' : 'eye'}
               className={iconSizeVariants({ size })}
             />
           </ButtonPressable>
@@ -245,7 +244,7 @@ const Input = React.forwardRef<
               suffix
             ) : (
               <Icon
-                as={suffix as LucideIcon}
+                name={suffix as LucideIconName}
                 className={iconSizeVariants({ size })}
               />
             )}

@@ -1,19 +1,11 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-  updateProjectStatus,
-  useProjectStatuses
+    updateProjectStatus,
+    useProjectStatuses
 } from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import RNAlert from '@blazejkustra/react-native-alert';
-import {
-  CheckCircleIcon,
-  EyeIcon,
-  EyeOffIcon,
-  LockIcon,
-  UnlockIcon,
-  XCircleIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { SwitchBox } from './SwitchBox';
@@ -139,7 +131,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             value={projectData?.visible ?? false}
             onChange={() => handleToggleStatus('visible')}
             disabled={isLoading || !isOwner}
-            icon={projectData?.visible ? EyeIcon : EyeOffIcon}
+            icon={projectData?.visible ? 'eye' : 'eye-off'}
           />
 
           <SwitchBox
@@ -152,7 +144,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             value={projectData?.active ?? false}
             onChange={() => handleToggleStatus('active')}
             disabled={isLoading || !isOwner}
-            icon={projectData?.active ? CheckCircleIcon : XCircleIcon}
+            icon={projectData?.active ? 'circle-check' : 'circle-x'}
           />
         </View>
       </DrawerContent>

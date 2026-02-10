@@ -8,29 +8,29 @@ import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscover
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-  SpeedDial,
-  SpeedDialItem,
-  SpeedDialItems,
-  SpeedDialTrigger
+    SpeedDial,
+    SpeedDialItem,
+    SpeedDialItems,
+    SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,12 +42,12 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
-  useAppNavigation,
-  useCurrentNavigation
+    useAppNavigation,
+    useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import {
-  useBibleBookCreation,
-  useBibleBooks
+    useBibleBookCreation,
+    useBibleBooks
 } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
@@ -62,30 +62,16 @@ import { getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeftIcon,
-  BookOpenIcon,
-  ChurchIcon,
-  FlagIcon,
-  FolderPenIcon,
-  InfoIcon,
-  LockIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  SettingsIcon,
-  UserPlusIcon,
-  UsersIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming
+    cancelAnimation,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';
@@ -900,8 +886,8 @@ export default function ProjectDirectoryView() {
             <View className="flex-col items-center justify-between gap-3 p-4">
               <View className="flex flex-row items-center gap-3">
                 <View className="flex flex-row items-center gap-1">
-                  <Icon as={ChurchIcon} />
-                  <Icon as={BookOpenIcon} />
+                  <Icon name="church" />
+                  <Icon name="book-open" />
                 </View>
                 <Text variant="h4">{projectName}</Text>
               </View>
@@ -911,8 +897,8 @@ export default function ProjectDirectoryView() {
                   size="sm"
                   onPress={() => setShowPrivateAccessModal(true)}
                 >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
+                  <Icon name="user-plus" size={16} />
+                  <Icon name="lock" size={16} />
                 </Button>
               )}
             </View>
@@ -930,7 +916,7 @@ export default function ProjectDirectoryView() {
       return (
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
-            <Icon as={ArrowLeftIcon} />
+            <Icon name="arrow-left" />
             <Text>Back</Text>
           </Button>
           <View className="w-full flex-1">
@@ -993,7 +979,7 @@ export default function ProjectDirectoryView() {
                 }}
               >
                 <Animated.View style={spinStyle}>
-                  <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+                  <Icon name="refresh-cw" size={18} className="text-primary" />
                 </Animated.View>
               </Button>
             </View>
@@ -1003,8 +989,8 @@ export default function ProjectDirectoryView() {
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
               >
-                <Icon as={UserPlusIcon} size={16} />
-                <Icon as={LockIcon} size={16} />
+                <Icon name="user-plus" size={16} />
+                <Icon name="lock" size={16} />
               </Button>
             )}
           </View>
@@ -1015,7 +1001,7 @@ export default function ProjectDirectoryView() {
             placeholder={t('searchQuests')}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            prefix={SearchIcon}
+            prefix="search"
             prefixStyling={false}
             size="sm"
             returnKeyType="search"
@@ -1101,7 +1087,7 @@ export default function ProjectDirectoryView() {
                           {...transformInputProps(field)}
                           placeholder={t('questName')}
                           size="sm"
-                          prefix={FolderPenIcon}
+                          prefix="folder-pen"
                           // drawerInput
                           type="next"
                         />
@@ -1158,20 +1144,20 @@ export default function ProjectDirectoryView() {
               <>
                 {!isMember && isPrivateProject && (
                   <SpeedDialItem
-                    icon={LockIcon}
+                    icon="lock"
                     variant="outline"
                     onPress={() => setShowPrivateAccessModal(true)}
                   />
                 )}
                 {canManageProject ? (
                   <SpeedDialItem
-                    icon={SettingsIcon}
+                    icon="settings"
                     variant="outline"
                     onPress={() => setShowSettingsModal(true)}
                   />
                 ) : !hasReported && !isReportLoading ? (
                   <SpeedDialItem
-                    icon={FlagIcon}
+                    icon="flag"
                     variant="outline"
                     onPress={() => setShowReportModal(true)}
                   />
@@ -1179,7 +1165,7 @@ export default function ProjectDirectoryView() {
                 {project?.source !== 'local' &&
                   (isMember || !isPrivateProject) && (
                     <SpeedDialItem
-                      icon={UsersIcon}
+                      icon="users"
                       variant="outline"
                       onPress={() => setShowMembershipModal(true)}
                     />
@@ -1188,7 +1174,7 @@ export default function ProjectDirectoryView() {
             ) : null}
             {/* Info button always visible */}
             <SpeedDialItem
-              icon={InfoIcon}
+              icon="info"
               variant="outline"
               onPress={() => setShowProjectDetails(true)}
             />

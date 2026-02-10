@@ -7,19 +7,11 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { PortalHost } from '@rn-primitives/portal';
-import {
-  BookOpenIcon,
-  FolderIcon,
-  HelpCircle,
-  MicIcon,
-  UserPlusIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
+    KeyboardAwareScrollView,
+    KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
@@ -184,7 +176,7 @@ export function SimpleOnboardingFlow({
         <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
           <View className="flex-1" />
           <Pressable onPress={handleClose} testID="onboarding-close-button">
-            <Icon as={XIcon} size={24} className="text-muted-foreground" />
+            <Icon name="x" size={24} className="text-muted-foreground" />
           </Pressable>
         </View>
 
@@ -241,7 +233,7 @@ export function SimpleOnboardingFlow({
                     onPress={() => handleProjectTypeSelect('bible')}
                   >
                     <Icon
-                      as={BookOpenIcon}
+                      name="book-open"
                       size={48}
                       className="text-primary"
                     />
@@ -256,7 +248,7 @@ export function SimpleOnboardingFlow({
                     className="min-h-48 flex-1 flex-col gap-3 p-6"
                     onPress={() => handleProjectTypeSelect('other')}
                   >
-                    <Icon as={FolderIcon} size={48} className="text-primary" />
+                    <Icon name="folder" size={48} className="text-primary" />
                     <Text variant="h4" className="text-center">
                       {t('onboardingOther')}
                     </Text>
@@ -367,7 +359,7 @@ export function SimpleOnboardingFlow({
                     <View className="w-full gap-3">
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          as={BookOpenIcon}
+                          name="book-open"
                           size={24}
                           className="text-primary"
                         />
@@ -377,7 +369,7 @@ export function SimpleOnboardingFlow({
                       </View>
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          as={BookOpenIcon}
+                          name="book-open"
                           size={24}
                           className="text-primary"
                         />
@@ -413,7 +405,7 @@ export function SimpleOnboardingFlow({
                   <View className="relative h-24 w-24 items-center justify-center">
                     <RecordingAnimation size={96} />
                     <View className="absolute h-24 w-24 items-center justify-center rounded-full bg-primary/10">
-                      <Icon as={MicIcon} size={48} className="text-primary" />
+                      <Icon name="mic" size={48} className="text-primary" />
                     </View>
                   </View>
                   <Text variant="h2" className="text-center">
@@ -432,13 +424,13 @@ export function SimpleOnboardingFlow({
                 <Card className="w-full p-6">
                   <View className="gap-4">
                     <View className="flex-row items-center gap-3">
-                      <Icon as={MicIcon} size={24} className="text-primary" />
+                      <Icon name="mic" size={24} className="text-primary" />
                       <Text variant="default">
                         {t('onboardingRecordMethod1')}
                       </Text>
                     </View>
                     <View className="flex-row items-center gap-3">
-                      <Icon as={MicIcon} size={24} className="text-primary" />
+                      <Icon name="mic" size={24} className="text-primary" />
                       <Text variant="default">
                         {t('onboardingRecordMethod2')}
                       </Text>
@@ -491,7 +483,7 @@ export function SimpleOnboardingFlow({
                     <View className="w-full gap-4">
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          as={UserPlusIcon}
+                          name="user-plus"
                           size={24}
                           className="text-primary"
                         />
@@ -501,7 +493,7 @@ export function SimpleOnboardingFlow({
                       </View>
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          as={HelpCircle}
+                          name="circle-help"
                           size={24}
                           className="text-primary"
                         />

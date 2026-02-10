@@ -1,19 +1,19 @@
+import type { LucideIconName } from '@/components/ui/icon';
 import { Icon } from '@/components/ui/icon';
-import type { LucideIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 
 interface AnimatedOnboardingIconProps {
-  icon: LucideIcon;
+  icon: LucideIconName;
   size?: number;
   className?: string;
   animationType?: 'pulse' | 'float' | 'scale' | 'rotate';
@@ -21,7 +21,7 @@ interface AnimatedOnboardingIconProps {
 }
 
 export function AnimatedOnboardingIcon({
-  icon: IconComponent,
+  icon: iconName,
   size = 48,
   className,
   animationType = 'pulse',
@@ -119,7 +119,7 @@ export function AnimatedOnboardingIcon({
     <Animated.View style={animatedStyle}>
       <View className="h-24 w-24 items-center justify-center rounded-full bg-primary/10">
         <Icon
-          as={IconComponent}
+          name={iconName}
           size={size}
           className={className || 'text-primary'}
         />

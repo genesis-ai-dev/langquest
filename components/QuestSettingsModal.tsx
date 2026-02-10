@@ -1,20 +1,13 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-  updateQuestStatus,
-  useQuestStatuses
+    updateQuestStatus,
+    useQuestStatuses
 } from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import {
-  CheckCircleIcon,
-  CloudUpload,
-  EyeIcon,
-  EyeOffIcon,
-  XCircleIcon
-} from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
@@ -185,7 +178,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               value={questData?.visible ?? false}
               onChange={() => handleToggleVisible()}
               disabled={isLoading || !isOwner}
-              icon={questData?.visible ? EyeIcon : EyeOffIcon}
+              icon={questData?.visible ? 'eye' : 'eye-off'}
             />
             <SwitchBox
               title={t('active')}
@@ -197,7 +190,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               value={questData?.active ?? false}
               onChange={() => handleToggleActive()}
               disabled={isLoading || !isOwner}
-              icon={questData?.active ? CheckCircleIcon : XCircleIcon}
+              icon={questData?.active ? 'circle-check' : 'circle-x'}
             />
 
             {/* Offload Quest Button */}
@@ -211,7 +204,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
                 >
                   <View className="flex-row items-center gap-3">
                     <Icon
-                      as={CloudUpload}
+                      name="cloud-upload"
                       size={20}
                       className="text-destructive"
                     />

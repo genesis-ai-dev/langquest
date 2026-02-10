@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
@@ -15,7 +15,6 @@ import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
-import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -417,7 +416,7 @@ export default function SettingsView() {
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>
           <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
+            <Icon name="home" className="text-primary-foreground" />
           </Button>
         </View>
 

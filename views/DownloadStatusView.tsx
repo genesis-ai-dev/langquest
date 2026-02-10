@@ -1,10 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
@@ -16,15 +16,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { cn } from '@/utils/styleUtils';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  CloudDownload,
-  CloudOff,
-  CloudUpload,
-  RefreshCw,
-  XCircle
-} from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -115,7 +106,7 @@ export default function DownloadStatusView() {
             {t('downloadStatus') || 'Download Status'}
           </Text>
           <Button variant="ghost" size="icon" onPress={goToProjects}>
-            <Icon as={RefreshCw} size={20} />
+            <Icon name="refresh-cw" size={20} />
           </Button>
         </View>
 
@@ -125,12 +116,12 @@ export default function DownloadStatusView() {
             <CardTitle className="flex-row items-center gap-2">
               <View className="flex-row items-center gap-2">
                 <Icon
-                  as={
+                  name={
                     powerSyncStatus.connected
-                      ? CheckCircle2
+                      ? 'circle-check-big'
                       : powerSyncStatus.connecting
-                        ? RefreshCw
-                        : CloudOff
+                        ? 'refresh-cw'
+                        : 'cloud-off'
                   }
                   size={20}
                   className={cn(
@@ -164,7 +155,7 @@ export default function DownloadStatusView() {
             {powerSyncStatus.hasSynced === false && (
               <View className="flex-row items-center gap-2 rounded-md bg-yellow-500/20 p-2">
                 <Icon
-                  as={AlertTriangle}
+                  name="alert-triangle"
                   size={16}
                   className="text-yellow-500"
                 />
@@ -178,7 +169,7 @@ export default function DownloadStatusView() {
                 {powerSyncStatus.downloading && (
                   <View className="flex-row items-center gap-2">
                     <Icon
-                      as={CloudDownload}
+                      name="cloud-download"
                       size={16}
                       className="text-primary"
                     />
@@ -189,7 +180,7 @@ export default function DownloadStatusView() {
                 )}
                 {powerSyncStatus.uploading && (
                   <View className="flex-row items-center gap-2">
-                    <Icon as={CloudUpload} size={16} className="text-primary" />
+                    <Icon name="cloud-upload" size={16} className="text-primary" />
                     <Text className="ml-2 text-sm text-foreground">
                       {t('uploadingData') || 'Uploading data...'}
                     </Text>
@@ -199,7 +190,7 @@ export default function DownloadStatusView() {
             )}
             {(powerSyncStatus.downloadError || powerSyncStatus.uploadError) && (
               <View className="flex-row items-start gap-2 rounded-md bg-destructive/20 p-2">
-                <Icon as={XCircle} size={16} className="text-destructive" />
+                <Icon name="circle-x" size={16} className="text-destructive" />
                 <View className="ml-2 flex-1">
                   <Text className="text-sm font-semibold text-destructive">
                     {t('syncError') || 'Sync Error'}
@@ -226,7 +217,7 @@ export default function DownloadStatusView() {
             <CardTitle className="flex-row items-center gap-2">
               <View className="flex-row items-center gap-2">
                 <Icon
-                  as={isConnected ? CheckCircle2 : CloudOff}
+                  name={isConnected ? 'circle-check-big' : 'cloud-off'}
                   size={20}
                   className={cn(
                     isConnected ? 'text-green-500' : 'text-destructive'
@@ -248,7 +239,7 @@ export default function DownloadStatusView() {
           <Card>
             <CardHeader>
               <CardTitle className="flex-row items-center gap-2">
-                <Icon as={CloudDownload} size={20} className="text-primary" />
+                <Icon name="cloud-download" size={20} className="text-primary" />
                 <Text className="ml-1">
                   {t('attachmentDownloadProgress') ||
                     'Attachment Download Progress'}

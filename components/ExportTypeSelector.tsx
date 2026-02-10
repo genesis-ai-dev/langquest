@@ -1,20 +1,19 @@
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useChapterExport, useExportStatus } from '@/hooks/useChapterExport';
 import { useLocalization } from '@/hooks/useLocalization';
+import RNAlert from '@blazejkustra/react-native-alert';
 import * as Clipboard from 'expo-clipboard';
-import { CopyIcon, GlobeIcon, Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 import { FEATURE_FLAG_SHOW_FEEDBACK_EXPORT } from '@/utils/featureFlags';
 
@@ -150,7 +149,7 @@ export function ExportTypeSelector({
             onPress={() => onSelect('local')}
             className="w-full flex-row items-center gap-3 p-4"
           >
-            <Icon as={Share2Icon} size={20} />
+            <Icon name="share-2" size={20} />
             <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
               <Text className="font-semibold">
                 {t('shareLocally') || 'Share Locally'}
@@ -170,7 +169,7 @@ export function ExportTypeSelector({
                 disabled={isCopyingLink || exportMutation.isPending}
                 className="w-full flex-row items-center gap-3 p-4"
               >
-                <Icon as={CopyIcon} size={20} />
+                <Icon name="copy" size={20} />
                 <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
                   <Text className="font-semibold">
                     {t('copyFeedbackLink') || 'Copy Feedback Link'}
@@ -196,7 +195,7 @@ export function ExportTypeSelector({
               onPress={() => onSelect('distribution')}
               className="w-full flex-row items-center gap-3 p-4"
             >
-              <Icon as={GlobeIcon} size={20} />
+              <Icon name="globe" size={20} />
               <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
                 <Text className="font-semibold">
                   {t('exportForDistribution') || 'Export for Distribution'}

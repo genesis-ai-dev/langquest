@@ -13,27 +13,20 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
-  useHybridData,
-  useSimpleHybridInfiniteData
+    useHybridData,
+    useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import {
-  and,
-  desc,
-  eq,
-  getTableColumns,
-  like,
-  notExists,
-  notInArray,
-  or
+    and,
+    desc,
+    eq,
+    getTableColumns,
+    like,
+    notExists,
+    notInArray,
+    or
 } from 'drizzle-orm';
-import {
-  ArrowRightIcon,
-  FolderPenIcon,
-  PlusIcon,
-  SearchIcon,
-  UserIcon
-} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
@@ -42,24 +35,24 @@ import { ProjectListItem } from './ProjectListItem';
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger
 } from '@/components/ui/drawer';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormSubmit,
-  transformInputProps,
-  transformSwitchProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+    FormSubmit,
+    transformInputProps,
+    transformSwitchProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -68,8 +61,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  ensureLanguoidDownloadProfile,
-  findOrCreateLanguoidByName
+    ensureLanguoidDownloadProfile,
+    findOrCreateLanguoidByName
 } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -777,7 +770,7 @@ export default function NextGenProjectsView() {
             {!isAuthenticated && activeTab === 'my' ? (
               <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
                 <View className="flex flex-col items-center gap-4">
-                  <Icon as={UserIcon} size={48} className="text-primary" />
+                  <Icon name="user" size={48} className="text-primary" />
                   <View className="flex flex-col items-center gap-2">
                     <Text variant="h4" className="text-center">
                       {t('signInToSaveOrContribute') ||
@@ -816,7 +809,7 @@ export default function NextGenProjectsView() {
                     className="flex-row items-center gap-2"
                   >
                     <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
-                    <Icon as={ArrowRightIcon} size={16} />
+                    <Icon name="arrow-right" size={16} />
                   </Button>
                 </View>
               </View>
@@ -829,7 +822,7 @@ export default function NextGenProjectsView() {
                     placeholder={t('searchProjects')}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    prefix={SearchIcon}
+                    prefix="search"
                     prefixStyling={false}
                     size="sm"
                     returnKeyType="search"
@@ -846,7 +839,7 @@ export default function NextGenProjectsView() {
                   />
                   {currentUser && (
                     <DrawerTrigger size="icon-lg">
-                      <Icon as={PlusIcon} className="text-primary-foreground" />
+                      <Icon name="plus" className="text-primary-foreground" />
                     </DrawerTrigger>
                   )}
                 </View>
@@ -924,7 +917,7 @@ export default function NextGenProjectsView() {
                         onPress={() => setIsCreateOpen(true)}
                         className="mt-2"
                       >
-                        <Icon as={PlusIcon} size={16} />
+                        <Icon name="plus" size={16} />
                         <Text>{t('newProject')}</Text>
                       </Button>
                     )}
@@ -951,7 +944,7 @@ export default function NextGenProjectsView() {
                         {...transformInputProps(field)}
                         placeholder={t('projectName')}
                         size="sm"
-                        prefix={FolderPenIcon}
+                        prefix="folder-pen"
                         drawerInput
                       />
                     </FormControl>

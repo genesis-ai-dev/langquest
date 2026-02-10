@@ -3,14 +3,12 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
-import { SparklesIcon } from 'lucide-react-native';
 import React from 'react';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 interface MiniAudioPlayerProps {
@@ -61,7 +59,7 @@ export default function MiniAudioPlayer({
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
-        <Ionicons
+        <Icon
           name={isThisAudioPlaying ? 'pause' : 'play'}
           size={24}
           color={colors.text}
@@ -80,7 +78,7 @@ export default function MiniAudioPlayer({
             />
           ) : (
             <View style={styles.pillContent}>
-              <Icon as={SparklesIcon} size={18} className="text-black" />
+              <Icon name="sparkles" size={18} className="text-black" />
               <Text className="text-s">Aa</Text>
             </View>
           )}

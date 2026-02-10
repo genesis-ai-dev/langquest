@@ -8,10 +8,9 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
-import { Share2Icon } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { ExportProgressModal } from './ExportProgressModal';
 import { ExportTypeSelector } from './ExportTypeSelector';
 
@@ -172,7 +171,7 @@ export function ExportButton({
         {isConcatenating ? (
           <ActivityIndicator size="small" color={primaryColor} />
         ) : (
-          <Icon as={Share2Icon} className="text-primary" />
+          <Icon name="share-2" className="text-primary" />
         )}
       </Button>
 

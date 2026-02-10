@@ -14,14 +14,6 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
-import {
-  ArrowDownWideNarrowIcon,
-  ArrowUpNarrowWideIcon,
-  CalendarIcon,
-  LockIcon,
-  ShieldOffIcon,
-  ThumbsUpIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import NextGenTranslationModal from './NextGenTranslationModalAlt';
@@ -119,7 +111,7 @@ export default function NextGenTranslationsList({
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             {isPrivateProject && !canVote && (
-              <Icon as={LockIcon} size={18} className="text-muted-foreground" />
+              <Icon name="lock" size={18} className="text-muted-foreground" />
             )}
           </View>
 
@@ -157,8 +149,8 @@ export default function NextGenTranslationsList({
             <Icon
               as={
                 sortOrder === 'asc'
-                  ? ArrowUpNarrowWideIcon
-                  : ArrowDownWideNarrowIcon
+                  ? 'arrow-up-narrow-wide'
+                  : 'arrow-down-wide-narrow'
               }
               size={16}
             />
@@ -174,7 +166,7 @@ export default function NextGenTranslationsList({
             onPress={() => setSortOption('voteCount')}
           >
             <Icon
-              as={ThumbsUpIcon}
+              name="thumbs-up"
               size={16}
               className={
                 sortOption === 'voteCount'
@@ -196,7 +188,7 @@ export default function NextGenTranslationsList({
             onPress={() => setSortOption('dateSubmitted')}
           >
             <Icon
-              as={CalendarIcon}
+              name="calendar"
               size={16}
               className={
                 sortOption === 'dateSubmitted'
@@ -238,7 +230,7 @@ export default function NextGenTranslationsList({
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center gap-4 px-8 py-16">
               <Icon
-                as={ThumbsUpIcon}
+                name="thumbs-up"
                 size={48}
                 className="text-muted-foreground/50"
               />
@@ -254,7 +246,7 @@ export default function NextGenTranslationsList({
               ? () => (
                   <View className="flex-row items-center justify-center gap-2 py-4">
                     <Icon
-                      as={ShieldOffIcon}
+                      name="shield-off"
                       size={16}
                       className="text-muted-foreground"
                     />

@@ -1,5 +1,5 @@
+import { Icon } from '@/components/ui/icon';
 import { borderRadius, colors, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import React, { useRef, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -49,7 +49,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
           onPress={() => pagerRef.current?.setPage(currentPage - 1)}
           disabled={currentPage === 0}
         >
-          <Ionicons name="chevron-back" size={20} color={colors.text} />
+          <Icon name="chevron-left" size={20} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.paginationContainer}>
           {items.map((_, index) => (
@@ -71,7 +71,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
           onPress={() => pagerRef.current?.setPage(currentPage + 1)}
           disabled={currentPage === items.length - 1}
         >
-          <Ionicons name="chevron-forward" size={20} color={colors.text} />
+          <Icon name="chevron-right" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
     </View>

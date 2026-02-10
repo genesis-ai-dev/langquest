@@ -1,34 +1,24 @@
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { DiscoveryState } from '@/hooks/useQuestDownloadDiscovery';
 import { cn } from '@/utils/styleUtils';
-import {
-  AlertCircleIcon,
-  CheckCircleIcon,
-  DatabaseIcon,
-  FileTextIcon,
-  FolderIcon,
-  LinkIcon,
-  Loader2Icon,
-  TagIcon,
-  ThumbsUpIcon
-} from 'lucide-react-native';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  runOnJS,
-  useAnimatedReaction,
-  useAnimatedStyle
+    runOnJS,
+    useAnimatedReaction,
+    useAnimatedStyle
 } from 'react-native-reanimated';
 
 interface QuestDownloadDiscoveryDrawerProps {
@@ -40,7 +30,7 @@ interface QuestDownloadDiscoveryDrawerProps {
 
 interface CategoryRowProps {
   label: string;
-  icon: typeof FolderIcon;
+  icon: LucideIconName;
   count: number;
   isLoading: boolean;
   hasError: boolean;
@@ -70,7 +60,7 @@ function CategoryRow({
   return (
     <View className="flex-row items-center justify-between border-b border-border py-3">
       <View className="flex-row items-center gap-3">
-        <Icon as={icon} size={20} className="text-muted-foreground" />
+        <Icon name={icon} size={20} className="text-muted-foreground" />
         <Animated.View style={animatedTextStyle}>
           <Text className="text-base">{label}</Text>
         </Animated.View>
@@ -92,16 +82,16 @@ function CategoryRow({
 
         {isLoading && (
           <Icon
-            as={Loader2Icon}
+            name="loader-2"
             size={16}
             className="animate-spin text-primary"
           />
         )}
         {!isLoading && !hasError && (
-          <Icon as={CheckCircleIcon} size={16} className="text-green-600" />
+          <Icon name="circle-check" size={16} className="text-green-600" />
         )}
         {hasError && (
-          <Icon as={AlertCircleIcon} size={16} className="text-destructive" />
+          <Icon name="alert-circle" size={16} className="text-destructive" />
         )}
       </View>
     </View>
@@ -188,46 +178,46 @@ export function QuestDownloadDiscoveryDrawer({
 
         <View className="flex flex-col gap-2 px-4">
           <View className="flex-col gap-0">
-            <CategoryRow label="Quest" icon={FolderIcon} {...progress.quest} />
+            <CategoryRow label="Quest" icon="folder" {...progress.quest} />
             <CategoryRow
               label="Project"
-              icon={DatabaseIcon}
+              icon="database"
               {...progress.project}
             />
             <CategoryRow
               label="Quest-Asset Links"
-              icon={LinkIcon}
+              icon="link"
               {...progress.questAssetLinks}
             />
             <CategoryRow
               label="Assets"
-              icon={FileTextIcon}
+              icon="file-text"
               {...progress.assets}
             />
             <CategoryRow
               label="Asset Content Links"
-              icon={LinkIcon}
+              icon="link"
               {...progress.assetContentLinks}
             />
             <CategoryRow
               label="Votes"
-              icon={ThumbsUpIcon}
+              icon="thumbs-up"
               {...progress.votes}
             />
             <CategoryRow
               label="Quest Tags"
-              icon={LinkIcon}
+              icon="link"
               {...progress.questTagLinks}
             />
             <CategoryRow
               label="Asset Tags"
-              icon={LinkIcon}
+              icon="link"
               {...progress.assetTagLinks}
             />
-            <CategoryRow label="Tags" icon={TagIcon} {...progress.tags} />
+            <CategoryRow label="Tags" icon="tag" {...progress.tags} />
             <CategoryRow
               label="Languages"
-              icon={DatabaseIcon}
+              icon="database"
               {...progress.languages}
             />
           </View>

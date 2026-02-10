@@ -1,9 +1,9 @@
 import { Icon } from '@/components/ui/icon';
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
@@ -39,7 +39,7 @@ const alertTextVariants = cva('text-sm text-foreground', {
 
 type AlertProps = ViewProps &
   React.RefAttributes<View> & {
-    icon: LucideIcon;
+    icon: LucideIconName;
     iconClassName?: string;
   } & VariantProps<typeof alertVariants>;
 
@@ -58,7 +58,7 @@ function Alert({
         className={cn(alertVariants({ variant }), className)}
         {...props}
       >
-        <Icon as={icon} className={iconClassName} />
+        <Icon name={icon} className={iconClassName} />
         <View className="flex flex-1 flex-col">{children}</View>
       </View>
     </TextClassContext.Provider>
@@ -96,10 +96,11 @@ function AlertDescription({
 }
 
 export {
-  Alert,
-  AlertDescription,
-  alertTextVariants,
-  AlertTitle,
-  alertVariants
+    Alert,
+    AlertDescription,
+    alertTextVariants,
+    AlertTitle,
+    alertVariants
 };
 export type { AlertProps };
+

@@ -3,7 +3,6 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useExpoUpdates } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { CloudDownload, XIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
@@ -41,7 +40,7 @@ export function UpdateBanner() {
   return (
     <View className="mt-safe flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
       <View className="flex-1 flex-row items-center gap-2">
-        <Icon as={CloudDownload} size={20} className="text-primary" />
+        <Icon name="cloud-download" size={20} className="text-primary" />
         <View className="flex-1">
           <Text className="text-sm font-medium">
             {downloadError ? t('updateFailed') : t('updateAvailable')}
@@ -76,7 +75,7 @@ export function UpdateBanner() {
           disabled={isDownloadingUpdate}
           className="p-1"
         >
-          <Icon as={XIcon} size={20} className="text-muted-foreground" />
+          <Icon name="x" size={20} className="text-muted-foreground" />
         </TouchableOpacity>
       </View>
     </View>

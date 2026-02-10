@@ -5,22 +5,13 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
-  cleanupAllCorrupted,
-  cleanupCorruptedAttachment,
-  findCorruptedAttachments
+    cleanupAllCorrupted,
+    cleanupCorruptedAttachment,
+    findCorruptedAttachments
 } from '@/services/corruptedAttachmentsService';
-import {
-  AlertTriangle,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  HomeIcon,
-  Loader2,
-  Trash2
-} from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
@@ -208,7 +199,7 @@ export default function CorruptedAttachmentsView() {
     return (
       <View className="flex-1 bg-background">
         <View className="flex-1 items-center justify-center">
-          <Icon as={Loader2} size={40} className="animate-spin text-primary" />
+          <Icon name="loader-2" size={40} className="animate-spin text-primary" />
           <Text className="mt-4 text-muted-foreground">
             {t('scanningCorruptedAttachments')}
           </Text>
@@ -227,7 +218,7 @@ export default function CorruptedAttachmentsView() {
             onPress={goToProjects}
             className="self-start"
           >
-            <Icon as={HomeIcon} className="text-primary-foreground" />
+            <Icon name="home" className="text-primary-foreground" />
           </Button>
         </View>
         <ScrollView
@@ -240,7 +231,7 @@ export default function CorruptedAttachmentsView() {
           }
         >
           <View className="flex-1 items-center justify-center p-8">
-            <Icon as={CheckCircle} size={64} className="text-green-500" />
+            <Icon name="circle-check" size={64} className="text-green-500" />
             <Text className="mt-4 text-center text-xl font-bold text-foreground">
               {t('noCorruptedAttachments')}
             </Text>
@@ -262,11 +253,11 @@ export default function CorruptedAttachmentsView() {
           onPress={goToProjects}
           className="mb-4 self-start"
         >
-          <Icon as={HomeIcon} className="text-primary-foreground" />
+          <Icon name="home" className="text-primary-foreground" />
         </Button>
 
         <View className="mb-4 flex-row items-center gap-3">
-          <Icon as={AlertTriangle} size={24} className="text-destructive" />
+          <Icon name="alert-triangle" size={24} className="text-destructive" />
           <Text className="flex-1 text-xl font-bold text-foreground">
             {t('corruptedAttachments')}
           </Text>
@@ -291,14 +282,14 @@ export default function CorruptedAttachmentsView() {
           >
             {cleaningAll ? (
               <>
-                <Icon as={Loader2} className="animate-spin" />
+                <Icon name="loader-2" className="animate-spin" />
                 <Text className="font-bold text-destructive-foreground">
                   {t('cleaning')}
                 </Text>
               </>
             ) : (
               <>
-                <Icon as={Trash2} />
+                <Icon name="trash-2" />
                 <Text className="font-bold text-destructive-foreground">
                   {t('cleanAll', { count: corrupted.length })}
                 </Text>
@@ -351,7 +342,7 @@ export default function CorruptedAttachmentsView() {
                       onPress={() => toggleExpand(item.attachmentRecord.id)}
                     >
                       <Icon
-                        as={isExpanded ? ChevronDown : ChevronRight}
+                        name={isExpanded ? 'chevron-down' : 'chevron-right'}
                         size={20}
                       />
                     </Button>
@@ -437,7 +428,7 @@ export default function CorruptedAttachmentsView() {
                       {isCleaning ? (
                         <>
                           <Icon
-                            as={Loader2}
+                            name="loader-2"
                             className="animate-spin"
                             size={16}
                           />
@@ -447,7 +438,7 @@ export default function CorruptedAttachmentsView() {
                         </>
                       ) : (
                         <>
-                          <Icon as={Trash2} size={16} />
+                          <Icon name="trash-2" size={16} />
                           <Text className="text-sm font-bold text-destructive-foreground">
                             {t('cleanThis')}
                           </Text>

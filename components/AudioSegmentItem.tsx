@@ -1,5 +1,5 @@
+import { Icon } from '@/components/ui/icon';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import WaveformVisualizer from './WaveformVisualizer';
@@ -48,7 +48,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           onPress={() => canMoveUp && onMoveUp(segment.id)}
           disabled={!canMoveUp}
         >
-          <Ionicons
+          <Icon
             name="chevron-up"
             size={20}
             color={canMoveUp ? colors.text : colors.textSecondary}
@@ -60,7 +60,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           onPress={() => canMoveDown && onMoveDown(segment.id)}
           disabled={!canMoveDown}
         >
-          <Ionicons
+          <Icon
             name="chevron-down"
             size={20}
             color={canMoveDown ? colors.text : colors.textSecondary}
@@ -98,7 +98,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
               style={styles.playButton}
               onPress={() => onPlay(segment.uri)}
             >
-              <Ionicons
+              <Icon
                 name={isPlaying ? 'pause' : 'play'}
                 size={20}
                 color={colors.primary}
@@ -110,7 +110,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
             style={styles.deleteButton}
             onPress={() => onDelete(segment.id)}
           >
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Icon name="trash-2" size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>

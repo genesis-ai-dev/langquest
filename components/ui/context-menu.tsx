@@ -59,16 +59,15 @@
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
-import type { LucideIcon } from 'lucide-react-native';
-import { EllipsisVerticalIcon } from 'lucide-react-native';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import React, { useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { Modal, Pressable, View, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 
 /**
@@ -76,7 +75,7 @@ import Animated, {
  */
 export interface ContextMenuItem {
   label: string;
-  icon?: LucideIcon;
+  icon?: LucideIconName;
   onPress: () => void;
   destructive?: boolean;
 }
@@ -300,7 +299,7 @@ export function ContextMenu({
         <Pressable onPress={handleOpen}>
           {trigger || (
             <Icon
-              as={EllipsisVerticalIcon}
+              name="ellipsis-vertical"
               size={triggerIconSize}
               className="text-muted-foreground"
             />
@@ -343,7 +342,7 @@ export function ContextMenu({
               >
                 {item.icon && (
                   <Icon
-                    as={item.icon}
+                    name={item.icon}
                     size={menuItemIconSize}
                     className={cn(
                       'text-foreground',

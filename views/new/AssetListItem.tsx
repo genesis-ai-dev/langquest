@@ -1,9 +1,9 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,14 +17,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
-import {
-  EyeOffIcon,
-  HardDriveIcon,
-  PauseIcon,
-  SquareArrowOutUpRightIcon
-  // Plus,
-  // TagIcon
-} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
@@ -189,20 +181,20 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   <View className="flex flex-row items-center gap-1.5">
                     {invisible && (
                       <Icon
-                        as={EyeOffIcon}
+                        name="eye-off"
                         className="text-secondary-foreground"
                       />
                     )}
                     {!allowEditing && (
                       <Icon
-                        as={PauseIcon}
+                        name="pause"
                         className="text-secondary-foreground"
                       />
                     )}
                   </View>
                 )}
                 <View className="flex flex-row items-center gap-2">
-                  {asset.source === 'local' && <Icon as={HardDriveIcon} />}
+                  {asset.source === 'local' && <Icon name="hard-drive" />}
                   <CardTitle numberOfLines={2}>
                     {asset.name || t('unnamedAsset')}
                   </CardTitle>
@@ -216,8 +208,8 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   {tags.length === 0 ? (
                     !isPublished && (
                       <View className="flex h-6 w-6 flex-row items-center justify-center rounded-full border border-white/30 bg-primary/30 px-4">
-                        <Icon as={Plus} size={10} className="text-white" />
-                        <Icon as={TagIcon} size={10} className="text-white" />
+                        <Icon name="plus" size={10} className="text-white" />
+                        <Icon name="tag" size={10} className="text-white" />
                       </View>
                     )
                   ) : (
@@ -226,7 +218,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                         variant="default"
                         className="flex flex-row items-center gap-1"
                       >
-                        <Icon as={TagIcon} size={12} className="text-white" />
+                        <Icon name="tag" size={12} className="text-white" />
                         <CardTitle className="text-xs text-white">
                           {tag && `${tag.key}${tag.value && `: ${tag.value}`}`}
                         </CardTitle>
@@ -245,7 +237,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                 />
                 <Pressable onPress={handleOpenAsset}>
                   <Icon
-                    as={SquareArrowOutUpRightIcon}
+                    name="square-arrow-out-up-right"
                     size={16}
                     className="text-primary"
                   />

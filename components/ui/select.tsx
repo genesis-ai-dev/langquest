@@ -1,6 +1,5 @@
 import { cn } from '@/utils/styleUtils';
 import * as SelectPrimitive from '@rn-primitives/select';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -48,7 +47,7 @@ const SelectTrigger = React.forwardRef<
   >
     <>{children}</>
     <Icon
-      as={ChevronDownIcon}
+      name="chevron-down"
       aria-hidden={true}
       className="text-muted-foreground"
     />
@@ -74,7 +73,7 @@ const SelectScrollUpButton = ({
       )}
       {...props}
     >
-      <Icon as={ChevronUpIcon} size={14} className="text-foreground" />
+      <Icon name="chevron-up" size={14} className="text-foreground" />
     </SelectPrimitive.ScrollUpButton>
   );
 };
@@ -97,7 +96,7 @@ const SelectScrollDownButton = ({
       )}
       {...props}
     >
-      <Icon as={ChevronDownIcon} size={14} className="text-muted-foreground" />
+      <Icon name="chevron-down" size={14} className="text-muted-foreground" />
     </SelectPrimitive.ScrollDownButton>
   );
 };
@@ -191,7 +190,7 @@ const SelectItem = React.forwardRef<
       <View className="native:left-3.5 native:pt-px absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
           <Icon
-            as={CheckIcon}
+            name="check"
             size={16}
             strokeWidth={3}
             className="text-popover-foreground"
@@ -222,15 +221,16 @@ const SelectSeparator = React.forwardRef<
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 
 export {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-  type Option
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectScrollDownButton,
+    SelectScrollUpButton,
+    SelectSeparator,
+    SelectTrigger,
+    SelectValue,
+    type Option
 };
+

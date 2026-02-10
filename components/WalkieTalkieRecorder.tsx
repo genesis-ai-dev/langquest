@@ -2,18 +2,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useHaptic } from '@/hooks/useHaptic';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { Audio } from 'expo-av';
-import { MicIcon, Square } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-  Easing,
-  cancelAnimation,
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
+    Easing,
+    cancelAnimation,
+    interpolateColor,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
@@ -697,14 +695,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
           {/* Button content - rendered after ripple so it appears on top */}
           {isVADActive ? (
             <View className="flex-row items-center gap-2">
-              <Icon as={Square} size={24} className="text-primary-foreground" />
+              <Icon name="square" size={24} className="text-primary-foreground" />
               <Text className="text-lg font-semibold text-primary-foreground">
                 {t('stopRecording')}
               </Text>
             </View>
           ) : (
             <View className="flex-row items-center gap-2">
-              <Icon as={MicIcon} size={24} className="text-background" />
+              <Icon name="mic" size={24} className="text-background" />
               <Text className="text-lg font-semibold text-background">
                 {isRecording ? `${t('recording')}...` : t('startRecording')}
               </Text>

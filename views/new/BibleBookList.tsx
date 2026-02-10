@@ -10,7 +10,6 @@ import { useLocalStore } from '@/store/localStore';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
-import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Dimensions, Image, View } from 'react-native';
 
@@ -121,7 +120,7 @@ export function BibleBookList({
         {/* Add plus icon for createable books */}
         {!bookExists && canCreateNew && (
           <Icon
-            as={PlusCircleIcon}
+            name="plus-circle"
             size={14}
             className="absolute -right-1 -top-1 text-primary"
           />

@@ -1,6 +1,5 @@
 import type { PickerItem } from '@quidone/react-native-wheel-picker';
 import WheelPicker from '@quidone/react-native-wheel-picker';
-import { ArrowDownNarrowWide, Mic } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import ArrayInsertionWheelContainer from './ArrayInsertionWheelContainer';
@@ -196,9 +195,9 @@ function ArrayInsertionWheelInternal<T>(
                 justifyContent: 'center'
               }}
             >
-              <Icon as={Mic} size={20} />
+              <Icon name="mic" size={20} />
               <Icon
-                as={ArrowDownNarrowWide}
+                name="arrow-down-narrow-wide"
                 size={20}
                 style={{ marginLeft: 4 }}
               />

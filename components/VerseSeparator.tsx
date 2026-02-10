@@ -1,8 +1,3 @@
-import {
-  AlertCircleIcon,
-  MoveVerticalIcon,
-  PencilIcon
-} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -71,7 +66,7 @@ export function VerseSeparator({
           className={`mx-2 flex-row items-center gap-1.5 rounded-full border px-3 py-1 ${unassignedBgClass}`}
         >
           <Icon
-            as={AlertCircleIcon}
+            name="alert-circle"
             size={14}
             className={
               isSelectedForRecording ? 'text-primary' : 'text-amber-600/70'
@@ -126,7 +121,7 @@ export function VerseSeparator({
           className="flex size-5 items-center justify-center overflow-hidden rounded-full"
         >
           <Icon
-            as={MoveVerticalIcon}
+            name="move-vertical"
             size={14}
             className={isDragFixed ? 'text-primary/30' : 'text-primary'}
           />
@@ -162,7 +157,7 @@ export function VerseSeparator({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           className="ml-1"
         >
-          <Icon as={PencilIcon} size={12} className="text-primary/70" />
+          <Icon name="pencil" size={12} className="text-primary/70" />
         </Pressable>
       )}
     </View>

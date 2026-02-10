@@ -1,19 +1,19 @@
+import { Icon } from '@/components/ui/icon';
 import { languoid } from '@/db/drizzleSchema';
 import {
-  useLanguoidEndonyms,
-  useUIReadyLanguoids
+    useLanguoidEndonyms,
+    useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import {
-  memo,
-  default as React,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState
+    memo,
+    default as React,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState
 } from 'react';
 import { CustomDropdown } from './CustomDropdown';
 
@@ -88,8 +88,8 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
 
     const renderLeftIcon = useCallback(
       () => (
-        <Ionicons
-          name="language"
+        <Icon
+          name="languages"
           size={20}
           color={colors.text}
           style={{ marginRight: spacing.medium }}

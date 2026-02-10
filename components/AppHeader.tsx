@@ -8,23 +8,15 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
-import {
-  AlertTriangle,
-  ChevronRightIcon,
-  CloudOff,
-  HelpCircleIcon,
-  MenuIcon,
-  RefreshCw
-} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming
+    cancelAnimation,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
 } from 'react-native-reanimated';
 import { Button } from './ui/button';
 
@@ -179,7 +171,7 @@ export default function AppHeader({
                   >
                     {!isFirst && (
                       <Icon
-                        as={ChevronRightIcon}
+                        name="chevron-right"
                         className="mx-1 flex-shrink-0 text-muted-foreground"
                         size={16}
                       />
@@ -245,7 +237,7 @@ export default function AppHeader({
             hitSlop={10}
           >
             <Icon
-              as={HelpCircleIcon}
+              name="help-circle"
               className="size-6 text-muted-foreground"
             />
           </Button>
@@ -260,17 +252,17 @@ export default function AppHeader({
             className="relative size-8"
             hitSlop={10}
           >
-            <Icon as={MenuIcon} className="size-6" />
+            <Icon name="menu" className="size-6" />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (
               <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
-                <Icon as={CloudOff} size={10} className="text-white" />
+                <Icon name="cloud-off" size={10} className="text-white" />
               </View>
             ) : hasSyncError ? (
               <Pressable onPress={handleSyncErrorTap} hitSlop={10}>
                 <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
-                  <Icon as={AlertTriangle} size={10} className="text-white" />
+                  <Icon name="alert-triangle" size={10} className="text-white" />
                 </View>
               </Pressable>
             ) : isSyncing ? (
@@ -278,7 +270,7 @@ export default function AppHeader({
                 style={spinStyle}
                 className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-primary shadow-sm"
               >
-                <Icon as={RefreshCw} size={10} className="text-white" />
+                <Icon name="refresh-cw" size={10} className="text-white" />
               </Animated.View>
             ) : null}
 

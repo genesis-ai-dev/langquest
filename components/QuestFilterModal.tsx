@@ -1,25 +1,25 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
+import { Icon } from '@/components/ui/icon';
 import {
-  useInfiniteTagsByProjectIdAndCategory,
-  useTagCategoriesByProjectId
+    useInfiniteTagsByProjectIdAndCategory,
+    useTagCategoriesByProjectId
 } from '@/hooks/db/useTags';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
-  borderRadius,
-  colors,
-  fontSizes,
-  sharedStyles,
-  spacing
+    borderRadius,
+    colors,
+    fontSizes,
+    sharedStyles,
+    spacing
 } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 
 interface QuestFilterModalProps {
@@ -88,7 +88,7 @@ const CategorySection: React.FC<{
     <View>
       <TouchableOpacity style={styles.heading} onPress={onToggle}>
         <Text style={styles.headingText}>{category}</Text>
-        <Ionicons
+        <Icon
           name={isExpanded ? 'chevron-up' : 'chevron-down'}
           size={24}
           color={colors.text}
@@ -106,8 +106,8 @@ const CategorySection: React.FC<{
               <Text style={styles.optionText}>{option.label}</Text>
               <View style={sharedStyles.checkboxContainer}>
                 {selectedOptions.includes(option.id) ? (
-                  <Ionicons
-                    name="checkmark-circle"
+                  <Icon
+                    name="circle-check"
                     size={24}
                     color={colors.primary}
                   />
@@ -242,7 +242,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                 onPress={() => setActiveTab('filter')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
+                  <Icon
                     name="filter"
                     size={24}
                     color={
@@ -263,8 +263,8 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                 onPress={() => setActiveTab('sort')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
-                    name="swap-vertical"
+                  <Icon
+                    name="arrow-up-down"
                     size={24}
                     color={activeTab === 'sort' ? colors.primary : colors.text}
                   />
@@ -333,7 +333,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                         )
                       }
                     >
-                      <Ionicons
+                      <Icon
                         name={
                           sortingOptions[index]?.order === 'asc'
                             ? 'arrow-up'
@@ -348,8 +348,8 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                         style={styles.removeButton}
                         onPress={() => handleSortingChange(index, null)}
                       >
-                        <Ionicons
-                          name="trash-outline"
+                        <Icon
+                          name="trash-2"
                           size={24}
                           color={colors.error}
                         />

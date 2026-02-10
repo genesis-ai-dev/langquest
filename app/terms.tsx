@@ -13,7 +13,6 @@ import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ArrowLeftIcon, XIcon } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -71,7 +70,7 @@ function Terms() {
       <View className="w-full flex-row items-center justify-between gap-2 bg-background">
         {router.canGoBack() && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
-            <Icon as={ArrowLeftIcon} className="size-6" />
+            <Icon name="arrow-left" className="size-6" />
           </Button>
         )}
         <Text variant="h4" className="flex-1">
@@ -79,7 +78,7 @@ function Terms() {
         </Text>
         {!router.canGoBack() && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
-            <Icon as={XIcon} className="size-6" />
+            <Icon name="x" className="size-6" />
           </Button>
         )}
       </View>

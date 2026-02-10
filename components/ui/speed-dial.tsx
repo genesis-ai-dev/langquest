@@ -1,6 +1,5 @@
 import { cn } from '@/utils/styleUtils';
-import type { LucideIcon } from 'lucide-react-native';
-import { EllipsisVerticalIcon, XIcon } from 'lucide-react-native';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import { AnimatePresence, MotiView } from 'moti';
 import * as React from 'react';
 import type { ViewProps } from 'react-native';
@@ -61,13 +60,13 @@ function SpeedDial({
 SpeedDial.displayName = 'SpeedDial';
 
 interface TriggerProps extends Omit<ButtonProps, 'ref'> {
-  iconClosed?: LucideIcon;
-  iconOpen?: LucideIcon;
+  iconClosed?: LucideIconName;
+  iconOpen?: LucideIconName;
 }
 
 function SpeedDialTrigger({
-  iconClosed = EllipsisVerticalIcon,
-  iconOpen = XIcon,
+  iconClosed = 'ellipsis-vertical',
+  iconOpen = 'x',
   className,
   ...props
 }: TriggerProps) {
@@ -88,7 +87,7 @@ function SpeedDialTrigger({
         transition={{ duration: 150, type: 'timing' }}
       >
         <Icon
-          as={open ? iconOpen : iconClosed}
+          name={open ? iconOpen : iconClosed}
           strokeWidth={2.5}
           size={20}
           className="text-secondary"
@@ -125,7 +124,7 @@ function SpeedDialItems({ children, className }: ViewProps) {
 SpeedDialItems.displayName = 'SpeedDialItems';
 
 interface ItemProps {
-  icon: LucideIcon;
+  icon: LucideIconName;
   onPress: () => void;
   className?: string;
   variant?: React.ComponentProps<typeof Button>['variant'];
@@ -185,7 +184,7 @@ function SpeedDialItem({
         className={cn('bg-primary/95', className)}
       >
         <Icon
-          as={icon}
+          name={icon}
           size={20}
           strokeWidth={2.5}
           className="text-secondary"
@@ -198,4 +197,5 @@ SpeedDialItem.displayName = 'SpeedDialItem';
 
 export { SpeedDial, SpeedDialItem, SpeedDialItems, SpeedDialTrigger };
 
-export type { ItemProps as SpeedDialItemProps, SpeedDialProps };
+    export type { ItemProps as SpeedDialItemProps, SpeedDialProps };
+

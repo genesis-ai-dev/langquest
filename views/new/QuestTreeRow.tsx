@@ -10,17 +10,9 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
 import { FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
-import {
-  ChevronDown,
-  ChevronRight,
-  EyeOffIcon,
-  FolderIcon,
-  HardDriveIcon,
-  Plus
-} from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 type Quest = typeof questTable.$inferSelect;
 
@@ -108,7 +100,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         >
           {hasChildren && (
             <Icon
-              as={isOpen ? ChevronDown : ChevronRight}
+              name={isOpen ? 'chevron-down' : 'chevron-right'}
               className="text-muted-foreground"
               size={22} // bump icon size
             />
@@ -117,17 +109,17 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       )}
       <View className="flex min-w-[40px] flex-row items-center gap-2">
         {!quest.visible && (
-          <Icon as={EyeOffIcon} className="text-muted-foreground" size={19} />
+          <Icon name="eye-off" className="text-muted-foreground" size={19} />
         )}
         {quest.source === 'local' && (
           <Icon
-            as={HardDriveIcon}
+            name="hard-drive"
             className="text-muted-foreground"
             size={19}
           />
         )}
         <Icon
-          as={FolderIcon}
+          name="folder"
           className="mr-2 text-muted-foreground"
           size={22}
         />
@@ -180,7 +172,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           className="ml-2 size-9 rounded-lg"
           onPress={() => onAddChild(quest.id)}
         >
-          <Icon as={Plus} size={22} />
+          <Icon name="plus" size={22} />
         </Button>
       )}
     </View>

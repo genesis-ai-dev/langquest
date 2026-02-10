@@ -1,13 +1,13 @@
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,6 @@ import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
@@ -96,7 +95,7 @@ export default function ForgotPasswordView({
           <Text>{t('resetPassword')}</Text>
         </View>
         <View className="flex flex-col items-center gap-4">
-          <Icon as={LockIcon} size={32} />
+          <Icon name="lock" size={32} />
 
           <FormField
             control={form.control}
@@ -108,7 +107,7 @@ export default function ForgotPasswordView({
                     {...transformInputProps(field)}
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    prefix={MailIcon}
+                    prefix="mail"
                     prefixStyling={false}
                     placeholder={t('enterEmailForPasswordReset')}
                     returnKeyType="done"

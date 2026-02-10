@@ -20,11 +20,10 @@ import { system } from '@/db/powersync/system';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, LogOutIcon, RotateCcw } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 export function AccountDeletedOverlay() {
   const { t } = useLocalization();
@@ -121,7 +120,7 @@ export function AccountDeletedOverlay() {
         {/* Icon/Warning */}
         <View className="items-center">
           <View className="h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
-            <Icon as={AlertTriangle} size={40} className="text-destructive" />
+            <Icon name="alert-triangle" size={40} className="text-destructive" />
           </View>
         </View>
 
@@ -151,7 +150,7 @@ export function AccountDeletedOverlay() {
           >
             {!isPending && (
               <Icon
-                as={RotateCcw}
+                name="rotate-ccw"
                 size={20}
                 className="mr-2 text-primary-foreground"
               />
@@ -168,7 +167,7 @@ export function AccountDeletedOverlay() {
             disabled={isPending}
             className="w-full"
           >
-            <Icon as={LogOutIcon} size={20} className="mr-2 text-foreground" />
+            <Icon name="log-out" size={20} className="mr-2 text-foreground" />
             <Text className="text-lg font-semibold text-foreground">
               {t('backToLogin')}
             </Text>

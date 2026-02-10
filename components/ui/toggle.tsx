@@ -1,9 +1,10 @@
+import { Icon } from '@/components/ui/icon';
 import { TextClassContext } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import * as TogglePrimitive from '@rn-primitives/toggle';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 
 const toggleVariants = cva(
@@ -80,13 +81,11 @@ Toggle.displayName = TogglePrimitive.Root.displayName;
 
 function ToggleIcon({
   className,
-  icon: Icon,
+  icon,
   ...props
-}: React.ComponentPropsWithoutRef<LucideIcon> & {
-  icon: LucideIcon;
-}) {
+}: { icon: LucideIconName; className?: string } & React.ComponentProps<typeof Icon>) {
   const textClass = React.useContext(TextClassContext);
-  return <Icon className={cn(textClass, className)} {...props} />;
+  return <Icon name={icon} className={cn(textClass, className)} {...props} />;
 }
 
 export { Toggle, ToggleIcon, toggleTextVariants, toggleVariants };

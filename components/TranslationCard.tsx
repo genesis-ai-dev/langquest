@@ -8,7 +8,6 @@ import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
-import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
 import { TouchableOpacity, View } from 'react-native';
 import AudioPlayer from './AudioPlayer';
 
@@ -101,7 +100,7 @@ export const TranslationCard = ({
             {/* Vote display */}
             <View className="flex-row items-center gap-1.5">
               <Icon
-                as={ThumbsUpIcon}
+                name="thumbs-up"
                 size={16}
                 className={cn(
                   'text-muted-foreground/40',
@@ -120,7 +119,7 @@ export const TranslationCard = ({
                 {asset.net_votes}
               </Text>
               <Icon
-                as={ThumbsDownIcon}
+                name="thumbs-down"
                 size={16}
                 className={cn(
                   'text-muted-foreground/40',

@@ -6,17 +6,15 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
-import { CheckIcon, XIcon } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  SafeAreaView,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 interface TranscriptionEditModalProps {
@@ -155,7 +153,7 @@ export default function TranscriptionEditModal({
           {/* Header with X and Check buttons */}
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
             <TouchableOpacity onPress={handleClose} className="p-2">
-              <Icon as={XIcon} size={24} className="text-foreground" />
+              <Icon name="x" size={24} className="text-foreground" />
             </TouchableOpacity>
 
             <Text className="text-lg font-semibold">Edit Transcription</Text>
@@ -171,7 +169,7 @@ export default function TranscriptionEditModal({
                 <ActivityIndicator size="small" />
               ) : (
                 <Icon
-                  as={CheckIcon}
+                  name="check"
                   size={24}
                   className={
                     editedText.trim() ? 'text-primary' : 'text-muted-foreground'

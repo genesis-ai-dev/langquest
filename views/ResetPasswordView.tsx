@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
 import { Keyboard, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -97,7 +96,7 @@ export default function ResetPasswordView() {
         </View>
 
         <View className="flex flex-col items-center gap-4">
-          <Icon as={LockIcon} size={32} />
+          <Icon name="lock" size={32} />
 
           <FormField
             control={form.control}
@@ -111,7 +110,7 @@ export default function ResetPasswordView() {
                     autoCorrect={false}
                     textContentType="newPassword"
                     autoComplete="new-password"
-                    prefix={LockIcon}
+                    prefix="lock"
                     prefixStyling={false}
                     placeholder={t('newPassword')}
                     type="next"
@@ -135,7 +134,7 @@ export default function ResetPasswordView() {
                     autoCorrect={false}
                     textContentType="newPassword"
                     autoComplete="new-password"
-                    prefix={LockIcon}
+                    prefix="lock"
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}
                     returnKeyType="done"

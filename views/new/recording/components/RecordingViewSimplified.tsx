@@ -9,10 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
-  asset,
-  asset_content_link,
-  project_language_link,
-  quest_asset_link
+    asset,
+    asset_content_link,
+    project_language_link,
+    quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -21,9 +21,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS,
-  saveAudioLocally
+    fileExists,
+    getLocalAttachmentUriWithOPFS,
+    saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { LegendListRef } from '@legendapp/list';
@@ -31,8 +31,6 @@ import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
-import { Audio } from 'expo-av';
-import { ArrowLeft, ListVideo, PauseIcon } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -2033,7 +2031,7 @@ const RecordingViewSimplified = ({
       <View className="flex-row items-center justify-between p-4">
         <View className="flex-row items-center gap-3">
           <Button variant="ghost" size="icon" onPress={onBack}>
-            <Icon as={ArrowLeft} />
+            <Icon name="arrow-left" />
           </Button>
           <Text className="text-2xl font-bold text-foreground">
             {t('doRecord')}
@@ -2051,7 +2049,7 @@ const RecordingViewSimplified = ({
               className="h-10 w-10"
             >
               <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                name={isPlayAllRunning ? 'pause' : 'list-video'}
                 size={24}
                 className="text-primary"
               />

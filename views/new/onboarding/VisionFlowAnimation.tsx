@@ -1,14 +1,13 @@
 import { Icon } from '@/components/ui/icon';
-import { GlobeIcon, UsersIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSequence,
-  withTiming
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSequence,
+    withTiming
 } from 'react-native-reanimated';
 
 export function VisionFlowAnimation() {
@@ -327,7 +326,7 @@ export function VisionFlowAnimation() {
           {/* Semi-transparent background circle */}
           <View className="absolute h-20 w-20 rounded-full border border-border/50 bg-background/60" />
           <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Icon as={GlobeIcon} size={28} className="text-primary" />
+            <Icon name="globe" size={28} className="text-primary" />
           </View>
         </View>
       </Animated.View>
@@ -363,7 +362,7 @@ export function VisionFlowAnimation() {
           {/* Semi-transparent background circle */}
           <View className="absolute h-20 w-20 rounded-full border border-border/50 bg-background/60" />
           <View className="relative h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Icon as={UsersIcon} size={28} className="text-primary" />
+            <Icon name="users" size={28} className="text-primary" />
           </View>
         </View>
       </Animated.View>

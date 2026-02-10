@@ -15,10 +15,10 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import {
-  asset,
-  languoid as languoidTable,
-  project,
-  project_language_link
+    asset,
+    languoid as languoidTable,
+    project,
+    project_language_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -32,26 +32,14 @@ import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalizati
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS,
-  getLocalUri
+    fileExists,
+    getLocalAttachmentUriWithOPFS,
+    getLocalUri
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray } from 'drizzle-orm';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CrownIcon,
-  FileTextIcon,
-  FlagIcon,
-  ImageIcon,
-  LockIcon,
-  PlusIcon,
-  SettingsIcon,
-  UserIcon
-} from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import type { FlatList as FlatListType, ViewToken } from 'react-native';
 import { Dimensions, FlatList, Text, View } from 'react-native';
@@ -806,12 +794,12 @@ export default function NextGenAssetDetailView() {
           </Text>
           {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
-              <Icon as={LockIcon} className="text-muted-foreground" />
+              <Icon name="lock" className="text-muted-foreground" />
               {translateMembership === 'owner' && (
-                <Icon as={CrownIcon} className="text-primary" />
+                <Icon name="crown" className="text-primary" />
               )}
               {translateMembership === 'member' && (
-                <Icon as={UserIcon} className="text-primary" />
+                <Icon name="user" className="text-primary" />
               )}
             </View>
           )}
@@ -832,7 +820,7 @@ export default function NextGenAssetDetailView() {
               size="icon"
               className="p-2"
             >
-              <Icon as={SettingsIcon} size={22} className="text-foreground" />
+              <Icon name="settings" size={22} className="text-foreground" />
             </Button>
           ) : (
             !hasReported &&
@@ -843,7 +831,7 @@ export default function NextGenAssetDetailView() {
                 size="icon"
                 className="p-2"
               >
-                <Icon as={FlagIcon} size={20} className="text-foreground" />
+                <Icon name="flag" size={20} className="text-foreground" />
               </Button>
             )
           ))}
@@ -860,14 +848,14 @@ export default function NextGenAssetDetailView() {
             className="flex-1 items-center py-2"
             disabled={!activeAsset.content || activeAsset.content.length === 0}
           >
-            <Icon as={FileTextIcon} size={24} />
+            <Icon name="file-text" size={24} />
           </TabsTrigger>
           <TabsTrigger
             value="image"
             className="flex-1 items-center py-2"
             disabled={!activeAsset.images || activeAsset.images.length === 0}
           >
-            <Icon as={ImageIcon} size={24} />
+            <Icon name="image" size={24} />
           </TabsTrigger>
         </TabsList>
 
@@ -946,7 +934,7 @@ export default function NextGenAssetDetailView() {
                       }
                     >
                       <Icon
-                        as={ChevronLeftIcon}
+                        name="chevron-left"
                         size={20}
                         className={
                           currentContentIndex === 0
@@ -983,7 +971,7 @@ export default function NextGenAssetDetailView() {
                       }
                     >
                       <Icon
-                        as={ChevronRightIcon}
+                        name="chevron-right"
                         size={20}
                         className={
                           currentContentIndex === activeAsset.content.length - 1
@@ -1081,12 +1069,12 @@ export default function NextGenAssetDetailView() {
               onPress={onPress}
             >
               <Icon
-                as={LockIcon}
+                name="lock"
                 size={20}
                 className="text-primary-foreground"
               />
               <Icon
-                as={PlusIcon}
+                name="plus"
                 size={24}
                 className="text-primary-foreground"
               />
@@ -1103,7 +1091,7 @@ export default function NextGenAssetDetailView() {
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           onPress={() => setAuthView('sign-in')}
         >
-          <Icon as={LockIcon} size={24} />
+          <Icon name="lock" size={24} />
           <Text className="font-bold text-secondary">
             {t('signInToSaveOrContribute')}
           </Text>
@@ -1114,7 +1102,7 @@ export default function NextGenAssetDetailView() {
           disabled={!canTranslate}
           onPress={handleNewTranslationPress}
         >
-          <Icon as={PlusIcon} size={24} />
+          <Icon name="plus" size={24} />
           <Text className="font-bold text-secondary">
             {contentTypeFilter === 'transcription'
               ? t('newTranscription')

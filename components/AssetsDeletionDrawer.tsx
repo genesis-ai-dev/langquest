@@ -1,17 +1,16 @@
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { AlertTriangleIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import { Icon } from './ui/icon';
@@ -67,7 +66,7 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
         <DrawerHeader className="items-center">
           <View className="mb-4 rounded-full bg-destructive/10 p-4">
             <Icon
-              as={AlertTriangleIcon}
+              name="alert-triangle"
               size={32}
               className="text-destructive"
             />

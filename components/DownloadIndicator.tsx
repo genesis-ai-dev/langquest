@@ -2,7 +2,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, TouchableOpacity } from 'react-native';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
@@ -125,7 +124,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         {isLoading ? (
           <ActivityIndicator size={size} color={primaryColor} />
         ) : (
-          <Icon as={IconComponent} size={size} className={iconClassName} />
+          <Icon name={iconName} size={size} className={iconClassName} />
         )}
       </TouchableOpacity>
 

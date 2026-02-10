@@ -1,21 +1,20 @@
 import type { Option } from '@/components/ui/select';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from '@/components/ui/select';
 import { languoid } from '@/db/drizzleSchema';
 import {
-  useLanguoidEndonyms,
-  useLanguoids,
-  useUIReadyLanguoids
+    useLanguoidEndonyms,
+    useLanguoids,
+    useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
-import { LanguagesIcon } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -123,7 +122,7 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({
       <SelectTrigger
         className={cn(`h-12 flex-row items-center rounded-md px-3`, className)}
       >
-        <Icon as={LanguagesIcon} className="text-muted-foreground" />
+        <Icon name="languages" className="text-muted-foreground" />
         <SelectValue
           className="text-base text-foreground"
           placeholder={t('selectLanguage')}

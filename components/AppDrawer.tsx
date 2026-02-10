@@ -1,10 +1,10 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -18,35 +18,21 @@ import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import * as Updates from 'expo-updates';
-import type { LucideIcon } from 'lucide-react-native';
-import {
-  AlertTriangle,
-  BellIcon,
-  CheckCircle2,
-  CloudDownload,
-  CloudOff,
-  CloudUpload,
-  HomeIcon,
-  LogOutIcon,
-  RefreshCw,
-  SettingsIcon,
-  UserIcon,
-  XCircle
-} from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, View } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
   name: string;
   view?: string;
-  icon: LucideIcon;
+  icon: LucideIconName;
   onPress: () => void;
   notificationCount?: number;
   disabled?: boolean;
@@ -312,7 +298,7 @@ export default function AppDrawer({
       {
         name: t('projects'),
         view: 'projects',
-        icon: HomeIcon,
+        icon: 'home',
         onPress: handleGoToProjects
       }
     ];
@@ -322,7 +308,7 @@ export default function AppDrawer({
       items.push({
         name: t('notifications'),
         view: 'notifications',
-        icon: BellIcon,
+        icon: 'bell',
         onPress: handleGoToNotifications,
         notificationCount
       });
@@ -330,7 +316,7 @@ export default function AppDrawer({
         {
           name: t('profile'),
           view: 'profile',
-          icon: UserIcon,
+          icon: 'user',
           onPress: handleGoToProfile
         },
         {
@@ -362,7 +348,7 @@ export default function AppDrawer({
       items.push({
         name: 'Diagnostics',
         view: 'corrupted-attachments',
-        icon: AlertTriangle,
+        icon: 'alert-triangle',
         onPress: handleGoToCorruptedAttachments
       });
     }
@@ -371,7 +357,7 @@ export default function AppDrawer({
     if (__DEV__) {
       items.push({
         name: t('logOut'),
-        icon: LogOutIcon,
+        icon: 'log-out',
         onPress: handleSignOut
       });
     }
@@ -411,7 +397,7 @@ export default function AppDrawer({
         <View className="flex flex-col gap-4 pt-4">
           {/* Degraded Mode Warning */}
           {isDegraded && (
-            <Alert variant="warn" icon={AlertTriangle}>
+            <Alert variant="warn" icon="alert-triangle">
               <AlertTitle>Degraded Mode</AlertTitle>
               <AlertDescription>
                 Please update the app to fix database issues and enable sync.
@@ -432,15 +418,15 @@ export default function AppDrawer({
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-2">
                   <Icon
-                    as={
+                    name={
                       powerSyncStatus.connected
-                        ? CheckCircle2
+                        ? 'circle-check-big'
                         : powerSyncStatus.connecting
-                          ? RefreshCw
+                          ? 'refresh-cw'
                           : powerSyncStatus.downloadError ||
                               powerSyncStatus.uploadError
-                            ? XCircle
-                            : CloudOff
+                            ? 'circle-x'
+                            : 'cloud-off'
                     }
                     size={14}
                     className={cn(
@@ -484,7 +470,7 @@ export default function AppDrawer({
                 <View className="flex-1 flex-row items-center gap-2">
                   <View className="flex-row items-center gap-1">
                     <Icon
-                      as={CloudDownload}
+                      name="cloud-download"
                       size={12}
                       className={cn(
                         stableProgress.downloading > 0 ||
@@ -494,7 +480,7 @@ export default function AppDrawer({
                       )}
                     />
                     <Icon
-                      as={CloudUpload}
+                      name="cloud-upload"
                       size={12}
                       className={cn(
                         stableProgress.uploading > 0 || syncProgress.uploading
@@ -515,7 +501,7 @@ export default function AppDrawer({
                           syncProgress.downloading ? (
                             <View className="flex-row items-center gap-0.5">
                               <Icon
-                                as={CloudDownload}
+                                name="cloud-download"
                                 size={10}
                                 className="text-blue-500"
                               />
@@ -530,7 +516,7 @@ export default function AppDrawer({
                           syncProgress.uploading ? (
                             <View className="flex-row items-center gap-0.5">
                               <Icon
-                                as={CloudUpload}
+                                name="cloud-upload"
                                 size={10}
                                 className="text-green-500"
                               />
@@ -546,7 +532,7 @@ export default function AppDrawer({
                             !syncProgress.uploading && (
                               <View className="flex-row items-center gap-0.5">
                                 <Icon
-                                  as={RefreshCw}
+                                  name="refresh-cw"
                                   size={10}
                                   className="text-muted-foreground"
                                 />
@@ -617,7 +603,7 @@ export default function AppDrawer({
                 >
                   <View className="w-full flex-row items-center gap-4">
                     <Icon
-                      as={item.icon}
+                      name={item.icon}
                       size={20}
                       className="text-foreground"
                     />

@@ -1,18 +1,18 @@
+import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 interface VoteCommentModalProps {
   isVisible: boolean;
@@ -68,7 +68,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.container}>
               <View style={styles.modal}>
-                <Ionicons
+                <Icon
                   name={voteType === 'up' ? 'thumbs-up' : 'thumbs-down'}
                   size={40}
                   color={colors.primary}

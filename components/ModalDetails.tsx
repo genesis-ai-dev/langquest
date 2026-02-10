@@ -1,7 +1,7 @@
 import type { language, project, quest } from '@/db/drizzleSchema';
 import {
-  language as languageTable,
-  project_language_link
+    language as languageTable,
+    project_language_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -10,14 +10,6 @@ import { FEATURE_FLAG_CAN_OFFLOAD_QUEST } from '@/utils/featureFlags';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
-import {
-  CloudOffIcon,
-  DatabaseIcon,
-  HardDriveDownloadIcon,
-  InfoIcon,
-  LanguagesIcon,
-  TypeIcon
-} from 'lucide-react-native';
 import { default as React } from 'react';
 import { View } from 'react-native';
 import { Button } from './ui/button';
@@ -178,13 +170,13 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
 
         <View className="flex flex-col gap-4">
           <View className="flex-row items-center gap-3">
-            <Icon as={TypeIcon} size={20} />
+            <Icon name="type" size={20} />
             <Text className="flex-1">{content.name}</Text>
           </View>
 
           {contentType === 'project' && (
             <View className="flex-row items-center gap-3">
-              <Icon as={LanguagesIcon} size={20} />
+              <Icon name="languages" size={20} />
               {isSourceLangLoading || isTargetLangLoading ? (
                 <Text className="text-muted-foreground">{t('loading')}</Text>
               ) : (
@@ -204,7 +196,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
 
           {'description' in content && content.description && (
             <View className="flex-row items-start gap-3">
-              <Icon as={InfoIcon} size={20} className="mt-0.5" />
+              <Icon name="info" size={20} className="mt-0.5" />
               <Text className="flex-1 leading-5">
                 {content.description.replace(/\\n/g, '\n\n')}
               </Text>
@@ -216,7 +208,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
             <>
               <View className="flex-row items-center gap-3">
                 <Icon
-                  as={isDownloaded ? HardDriveDownloadIcon : CloudOffIcon}
+                  name={isDownloaded ? 'hard-drive-download' : 'cloud-off'}
                   size={20}
                 />
                 <Text className="flex-1">
@@ -228,7 +220,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
 
               {isDownloaded && estimatedStorageBytes > 0 && (
                 <View className="flex-row items-center gap-3">
-                  <Icon as={DatabaseIcon} size={20} />
+                  <Icon name="database" size={20} />
                   <View className="flex-1 flex-row items-baseline gap-2">
                     <Text className="text-sm text-muted-foreground">
                       {t('storageUsed') || 'Storage Used'}:
@@ -266,7 +258,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                         onOffloadClick();
                       }}
                     >
-                      <Icon as={CloudOffIcon} className="text-white" />
+                      <Icon name="cloud-off" className="text-white" />
                       <Text className="text-white">
                         {t('offloadQuest') || 'Offload from Device'}
                       </Text>

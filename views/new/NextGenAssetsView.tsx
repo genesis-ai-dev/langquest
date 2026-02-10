@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-  SpeedDial,
-  SpeedDialItem,
-  SpeedDialItems,
-  SpeedDialTrigger
+    SpeedDial,
+    SpeedDialItem,
+    SpeedDialItems,
+    SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -18,8 +18,8 @@ import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
-  useAppNavigation,
-  useCurrentNavigation
+    useAppNavigation,
+    useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -29,33 +29,15 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
-import { Audio } from 'expo-av';
-import {
-  ArrowBigDownDashIcon,
-  CheckCheck,
-  CloudUpload,
-  FlagIcon,
-  InfoIcon,
-  ListVideo,
-  LockIcon,
-  MicIcon,
-  PauseIcon,
-  PencilIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  SettingsIcon,
-  ShieldOffIcon,
-  UserPlusIcon
-} from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming
+    cancelAnimation,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { HybridDataSource } from './useHybridData';
@@ -1272,7 +1254,7 @@ export default function NextGenAssetsView() {
             }}
           >
             <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              <Icon name="refresh-cw" size={18} className="text-primary" />
             </Animated.View>
           </Button>
           {assets.length > 0 && (
@@ -1284,7 +1266,7 @@ export default function NextGenAssetsView() {
                 className="h-10 w-10"
               >
                 <Icon
-                  as={isPlayAllRunning ? PauseIcon : ListVideo}
+                  name={isPlayAllRunning ? 'pause' : 'list-video'}
                   size={20}
                   className="text-primary"
                 />
@@ -1305,8 +1287,8 @@ export default function NextGenAssetsView() {
                   }}
                 >
                   <View className="flex-row items-center gap-0.5">
-                    <Icon as={CloudUpload} size={18} />
-                    <Icon as={CheckCheck} size={14} />
+                    <Icon name="cloud-upload" size={18} />
+                    <Icon name="check-check" size={14} />
                   </View>
                 </Button>
                 {currentQuestId && currentProjectId && (
@@ -1327,8 +1309,8 @@ export default function NextGenAssetsView() {
                   size="sm"
                   onPress={() => setShowPrivateAccessModal(true)}
                 >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
+                  <Icon name="user-plus" size={16} />
+                  <Icon name="lock" size={16} />
                 </Button>
               )
             )
@@ -1387,7 +1369,7 @@ export default function NextGenAssetsView() {
                       color={getThemeColor('primary')}
                     />
                   ) : (
-                    <Icon as={CloudUpload} />
+                    <Icon name="cloud-upload" />
                   )}
                 </Button>
                 <Button
@@ -1396,7 +1378,7 @@ export default function NextGenAssetsView() {
                   className="border-[1.5px] border-primary"
                   onPress={() => void handleGoToRecording()}
                 >
-                  <Icon as={PencilIcon} className="text-primary" />
+                  <Icon name="pencil" className="text-primary" />
                 </Button>
                 {currentQuestId && currentProjectId && (
                   <ExportButton
@@ -1484,7 +1466,7 @@ export default function NextGenAssetsView() {
               {blockedCount > 0 && (
                 <View className="flex-row items-center justify-center gap-2 py-4">
                   <Icon
-                    as={ShieldOffIcon}
+                    name="shield-off"
                     size={16}
                     className="text-muted-foreground"
                   />
@@ -1504,7 +1486,7 @@ export default function NextGenAssetsView() {
                 </Text>
                 {!isPublished && (
                   <Icon
-                    as={ArrowBigDownDashIcon}
+                    name="arrow-big-down-dash"
                     size={48}
                     className="text-muted-foreground"
                   />
@@ -1530,7 +1512,7 @@ export default function NextGenAssetsView() {
             onPress={() => void handleGoToRecording()}
           >
             <Icon
-              as={MicIcon}
+              name="mic"
               size={24}
               className="text-destructive-foreground"
             />
@@ -1555,13 +1537,13 @@ export default function NextGenAssetsView() {
               <>
                 {allowSettings && isOwner ? (
                   <SpeedDialItem
-                    icon={SettingsIcon}
+                    icon="settings"
                     variant="outline"
                     onPress={() => setShowSettingsModal(true)}
                   />
                 ) : !hasReported ? (
                   <SpeedDialItem
-                    icon={FlagIcon}
+                    icon="flag"
                     variant="outline"
                     onPress={() => setShowReportModal(true)}
                   />
@@ -1570,7 +1552,7 @@ export default function NextGenAssetsView() {
             ) : null}
             {/* Info button always visible */}
             <SpeedDialItem
-              icon={InfoIcon}
+              icon="info"
               variant="outline"
               onPress={() => {
                 console.log('📋 [Info] Opening details modal', {

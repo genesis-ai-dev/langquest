@@ -1,20 +1,20 @@
 import AudioRecorder from '@/components/AudioRecorder';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerScrollView
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerScrollView
 } from '@/components/ui/drawer';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,9 +40,9 @@ import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import {
-  deleteIfExists,
-  getLocalAttachmentUri,
-  saveAudioLocally
+    deleteIfExists,
+    getLocalAttachmentUri,
+    saveAudioLocally
 } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -50,25 +50,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import {
-  EyeIcon,
-  Lightbulb,
-  MicIcon,
-  RefreshCwIcon,
-  SparklesIcon,
-  TextIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { TextInput } from 'react-native';
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  TouchableWithoutFeedback,
-  View
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 import { z } from 'zod';
 import { useHybridData } from './useHybridData';
@@ -721,14 +712,14 @@ export default function NextGenNewTranslationModal({
                     value="text"
                     className="flex-1 items-center py-2"
                   >
-                    <Icon as={TextIcon} size={20} />
+                    <Icon name="text" size={20} />
                     <Text className="text-base">{t('text')}</Text>
                   </TabsTrigger>
                   <TabsTrigger
                     value="audio"
                     className="flex-1 items-center py-2"
                   >
-                    <Icon as={MicIcon} size={20} />
+                    <Icon name="mic" size={20} />
                     <Text className="text-base">{t('audio')}</Text>
                   </TabsTrigger>
                 </TabsList>
@@ -772,7 +763,7 @@ export default function NextGenNewTranslationModal({
                         <View className="mb-3 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
                             <Icon
-                              as={Lightbulb}
+                              name="lightbulb"
                               size={18}
                               className="text-primary"
                             />
@@ -784,7 +775,7 @@ export default function NextGenNewTranslationModal({
                                 className="rounded-md border border-primary/30 bg-background p-2"
                               >
                                 <Icon
-                                  as={EyeIcon}
+                                  name="eye"
                                   size={18}
                                   className="text-primary"
                                 />
@@ -804,7 +795,7 @@ export default function NextGenNewTranslationModal({
                                 <ActivityIndicator size="small" color="#000" />
                               ) : (
                                 <Icon
-                                  as={RefreshCwIcon}
+                                  name="refresh-cw"
                                   size={18}
                                   className="text-primary"
                                 />
@@ -841,7 +832,7 @@ export default function NextGenNewTranslationModal({
                         <View className="mb-2 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-2">
                             <Icon
-                              as={Lightbulb}
+                              name="lightbulb"
                               size={18}
                               className="text-warning"
                             />
@@ -856,7 +847,7 @@ export default function NextGenNewTranslationModal({
                                 className="rounded-md border border-warning/30 bg-background p-2"
                               >
                                 <Icon
-                                  as={EyeIcon}
+                                  name="eye"
                                   size={18}
                                   className="text-warning"
                                 />
@@ -876,7 +867,7 @@ export default function NextGenNewTranslationModal({
                                 <ActivityIndicator size="small" color="#000" />
                               ) : (
                                 <Icon
-                                  as={RefreshCwIcon}
+                                  name="refresh-cw"
                                   size={18}
                                   className="text-warning"
                                 />
@@ -921,7 +912,7 @@ export default function NextGenNewTranslationModal({
                           ) : (
                             <>
                               <Icon
-                                as={SparklesIcon}
+                                name="sparkles"
                                 size={18}
                                 className="text-primary-foreground"
                               />
@@ -960,7 +951,7 @@ export default function NextGenNewTranslationModal({
                             ) : (
                               <>
                                 <Icon
-                                  as={Lightbulb}
+                                  name="lightbulb"
                                   size={18}
                                   className="text-primary-foreground"
                                 />
@@ -1085,7 +1076,7 @@ export default function NextGenNewTranslationModal({
                 <View className="w-[90%] max-w-lg rounded-lg bg-background p-6">
                   <View className="mb-4 flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
-                      <Icon as={Lightbulb} size={20} className="text-primary" />
+                      <Icon name="lightbulb" size={20} className="text-primary" />
                       <Text className="text-lg font-bold text-foreground">
                         Translation Details
                       </Text>
@@ -1094,7 +1085,7 @@ export default function NextGenNewTranslationModal({
                       className="p-1"
                       onPress={() => setShowDetailsModal(false)}
                     >
-                      <Icon as={XIcon} size={24} className="text-foreground" />
+                      <Icon name="x" size={24} className="text-foreground" />
                     </Pressable>
                   </View>
 

@@ -1,9 +1,9 @@
+import { Icon } from '@/components/ui/icon';
 import type { project } from '@/db/drizzleSchema';
 import { languoid, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { useHybridData } from '@/views/new/useHybridData';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import { default as React } from 'react';
@@ -110,7 +110,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <Text style={styles.title}>{project.name}</Text>
 
         <View style={styles.infoRow}>
-          <Ionicons name="language-outline" size={20} color={colors.text} />
+          <Icon name="languages" size={20} color={colors.text} />
           <Text style={styles.infoText}>
             {sourceLanguoids.length
               ? sourceLanguoids
@@ -124,8 +124,8 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
 
         {project.description && (
           <View style={styles.infoRow}>
-            <Ionicons
-              name="information-circle-outline"
+            <Icon
+              name="info"
               size={20}
               color={colors.text}
             />

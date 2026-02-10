@@ -1,13 +1,12 @@
 import { Icon } from '@/components/ui/icon';
-import { UserIcon, UserPlusIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 
 export function InviteAnimation() {
@@ -58,15 +57,15 @@ export function InviteAnimation() {
     <View className="flex-row items-center justify-center gap-3">
       <Animated.View style={user1Style}>
         <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Icon as={UserIcon} size={28} className="text-primary" />
+          <Icon name="user" size={28} className="text-primary" />
         </View>
       </Animated.View>
       <Animated.View style={plusStyle}>
-        <Icon as={UserPlusIcon} size={20} className="text-primary" />
+        <Icon name="user-plus" size={20} className="text-primary" />
       </Animated.View>
       <Animated.View style={user2Style}>
         <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Icon as={UserIcon} size={28} className="text-primary" />
+          <Icon name="user" size={28} className="text-primary" />
         </View>
       </Animated.View>
     </View>

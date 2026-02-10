@@ -6,66 +6,56 @@
 
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerScrollView,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerScrollView,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
-  VAD_MIN_SEGMENT_LENGTH_DEFAULT,
-  VAD_MIN_SEGMENT_LENGTH_MAX,
-  VAD_MIN_SEGMENT_LENGTH_MIN,
-  VAD_SILENCE_DURATION_DEFAULT,
-  VAD_SILENCE_DURATION_MAX,
-  VAD_SILENCE_DURATION_MIN,
-  VAD_THRESHOLD_DEFAULT,
-  VAD_THRESHOLD_MAX,
-  VAD_THRESHOLD_MIN
+    VAD_MIN_SEGMENT_LENGTH_DEFAULT,
+    VAD_MIN_SEGMENT_LENGTH_MAX,
+    VAD_MIN_SEGMENT_LENGTH_MIN,
+    VAD_SILENCE_DURATION_DEFAULT,
+    VAD_SILENCE_DURATION_MAX,
+    VAD_SILENCE_DURATION_MIN,
+    VAD_THRESHOLD_DEFAULT,
+    VAD_THRESHOLD_MAX,
+    VAD_THRESHOLD_MIN
 } from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
 import { PortalHost } from '@rn-primitives/portal';
-import {
-  HelpCircle,
-  Maximize2,
-  Mic,
-  Minus,
-  Plus,
-  RectangleHorizontal,
-  RotateCcw,
-  Sparkles
-} from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-  cancelAnimation,
-  useAnimatedProps,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  withTiming
+    cancelAnimation,
+    useAnimatedProps,
+    useAnimatedReaction,
+    useAnimatedStyle,
+    useDerivedValue,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import Svg, {
-  Circle,
-  Defs,
-  Mask,
-  Rect,
-  Stop,
-  LinearGradient as SvgLinearGradient
+    Circle,
+    Defs,
+    Mask,
+    Rect,
+    Stop,
+    LinearGradient as SvgLinearGradient
 } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -909,7 +899,7 @@ function VADSettingsDrawerInternal({
               </View>
               <Tooltip>
                 <TooltipTrigger hitSlop={10}>
-                  <Icon as={HelpCircle} size={20} />
+                  <Icon name="circle-help" size={20} />
                 </TooltipTrigger>
                 <TooltipContent
                   className="w-72"
@@ -956,7 +946,7 @@ function VADSettingsDrawerInternal({
                       className="h-24 flex-1 flex-col gap-2"
                     >
                       <Icon
-                        as={Maximize2}
+                        name="maximize-2"
                         size={28}
                         className={
                           displayMode === 'fullscreen'
@@ -982,7 +972,7 @@ function VADSettingsDrawerInternal({
                       className="h-24 flex-1 flex-col gap-2"
                     >
                       <Icon
-                        as={RectangleHorizontal}
+                        name="rectangle-horizontal"
                         size={28}
                         className={
                           displayMode === 'footer'
@@ -1010,7 +1000,7 @@ function VADSettingsDrawerInternal({
               ═══════════════════════════════════════════════════════════════ */}
               <View className="gap-1">
                 <View className="flex-row items-center gap-2">
-                  <Icon as={Mic} size={18} className="text-foreground" />
+                  <Icon name="mic" size={18} className="text-foreground" />
                   <Text className="text-sm font-medium text-foreground">
                     {t('vadCurrentLevel')}
                   </Text>
@@ -1168,7 +1158,7 @@ function VADSettingsDrawerInternal({
                     onPress={handleResetToDefault}
                     className="h-8"
                   >
-                    <Icon as={RotateCcw} size={16} />
+                    <Icon name="rotate-ccw" size={16} />
                   </Button>
                 </View>
 
@@ -1198,7 +1188,7 @@ function VADSettingsDrawerInternal({
                     onPress={handleDecreaseThreshold}
                     disabled={localThreshold <= VAD_THRESHOLD_MIN}
                   >
-                    <Icon as={Minus} size={16} />
+                    <Icon name="minus" size={16} />
                   </Button>
 
                   {/* Slider uses linear UI (0-1) for intuitive feel, converts to exponential energy under the hood */}
@@ -1234,7 +1224,7 @@ function VADSettingsDrawerInternal({
                     onPress={handleIncreaseThreshold}
                     disabled={localThreshold >= VAD_THRESHOLD_MAX}
                   >
-                    <Icon as={Plus} size={16} />
+                    <Icon name="plus" size={16} />
                   </Button>
                 </View>
 
@@ -1258,7 +1248,7 @@ function VADSettingsDrawerInternal({
                     ) : (
                       <View className="flex-row items-center gap-2">
                         <Icon
-                          as={Sparkles}
+                          name="sparkles"
                           size={20}
                           className="text-primary-foreground"
                         />
@@ -1303,7 +1293,7 @@ function VADSettingsDrawerInternal({
                     onPress={resetSilenceDuration}
                     className="h-8"
                   >
-                    <Icon as={RotateCcw} size={16} />
+                    <Icon name="rotate-ccw" size={16} />
                   </Button>
                 </View>
 
@@ -1365,7 +1355,7 @@ function VADSettingsDrawerInternal({
                     onPress={decrementSilence}
                     disabled={localSilenceDuration <= VAD_SILENCE_DURATION_MIN}
                   >
-                    <Icon as={Minus} size={16} />
+                    <Icon name="minus" size={16} />
                   </Button>
 
                   <Slider
@@ -1387,7 +1377,7 @@ function VADSettingsDrawerInternal({
                     onPress={incrementSilence}
                     disabled={localSilenceDuration >= VAD_SILENCE_DURATION_MAX}
                   >
-                    <Icon as={Plus} size={16} />
+                    <Icon name="plus" size={16} />
                   </Button>
                 </View>
               </View>
@@ -1415,7 +1405,7 @@ function VADSettingsDrawerInternal({
                     onPress={resetMinSegmentLength}
                     className="h-8"
                   >
-                    <Icon as={RotateCcw} size={16} />
+                    <Icon name="rotate-ccw" size={16} />
                   </Button>
                 </View>
 
@@ -1445,7 +1435,7 @@ function VADSettingsDrawerInternal({
                       localMinSegmentLength <= VAD_MIN_SEGMENT_LENGTH_MIN
                     }
                   >
-                    <Icon as={Minus} size={16} />
+                    <Icon name="minus" size={16} />
                   </Button>
 
                   <Slider
@@ -1469,7 +1459,7 @@ function VADSettingsDrawerInternal({
                       localMinSegmentLength >= VAD_MIN_SEGMENT_LENGTH_MAX
                     }
                   >
-                    <Icon as={Plus} size={16} />
+                    <Icon name="plus" size={16} />
                   </Button>
                 </View>
               </View>

@@ -3,13 +3,13 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-  FormSubmit,
-  transformInputProps
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+    FormSubmit,
+    transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -23,32 +23,23 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
 import {
-  clearDegradedMode,
-  isDegradedMode
+    clearDegradedMode,
+    isDegradedMode
 } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { resetDatabase } from '@/utils/dbUtils';
 import {
-  deleteIfExists,
-  ensureDir,
-  getLocalFilePathSuffix,
-  getLocalUri
+    deleteIfExists,
+    ensureDir,
+    getLocalFilePathSuffix,
+    getLocalUri
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AttachmentState } from '@powersync/attachments';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'expo-router';
-import {
-  ChevronDown,
-  ChevronRight,
-  HomeIcon,
-  InfoIcon,
-  MailIcon,
-  MoreVertical,
-  UserIcon
-} from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { View } from 'react-native';
@@ -241,7 +232,7 @@ export default function ProfileView() {
             {t('profile')}
           </Text>
           <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
+            <Icon name="home" className="text-primary-foreground" />
           </Button>
         </View>
         {__DEV__ && (
@@ -357,14 +348,14 @@ export default function ProfileView() {
         {currentUser && (
           <View className="flex flex-col rounded-lg bg-card p-4" ph-no-capture>
             <View className="flex flex-row items-center gap-2">
-              <Icon as={MailIcon} className="text-muted-foreground" />
+              <Icon name="mail" className="text-muted-foreground" />
               <Text className="flex-1 text-foreground" ph-no-capture>
                 {currentUser.email}
               </Text>
             </View>
             {currentUser.user_metadata.username && (
               <View className="flex-row items-center gap-2">
-                <Icon as={UserIcon} className="text-muted-foreground" />
+                <Icon name="user" className="text-muted-foreground" />
                 <Text className="flex-1 text-foreground" ph-no-capture>
                   {currentUser.user_metadata.username}
                 </Text>
@@ -456,7 +447,7 @@ export default function ProfileView() {
             />
           </View>
         ) : (
-          <Alert icon={InfoIcon}>
+          <Alert icon="info">
             <AlertTitle>{t('onlineOnlyFeatures')}</AlertTitle>
           </Alert>
         )}
@@ -492,7 +483,7 @@ export default function ProfileView() {
             >
               <View className="flex flex-row items-center gap-2">
                 <Icon
-                  as={MoreVertical}
+                  name="more-vertical"
                   size={20}
                   className="text-muted-foreground"
                 />
@@ -501,7 +492,7 @@ export default function ProfileView() {
                 </Text>
               </View>
               <Icon
-                as={showAdvancedOptions ? ChevronDown : ChevronRight}
+                name={showAdvancedOptions ? 'chevron-down' : 'chevron-right'}
                 size={20}
                 className="text-muted-foreground"
               />
@@ -510,7 +501,7 @@ export default function ProfileView() {
             {showAdvancedOptions && (
               <>
                 {!isOnline ? (
-                  <Alert icon={InfoIcon}>
+                  <Alert icon="info">
                     <AlertTitle>
                       {t('accountDeletionRequiresOnline')}
                     </AlertTitle>

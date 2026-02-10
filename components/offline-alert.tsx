@@ -1,7 +1,6 @@
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { WifiOffIcon } from 'lucide-react-native';
 import React from 'react';
 
 /**
@@ -17,7 +16,7 @@ export function OfflineAlert() {
   }
 
   return (
-    <Alert icon={WifiOffIcon} variant="destructive">
+    <Alert icon="wifi-off" variant="destructive">
       <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
     </Alert>
   );

@@ -1,6 +1,5 @@
 import { scoreSearchResults } from '@/utils/searchUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
-import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { ActivityIndicator, FlatList, TextInput, View } from 'react-native';
@@ -154,7 +153,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
               )}
             </View>
             <Icon
-              as={ChevronDownIcon}
+              name="chevron-down"
               className="text-muted-foreground"
               size={20}
             />
@@ -217,7 +216,7 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
                         </Text>
                         {item.value === value && (
                           <Icon
-                            as={CheckIcon}
+                            name="check"
                             size={16}
                             className="ml-2 text-accent-foreground"
                           />

@@ -1,4 +1,3 @@
-import { XIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Button } from './ui/button';
@@ -188,7 +187,7 @@ export function VerseRangeSelector({
               <Text className="text-lg font-semibold text-primary">
                 {selectedFrom}
               </Text>
-              <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
+              <Icon name="x" size={14} className="ml-1 text-primary/60" />
             </>
           ) : (
             <Text className="text-sm text-muted-foreground/50">From</Text>
@@ -214,7 +213,7 @@ export function VerseRangeSelector({
               <Text className="text-lg font-semibold text-primary">
                 {selectedTo}
               </Text>
-              <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
+              <Icon name="x" size={14} className="ml-1 text-primary/60" />
             </>
           ) : (
             <Text className="text-sm text-muted-foreground/50">To</Text>

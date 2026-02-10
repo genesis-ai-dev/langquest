@@ -2,11 +2,11 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -24,20 +24,11 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
-  useHybridData,
-  useItemDownloadStatus
+    useHybridData,
+    useItemDownloadStatus
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull } from 'drizzle-orm';
-import {
-  BookIcon,
-  CrownIcon,
-  EyeOffIcon,
-  HardDriveIcon,
-  LockIcon,
-  MailIcon,
-  UserIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -232,7 +223,7 @@ export function ProjectListItem({
                       {t('invited')}
                     </Text>
                   </View>
-                  <Icon as={MailIcon} className="text-primary" size={16} />
+                  <Icon name="mail" className="text-primary" size={16} />
                 </View>
               )}
               {(project.private ||
@@ -241,27 +232,27 @@ export function ProjectListItem({
                 <View className="flex flex-row items-center gap-1.5">
                   {!project.visible && (
                     <Icon
-                      as={EyeOffIcon}
+                      name="eye-off"
                       className="text-secondary-foreground"
                     />
                   )}
                   {project.source === 'local' && (
                     <Icon
-                      as={HardDriveIcon}
+                      name="hard-drive"
                       className="text-secondary-foreground"
                     />
                   )}
                   {project.private && (
-                    <Icon as={LockIcon} className="text-secondary-foreground" />
+                    <Icon name="lock" className="text-secondary-foreground" />
                   )}
                   {project.template === 'bible' && (
-                    <Icon as={BookIcon} className="text-secondary-foreground" />
+                    <Icon name="book" className="text-secondary-foreground" />
                   )}
                   {membership === 'owner' && (
-                    <Icon as={CrownIcon} className="text-primary" />
+                    <Icon name="crown" className="text-primary" />
                   )}
                   {membership === 'member' && (
-                    <Icon as={UserIcon} className="text-primary" />
+                    <Icon name="user" className="text-primary" />
                   )}
                 </View>
               )}
@@ -300,7 +291,7 @@ export function ProjectListItem({
                     }}
                   >
                     <Icon
-                      as={MailIcon}
+                      name="mail"
                       size={16}
                       className="text-primary-foreground"
                     />

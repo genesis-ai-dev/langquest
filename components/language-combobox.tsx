@@ -5,10 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { languoid } from '@/db/drizzleSchema';
 import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
-  useLanguoidById,
-  useLanguoidEndonyms,
-  useLanguoidSearch,
-  useUIReadyLanguoids
+    useLanguoidById,
+    useLanguoidEndonyms,
+    useLanguoidSearch,
+    useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -16,17 +16,16 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withTiming
 } from 'react-native-reanimated';
 import { ButtonPressable } from './ui/button';
 
@@ -87,7 +86,7 @@ function LoadingState() {
           loop: true
         }}
       >
-        <Icon as={LanguagesIcon} className="text-muted-foreground" size={20} />
+        <Icon name="languages" className="text-muted-foreground" size={20} />
       </MotiView>
       <View className="flex flex-1 flex-col gap-2">
         <Animated.View
@@ -514,7 +513,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         }}
         renderLeftIcon={() => (
           <Icon
-            as={LanguagesIcon}
+            name="languages"
             className="mr-2 text-muted-foreground"
             size={20}
           />
@@ -528,7 +527,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                 onPress={() => handleValueChange(item)}
               >
                 <Icon
-                  as={PlusCircleIcon}
+                  name="plus-circle"
                   className="mr-2 text-primary"
                   size={20}
                 />

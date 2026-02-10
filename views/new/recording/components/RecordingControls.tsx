@@ -12,27 +12,20 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Audio } from 'expo-av';
-import {
-  CircleHelp,
-  MicOffIcon,
-  Settings,
-  Sparkles
-} from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-  Easing,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
+    Easing,
+    useAnimatedReaction,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -304,7 +297,7 @@ export const RecordingControls = React.memo(
           >
             <View className="flex w-full items-center justify-center py-6">
               <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-                <Icon as={MicOffIcon} size={32} className="text-red-500" />
+                <Icon name="mic-off" size={32} className="text-red-500" />
               </View>
               <Button
                 variant="destructive"
@@ -328,7 +321,7 @@ export const RecordingControls = React.memo(
           >
             <View className="flex w-full items-center justify-center gap-3 py-6">
               <View className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Icon as={Sparkles} size={32} className="text-primary" />
+                <Icon name="sparkles" size={32} className="text-primary" />
               </View>
               <Text className="text-center text-base font-semibold text-foreground">
                 {t('calibrateMicrophone') || 'Calibrate your microphone'}
@@ -416,14 +409,14 @@ export const RecordingControls = React.memo(
                 onPress={onSettingsPress}
                 className="-ml-2 h-auto flex-row items-center gap-2"
               >
-                <Icon as={Settings} size={20} />
+                <Icon name="settings" size={20} />
                 <Text className="text-sm text-muted-foreground">
                   {t('vadRecordingSettings')}
                 </Text>
               </Button>
               <Tooltip>
                 <TooltipTrigger hitSlop={10}>
-                  <Icon as={CircleHelp} size={20} />
+                  <Icon name="circle-help" size={20} />
                 </TooltipTrigger>
                 <TooltipContent
                   className="w-72"

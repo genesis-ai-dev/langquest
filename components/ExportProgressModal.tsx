@@ -1,21 +1,15 @@
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { shareExportLink, useExportStatus } from '@/hooks/useChapterExport';
 import { useLocalization } from '@/hooks/useLocalization';
-import {
-  CheckCircleIcon,
-  Share2Icon,
-  XCircleIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -52,7 +46,7 @@ export function ExportProgressModal({
         <DrawerHeader className="flex-row items-center justify-between">
           <DrawerTitle>{t('exportProgress') || 'Export Progress'}</DrawerTitle>
           <DrawerClose variant="ghost" size="icon">
-            <Icon as={XIcon} size={24} />
+            <Icon name="x" size={24} />
           </DrawerClose>
         </DrawerHeader>
 
@@ -69,7 +63,7 @@ export function ExportProgressModal({
             </>
           ) : exportData?.status === 'ready' ? (
             <>
-              <Icon as={CheckCircleIcon} size={48} className="text-chart-3" />
+              <Icon name="circle-check" size={48} className="text-chart-3" />
               <Text className="text-center font-semibold">
                 {t('exportReady') || 'Export is ready!'}
               </Text>
@@ -78,14 +72,14 @@ export function ExportProgressModal({
                   onPress={handleShare}
                   className="w-full flex-row items-center gap-2"
                 >
-                  <Icon as={Share2Icon} size={16} />
+                  <Icon name="share-2" size={16} />
                   <Text>{t('share') || 'Share'}</Text>
                 </Button>
               )}
             </>
           ) : exportData?.status === 'failed' ? (
             <>
-              <Icon as={XCircleIcon} size={48} className="text-destructive" />
+              <Icon name="circle-x" size={48} className="text-destructive" />
               <Text className="text-center font-semibold">
                 {t('exportFailed') || 'Export failed'}
               </Text>

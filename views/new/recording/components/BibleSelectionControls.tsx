@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Bookmark, Merge, Trash2, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -42,7 +41,7 @@ export const BibleSelectionControls = React.memo(function SelectionControls({
             disabled={selectedCount < 1}
             onPress={() => onAssignVerse?.()}
           >
-            <Icon as={Bookmark} />
+            <Icon name="bookmark" />
           </Button>
           <Button
             variant="default"
@@ -50,7 +49,7 @@ export const BibleSelectionControls = React.memo(function SelectionControls({
             onPress={onMerge}
           >
             <View className="flex-row items-center">
-              <Icon as={Merge} />
+              <Icon name="merge" />
               <Text className="ml-2 text-sm">{t('merge')}</Text>
             </View>
           </Button>
@@ -59,11 +58,11 @@ export const BibleSelectionControls = React.memo(function SelectionControls({
             disabled={selectedCount < 1}
             onPress={onDelete}
           >
-            <Icon as={Trash2} />
+            <Icon name="trash-2" />
           </Button>
         </View>
         <Button variant="secondary" onPress={onCancel} className="ml-2">
-          <Icon as={X} />
+          <Icon name="x" />
         </Button>
       </View>
     </View>

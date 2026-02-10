@@ -1,39 +1,24 @@
 import { Button } from '@/components/ui/button';
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerScrollView,
-  DrawerTitle
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerScrollView,
+    DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
 import { cn } from '@/utils/styleUtils';
-import {
-  AlertCircleIcon,
-  CheckCircleIcon,
-  CloudIcon,
-  DatabaseIcon,
-  FileTextIcon,
-  FolderIcon,
-  LanguagesIcon,
-  LinkIcon,
-  Loader2Icon,
-  TagIcon,
-  ThumbsUpIcon,
-  UploadCloudIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Animated, {
-  runOnJS,
-  useAnimatedReaction,
-  useAnimatedStyle
+    runOnJS,
+    useAnimatedReaction,
+    useAnimatedStyle
 } from 'react-native-reanimated';
 
 interface QuestOffloadVerificationDrawerProps {
@@ -46,7 +31,7 @@ interface QuestOffloadVerificationDrawerProps {
 
 interface CategoryRowProps {
   label: string;
-  icon: typeof FolderIcon;
+  icon: LucideIconName;
   count: number;
   verified: number;
   isVerifying: boolean;
@@ -83,7 +68,7 @@ function CategoryRow({
   return (
     <View className="flex-row items-center justify-between border-b border-border py-1.5">
       <View className="flex-row items-center gap-2">
-        <Icon as={icon} size={16} className="text-muted-foreground" />
+        <Icon name={icon} size={16} className="text-muted-foreground" />
         <Animated.View style={animatedTextStyle}>
           <Text className="text-sm">{label}</Text>
         </Animated.View>
@@ -105,23 +90,23 @@ function CategoryRow({
 
         {isVerifying && (
           <Icon
-            as={Loader2Icon}
+            name="loader-2"
             size={14}
             className="animate-spin text-primary"
           />
         )}
         {isFullyVerified && (
-          <Icon as={CloudIcon} size={14} className="text-green-600" />
+          <Icon name="cloud" size={14} className="text-green-600" />
         )}
         {isPartiallyVerified && (
-          <Icon as={UploadCloudIcon} size={14} className="text-yellow-600" />
+          <Icon name="cloud-upload" size={14} className="text-yellow-600" />
         )}
         {hasError && (
-          <Icon as={AlertCircleIcon} size={14} className="text-destructive" />
+          <Icon name="alert-circle" size={14} className="text-destructive" />
         )}
         {!isVerifying && !hasError && count === 0 && (
           <Icon
-            as={CheckCircleIcon}
+            name="circle-check"
             size={14}
             className="text-muted-foreground"
           />
@@ -268,7 +253,7 @@ export function QuestOffloadVerificationDrawer({
               </Text>
             </View>
             <DrawerClose variant="ghost" size="icon" disabled={isOffloading}>
-              <Icon as={XIcon} size={24} />
+              <Icon name="x" size={24} />
             </DrawerClose>
           </View>
         </DrawerHeader>
@@ -283,7 +268,7 @@ export function QuestOffloadVerificationDrawer({
               <View className="rounded-lg bg-yellow-500/10 p-4">
                 <View className="mb-2 flex-row items-center gap-2">
                   <Icon
-                    as={UploadCloudIcon}
+                    name="cloud-upload"
                     size={20}
                     className="text-yellow-600"
                   />
@@ -302,27 +287,27 @@ export function QuestOffloadVerificationDrawer({
               <View className="flex-col gap-0">
                 <CategoryRow
                   label="Quest"
-                  icon={FolderIcon}
+                  icon="folder"
                   {...progress.quest}
                 />
                 <CategoryRow
                   label="Project"
-                  icon={DatabaseIcon}
+                  icon="database"
                   {...progress.project}
                 />
                 <CategoryRow
                   label="Quest-Asset Links"
-                  icon={LinkIcon}
+                  icon="link"
                   {...progress.questAssetLinks}
                 />
                 <CategoryRow
                   label="Assets"
-                  icon={FileTextIcon}
+                  icon="file-text"
                   {...progress.assets}
                 />
                 <CategoryRow
                   label="Asset Content Links"
-                  icon={LinkIcon}
+                  icon="link"
                   {...progress.assetContentLinks}
                 />
                 <CategoryRow
@@ -332,23 +317,23 @@ export function QuestOffloadVerificationDrawer({
                 />
                 <CategoryRow
                   label="Quest Tags"
-                  icon={LinkIcon}
+                  icon="link"
                   {...progress.questTagLinks}
                 />
                 <CategoryRow
                   label="Asset Tags"
-                  icon={LinkIcon}
+                  icon="link"
                   {...progress.assetTagLinks}
                 />
-                <CategoryRow label="Tags" icon={TagIcon} {...progress.tags} />
+                <CategoryRow label="Tags" icon="tag" {...progress.tags} />
                 <CategoryRow
                   label="Languages"
-                  icon={LanguagesIcon}
+                  icon="languages"
                   {...progress.languages}
                 />
                 <CategoryRow
                   label="Attachments"
-                  icon={FileTextIcon}
+                  icon="file-text"
                   {...progress.attachments}
                 />
               </View>
@@ -388,7 +373,7 @@ export function QuestOffloadVerificationDrawer({
                 <View className="mb-2 min-h-10 rounded-lg bg-destructive/10 p-3">
                   <View className="mb-2 flex-row items-center gap-2">
                     <Icon
-                      as={AlertCircleIcon}
+                      name="alert-circle"
                       size={20}
                       className="text-destructive"
                     />

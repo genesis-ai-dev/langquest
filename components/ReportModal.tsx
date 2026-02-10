@@ -12,12 +12,11 @@ import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { XIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
 import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
+    KeyboardAwareScrollView,
+    KeyboardToolbar
 } from 'react-native-keyboard-controller';
 // Uncomment these imports when implementing duplicate report checking
 // import { useHybridData } from '@/views/new/useHybridData';
@@ -210,7 +209,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <View className="mb-4 flex-row items-center justify-between">
                 <Text variant="h3">{t('reportTranslation')}</Text>
                 <Pressable className="p-1" onPress={onClose}>
-                  <Icon as={XIcon} size={24} className="text-foreground" />
+                  <Icon name="x" size={24} className="text-foreground" />
                 </Pressable>
               </View>
 

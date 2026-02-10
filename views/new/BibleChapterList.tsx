@@ -20,13 +20,12 @@ import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 interface BibleChapterListProps {
   projectId: string;
@@ -135,7 +134,7 @@ function ChapterButton({
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
               {hasLocalCopy && (
-                <Icon as={HardDriveIcon} size={14} className="text-secondary" />
+                <Icon name="hard-drive" size={14} className="text-secondary" />
               )}
               {exists && (hasSyncedCopy || isCloudQuest) && (
                 <View pointerEvents={isDownloaded ? 'none' : 'auto'}>
@@ -631,7 +630,7 @@ export function BibleChapterList({
         {showEmptyState ? (
           <View className="flex-1 items-center justify-center gap-4 px-6">
             <Icon
-              as={BookOpenIcon}
+              name="book-open"
               size={48}
               className="text-muted-foreground"
             />

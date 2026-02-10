@@ -28,31 +28,20 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import {
-  FlagIcon,
-  LockIcon,
-  PencilIcon,
-  SettingsIcon,
-  ThumbsDownIcon,
-  ThumbsUpIcon,
-  UserCircleIcon,
-  XIcon
-} from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  TouchableWithoutFeedback,
-  View
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
+    KeyboardAwareScrollView,
+    KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useHybridData } from './useHybridData';
 
@@ -566,7 +555,7 @@ export default function NextGenTranslationModal({
                       onPress={() => setShowSettingsModal(true)}
                       className="p-2"
                     >
-                      <Icon as={SettingsIcon} className="text-foreground" />
+                      <Icon name="settings" className="text-foreground" />
                     </Button>
                   )}
                   {!isOwnTranslation && (
@@ -578,7 +567,7 @@ export default function NextGenTranslationModal({
                       className="p-2"
                     >
                       <Icon
-                        as={FlagIcon}
+                        name="flag"
                         className={
                           hasReported
                             ? 'text-muted-foreground'
@@ -588,8 +577,8 @@ export default function NextGenTranslationModal({
                     </Button>
                   )}
                   <Pressable onPress={handleClose} className="p-2">
-                    <Ionicons
-                      name="close"
+                    <Icon
+                      name="x"
                       size={24}
                       color={getThemeColor('foreground')}
                     />
@@ -709,7 +698,7 @@ export default function NextGenTranslationModal({
                                   />
                                 ) : (
                                   <Icon
-                                    as={ThumbsUpIcon}
+                                    name="thumbs-up"
                                     size={24}
                                     className="text-white"
                                   />
@@ -749,7 +738,7 @@ export default function NextGenTranslationModal({
                                   />
                                 ) : (
                                   <Icon
-                                    as={ThumbsDownIcon}
+                                    name="thumbs-down"
                                     size={24}
                                     className="text-white"
                                   />

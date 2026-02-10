@@ -34,24 +34,6 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
-import {
-  BookmarkPlusIcon,
-  BrushCleaning,
-  CheckCheck,
-  ChevronRight,
-  CloudUpload,
-  FlagIcon,
-  InfoIcon,
-  ListVideo,
-  LockIcon,
-  MicIcon,
-  PauseIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  SettingsIcon,
-  UserPlusIcon
-} from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
@@ -159,7 +141,7 @@ interface ManualSeparator {
 
 const RecordingPlaceIndicator = () => (
   <View className="flex flex-row items-center justify-center gap-1 py-2">
-    {/* <Icon as={CassetteTapeIcon} size={16} className="text-destructive" /> */}
+    {/* <Icon name="cassette-tape" size={16} className="text-destructive" /> */}
     <View className="h-2 w-2 rounded-full bg-destructive" />
     <Text className="text-xs text-destructive">REC</Text>
   </View>
@@ -264,7 +246,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
               onPress={onAddVersePress}
               className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 active:bg-primary/20"
             >
-              <Icon as={BookmarkPlusIcon} size={14} className="text-primary" />
+              <Icon name="bookmark-plus" size={14} className="text-primary" />
               <Text className="text-xs font-medium text-primary">
                 Add Verse Label
               </Text>
@@ -3480,7 +3462,7 @@ export default function BibleAssetsView() {
             }}
           >
             <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              <Icon name="refresh-cw" size={18} className="text-primary" />
             </Animated.View>
           </Button>
           {assets.length > 0 && (
@@ -3491,7 +3473,7 @@ export default function BibleAssetsView() {
               className="h-10 w-10"
             >
               <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                name={isPlayAllRunning ? 'pause' : 'list-video'}
                 size={20}
                 className="text-primary"
               />
@@ -3513,7 +3495,7 @@ export default function BibleAssetsView() {
                 getAvailableVerses().length === 0
               }
             >
-              <Icon as={BookmarkPlusIcon} className="text-primary" />
+              <Icon name="bookmark-plus" className="text-primary" />
             </Button>
           )}
         </View>
@@ -3551,8 +3533,8 @@ export default function BibleAssetsView() {
                   }}
                 >
                   <View className="flex-row items-center gap-0.5">
-                    <Icon as={CloudUpload} size={18} />
-                    <Icon as={CheckCheck} size={14} />
+                    <Icon name="cloud-upload" size={18} />
+                    <Icon name="check-check" size={14} />
                   </View>
                 </Button>
                 {currentQuestId && currentProjectId && (
@@ -3573,8 +3555,8 @@ export default function BibleAssetsView() {
                   size="sm"
                   onPress={() => setShowPrivateAccessModal(true)}
                 >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
+                  <Icon name="user-plus" size={16} />
+                  <Icon name="lock" size={16} />
                 </Button>
               )
             )
@@ -3633,7 +3615,7 @@ export default function BibleAssetsView() {
                       color={getThemeColor('primary')}
                     />
                   ) : (
-                    <Icon as={CloudUpload} />
+                    <Icon name="cloud-upload" />
                   )}
                 </Button>
                 {currentQuestId && currentProjectId && (
@@ -3746,13 +3728,13 @@ export default function BibleAssetsView() {
                 <>
                   {allowSettings && isOwner ? (
                     <SpeedDialItem
-                      icon={SettingsIcon}
+                      icon="settings"
                       variant="outline"
                       onPress={() => setShowSettingsModal(true)}
                     />
                   ) : !hasReported ? (
                     <SpeedDialItem
-                      icon={FlagIcon}
+                      icon="flag"
                       variant="outline"
                       onPress={() => setShowReportModal(true)}
                     />
@@ -3761,14 +3743,14 @@ export default function BibleAssetsView() {
               ) : null}
               {!isPublished && (
                 <SpeedDialItem
-                  icon={BrushCleaning}
+                  icon="brush-cleaning"
                   variant="outline"
                   onPress={() => setShowDeleteAllDrawer(true)}
                 />
               )}
               {/* Info button always visible */}
               <SpeedDialItem
-                icon={InfoIcon}
+                icon="info"
                 variant="outline"
                 onPress={() => {
                   console.log('📋 [Info] Opening details modal', {
@@ -3813,7 +3795,7 @@ export default function BibleAssetsView() {
               className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
               onPress={() => void handleGoToRecording()}
             >
-              <Icon as={MicIcon} size={24} className="text-secondary" />
+              <Icon name="mic" size={24} className="text-secondary" />
               <View className="ml-2 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
@@ -3827,7 +3809,7 @@ export default function BibleAssetsView() {
                   : t('doRecord')} */}
                 </Text>
               </View>
-              <Icon as={ChevronRight} size={24} className="text-secondary" />
+              <Icon name="chevron-right" size={24} className="text-secondary" />
             </Pressable>
           )}
         </View>

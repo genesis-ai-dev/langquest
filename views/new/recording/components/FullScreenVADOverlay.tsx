@@ -8,7 +8,6 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { WaveformVisualization } from '@/components/WaveformVisualization';
 import { useLocalization } from '@/hooks/useLocalization';
-import { X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -81,7 +80,7 @@ export function FullScreenVADOverlay({
             className="h-16 w-64"
             style={{ marginBottom: insets.bottom + 32 }}
           >
-            <Icon as={X} size={24} className="mr-2" />
+            <Icon name="x" size={24} className="mr-2" />
             <Text className="text-lg font-semibold text-destructive-foreground">
               {t('vadStop')}
             </Text>

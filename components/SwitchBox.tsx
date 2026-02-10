@@ -1,5 +1,5 @@
 import { cn } from '@/utils/styleUtils';
-import type { LucideIcon } from 'lucide-react-native';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import { View } from 'react-native';
 import { Icon } from './ui/icon';
 import { Label } from './ui/label';
@@ -12,7 +12,7 @@ interface SwitchBoxProps {
   value: boolean;
   onChange: () => void;
   disabled?: boolean;
-  icon?: LucideIcon;
+  icon?: LucideIconName;
 }
 
 export function SwitchBox({
@@ -21,16 +21,16 @@ export function SwitchBox({
   value,
   onChange,
   disabled = false,
-  icon: IconComponent
+  icon: iconName
 }: SwitchBoxProps) {
   return (
     <View className="py-3">
       <View className="flex-row items-center justify-between">
         <View className="mr-4 flex-1">
           <View className="flex-row items-center gap-3">
-            {IconComponent && (
+            {iconName && (
               <Icon
-                as={IconComponent}
+                name={iconName}
                 size={20}
                 className={cn(
                   'text-muted-foreground',

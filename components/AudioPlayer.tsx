@@ -1,16 +1,15 @@
+import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
 import React, { useEffect } from 'react';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Carousel from './Carousel';
 
@@ -91,7 +90,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
             onPress={() => handlePlayPause(item.uri, item.id)}
           >
-            <Ionicons
+            <Icon
               name={isThisAudioPlaying ? 'pause' : 'play'}
               size={mini ? 24 : 48}
               color={colors.text}
@@ -112,8 +111,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   color={colors.background}
                 />
               ) : (
-                <Ionicons
-                  name="text-outline"
+                <Icon
+                  name="file-text"
                   size={mini ? 18 : 28}
                   color={colors.background}
                 />

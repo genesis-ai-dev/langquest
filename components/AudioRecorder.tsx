@@ -5,11 +5,10 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { deleteIfExists } from '@/utils/fileUtils';
-import type { AVPlaybackStatus } from 'expo-av';
-import { Audio } from 'expo-av';
-import type { RecordingOptions } from 'expo-av/build/Audio';
-import type { LucideIcon } from 'lucide-react-native';
-import { Check, Mic, Pause, Play } from 'lucide-react-native';
+import type { LucideIconName } from '@react-native-vector-icons/lucide';
+import {
+    type RecordingOptions
+} from 'expo-audio';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 
@@ -17,7 +16,7 @@ import { Platform, Pressable, View } from 'react-native';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 interface ButtonConfig {
-  icon: LucideIcon;
+  icon: LucideIconName;
   onPress: (() => Promise<void>) | undefined;
   disabled?: boolean;
 }
@@ -240,11 +239,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     if (isRecording || isRecordingPaused) {
       return [
         {
-          icon: isRecordingPaused ? Mic : Pause,
+          icon: isRecordingPaused ? 'mic' : 'pause',
           onPress: isRecordingPaused ? startRecording : pauseRecording
         },
         {
-          icon: Check,
+          icon: 'check',
           onPress: stopRecording
         }
       ];
@@ -257,7 +256,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           onPress: startRecording
         },
         {
-          icon: isPlaying ? Pause : Play,
+          icon: isPlaying ? 'pause' : 'play',
           onPress: isPlaying ? pausePlayback : playRecording
         }
       ];
@@ -299,7 +298,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
             disabled={button.disabled}
           >
             <Icon
-              as={button.icon}
+              name={button.icon}
               size={24}
               className="text-primary-foreground"
             />

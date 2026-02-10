@@ -24,15 +24,14 @@ import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { CheckCircleIcon, CircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useDerivedValue
+    Extrapolation,
+    interpolate,
+    useAnimatedStyle,
+    useDerivedValue
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
@@ -222,7 +221,7 @@ function AssetCardInternal({
         {isSelectionMode && isLocal && (
           <View className="pl-2" style={{ zIndex: 1 }}>
             <Icon
-              as={isSelected ? CheckCircleIcon : CircleIcon}
+              name={isSelected ? 'circle-check' : 'circle'}
               size={20}
               className={isSelected ? 'text-primary' : 'text-muted-foreground'}
             />

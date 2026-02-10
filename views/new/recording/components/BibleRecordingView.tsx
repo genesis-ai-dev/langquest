@@ -17,25 +17,15 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS,
-  saveAudioLocally
+    fileExists,
+    getLocalAttachmentUriWithOPFS,
+    saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { Audio } from 'expo-av';
-import {
-  ArrowDownNarrowWide,
-  ArrowLeft,
-  ChevronLeft,
-  ListVideo,
-  Mic,
-  PauseIcon,
-  Plus
-} from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -2567,14 +2557,14 @@ const BibleRecordingView = ({
     return (
       <View className="left-0 right-0 flex w-full items-center">
         <View className="flex flex-row items-center gap-2">
-          <Icon as={ChevronLeft} size={20} className="text-primary" />
+          <Icon name="chevron-left" size={20} className="text-primary" />
           <Button
             variant="outline"
             size="sm"
             className="rounded-full border-primary bg-primary/10 text-sm"
             onPress={handleAddNextVerse}
           >
-            <Icon as={Plus} size={20} className="text-primary" />
+            <Icon name="plus" size={20} className="text-primary" />
             <Text className="font-semibold text-primary">
               {/* {bookChapterLabel}:{verseToAdd} */}
               {verseToAdd}
@@ -2610,9 +2600,9 @@ const BibleRecordingView = ({
               justifyContent: 'center'
             }}
           >
-            <Icon as={Mic} size={20} className="text-secondary-foreground/50" />
+            <Icon name="mic" size={20} className="text-secondary-foreground/50" />
             <Icon
-              as={ArrowDownNarrowWide}
+              name="arrow-down-narrow-wide"
               size={20}
               style={{ marginLeft: 4 }}
               className="text-secondary-foreground/50"
@@ -2658,7 +2648,7 @@ const BibleRecordingView = ({
               onBack(recordedVerses.length > 0 ? recordedVerses : undefined);
             }}
           >
-            <Icon as={ArrowLeft} />
+            <Icon name="arrow-left" />
           </Button>
           <Text className="text-2xl font-bold text-foreground">
             {bookChapterLabelFull || bookChapterLabel}
@@ -2676,7 +2666,7 @@ const BibleRecordingView = ({
               className="h-10 w-10"
             >
               <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                name={isPlayAllRunning ? 'pause' : 'list-video'}
                 size={20}
                 className="text-primary"
               />
