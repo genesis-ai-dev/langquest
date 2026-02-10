@@ -1,5 +1,5 @@
-import { GemIcon } from '@/components/GemIcon';
 import { PickaxeCount } from '@/components/PickaxeCount';
+import { Icon } from '@/components/ui/icon';
 import { colors, spacing } from '@/styles/theme';
 import { StyleSheet, View } from 'react-native';
 
@@ -49,10 +49,10 @@ export const ProgressBars = ({
               }
             ]}
           >
-            <GemIcon
+            <Icon
+              name="diamond"
+              size={progressBarHeight / 1.5}
               color={colors.textSecondary}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
               style={{ marginRight: 10 }}
             />
           </View>
@@ -73,10 +73,10 @@ export const ProgressBars = ({
               }
             ]}
           >
-            <GemIcon
+            <Icon
+              name="diamond"
+              size={progressBarHeight / 1.5}
               color={colors.background}
-              width={progressBarHeight / 1.5}
-              height={progressBarHeight / 1.5}
               style={{ marginRight: -14, overflow: 'visible' }}
             />
           </View>

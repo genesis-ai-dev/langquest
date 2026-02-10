@@ -1,4 +1,4 @@
-import { GemIcon } from '@/components/GemIcon';
+import { Icon } from '@/components/ui/icon';
 import { colors, fontSizes } from '@/styles/theme';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -17,7 +17,7 @@ export const SuccessCount = ({
 
   return (
     <View style={styles.container}>
-      <GemIcon color={color} width={iconSize} height={iconSize} />
+      <Icon name="diamond" size={iconSize} color={color} />
       <Text style={styles.count}>{count}</Text>
     </View>
   );

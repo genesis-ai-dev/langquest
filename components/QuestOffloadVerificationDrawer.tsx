@@ -312,7 +312,7 @@ export function QuestOffloadVerificationDrawer({
                 />
                 <CategoryRow
                   label="Votes"
-                  icon={ThumbsUpIcon}
+                  icon="thumbs-up"
                   {...progress.votes}
                 />
                 <CategoryRow
