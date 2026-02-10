@@ -110,6 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-router',
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
+      'expo-asset',
       'expo-audio',
       [
         'expo-splash-screen',
