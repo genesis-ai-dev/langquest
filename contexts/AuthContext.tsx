@@ -1,13 +1,21 @@
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
+import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AuthError,
   AuthResponse,
   Session,
   User
 } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 
 type SessionType = 'normal' | 'password-reset' | null;
 
@@ -21,6 +29,7 @@ interface AuthContextType {
   // System state
   isSystemReady: boolean;
   migrationNeeded: boolean;
+  setMigrationNeeded: (needed: boolean) => void;
   appUpgradeNeeded: boolean;
   upgradeError: {
     localVersion: string;
@@ -67,6 +76,9 @@ export function useAuth() {
       currentUser: currentUserFromStore || null,
       isSystemReady: true, // Allow queries to work for anonymous browsing
       migrationNeeded: false,
+      setMigrationNeeded: () => {
+        // No-op fallback for components outside AuthProvider
+      },
       appUpgradeNeeded: false,
       upgradeError: null,
       signIn: async () => {
@@ -192,46 +204,122 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Track whether auth has been initialized (to prevent double init from race)
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
     console.log('[AuthContext] Setting up auth listener...');
 
-    // Check for existing session
-    void system.supabaseConnector.client.auth
-      .getSession()
-      .then(({ data: { session }, error }) => {
-        if (error) {
-          console.error('[AuthContext] Error getting session:', error);
-        } else if (session) {
-          console.log('[AuthContext] Found existing session');
-          const detectedSessionType = getSessionType(session);
-          console.log(
-            '[AuthContext] Detected session type for existing session:',
-            detectedSessionType
-          );
-          setSession(session);
-          setSessionType(detectedSessionType);
+    // =========================================================================
+    // FAST OFFLINE PATH
+    // =========================================================================
+    // When offline with an expired token, Supabase's onAuthStateChange won't fire
+    // INITIAL_SESSION until it exhausts its token refresh retries (~25+ seconds).
+    // To avoid this delay, we race between:
+    // 1. Fast path: Check network, if offline load session from AsyncStorage directly
+    // 2. Normal path: Wait for Supabase's INITIAL_SESSION event
+    // Whichever completes first wins, the other is skipped via hasInitializedRef.
+    // =========================================================================
 
-          // Update the session in SupabaseConnector
-          system.supabaseConnector.updateSession(session);
+    const tryFastOfflinePath = async () => {
+      try {
+        // Use RPC call with timeout to definitively check if we're online
+        // NetInfo can be unreliable with VPNs - RPC is a sure way to know
+        const RPC_TIMEOUT_MS = 3000;
 
-          // Always initialize system for existing sessions
+        const rpcCheck = async (): Promise<boolean> => {
+          try {
+            const { error } =
+              await system.supabaseConnector.client.rpc('get_schema_info');
+            return !error;
+          } catch {
+            return false;
+          }
+        };
+
+        const timeoutPromise = new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), RPC_TIMEOUT_MS)
+        );
+
+        const isOnline = await Promise.race([rpcCheck(), timeoutPromise]);
+
+        // Only use fast path if we're offline (RPC failed or timed out)
+        if (isOnline) {
           console.log(
-            '[AuthContext] Starting system initialization from existing session'
+            '[AuthContext] Server reachable - using normal Supabase flow'
           );
-          void initializeSystem();
-        } else {
-          // No session - anonymous mode
-          console.log('[AuthContext] No session found - anonymous mode');
-          setSession(null);
-          setSessionType(null);
-          // Skip PowerSync initialization for anonymous users
-          // Set system ready immediately to allow TanStack Query to work
-          setIsSystemReady(true);
+          return;
         }
-        setIsLoading(false);
-      });
 
-    // Listen for auth state changes
+        console.log(
+          '[AuthContext] Server unreachable - trying fast session load from AsyncStorage'
+        );
+
+        const authKey = await getSupabaseAuthKey();
+        if (!authKey) {
+          console.log('[AuthContext] No auth key found');
+          return;
+        }
+
+        const sessionString = await AsyncStorage.getItem(authKey);
+        if (!sessionString) {
+          console.log('[AuthContext] No session in AsyncStorage');
+          return;
+        }
+
+        const storedData = JSON.parse(sessionString) as Record<string, unknown>;
+        if (!storedData?.access_token || !storedData?.user) {
+          console.log('[AuthContext] Invalid session format in AsyncStorage');
+          return;
+        }
+
+        // Check if we already initialized via INITIAL_SESSION (race lost)
+        if (hasInitializedRef.current) {
+          console.log(
+            '[AuthContext] Fast path: Already initialized via INITIAL_SESSION, skipping'
+          );
+          return;
+        }
+
+        // Win the race - mark as initialized
+        hasInitializedRef.current = true;
+        console.log(
+          '[AuthContext] Fast path: Loading session from AsyncStorage (offline mode)'
+        );
+
+        const offlineSession = storedData as unknown as Session;
+        setSession(offlineSession);
+        system.supabaseConnector.updateSession(offlineSession);
+
+        const detectedSessionType = getSessionType(offlineSession);
+        console.log(
+          '[AuthContext] Fast path: Detected session type:',
+          detectedSessionType
+        );
+        setSessionType(detectedSessionType);
+
+        // Initialize system
+        console.log('[AuthContext] Fast path: Starting system initialization');
+        await initializeSystem();
+        console.log(
+          '[AuthContext] Fast path: System initialization complete (offline mode)'
+        );
+        setIsLoading(false);
+      } catch (error) {
+        console.warn('[AuthContext] Fast offline path failed:', error);
+        // Don't set hasInitializedRef - let normal flow handle it
+      }
+    };
+
+    // Start the fast offline path immediately (non-blocking)
+    void tryFastOfflinePath();
+
+    // =========================================================================
+    // NORMAL SUPABASE PATH
+    // =========================================================================
+    // Listen for auth state changes - this is the normal flow when online
+    // or as fallback when offline fast path fails.
+
     const {
       data: { subscription }
     } = system.supabaseConnector.client.auth.onAuthStateChange(
@@ -242,13 +330,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           sessionType: session ? getSessionType(session) : null
         });
 
-        setSession(session);
-
-        // Update the session in SupabaseConnector
-        system.supabaseConnector.updateSession(session);
+        // =======================================================================
+        // CRITICAL FIX: Do NOT update session before the switch statement!
+        // Previously, setSession(session) and updateSession(session) ran here,
+        // which would clear the session even when we should skip the event.
+        // Now session updates happen INSIDE each case, AFTER skip checks.
+        // =======================================================================
 
         switch (event) {
+          case 'INITIAL_SESSION': {
+            // Check if fast offline path already initialized
+            if (hasInitializedRef.current) {
+              console.log(
+                '[AuthContext] INITIAL_SESSION: Already initialized via fast path, ignoring completely'
+              );
+              // CRITICAL: Do NOT update session - keep the one from fast path
+              return;
+            }
+
+            // Win the race - mark as initialized
+            hasInitializedRef.current = true;
+
+            // INITIAL_SESSION fires when Supabase loads the session from AsyncStorage.
+            // IMPORTANT: When offline with expired token, Supabase may clear the session
+            // and fire INITIAL_SESSION with null. We need to fall back to reading
+            // the raw session from AsyncStorage to support offline-first usage.
+            let effectiveSession = session;
+
+            if (!effectiveSession) {
+              console.log(
+                '[AuthContext] INITIAL_SESSION has null session - checking AsyncStorage directly'
+              );
+              try {
+                const authKey = await getSupabaseAuthKey();
+                if (authKey) {
+                  const sessionString = await AsyncStorage.getItem(authKey);
+                  if (sessionString) {
+                    const storedData = JSON.parse(sessionString) as Record<
+                      string,
+                      unknown
+                    >;
+                    // Supabase stores session in a specific format
+                    if (storedData?.access_token && storedData?.user) {
+                      console.log(
+                        '[AuthContext] Found session in AsyncStorage (may be expired)'
+                      );
+                      effectiveSession = storedData as unknown as Session;
+                    }
+                  }
+                }
+              } catch (error) {
+                console.warn(
+                  '[AuthContext] Failed to read session from AsyncStorage:',
+                  error
+                );
+              }
+            }
+
+            // Now update session state (only after we've determined effectiveSession)
+            setSession(effectiveSession);
+            system.supabaseConnector.updateSession(effectiveSession);
+
+            if (effectiveSession) {
+              console.log(
+                '[AuthContext] Found existing session via INITIAL_SESSION'
+              );
+              const detectedSessionType = getSessionType(effectiveSession);
+              console.log(
+                '[AuthContext] Detected session type:',
+                detectedSessionType
+              );
+              setSessionType(detectedSessionType);
+
+              // Initialize system for existing sessions
+              console.log(
+                '[AuthContext] Starting system initialization from INITIAL_SESSION'
+              );
+              await initializeSystem();
+              console.log(
+                '[AuthContext] System initialization complete from INITIAL_SESSION'
+              );
+            } else {
+              // No session found in storage - anonymous mode
+              console.log('[AuthContext] No session found - anonymous mode');
+              setSessionType(null);
+              // Skip PowerSync initialization for anonymous users
+              // Set system ready immediately to allow TanStack Query to work
+              setIsSystemReady(true);
+            }
+            setIsLoading(false);
+            break;
+          }
+
           case 'SIGNED_IN': {
+            // Update session for sign in events
+            setSession(session);
+            system.supabaseConnector.updateSession(session);
+
             console.log('[AuthContext] User signed in');
             const detectedSessionType = getSessionType(session);
             console.log(
@@ -265,33 +443,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(
               '[AuthContext] System initialization complete from SIGNED_IN event'
             );
+            setIsLoading(false);
             break;
           }
 
           case 'PASSWORD_RECOVERY':
+            // Update session for password recovery
+            setSession(session);
+            system.supabaseConnector.updateSession(session);
+
             console.log('[AuthContext] Password recovery session');
             setSessionType('password-reset');
             // Don't initialize system for password reset
             break;
 
           case 'SIGNED_OUT':
-            console.log('[AuthContext] User signed out');
-            setSessionType(null);
-            await cleanupSystem();
-            // Clear authView from localStore to prevent showing auth modal after sign out
-            useLocalStore.getState().setAuthView(null);
-            // Set system ready for anonymous browsing after sign out
-            setIsSystemReady(true);
+            // Only process sign out in dev mode - production users never sign out
+            // This prevents offline-induced SIGNED_OUT events from clearing the session
+            if (__DEV__) {
+              console.log('[AuthContext] User signed out (dev mode)');
+              setSession(null);
+              system.supabaseConnector.updateSession(null);
+              setSessionType(null);
+              await cleanupSystem();
+              // Clear authView from localStore to prevent showing auth modal after sign out
+              useLocalStore.getState().setAuthView(null);
+              // Set system ready for anonymous browsing after sign out
+              setIsSystemReady(true);
+            } else {
+              console.log(
+                '[AuthContext] SIGNED_OUT event ignored in production - users stay authenticated'
+              );
+            }
             break;
 
           case 'TOKEN_REFRESHED':
-            console.log('[AuthContext] Token refreshed');
-            // Just update the session, no need to reinitialize
+            // Only update session if we have a valid new session
+            if (session) {
+              setSession(session);
+              system.supabaseConnector.updateSession(session);
+              console.log('[AuthContext] Token refreshed successfully');
+            } else {
+              console.log(
+                '[AuthContext] TOKEN_REFRESHED with null session - ignoring'
+              );
+            }
             break;
 
           case 'USER_UPDATED':
+            // Update session for user updates
+            if (session) {
+              setSession(session);
+              system.supabaseConnector.updateSession(session);
+            }
             console.log('[AuthContext] User updated');
-            // Handle user updates if needed
             break;
 
           default:
@@ -361,6 +566,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUser: session?.user || null,
     isSystemReady,
     migrationNeeded,
+    setMigrationNeeded,
     appUpgradeNeeded,
     upgradeError,
     signIn,

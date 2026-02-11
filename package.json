@@ -1,9 +1,10 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.0.11",
+  "version": "2.0.13",
   "scripts": {
     "start": "expo start --dev-client",
+    "start:offline:android": "expo start --dev-client -- --localhost --android",
     "start:prod": "expo start --dev-client --no-dev --minify",
     "export:android": "EXPO_ATLAS=true npx expo export --platform android",
     "export:ios": "EXPO_ATLAS=true npx expo export --platform ios",
@@ -46,9 +47,12 @@
     "supabase:serve-functions": "npm run supabase functions serve -- --no-verify-jwt --debug",
     "supabase:functions:deploy:send-email:dev": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "supabase:functions:deploy:send-email:prod": "npm run supabase functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
+    "package-lock:fix": "npm install --package-lock-only",
     "shadcn": "shadcn",
     "knip": "knip",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "adb:tunnel": "adb reverse tcp:8081 tcp:8081",
+    "android:eas:build:preview": "eas build --platform android --profile preview"
   },
   "jest": {
     "preset": "jest-expo"
@@ -122,6 +126,7 @@
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "~5.0.10",
     "expo-updates": "~0.28.17",
+    "js-logger": "^1.6.1",
     "lucide-react-native": "^0.510.0",
     "moti": "^0.30.0",
     "nativewind": "^4.2.1",
@@ -140,6 +145,7 @@
     "react-native-onboarding": "^1.0.6",
     "react-native-pager-view": "^7.0.0",
     "react-native-reanimated": "~4.1.0",
+    "react-native-reorderable-list": "^0.18.0",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-sortables": "^1.9.4",
@@ -161,6 +167,7 @@
     "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@eslint/compat": "^1.2.4",
     "@libsql/client": "^0.14.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "@react-native-community/cli": "latest",
     "@react-native/debugger-frontend": "^0.83.1",
     "@react-native/dev-middleware": "^0.83.1",
@@ -204,6 +211,12 @@
   },
   "overrides": {
     "ajv": "^6.12.6",
+    "@modelcontextprotocol/sdk": {
+      "ajv": "^8.17.1",
+      "ajv-formats": {
+        "ajv": "^8.17.1"
+      }
+    },
     "schema-utils": "3.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",

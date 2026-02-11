@@ -4,7 +4,7 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 /**
  * Asset metadata structure for verse ranges
@@ -266,5 +266,92 @@ export async function batchUpdateAssetMetadata(
   } catch (error) {
     console.error('Failed to batch update assets:', error);
     throw error;
+  }
+}
+
+/**
+ * Normalize order_index for recorded verses
+ * Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
+ * This function reads assets from DB and reassigns order_index with thousand scale
+ * @param questId - The quest ID to normalize assets for
+ * @param verses - Array of verse numbers that were recorded
+ */
+export async function normalizeOrderIndexForVerses(
+  questId: string,
+  verses: number[]
+): Promise<void> {
+  if (!questId || verses.length === 0) return;
+
+  const assetTable = resolveTable('asset', { localOverride: true });
+  const questAssetLinkTable = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+
+  for (const verse of verses) {
+    // Calculate order_index range for this verse
+    // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
+    // Example: verse 7 → 7000000 to 7999999
+    const minOrderIndex = verse * 1000 * 1000;
+    const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
+
+    try {
+      // Query assets by order_index range using join with quest_asset_link
+      // This ensures we only get assets that belong to this quest
+      const assetsInVerse = await system.db
+        .select({
+          id: assetTable.id,
+          name: assetTable.name,
+          order_index: assetTable.order_index
+        })
+        .from(assetTable)
+        .innerJoin(
+          questAssetLinkTable,
+          eq(assetTable.id, questAssetLinkTable.asset_id)
+        )
+        .where(
+          and(
+            eq(questAssetLinkTable.quest_id, questId),
+            gte(assetTable.order_index, minOrderIndex),
+            lte(assetTable.order_index, maxOrderIndex)
+          )
+        )
+        .orderBy(asc(assetTable.order_index));
+
+      if (assetsInVerse.length === 0) {
+        continue;
+      }
+
+      // Recalculate order_index with thousand scale
+      // Formula: (verse * 1000 + sequential) * 1000
+      // sequential starts at 1: 7001000, 7002000, 7003000...
+      const updates: AssetUpdatePayload[] = [];
+      let hasChanges = false;
+
+      for (let i = 0; i < assetsInVerse.length; i++) {
+        const asset = assetsInVerse[i];
+        if (!asset) continue;
+
+        const sequential = i + 1; // 1-based
+        const newOrderIndex = (verse * 1000 + sequential) * 1000;
+
+        // Only update if order_index changed
+        if (asset.order_index !== newOrderIndex) {
+          hasChanges = true;
+          updates.push({
+            assetId: asset.id,
+            order_index: newOrderIndex
+          });
+        }
+      }
+
+      if (hasChanges && updates.length > 0) {
+        await batchUpdateAssetMetadata(updates);
+        console.log(
+          `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
+        );
+      }
+    } catch (error) {
+      console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
+    }
   }
 }

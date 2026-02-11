@@ -31,7 +31,6 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import Sortable from 'react-native-sortables';
 // import { TagModal } from '../../components/TagModal';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
@@ -52,9 +51,10 @@ export interface BibleAssetListItemProps {
   onPlay?: (assetId: string) => void | Promise<void>;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
-  // Drag & Drop props (replaces dragHandle ReactNode)
+  // Drag & Drop props
   showDragHandle?: boolean; // Whether to show drag handle (not in selection mode, not published)
   isDragFixed?: boolean; // Whether this item has fixed drag order
+  onDrag?: () => void; // Drag function from reorderable list
   // Selection mode props (batch operations like merge/delete)
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -77,6 +77,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   attachmentState: _attachmentState,
   showDragHandle = false,
   isDragFixed = false,
+  onDrag,
   isSelectionMode = false,
   isSelected = false,
   onToggleSelect,
@@ -246,15 +247,21 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
     if (!showDragHandle) return null;
 
     return (
-      <Sortable.Handle mode={isDragFixed ? 'fixed-order' : 'draggable'}>
+      <Pressable
+        onLongPress={isDragFixed ? undefined : onDrag}
+        delayLongPress={100}
+        hitSlop={8}
+      >
         <Icon
           as={GripVerticalIcon}
           size={24}
-          className="text-muted-foreground"
+          className={
+            isDragFixed ? 'text-muted-foreground/30' : 'text-muted-foreground'
+          }
         />
-      </Sortable.Handle>
+      </Pressable>
     );
-  }, [showDragHandle, isDragFixed]);
+  }, [showDragHandle, isDragFixed, onDrag]);
 
   // Render selection checkbox or drag handle
   const selectionOrDragElement = isSelectionMode ? (
@@ -319,7 +326,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                         void onPlay(asset.id);
                       }}
                       className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={8}
                     >
                       <Icon
                         as={isCurrentlyPlaying ? PauseIcon : PlayIcon}
@@ -367,24 +374,27 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   )}
                 </Pressable>
               </View> */}
-              {/* Show pencil button for local assets when not published, otherwise show download indicator */}
-              {!isPublished && onRename && asset.source === 'local' ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onRename(asset.id, asset.name);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Icon
-                    as={PencilLineIcon}
-                    size={12}
-                    className="text-primary"
-                  />
-                </Pressable>
-              ) : (
-                <>
+              {/* Actions: Edit name + Open details (hidden in selection mode) */}
+              <View className="flex flex-row items-center gap-2">
+                {!isSelectionMode &&
+                !isPublished &&
+                onRename &&
+                asset.source === 'local' ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onRename(asset.id, asset.name);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                    hitSlop={8}
+                  >
+                    <Icon
+                      as={PencilLineIcon}
+                      size={12}
+                      className="text-primary"
+                    />
+                  </Pressable>
+                ) : (
                   <DownloadIndicator
                     isFlaggedForDownload={isDownloaded}
                     isLoading={isDownloading}
@@ -392,15 +402,25 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                     size={16}
                     iconColor="text-primary/50"
                   />
-                  <Pressable onPress={handleOpenAsset} className="mr-2">
+                )}
+
+                {!isSelectionMode && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenAsset();
+                    }}
+                    className="mr-2"
+                    hitSlop={8}
+                  >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
                       size={16}
                       className="text-primary"
                     />
                   </Pressable>
-                </>
-              )}
+                )}
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>
