@@ -33,7 +33,7 @@ export interface AudioSegment {
 /** Any input playSound accepts: a single URI, an array of URIs, a single
  *  AudioSegment, or an array of AudioSegments (plain strings and AudioSegments
  *  can be mixed freely in arrays). */
-export type PlayInput = string | string[] | AudioSegment | AudioSegment[];
+export type PlayInput = string | AudioSegment | (string | AudioSegment)[];
 
 interface AudioContextType {
   playSound: (input: PlayInput, audioId?: string) => Promise<void>;
