@@ -43,5 +43,4 @@ langquest types.xlsx
 *.vsix
 
 llm_supp_files
-/docs
 /.venv
