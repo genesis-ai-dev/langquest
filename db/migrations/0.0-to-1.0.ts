@@ -17,13 +17,16 @@ export const migration_0_0_to_1_0: Migration = {
   toVersion: '1.0',
   description: 'Initialize versioning system for existing data',
 
-  async migrate(db, onProgress) {
+  async migrate(_db, onProgress) {
     console.log('[Migration 0.0→1.0] Starting migration...');
 
     // This migration primarily exists to stamp existing unversioned data
     // with the version 1.0 _metadata field
 
-    if (onProgress) onProgress(1, 1, 'Stamping existing data with version');
+    if (onProgress) {
+      await Promise.resolve();
+      onProgress(1, 1, 'Stamping existing data with version');
+    }
 
     // If you need to make schema changes to bring 0.0 data to 1.0 format,
     // add them here. For example:

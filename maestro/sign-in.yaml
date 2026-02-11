@@ -1,4 +1,4 @@
-appId: ${APP_ID}
+appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
@@ -8,14 +8,14 @@ appId: ${APP_ID}
 - tapOn: Accept
 - assertVisible: Every language. Every culture.
 - tapOn:
-    point: 88%,17%
+    id: onboarding-close-button
 - tapOn:
     text: Sign In
     index: -1
 - tapOn: Enter your email
-- inputText: ${TEST_EMAIL}
+- inputText: ${MAESTRO_TEST_EMAIL}
 - tapOn: Enter your password
-- inputText: ${TEST_PASSWORD}
+- inputText: ${MAESTRO_TEST_PASSWORD}
 - hideKeyboard
 - tapOn: Sign In
 - assertVisible: My Projects

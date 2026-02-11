@@ -14,8 +14,9 @@ export function useAttachmentStates(
   attachmentIds: string[] = [],
   enabled = true
 ) {
-  const { isAuthenticated } = useAuth();
-  const isPowerSyncReady = system.isPowerSyncInitialized();
+  const { isAuthenticated, isSystemReady } = useAuth();
+  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
+  const isPowerSyncReady = isSystemReady;
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>
   >(new Map());
