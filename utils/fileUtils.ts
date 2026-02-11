@@ -261,7 +261,7 @@ export async function saveAudioLocally(uri: string) {
   let fileExistsNow = false;
 
   console.log(`🔍 Checking if file exists: ${cleanSourceUri}`);
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     fileExistsNow = await fileExists(cleanSourceUri);
     if (fileExistsNow) {
@@ -286,7 +286,7 @@ export async function saveAudioLocally(uri: string) {
     const fileInfo = await getFileInfo(cleanSourceUri);
     const errorMsg = `File does not exist after ${maxRetries} attempts (${maxRetries * retryDelayMs}ms total): ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
     console.error('❌', errorMsg);
-    
+
     // Additional debugging: check if parent directory exists
     const parentDir = getDirectory(cleanSourceUri);
     console.error('❌ Checking parent directory:', parentDir);
@@ -296,7 +296,7 @@ export async function saveAudioLocally(uri: string) {
     } catch (dirError) {
       console.error('❌ Failed to get parent directory info:', dirError);
     }
-    
+
     throw new Error(errorMsg);
   }
 
@@ -323,11 +323,13 @@ export async function saveAudioLocally(uri: string) {
       sourceExists: sourceStillExists,
       targetExists: await fileExists(newPath)
     });
-    
+
     // Fallback: try to copy instead of move
     // This can happen if the source file was already moved/deleted or has permission issues
     if (sourceStillExists) {
-      console.log('⚠️ Move failed but source exists, attempting copy as fallback...');
+      console.log(
+        '⚠️ Move failed but source exists, attempting copy as fallback...'
+      );
       try {
         await copyFile(cleanSourceUri, newPath);
         console.log('✅ Copy succeeded, now deleting source...');

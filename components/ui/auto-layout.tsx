@@ -2,7 +2,7 @@ import * as React from 'react';
 import {
   FadeInDown,
   FadeOutUp,
-  LinearTransition,
+  LinearTransition
 } from 'react-native-reanimated';
 import { NativeOnlyAnimatedView } from './native-only-animated-view';
 
@@ -42,4 +42,3 @@ function AutoLayout({
 }
 
 export { AutoLayout };
-

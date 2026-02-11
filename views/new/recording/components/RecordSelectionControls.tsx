@@ -12,7 +12,14 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Bookmark, ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
+import {
+  Bookmark,
+  ListChecks,
+  ListX,
+  Merge,
+  Trash2,
+  X
+} from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -28,61 +35,71 @@ interface RecordSelectionControlsProps {
   onAssignVerse?: () => void;
 }
 
-export const RecordSelectionControls = React.memo(function RecordSelectionControls({
-  selectedCount,
-  onCancel,
-  onMerge,
-  onDelete,
-  allowSelectAll = false,
-  allSelected = false,
-  onSelectAll,
-  allowAssignVerse = false,
-  onAssignVerse
-}: RecordSelectionControlsProps) {
-  const { t } = useLocalization();
-  return (
-    <View className="mb-3 w-full flex-row items-center justify-between bg-card py-3 px-2">
-      <Text 
-      numberOfLines={1}
-      ellipsizeMode="tail"
-      className="text-xs text-muted-foreground font-bold flex-1">{selectedCount} {t('selected')}</Text>
-      <View className="align-between flex-row">
-        <View className="flex-row gap-2 h-full items-center">
-          {allowAssignVerse && onAssignVerse && (
-            <Button variant="default" onPress={onAssignVerse} size="default">
-              <Icon as={Bookmark} />
+export const RecordSelectionControls = React.memo(
+  function RecordSelectionControls({
+    selectedCount,
+    onCancel,
+    onMerge,
+    onDelete,
+    allowSelectAll = false,
+    allSelected = false,
+    onSelectAll,
+    allowAssignVerse = false,
+    onAssignVerse
+  }: RecordSelectionControlsProps) {
+    const { t } = useLocalization();
+    return (
+      <View className="mb-3 w-full flex-row items-center justify-between bg-card px-2 py-3">
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          className="flex-1 text-xs font-bold text-muted-foreground"
+        >
+          {selectedCount} {t('selected')}
+        </Text>
+        <View className="align-between flex-row">
+          <View className="h-full flex-row items-center gap-2">
+            {allowAssignVerse && onAssignVerse && (
+              <Button variant="default" onPress={onAssignVerse} size="default">
+                <Icon as={Bookmark} />
+              </Button>
+            )}
+            {allowSelectAll && onSelectAll && (
+              <Button variant="default" onPress={onSelectAll} size="default">
+                <Icon as={allSelected ? ListX : ListChecks} />
+              </Button>
+            )}
+            <Button
+              variant="default"
+              size="default"
+              disabled={selectedCount < 2}
+              onPress={onMerge}
+              className="p-1"
+            >
+              <View className="flex-row items-center px-0">
+                <Icon as={Merge} />
+                <Text className="ml-2 text-xs">{t('merge')}</Text>
+              </View>
             </Button>
-          )}
-          {allowSelectAll && onSelectAll && (
-            <Button variant="default" onPress={onSelectAll} size="default">
-              <Icon as={allSelected ? ListX : ListChecks} />
+            <Button
+              variant="destructive"
+              disabled={selectedCount < 1}
+              onPress={onDelete}
+              size="default"
+            >
+              <Icon as={Trash2} />
             </Button>
-          )}
+          </View>
           <Button
-            variant="default"
-            size="default"
-            disabled={selectedCount < 2}
-            onPress={onMerge}
-            className='p-1'
+            variant="ghost"
+            onPress={onCancel}
+            className="ml-1 mt-1"
+            size="icon"
           >
-            <View className="flex-row items-center px-0">
-              <Icon as={Merge} />
-              <Text className="ml-2 text-xs">{t('merge')}</Text>
-            </View>
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={selectedCount < 1}
-            onPress={onDelete}
-            size="default"
-          >
-            <Icon as={Trash2} />
-          </Button>
-        </View>
-          <Button variant="ghost" onPress={onCancel} className='ml-1 mt-1' size="icon">
             <Icon as={X} />
           </Button>
+        </View>
       </View>
-    </View>
-  );
-});
+    );
+  }
+);

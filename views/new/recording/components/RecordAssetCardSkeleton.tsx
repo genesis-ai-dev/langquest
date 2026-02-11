@@ -16,7 +16,7 @@ function RecordAssetCardSkeletonInternal() {
       >
         <View className="flex-row items-center justify-center gap-3">
           {/* Número vazio - mantém o tamanho */}
-          <View className="w-[28px] h-6 items-center justify-center self-center rounded border border-border px-2 py-0.5 bg-muted">
+          <View className="h-6 w-[28px] items-center justify-center self-center rounded border border-border bg-muted px-2 py-0.5">
             {/* Quadro em branco */}
           </View>
 
@@ -46,4 +46,6 @@ function RecordAssetCardSkeletonInternal() {
   );
 }
 
-export const RecordAssetCardSkeleton = React.memo(RecordAssetCardSkeletonInternal);
+export const RecordAssetCardSkeleton = React.memo(
+  RecordAssetCardSkeletonInternal
+);
