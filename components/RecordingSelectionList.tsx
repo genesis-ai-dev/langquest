@@ -144,7 +144,7 @@ function RecordingSelectionListInternal<T>(
         }
         return 'boundary';
       }
-      
+
       // If getItemHeight is provided, calculate the height and categorize
       if (getItemHeight && item.data) {
         const isSelected = item.index === clampedValue;
@@ -154,7 +154,7 @@ function RecordingSelectionListInternal<T>(
         if (height <= 132) return 'medium';
         return 'large';
       }
-      
+
       return 'default';
     },
     [clampedValue, getBoundaryHeight, getItemHeight]
@@ -166,11 +166,14 @@ function RecordingSelectionListInternal<T>(
       const isSelected = item.index === clampedValue;
 
       // Calculate height for this item
-      const itemHeight = item.type === 'boundary' 
-        ? (getBoundaryHeight ? getBoundaryHeight(item.index, isSelected) : rowHeight)
-        : getItemHeight 
-          ? getItemHeight(item.data!, item.index, isSelected)
-          : rowHeight;
+      const itemHeight =
+        item.type === 'boundary'
+          ? getBoundaryHeight
+            ? getBoundaryHeight(item.index, isSelected)
+            : rowHeight
+          : getItemHeight
+            ? getItemHeight(item.data!, item.index, isSelected)
+            : rowHeight;
 
       // Render boundary item
       if (item.type === 'boundary') {
@@ -180,12 +183,12 @@ function RecordingSelectionListInternal<T>(
             //   onPress={() => handleItemPress(item.index)}
             //   activeOpacity={0.7}
             // >
-              <View
-                style={{ height: itemHeight }}
-                // className={isSelected ? 'bg-primary/10' : ''}
-              >
-                {boundaryComponent}
-              </View>
+            <View
+              style={{ height: itemHeight }}
+              // className={isSelected ? 'bg-primary/10' : ''}
+            >
+              {boundaryComponent}
+            </View>
             // </TouchableOpacity>
           );
         }

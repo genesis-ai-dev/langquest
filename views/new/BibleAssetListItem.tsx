@@ -388,7 +388,11 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                     className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
                     hitSlop={8}
                   >
-                    <Icon as={PencilLineIcon} size={12} className="text-primary" />
+                    <Icon
+                      as={PencilLineIcon}
+                      size={12}
+                      className="text-primary"
+                    />
                   </Pressable>
                 ) : (
                   <DownloadIndicator

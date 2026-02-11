@@ -105,9 +105,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import type {
-  ReorderableListReorderEvent
-} from 'react-native-reorderable-list';
+import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
   reorderItems,
   useReorderableDrag
@@ -742,7 +740,6 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
   const [selectedForRecording, setSelectedForRecording] = React.useState<{
@@ -984,7 +981,7 @@ export default function BibleAssetsView() {
         orderIndex,
         metadata,
         verseName,
-        name: asset.name ?? undefined as string | undefined
+        name: asset.name ?? (undefined as string | undefined)
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -3053,7 +3050,7 @@ export default function BibleAssetsView() {
     // Navigate to recording view
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-    
+
     navigate({
       view: 'recording',
       questId: currentQuestId,
@@ -3508,7 +3505,6 @@ export default function BibleAssetsView() {
     );
   }
 
-
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
 
@@ -3864,16 +3860,16 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-
-          isSelectionMode ? (
-            <View
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
             }}
             className="absolute bottom-0 left-0 right-0 z-40"
-          >            
+          >
             <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
@@ -3882,9 +3878,9 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
-            </View>
-          ) : (
-            <View
+          </View>
+        ) : (
+          <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
@@ -3904,8 +3900,10 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name
+                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
+                      : `${t('noLabelSelected')}`}
                   {/* {selectedForRecording?.verseName
                   ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
                   : t('doRecord')} */}
@@ -3913,9 +3911,9 @@ export default function BibleAssetsView() {
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-            </View>
-          ))}
-       {/* )} */}
+          </View>
+        ))}
+      {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
