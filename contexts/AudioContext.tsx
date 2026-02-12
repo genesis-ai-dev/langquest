@@ -1,7 +1,7 @@
 import { Audio } from 'expo-av';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
-import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 
 /**
  * EXPO-AUDIO MIGRATION NOTES
@@ -43,6 +43,7 @@ interface AudioContextType {
     audioId?: string
   ) => Promise<void>;
   stopCurrentSound: () => Promise<void>;
+  waitForPlaybackEnd: (audioId: string) => Promise<void>;
   isPlaying: boolean;
   currentAudioId: string | null;
   position: number; // Keep for backward compatibility
@@ -56,6 +57,11 @@ interface AudioContextType {
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
+  const POSITION_POLL_INTERVAL_MS = 16;
+  // How often to push React state (triggers re-renders). Keep low to reduce
+  // JS-thread pressure — progress bars use SharedValues, not React state.
+  const REACT_STATE_THROTTLE_MS = 100;
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentAudioId, setCurrentAudioId] = useState<string | null>(null);
   const [position, setPositionState] = useState(0);
@@ -70,16 +76,62 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
+  const isStatusPollInFlight = useRef(false);
+  const lastReactStateUpdateMs = useRef(0);
+  const currentAudioIdRef = useRef<string | null>(null);
+  const isPlayingRef = useRef(false);
+  const playbackCompletionWaitersRef = useRef<Map<string, Set<() => void>>>(
+    new Map()
+  );
   const sequenceSegments = useRef<AudioSegment[]>([]);
   const currentSequenceIndex = useRef<number>(0);
   const segmentDurations = useRef<number[]>([]); // Effective (trimmed) duration per segment
-  const isTrackingPosition = useSharedValue(false);
 
   // Store SharedValues in refs to satisfy React Compiler (they're stable references)
   const positionSharedRef = useRef(positionShared);
   const durationSharedRef = useRef(durationShared);
   const cumulativePositionSharedRef = useRef(cumulativePositionShared);
-  const isTrackingPositionRef = useRef(isTrackingPosition);
+
+  const setCurrentAudioIdState = (audioId: string | null) => {
+    currentAudioIdRef.current = audioId;
+    setCurrentAudioId(audioId);
+  };
+
+  const setIsPlayingState = (playing: boolean) => {
+    isPlayingRef.current = playing;
+    setIsPlaying(playing);
+  };
+
+  const resolvePlaybackWaiters = (audioId: string | null) => {
+    if (!audioId) return;
+    const waiters = playbackCompletionWaitersRef.current.get(audioId);
+    if (!waiters || waiters.size === 0) return;
+    playbackCompletionWaitersRef.current.delete(audioId);
+    waiters.forEach((resolve) => {
+      try {
+        resolve();
+      } catch {
+        // Ignore waiter errors
+      }
+    });
+  };
+
+  const waitForPlaybackEnd = async (audioId: string) => {
+    if (!audioId) return;
+    if (currentAudioIdRef.current !== audioId || !isPlayingRef.current) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const map = playbackCompletionWaitersRef.current;
+      const existing = map.get(audioId);
+      if (existing) {
+        existing.add(resolve);
+      } else {
+        map.set(audioId, new Set([resolve]));
+      }
+    });
+  };
 
   // Clear the position update interval
   const clearPositionInterval = () => {
@@ -94,62 +146,70 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // playback position reaches it, stops the current sound and advances.
   const startPositionTracking = () => {
     clearPositionInterval();
-    isTrackingPositionRef.current.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
       if (soundRef.current) {
-        void soundRef.current.getStatusAsync().then((status) => {
-          if (status.isLoaded) {
-            // Check endMs boundary for the current segment
-            const currentSeg =
-              sequenceSegments.current[currentSequenceIndex.current];
-            if (
-              currentSeg?.endMs != null &&
-              status.positionMillis >= currentSeg.endMs
-            ) {
-              // Reached the end boundary — stop and advance
-              clearPositionInterval();
-              isTrackingPositionRef.current.value = false;
-              void soundRef.current?.stopAsync().then(() => {
-                void soundRef.current?.unloadAsync();
-                soundRef.current = null;
-                void playNextInSequence();
-              });
-              return;
-            }
+        if (isStatusPollInFlight.current) return;
+        isStatusPollInFlight.current = true;
+        void soundRef.current
+          .getStatusAsync()
+          .then((status) => {
+            if (status.isLoaded) {
+              // Check endMs boundary for the current segment
+              const currentSeg =
+                sequenceSegments.current[currentSequenceIndex.current];
+              if (
+                currentSeg?.endMs != null &&
+                status.positionMillis >= currentSeg.endMs
+              ) {
+                // Reached the end boundary — stop and advance
+                clearPositionInterval();
+                void soundRef.current?.stopAsync().then(() => {
+                  void soundRef.current?.unloadAsync();
+                  soundRef.current = null;
+                  void playNextInSequence();
+                });
+                return;
+              }
 
-            // Calculate cumulative position across all segments.
-            // For the current segment, subtract startMs so position starts
-            // from 0 relative to the effective region.
-            let cumulativeDuration = 0;
-            for (let i = 0; i < currentSequenceIndex.current; i++) {
-              cumulativeDuration += segmentDurations.current[i] || 0;
+              // Calculate cumulative position across all segments.
+              // For the current segment, subtract startMs so position starts
+              // from 0 relative to the effective region.
+              let cumulativeDuration = 0;
+              for (let i = 0; i < currentSequenceIndex.current; i++) {
+                cumulativeDuration += segmentDurations.current[i] || 0;
+              }
+              const segStartMs = currentSeg?.startMs ?? 0;
+              const positionInSegment = status.positionMillis - segStartMs;
+              const totalPosition =
+                cumulativeDuration + Math.max(0, positionInSegment);
+              cumulativePositionSharedRef.current.value = totalPosition;
+              // Smoothly interpolate between poll samples for fluid progress bars.
+              // This runs on the UI thread via Reanimated — zero JS-thread cost.
+              positionSharedRef.current.value = withTiming(totalPosition, {
+                duration: POSITION_POLL_INTERVAL_MS + 8,
+                easing: Easing.linear
+              });
+              // Throttle React state updates to reduce JS-thread re-render
+              // pressure. Progress bars use SharedValues; React state is only
+              // for backward-compat consumers (e.g. AudioPlayer slider).
+              const now = Date.now();
+              if (now - lastReactStateUpdateMs.current >= REACT_STATE_THROTTLE_MS) {
+                lastReactStateUpdateMs.current = now;
+                setPositionState(totalPosition);
+              }
             }
-            const segStartMs = currentSeg?.startMs ?? 0;
-            const positionInSegment = status.positionMillis - segStartMs;
-            const totalPosition =
-              cumulativeDuration + Math.max(0, positionInSegment);
-            cumulativePositionSharedRef.current.value = totalPosition;
-            setPositionState(totalPosition);
-          }
-        });
+          })
+          .finally(() => {
+            isStatusPollInFlight.current = false;
+          });
       }
-    }, 100);
+    }, POSITION_POLL_INTERVAL_MS);
   };
 
-  // Frame callback for high-performance SharedValue updates
-  // This runs on the UI thread at 60fps for buttery smooth progress bars
-  useFrameCallback(() => {
-    'worklet';
-    if (!isTrackingPosition.value) {
-      return;
-    }
-    positionShared.value = cumulativePositionShared.value;
-  });
-
   const stopCurrentSound = async () => {
+    const finishingAudioId = currentAudioIdRef.current;
     clearPositionInterval();
-    isTrackingPositionRef.current.value = false;
 
     // Reset sequence state
     sequenceSegments.current = [];
@@ -163,13 +223,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       soundRef.current = null;
     }
 
-    setIsPlaying(false);
-    setCurrentAudioId(null);
+    setIsPlayingState(false);
+    setCurrentAudioIdState(null);
     setPositionState(0);
     setDuration(0);
 
     positionSharedRef.current.value = 0;
     durationSharedRef.current.value = 0;
+    resolvePlaybackWaiters(finishingAudioId);
   };
 
   const setPosition = async (newPosition: number) => {
@@ -199,9 +260,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       cumulativePositionSharedRef.current.value = 0;
       positionSharedRef.current.value = 0;
       durationSharedRef.current.value = 0;
-      isTrackingPositionRef.current.value = false;
-      setIsPlaying(false);
-      setCurrentAudioId(null);
+      setIsPlayingState(false);
+      resolvePlaybackWaiters(currentAudioIdRef.current);
+      setCurrentAudioIdState(null);
       setPositionState(0);
       setDuration(0);
       clearPositionInterval();
@@ -242,10 +303,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       );
 
       soundRef.current = sound;
-      setIsPlaying(true);
+      setIsPlayingState(true);
 
       if (audioId) {
-        setCurrentAudioId(audioId);
+        setCurrentAudioIdState(audioId);
       }
 
       // Seek to startMs before starting playback
@@ -291,7 +352,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         if (status.didJustFinish) {
           clearPositionInterval();
-          isTrackingPositionRef.current.value = false;
           void sound.unloadAsync();
           soundRef.current = null;
           // playNextInSequence advances to the next segment, or resets
@@ -300,8 +360,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         }
       });
     } catch {
-      setIsPlaying(false);
-      setCurrentAudioId(null);
+      setIsPlayingState(false);
+      setCurrentAudioIdState(null);
     }
   };
 
@@ -387,6 +447,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         playSound,
         playSoundSequence,
         stopCurrentSound,
+        waitForPlaybackEnd,
         isPlaying,
         currentAudioId,
         position,

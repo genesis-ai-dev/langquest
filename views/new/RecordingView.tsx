@@ -21,6 +21,7 @@ import {
 } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import { useAssetAudio } from '@/services/assetAudio';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   fileExists,
@@ -143,6 +144,7 @@ const RecordingView = () => {
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
+  const assetAudio = useAssetAudio();
   const insets = useSafeAreaInsets();
 
   // Get target languoid_id from project_language_link
@@ -1141,33 +1143,20 @@ const RecordingView = () => {
     async (assetId: string) => {
       try {
         const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+          assetAudio.isPlaying && assetAudio.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
           debugLog('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
+          await assetAudio.stop();
         } else {
           debugLog('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
-
-          if (uris.length === 0) {
-            console.error('❌ No audio URIs found for asset:', assetId);
-            return;
-          }
-
-          if (uris.length === 1 && uris[0]) {
-            debugLog('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            debugLog(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
-          }
+          await assetAudio.play(assetId);
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
       }
     },
-    [audioContext, getAssetAudioUris]
+    [assetAudio]
   );
 
   // Handle play all assets - optimized version with direct control

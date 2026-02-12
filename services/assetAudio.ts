@@ -561,6 +561,8 @@ export function useAssetAudio() {
     play,
     /** Stop current playback. */
     stop: ctx.stopCurrentSound,
+    /** Resolve when playback for this asset ID ends (natural end or stop). */
+    waitForPlaybackEnd: ctx.waitForPlaybackEnd,
     /** Resolve an asset's audio into an AssetAudio object. */
     resolve: resolveAssetAudio,
     /** Build a combined waveform for an asset. */
