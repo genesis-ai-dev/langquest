@@ -278,9 +278,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
-      <KeyboardToolbar>
-        <KeyboardToolbar.Done />
-      </KeyboardToolbar>
+      <KeyboardToolbar />
     </Modal>
   );
 };

@@ -34,7 +34,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   BookmarkPlusIcon,
   BrushCleaning,
@@ -2735,7 +2735,7 @@ export default function BibleAssetsView() {
   // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
   const isPlayAllRunningRef = React.useRef(false);
   // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextCurrentRef = React.useRef(audioContext);
@@ -2785,8 +2785,8 @@ export default function BibleAssetsView() {
           // Stop current sound immediately
           if (currentPlayAllSoundRef.current) {
             try {
-              await currentPlayAllSoundRef.current.stopAsync();
-              await currentPlayAllSoundRef.current.unloadAsync();
+              currentPlayAllSoundRef.current.pause();
+              currentPlayAllSoundRef.current.release();
               currentPlayAllSoundRef.current = null;
             } catch (error) {
               console.error('Error stopping sound:', error);
@@ -2899,29 +2899,22 @@ export default function BibleAssetsView() {
 
             // Play this URI and wait for it to finish
             await new Promise<void>((resolve) => {
-              // Create and play the sound
-              Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-                .then(({ sound }) => {
-                  // Store reference for immediate cancellation
-                  currentPlayAllSoundRef.current = sound;
+              try {
+                const player = createAudioPlayer(uri);
+                currentPlayAllSoundRef.current = player;
+                player.play();
 
-                  // Set up listener for when sound finishes
-                  sound.setOnPlaybackStatusUpdate((status) => {
-                    if (!status.isLoaded) return;
-
-                    if (status.didJustFinish) {
-                      currentPlayAllSoundRef.current = null;
-                      void sound.unloadAsync().then(() => {
-                        resolve();
-                      });
-                    }
-                  });
-                })
-                .catch((error) => {
-                  console.error('Failed to play audio:', error);
+                player.addListener('playbackStatusUpdate', (status) => {
+                  if (!status.didJustFinish) return;
                   currentPlayAllSoundRef.current = null;
-                  resolve(); // Continue to next even on error
+                  player.release();
+                  resolve();
                 });
+              } catch (error) {
+                console.error('Failed to play audio:', error);
+                currentPlayAllSoundRef.current = null;
+                resolve(); // Continue to next even on error
+              }
             });
           }
         }
@@ -2953,8 +2946,8 @@ export default function BibleAssetsView() {
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
-          await currentPlayAllSoundRef.current.stopAsync();
-          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current.pause();
+          currentPlayAllSoundRef.current.release();
           currentPlayAllSoundRef.current = null;
         } catch (error) {
           console.error('Error stopping sound:', error);
@@ -2987,16 +2980,13 @@ export default function BibleAssetsView() {
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+          } catch {
+            // Ignore errors during cleanup
+          }
+          currentPlayAllSoundRef.current = null;
         }
       }
 

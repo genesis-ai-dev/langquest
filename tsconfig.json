@@ -4,11 +4,9 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "expo-file-system/next": ["node_modules/expo-file-system/build/next"]
+      "@/*": ["./*"]
     },
-    "noUncheckedIndexedAccess": true,
-    "moduleResolution": "Bundler"
+    "noUncheckedIndexedAccess": true
   },
   "include": [
     "**/*.ts",
