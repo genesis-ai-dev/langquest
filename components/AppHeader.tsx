@@ -252,7 +252,7 @@ export default function AppHeader({
             className="relative size-8"
             hitSlop={10}
           >
-            <Icon name="menu" className="size-6" />
+            <Icon name="menu" className="text-2xl" />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (

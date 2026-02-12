@@ -420,7 +420,7 @@ export default function AppDrawer({
                   <Icon
                     name={
                       powerSyncStatus.connected
-                        ? 'circle-check-big'
+                        ? 'circle-check'
                         : powerSyncStatus.connecting
                           ? 'refresh-cw'
                           : powerSyncStatus.downloadError ||
@@ -610,10 +610,15 @@ export default function AppDrawer({
                     <Text className="flex-1 text-foreground">{item.name}</Text>
                     {!!item.notificationCount && item.notificationCount > 0 && (
                       <Badge
-                        className="min-w-5 rounded-full px-1"
-                        variant={isActive ? 'secondary' : 'destructive'}
+                        className={cn(
+                          'h-5 min-w-5 items-center justify-center rounded-full px-1.5 py-0',
+                          item.notificationCount <= 9
+                            ? 'w-5 px-0'
+                            : 'min-w-5 px-1.5'
+                        )}
+                        variant="destructive"
                       >
-                        <Text>
+                        <Text className="text-xs">
                           {item.notificationCount > 99
                             ? '99+'
                             : item.notificationCount}

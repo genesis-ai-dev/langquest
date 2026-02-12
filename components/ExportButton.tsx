@@ -10,7 +10,7 @@ import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { ExportProgressModal } from './ExportProgressModal';
 import { ExportTypeSelector } from './ExportTypeSelector';
 
@@ -167,12 +167,9 @@ export function ExportButton({
         onPress={() => setShowTypeSelector(true)}
         disabled={disabled || exportMutation.isPending || isConcatenating}
         className="border-[1.5px] border-primary"
+        loading={isConcatenating}
       >
-        {isConcatenating ? (
-          <ActivityIndicator size="small" color={primaryColor} />
-        ) : (
-          <Icon name="share-2" className="text-primary" />
-        )}
+        <Icon name="share-2" className="text-primary" />
       </Button>
 
       <ExportTypeSelector

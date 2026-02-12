@@ -40,19 +40,13 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { colors } from '@/styles/theme';
-import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  View
-} from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 
 interface NotificationItem {
   id: string;
@@ -961,18 +955,10 @@ export default function NotificationsView() {
                   )
                 }
                 disabled={isProcessing}
+                loading={isProcessing}
               >
-                {isProcessing ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('foreground')}
-                  />
-                ) : (
-                  <>
-                    <Icon name="check" className="text-foreground" />
-                    <Text className="text-foreground">{t('accept')}</Text>
-                  </>
-                )}
+                <Icon name="check" />
+                <Text>{t('accept')}</Text>
               </Button>
 
               <Button
