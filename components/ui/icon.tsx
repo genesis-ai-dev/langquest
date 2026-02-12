@@ -5,6 +5,7 @@ import type { MotiProps } from 'moti';
 import { useMotify } from 'moti';
 import React from 'react';
 import { Text, type TextProps, type TextStyle } from 'react-native';
+import twColors from 'tailwindcss/colors';
 import { TextClassContext } from './text';
 
 type BaseIconProps = TextProps & {
@@ -20,34 +21,74 @@ type IconProps = MotiProps<BaseIconProps> & BaseIconProps;
 const TW_SCALE = 4;
 
 /**
+ * Resolves a Tailwind palette color from a `text-*` class value.
+ *
+ * Handles shaded colors (e.g., `green-600` → `#16a34a`) and
+ * flat colors (e.g., `black` → `#000`, `white` → `#fff`).
+ */
+function resolveTailwindColor(name: string): string | null {
+  // Shaded palette color (e.g., green-600, red-500)
+  const shadeMatch = name.match(/^([a-z]+)-(\d+)$/);
+  const colorName = shadeMatch?.[1];
+  const shade = shadeMatch?.[2];
+  if (colorName && shade) {
+    const palette = twColors[colorName as keyof typeof twColors];
+    if (palette && typeof palette === 'object' && shade in palette) {
+      const hex = (palette as Record<string, string>)[shade];
+      if (hex) return hex;
+    }
+  }
+
+  // Flat color (e.g., black, white)
+  if (name in twColors) {
+    const val = twColors[name as keyof typeof twColors];
+    if (typeof val === 'string') return val;
+  }
+
+  return null;
+}
+
+/**
  * Extracts theme-aware tokens from a className string.
  *
- * - `text-*` classes matching a CSS token → `colorToken`
+ * **Color** (`text-*`):
+ * - Theme CSS tokens → `colorToken` resolved via `useThemeColor`
  *   (e.g., `text-destructive` → `destructive`)
- * - `size-*` classes → `sizePixels` converted via Tailwind scale
- *   (e.g., `size-8` → 32, `size-5` → 20, `size-0.5` → 2)
- * - Arbitrary `size-[Npx]` → `sizePixels` as-is
- *   (e.g., `size-[18px]` → 18)
+ * - Tailwind palette colors → `twColor` resolved from `tailwindcss/colors`
+ *   (e.g., `text-green-600` → `#16a34a`)
  *
- * Non-matching classes are left untouched in className.
+ * **Size** (`size-*`):
+ * - Scale values → pixels via Tailwind scale (1 unit = 4px)
+ *   (e.g., `size-8` → 32, `size-5` → 20, `size-0.5` → 2)
+ * - Arbitrary values → pixels as-is
+ *   (e.g., `size-[18px]` → 18)
  */
 function extractIconTokens(className?: string) {
-  if (!className) return { colorToken: null, sizePixels: null };
+  if (!className) return { colorToken: null, twColor: null, sizePixels: null };
 
   const classes = className.split(/\s+/);
   let colorToken: string | null = null;
+  let twColor: string | null = null;
   let sizePixels: number | null = null;
 
   for (const cls of classes) {
-    // text-* theme color tokens (e.g., text-destructive → destructive)
+    // text-* color classes
     const colorMatch = cls.match(/^text-(.+)$/);
-    if (
-      colorMatch?.[1] &&
-      !colorToken &&
-      `--${colorMatch[1]}` in cssTokens.light
-    ) {
-      colorToken = colorMatch[1];
-      continue;
+    if (colorMatch?.[1] && !colorToken && !twColor) {
+      const name = colorMatch[1];
+
+      // 1. Theme CSS token (e.g., text-destructive → useThemeColor)
+      if (`--${name}` in cssTokens.light) {
+        colorToken = name;
+        continue;
+      }
+
+      // 2. Tailwind palette color (e.g., text-green-600 → #16a34a)
+      const resolved = resolveTailwindColor(name);
+      if (resolved) {
+        twColor = resolved;
+        continue;
+      }
     }
 
     // size-N scale values (e.g., size-8 → 32px, size-0.5 → 2px)
@@ -64,7 +105,7 @@ function extractIconTokens(className?: string) {
     }
   }
 
-  return { colorToken, sizePixels };
+  return { colorToken, twColor, sizePixels };
 }
 
 const MotiIconImpl = React.forwardRef<
@@ -109,20 +150,27 @@ const IconImpl = React.forwardRef<React.ComponentRef<typeof Text>, IconProps>(
  * A wrapper component for Lucide icons with theme-aware color and size defaults.
  *
  * Parses className to automatically resolve:
- * - `text-*` theme tokens → `color` prop via `useThemeColor`
+ * - `text-*` theme tokens → `color` via `useThemeColor`
  *   (e.g., `text-destructive`, `text-muted-foreground`)
- * - `size-*` classes → `size` prop via Tailwind scale (1 unit = 4px)
+ * - `text-*` Tailwind palette colors → `color` via `tailwindcss/colors`
+ *   (e.g., `text-green-600` → `#16a34a`, `text-red-500` → `#ef4444`)
+ * - `size-*` classes → `size` via Tailwind scale (1 unit = 4px)
  *   (e.g., `size-8` → 32px, `size-[18px]` → 18px)
  *
  * Explicit `color` and `size` props always take precedence over className parsing.
+ *
+ * **Color priority:** explicit `color` prop → Tailwind palette → theme token → foreground default.
  *
  * @component
  * @example
  * ```tsx
  * import { Icon } from '@/components/ui/icon';
  *
- * // Color and size via className
+ * // Theme token color + size via className
  * <Icon name="trash-2" className="text-destructive size-5" />
+ *
+ * // Tailwind palette color
+ * <Icon name="circle-check" className="text-green-600" size={16} />
  *
  * // Explicit props take precedence
  * <Icon name="arrow-right" color={useThemeColor('primary')} size={16} />
@@ -137,7 +185,8 @@ const IconImpl = React.forwardRef<React.ComponentRef<typeof Text>, IconProps>(
 function Icon({ name, className, size, color, ...props }: IconProps) {
   const textClass = React.useContext(TextClassContext);
   const mergedClassName = cn(textClass, className);
-  const { colorToken, sizePixels } = extractIconTokens(mergedClassName);
+  const { colorToken, twColor, sizePixels } =
+    extractIconTokens(mergedClassName);
   const themeColor = useThemeColor(
     (colorToken ?? 'foreground') as Parameters<typeof useThemeColor>[0]
   );
@@ -148,7 +197,7 @@ function Icon({ name, className, size, color, ...props }: IconProps) {
       name={name}
       className={mergedClassName}
       size={size ?? sizePixels ?? defaultSize}
-      color={color ?? themeColor}
+      color={color ?? twColor ?? themeColor}
       {...props}
     />
   );
@@ -157,7 +206,8 @@ function Icon({ name, className, size, color, ...props }: IconProps) {
 function MotiIcon({ name, className, size, color, ...props }: IconProps) {
   const textClass = React.useContext(TextClassContext);
   const mergedClassName = cn(textClass, className);
-  const { colorToken, sizePixels } = extractIconTokens(mergedClassName);
+  const { colorToken, twColor, sizePixels } =
+    extractIconTokens(mergedClassName);
   const themeColor = useThemeColor(
     (colorToken ?? 'foreground') as Parameters<typeof useThemeColor>[0]
   );
@@ -168,7 +218,7 @@ function MotiIcon({ name, className, size, color, ...props }: IconProps) {
       name={name}
       className={mergedClassName}
       size={size ?? sizePixels ?? defaultSize}
-      color={color ?? themeColor}
+      color={color ?? twColor ?? themeColor}
       {...props}
     />
   );
