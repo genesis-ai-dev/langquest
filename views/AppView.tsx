@@ -35,6 +35,7 @@ const NextGenAssetsView = React.lazy(
   () => import('@/views/new/NextGenAssetsView')
 );
 const BibleAssetsView = React.lazy(() => import('@/views/new/BibleAssetsView'));
+const RecordingView = React.lazy(() => import('@/views/new/RecordingView'));
 const NextGenProjectsView = React.lazy(
   () => import('@/views/new/NextGenProjectsView')
 );
@@ -228,6 +229,8 @@ function AppViewContent() {
         return <NextGenAssetsView />;
       case 'bible-assets':
         return <BibleAssetsView />;
+      case 'recording':
+        return <RecordingView />;
       case 'asset-detail':
         return <NextGenAssetDetailView />;
       case 'profile':

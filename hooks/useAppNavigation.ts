@@ -25,6 +25,17 @@ export interface NavigationState {
   bookQuestData?: Record<string, unknown>;
   questData?: Record<string, unknown>;
   assetData?: Record<string, unknown>;
+
+  // Recording view specific data
+  recordingData?: {
+    bookChapterLabel?: string;
+    bookChapterLabelFull?: string;
+    initialOrderIndex?: number;
+    verse?: { from: number; to: number };
+    nextVerse?: number | null;
+    limitVerse?: number | null;
+    label?: string;
+  };
 }
 
 export function useAppNavigation() {

@@ -588,9 +588,17 @@ export async function publishQuest(
     );
 
     if (failedAudioResults.length > 0) {
-      for (const result of failedAudioResults) {
-        warnings.push(`Audio attachment failed: ${result.reason}`);
-      }
+      console.error('Failed to save audio attachments', failedAudioResults);
+      return {
+        success: false,
+        status: 'error' as const,
+        message: `Failed to save ${failedAudioResults.length} audio attachment(s)`,
+        errors: [
+          ...errors,
+          ...failedAudioResults.map((r) => String(r.reason))
+        ],
+        warnings
+      };
     }
 
     const pendingAttachments = audioUploadResults.length;
