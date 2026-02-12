@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-    SpeedDial,
-    SpeedDialItem,
-    SpeedDialItems,
-    SpeedDialTrigger
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -16,15 +16,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
 import {
-    asset_content_link,
-    project,
-    quest as questTable
+  asset_content_link,
+  project,
+  quest as questTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
-    useAppNavigation,
-    useCurrentNavigation
+  useAppNavigation,
+  useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -38,14 +38,14 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
-    cancelAnimation,
-    Easing,
-    runOnJS,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  cancelAnimation,
+  Easing,
+  runOnJS,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from './useHybridData';
@@ -57,12 +57,12 @@ import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import {
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerScrollView,
-    DrawerTitle
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerScrollView,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
@@ -70,8 +70,8 @@ import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
-    batchUpdateAssetMetadata,
-    renameAsset
+  batchUpdateAssetMetadata,
+  renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -89,9 +89,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import ReorderableList, {
-    ReorderableListReorderEvent,
-    reorderItems,
-    useReorderableDrag
+  ReorderableListReorderEvent,
+  reorderItems,
+  useReorderableDrag
 } from 'react-native-reorderable-list';
 import { BibleAssetListItem } from './BibleAssetListItem';
 import BibleRecordingView from './recording/components/BibleRecordingView';

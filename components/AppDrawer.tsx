@@ -1,10 +1,10 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerContent,
-    DrawerHeader,
-    DrawerTitle
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -23,9 +23,9 @@ import * as Updates from 'expo-updates';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, View } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import { Badge } from './ui/badge';
 

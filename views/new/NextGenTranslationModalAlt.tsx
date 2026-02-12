@@ -33,15 +33,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    TouchableWithoutFeedback,
-    View
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import {
-    KeyboardAwareScrollView,
-    KeyboardToolbar
+  KeyboardAwareScrollView,
+  KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useHybridData } from './useHybridData';
 
@@ -532,11 +532,7 @@ export default function NextGenTranslationModal({
                         >
                           <Icon
                             name={
-                              hasAccess
-                                ? isEditing
-                                  ? 'x'
-                                  : 'pencil'
-                                : 'lock'
+                              hasAccess ? (isEditing ? 'x' : 'pencil') : 'lock'
                             }
                             className={
                               hasAccess

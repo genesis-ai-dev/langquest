@@ -7,5 +7,12 @@ export function TabBarIcon({
   style,
   ...rest
 }: { name: LucideIconName } & TextProps) {
-  return <Icon name={name} size={28} style={[{ marginBottom: -3 }, style]} {...rest} />;
+  return (
+    <Icon
+      name={name}
+      size={28}
+      style={[{ marginBottom: -3 }, style]}
+      {...rest}
+    />
+  );
 }

@@ -1,10 +1,10 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 // import { Badge } from '@/components/ui/badge';
 import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -372,11 +372,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
                   hitSlop={8}
                 >
-                  <Icon
-                    name="pencil-line"
-                    size={12}
-                    className="text-primary"
-                  />
+                  <Icon name="pencil-line" size={12} className="text-primary" />
                 </Pressable>
               ) : (
                 <>

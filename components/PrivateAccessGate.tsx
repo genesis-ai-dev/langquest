@@ -3,9 +3,9 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    profile_project_link,
-    project as projectTable,
-    request
+  profile_project_link,
+  project as projectTable,
+  request
 } from '@/db/drizzleSchema';
 import { request_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
@@ -484,11 +484,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         return (
           <>
             <View className={modal ? 'mb-6 items-center' : 'mb-4 items-center'}>
-              <Icon
-                name="circle-alert"
-                size={48}
-                className="text-yellow-500"
-              />
+              <Icon name="circle-alert" size={48} className="text-yellow-500" />
               {modal && (
                 <Text variant="h4" className="mb-2 mt-4">
                   {t('requestExpired')}
@@ -772,11 +768,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                         className="p-1"
                         onPress={() => setShowModal(false)}
                       >
-                        <Icon
-                          name="x"
-                          size={24}
-                          className="text-foreground"
-                        />
+                        <Icon name="x" size={24} className="text-foreground" />
                       </Pressable>
                     </View>
 

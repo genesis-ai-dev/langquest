@@ -112,17 +112,9 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           <Icon name="eye-off" className="text-muted-foreground" size={19} />
         )}
         {quest.source === 'local' && (
-          <Icon
-            name="hard-drive"
-            className="text-muted-foreground"
-            size={19}
-          />
+          <Icon name="hard-drive" className="text-muted-foreground" size={19} />
         )}
-        <Icon
-          name="folder"
-          className="mr-2 text-muted-foreground"
-          size={22}
-        />
+        <Icon name="folder" className="mr-2 text-muted-foreground" size={22} />
       </View>
       <Pressable
         className="flex-1 justify-center rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"

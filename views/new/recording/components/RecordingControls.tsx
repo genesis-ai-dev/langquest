@@ -12,24 +12,24 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
-    getRecordingPermissionsAsync,
-    requestRecordingPermissionsAsync
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync
 } from 'expo-audio';
 import React, { useEffect, useRef } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-    Easing,
-    useAnimatedReaction,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming
+  Easing,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

@@ -3,12 +3,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Drawer,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-    DrawerView
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerView
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -16,17 +16,17 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import type { profile, request } from '@/db/drizzleSchema';
 import { invite, project as projectTable } from '@/db/drizzleSchema';
 import {
-    invite_synced,
-    profile_project_link_synced,
-    request_synced
+  invite_synced,
+  profile_project_link_synced,
+  request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -785,11 +785,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               {member.role === 'owner' ? (
                 <Icon name="crown" size={16} className="text-primary" />
               ) : (
-                <Icon
-                  name="user"
-                  size={16}
-                  className="text-muted-foreground"
-                />
+                <Icon name="user" size={16} className="text-muted-foreground" />
               )}
             </View>
             <Text variant="small" className="mt-0.5 text-muted-foreground">
@@ -820,11 +816,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     handleRemoveMember(member.id, member.name || member.email)
                   }
                 >
-                  <Icon
-                    name="trash-2"
-                    size={20}
-                    className="text-destructive"
-                  />
+                  <Icon name="trash-2" size={20} className="text-destructive" />
                 </Button>
               )}
             </>

@@ -13,19 +13,19 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
-    useHybridData,
-    useSimpleHybridInfiniteData
+  useHybridData,
+  useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import {
-    and,
-    desc,
-    eq,
-    getTableColumns,
-    like,
-    notExists,
-    notInArray,
-    or
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  like,
+  notExists,
+  notInArray,
+  or
 } from 'drizzle-orm';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
@@ -35,24 +35,24 @@ import { ProjectListItem } from './ProjectListItem';
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-    DrawerTrigger
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger
 } from '@/components/ui/drawer';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-    FormSubmit,
-    transformInputProps,
-    transformSwitchProps
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormSubmit,
+  transformInputProps,
+  transformSwitchProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -61,8 +61,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-    ensureLanguoidDownloadProfile,
-    findOrCreateLanguoidByName
+  ensureLanguoidDownloadProfile,
+  findOrCreateLanguoidByName
 } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';

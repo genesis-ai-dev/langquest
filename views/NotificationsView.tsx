@@ -3,36 +3,36 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-    DrawerView
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerView
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    invite,
-    profile,
-    profile_project_link,
-    project,
-    request
+  invite,
+  profile,
+  profile_project_link,
+  project,
+  request
 } from '@/db/drizzleSchema';
 import {
-    invite_synced,
-    profile_project_link_synced,
-    request_synced
+  invite_synced,
+  profile_project_link_synced,
+  request_synced
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { LanguoidLinkSuggestionWithDetails } from '@/hooks/db/useLanguoidLinkSuggestions';
 import {
-    useAcceptLanguoidLinkSuggestion,
-    useKeepCustomLanguoid,
-    useLanguoidLinkSuggestions
+  useAcceptLanguoidLinkSuggestion,
+  useKeepCustomLanguoid,
+  useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
@@ -48,10 +48,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    View
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View
 } from 'react-native';
 
 interface NotificationItem {
@@ -1116,11 +1116,7 @@ export default function NotificationsView() {
           {!hasAnyNotifications ? (
             <View className="flex-1 items-center justify-center py-14">
               <View className="flex-col items-center gap-4">
-                <Icon
-                  name="bell"
-                  size={48}
-                  className="text-muted-foreground"
-                />
+                <Icon name="bell" size={48} className="text-muted-foreground" />
                 <View className="flex-col items-center gap-2">
                   <Text className="text-base font-semibold text-foreground">
                     {t('noNotificationsTitle')}

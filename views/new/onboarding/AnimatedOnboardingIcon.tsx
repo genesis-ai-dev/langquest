@@ -3,13 +3,13 @@ import { Icon } from '@/components/ui/icon';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming
 } from 'react-native-reanimated';
 
 interface AnimatedOnboardingIconProps {

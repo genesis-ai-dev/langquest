@@ -2,11 +2,11 @@ import { Icon } from '@/components/ui/icon';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSpring,
-    withTiming
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming
 } from 'react-native-reanimated';
 
 export function QuestListAnimation() {

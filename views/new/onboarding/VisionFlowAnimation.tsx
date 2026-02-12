@@ -2,12 +2,12 @@ import { Icon } from '@/components/ui/icon';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSequence,
-    withTiming
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 
 export function VisionFlowAnimation() {

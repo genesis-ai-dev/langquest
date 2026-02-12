@@ -1,7 +1,7 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-    updateQuestStatus,
-    useQuestStatuses
+  updateQuestStatus,
+  useQuestStatuses
 } from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';

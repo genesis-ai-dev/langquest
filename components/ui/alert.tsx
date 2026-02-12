@@ -96,11 +96,10 @@ function AlertDescription({
 }
 
 export {
-    Alert,
-    AlertDescription,
-    alertTextVariants,
-    AlertTitle,
-    alertVariants
+  Alert,
+  AlertDescription,
+  alertTextVariants,
+  AlertTitle,
+  alertVariants
 };
 export type { AlertProps };
-

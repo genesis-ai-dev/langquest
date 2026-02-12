@@ -10,8 +10,8 @@ import { PortalHost } from '@rn-primitives/portal';
 import React, { useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import {
-    KeyboardAwareScrollView,
-    KeyboardToolbar
+  KeyboardAwareScrollView,
+  KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
@@ -232,11 +232,7 @@ export function SimpleOnboardingFlow({
                     className="min-h-48 flex-1 flex-col gap-3 p-6"
                     onPress={() => handleProjectTypeSelect('bible')}
                   >
-                    <Icon
-                      name="book-open"
-                      size={48}
-                      className="text-primary"
-                    />
+                    <Icon name="book-open" size={48} className="text-primary" />
                     <Text variant="h4" className="text-center">
                       {t('onboardingBible')}
                     </Text>

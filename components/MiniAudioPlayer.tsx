@@ -5,10 +5,10 @@ import { colors, spacing } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
 import React from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface MiniAudioPlayerProps {

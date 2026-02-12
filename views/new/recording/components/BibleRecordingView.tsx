@@ -17,9 +17,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-    fileExists,
-    getLocalAttachmentUriWithOPFS,
-    saveAudioLocally
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -2607,7 +2607,11 @@ const BibleRecordingView = ({
               justifyContent: 'center'
             }}
           >
-            <Icon name="mic" size={20} className="text-secondary-foreground/50" />
+            <Icon
+              name="mic"
+              size={20}
+              className="text-secondary-foreground/50"
+            />
             <Icon
               name="arrow-down-narrow-wide"
               size={20}

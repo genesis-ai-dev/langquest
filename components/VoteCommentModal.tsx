@@ -5,13 +5,13 @@ import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useState } from 'react';
 import {
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 
 interface VoteCommentModalProps {

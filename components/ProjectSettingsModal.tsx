@@ -1,7 +1,7 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-    updateProjectStatus,
-    useProjectStatuses
+  updateProjectStatus,
+  useProjectStatuses
 } from '@/database_services/status/project';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';

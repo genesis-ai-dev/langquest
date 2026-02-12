@@ -15,10 +15,10 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { asset_content_link } from '@/db/drizzleSchema';
 import {
-    asset,
-    languoid as languoidTable,
-    project,
-    project_language_link
+  asset,
+  languoid as languoidTable,
+  project,
+  project_language_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -32,9 +32,9 @@ import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalizati
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
-    fileExists,
-    getLocalAttachmentUriWithOPFS,
-    getLocalUri
+  fileExists,
+  getLocalAttachmentUriWithOPFS,
+  getLocalUri
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -1068,16 +1068,8 @@ export default function NextGenAssetDetailView() {
               className="flex-row items-center justify-center gap-2 px-6 py-4"
               onPress={onPress}
             >
-              <Icon
-                name="lock"
-                size={20}
-                className="text-primary-foreground"
-              />
-              <Icon
-                name="plus"
-                size={24}
-                className="text-primary-foreground"
-              />
+              <Icon name="lock" size={20} className="text-primary-foreground" />
+              <Icon name="plus" size={24} className="text-primary-foreground" />
               <Text className="text-base font-bold text-primary-foreground">
                 {t('membersOnly')}
               </Text>

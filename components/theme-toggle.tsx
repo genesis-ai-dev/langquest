@@ -1,7 +1,7 @@
 import {
-    ToggleGroup,
-    ToggleGroupIcon,
-    ToggleGroupItem
+  ToggleGroup,
+  ToggleGroupIcon,
+  ToggleGroupItem
 } from '@/components/ui/toggle-group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 

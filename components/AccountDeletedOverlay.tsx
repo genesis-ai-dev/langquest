@@ -120,7 +120,11 @@ export function AccountDeletedOverlay() {
         {/* Icon/Warning */}
         <View className="items-center">
           <View className="h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
-            <Icon name="triangle-alert" size={40} className="text-destructive" />
+            <Icon
+              name="triangle-alert"
+              size={40}
+              className="text-destructive"
+            />
           </View>
         </View>
 

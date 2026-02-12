@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerScrollView,
-    DrawerTitle
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerScrollView,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon, type LucideIconName } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -16,9 +16,9 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-    runOnJS,
-    useAnimatedReaction,
-    useAnimatedStyle
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle
 } from 'react-native-reanimated';
 
 interface QuestOffloadVerificationDrawerProps {
@@ -49,7 +49,7 @@ function CategoryRow({
   showCount = true
 }: CategoryRowProps) {
   const primaryColor = useThemeColor('primary');
-  
+
   const animatedTextStyle = useAnimatedStyle(() => {
     return {
       opacity: isVerifying ? 0.5 : 1
@@ -90,9 +90,7 @@ function CategoryRow({
           </Animated.View>
         )}
 
-        {isVerifying && (
-          <ActivityIndicator size="small" color={primaryColor} />
-        )}
+        {isVerifying && <ActivityIndicator size="small" color={primaryColor} />}
         {isFullyVerified && (
           <Icon name="cloud" size={14} className="text-green-600" />
         )}
@@ -283,11 +281,7 @@ export function QuestOffloadVerificationDrawer({
           ) : (
             <>
               <View className="flex-col gap-0">
-                <CategoryRow
-                  label="Quest"
-                  icon="folder"
-                  {...progress.quest}
-                />
+                <CategoryRow label="Quest" icon="folder" {...progress.quest} />
                 <CategoryRow
                   label="Project"
                   icon="database"

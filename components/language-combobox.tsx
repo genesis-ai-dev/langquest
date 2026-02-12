@@ -5,10 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { languoid } from '@/db/drizzleSchema';
 import type { LanguoidSearchResult } from '@/hooks/db/useLanguoids';
 import {
-    useLanguoidById,
-    useLanguoidEndonyms,
-    useLanguoidSearch,
-    useUIReadyLanguoids
+  useLanguoidById,
+  useLanguoidEndonyms,
+  useLanguoidSearch,
+  useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -21,11 +21,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 import { ButtonPressable } from './ui/button';
 

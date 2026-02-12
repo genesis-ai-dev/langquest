@@ -17,11 +17,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { APP_SCHEMA_VERSION } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import {
-    clearDegradedMode,
-    incrementRetryCount,
-    isDegradedMode,
-    resetRetryCount,
-    shouldRetryMigration
+  clearDegradedMode,
+  incrementRetryCount,
+  isDegradedMode,
+  resetRetryCount,
+  shouldRetryMigration
 } from '@/services/degradedModeService';
 import { useThemeColor } from '@/utils/styleUtils';
 import React, { useCallback, useEffect, useState } from 'react';

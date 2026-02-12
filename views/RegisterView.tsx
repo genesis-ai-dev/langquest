@@ -3,13 +3,13 @@ import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-    FormSubmit,
-    transformInputProps
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormSubmit,
+  transformInputProps
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';

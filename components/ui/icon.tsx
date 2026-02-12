@@ -41,7 +41,11 @@ function extractIconTokens(className?: string) {
   for (const cls of classes) {
     // text-* theme color tokens (e.g., text-destructive → destructive)
     const colorMatch = cls.match(/^text-(.+)$/);
-    if (colorMatch?.[1] && !colorToken && `--${colorMatch[1]}` in cssTokens.light) {
+    if (
+      colorMatch?.[1] &&
+      !colorToken &&
+      `--${colorMatch[1]}` in cssTokens.light
+    ) {
       colorToken = colorMatch[1];
       continue;
     }

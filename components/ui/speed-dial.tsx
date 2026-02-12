@@ -182,11 +182,7 @@ function SpeedDialItem({
         variant={variant}
         className={cn('bg-primary/95', className)}
       >
-        <Icon
-          name={icon}
-          size={20}
-          className="text-secondary"
-        />
+        <Icon name={icon} size={20} className="text-secondary" />
       </Button>
     </MotiView>
   );
@@ -195,5 +191,4 @@ SpeedDialItem.displayName = 'SpeedDialItem';
 
 export { SpeedDial, SpeedDialItem, SpeedDialItems, SpeedDialTrigger };
 
-    export type { ItemProps as SpeedDialItemProps, SpeedDialProps };
-
+export type { ItemProps as SpeedDialItemProps, SpeedDialProps };

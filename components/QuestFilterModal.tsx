@@ -1,25 +1,25 @@
 import { CustomDropdown } from '@/components/CustomDropdown';
 import { Icon } from '@/components/ui/icon';
 import {
-    useInfiniteTagsByProjectIdAndCategory,
-    useTagCategoriesByProjectId
+  useInfiniteTagsByProjectIdAndCategory,
+  useTagCategoriesByProjectId
 } from '@/hooks/db/useTags';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
-    borderRadius,
-    colors,
-    fontSizes,
-    sharedStyles,
-    spacing
+  borderRadius,
+  colors,
+  fontSizes,
+  sharedStyles,
+  spacing
 } from '@/styles/theme';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 
 interface QuestFilterModalProps {
@@ -106,11 +106,7 @@ const CategorySection: React.FC<{
               <Text style={styles.optionText}>{option.label}</Text>
               <View style={sharedStyles.checkboxContainer}>
                 {selectedOptions.includes(option.id) ? (
-                  <Icon
-                    name="circle-check"
-                    size={24}
-                    color={colors.primary}
-                  />
+                  <Icon name="circle-check" size={24} color={colors.primary} />
                 ) : (
                   <View style={styles.emptyCheckbox} />
                 )}
@@ -348,11 +344,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                         style={styles.removeButton}
                         onPress={() => handleSortingChange(index, null)}
                       >
-                        <Icon
-                          name="trash-2"
-                          size={24}
-                          color={colors.error}
-                        />
+                        <Icon name="trash-2" size={24} color={colors.error} />
                       </TouchableOpacity>
                     )}
                   </View>

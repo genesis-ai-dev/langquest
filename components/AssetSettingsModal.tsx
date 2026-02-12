@@ -1,7 +1,7 @@
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import {
-    updateAssetStatus,
-    useAssetStatuses
+  updateAssetStatus,
+  useAssetStatuses
 } from '@/database_services/status/asset';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useAppNavigation } from '@/hooks/useAppNavigation';

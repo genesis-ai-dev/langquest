@@ -8,29 +8,29 @@ import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscover
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-    FormSubmit,
-    transformInputProps
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormSubmit,
+  transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-    SpeedDial,
-    SpeedDialItem,
-    SpeedDialItems,
-    SpeedDialTrigger
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,12 +42,12 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
 import {
-    useAppNavigation,
-    useCurrentNavigation
+  useAppNavigation,
+  useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import {
-    useBibleBookCreation,
-    useBibleBooks
+  useBibleBookCreation,
+  useBibleBooks
 } from '@/hooks/useBibleBookCreation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
@@ -66,12 +66,12 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-    cancelAnimation,
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';

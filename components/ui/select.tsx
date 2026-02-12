@@ -189,11 +189,7 @@ const SelectItem = React.forwardRef<
     {showCheckIcon && (
       <View className="native:left-3.5 native:pt-px absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Icon
-            name="check"
-            size={16}
-            className="text-popover-foreground"
-          />
+          <Icon name="check" size={16} className="text-popover-foreground" />
         </SelectPrimitive.ItemIndicator>
       </View>
     )}
@@ -220,16 +216,15 @@ const SelectSeparator = React.forwardRef<
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 
 export {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectScrollDownButton,
-    SelectScrollUpButton,
-    SelectSeparator,
-    SelectTrigger,
-    SelectValue,
-    type Option
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+  type Option
 };
-

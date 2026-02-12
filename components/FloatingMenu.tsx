@@ -165,11 +165,7 @@ export const FloatingMenu = ({
           activeOpacity={0.8}
         >
           <View style={styles.buttonBackground}></View>
-          <Icon
-            name={isOpen ? 'x' : 'menu'}
-            size={20}
-            color={colors.text}
-          />
+          <Icon name={isOpen ? 'x' : 'menu'} size={20} color={colors.text} />
         </TouchableOpacity>
       </Animated.View>
     </View>

@@ -6,34 +6,34 @@
 
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerScrollView,
-    DrawerTitle
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerScrollView,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useMicrophoneEnergy } from '@/hooks/useMicrophoneEnergy';
 import {
-    VAD_MIN_SEGMENT_LENGTH_DEFAULT,
-    VAD_MIN_SEGMENT_LENGTH_MAX,
-    VAD_MIN_SEGMENT_LENGTH_MIN,
-    VAD_SILENCE_DURATION_DEFAULT,
-    VAD_SILENCE_DURATION_MAX,
-    VAD_SILENCE_DURATION_MIN,
-    VAD_THRESHOLD_DEFAULT,
-    VAD_THRESHOLD_MAX,
-    VAD_THRESHOLD_MIN
+  VAD_MIN_SEGMENT_LENGTH_DEFAULT,
+  VAD_MIN_SEGMENT_LENGTH_MAX,
+  VAD_MIN_SEGMENT_LENGTH_MIN,
+  VAD_SILENCE_DURATION_DEFAULT,
+  VAD_SILENCE_DURATION_MAX,
+  VAD_SILENCE_DURATION_MIN,
+  VAD_THRESHOLD_DEFAULT,
+  VAD_THRESHOLD_MAX,
+  VAD_THRESHOLD_MIN
 } from '@/store/localStore';
 import { useThemeColor } from '@/utils/styleUtils';
 import { PortalHost } from '@rn-primitives/portal';
@@ -41,21 +41,21 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-    cancelAnimation,
-    useAnimatedProps,
-    useAnimatedReaction,
-    useAnimatedStyle,
-    useDerivedValue,
-    useSharedValue,
-    withTiming
+  cancelAnimation,
+  useAnimatedProps,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import Svg, {
-    Circle,
-    Defs,
-    Mask,
-    Rect,
-    Stop,
-    LinearGradient as SvgLinearGradient
+  Circle,
+  Defs,
+  Mask,
+  Rect,
+  Stop,
+  LinearGradient as SvgLinearGradient
 } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 

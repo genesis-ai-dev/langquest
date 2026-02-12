@@ -15,8 +15,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
 import {
-    KeyboardAwareScrollView,
-    KeyboardToolbar
+  KeyboardAwareScrollView,
+  KeyboardToolbar
 } from 'react-native-keyboard-controller';
 // Uncomment these imports when implementing duplicate report checking
 // import { useHybridData } from '@/views/new/useHybridData';

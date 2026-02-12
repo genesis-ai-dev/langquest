@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import {
-    SpeedDial,
-    SpeedDialItem,
-    SpeedDialItems,
-    SpeedDialTrigger
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -18,8 +18,8 @@ import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
-    useAppNavigation,
-    useCurrentNavigation
+  useAppNavigation,
+  useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -33,12 +33,12 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-    cancelAnimation,
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { HybridDataSource } from './useHybridData';

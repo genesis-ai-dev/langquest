@@ -23,15 +23,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import React, { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    View
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  View
 } from 'react-native';
 import {
-    KeyboardAwareScrollView,
-    KeyboardToolbar
+  KeyboardAwareScrollView,
+  KeyboardToolbar
 } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
@@ -417,11 +417,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                       disabled={isLoading}
                     >
                       <View className="flex-row items-center gap-3">
-                        <Icon
-                          name="globe"
-                          size={20}
-                          className="text-primary"
-                        />
+                        <Icon name="globe" size={20} className="text-primary" />
                         <Text variant="default">{region.name}</Text>
                         <Text className="text-xs text-muted-foreground">
                           ({region.level})

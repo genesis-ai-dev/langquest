@@ -1,16 +1,16 @@
 import type { Option } from '@/components/ui/select';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { languoid } from '@/db/drizzleSchema';
 import {
-    useLanguoidEndonyms,
-    useLanguoids,
-    useUIReadyLanguoids
+  useLanguoidEndonyms,
+  useLanguoids,
+  useUIReadyLanguoids
 } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';

@@ -1,20 +1,20 @@
 import AudioRecorder from '@/components/AudioRecorder';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerScrollView
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerScrollView
 } from '@/components/ui/drawer';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-    FormSubmit,
-    transformInputProps
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormSubmit,
+  transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,9 +40,9 @@ import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import {
-    deleteIfExists,
-    getLocalAttachmentUri,
-    saveAudioLocally
+  deleteIfExists,
+  getLocalAttachmentUri,
+  saveAudioLocally
 } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -54,12 +54,12 @@ import React, { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { TextInput } from 'react-native';
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
-    ScrollView,
-    TouchableWithoutFeedback,
-    View
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { z } from 'zod';
 import { useHybridData } from './useHybridData';
@@ -1076,7 +1076,11 @@ export default function NextGenNewTranslationModal({
                 <View className="w-[90%] max-w-lg rounded-lg bg-background p-6">
                   <View className="mb-4 flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
-                      <Icon name="lightbulb" size={20} className="text-primary" />
+                      <Icon
+                        name="lightbulb"
+                        size={20}
+                        className="text-primary"
+                      />
                       <Text className="text-lg font-bold text-foreground">
                         Translation Details
                       </Text>

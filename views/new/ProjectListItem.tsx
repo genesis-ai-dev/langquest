@@ -2,11 +2,11 @@ import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Button } from '@/components/ui/button';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -24,8 +24,8 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
-    useHybridData,
-    useItemDownloadStatus
+  useHybridData,
+  useItemDownloadStatus
 } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull } from 'drizzle-orm';

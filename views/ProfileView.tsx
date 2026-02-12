@@ -3,13 +3,13 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-    FormSubmit,
-    transformInputProps
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormSubmit,
+  transformInputProps
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -23,17 +23,17 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
 import {
-    clearDegradedMode,
-    isDegradedMode
+  clearDegradedMode,
+  isDegradedMode
 } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { resetDatabase } from '@/utils/dbUtils';
 import {
-    deleteIfExists,
-    ensureDir,
-    getLocalFilePathSuffix,
-    getLocalUri
+  deleteIfExists,
+  ensureDir,
+  getLocalFilePathSuffix,
+  getLocalUri
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';

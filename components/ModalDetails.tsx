@@ -1,7 +1,7 @@
 import type { language, project, quest } from '@/db/drizzleSchema';
 import {
-    language as languageTable,
-    project_language_link
+  language as languageTable,
+  project_language_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';

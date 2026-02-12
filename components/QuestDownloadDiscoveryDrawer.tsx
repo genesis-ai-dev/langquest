@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -16,9 +16,9 @@ import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import Animated, {
-    runOnJS,
-    useAnimatedReaction,
-    useAnimatedStyle
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle
 } from 'react-native-reanimated';
 
 interface QuestDownloadDiscoveryDrawerProps {
@@ -46,7 +46,7 @@ function CategoryRow({
   showCount = true
 }: CategoryRowProps) {
   const primaryColor = useThemeColor('primary');
-  
+
   const animatedTextStyle = useAnimatedStyle(() => {
     return {
       opacity: isLoading ? 0.5 : 1
@@ -82,9 +82,7 @@ function CategoryRow({
           </Animated.View>
         )}
 
-        {isLoading && (
-          <ActivityIndicator size="small" color={primaryColor} />
-        )}
+        {isLoading && <ActivityIndicator size="small" color={primaryColor} />}
         {!isLoading && !hasError && (
           <Icon name="circle-check" size={16} className="text-green-600" />
         )}
@@ -187,21 +185,13 @@ export function QuestDownloadDiscoveryDrawer({
               icon="link"
               {...progress.questAssetLinks}
             />
-            <CategoryRow
-              label="Assets"
-              icon="file-text"
-              {...progress.assets}
-            />
+            <CategoryRow label="Assets" icon="file-text" {...progress.assets} />
             <CategoryRow
               label="Asset Content Links"
               icon="link"
               {...progress.assetContentLinks}
             />
-            <CategoryRow
-              label="Votes"
-              icon="thumbs-up"
-              {...progress.votes}
-            />
+            <CategoryRow label="Votes" icon="thumbs-up" {...progress.votes} />
             <CategoryRow
               label="Quest Tags"
               icon="link"

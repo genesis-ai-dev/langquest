@@ -1,10 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
@@ -180,7 +180,11 @@ export default function DownloadStatusView() {
                 )}
                 {powerSyncStatus.uploading && (
                   <View className="flex-row items-center gap-2">
-                    <Icon name="cloud-upload" size={16} className="text-primary" />
+                    <Icon
+                      name="cloud-upload"
+                      size={16}
+                      className="text-primary"
+                    />
                     <Text className="ml-2 text-sm text-foreground">
                       {t('uploadingData') || 'Uploading data...'}
                     </Text>
@@ -239,7 +243,11 @@ export default function DownloadStatusView() {
           <Card>
             <CardHeader>
               <CardTitle className="flex-row items-center gap-2">
-                <Icon name="cloud-download" size={20} className="text-primary" />
+                <Icon
+                  name="cloud-download"
+                  size={20}
+                  className="text-primary"
+                />
                 <Text className="ml-1">
                   {t('attachmentDownloadProgress') ||
                     'Attachment Download Progress'}

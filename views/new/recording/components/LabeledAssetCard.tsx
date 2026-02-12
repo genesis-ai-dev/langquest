@@ -28,13 +28,13 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
-    Easing,
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
-    useDerivedValue,
-    useSharedValue,
-    withTiming
+  Easing,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 

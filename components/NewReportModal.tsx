@@ -14,8 +14,8 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
 import {
-    KeyboardAwareScrollView,
-    KeyboardToolbar
+  KeyboardAwareScrollView,
+  KeyboardToolbar
 } from 'react-native-keyboard-controller';
 
 interface ReportModalProps {

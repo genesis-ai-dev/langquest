@@ -1,9 +1,9 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/contexts/AuthContext';

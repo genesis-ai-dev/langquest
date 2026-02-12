@@ -124,11 +124,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
 
         {project.description && (
           <View style={styles.infoRow}>
-            <Icon
-              name="info"
-              size={20}
-              color={colors.text}
-            />
+            <Icon name="info" size={20} color={colors.text} />
             <Text style={styles.infoText}>{project.description}</Text>
           </View>
         )}

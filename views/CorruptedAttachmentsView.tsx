@@ -6,13 +6,18 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useThemeColor } from '@/utils/styleUtils';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
-    cleanupAllCorrupted,
-    cleanupCorruptedAttachment,
-    findCorruptedAttachments
+  cleanupAllCorrupted,
+  cleanupCorruptedAttachment,
+  findCorruptedAttachments
 } from '@/services/corruptedAttachmentsService';
 import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View
+} from 'react-native';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
@@ -285,7 +290,10 @@ export default function CorruptedAttachmentsView() {
           >
             {cleaningAll ? (
               <>
-                <ActivityIndicator size="small" color={destructiveForegroundColor} />
+                <ActivityIndicator
+                  size="small"
+                  color={destructiveForegroundColor}
+                />
                 <Text className="font-bold text-destructive-foreground">
                   {t('cleaning')}
                 </Text>
@@ -430,7 +438,10 @@ export default function CorruptedAttachmentsView() {
                     >
                       {isCleaning ? (
                         <>
-                          <ActivityIndicator size="small" color={destructiveForegroundColor} />
+                          <ActivityIndicator
+                            size="small"
+                            color={destructiveForegroundColor}
+                          />
                           <Text className="text-sm font-bold text-destructive-foreground">
                             {t('cleaning')}
                           </Text>
