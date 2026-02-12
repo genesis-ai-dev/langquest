@@ -22,9 +22,9 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useAssetAudio } from '@/services/assetAudio';
+import type { AssetAudio } from '@/services/assetAudio';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
@@ -97,6 +97,21 @@ const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
 // The extra *1000 leaves space for future insertions between assets
 const DEFAULT_ORDER_INDEX = 999001000;
+const TEST_ASSET_ID = '__test_silence_asset__';
+const TEST_SILENCE_URL =
+  'https://raw.githubusercontent.com/anars/blank-audio/master/5-seconds-of-silence.mp3';
+const TEST_ASSET_AUDIO: AssetAudio = {
+  assetId: TEST_ASSET_ID,
+  totalDurationMs: 3000,
+  segments: [
+    {
+      uri: TEST_SILENCE_URL,
+      durationMs: 5000,
+      trim: { startMs: 0, endMs: 3000 },
+      contentLinkId: '__test_silence_content_link__'
+    }
+  ]
+};
 
 // Verse metadata type
 interface VerseRange {
@@ -291,9 +306,6 @@ const RecordingView = () => {
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
   // Ref to track if handlePlayAll is running (for cancellation)
   const isPlayAllRunningRef = React.useRef(false);
-  // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
-
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
@@ -370,8 +382,20 @@ const RecordingView = () => {
   // When user exits and returns, the list starts with just the initial verse pill
   // Assets are still saved to database, but we don't load existing ones
   const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
-    // Initialize with the initial verse pill
-    if (!_verse) return [];
+    const testAsset: UIAsset = {
+      type: 'asset',
+      id: TEST_ASSET_ID,
+      name: 'TEST: 3s silence',
+      created_at: new Date().toISOString(),
+      order_index: _initialOrderIndex - 1,
+      source: 'cloud',
+      segmentCount: 1,
+      duration: 3000,
+      verse: null
+    };
+    // Always include test asset, even when there is no initial verse context.
+    if (!_verse) return [testAsset];
+
     const initialVerse = _verse;
     const initialPill: VersePillItem = {
       type: 'pill',
@@ -382,7 +406,7 @@ const RecordingView = () => {
     console.log(
       `🏷️ Initial pill created | order_index: ${_initialOrderIndex} | verse: ${initialVerse.from}-${initialVerse.to}`
     );
-    return [initialPill];
+    return [testAsset, initialPill];
   });
 
   // Track the "append" order_index (used when recording at the end of the list)
@@ -857,291 +881,79 @@ const RecordingView = () => {
   // AUDIO PLAYBACK
   // ============================================================================
 
-  // Fetch audio URIs for an asset
-  // Includes fallback logic for local-only files when server records are removed
-  const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
+  const stopPlayAll = React.useCallback(async () => {
+    isPlayAllRunningRef.current = false;
+    setIsPlayAllRunning(false);
+    setCurrentlyPlayingAssetId(null);
+    await assetAudio.stop();
+  }, [assetAudio]);
 
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
+  const activateAssetForPlayAll = React.useCallback(
+    async (assetId: string, wheelIndex: number) => {
+      setCurrentlyPlayingAssetId(assetId);
+      await Promise.resolve();
 
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
-        );
-
-        if (uniqueLinks.length === 0) {
-          debugLog('No content links found for asset:', assetId);
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            debugLog(
-              `  📎 Content link has ${audioArray.length} audio file(s):`,
-              audioArray
-            );
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
-
-        if (audioValues.length === 0) {
-          debugLog('No audio values found in content links');
-          return [];
-        }
-
-        // Process each audio value - can be either a local URI or an attachment ID
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          // Check if this is already a local URI (starts with 'local/' or 'file://')
-          if (audioValue.startsWith('local/')) {
-            // It's a direct local URI from saveAudioLocally()
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              uris.push(constructedUri);
-              debugLog(
-                '✅ Using direct local URI:',
-                constructedUri.slice(0, 80)
-              );
-            } else {
-              // File doesn't exist at expected path - try to find it in attachment queue
-              debugLog(
-                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-              );
-
-              if (system.permAttachmentQueue) {
-                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-                const filename = audioValue.replace(/^local\//, '');
-                // Extract UUID part (without extension) for more flexible matching
-                const uuidPart = filename.split('.')[0];
-
-                // Search attachment queue by filename or UUID
-                let attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-                );
-
-                // If not found, try searching all attachments for this asset's content links
-                if (!attachment && uniqueLinks.length > 0) {
-                  const allAttachmentIds = uniqueLinks
-                    .flatMap((link) => link.audio ?? [])
-                    .filter(
-                      (av): av is string =>
-                        typeof av === 'string' &&
-                        !av.startsWith('local/') &&
-                        !av.startsWith('file://')
-                    );
-                  if (allAttachmentIds.length > 0) {
-                    const placeholders = allAttachmentIds
-                      .map(() => '?')
-                      .join(',');
-                    attachment = await system.powersync.getOptional<{
-                      id: string;
-                      filename: string | null;
-                      local_uri: string | null;
-                    }>(
-                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                      allAttachmentIds
-                    );
-                  }
-                }
-
-                if (attachment?.local_uri) {
-                  const foundUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  // Verify the found file actually exists
-                  if (await fileExists(foundUri)) {
-                    uris.push(foundUri);
-                    debugLog(
-                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                    );
-                  } else {
-                    debugLog(
-                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                    );
-                  }
-                } else {
-                  // Try fallback to local table for alternative audio values
-                  const fallbackLink = contentLinksLocal.find(
-                    (link) => link.asset_id === assetId
-                  );
-                  if (fallbackLink?.audio) {
-                    for (const fallbackAudioValue of fallbackLink.audio) {
-                      if (fallbackAudioValue.startsWith('file://')) {
-                        if (await fileExists(fallbackAudioValue)) {
-                          uris.push(fallbackAudioValue);
-                          debugLog(`✅ Found fallback file URI`);
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI - verify it exists
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-              debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
-            } else {
-              debugLog(`⚠️ File URI does not exist: ${audioValue}`);
-              // Try to find in attachment queue by extracting filename from path
-              if (system.permAttachmentQueue) {
-                const filename = audioValue.split('/').pop();
-                if (filename) {
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                    [filename, filename]
-                  );
-
-                  if (attachment?.local_uri) {
-                    const foundUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
-                    );
-                    if (await fileExists(foundUri)) {
-                      uris.push(foundUri);
-                      debugLog(`✅ Found attachment in queue for file URI`);
-                    }
-                  }
-                }
-              }
-            }
-          } else {
-            // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) {
-              // No attachment queue - try fallback to local table
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      break;
-                    }
-                  }
-                }
-              }
-              continue;
-            }
-
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-                debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
-              }
-            } else {
-              // Attachment ID not found in queue - try fallback to local table
-              debugLog(
-                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-              );
-
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      debugLog(
-                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      debugLog(
-                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  }
-                }
-              } else {
-                debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
-              }
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
+      if (listRef.current) {
+        listRef.current.scrollToIndex(wheelIndex - 1, true);
       }
     },
     []
+  );
+
+  const runPlayAll = React.useCallback(
+    async (startIndex: number) => {
+      const isPlayAllActive = () => isPlayAllRunningRef.current;
+      if (startIndex >= sessionItems.length) {
+        console.warn('⚠️ No items to play from current position');
+        return;
+      }
+
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      try {
+        let wheelIndex = startIndex;
+        while (wheelIndex < sessionItems.length) {
+          if (!isPlayAllActive()) break;
+
+          const item = sessionItems[wheelIndex];
+          if (!item || isPill(item)) {
+            wheelIndex += 1;
+            continue;
+          }
+
+          const assetId = item.id;
+          await activateAssetForPlayAll(assetId, wheelIndex);
+          if (!isPlayAllActive()) break;
+
+          if (assetId === TEST_ASSET_ID) {
+            await assetAudio.play(TEST_ASSET_AUDIO);
+          } else {
+            await assetAudio.play(assetId);
+          }
+          await assetAudio.waitForPlaybackEnd(assetId);
+          if (!isPlayAllActive()) break;
+
+          wheelIndex += 1;
+        }
+      } finally {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [sessionItems, activateAssetForPlayAll, assetAudio]
   );
 
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
       try {
+        if (isPlayAllRunningRef.current) {
+          await stopPlayAll();
+          return;
+        }
+
         const isThisAssetPlaying =
           assetAudio.isPlaying && assetAudio.currentAudioId === assetId;
 
@@ -1150,38 +962,24 @@ const RecordingView = () => {
           await assetAudio.stop();
         } else {
           debugLog('▶️ Playing asset:', assetId.slice(0, 8));
-          await assetAudio.play(assetId);
+          if (assetId === TEST_ASSET_ID) {
+            await assetAudio.play(TEST_ASSET_AUDIO);
+          } else {
+            await assetAudio.play(assetId);
+          }
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
       }
     },
-    [assetAudio]
+    [assetAudio, stopPlayAll]
   );
 
-  // Handle play all assets - optimized version with direct control
+  // Handle play all assets - event-driven via AssetAudio
   const handlePlayAll = React.useCallback(async () => {
     try {
-      // Check if already playing - toggle to stop
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          } catch (error) {
-            console.error('Error stopping sound:', error);
-          }
-        }
-
-        setCurrentlyPlayingAssetId(null);
-        // Reset SharedValues when stopping
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
+        await stopPlayAll();
         debugLog('⏸️ Stopped play all');
         return;
       }
@@ -1191,143 +989,18 @@ const RecordingView = () => {
         return;
       }
 
-      // Mark as running
-      isPlayAllRunningRef.current = true;
-      setIsPlayAllRunning(true);
-
       // If no item is selected (at end of list), start from the beginning
       // Otherwise, start from the selected item
       const startIndex =
         insertionIndex >= sessionItems.length ? 0 : insertionIndex;
 
-      debugLog(
-        `🎵 Starting play all from position ${startIndex} (insertionIndex: ${insertionIndex})`
-      );
-
-      let assetsPlayed = 0;
-
-      // Iterate directly through sessionItems starting from startIndex
-      for (
-        let wheelIndex = startIndex;
-        wheelIndex < sessionItems.length;
-        wheelIndex++
-      ) {
-        // Check if cancelled
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (!isPlayAllRunningRef.current) {
-          debugLog('⏸️ Play all cancelled');
-          setCurrentlyPlayingAssetId(null);
-          // Reset SharedValues when cancelled
-          audioContext.positionShared.value = 0;
-          audioContext.durationShared.value = 0;
-          return;
-        }
-
-        const item = sessionItems[wheelIndex];
-
-        // Skip if no item or if it's a pill
-        if (!item || isPill(item)) {
-          debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
-          continue;
-        }
-
-        // It's an asset - play it
-        const asset = item;
-
-        // Get URIs for this asset
-        const uris = await getAssetAudioUris(asset.id);
-        if (uris.length === 0) {
-          debugLog(
-            `⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`
-          );
-          continue;
-        }
-
-        // HIGHLIGHT THIS ASSET
-        setCurrentlyPlayingAssetId(asset.id);
-
-        // Scroll to this position in the list
-        if (listRef.current) {
-          listRef.current.scrollToIndex(wheelIndex - 1, true);
-        }
-
-        assetsPlayed++;
-        debugLog(
-          `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
-        );
-
-        // Play all URIs for this asset sequentially
-        for (const uri of uris) {
-          // Check if cancelled
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (!isPlayAllRunningRef.current) {
-            setCurrentlyPlayingAssetId(null);
-            // Reset SharedValues when cancelled
-            audioContext.positionShared.value = 0;
-            audioContext.durationShared.value = 0;
-            return;
-          }
-
-          // Play this URI and wait for it to finish
-          await new Promise<void>((resolve) => {
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                currentPlayAllSoundRef.current = sound;
-
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  // Update SharedValues for progress bar animation (60fps on UI thread)
-                  if (status.isPlaying) {
-                    audioContext.positionShared.value = status.positionMillis;
-                    audioContext.durationShared.value =
-                      status.durationMillis ?? 0;
-                  }
-
-                  if (status.didJustFinish) {
-                    // Reset SharedValues when segment finishes
-                    audioContext.positionShared.value = 0;
-                    audioContext.durationShared.value = 0;
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
-                currentPlayAllSoundRef.current = null;
-                resolve();
-              });
-          });
-        }
-      }
-
-      if (assetsPlayed === 0) {
-        console.warn('⚠️ No assets found to play from current position');
-      }
-
-      // Done playing all
+      await runPlayAll(startIndex);
       debugLog('✅ Finished playing all assets');
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues when finished
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues on error
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
+      await stopPlayAll();
     }
-  }, [audioContext, getAssetAudioUris, insertionIndex, sessionItems]);
+  }, [insertionIndex, runPlayAll, sessionItems.length, stopPlayAll]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1834,7 +1507,7 @@ const RecordingView = () => {
           const obj = a as { id?: string } | null;
           return obj?.id;
         })
-        .filter((id): id is string => !!id),
+        .filter((id): id is string => !!id && id !== TEST_ASSET_ID),
     [rawAssets]
   );
 
@@ -2473,20 +2146,6 @@ const RecordingView = () => {
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
-        }
       }
 
       // Clear all refs to free memory
