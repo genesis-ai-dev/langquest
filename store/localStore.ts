@@ -12,6 +12,7 @@ export type AppView =
   | 'assets'
   | 'asset-detail'
   | 'bible-assets'
+  | 'recording'
   | 'profile'
   | 'notifications'
   | 'settings'
@@ -37,6 +38,17 @@ export interface NavigationStackItem {
   bookQuestData?: Record<string, unknown>;
   questData?: Record<string, unknown>;
   assetData?: Record<string, unknown>;
+
+  // Recording view specific data
+  recordingData?: {
+    bookChapterLabel?: string;
+    bookChapterLabelFull?: string;
+    initialOrderIndex?: number;
+    verse?: { from: number; to: number };
+    nextVerse?: number | null;
+    limitVerse?: number | null;
+    label?: string;
+  };
 }
 
 export type Language = typeof language.$inferSelect;
