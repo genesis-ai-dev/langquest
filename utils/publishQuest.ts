@@ -593,10 +593,7 @@ export async function publishQuest(
         success: false,
         status: 'error' as const,
         message: `Failed to save ${failedAudioResults.length} audio attachment(s)`,
-        errors: [
-          ...errors,
-          ...failedAudioResults.map((r) => String(r.reason))
-        ],
+        errors: [...errors, ...failedAudioResults.map((r) => String(r.reason))],
         warnings
       };
     }
