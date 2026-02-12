@@ -22,7 +22,6 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useAssetAudio } from '@/services/assetAudio';
-import type { AssetAudio } from '@/services/assetAudio';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   getLocalAttachmentUriWithOPFS,
@@ -97,21 +96,6 @@ const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
 // The extra *1000 leaves space for future insertions between assets
 const DEFAULT_ORDER_INDEX = 999001000;
-const TEST_ASSET_ID = '__test_silence_asset__';
-const TEST_SILENCE_URL =
-  'https://raw.githubusercontent.com/anars/blank-audio/master/5-seconds-of-silence.mp3';
-const TEST_ASSET_AUDIO: AssetAudio = {
-  assetId: TEST_ASSET_ID,
-  totalDurationMs: 3000,
-  segments: [
-    {
-      uri: TEST_SILENCE_URL,
-      durationMs: 5000,
-      trim: { startMs: 0, endMs: 3000 },
-      contentLinkId: '__test_silence_content_link__'
-    }
-  ]
-};
 
 // Verse metadata type
 interface VerseRange {
@@ -382,19 +366,7 @@ const RecordingView = () => {
   // When user exits and returns, the list starts with just the initial verse pill
   // Assets are still saved to database, but we don't load existing ones
   const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
-    const testAsset: UIAsset = {
-      type: 'asset',
-      id: TEST_ASSET_ID,
-      name: 'TEST: 3s silence',
-      created_at: new Date().toISOString(),
-      order_index: _initialOrderIndex - 1,
-      source: 'cloud',
-      segmentCount: 1,
-      duration: 3000,
-      verse: null
-    };
-    // Always include test asset, even when there is no initial verse context.
-    if (!_verse) return [testAsset];
+    if (!_verse) return [];
 
     const initialVerse = _verse;
     const initialPill: VersePillItem = {
@@ -406,7 +378,7 @@ const RecordingView = () => {
     console.log(
       `🏷️ Initial pill created | order_index: ${_initialOrderIndex} | verse: ${initialVerse.from}-${initialVerse.to}`
     );
-    return [testAsset, initialPill];
+    return [initialPill];
   });
 
   // Track the "append" order_index (used when recording at the end of the list)
@@ -926,11 +898,7 @@ const RecordingView = () => {
           await activateAssetForPlayAll(assetId, wheelIndex);
           if (!isPlayAllActive()) break;
 
-          if (assetId === TEST_ASSET_ID) {
-            await assetAudio.play(TEST_ASSET_AUDIO);
-          } else {
-            await assetAudio.play(assetId);
-          }
+          await assetAudio.play(assetId);
           await assetAudio.waitForPlaybackEnd(assetId);
           if (!isPlayAllActive()) break;
 
@@ -962,11 +930,7 @@ const RecordingView = () => {
           await assetAudio.stop();
         } else {
           debugLog('▶️ Playing asset:', assetId.slice(0, 8));
-          if (assetId === TEST_ASSET_ID) {
-            await assetAudio.play(TEST_ASSET_AUDIO);
-          } else {
-            await assetAudio.play(assetId);
-          }
+          await assetAudio.play(assetId);
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
@@ -1507,7 +1471,7 @@ const RecordingView = () => {
           const obj = a as { id?: string } | null;
           return obj?.id;
         })
-        .filter((id): id is string => !!id && id !== TEST_ASSET_ID),
+        .filter((id): id is string => !!id),
     [rawAssets]
   );
 
