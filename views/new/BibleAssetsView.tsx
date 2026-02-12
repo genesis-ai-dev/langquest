@@ -3306,8 +3306,6 @@ export default function BibleAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
-
-        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok') }
