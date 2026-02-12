@@ -91,6 +91,7 @@ import {
   renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -105,7 +106,9 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
+import type {
+  ReorderableListReorderEvent
+} from 'react-native-reorderable-list';
 import ReorderableList, {
   reorderItems,
   useReorderableDrag
@@ -123,6 +126,7 @@ interface AssetMetadata {
     from: number;
     to: number;
   };
+  recordingSessionId?: string;
 }
 
 type AssetQuestLink = Asset & {
@@ -223,6 +227,7 @@ interface DraggableAssetItemProps {
   hasAvailableVerses: boolean;
   showDragHandle: boolean;
   isDragFixed: boolean;
+  isHighlighted: boolean;
   onPlay: (assetId: string) => void;
   onToggleSelect: (assetId: string) => void;
   onEnterSelection?: (assetId: string) => void;
@@ -243,6 +248,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   hasAvailableVerses,
   showDragHandle,
   isDragFixed,
+  isHighlighted,
   onPlay,
   onToggleSelect,
   onEnterSelection,
@@ -289,6 +295,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         isSelectedForRecording={isAssetSelectedForRecording}
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
+        isHighlighted={isHighlighted}
       />
       {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
         <RecordingPlaceIndicator />
@@ -740,6 +747,7 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
+
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
   const [selectedForRecording, setSelectedForRecording] = React.useState<{
@@ -981,7 +989,7 @@ export default function BibleAssetsView() {
         orderIndex,
         metadata,
         verseName,
-        name: asset.name ?? (undefined as string | undefined)
+        name: asset.name ?? undefined as string | undefined
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -1357,6 +1365,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(item.content.metadata as AssetMetadata | null ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1836,6 +1845,7 @@ export default function BibleAssetsView() {
           (asset, index) => ({
             assetId: asset.id,
             metadata: {
+              ...(asset.metadata as AssetMetadata | null ?? {}),
               verse: { from, to }
             },
             order_index:
@@ -1893,7 +1903,10 @@ export default function BibleAssetsView() {
       const updates: AssetUpdatePayload[] = selectedAssets.map(
         (asset, index) => ({
           assetId: asset.id,
-          metadata: null,
+          metadata: {
+            ...(asset.metadata as AssetMetadata | null ?? {}),
+            verse: undefined,
+          },
           order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
         })
       );
@@ -2127,7 +2140,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = assetIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2137,7 +2150,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = assetIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2400,6 +2413,7 @@ export default function BibleAssetsView() {
           questId={currentQuestId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
+          isHighlighted={asset.metadata?.recordingSessionId == selectedQuest?.metadata?.lastRecordingSessionId}
           isSelected={isSelected}
           isSelectionMode={!isPublished && isSelectionMode}
           isAssetSelectedForRecording={isAssetSelectedForRecording}
@@ -2423,6 +2437,7 @@ export default function BibleAssetsView() {
               ? () => handleQuickAddVersePressRef.current?.(asset.id)
               : undefined
           }
+          
         />
       );
     },
@@ -2443,7 +2458,8 @@ export default function BibleAssetsView() {
       selectedForRecording?.separatorKey,
       handleSelectForRecording,
       handleSelectSeparatorForRecording,
-      handleRenameAsset
+      handleRenameAsset,
+      selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
 
@@ -3023,6 +3039,11 @@ export default function BibleAssetsView() {
 
   // Handle going to recording - stops any playing audio first
   const handleGoToRecording = React.useCallback(async () => {
+    if (!currentQuestId) {
+      console.error('Cannot start recording without quest ID');
+      return;
+    }
+
     // Stop PlayAll if running
     if (isPlayAllRunningRef.current) {
       isPlayAllRunningRef.current = false;
@@ -3050,12 +3071,15 @@ export default function BibleAssetsView() {
     // Navigate to recording view
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
+    const recordingSessionId =
+      await createQuestRecordingSession(currentQuestId);
 
     navigate({
       view: 'recording',
       questId: currentQuestId,
       projectId: currentProjectId,
       recordingData: {
+        recordingSession: recordingSessionId,
         bookChapterLabel: bookChapterLabel,
         bookChapterLabelFull: selectedQuest?.name,
         initialOrderIndex: recordingOrderIndex,
@@ -3448,6 +3472,7 @@ export default function BibleAssetsView() {
           // Determine the metadata based on the current separator
           const newMetadata: AssetMetadata | null = currentSeparator?.from
             ? {
+                ...(item.content.metadata as AssetMetadata | null ?? {}),
                 verse: {
                   from: currentSeparator.from,
                   to: currentSeparator.to ?? currentSeparator.from
@@ -3504,6 +3529,7 @@ export default function BibleAssetsView() {
       </View>
     );
   }
+
 
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
@@ -3860,16 +3886,15 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished &&
-        currentUser &&
-        (isSelectionMode ? (
-          <View
+      {!isPublished && currentUser && (
+          isSelectionMode ? (
+            <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
             }}
             className="absolute bottom-0 left-0 right-0 z-40"
-          >
+          >            
             <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
@@ -3878,9 +3903,9 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
-          </View>
-        ) : (
-          <View
+            </View>
+          ) : (
+            <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
@@ -3900,20 +3925,16 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name
-                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
-                      : `${t('noLabelSelected')}`}
-                  {/* {selectedForRecording?.verseName
-                  ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                  : t('doRecord')} */}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
+
                 </Text>
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-          </View>
-        ))}
-      {/* )} */}
+            </View>
+          ))}
+       {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
@@ -4090,18 +4111,20 @@ export default function BibleAssetsView() {
             <DrawerHeader>
               <DrawerTitle>Add Verse Label</DrawerTitle>
             </DrawerHeader>
-            <VerseRangeSelector
-              availableVerses={getAvailableVerses()}
-              ScrollViewComponent={GHScrollView}
-              getMaxToForFrom={getMaxToForFrom}
-              onApply={(from, to) => {
-                addVerseSeparator(from, to);
-                // Clear recording selection when any label is added
-                setSelectedForRecording(null);
-                setNewLabelSelectorState({ isOpen: false });
-              }}
-              onCancel={() => setNewLabelSelectorState({ isOpen: false })}
-            />
+            <View className="p-4">
+              <VerseRangeSelector
+                availableVerses={getAvailableVerses()}
+                ScrollViewComponent={GHScrollView}
+                getMaxToForFrom={getMaxToForFrom}
+                onApply={(from, to) => {
+                  addVerseSeparator(from, to);
+                  // Clear recording selection when any label is added
+                  setSelectedForRecording(null);
+                  setNewLabelSelectorState({ isOpen: false });
+                }}
+                onCancel={() => setNewLabelSelectorState({ isOpen: false })}
+              />
+            </View>
           </DrawerContent>
         </Drawer>
       )}
@@ -4171,44 +4194,46 @@ export default function BibleAssetsView() {
             <DrawerHeader>
               <DrawerTitle>Edit Verse Label</DrawerTitle>
             </DrawerHeader>
-            {editSeparatorState.separatorKey && (
-              <VerseRangeSelector
-                availableVerses={
-                  getRangeForSeparator(editSeparatorState.separatorKey)
-                    .availableVerses
-                }
-                from={editSeparatorState.from}
-                to={editSeparatorState.to}
-                ScrollViewComponent={GHScrollView}
-                getMaxToForFrom={(selectedFrom) =>
-                  getMaxToForFromSeparator(
-                    editSeparatorState.separatorKey!,
-                    selectedFrom
-                  )
-                }
-                onApply={async (from, to) => {
-                  if (editSeparatorState.separatorKey) {
-                    await updateVerseSeparator(
-                      editSeparatorState.separatorKey,
-                      editSeparatorState.from,
-                      editSeparatorState.to,
-                      from,
-                      to
-                    );
+            <View className="p-4">
+              {editSeparatorState.separatorKey && (
+                <VerseRangeSelector
+                  availableVerses={
+                    getRangeForSeparator(editSeparatorState.separatorKey)
+                      .availableVerses
                   }
-                  // Clear recording selection when any label is edited
-                  // This ensures we don't have stale order_index references
-                  setSelectedForRecording(null);
-                  setEditSeparatorState({
-                    isOpen: false,
-                    separatorKey: null
-                  });
-                }}
-                onCancel={() =>
-                  setEditSeparatorState({ isOpen: false, separatorKey: null })
-                }
-              />
-            )}
+                  from={editSeparatorState.from}
+                  to={editSeparatorState.to}
+                  ScrollViewComponent={GHScrollView}
+                  getMaxToForFrom={(selectedFrom) =>
+                    getMaxToForFromSeparator(
+                      editSeparatorState.separatorKey!,
+                      selectedFrom
+                    )
+                  }
+                  onApply={async (from, to) => {
+                    if (editSeparatorState.separatorKey) {
+                      await updateVerseSeparator(
+                        editSeparatorState.separatorKey,
+                        editSeparatorState.from,
+                        editSeparatorState.to,
+                        from,
+                        to
+                      );
+                    }
+                    // Clear recording selection when any label is edited
+                    // This ensures we don't have stale order_index references
+                    setSelectedForRecording(null);
+                    setEditSeparatorState({
+                      isOpen: false,
+                      separatorKey: null
+                    });
+                  }}
+                  onCancel={() =>
+                    setEditSeparatorState({ isOpen: false, separatorKey: null })
+                  }
+                />
+              )}
+            </View>
           </DrawerContent>
         </Drawer>
       )}

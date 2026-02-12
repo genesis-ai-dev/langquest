@@ -14,6 +14,7 @@ export interface AssetMetadata {
     from: number;
     to: number;
   };
+  recordingSessionId?: string;
 }
 
 /**

@@ -130,6 +130,7 @@ const RecordingView = () => {
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
   const _label = recordingData?.label || '';
+  const recordingSessionId = recordingData?.recordingSession;
 
   // Log recording data on mount
   React.useEffect(() => {
@@ -1670,6 +1671,12 @@ const RecordingView = () => {
             // Use the verse that was captured when recording started
             // This ensures we use the correct verse for middle-of-list recordings
             const verseToUse = currentRecordingVerseRef.current;
+            const metadataToSave = {
+              ...(verseToUse ? { verse: verseToUse } : {}),
+              ...(recordingSessionId
+                ? { recordingSessionId: recordingSessionId }
+                : {})
+            };
 
             const newAssetId = await saveRecording({
               questId: currentQuestId,
@@ -1679,7 +1686,8 @@ const RecordingView = () => {
               orderIndex: targetOrder,
               audioUri: localUri,
               assetName: assetName, // Pass the reserved name
-              metadata: verseToUse ? { verse: verseToUse } : null // Pass verse metadata if provided
+              metadata:
+                Object.keys(metadataToSave).length > 0 ? metadataToSave : null
             });
 
             // Log the saved asset details
@@ -1759,6 +1767,7 @@ const RecordingView = () => {
       currentUser,
       queryClient,
       targetLanguoidId,
+      recordingSessionId,
       addSessionAsset,
       saveNameCounter,
       getInsertionContext
