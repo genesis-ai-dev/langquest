@@ -243,7 +243,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
               >
                 <View style={styles.tabIconContainer}>
                   <Icon
-                    name="filter"
+                    name="funnel"
                     size={24}
                     color={
                       activeTab === 'filter' ? colors.primary : colors.text

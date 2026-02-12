@@ -477,7 +477,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
               placeholder={t('searchLanguages') || 'Search languages...'}
-              prefix={SearchIcon}
+              prefix="search"
               size="sm"
               className="border-0"
               autoCapitalize="none"
@@ -527,7 +527,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                 onPress={() => handleValueChange(item)}
               >
                 <Icon
-                  name="plus-circle"
+                  name="circle-plus"
                   className="mr-2 text-primary"
                   size={20}
                 />

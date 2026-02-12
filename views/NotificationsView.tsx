@@ -938,7 +938,7 @@ export default function NotificationsView() {
                   </View>
                   {!shouldDownload && (
                     <View style={styles.warningContainer}>
-                      <Icon name="alert-triangle" size={16} color={colors.alert} />
+                      <Icon name="triangle-alert" size={16} color={colors.alert} />
                       <Text style={styles.warningText}>
                         {t('projectNotAvailableOfflineWarning')}
                       </Text>
@@ -1134,7 +1134,7 @@ export default function NotificationsView() {
                     onPress={goToProjects}
                     className="mt-4"
                   >
-                    <Icon name="home" className="text-primary-foreground" />
+                    <Icon name="house" className="text-primary-foreground" />
                   </Button>
                 </View>
               </View>

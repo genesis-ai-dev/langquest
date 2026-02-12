@@ -420,7 +420,7 @@ export const RecordingControls = React.memo(
               </Button>
               <Tooltip>
                 <TooltipTrigger hitSlop={10}>
-                  <Icon name="circle-help" size={20} />
+                  <Icon name="circle-question-mark" size={20} />
                 </TooltipTrigger>
                 <TooltipContent
                   className="w-72"

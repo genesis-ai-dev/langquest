@@ -147,7 +147,7 @@ export default function NextGenTranslationsList({
             onPress={toggleSortOrder}
           >
             <Icon
-              as={
+              name={
                 sortOrder === 'asc'
                   ? 'arrow-up-narrow-wide'
                   : 'arrow-down-wide-narrow'

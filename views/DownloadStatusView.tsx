@@ -155,7 +155,7 @@ export default function DownloadStatusView() {
             {powerSyncStatus.hasSynced === false && (
               <View className="flex-row items-center gap-2 rounded-md bg-yellow-500/20 p-2">
                 <Icon
-                  name="alert-triangle"
+                  name="triangle-alert"
                   size={16}
                   className="text-yellow-500"
                 />

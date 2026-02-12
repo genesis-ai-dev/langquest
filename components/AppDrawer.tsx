@@ -298,7 +298,7 @@ export default function AppDrawer({
       {
         name: t('projects'),
         view: 'projects',
-        icon: 'home',
+        icon: 'house',
         onPress: handleGoToProjects
       }
     ];
@@ -322,7 +322,7 @@ export default function AppDrawer({
         {
           name: t('settings'),
           view: 'settings',
-          icon: SettingsIcon,
+          icon: 'settings',
           onPress: handleGoToSettings
         }
       );
@@ -330,7 +330,7 @@ export default function AppDrawer({
       // Anonymous user - show Sign In button prominently
       items.push({
         name: t('signIn') || 'Sign In',
-        icon: UserIcon,
+        icon: 'user',
         onPress: handleSignIn
       });
     }
@@ -348,7 +348,7 @@ export default function AppDrawer({
       items.push({
         name: 'Diagnostics',
         view: 'corrupted-attachments',
-        icon: 'alert-triangle',
+        icon: 'triangle-alert',
         onPress: handleGoToCorruptedAttachments
       });
     }
@@ -397,7 +397,7 @@ export default function AppDrawer({
         <View className="flex flex-col gap-4 pt-4">
           {/* Degraded Mode Warning */}
           {isDegraded && (
-            <Alert variant="warn" icon="alert-triangle">
+            <Alert variant="warn" icon="triangle-alert">
               <AlertTitle>Degraded Mode</AlertTitle>
               <AlertDescription>
                 Please update the app to fix database issues and enable sync.

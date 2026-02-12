@@ -118,7 +118,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             value={projectData?.private ?? false}
             onChange={() => handleToggleStatus('private')}
             disabled={isLoading || !isOwner}
-            icon={projectData?.private ? LockIcon : UnlockIcon}
+            icon={projectData?.private ? 'lock' : 'lock-open'}
           />
 
           <SwitchBox

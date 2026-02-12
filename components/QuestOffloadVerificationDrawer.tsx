@@ -8,13 +8,13 @@ import {
     DrawerScrollView,
     DrawerTitle
 } from '@/components/ui/drawer';
-import { Icon } from '@/components/ui/icon';
+import { Icon, type LucideIconName } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { VerificationState } from '@/hooks/useQuestOffloadVerification';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
     runOnJS,
     useAnimatedReaction,
@@ -48,6 +48,8 @@ function CategoryRow({
   hasError,
   showCount = true
 }: CategoryRowProps) {
+  const primaryColor = useThemeColor('primary');
+  
   const animatedTextStyle = useAnimatedStyle(() => {
     return {
       opacity: isVerifying ? 0.5 : 1
@@ -89,11 +91,7 @@ function CategoryRow({
         )}
 
         {isVerifying && (
-          <Icon
-            name="loader-2"
-            size={14}
-            className="animate-spin text-primary"
-          />
+          <ActivityIndicator size="small" color={primaryColor} />
         )}
         {isFullyVerified && (
           <Icon name="cloud" size={14} className="text-green-600" />
@@ -102,7 +100,7 @@ function CategoryRow({
           <Icon name="cloud-upload" size={14} className="text-yellow-600" />
         )}
         {hasError && (
-          <Icon name="alert-circle" size={14} className="text-destructive" />
+          <Icon name="circle-alert" size={14} className="text-destructive" />
         )}
         {!isVerifying && !hasError && count === 0 && (
           <Icon
@@ -373,7 +371,7 @@ export function QuestOffloadVerificationDrawer({
                 <View className="mb-2 min-h-10 rounded-lg bg-destructive/10 p-3">
                   <View className="mb-2 flex-row items-center gap-2">
                     <Icon
-                      name="alert-circle"
+                      name="circle-alert"
                       size={20}
                       className="text-destructive"
                     />

@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useThemeColor } from '@/utils/styleUtils';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
     cleanupAllCorrupted,
@@ -11,11 +12,13 @@ import {
 } from '@/services/corruptedAttachmentsService';
 import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
   const { goToProjects } = useAppNavigation();
+  const primaryColor = useThemeColor('primary');
+  const destructiveForegroundColor = useThemeColor('destructive-foreground');
   const [corrupted, setCorrupted] = useState<CorruptedAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -199,7 +202,7 @@ export default function CorruptedAttachmentsView() {
     return (
       <View className="flex-1 bg-background">
         <View className="flex-1 items-center justify-center">
-          <Icon name="loader-2" size={40} className="animate-spin text-primary" />
+          <ActivityIndicator size="large" color={primaryColor} />
           <Text className="mt-4 text-muted-foreground">
             {t('scanningCorruptedAttachments')}
           </Text>
@@ -218,7 +221,7 @@ export default function CorruptedAttachmentsView() {
             onPress={goToProjects}
             className="self-start"
           >
-            <Icon name="home" className="text-primary-foreground" />
+            <Icon name="house" className="text-primary-foreground" />
           </Button>
         </View>
         <ScrollView
@@ -253,11 +256,11 @@ export default function CorruptedAttachmentsView() {
           onPress={goToProjects}
           className="mb-4 self-start"
         >
-          <Icon name="home" className="text-primary-foreground" />
+          <Icon name="house" className="text-primary-foreground" />
         </Button>
 
         <View className="mb-4 flex-row items-center gap-3">
-          <Icon name="alert-triangle" size={24} className="text-destructive" />
+          <Icon name="triangle-alert" size={24} className="text-destructive" />
           <Text className="flex-1 text-xl font-bold text-foreground">
             {t('corruptedAttachments')}
           </Text>
@@ -282,7 +285,7 @@ export default function CorruptedAttachmentsView() {
           >
             {cleaningAll ? (
               <>
-                <Icon name="loader-2" className="animate-spin" />
+                <ActivityIndicator size="small" color={destructiveForegroundColor} />
                 <Text className="font-bold text-destructive-foreground">
                   {t('cleaning')}
                 </Text>
@@ -427,11 +430,7 @@ export default function CorruptedAttachmentsView() {
                     >
                       {isCleaning ? (
                         <>
-                          <Icon
-                            name="loader-2"
-                            className="animate-spin"
-                            size={16}
-                          />
+                          <ActivityIndicator size="small" color={destructiveForegroundColor} />
                           <Text className="text-sm font-bold text-destructive-foreground">
                             {t('cleaning')}
                           </Text>

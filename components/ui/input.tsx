@@ -45,18 +45,19 @@ const inputTextVariants = cva(
   }
 );
 
-const iconSizeVariants = cva(undefined, {
-  variants: {
-    size: {
-      sm: 16,
-      default: 20,
-      lg: 24
-    }
-  },
-  defaultVariants: {
-    size: 'default'
+const getIconSize = (size?: 'sm' | 'default' | 'lg' | null): number => {
+  switch (size) {
+    case 'sm':
+      return 16;
+    case 'lg':
+      return 24;
+    case 'default':
+    case null:
+    case undefined:
+    default:
+      return 20;
   }
-});
+};
 
 const prefixUnstyledVariants = cva('', {
   variants: {
@@ -183,7 +184,7 @@ const Input = React.forwardRef<
               <Icon
                 name={prefix as LucideIconName}
                 className="text-muted-foreground"
-                size={iconSizeVariants({ size })}
+                size={getIconSize(size)}
               />
             )}
           </View>
@@ -227,7 +228,7 @@ const Input = React.forwardRef<
           >
             <Icon
               name={showPassword ? 'eye-off' : 'eye'}
-              className={iconSizeVariants({ size })}
+              className={getIconSize(size).toString()}
             />
           </ButtonPressable>
         )}
@@ -245,7 +246,7 @@ const Input = React.forwardRef<
             ) : (
               <Icon
                 name={suffix as LucideIconName}
-                className={iconSizeVariants({ size })}
+                className={getIconSize(size).toString()}
               />
             )}
           </View>

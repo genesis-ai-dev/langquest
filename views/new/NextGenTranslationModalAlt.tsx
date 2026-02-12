@@ -531,12 +531,12 @@ export default function NextGenTranslationModal({
                           className="p-2"
                         >
                           <Icon
-                            as={
+                            name={
                               hasAccess
                                 ? isEditing
-                                  ? XIcon
-                                  : PencilIcon
-                                : LockIcon
+                                  ? 'x'
+                                  : 'pencil'
+                                : 'lock'
                             }
                             className={
                               hasAccess
@@ -652,7 +652,7 @@ export default function NextGenTranslationModal({
                       !hasReported &&
                       // Show login prompt for anonymous users
                       (!isAuthenticated ? (
-                        <Alert icon={UserCircleIcon}>
+                        <Alert icon="circle-user">
                           <AlertTitle>
                             {t('pleaseLogInToVoteOnTranslations')}
                           </AlertTitle>

@@ -83,7 +83,7 @@ function ToggleIcon({
   className,
   icon,
   ...props
-}: { icon: LucideIconName; className?: string } & React.ComponentProps<typeof Icon>) {
+}: { icon: LucideIconName; className?: string } & Omit<React.ComponentProps<typeof Icon>, 'name'>) {
   const textClass = React.useContext(TextClassContext);
   return <Icon name={icon} className={cn(textClass, className)} {...props} />;
 }

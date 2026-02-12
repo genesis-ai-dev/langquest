@@ -712,7 +712,7 @@ export default function NextGenNewTranslationModal({
                     value="text"
                     className="flex-1 items-center py-2"
                   >
-                    <Icon name="text" size={20} />
+                    <Icon name="type" size={20} />
                     <Text className="text-base">{t('text')}</Text>
                   </TabsTrigger>
                   <TabsTrigger

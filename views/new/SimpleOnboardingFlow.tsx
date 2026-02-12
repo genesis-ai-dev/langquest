@@ -264,7 +264,7 @@ export function SimpleOnboardingFlow({
               <AnimatedStepContent>
                 <View className="items-center gap-4">
                   <AnimatedOnboardingIcon
-                    icon={BookOpenIcon}
+                    icon="book-open"
                     size={48}
                     animationType="float"
                   />
@@ -336,7 +336,7 @@ export function SimpleOnboardingFlow({
               <AnimatedStepContent>
                 <View className="items-center gap-4">
                   <AnimatedOnboardingIcon
-                    icon={BookOpenIcon}
+                    icon="book-open"
                     size={48}
                     animationType="float"
                   />
@@ -460,7 +460,7 @@ export function SimpleOnboardingFlow({
               <AnimatedStepContent>
                 <View className="items-center gap-4">
                   <AnimatedOnboardingIcon
-                    icon={UserPlusIcon}
+                    icon="user-plus"
                     size={48}
                     animationType="pulse"
                   />
@@ -493,7 +493,7 @@ export function SimpleOnboardingFlow({
                       </View>
                       <View className="flex-row items-center gap-3">
                         <Icon
-                          name="circle-help"
+                          name="circle-question-mark"
                           size={24}
                           className="text-primary"
                         />

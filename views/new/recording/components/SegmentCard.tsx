@@ -39,7 +39,7 @@ export const SegmentCard = React.memo(function SegmentCard({
       {/* Play button */}
       <Button variant="ghost" size="icon-sm" onPress={onPlay}>
         <Icon
-          as={isPlaying ? Pause : Play}
+          name={isPlaying ? 'pause' : 'play'}
           size={14}
           className={isPlaying ? 'text-primary' : 'text-foreground'}
         />

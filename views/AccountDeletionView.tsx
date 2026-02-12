@@ -140,7 +140,7 @@ export default function AccountDeletionView() {
             </Text>
           </View>
           <Button variant="ghost" size="icon" onPress={goToProjects}>
-            <Icon name="home" size={24} className="text-foreground" />
+            <Icon name="house" size={24} className="text-foreground" />
           </Button>
         </View>
 
@@ -154,7 +154,7 @@ export default function AccountDeletionView() {
         {/* Step 1: Warning and Information */}
         {step === 1 && (
           <View className="flex flex-col gap-6">
-            <Alert icon="alert-triangle" variant="destructive">
+            <Alert icon="triangle-alert" variant="destructive">
               <AlertTitle>{t('accountDeletionWarning')}</AlertTitle>
             </Alert>
 
@@ -179,7 +179,7 @@ export default function AccountDeletionView() {
         {/* Step 2: Final Confirmation */}
         {step === 2 && (
           <View className="flex flex-col gap-6">
-            <Alert icon="alert-triangle" variant="destructive">
+            <Alert icon="triangle-alert" variant="destructive">
               <AlertTitle>{t('accountDeletionConfirm')}</AlertTitle>
             </Alert>
 

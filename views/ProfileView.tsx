@@ -232,7 +232,7 @@ export default function ProfileView() {
             {t('profile')}
           </Text>
           <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon name="home" className="text-primary-foreground" />
+            <Icon name="house" className="text-primary-foreground" />
           </Button>
         </View>
         {__DEV__ && (
@@ -483,7 +483,7 @@ export default function ProfileView() {
             >
               <View className="flex flex-row items-center gap-2">
                 <Icon
-                  name="more-vertical"
+                  name="ellipsis-vertical"
                   size={20}
                   className="text-muted-foreground"
                 />

@@ -93,25 +93,25 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   const getIconAndColor = () => {
     if (isFlaggedForDownload) {
       return {
-        Icon: CircleCheckIcon,
+        iconName: 'circle-check' as const,
         className: iconColor || 'text-primary'
       };
     }
 
     if (showProgress && progressPercentage > 0) {
       return {
-        Icon: CircleArrowDownIcon,
+        iconName: 'circle-arrow-down' as const,
         className: iconColor || 'text-accent'
       };
     }
 
     return {
-      Icon: CircleArrowDownIcon,
+      iconName: 'circle-arrow-down' as const,
       className: iconColor || (isDisabled ? 'text-muted' : 'text-foreground')
     };
   };
 
-  const { Icon: IconComponent, className: iconClassName } = getIconAndColor();
+  const { iconName, className: iconClassName } = getIconAndColor();
 
   return (
     <>

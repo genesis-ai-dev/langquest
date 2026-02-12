@@ -192,7 +192,6 @@ const SelectItem = React.forwardRef<
           <Icon
             name="check"
             size={16}
-            strokeWidth={3}
             className="text-popover-foreground"
           />
         </SelectPrimitive.ItemIndicator>

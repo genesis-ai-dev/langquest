@@ -25,7 +25,7 @@ export function AddVerseLabelButton({
           disabled ? 'opacity-40' : ''
         }`}
       >
-        <Icon name="plus-circle" size={12} className="text-primary/70" />
+        <Icon name="circle-plus" size={12} className="text-primary/70" />
         <Text className="text-[10.5px] font-semibold text-primary/70">
           Add verse
         </Text>

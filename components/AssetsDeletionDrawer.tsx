@@ -66,7 +66,7 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
         <DrawerHeader className="items-center">
           <View className="mb-4 rounded-full bg-destructive/10 p-4">
             <Icon
-              name="alert-triangle"
+              name="triangle-alert"
               size={32}
               className="text-destructive"
             />

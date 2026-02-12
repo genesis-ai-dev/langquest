@@ -66,7 +66,7 @@ export function VerseSeparator({
           className={`mx-2 flex-row items-center gap-1.5 rounded-full border px-3 py-1 ${unassignedBgClass}`}
         >
           <Icon
-            name="alert-circle"
+            name="circle-alert"
             size={14}
             className={
               isSelectedForRecording ? 'text-primary' : 'text-amber-600/70'

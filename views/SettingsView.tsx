@@ -416,7 +416,7 @@ export default function SettingsView() {
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>
           <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon name="home" className="text-primary-foreground" />
+            <Icon name="house" className="text-primary-foreground" />
           </Button>
         </View>
 

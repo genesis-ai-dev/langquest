@@ -243,7 +243,7 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
               >
                 <View style={styles.tabIconContainer}>
                   <Icon
-                    name="filter"
+                    name="funnel"
                     size={24}
                     color={
                       activeTab === 'filter' ? colors.primary : colors.text

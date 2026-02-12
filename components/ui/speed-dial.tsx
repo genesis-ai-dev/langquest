@@ -88,7 +88,6 @@ function SpeedDialTrigger({
       >
         <Icon
           name={open ? iconOpen : iconClosed}
-          strokeWidth={2.5}
           size={20}
           className="text-secondary"
         />
@@ -186,7 +185,6 @@ function SpeedDialItem({
         <Icon
           name={icon}
           size={20}
-          strokeWidth={2.5}
           className="text-secondary"
         />
       </Button>

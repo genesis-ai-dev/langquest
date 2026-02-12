@@ -220,7 +220,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               value={assetQuestData?.visible ?? false}
               onChange={() => handleToggleStatusQuest('visible')}
               disabled={isLoading || !isOwner || !assetData?.active}
-              icon={assetQuestData?.visible ? EyeIcon : EyeOffIcon}
+              icon={assetQuestData?.visible ? 'eye' : 'eye-off'}
             />
 
             <SwitchBox

@@ -120,7 +120,7 @@ export function BibleBookList({
         {/* Add plus icon for createable books */}
         {!bookExists && canCreateNew && (
           <Icon
-            name="plus-circle"
+            name="circle-plus"
             size={14}
             className="absolute -right-1 -top-1 text-primary"
           />

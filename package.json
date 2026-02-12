@@ -20,7 +20,7 @@
     "rebuild-android": "git clean -xdf node_modules package-lock.json android ios && npm i && npx expo prebuild --platform android && cd android && gradlew clean && cd ..",
     "android": "expo run:android --variant debugOptimized --device",
     "android:preview": "npx cross-env EXPO_PUBLIC_APP_VARIANT=preview expo run:android --device --variant release",
-    "android:releasre": "npx cross-env EXPO_PUBLIC_APP_VARIANT=production expo run:android --device --variant release",
+    "android:release": "npx cross-env EXPO_PUBLIC_APP_VARIANT=production expo run:android --device --variant release",
     "ios": "expo run:ios --device",
     "ios:preview": "npx cross-env EXPO_PUBLIC_APP_VARIANT=preview expo run:ios --device --variant release",
     "ios:release": "npx cross-env EXPO_PUBLIC_APP_VARIANT=production expo run:ios --device --variant release",

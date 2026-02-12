@@ -11,12 +11,12 @@ import { AttachmentState } from '@powersync/attachments';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
-    cancelAnimation,
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { Button } from './ui/button';
 
@@ -237,7 +237,7 @@ export default function AppHeader({
             hitSlop={10}
           >
             <Icon
-              name="help-circle"
+              name="circle-question-mark"
               className="size-6 text-muted-foreground"
             />
           </Button>
@@ -262,7 +262,11 @@ export default function AppHeader({
             ) : hasSyncError ? (
               <Pressable onPress={handleSyncErrorTap} hitSlop={10}>
                 <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
-                  <Icon name="alert-triangle" size={10} className="text-white" />
+                  <Icon
+                    name="triangle-alert"
+                    size={10}
+                    className="text-white"
+                  />
                 </View>
               </Pressable>
             ) : isSyncing ? (

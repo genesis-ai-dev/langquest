@@ -11,10 +11,10 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { DiscoveryState } from '@/hooks/useQuestDownloadDiscovery';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { LucideIconName } from '@react-native-vector-icons/lucide';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import Animated, {
     runOnJS,
     useAnimatedReaction,
@@ -45,6 +45,8 @@ function CategoryRow({
   hasError,
   showCount = true
 }: CategoryRowProps) {
+  const primaryColor = useThemeColor('primary');
+  
   const animatedTextStyle = useAnimatedStyle(() => {
     return {
       opacity: isLoading ? 0.5 : 1
@@ -81,17 +83,13 @@ function CategoryRow({
         )}
 
         {isLoading && (
-          <Icon
-            name="loader-2"
-            size={16}
-            className="animate-spin text-primary"
-          />
+          <ActivityIndicator size="small" color={primaryColor} />
         )}
         {!isLoading && !hasError && (
           <Icon name="circle-check" size={16} className="text-green-600" />
         )}
         {hasError && (
-          <Icon name="alert-circle" size={16} className="text-destructive" />
+          <Icon name="circle-alert" size={16} className="text-destructive" />
         )}
       </View>
     </View>

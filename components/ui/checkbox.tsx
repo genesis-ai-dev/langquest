@@ -41,7 +41,6 @@ function Checkbox({
         <Icon
           name="check"
           size={12}
-          strokeWidth={Platform.OS === 'web' ? 2.5 : 3.5}
           className={cn('text-primary-foreground', iconClassName)}
         />
       </CheckboxPrimitive.Indicator>

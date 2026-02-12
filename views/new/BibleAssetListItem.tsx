@@ -259,7 +259,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       <Icon
-        name={isSelected ? 'check-square' : 'square'}
+        name={isSelected ? 'square-check' : 'square'}
         size={22}
         className={isSelected ? 'text-primary' : 'text-muted-foreground'}
       />
