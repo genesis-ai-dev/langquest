@@ -12,16 +12,7 @@ import {
   spacing
 } from '@/styles/theme';
 import { Icon } from '@/components/ui/icon';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  Filter,
-  Trash2,
-  ArrowUpDown
-} from 'lucide-react-native';
+import { ChevronUp, ChevronDown, CheckCircle2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -101,7 +92,7 @@ const CategorySection: React.FC<{
         <Icon
           as={isExpanded ? ChevronUp : ChevronDown}
           size={24}
-          color={colors.text}
+          className="text-foreground"
         />
       </TouchableOpacity>
 
@@ -119,7 +110,7 @@ const CategorySection: React.FC<{
                   <Icon
                     as={CheckCircle2}
                     size={24}
-                    color={colors.primary}
+                    className="text-primary"
                   />
                 ) : (
                   <View style={styles.emptyCheckbox} />
@@ -255,9 +246,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                   <Icon
                     as={Filter}
                     size={24}
-                    color={
-                      activeTab === 'filter' ? colors.primary : colors.text
-                    }
+                    className={activeTab === 'filter' ? 'text-primary' : 'text-foreground'}
                   />
                   {getActiveFiltersCount() > 0 && (
                     <View style={sharedStyles.badge}>
@@ -276,7 +265,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                   <Icon
                     as={ArrowUpDown}
                     size={24}
-                    color={activeTab === 'sort' ? colors.primary : colors.text}
+                    className={activeTab === 'sort' ? 'text-primary' : 'text-foreground'}
                   />
                   {getActiveSortingCount() > 0 && (
                     <View style={sharedStyles.badge}>
@@ -350,7 +339,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                             : ArrowDown
                         }
                         size={24}
-                        color={colors.text}
+                        className="text-foreground"
                       />
                     </TouchableOpacity>
                     {sortingOptions[index]?.field && (
@@ -361,7 +350,7 @@ export const QuestFilterModal: React.FC<QuestFilterModalProps> = ({
                         <Icon
                           as={Trash2}
                           size={24}
-                          color={colors.error}
+                          className="text-destructive"
                         />
                       </TouchableOpacity>
                     )}

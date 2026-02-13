@@ -1,5 +1,5 @@
-import { Icon } from '@/components/ui/icon';
 import { borderRadius, colors, spacing } from '@/styles/theme';
+import { Icon } from '@/components/ui/icon';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import React, { useRef, useState } from 'react';
@@ -50,7 +50,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
           onPress={() => pagerRef.current?.setPage(currentPage - 1)}
           disabled={currentPage === 0}
         >
-          <Icon as={ChevronLeft} size={20} color={colors.text} />
+          <Icon as={ChevronLeft} size={20} className="text-foreground" />
         </TouchableOpacity>
         <View style={styles.paginationContainer}>
           {items.map((_, index) => (
@@ -72,7 +72,7 @@ function Carousel<T>({ items, renderItem, onPageChange }: CarouselProps<T>) {
           onPress={() => pagerRef.current?.setPage(currentPage + 1)}
           disabled={currentPage === items.length - 1}
         >
-          <Icon as={ChevronRight} size={20} color={colors.text} />
+          <Icon as={ChevronRight} size={20} className="text-foreground" />
         </TouchableOpacity>
       </View>
     </View>

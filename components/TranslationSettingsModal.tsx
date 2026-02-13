@@ -123,7 +123,7 @@ export const TranslationSettingsModal: React.FC<
                   {'Translation Settings'}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Icon as={X} size={24} color={colors.text} />
+                  <Icon as={X} size={24} className="text-foreground" />
                 </TouchableOpacity>
               </View>
 

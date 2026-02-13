@@ -942,7 +942,7 @@ export default function NotificationsView() {
                   </View>
                   {!shouldDownload && (
                     <View style={styles.warningContainer}>
-                      <Icon as={AlertTriangle} size={16} color={colors.alert} />
+                      <Icon as={AlertTriangle} size={16} className="text-alert" />
                       <Text style={styles.warningText}>
                         {t('projectNotAvailableOfflineWarning')}
                       </Text>

@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Icon } from '@/components/ui/icon';
-import { Pause, Play, Type } from 'lucide-react-native';
+import { Play, Pause, FileText } from 'lucide-react-native';
 import { setAudioModeAsync } from 'expo-audio';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -91,7 +91,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <Icon
               as={isThisAudioPlaying ? Pause : Play}
               size={mini ? 24 : 48}
-              color={colors.text}
+              className="text-foreground"
             />
           </Button>
           {onTranscribe && (
@@ -111,9 +111,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 />
               ) : (
                 <Icon
-                  as={Type}
+                  as={FileText}
                   size={mini ? 18 : 28}
-                  color={colors.background}
+                  className="text-background"
                 />
               )}
             </Button>

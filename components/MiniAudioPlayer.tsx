@@ -4,8 +4,7 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
-import { Icon } from '@/components/ui/icon';
-import { Pause, Play, SparklesIcon } from 'lucide-react-native';
+import { Play, Pause, SparklesIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -64,7 +63,7 @@ export default function MiniAudioPlayer({
         <Icon
           as={isThisAudioPlaying ? Pause : Play}
           size={24}
-          color={colors.text}
+          className="text-foreground"
         />
       </Button>
       {onTranscribe && (

@@ -1,5 +1,5 @@
 import { Icon } from '@/components/ui/icon';
-import { PlayCircle, StopCircle } from 'lucide-react-native';
+import { StopCircle, PlayCircle } from 'lucide-react-native';
 import {
   RecordingPresets,
   setAudioModeAsync,
@@ -175,7 +175,7 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
         <Icon
           as={isActive ? StopCircle : PlayCircle}
           size={40}
-          color="white"
+          className="text-white"
         />
         <Text style={styles.buttonText}>
           {isActive ? 'Stop Energy Detection' : 'Start Energy Detection'}

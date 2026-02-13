@@ -1,6 +1,6 @@
-import { Icon } from '@/components/ui/icon';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { ChevronDown, ChevronUp, Pause, Play, Trash2 } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
+import { ChevronUp, ChevronDown, Play, Pause, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import WaveformVisualizer from './WaveformVisualizer';
@@ -52,7 +52,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           <Icon
             as={ChevronUp}
             size={20}
-            color={canMoveUp ? colors.text : colors.textSecondary}
+            className={canMoveUp ? 'text-foreground' : 'text-muted-foreground'}
           />
         </TouchableOpacity>
 
@@ -64,7 +64,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           <Icon
             as={ChevronDown}
             size={20}
-            color={canMoveDown ? colors.text : colors.textSecondary}
+            className={canMoveDown ? 'text-foreground' : 'text-muted-foreground'}
           />
         </TouchableOpacity>
       </View>
@@ -102,7 +102,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
               <Icon
                 as={isPlaying ? Pause : Play}
                 size={20}
-                color={colors.primary}
+                className="text-primary"
               />
             </TouchableOpacity>
           )}
@@ -111,7 +111,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
             style={styles.deleteButton}
             onPress={() => onDelete(segment.id)}
           >
-            <Icon as={Trash2} size={20} color={colors.error} />
+            <Icon as={Trash2} size={20} className="text-destructive" />
           </TouchableOpacity>
         </View>
       </View>

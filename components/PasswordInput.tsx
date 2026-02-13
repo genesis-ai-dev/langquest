@@ -42,7 +42,7 @@ export const PasswordInput = ({
         <Icon
           as={showPassword ? EyeOff : Eye}
           size={24}
-          color={placeholderTextColor}
+          className="text-muted-foreground"
           style={{ opacity: 0.7 }}
         />
       </Button>

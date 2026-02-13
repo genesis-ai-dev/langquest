@@ -1,5 +1,5 @@
-import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/theme';
+import { Icon } from '@/components/ui/icon';
 import type { LucideIcon } from 'lucide-react-native';
 import { Menu, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -169,7 +169,7 @@ export const FloatingMenu = ({
           <Icon
             as={isOpen ? X : Menu}
             size={20}
-            color={colors.text}
+            className="text-foreground"
           />
         </TouchableOpacity>
       </Animated.View>
@@ -178,6 +178,7 @@ export const FloatingMenu = ({
 };
 
 const ItemButton = ({ icon, action }: FloatingMenuItem) => {
+  const IconComponent = icon;
   return (
     <TouchableOpacity
       style={styles.menuButton}
@@ -185,7 +186,7 @@ const ItemButton = ({ icon, action }: FloatingMenuItem) => {
       activeOpacity={0.7}
     >
       <View style={styles.buttonBackground}></View>
-      <Icon as={icon} size={20} color={colors.text} />
+      <Icon as={IconComponent} size={20} className="text-foreground" />
     </TouchableOpacity>
   );
 };

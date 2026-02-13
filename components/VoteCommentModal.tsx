@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
 import { Icon } from '@/components/ui/icon';
-import { ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -72,7 +72,7 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
                 <Icon
                   as={voteType === 'up' ? ThumbsUp : ThumbsDown}
                   size={40}
-                  color={colors.primary}
+                  className="text-primary"
                   style={styles.icon}
                 />
                 <TextInput
