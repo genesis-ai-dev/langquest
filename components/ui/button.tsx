@@ -1,25 +1,35 @@
 import { TextClassContext } from '@/components/ui/text';
+import { easeButton, easeOut } from '@/constants/animations';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
-import type { BaseSyntheticEvent } from 'react';
 import * as React from 'react';
-import { ActivityIndicator, Pressable, TouchableOpacity } from 'react-native';
+import type { GestureResponderEvent, Pressable } from 'react-native';
+import { ActivityIndicator, Pressable as RNPressable } from 'react-native';
+import Animated, {
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import * as Slot from './slot';
 
+const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
+
 const buttonVariants = cva(
-  'group flex items-center justify-center rounded-md web:ring-offset-background web:transition-[transform,color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+  'group flex items-center justify-center rounded-md web:ring-offset-background web:transition-[color] web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
   {
     variants: {
       variant: {
-        default: 'bg-primary active:opacity-90 web:hover:opacity-90',
-        destructive: 'bg-destructive active:opacity-90 web:hover:opacity-90',
+        default: 'bg-primary web:hover:opacity-90',
+        destructive: 'bg-destructive web:hover:opacity-90',
         outline:
           'border border-input bg-background active:bg-accent web:hover:bg-accent web:hover:text-accent-foreground',
-        secondary: 'bg-secondary active:opacity-80 web:hover:opacity-80',
+        secondary: 'bg-secondary web:hover:opacity-80',
         ghost:
           'active:bg-accent web:hover:bg-accent web:hover:text-accent-foreground',
-        link: 'active:scale-100 web:underline-offset-4 web:hover:underline web:focus:underline'
+        link: 'web:underline-offset-4 web:hover:underline web:focus:underline',
+        plain: ''
       },
       size: {
         sm: 'h-10 rounded-md px-3',
@@ -29,7 +39,8 @@ const buttonVariants = cva(
         icon: 'size-10',
         'icon-lg': 'size-12',
         'icon-xl': 'size-14',
-        'icon-2xl': 'size-16'
+        'icon-2xl': 'size-16',
+        auto: ''
       }
     },
     defaultVariants: {
@@ -50,7 +61,8 @@ const buttonTextVariants = cva(
         secondary:
           'text-secondary-foreground group-active:text-secondary-foreground',
         ghost: 'group-active:text-accent-foreground',
-        link: 'text-primary group-active:underline'
+        link: 'text-primary group-active:underline',
+        plain: 'text-primary'
       },
       size: {
         default: '',
@@ -60,7 +72,8 @@ const buttonTextVariants = cva(
         icon: '',
         'icon-lg': '',
         'icon-xl': '',
-        'icon-2xl': ''
+        'icon-2xl': '',
+        auto: ''
       }
     },
     defaultVariants: {
@@ -70,18 +83,178 @@ const buttonTextVariants = cva(
   }
 );
 
-const ButtonPressable = Pressable;
-
-const ButtonPressableOpacity = TouchableOpacity;
-
-type ButtonPressableProps = Omit<
-  React.ComponentPropsWithoutRef<typeof Pressable>,
-  'onPress'
+type ButtonPressableComponentProps = React.ComponentPropsWithoutRef<
+  typeof RNPressable
 > & {
+  ref?: React.ComponentRef<typeof RNPressable>;
+  disabled?: boolean;
+  className?: string;
+};
+
+/**
+ * ButtonPressable - A Pressable component with built-in scale animation on press
+ * Handles scale animation on press (0.97 scale) with smooth transitions
+ * Uses react-native-reanimated on all platforms (native and web)
+ */
+const ButtonPressable = React.forwardRef<
+  React.ComponentRef<typeof RNPressable>,
+  ButtonPressableComponentProps
+>(({ disabled, onPressIn, onPressOut, style, className, ...props }, ref) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(disabled ? 0.5 : 1);
+
+  useAnimatedReaction(
+    () => disabled,
+    (isDisabled) => {
+      opacity.set(
+        withTiming(isDisabled ? 0.5 : 1, {
+          duration: 160,
+          easing: easeButton
+        })
+      );
+    }
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.get() }],
+    opacity: opacity.get()
+  }));
+
+  return (
+    <AnimatedPressable
+      ref={ref}
+      disabled={disabled}
+      onPressIn={(e: GestureResponderEvent) => {
+        if (!disabled) {
+          scale.set(
+            withTiming(0.97, {
+              duration: 160,
+              easing: easeButton
+            })
+          );
+          opacity.set(
+            withTiming(0.9, {
+              duration: 160,
+              easing: easeButton
+            })
+          );
+        }
+        onPressIn?.(e);
+      }}
+      onPressOut={(e: GestureResponderEvent) => {
+        if (!disabled) {
+          scale.set(
+            withTiming(1, {
+              duration: 160,
+              easing: easeButton
+            })
+          );
+          opacity.set(
+            withTiming(1, {
+              duration: 160,
+              easing: easeButton
+            })
+          );
+        }
+        onPressOut?.(e);
+      }}
+      style={[animatedStyle, style]}
+      className={className}
+      {...props}
+    />
+  );
+});
+
+ButtonPressable.displayName = 'ButtonPressable';
+
+type PressableOpacityProps = React.ComponentPropsWithoutRef<
+  typeof RNPressable
+> & {
+  ref?: React.ComponentRef<typeof RNPressable>;
+  disabled?: boolean;
+  activeOpacity?: number;
+  className?: string;
+};
+
+/**
+ * PressableOpacity - A Pressable component with opacity animation on press
+ * Similar to TouchableOpacity but uses react-native-reanimated for better performance
+ * Uses opacity animation (default 0.7) on press with smooth transitions
+ */
+const PressableOpacity = React.forwardRef<
+  React.ComponentRef<typeof RNPressable>,
+  PressableOpacityProps
+>(
+  (
+    {
+      disabled,
+      activeOpacity = 0.4, // official TouchableOpacity default is 0.2
+      onPressIn,
+      onPressOut,
+      style,
+      className,
+      ...props
+    },
+    ref
+  ) => {
+    const opacity = useSharedValue(disabled ? 0.5 : 1);
+
+    useAnimatedReaction(
+      () => disabled,
+      (isDisabled) => {
+        opacity.set(
+          withTiming(isDisabled ? 0.5 : 1, {
+            duration: 160,
+            easing: easeOut
+          })
+        );
+      }
+    );
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      opacity: opacity.get()
+    }));
+
+    return (
+      <AnimatedPressable
+        ref={ref}
+        disabled={disabled}
+        onPressIn={(e: GestureResponderEvent) => {
+          // if (!disabled) {
+          opacity.set(
+            withTiming(activeOpacity, {
+              duration: 160,
+              easing: easeOut
+            })
+          );
+          // }
+          onPressIn?.(e);
+        }}
+        onPressOut={(e: GestureResponderEvent) => {
+          // if (!disabled) {
+          opacity.set(
+            withTiming(1, {
+              duration: 160,
+              easing: easeOut
+            })
+          );
+          // }
+          onPressOut?.(e);
+        }}
+        style={[animatedStyle, style]}
+        className={className}
+        {...props}
+      />
+    );
+  }
+);
+
+PressableOpacity.displayName = 'PressableOpacity';
+
+type ButtonPressableProps = React.ComponentPropsWithoutRef<typeof Pressable> & {
   ref?: React.ComponentRef<typeof Pressable>;
   role?: string;
   disabled?: boolean;
-  onPress?: (e?: BaseSyntheticEvent) => void | Promise<void>;
 };
 
 type ButtonProps = ButtonPressableProps &
@@ -104,6 +277,8 @@ const Button = React.forwardRef<
       loading,
       disabled,
       asChild,
+      onPressIn: _onPressIn,
+      onPressOut: _onPressOut,
       ...props
     }: ButtonProps,
     ref
@@ -119,7 +294,8 @@ const Button = React.forwardRef<
       secondary: secondaryForeground,
       outline: accentForeground,
       ghost: accentForeground,
-      link: primaryForeground
+      link: primaryForeground,
+      plain: primaryForeground
     } as const;
 
     const isDisabled = disabled || loading;
@@ -140,34 +316,35 @@ const Button = React.forwardRef<
       </>
     );
 
-    const commonProps = {
-      className: cn(
-        'flex flex-row items-center gap-2',
-        isDisabled && 'opacity-50 web:pointer-events-none web:cursor-default',
-        buttonVariants({ variant, size, className })
-      ),
-      role: 'button' as const,
-      disabled: isDisabled,
-      ...props
-    };
+    // Use PressableOpacity for link and plain variants (subtle opacity animation)
+    // Use ButtonPressable for other variants (scale animation)
+    const Component = asChild
+      ? Slot.Pressable
+      : variant === 'link' || variant === 'plain'
+        ? PressableOpacity
+        : ButtonPressable;
 
     return (
       <TextClassContext.Provider
         value={buttonTextVariants({
           variant,
-          size,
-          className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
+          size
+          // className: cn('web:pointer-events-none', isDisabled && 'opacity-50')
         })}
       >
-        {asChild ? (
-          <Slot.Pressable {...commonProps} ref={ref}>
-            {content}
-          </Slot.Pressable>
-        ) : (
-          <Pressable {...commonProps} ref={ref}>
-            {content}
-          </Pressable>
-        )}
+        <Component
+          className={cn(
+            'flex flex-row items-center gap-2',
+            isDisabled && 'web:pointer-events-none web:cursor-default',
+            buttonVariants({ variant, size, className })
+          )}
+          role="button"
+          disabled={isDisabled}
+          {...props}
+          ref={ref}
+        >
+          {content}
+        </Component>
       </TextClassContext.Provider>
     );
   }
@@ -175,11 +352,5 @@ const Button = React.forwardRef<
 
 Button.displayName = 'Button';
 
-export {
-  Button,
-  ButtonPressable,
-  ButtonPressableOpacity,
-  buttonTextVariants,
-  buttonVariants
-};
+export { Button, ButtonPressable, buttonTextVariants, buttonVariants };
 export type { ButtonProps };

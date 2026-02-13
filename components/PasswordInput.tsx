@@ -1,7 +1,8 @@
+import { Button } from '@/components/ui/button';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 interface PasswordInputProps {
   value: string;
@@ -30,11 +31,11 @@ export const PasswordInput = ({
         style={[styles.input, { color: style?.color }]}
         placeholderTextColor={placeholderTextColor}
       />
-      <TouchableOpacity
+      <Button
+        variant="plain"
         onPress={() => {
           setShowPassword(!showPassword);
         }}
-        activeOpacity={1}
         style={styles.icon}
       >
         <Ionicons
@@ -43,7 +44,7 @@ export const PasswordInput = ({
           color={placeholderTextColor}
           style={{ opacity: 0.7 }}
         />
-      </TouchableOpacity>
+      </Button>
     </View>
   );
 };
