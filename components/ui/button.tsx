@@ -181,7 +181,7 @@ type PressableOpacityProps = React.ComponentPropsWithoutRef<
  * Similar to TouchableOpacity but uses react-native-reanimated for better performance
  * Uses opacity animation (default 0.7) on press with smooth transitions
  */
-const PressableOpacity = React.forwardRef<
+const OpacityPressable = React.forwardRef<
   React.ComponentRef<typeof RNPressable>,
   PressableOpacityProps
 >(
@@ -220,25 +220,21 @@ const PressableOpacity = React.forwardRef<
         ref={ref}
         disabled={disabled}
         onPressIn={(e: GestureResponderEvent) => {
-          // if (!disabled) {
           opacity.set(
             withTiming(activeOpacity, {
               duration: 160,
               easing: easeOut
             })
           );
-          // }
           onPressIn?.(e);
         }}
         onPressOut={(e: GestureResponderEvent) => {
-          // if (!disabled) {
           opacity.set(
             withTiming(1, {
               duration: 160,
               easing: easeOut
             })
           );
-          // }
           onPressOut?.(e);
         }}
         style={[animatedStyle, style]}
@@ -249,7 +245,7 @@ const PressableOpacity = React.forwardRef<
   }
 );
 
-PressableOpacity.displayName = 'PressableOpacity';
+OpacityPressable.displayName = 'OpacityPressable';
 
 type ButtonPressableProps = React.ComponentPropsWithoutRef<typeof Pressable> & {
   ref?: React.ComponentRef<typeof Pressable>;
@@ -321,7 +317,7 @@ const Button = React.forwardRef<
     const Component = asChild
       ? Slot.Pressable
       : variant === 'link' || variant === 'plain'
-        ? PressableOpacity
+        ? OpacityPressable
         : ButtonPressable;
 
     return (
@@ -352,5 +348,11 @@ const Button = React.forwardRef<
 
 Button.displayName = 'Button';
 
-export { Button, ButtonPressable, buttonTextVariants, buttonVariants };
+export {
+  Button,
+  ButtonPressable,
+  buttonTextVariants,
+  buttonVariants,
+  OpacityPressable
+};
 export type { ButtonProps };

@@ -73,6 +73,18 @@ export const localizations = {
     thai: 'ยอมรับ',
     mandarin: '接受'
   },
+  iAgree: {
+    english: 'I agree',
+    spanish: 'Estoy de acuerdo',
+    brazilian_portuguese: 'Eu concordo',
+    tok_pisin: 'Mi agri',
+    indonesian: 'Saya setuju',
+    nepali: 'म सहमत छु',
+    hindi: 'मैं सहमत हूं',
+    burmese: 'ကျွန်ုပ် သဘောတူပါသည်',
+    thai: 'ฉันเห็นด้วย',
+    mandarin: '我同意'
+  },
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
@@ -2634,24 +2646,24 @@ export const localizations = {
   },
   termsContributionInfo: {
     english:
-      'By accepting these terms, you agree that all content you contribute to LangQuest will be freely available worldwide under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+      'By tapping {iAgree}, you agree that all content you contribute to LangQuest will be freely available worldwide under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
     spanish:
-      'Al aceptar estos términos, acepta que todo el contenido que aporte a LangQuest estará disponible gratuitamente en todo el mundo bajo la Dedicación de Dominio Público CC0 1.0 Universal (CC0 1.0).',
+      'Al tocar {iAgree}, acepta que todo el contenido que aporte a LangQuest estará disponible gratuitamente en todo el mundo bajo la Dedicación de Dominio Público CC0 1.0 Universal (CC0 1.0).',
     brazilian_portuguese:
-      'Ao aceitar estes termos, você concorda que todo o conteúdo que você contribuir para o LangQuest estará disponível gratuitamente em todo o mundo sob a Dedicação ao Domínio Público CC0 1.0 Universal (CC0 1.0).',
+      'Ao tocar {iAgree}, você concorda que todo o conteúdo que você contribuir para o LangQuest estará disponível gratuitamente em todo o mundo sob a Dedicação ao Domínio Público CC0 1.0 Universal (CC0 1.0).',
     tok_pisin:
-      'Long akseptim ol dispela terms, yu agri long olgeta content yu contributim long LangQuest bai stap fri long olgeta hap long CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+      'Long paitim {iAgree}, yu agri long olgeta content yu contributim long LangQuest bai stap fri long olgeta hap long CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
     indonesian:
-      'Dengan menerima syarat ini, Anda setuju bahwa semua konten yang Anda kontribusikan ke LangQuest akan tersedia secara gratis di seluruh dunia di bawah CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+      'Dengan mengetuk {iAgree}, Anda setuju bahwa semua konten yang Anda kontribusikan ke LangQuest akan tersedia secara gratis di seluruh dunia di bawah CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
     nepali:
-      'यी सर्तहरू स्वीकार गरेर, तपाईं सहमत हुनुहुन्छ कि तपाईंले LangQuest मा योगदान गर्ने सबै सामग्री CC0 1.0 Universal (CC0 1.0) Public Domain Dedication अन्तर्गत विश्वव्यापी रूपमा नि:शुल्क उपलब्ध हुनेछ।',
+      '{iAgree} थिचेर, तपाईं सहमत हुनुहुन्छ कि तपाईंले LangQuest मा योगदान गर्ने सबै सामग्री CC0 1.0 Universal (CC0 1.0) Public Domain Dedication अन्तर्गत विश्वव्यापी रूपमा नि:शुल्क उपलब्ध हुनेछ।',
     hindi:
-      'इन नियमों को स्वीकार करके, आप सहमत हैं कि LangQuest में आपके द्वारा योगदान की गई सभी सामग्री CC0 1.0 Universal (CC0 1.0) Public Domain Dedication के तहत दुनिया भर में स्वतंत्र रूप से उपलब्ध होगी।',
+      '{iAgree} टैप करके, आप सहमत हैं कि LangQuest में आपके द्वारा योगदान की गई सभी सामग्री CC0 1.0 Universal (CC0 1.0) Public Domain Dedication के तहत दुनिया भर में स्वतंत्र रूप से उपलब्ध होगी।',
     burmese:
-      'ဤစည်းမျဉ်းများကို လက်ခံခြင်းဖြင့်၊ သင်သည် LangQuest သို့ ပံ့ပိုးသော အကြောင်းအရာအားလုံးသည် CC0 1.0 Universal (CC0 1.0) Public Domain Dedication အောက်တွင် ကမ္ဘာတစ်ဝှမ်းလုံး လွတ်လပ်စွာ ရရှိနိုင်မည်ဟု သဘောတူပါသည်။',
-    thai: 'โดยการยอมรับข้อกำหนดเหล่านี้ คุณยอมรับว่าสื่อสารทั้งหมดที่คุณมีส่วนร่วมใน LangQuest จะสามารถใช้ได้ฟรีทั่วโลกภายใต้ CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
+      '{iAgree} ကို နှိပ်ခြင်းဖြင့်၊ သင်သည် LangQuest သို့ ပံ့ပိုးသော အကြောင်းအရာအားလုံးသည် CC0 1.0 Universal (CC0 1.0) Public Domain Dedication အောက်တွင် ကမ္ဘာတစ်ဝှမ်းလုံး လွတ်လပ်စွာ ရရှိနိုင်မည်ဟု သဘောတူပါသည်။',
+    thai: 'โดยการแตะ{iAgree} คุณยอมรับว่าสื่อสารทั้งหมดที่คุณมีส่วนร่วมใน LangQuest จะสามารถใช้ได้ฟรีทั่วโลกภายใต้ CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
     mandarin:
-      '通过接受这些条款，您同意您为 LangQuest 贡献的所有内容将在 CC0 1.0 Universal (CC0 1.0) Public Domain Dedication 下在全球范围内免费提供。'
+      '通过点击{iAgree}，您同意您为 LangQuest 贡献的所有内容将在 CC0 1.0 Universal (CC0 1.0) Public Domain Dedication 下在全球范围内免费提供。'
   },
   termsDataInfo: {
     english:
