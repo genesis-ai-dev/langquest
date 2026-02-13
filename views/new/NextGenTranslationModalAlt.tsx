@@ -587,11 +587,7 @@ export default function NextGenTranslationModal({
                     </Button>
                   )}
                   <Pressable onPress={handleClose} className="p-2">
-                    <Icon
-                      as={XIcon}
-                      size={24}
-                      className="text-foreground"
-                    />
+                    <Icon as={XIcon} size={24} className="text-foreground" />
                   </Pressable>
                 </View>
               </View>

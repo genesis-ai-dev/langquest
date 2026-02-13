@@ -78,16 +78,25 @@ jobs:
               }
             }
 
+      - name: Write fingerprint diff to file
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
+        run: |
+          echo '${{ steps.fingerprint.outputs.fingerprint-diff }}' > fingerprint-diff-raw.json
+        shell: bash
+
       - name: Check if fingerprint compatibility changed
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
         id: check-compatibility-change
         uses: actions/github-script@v7
-        env:
-          FINGERPRINT_DIFF: ${{ steps.fingerprint.outputs.fingerprint-diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fingerprintDiff = process.env.FINGERPRINT_DIFF || '[]';
+            const fs = require('fs');
+            // Read fingerprint diff from file to avoid environment variable size limits
+            let fingerprintDiff = '[]';
+            if (fs.existsSync('fingerprint-diff-raw.json')) {
+              fingerprintDiff = fs.readFileSync('fingerprint-diff-raw.json', 'utf8').trim();
+            }
             // Handle fingerprint diff - it's a JSON string, check if it's an empty array
             const trimmedDiff = String(fingerprintDiff).trim();
             // Empty array means no changes (compatible), non-empty means changes
@@ -155,13 +164,15 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
         id: format-diff
         uses: actions/github-script@v7
-        env:
-          FINGERPRINT_DIFF: ${{ steps.fingerprint.outputs.fingerprint-diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const fingerprintDiffStr = process.env.FINGERPRINT_DIFF || '[]';
+            // Read from file to avoid environment variable size limits
+            let fingerprintDiffStr = '[]';
+            if (fs.existsSync('fingerprint-diff-raw.json')) {
+              fingerprintDiffStr = fs.readFileSync('fingerprint-diff-raw.json', 'utf8').trim();
+            }
             // Parse the JSON string if it's valid JSON, otherwise use as-is
             let fingerprintDiff;
             try {

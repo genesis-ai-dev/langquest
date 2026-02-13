@@ -12,7 +12,16 @@ import {
   spacing
 } from '@/styles/theme';
 import { Icon } from '@/components/ui/icon';
-import { ChevronUp, ChevronDown, CheckCircle2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react-native';
+import {
+  ChevronUp,
+  ChevronDown,
+  CheckCircle2,
+  Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Trash2
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -107,11 +116,7 @@ const CategorySection: React.FC<{
               <Text style={styles.optionText}>{option.label}</Text>
               <View style={sharedStyles.checkboxContainer}>
                 {selectedOptions.includes(option.id) ? (
-                  <Icon
-                    as={CheckCircle2}
-                    size={24}
-                    className="text-primary"
-                  />
+                  <Icon as={CheckCircle2} size={24} className="text-primary" />
                 ) : (
                   <View style={styles.emptyCheckbox} />
                 )}
@@ -246,7 +251,11 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                   <Icon
                     as={Filter}
                     size={24}
-                    className={activeTab === 'filter' ? 'text-primary' : 'text-foreground'}
+                    className={
+                      activeTab === 'filter'
+                        ? 'text-primary'
+                        : 'text-foreground'
+                    }
                   />
                   {getActiveFiltersCount() > 0 && (
                     <View style={sharedStyles.badge}>
@@ -265,7 +274,9 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                   <Icon
                     as={ArrowUpDown}
                     size={24}
-                    className={activeTab === 'sort' ? 'text-primary' : 'text-foreground'}
+                    className={
+                      activeTab === 'sort' ? 'text-primary' : 'text-foreground'
+                    }
                   />
                   {getActiveSortingCount() > 0 && (
                     <View style={sharedStyles.badge}>

@@ -1,6 +1,12 @@
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Icon } from '@/components/ui/icon';
-import { ChevronUp, ChevronDown, Play, Pause, Trash2 } from 'lucide-react-native';
+import {
+  ChevronUp,
+  ChevronDown,
+  Play,
+  Pause,
+  Trash2
+} from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import WaveformVisualizer from './WaveformVisualizer';
@@ -64,7 +70,9 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           <Icon
             as={ChevronDown}
             size={20}
-            className={canMoveDown ? 'text-foreground' : 'text-muted-foreground'}
+            className={
+              canMoveDown ? 'text-foreground' : 'text-muted-foreground'
+            }
           />
         </TouchableOpacity>
       </View>
