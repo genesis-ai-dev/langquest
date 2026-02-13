@@ -1089,6 +1089,7 @@ export default function BibleAssetsView() {
         {
           text: 'Delete',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1138,6 +1139,7 @@ export default function BibleAssetsView() {
         {
           text: 'Merge',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -3190,10 +3192,10 @@ export default function BibleAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
+        RNAlert.alert(t('success'), result.message, [{ text: t('ok'), isPreferred: true }]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
-          { text: t('ok') }
+          { text: t('ok'), isPreferred: true }
         ]);
       }
     },
@@ -3202,7 +3204,7 @@ export default function BibleAssetsView() {
       RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
-        [{ text: t('ok') }]
+        [{ text: t('ok'), isPreferred: true }]
       );
     }
   });
@@ -3609,6 +3611,7 @@ export default function BibleAssetsView() {
                         {
                           text: t('publish'),
                           style: 'default',
+                          isPreferred: true,
                           onPress: () => {
                             publishQuest();
                           }

@@ -2124,6 +2124,7 @@ const BibleRecordingView = ({
         {
           text: 'Merge',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -2224,6 +2225,7 @@ const BibleRecordingView = ({
         {
           text: 'Delete',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {

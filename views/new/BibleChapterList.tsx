@@ -555,6 +555,7 @@ export function BibleChapterList({
       },
       {
         text: t('confirm'),
+        isPreferred: true,
         onPress: () => {
           void (async () => {
             setCreatingChapter(chapterNum);

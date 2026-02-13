@@ -1599,6 +1599,7 @@ const RecordingViewSimplified = ({
         {
           text: t('merge'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1693,6 +1694,7 @@ const RecordingViewSimplified = ({
         {
           text: t('delete'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {

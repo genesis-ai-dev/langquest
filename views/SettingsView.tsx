@@ -149,6 +149,7 @@ export default function SettingsView() {
       {
         text: t('clear'),
         style: 'destructive',
+        isPreferred: true,
         onPress: () => {
           // TODO: Implement cache clearing logic
           RNAlert.alert(t('success'), t('cacheClearedSuccess'));
