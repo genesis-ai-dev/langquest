@@ -545,6 +545,25 @@ export default function BibleAssetsView() {
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const getAssetMetadata = React.useCallback(
+    (rawMetadata: unknown): AssetMetadata | null => {
+      if (!rawMetadata) return null;
+      if (typeof rawMetadata === 'string') {
+        try {
+          const parsed = JSON.parse(rawMetadata);
+          return parsed && typeof parsed === 'object'
+            ? (parsed as AssetMetadata)
+            : null;
+        } catch {
+          return null;
+        }
+      }
+      return typeof rawMetadata === 'object'
+        ? (rawMetadata as AssetMetadata)
+        : null;
+    },
+    []
+  );
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
@@ -1323,6 +1342,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1365,7 +1385,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
-                  ...(item.content.metadata as AssetMetadata | null ?? {}),
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1399,7 +1419,7 @@ export default function BibleAssetsView() {
     };
 
     void processNewSeparators();
-  }, [manualSeparators, listItems, assets, queryClient, refetch]);
+  }, [manualSeparators, listItems, assets, queryClient, refetch, getAssetMetadata]);
 
   // Clean up manual separators that have been persisted to asset metadata
   // This ensures the UI correctly reflects which verses are available after metadata updates
@@ -1492,6 +1512,7 @@ export default function BibleAssetsView() {
           assetsToUpdate.push({
             assetId: item.content.id,
             metadata: {
+              ...(getAssetMetadata(item.content.metadata) ?? {}),
               verse: {
                 from: newFrom,
                 to: newTo
@@ -1518,7 +1539,7 @@ export default function BibleAssetsView() {
         );
       }
     },
-    [listItems, queryClient, refetch]
+    [listItems, queryClient, refetch, getAssetMetadata]
   );
 
   // Compute the allowed range for a new separator based on existing separators
@@ -1845,7 +1866,7 @@ export default function BibleAssetsView() {
           (asset, index) => ({
             assetId: asset.id,
             metadata: {
-              ...(asset.metadata as AssetMetadata | null ?? {}),
+              ...(getAssetMetadata(asset.metadata) ?? {}),
               verse: { from, to }
             },
             order_index:
@@ -1868,7 +1889,7 @@ export default function BibleAssetsView() {
         RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
       }
     },
-    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]
+    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t, getAssetMetadata]
   );
 
   // Handle removing labels from selected assets
@@ -1904,8 +1925,8 @@ export default function BibleAssetsView() {
         (asset, index) => ({
           assetId: asset.id,
           metadata: {
-            ...(asset.metadata as AssetMetadata | null ?? {}),
-            verse: undefined,
+            ...(getAssetMetadata(asset.metadata) ?? {}),
+            verse: undefined
           },
           order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
         })
@@ -1925,7 +1946,7 @@ export default function BibleAssetsView() {
       console.error('Failed to remove labels from assets:', error);
       RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
     }
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]);
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t, getAssetMetadata]);
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -3470,18 +3491,24 @@ export default function BibleAssetsView() {
           sequentialInGroup++;
 
           // Determine the metadata based on the current separator
+          const currentMetadata = getAssetMetadata(item.content.metadata);
+          const baseMetadata = currentMetadata ?? {};
           const newMetadata: AssetMetadata | null = currentSeparator?.from
             ? {
-                ...(item.content.metadata as AssetMetadata | null ?? {}),
+                ...baseMetadata,
                 verse: {
                   from: currentSeparator.from,
                   to: currentSeparator.to ?? currentSeparator.from
                 }
               }
-            : null;
+            : baseMetadata.recordingSessionId
+              ? {
+                  ...baseMetadata,
+                  verse: undefined
+                }
+              : null;
 
           // Check if metadata or order_index has changed
-          const currentMetadata = item.content.metadata;
           const currentOrderIndex = item.content.order_index;
 
           const metadataChanged =
@@ -3519,7 +3546,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [queryClient, refetch]
+    [queryClient, refetch, getAssetMetadata]
   );
 
   if (!currentQuestId) {

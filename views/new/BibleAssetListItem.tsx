@@ -401,7 +401,7 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
               <View className="flex flex-row items-center gap-2">
                 {/* Highlight indicator badge */}
               { isHighlighted && <View className="bg-primary/50 rounded-lg px-2 ">
-                <Text className="text-primary-foreground font-semibold text-[10px]">NEW</Text> </View> }
+                <Text className="text-secondary-foreground font-semibold text-[10px]">NEW</Text></View> }
 
                 {!isSelectionMode &&
                 !isPublished &&

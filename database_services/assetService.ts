@@ -39,7 +39,7 @@ export async function renameAsset(
       .where(eq(assetLocalTable.id, assetId))
       .limit(1);
 
-    if (!localAsset || localAsset.length === 0) {
+    if (localAsset.length === 0) {
       throw new Error(
         'Asset not found in local table - cannot rename synced assets'
       );
@@ -53,7 +53,7 @@ export async function renameAsset(
       .where(eq(syncedTable.id, assetId))
       .limit(1);
 
-    if (syncedAsset && syncedAsset.length > 0) {
+    if (syncedAsset.length > 0) {
       throw new Error(
         'Cannot rename synced assets - they are immutable once published'
       );
@@ -105,7 +105,7 @@ export async function updateAssetContentText(
       .where(whereCondition)
       .limit(1);
 
-    if (!localAssetContent || localAssetContent.length === 0) {
+    if (localAssetContent.length === 0) {
       throw new Error(
         'Asset content not found in local table - cannot edit synced content'
       );
@@ -123,7 +123,7 @@ export async function updateAssetContentText(
       .where(eq(syncedTable.id, targetContentId))
       .limit(1);
 
-    if (syncedAssetContent && syncedAssetContent.length > 0) {
+    if (syncedAssetContent.length > 0) {
       throw new Error(
         'Cannot edit synced asset content - it is immutable once published'
       );
@@ -164,7 +164,7 @@ export async function updateAssetMetadata(
       .where(eq(assetLocalTable.id, assetId))
       .limit(1);
 
-    if (!localAsset || localAsset.length === 0) {
+    if (localAsset.length === 0) {
       throw new Error(
         'Asset not found in local table - cannot update synced assets'
       );
@@ -178,7 +178,7 @@ export async function updateAssetMetadata(
       .where(eq(syncedTable.id, assetId))
       .limit(1);
 
-    if (syncedAsset && syncedAsset.length > 0) {
+    if (syncedAsset.length > 0) {
       throw new Error(
         'Cannot update synced assets - they are immutable once published'
       );
