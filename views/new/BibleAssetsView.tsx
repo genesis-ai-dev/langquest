@@ -3433,7 +3433,7 @@ export default function BibleAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <View className="flex flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
         <View className="flex flex-row items-center gap-2">
