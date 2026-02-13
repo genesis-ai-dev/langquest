@@ -119,6 +119,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     <>
       <Button
         variant="plain"
+        size="auto"
         onPress={handlePress}
         className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={10}
