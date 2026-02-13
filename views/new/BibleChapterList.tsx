@@ -12,6 +12,7 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
@@ -20,7 +21,6 @@ import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -128,9 +128,7 @@ function ChapterButton({
           getBackgroundColor()
         )}
         onPress={
-          needsDownload && !isDarkColorScheme
-            ? handleDownloadToggle
-            : onPress
+          needsDownload && !isDarkColorScheme ? handleDownloadToggle : onPress
         }
         disabled={
           disabled ||

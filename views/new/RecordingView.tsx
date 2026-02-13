@@ -32,7 +32,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -290,7 +290,7 @@ const RecordingView = () => {
   // Ref to track if handlePlayAll is running (for cancellation)
   const isPlayAllRunningRef = React.useRef(false);
   // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
 
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
@@ -1181,8 +1181,8 @@ const RecordingView = () => {
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
             currentPlayAllSoundRef.current = null;
           } catch (error) {
             console.error('Error stopping sound:', error);
@@ -1281,36 +1281,32 @@ const RecordingView = () => {
 
           // Play this URI and wait for it to finish
           await new Promise<void>((resolve) => {
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                currentPlayAllSoundRef.current = sound;
+            try {
+              const player = createAudioPlayer(uri);
+              currentPlayAllSoundRef.current = player;
+              player.play();
 
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
+              player.addListener('playbackStatusUpdate', (status) => {
+                // Update SharedValues for progress bar animation (60fps on UI thread)
+                if (status.playing && player.isLoaded) {
+                  audioContext.positionShared.value = status.currentTime * 1000;
+                  audioContext.durationShared.value = status.duration * 1000;
+                }
 
-                  // Update SharedValues for progress bar animation (60fps on UI thread)
-                  if (status.isPlaying) {
-                    audioContext.positionShared.value = status.positionMillis;
-                    audioContext.durationShared.value =
-                      status.durationMillis ?? 0;
-                  }
-
-                  if (status.didJustFinish) {
-                    // Reset SharedValues when segment finishes
-                    audioContext.positionShared.value = 0;
-                    audioContext.durationShared.value = 0;
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
-                currentPlayAllSoundRef.current = null;
-                resolve();
+                if (status.didJustFinish) {
+                  // Reset SharedValues when segment finishes
+                  audioContext.positionShared.value = 0;
+                  audioContext.durationShared.value = 0;
+                  currentPlayAllSoundRef.current = null;
+                  player.release();
+                  resolve();
+                }
               });
+            } catch (error: unknown) {
+              console.error('Failed to play audio:', error);
+              currentPlayAllSoundRef.current = null;
+              resolve();
+            }
           });
         }
       }
@@ -2033,15 +2029,30 @@ const RecordingView = () => {
 
                   if (audioUri) {
                     // Load audio file to get duration
-                    const { sound } = await Audio.Sound.createAsync({
-                      uri: audioUri
+                    const player = createAudioPlayer(audioUri);
+                    // Wait for player to load
+                    await new Promise<void>((resolve) => {
+                      if (player.isLoaded) {
+                        resolve();
+                        return;
+                      }
+                      const check = setInterval(() => {
+                        if (player.isLoaded) {
+                          clearInterval(check);
+                          resolve();
+                        }
+                      }, 10);
+                      // Safety timeout
+                      setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                      }, 5000);
                     });
-                    const status = await sound.getStatusAsync();
-                    await sound.unloadAsync();
 
-                    if (status.isLoaded && status.durationMillis) {
-                      totalDuration += status.durationMillis;
+                    if (player.isLoaded && player.duration) {
+                      totalDuration += player.duration * 1000;
                     }
+                    player.release();
                   }
                 } catch (err) {
                   // Skip this segment if we can't load it
@@ -2487,16 +2498,14 @@ const RecordingView = () => {
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+            currentPlayAllSoundRef.current = null;
+          } catch {
+            // Ignore errors during cleanup
+            currentPlayAllSoundRef.current = null;
+          }
         }
       }
 

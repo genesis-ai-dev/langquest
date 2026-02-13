@@ -132,7 +132,12 @@ export default function TranscriptionEditModal({
         'You have unsaved changes. Are you sure you want to close?',
         [
           { text: t('cancel') || 'Cancel', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', isPreferred: true, onPress: onClose }
+          {
+            text: 'Discard',
+            style: 'destructive',
+            isPreferred: true,
+            onPress: onClose
+          }
         ]
       );
     } else {

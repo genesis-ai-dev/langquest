@@ -372,6 +372,7 @@ export async function saveAudioLocally(uri: string) {
 
     // Fallback: try to copy instead of move
     // This can happen if the source file was already moved/deleted or has permission issues
+    const sourceStillExists = fileExists(cleanSourceUri);
     if (sourceStillExists) {
       console.log(
         '⚠️ Move failed but source exists, attempting copy as fallback...'
