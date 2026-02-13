@@ -137,21 +137,14 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
+  // Use reactive isSystemReady from AuthContext - this updates when PowerSync initializes
+  // Previously used a non-reactive useMemo with empty deps which never updated after mount
+  const isPowerSyncReady = authContext?.isSystemReady ?? false;
 
   // Disable offline queries for anonymous users (cloud-only browsing)
   // Anonymous users should only use cloud queries with TanStack Query caching
   const shouldEnableOfflineQuery =
     enableOfflineQuery && enabled && isAuthenticated;
-
-  // DECISIVE FIX: Always call usePowerSyncQuery (React hooks rules), but prevent system.db access
-  // PowerSync's usePowerSyncQuery accesses system.db during hook initialization
-  // even when enabled=false. We've suppressed the warning in system.ts, but we still need to
-  // ensure the hook doesn't cause issues. For anonymous users, use a safe query and disabled state.
-  // NOTE: The warning is already suppressed in db/powersync/system.ts for anonymous users
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
 
   // For anonymous users, use a safe SQL string that won't access system.db
   // The warning is suppressed, but we still want to avoid any potential issues
@@ -184,6 +177,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const offlineError = isAuthenticated
     ? (powerSyncQueryResult.error ?? null)
     : null;
+
   const offlineRefetch = React.useCallback(() => {
     if (!isAuthenticated) {
       return Promise.resolve([]);
@@ -755,16 +749,12 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
   // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
+  // Use reactive isSystemReady from AuthContext
+  const isPowerSyncReady = authContext?.isSystemReady ?? false;
 
   // Disable offline queries for anonymous users (cloud-only browsing)
   const shouldEnableOfflineQuery =
     enableOfflineQuery && enabled && isAuthenticated;
-
-  // DECISIVE FIX: Always call usePowerSyncQuery (React hooks rules), but prevent system.db access
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
 
   // Create query context
   const queryContext: PaginatedQueryContext = React.useMemo(

@@ -8,7 +8,6 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerScrollView,
   DrawerTitle,
   DrawerView
 } from '@/components/ui/drawer';
@@ -40,8 +39,6 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
-import { colors } from '@/styles/theme';
-import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -58,12 +55,7 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  View
-} from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 
 interface NotificationItem {
   id: string;
@@ -223,7 +215,7 @@ function LanguoidLinkSuggestionGroup({
             setSelectedSuggestionId(defaultSuggestion);
           }
         }}
-        snapPoints={['50%', '90%']}
+        snapPoints={['60%', '90%']}
         enableDynamicSizing={false}
       >
         <DrawerContent className="pb-safe" asChild>
@@ -234,7 +226,7 @@ function LanguoidLinkSuggestionGroup({
               </DrawerTitle>
             </DrawerHeader>
 
-            <DrawerScrollView className="h-40 flex-1">
+            <ScrollView className="h-64 flex-1">
               <RadioGroup
                 value={selectedSuggestionId}
                 onValueChange={setSelectedSuggestionId}
@@ -249,7 +241,7 @@ function LanguoidLinkSuggestionGroup({
                   />
                 ))}
               </RadioGroup>
-            </DrawerScrollView>
+            </ScrollView>
 
             <DrawerFooter>
               <Button
@@ -885,7 +877,7 @@ export default function NotificationsView() {
                 <Icon
                   as={item.type === 'invite' ? MailIcon : UserPlusIcon}
                   size={24}
-                  color={colors.primary}
+                  className="text-primary"
                 />
                 <Text className="text-sm font-semibold text-foreground">
                   {item.type === 'invite'
@@ -962,7 +954,7 @@ export default function NotificationsView() {
             <View className="flex-row gap-2">
               <Button
                 size="sm"
-                className="flex-1 flex-row items-center gap-2"
+                className="flex-1"
                 onPress={() =>
                   handleAccept(
                     item.id,
@@ -971,25 +963,16 @@ export default function NotificationsView() {
                     item.as_owner
                   )
                 }
-                disabled={isProcessing}
+                loading={isProcessing}
               >
-                {isProcessing ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('foreground')}
-                  />
-                ) : (
-                  <>
-                    <Icon as={CheckIcon} className="text-foreground" />
-                    <Text className="text-foreground">{t('accept')}</Text>
-                  </>
-                )}
+                <Icon as={CheckIcon} />
+                <Text>{t('accept')}</Text>
               </Button>
 
               <Button
                 variant="secondary"
                 size="sm"
-                className="flex-1 flex-row items-center gap-2"
+                className="flex-1"
                 onPress={() => handleDecline(item.id, item.type)}
                 loading={isProcessing}
               >

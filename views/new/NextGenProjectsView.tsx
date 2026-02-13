@@ -67,7 +67,10 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
 import { resolveTable } from '@/utils/dbUtils';
-import { findOrCreateLanguoidByName } from '@/utils/languoidUtils';
+import {
+  ensureLanguoidDownloadProfile,
+  findOrCreateLanguoidByName
+} from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -115,12 +118,19 @@ export default function NextGenProjectsView() {
           throw new Error('Must be logged in to create projects');
         }
 
-        // insert into local storage
+        // Ensure the languoid has this user in download_profiles so it syncs offline
+        // This is critical for existing languoids the user didn't create
+        await ensureLanguoidDownloadProfile(
+          values.target_languoid_id,
+          currentUser.id
+        );
+
+        // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
           // Create project (target_language_id is deprecated but still required by schema)
           const { target_languoid_id, ...projectValues } = values;
           const [newProject] = await tx
-            .insert(resolveTable('project', { localOverride: true }))
+            .insert(resolveTable('project', { localOverride: false }))
             .values({
               ...projectValues,
               template: projectValues.template,
@@ -134,7 +144,7 @@ export default function NextGenProjectsView() {
           // Create profile_project_link
           await tx
             .insert(
-              resolveTable('profile_project_link', { localOverride: true })
+              resolveTable('profile_project_link', { localOverride: false })
             )
             .values({
               id: `${currentUser.id}_${newProject.id}`,
@@ -146,13 +156,13 @@ export default function NextGenProjectsView() {
 
           // Create project_language_link with languoid_id
           // PK is (project_id, languoid_id, language_type) - language_id is optional
-          const projectLanguageLinkLocal = resolveTable(
+          const projectLanguageLinkSynced = resolveTable(
             'project_language_link',
             {
-              localOverride: true
+              localOverride: false
             }
           );
-          await tx.insert(projectLanguageLinkLocal).values({
+          await tx.insert(projectLanguageLinkSynced).values({
             project_id: newProject.id,
             language_id: null, // Optional - for backward compatibility
             languoid_id: target_languoid_id, // Required - part of PK
@@ -733,7 +743,7 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-6">
+        <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
           <View className="flex flex-col gap-4">
             {/* Tabs */}
             <Tabs
@@ -903,10 +913,10 @@ export default function NextGenProjectsView() {
                   <View className="flex-col items-center gap-2">
                     <Text className="text-muted-foreground">
                       {searchQuery
-                        ? 'No projects found'
+                        ? t('noProjectsFound')
                         : activeTab === 'my'
-                          ? 'No projects yet'
-                          : 'No projects available'}
+                          ? t('noProjectsYet')
+                          : t('noProjectsAvailable')}
                     </Text>
                     {activeTab === 'my' && !searchQuery && (
                       <Button

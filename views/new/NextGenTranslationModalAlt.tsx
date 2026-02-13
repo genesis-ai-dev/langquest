@@ -21,10 +21,11 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useTranscription } from '@/hooks/useTranscription';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,11 +68,9 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  const { isAuthenticated } = useAuth();
-  const isPowerSyncReady = React.useMemo(
-    () => system.isPowerSyncInitialized(),
-    []
-  );
+  const { isAuthenticated, isSystemReady } = useAuth();
+  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
+  const isPowerSyncReady = isSystemReady;
 
   // Only create offline query if PowerSync is initialized and user is authenticated
   const offlineQuery = React.useMemo(() => {
@@ -186,6 +185,9 @@ export default function NextGenTranslationModal({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
+    useTranscription();
+
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
   const audioIds = React.useMemo(() => {
@@ -249,7 +251,7 @@ export default function NextGenTranslationModal({
   const [audioSegments, setAudioSegments] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadAudioSegments = async () => {
+    const loadAudioSegments = () => {
       if (!asset?.content) {
         setAudioSegments([]);
         return;
@@ -257,16 +259,17 @@ export default function NextGenTranslationModal({
       const audioIds = asset.content
         .flatMap((c) => c.audio ?? [])
         .filter(Boolean);
-      const segments = await Promise.all(
-        audioIds.map((audio) =>
-          getLocalAttachmentUriWithOPFS(
-            attachmentStates.get(audio)?.local_uri ?? ''
-          )
-        )
-      );
-      setAudioSegments(segments.filter(Boolean));
+      // Use getLocalUri directly - local_uri already includes the path prefix
+      // Only include segments where attachmentStates has a valid local_uri
+      const segments = audioIds
+        .map((audio) => {
+          const localUri = attachmentStates.get(audio)?.local_uri;
+          return localUri ? getLocalUri(localUri) : null;
+        })
+        .filter((uri): uri is string => uri !== null);
+      setAudioSegments(segments);
     };
-    void loadAudioSegments();
+    loadAudioSegments();
   }, [asset?.content, attachmentStates]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;
@@ -283,7 +286,7 @@ export default function NextGenTranslationModal({
     }
   }, [assetText]);
 
-  const { mutate: createTranscription, isPending: isTranscribing } =
+  const { mutate: createTranscription, isPending: isCreatingTranscription } =
     useMutation({
       mutationFn: async () => {
         if (!currentUser || !asset) {
@@ -323,14 +326,27 @@ export default function NextGenTranslationModal({
         const translationAudio = asset.content
           .flatMap((c) => c.audio ?? [])
           .filter(Boolean);
+
+        // Use local tables for prepublished content, synced tables for published content
+        const isLocalSource = asset.source === 'local';
+        const tableOptions = { localOverride: isLocalSource };
+        // Preserve the content_type from the original asset
+        // If viewing a transcription, create a new transcription
+        // If viewing a translation, create a new translation
+        const contentTypeToCreate = asset.content_type || 'translation';
+        console.log(
+          `[CREATE ${contentTypeToCreate.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
+        );
+
         await system.db.transaction(async (tx) => {
           // Create a new asset that points to the original source asset
           const [newAsset] = await tx
-            .insert(resolveTable('asset')) // Use synced table like the working version
+            .insert(resolveTable('asset', tableOptions))
             .values({
               name: asset.name,
               source_language_id: sourceLanguoidId, // Deprecated field, kept for backward compatibility
               source_asset_id: originalSourceAssetId, // Point to the original asset being translated
+              content_type: contentTypeToCreate,
               creator_id: currentUser.id,
               project_id: project.id,
               download_profiles: [currentUser.id]
@@ -368,26 +384,43 @@ export default function NextGenTranslationModal({
           );
 
           await tx
-            .insert(resolveTable('asset_content_link'))
+            .insert(resolveTable('asset_content_link', tableOptions))
             .values(contentValues);
 
           // Create quest_asset_link (composite primary key: quest_id + asset_id, no id field)
-          await tx.insert(resolveTable('quest_asset_link')).values({
-            quest_id: currentQuestId,
-            asset_id: newAsset.id,
-            download_profiles: [currentUser.id]
-          });
+          await tx
+            .insert(resolveTable('quest_asset_link', tableOptions))
+            .values({
+              quest_id: currentQuestId,
+              asset_id: newAsset.id,
+              download_profiles: [currentUser.id]
+            });
         });
       },
       onSuccess: () => {
-        RNAlert.alert(t('success'), t('yourTranscriptionHasBeenSubmitted'));
+        const isTranscription = asset?.content_type === 'transcription';
+        RNAlert.alert(
+          t('success'),
+          isTranscription
+            ? t('transcriptionSubmittedSuccessfully')
+            : t('translationSubmittedSuccessfully')
+        );
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
       },
       onError: (error) => {
-        console.error('Error creating transcription:', error);
-        RNAlert.alert(t('error'), t('failedToCreateTranscription'));
+        const isTranscription = asset?.content_type === 'transcription';
+        console.error(
+          `Error creating ${isTranscription ? 'transcription' : 'translation'}:`,
+          error
+        );
+        RNAlert.alert(
+          t('error'),
+          isTranscription
+            ? t('failedCreateTranscription')
+            : t('failedCreateTranslation')
+        );
       }
     });
 
@@ -416,6 +449,55 @@ export default function NextGenTranslationModal({
 
   const { stopCurrentSound, isPlaying } = useAudio();
 
+  const handleTranscribe = async (uri: string) => {
+    if (!isAuthenticated) {
+      RNAlert.alert(
+        t('error'),
+        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+      );
+      return;
+    }
+
+    // Validate the audio file exists before attempting transcription
+    if (!uri) {
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    const exists = await fileExists(uri);
+    if (!exists) {
+      console.log('[Transcription] Audio file not found at URI:', uri);
+      RNAlert.alert(
+        t('error'),
+        t('audioNotAvailable') ||
+          'Audio not available. The file may not have been downloaded yet.'
+      );
+      return;
+    }
+
+    console.log('[Transcription] Starting transcription for URI:', uri);
+
+    try {
+      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
+      if (result.text) {
+        setEditedText(result.text);
+        setIsEditing(true);
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      RNAlert.alert(
+        t('error'),
+        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+      );
+    }
+  };
+
   const handleClose = async () => {
     onOpenChange(false);
     setShowReportModal(false);
@@ -439,7 +521,11 @@ export default function NextGenTranslationModal({
             <View className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background">
               {/* Header */}
               <View className="flex-row items-center justify-between border-b border-border p-4">
-                <Text variant="h4">{t('translation')}</Text>
+                <Text variant="h4">
+                  {asset?.content_type === 'transcription'
+                    ? t('transcription')
+                    : t('translation')}
+                </Text>
                 <View className="flex-row items-center gap-2">
                   {/* Edit/Transcription button */}
                   {allowEditing && (
@@ -548,7 +634,7 @@ export default function NextGenTranslationModal({
                       </Text>
                     )}
 
-                    {/* Audio Player */}
+                    {/* Audio Player - no transcription for translation audio */}
                     {audioSegments.length > 0 && !isEditing && (
                       <View>
                         <AudioPlayer
@@ -564,8 +650,8 @@ export default function NextGenTranslationModal({
                       <Button
                         variant="default"
                         onPress={handleSubmitTranscription}
-                        disabled={!editedText.trim() || isTranscribing}
-                        loading={isTranscribing}
+                        disabled={!editedText.trim() || isCreatingTranscription}
+                        loading={isCreatingTranscription}
                       >
                         <Text>{t('submitTranscription')}</Text>
                       </Button>

@@ -5,12 +5,20 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { deleteIfExists } from '@/utils/fileUtils';
-import type { AVPlaybackStatus } from 'expo-av';
-import { Audio } from 'expo-av';
-import type { RecordingOptions } from 'expo-av/build/Audio';
+import {
+  createAudioPlayer,
+  getRecordingPermissionsAsync,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+  type AudioPlayer,
+  type RecordingOptions
+} from 'expo-audio';
 import type { LucideIcon } from 'lucide-react-native';
 import { Check, Mic, Pause, Play } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 
 // Maximum file size in bytes (50MB)
@@ -29,10 +37,8 @@ interface AudioRecorderProps {
 }
 
 function calculateMaxDuration(options: RecordingOptions) {
-  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-  const platformSpecificOptions = options[platform];
-  // Using the exact bit rates from RecordingOptionsPresets
-  const bitRate = platformSpecificOptions.bitRate ?? 128000; // bits per second
+  // expo-audio has bitRate at the top level
+  const bitRate = options.bitRate ?? 128000; // bits per second
 
   // Convert bit rate to bytes per second
   const bytesPerSecond = bitRate / 8;
@@ -49,124 +55,156 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [playbackPosition, setPlaybackPosition] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(
+    null
+  );
   const [quality, setQuality] = useState<RecordingQuality>('HIGH_QUALITY');
 
-  // Calculate max duration and warning threshold based on quality
-  const maxDuration = calculateMaxDuration(
-    Audio.RecordingOptionsPresets[quality]!
+  // Refs for playback
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const playerListenerRef = useRef<{ remove: () => void } | null>(null);
+  const positionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
   );
+
+  // Ref for stopRecording to avoid stale closure in status listener
+  const stopRecordingRef = useRef<(() => Promise<void>) | undefined>(undefined);
+
+  // Calculate max duration and warning threshold based on quality
+  const maxDuration = calculateMaxDuration(RecordingPresets[quality]!);
   const warningThreshold = maxDuration * 0.85; // Warning at 85% of max duration
 
+  // Check permissions on mount
+  useEffect(() => {
+    void getRecordingPermissionsAsync().then(({ granted }) =>
+      setPermissionGranted(granted)
+    );
+  }, []);
+
+  // Create recorder (no status listener -- use useAudioRecorderState for duration/metering)
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
+  // Poll recording state for duration tracking
+  const recorderState = useAudioRecorderState(recorder, 100);
+
+  // React to recorder state changes for duration tracking and auto-stop
+  useEffect(() => {
+    if (recorderState.isRecording) {
+      const duration = recorderState.durationMillis || 0;
+      setRecordingDuration(duration);
+
+      // Check if we're approaching the limit
+      if (duration >= warningThreshold && !showWarning) {
+        setShowWarning(true);
+      }
+
+      // Stop recording if we've reached the maximum duration
+      if (duration >= maxDuration) {
+        void stopRecordingRef.current?.();
+      }
+    }
+  }, [recorderState, warningThreshold, showWarning, maxDuration]);
+
+  const cleanupPlayer = useCallback(() => {
+    if (positionIntervalRef.current) {
+      clearInterval(positionIntervalRef.current);
+      positionIntervalRef.current = null;
+    }
+    if (playerListenerRef.current) {
+      playerListenerRef.current.remove();
+      playerListenerRef.current = null;
+    }
+    if (playerRef.current) {
+      playerRef.current.pause();
+      playerRef.current.release();
+      playerRef.current = null;
+    }
+  }, []);
+
   const stopRecording = useCallback(async () => {
-    if (!recording) return;
+    if (!recorder.isRecording) return;
 
     try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false
+      await recorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false
       });
 
-      const uri = recording.getURI();
+      const uri = recorder.uri;
       if (recordingUri) {
         await deleteIfExists(recordingUri);
         console.log('Deleted previous recording attempt', recordingUri);
       }
       console.log('Recording stopped and stored at', uri);
       setRecordingUri(uri ?? null);
-      setRecording(null);
-      setIsRecording(false);
+      setIsRecordingActive(false);
       setIsRecordingPaused(false);
       if (uri) onRecordingComplete(uri);
     } catch (error) {
       console.error('Failed to stop recording:', error);
     }
-  }, [recording, recordingUri, onRecordingComplete]);
+  }, [recorder, recordingUri, onRecordingComplete]);
 
+  // Keep ref up to date for status listener
+  stopRecordingRef.current = stopRecording;
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      const cleanup = async () => {
-        if (sound?._loaded) {
-          await sound.stopAsync();
-          await sound.unloadAsync();
-          setSound(null);
-          setIsPlaying(false);
-        }
-        if (!recording?._isDoneRecording) await stopRecording();
-      };
-      void cleanup();
+      cleanupPlayer();
+      // Recorder cleanup is handled by useAudioRecorder hook
     };
-  }, [recording, sound, stopRecording]);
+  }, [cleanupPlayer]);
 
   const startRecording = async () => {
     try {
       if (!currentUser) return;
 
-      if (permissionResponse?.status !== Audio.PermissionStatus.GRANTED) {
+      if (!permissionGranted) {
         console.log('Requesting permission..');
-        await requestPermission();
+        const { granted } = await requestRecordingPermissionsAsync();
+        setPermissionGranted(granted);
+        if (!granted) return;
       }
       resetRecording?.();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true
       });
 
-      // resume recording if it paused
-      if (recording) {
-        await recording.startAsync();
-        setIsRecording(true);
+      // Resume recording if it was paused
+      if (isRecordingPaused) {
+        recorder.record();
+        setIsRecordingActive(true);
         setIsRecordingPaused(false);
         return;
       }
 
       console.log('recording');
 
-      const activeRecording = (
-        await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets[quality]
-        )
-      ).recording;
+      // Prepare and start a new recording with the selected quality
+      await recorder.prepareToRecordAsync(RecordingPresets[quality]);
+      recorder.record();
 
-      setRecording(activeRecording);
-      setIsRecording(true);
+      setIsRecordingActive(true);
       setIsRecordingPaused(false);
       setShowWarning(false);
-      // Start monitoring recording status
-      activeRecording.setOnRecordingStatusUpdate((status) => {
-        if (status.isRecording) {
-          const duration = status.durationMillis || 0;
-          setRecordingDuration(duration);
-
-          // Check if we're approaching the limit
-          if (duration >= warningThreshold && !showWarning) {
-            setShowWarning(true);
-          }
-
-          // Stop recording if we've reached the maximum duration
-          if (duration >= maxDuration) {
-            void stopRecording();
-          }
-        }
-      });
     } catch (error) {
       console.error('Failed to start recording:', error);
     }
   };
 
   const pauseRecording = async () => {
-    if (!recording) return;
-    await recording.pauseAsync();
-    setIsRecording(false);
+    if (!recorder.isRecording) return;
+    recorder.pause();
+    setIsRecordingActive(false);
     setIsRecordingPaused(true);
   };
 
@@ -174,18 +212,41 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     if (!recordingUri) return;
 
     try {
-      if (sound) {
-        // If sound exists, just replay it from the beginning
-        if (playbackPosition === 0) await sound.setPositionAsync(0);
-        await sound.playAsync();
+      if (playerRef.current) {
+        // If player exists, just replay it
+        if (playbackPosition === 0) playerRef.current.seekTo(0);
+        playerRef.current.play();
       } else {
-        // Only create a new sound if one doesn't exist yet
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: recordingUri },
-          { shouldPlay: true },
-          onPlaybackStatusUpdate
+        // Create a new player
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true
+        });
+
+        const player = createAudioPlayer(recordingUri);
+        playerRef.current = player;
+        player.play();
+
+        // Listen for playback end
+        playerListenerRef.current = player.addListener(
+          'playbackStatusUpdate',
+          (status) => {
+            if (!status.didJustFinish) return;
+            setIsPlaying(false);
+            setPlaybackPosition(0);
+            if (positionIntervalRef.current) {
+              clearInterval(positionIntervalRef.current);
+              positionIntervalRef.current = null;
+            }
+          }
         );
-        setSound(newSound);
+
+        // Track position
+        positionIntervalRef.current = setInterval(() => {
+          if (playerRef.current?.isLoaded) {
+            setPlaybackPosition(playerRef.current.currentTime * 1000);
+          }
+        }, 100);
       }
 
       setIsPlaying(true);
@@ -195,23 +256,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   };
 
   const pausePlayback = async () => {
-    if (!sound) return;
+    if (!playerRef.current) return;
 
     try {
-      await sound.pauseAsync();
+      playerRef.current.pause();
       setIsPlaying(false);
     } catch (error) {
       console.error('Failed to pause playback:', error);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setPlaybackPosition(status.positionMillis);
-      if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPlaybackPosition(0);
-      }
     }
   };
 
@@ -237,7 +288,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   };
 
   const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {
-    if (isRecording || isRecordingPaused) {
+    if (isRecordingActive || isRecordingPaused) {
       return [
         {
           icon: isRecordingPaused ? Mic : Pause,
@@ -271,7 +322,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       {
         icon: Check,
         onPress: undefined,
-        disabled: !recording
+        disabled: !isRecordingActive
       }
     ];
   };

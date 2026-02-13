@@ -12,47 +12,66 @@ export interface ArrayInsertionWheelHandle {
   scrollItemToTop: (index: number, animated?: boolean) => void;
 }
 
-interface ArrayInsertionWheelProps {
-  children: React.ReactNode[];
+interface ArrayInsertionWheelPropsBase {
   value: number; // 0..N insertion boundary
   onChange?: (index: number) => void;
   rowHeight: number;
   className?: string;
   topInset?: number; // unused in native wheel, kept for API parity
   bottomInset?: number; // unused in native wheel, kept for API parity
+  boundaryComponent?: React.ReactNode;
 }
 
-function ArrayInsertionWheelInternal(
-  {
-    children,
+// API 1: Eager rendering with children (backward compatible)
+interface ArrayInsertionWheelPropsEager extends ArrayInsertionWheelPropsBase {
+  children: React.ReactNode[];
+  data?: never;
+  renderItem?: never;
+}
+
+// API 2: Lazy rendering with data + renderItem (optimized)
+interface ArrayInsertionWheelPropsLazy<T> extends ArrayInsertionWheelPropsBase {
+  children?: never;
+  data: T[];
+  renderItem: (item: T, index: number) => React.ReactElement;
+}
+
+type ArrayInsertionWheelProps<T = unknown> =
+  | ArrayInsertionWheelPropsEager
+  | ArrayInsertionWheelPropsLazy<T>;
+
+function ArrayInsertionWheelInternal<T>(
+  props: ArrayInsertionWheelProps<T>,
+  ref: React.Ref<ArrayInsertionWheelHandle>
+) {
+  const {
     value,
     onChange,
     rowHeight,
     className,
     topInset = 0,
-    bottomInset = 0
-  }: ArrayInsertionWheelProps,
-  ref: React.Ref<ArrayInsertionWheelHandle>
-) {
-  const itemCount = children.length + 1; // extra end boundary
+    bottomInset = 0,
+    boundaryComponent
+  } = props;
+
+  // Determine which API is being used
+  const isLazyMode = 'data' in props && props.data !== undefined;
+
+  // Calculate item count based on mode
+  let itemCount: number;
+  if (isLazyMode) {
+    itemCount = props.data.length + 1;
+  } else {
+    // Eager mode - children is guaranteed by type
+    itemCount = props.children.length + 1;
+  }
+
   const clampedValue = Math.max(0, Math.min(itemCount - 1, value));
 
   // Stabilize clampedValue to prevent unnecessary WheelPicker updates
-  const prevClampedRef = React.useRef(clampedValue);
   const stableClampedValue = React.useMemo(() => {
-    if (prevClampedRef.current !== clampedValue) {
-      console.log(
-        '📊 Wheel value changed:',
-        prevClampedRef.current,
-        '→',
-        clampedValue,
-        '| itemCount:',
-        itemCount
-      );
-      prevClampedRef.current = clampedValue;
-    }
     return clampedValue;
-  }, [clampedValue, itemCount]);
+  }, [clampedValue]);
 
   // Debug logging to trace clamping
   React.useEffect(() => {
@@ -67,7 +86,7 @@ function ArrayInsertionWheelInternal(
     }
   }, [value, clampedValue, itemCount]);
 
-  const data = React.useMemo<PickerItem<number>[]>(
+  const pickerData = React.useMemo<PickerItem<number>[]>(
     () => Array.from({ length: itemCount }, (_, i) => ({ value: i })),
     [itemCount]
   );
@@ -116,22 +135,50 @@ function ArrayInsertionWheelInternal(
     [stableClampedValue, itemCount, onChange]
   );
 
-  const renderItem = React.useCallback(
-    ({ item }: { item: PickerItem<number> }) => {
+  const renderItemInternal = React.useCallback(
+    ({ item }: { item: PickerItem<number> }): React.ReactElement => {
       const i = item.value;
 
-      // Render actual items (not the final boundary)
-      if (i < children.length) {
-        return (
-          <View style={{ height: rowHeight, justifyContent: 'center' }}>
-            {children[i]}
-          </View>
-        );
+      // Calculate data length based on mode
+      let dataLength: number;
+      if (isLazyMode) {
+        dataLength = props.data.length;
+      } else {
+        dataLength = props.children.length;
       }
 
-      // Final boundary (i === children.length)
+      // Render actual items (not the final boundary)
+      if (i < dataLength) {
+        if (isLazyMode) {
+          // Lazy mode: call renderItem with data item
+          const dataItem = props.data[i];
+          if (!dataItem) {
+            // Defensive: should never happen, but TypeScript needs this
+            return <View style={{ height: rowHeight }} />;
+          }
+          return (
+            <View style={{ height: rowHeight, justifyContent: 'center' }}>
+              {props.renderItem(dataItem, i)}
+            </View>
+          );
+        } else {
+          // Eager mode: use pre-created children
+          const child = props.children[i];
+          return (
+            <View style={{ height: rowHeight, justifyContent: 'center' }}>
+              {child}
+            </View>
+          );
+        }
+      }
+
+      // Final boundary (i === dataLength)
       // When empty (0 items), this is position 0 - the only insertion point
       // When non-empty, this is position N - insert after all items
+      if (boundaryComponent) {
+        return <>{boundaryComponent}</>;
+      }
+
       return (
         <View
           style={{ height: rowHeight }}
@@ -160,7 +207,7 @@ function ArrayInsertionWheelInternal(
         </View>
       );
     },
-    [children, rowHeight]
+    [isLazyMode, props, rowHeight, boundaryComponent]
   );
 
   return (
@@ -174,7 +221,7 @@ function ArrayInsertionWheelInternal(
       onLayout={onContainerLayout}
     >
       <WheelPicker
-        data={data}
+        data={pickerData}
         value={stableClampedValue}
         itemHeight={rowHeight}
         visibleItemCount={visibleCount}
@@ -182,7 +229,7 @@ function ArrayInsertionWheelInternal(
         onValueChanged={({ item }) => onChange?.(item.value)}
         // Constrain height to an exact multiple of rowHeight so overlay aligns
         style={{ height: wheelHeight }}
-        renderItem={renderItem}
+        renderItem={renderItemInternal}
         renderItemContainer={({ key, ...props }) => (
           <ArrayInsertionWheelContainer key={key} {...props} />
         )}
@@ -209,13 +256,12 @@ function ArrayInsertionWheelInternal(
   );
 }
 
-export default React.forwardRef<
-  ArrayInsertionWheelHandle,
-  ArrayInsertionWheelProps
+const ArrayInsertionWheel = React.forwardRef(ArrayInsertionWheelInternal) as <
+  T = unknown
 >(
-  ArrayInsertionWheelInternal as unknown as (
-    props: ArrayInsertionWheelProps & {
-      ref?: React.Ref<ArrayInsertionWheelHandle>;
-    }
-  ) => React.ReactElement
-);
+  props: ArrayInsertionWheelProps<T> & {
+    ref?: React.Ref<ArrayInsertionWheelHandle>;
+  }
+) => React.ReactElement;
+
+export default ArrayInsertionWheel;

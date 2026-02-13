@@ -146,6 +146,7 @@ export default function RegisterView({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange', // Validate as user types so isValid updates in real-time
     defaultValues: {
       email: sharedAuthInfo?.email || '',
       password: '',

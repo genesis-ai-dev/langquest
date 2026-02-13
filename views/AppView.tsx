@@ -34,6 +34,7 @@ const NextGenAssetDetailView = React.lazy(
 const NextGenAssetsView = React.lazy(
   () => import('@/views/new/NextGenAssetsView')
 );
+const BibleAssetsView = React.lazy(() => import('@/views/new/BibleAssetsView'));
 const NextGenProjectsView = React.lazy(
   () => import('@/views/new/NextGenProjectsView')
 );
@@ -76,6 +77,7 @@ function AppViewContent() {
   const setOnboardingIsOpen = useLocalStore(
     (state) => state.setOnboardingIsOpen
   );
+  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
   const [deferredView, setDeferredView] = useState(currentView);
   const { isCloudLoading } = useCloudLoading();
@@ -162,6 +164,20 @@ function AppViewContent() {
     }
   }, [currentView, isAuthenticated, goToProjects]);
 
+  // Block bible-assets view if enableVerseMarkers is disabled
+  // Redirect to previous view if user tries to access bible-assets without the feature enabled
+  useEffect(() => {
+    if (currentView === 'bible-assets' && !enableVerseMarkers) {
+      // Redirect to previous view (usually quests or assets)
+      if (canGoBack) {
+        goBack();
+      } else {
+        // Fallback to projects if no navigation history
+        goToProjects();
+      }
+    }
+  }, [currentView, enableVerseMarkers, canGoBack, goBack, goToProjects]);
+
   // Track if navigation is in progress
   const isNavigating = currentView !== deferredView;
 
@@ -210,6 +226,8 @@ function AppViewContent() {
         return <ProjectDirectoryView />;
       case 'assets':
         return <NextGenAssetsView />;
+      case 'bible-assets':
+        return <BibleAssetsView />;
       case 'asset-detail':
         return <NextGenAssetDetailView />;
       case 'profile':

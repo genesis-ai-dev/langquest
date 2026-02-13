@@ -71,7 +71,7 @@ export default function SignInView({
           ? error.message
           : t('signInError') || 'Sign in failed',
         [
-          { text: t('ok') || 'OK' },
+          { text: t('ok') || 'OK', isPreferred: true },
           {
             text: t('newUser'),
             onPress: () =>

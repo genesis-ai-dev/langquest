@@ -48,7 +48,8 @@ import {
   UserIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 const MAX_INVITE_ATTEMPTS = 3;
 
@@ -355,6 +356,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         {
           text: t('remove'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -391,6 +393,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('confirm'),
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -433,6 +436,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       {
         text: t('confirm'),
         style: 'destructive',
+        isPreferred: true,
         onPress: () => {
           void (async () => {
             try {
@@ -544,6 +548,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('confirm'),
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               setIsSubmitting(true);
@@ -616,6 +621,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         {
           text: t('confirm'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               setIsSubmitting(true);

@@ -4,9 +4,9 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Carousel from './Carousel';
 
 interface AudioFile {
@@ -20,13 +20,17 @@ interface AudioPlayerProps {
   audioSegments?: string[];
   useCarousel?: boolean;
   mini?: boolean;
+  onTranscribe?: (uri: string) => void;
+  isTranscribing?: boolean;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   audioFiles = [],
   audioSegments,
   useCarousel = true,
-  mini = false
+  mini = false,
+  onTranscribe,
+  isTranscribing = false
 }) => {
   const { t } = useLocalization();
   const {
@@ -41,10 +45,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   useEffect(() => {
     const setupAudioMode = async () => {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true
       });
     };
 
@@ -77,17 +81,43 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     return (
       <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
-        <Button
-          variant="plain"
-          style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
-          onPress={() => handlePlayPause(item.uri, item.id)}
-        >
-          <Ionicons
-            name={isThisAudioPlaying ? 'pause' : 'play'}
-            size={mini ? 24 : 48}
-            color={colors.text}
-          />
-        </Button>
+        <View style={styles.controlsRow}>
+          <Button
+            variant="plain"
+            style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
+            onPress={() => handlePlayPause(item.uri, item.id)}
+          >
+            <Ionicons
+              name={isThisAudioPlaying ? 'pause' : 'play'}
+              size={mini ? 24 : 48}
+              color={colors.text}
+            />
+          </Button>
+          {onTranscribe && (
+            <Button
+              variant="plain"
+              style={[
+                styles.transcribeButton,
+                mini && styles.miniTranscribeButton
+              ]}
+              onPress={() => onTranscribe(item.uri)}
+              disabled={isTranscribing}
+            >
+              {isTranscribing ? (
+                <ActivityIndicator
+                  size={mini ? 16 : 24}
+                  color={colors.background}
+                />
+              ) : (
+                <Ionicons
+                  name="text-outline"
+                  size={mini ? 18 : 28}
+                  color={colors.background}
+                />
+              )}
+            </Button>
+          )}
+        </View>
         {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
         <View
           style={[
@@ -99,7 +129,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             style={styles.audioProgressBar}
             max={duration || 100}
             value={isThisAudioPlaying ? position : 0}
-            onValueChange={(value) => handleSliderChange(value[0]!)}
+            onValueChange={(value) => handleSliderChange(value)}
           />
           <View style={styles.audioTimeContainer}>
             <Text style={styles.audioTimeText}>
@@ -142,6 +172,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%'
   },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.medium
+  },
   audioPlayButton: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -149,6 +184,19 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: colors.inputBackground
+  },
+  transcribeButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary
+  },
+  miniTranscribeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18
   },
   audioFileName: {
     color: colors.text,

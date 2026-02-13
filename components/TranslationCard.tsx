@@ -18,13 +18,17 @@ interface TranslationCardProps {
   previewText: string;
   audioSegments: string[] | undefined;
   handleTranslationPress: (id: string) => void;
+  onTranscribe?: (uri: string) => void;
+  isTranscribing?: boolean;
 }
 
 export const TranslationCard = ({
   asset,
   audioSegments = [],
   handleTranslationPress,
-  previewText
+  previewText,
+  onTranscribe,
+  isTranscribing = false
 }: TranslationCardProps) => {
   const currentLayer = useStatusContext();
   const { allowEditing, invisible } = currentLayer.getStatusParams(
@@ -69,6 +73,8 @@ export const TranslationCard = ({
                   audioSegments={audioSegments}
                   useCarousel={false}
                   mini={true}
+                  onTranscribe={onTranscribe}
+                  isTranscribing={isTranscribing}
                 />
               </View>
             )}

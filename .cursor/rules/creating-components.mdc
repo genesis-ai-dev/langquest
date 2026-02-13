@@ -145,6 +145,7 @@ This renders as `<Link>` instead of `<button>`, preserving all Button behavior.
 - Don't use margin (`m-*` properties in tailwind), use `View`s with flex (`flex`), flex gap (`gap-*`), and flex direction (`flex-[row|col]`).
 - Don't concatenate tailwind classnames with template strings, always use the `cn` utility in `utils/styleUtils.ts`.
 - Don't use Tailwind leading-none or anything with a line-height less than 1.3, as it causes text clipping.
+- Don't use `SafeAreaView` around `ScrollView` or `FlatList`. Instead, always use `contentInsetAdjustmentBehavior="automatic"` prop on the scrollable component itself.
 - Use **variants** for discrete style/behavior permutations (e.g., `size="sm|md|lg"`, `tone="neutral|destructive"`). Variants are not separate components.
 - Use **design tokens** (CSS variables) for theming: `--color-bg`, `--radius-md`, `--space-2`
 - Support **className** merging for customization

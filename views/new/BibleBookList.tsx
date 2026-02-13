@@ -1,8 +1,12 @@
+import { QuestionModal } from '@/components/QuestionModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
+import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
@@ -25,6 +29,8 @@ export function BibleBookList({
   canCreateNew = false,
   onCloudLoadingChange
 }: BibleBookListProps) {
+  const { t } = useLocalization();
+  const getBookName = useBibleBookNameGetter();
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
 
@@ -38,6 +44,28 @@ export function BibleBookList({
   const buttonWidth = 110;
   const gap = 12;
   const padding = 16;
+  const verseMarkersFeaturePrompted = useLocalStore(
+    (state) => state.verseMarkersFeaturePrompted
+  );
+  const setVerseMarkersFeaturePrompted = useLocalStore(
+    (state) => state.setVerseMarkersFeaturePrompted
+  );
+  const setEnableVerseMarkers = useLocalStore(
+    (state) => state.setEnableVerseMarkers
+  );
+  // Show modal if verseMarkersFeaturePrompted is false
+  const showPromptModal = verseMarkersFeaturePrompted === false;
+
+  const handleYes = () => {
+    setVerseMarkersFeaturePrompted(true);
+    setEnableVerseMarkers(true);
+  };
+
+  const handleNo = () => {
+    setVerseMarkersFeaturePrompted(true);
+    setEnableVerseMarkers(false);
+  };
+
   const availableWidth = screenWidth - padding * 2;
   const buttonsPerRow = Math.max(
     2,
@@ -55,6 +83,7 @@ export function BibleBookList({
     const iconSource = BOOK_ICON_MAP[book.id];
     const bookExists = existingBookIds?.has(book.id);
     const isDisabled = !bookExists && !canCreateNew;
+    const { abbrev } = getBookName(book.id);
 
     if (!bookExists && isDisabled) {
       return;
@@ -82,11 +111,8 @@ export function BibleBookList({
           resizeMode="contain"
         />
         <View className="flex-col items-center gap-0.5">
-          <Text
-            className="text-xs font-bold uppercase"
-            style={{ letterSpacing: 0.5 }}
-          >
-            {book.id}
+          <Text className="text-xs font-bold" style={{ letterSpacing: 0.5 }}>
+            {abbrev}
           </Text>
           <Text className="text-xxs text-muted-foreground">
             {book.chapters}
@@ -112,6 +138,13 @@ export function BibleBookList({
 
   return (
     <View className="mb-safe flex-1 gap-6">
+      <QuestionModal
+        visible={showPromptModal}
+        title={t('enableVerseLabelsQuestion')}
+        description={t('enableVerseLabelsDescription')}
+        onYes={handleYes}
+        onNo={handleNo}
+      />
       <LegendList
         data={allBooks}
         keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}

@@ -4,7 +4,36 @@ export type SupportedLanguage =
   | 'spanish'
   | 'brazilian_portuguese'
   | 'tok_pisin'
-  | 'indonesian';
+  | 'indonesian'
+  | 'nepali';
+
+/**
+ * Languoid names that have local UI support.
+ * Used to filter ui_ready languoids from the DB to prevent showing
+ * languages that newer DB versions support but older app versions don't.
+ * Must match the mapping in useLocalization.ts mapLanguoidNameToSupportedLanguage()
+ */
+export const SUPPORTED_LANGUAGE_NAMES = new Set([
+  // English
+  'english',
+  // Spanish
+  'spanish',
+  'español',
+  'espanol',
+  // Brazilian Portuguese
+  'brazilian portuguese',
+  'português brasileiro',
+  'portugues brasileiro',
+  // Tok Pisin
+  'tok pisin',
+  // Indonesian
+  'standard indonesian',
+  'indonesian',
+  'bahasa indonesia',
+  // Nepali
+  'nepali',
+  'नेपाली'
+]);
 
 // Define the structure for translations
 export type LocalizationKey = keyof typeof localizations;
@@ -19,7 +48,8 @@ export const localizations = {
     spanish: 'Aceptar',
     brazilian_portuguese: 'Aceitar',
     tok_pisin: 'Orait',
-    indonesian: 'Terima'
+    indonesian: 'Terima',
+    nepali: 'स्वीकार गर्नुहोस्'
   },
   accountNotVerified: {
     english:
@@ -31,68 +61,79 @@ export const localizations = {
     tok_pisin:
       'Plis checkum email adres bilong yu pastaim long sainum. Lukim email bilong yu long verification link.',
     indonesian:
-      'Harap verifikasi alamat email Anda sebelum masuk. Periksa email Anda untuk tautan verifikasi.'
+      'Harap verifikasi alamat email Anda sebelum masuk. Periksa email Anda untuk tautan verifikasi.',
+    nepali:
+      'साइन इन गर्नु अघि कृपया आफ्नो इमेल ठेगाना प्रमाणित गर्नुहोस्। प्रमाणीकरण लिंकको लागि आफ्नो इमेल जाँच गर्नुहोस्।'
   },
   done: {
     english: 'Done',
     spanish: 'Listo',
     brazilian_portuguese: 'Feito',
     tok_pisin: 'Done',
-    indonesian: 'Selesai'
+    indonesian: 'Selesai',
+    nepali: 'सम्पन्न'
   },
   all: {
     english: 'All',
     spanish: 'Todo',
     brazilian_portuguese: 'Todos',
     tok_pisin: 'Olgeta',
-    indonesian: 'Semua'
+    indonesian: 'Semua',
+    nepali: 'सबै'
   },
   options: {
     english: 'Options',
     spanish: 'Opciones',
-    brazilian_portuguese: 'Opções'
+    brazilian_portuguese: 'Opções',
+    nepali: 'विकल्पहरू'
   },
   membersOnlyCreate: {
     english: 'Only project members can create content',
     spanish: 'Solo los miembros del proyecto pueden crear contenido',
     brazilian_portuguese: 'Apenas membros do projeto podem criar conteúdo',
     tok_pisin: 'Tasol ol memba bilong projek inap mekim nupela samting',
-    indonesian: 'Hanya anggota proyek yang dapat membuat konten'
+    indonesian: 'Hanya anggota proyek yang dapat membuat konten',
+    nepali: 'प्रोजेक्ट सदस्यहरूले मात्र सामग्री सिर्जना गर्न सक्छन्'
   },
   membersOnlyPublish: {
     english: 'Only project members can save to the cloud',
     spanish: 'Solo los miembros del proyecto pueden guardar en la nube',
     brazilian_portuguese: 'Apenas membros do projeto podem salvar na nuvem',
     tok_pisin: 'Tasol ol memba bilong projek inap save long cloud',
-    indonesian: 'Hanya anggota proyek yang dapat menyimpan ke cloud'
+    indonesian: 'Hanya anggota proyek yang dapat menyimpan ke cloud',
+    nepali: 'प्रोजेक्ट सदस्यहरूले मात्र क्लाउडमा सेभ गर्न सक्छन्'
   },
   apply: {
     english: 'Apply',
     spanish: 'Aplicar',
     brazilian_portuguese: 'Aplicar',
     tok_pisin: 'Putim',
-    indonesian: 'Terapkan'
+    indonesian: 'Terapkan',
+    nepali: 'लागू गर्नुहोस्'
   },
   avatar: {
     english: 'Avatar',
     spanish: 'Avatar',
     brazilian_portuguese: 'Avatar',
     tok_pisin: 'Avatar',
-    indonesian: 'Avatar'
+    indonesian: 'Avatar',
+    nepali: 'अवतार'
   },
   backToLogin: {
     english: 'Back to Login',
     spanish: 'Volver al inicio de sesión',
     brazilian_portuguese: 'Voltar para o Login',
     tok_pisin: 'Go bek long Login',
-    indonesian: 'Kembali ke Login'
+    indonesian: 'Kembali ke Login',
+    nepali: 'लगइनमा फर्कनुहोस्'
   },
   checkEmail: {
     english: 'Please check your email',
     spanish: 'Por favor revise su correo electrónico',
     brazilian_portuguese: 'Por favor, verifique seu e-mail',
     tok_pisin: 'Plis checkum email bilong yu',
-    indonesian: 'Silakan periksa email Anda'
+    indonesian: 'Silakan periksa email Anda',
+    nepali: 'कृपया आफ्नो इमेल जाँच गर्नुहोस्'
   },
   checkEmailForResetLink: {
     english: 'Please check your email for the password reset link',
@@ -101,102 +142,118 @@ export const localizations = {
     brazilian_portuguese:
       'Por favor, verifique seu e-mail para o link de redefinição de senha',
     tok_pisin: 'Plis checkum email bilong yu long password reset link',
-    indonesian: 'Silakan periksa email Anda untuk tautan reset kata sandi'
+    indonesian: 'Silakan periksa email Anda untuk tautan reset kata sandi',
+    nepali: 'कृपया पासवर्ड रिसेट लिंकको लागि आफ्नो इमेल जाँच गर्नुहोस्'
   },
   confirmNewPassword: {
     english: 'Confirm New Password',
     spanish: 'Confirmar nueva contraseña',
     brazilian_portuguese: 'Confirmar Nova Senha',
     tok_pisin: 'Confirm nupela password',
-    indonesian: 'Konfirmasi Kata Sandi Baru'
+    indonesian: 'Konfirmasi Kata Sandi Baru',
+    nepali: 'नयाँ पासवर्ड पुष्टि गर्नुहोस्'
   },
   confirmPassword: {
     english: 'Confirm Password',
     spanish: 'Confirmar contraseña',
     brazilian_portuguese: 'Confirmar Senha',
     tok_pisin: 'Confirm password',
-    indonesian: 'Konfirmasi Kata Sandi'
+    indonesian: 'Konfirmasi Kata Sandi',
+    nepali: 'पासवर्ड पुष्टि गर्नुहोस्'
   },
   createObject: {
     english: 'Create',
     spanish: 'Crear',
     brazilian_portuguese: 'Criar',
     tok_pisin: 'Create',
-    indonesian: 'Buat'
+    indonesian: 'Buat',
+    nepali: 'सिर्जना गर्नुहोस्'
   },
   projectName: {
     english: 'Project Name',
     spanish: 'Nombre del Proyecto',
     brazilian_portuguese: 'Nome do Projeto',
     tok_pisin: 'Project Name',
-    indonesian: 'Nama Proyek'
+    indonesian: 'Nama Proyek',
+    nepali: 'प्रोजेक्टको नाम'
   },
   newProject: {
     english: 'New Project',
     spanish: 'Nuevo Proyecto',
     brazilian_portuguese: 'Novo Projeto',
     tok_pisin: 'Nupela Project',
-    indonesian: 'Proyek Baru'
+    indonesian: 'Proyek Baru',
+    nepali: 'नयाँ प्रोजेक्ट'
   },
   newQuest: {
-    english: 'New Quest'
+    english: 'New Quest',
+    nepali: 'नयाँ क्वेस्ट'
   },
   questName: {
-    english: 'Quest Name'
+    english: 'Quest Name',
+    nepali: 'क्वेस्टको नाम'
   },
   description: {
     english: 'Description',
     spanish: 'Descripción',
     brazilian_portuguese: 'Descrição',
     tok_pisin: 'Description',
-    indonesian: 'Deskripsi'
+    indonesian: 'Deskripsi',
+    nepali: 'विवरण'
   },
   visible: {
     english: 'Visible',
     spanish: 'Visible',
     brazilian_portuguese: 'Visible',
     tok_pisin: 'Visible',
-    indonesian: 'Visible'
+    indonesian: 'Visible',
+    nepali: 'देखिने'
   },
   private: {
     english: 'Private',
     spanish: 'Privado',
     brazilian_portuguese: 'Privado',
     tok_pisin: 'Private',
-    indonesian: 'Private'
+    indonesian: 'Private',
+    nepali: 'निजी'
   },
   date: {
     english: 'Date',
     spanish: 'Fecha',
     brazilian_portuguese: 'Data',
     tok_pisin: 'De',
-    indonesian: 'Tanggal'
+    indonesian: 'Tanggal',
+    nepali: 'मिति'
   },
   decline: {
     english: 'Decline',
     spanish: 'Rechazar',
     brazilian_portuguese: 'Rejeitar',
     tok_pisin: 'No',
-    indonesian: 'Tolak'
+    indonesian: 'Tolak',
+    nepali: 'अस्वीकार गर्नुहोस्'
   },
   downloadAnyway: {
     english: 'Download Anyway',
     spanish: 'Descargar de todas formas',
     brazilian_portuguese: 'Descarregar de qualquer forma',
     tok_pisin: 'Download tasol',
-    indonesian: 'Unduh Saja'
+    indonesian: 'Unduh Saja',
+    nepali: 'जे भए पनि डाउनलोड गर्नुहोस्'
   },
   downloadProject: {
     english: 'Download Project',
     spanish: 'Descargar Proyecto',
     brazilian_portuguese: 'Descarregar Projeto',
     tok_pisin: 'Download project',
-    indonesian: 'Unduh Proyek'
+    indonesian: 'Unduh Proyek',
+    nepali: 'प्रोजेक्ट डाउनलोड गर्नुहोस्'
   },
   downloadQuest: {
     english: 'Download Quest',
     spanish: 'Descargar Quest',
     brazilian_portuguese: 'Descarregar Quest',
+    nepali: 'क्वेस्ट डाउनलोड गर्नुहोस्',
     tok_pisin: 'Download quest',
     indonesian: 'Unduh Quest'
   },
@@ -210,49 +267,57 @@ export const localizations = {
     tok_pisin:
       'Sapos yu no download project, yu no inap contributim long em taim yu no gat internet. Yu ken download em bihain long presim download button long project card.',
     indonesian:
-      'Jika Anda tidak mengunduh proyek, Anda tidak akan dapat berkontribusi secara offline. Anda dapat mengunduhnya nanti dengan menekan tombol unduh di kartu proyek.'
+      'Jika Anda tidak mengunduh proyek, Anda tidak akan dapat berkontribusi secara offline. Anda dapat mengunduhnya nanti dengan menekan tombol unduh di kartu proyek.',
+    nepali:
+      'यदि तपाईंले प्रोजेक्ट डाउनलोड गर्नुभएन भने, तपाईं अफलाइन योगदान गर्न सक्षम हुनुहुने छैन। तपाईं पछि प्रोजेक्ट कार्डको डाउनलोड बटन थिचेर डाउनलोड गर्न सक्नुहुन्छ।'
   },
   downloadProjectWhenRequestSent: {
     english: 'Download project when request is sent',
     spanish: 'Descargar proyecto cuando se envíe la solicitud',
     brazilian_portuguese: 'Baixar projeto quando a solicitação for enviada',
     tok_pisin: 'Download project taim request i go',
-    indonesian: 'Unduh proyek saat permintaan dikirim'
+    indonesian: 'Unduh proyek saat permintaan dikirim',
+    nepali: 'अनुरोध पठाइँदा प्रोजेक्ट डाउनलोड गर्नुहोस्'
   },
   discoveringQuestData: {
     english: 'Discovering Quest Data',
     spanish: 'Descubriendo Datos de la Misión',
     brazilian_portuguese: 'Descobrindo Dados da Missão',
     tok_pisin: 'Painimaut long Quest Data',
-    indonesian: 'Menemukan Data Quest'
+    indonesian: 'Menemukan Data Quest',
+    nepali: 'क्वेस्ट डाटा खोज्दै'
   },
   offloadQuest: {
     english: 'Offload Quest',
     spanish: 'Descargar Quest',
     brazilian_portuguese: 'Descarregar Quest',
     tok_pisin: 'Rausim Quest',
-    indonesian: 'Lepas Quest'
+    indonesian: 'Lepas Quest',
+    nepali: 'क्वेस्ट हटाउनुहोस्'
   },
   offloadQuestDescription: {
     english: 'Remove local data to free up storage',
     spanish: 'Eliminar datos locales para liberar almacenamiento',
     brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
     tok_pisin: 'Rausim data long freeup storage',
-    indonesian: 'Hapus data lokal untuk membebaskan penyimpanan'
+    indonesian: 'Hapus data lokal untuk membebaskan penyimpanan',
+    nepali: 'भण्डारण खाली गर्न स्थानीय डाटा हटाउनुहोस्'
   },
   verifyingCloudData: {
     english: 'Verifying data in cloud...',
     spanish: 'Verificando datos en la nube...',
     brazilian_portuguese: 'Verificando dados na nuvem...',
     tok_pisin: 'Checkim data long klaud...',
-    indonesian: 'Memverifikasi data di cloud...'
+    indonesian: 'Memverifikasi data di cloud...',
+    nepali: 'क्लाउडमा डाटा प्रमाणित गर्दै...'
   },
   pendingUploadsDetected: {
     english: 'Pending uploads detected',
     spanish: 'Se detectaron cargas pendientes',
     brazilian_portuguese: 'Uploads pendentes detectados',
     tok_pisin: 'Painimaut sampela hap i no go yet',
-    indonesian: 'Mendeteksi upload tertunda'
+    indonesian: 'Mendeteksi upload tertunda',
+    nepali: 'बाँकी अपलोडहरू पत्ता लाग्यो'
   },
   pendingUploadsMessage: {
     english:
@@ -264,14 +329,17 @@ export const localizations = {
     tok_pisin:
       'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
     indonesian:
-      'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.'
+      'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.',
+    nepali:
+      'कृपया हटाउनु अघि सबै परिवर्तनहरू क्लाउडमा अपलोड हुनको लागि पर्खनुहोस्। इन्टरनेटमा जडान गर्नुहोस् र सिङ्क पूरा हुनको लागि पर्खनुहोस्।'
   },
   readyToOffload: {
     english: 'Ready to offload',
     spanish: 'Listo para descargar',
     brazilian_portuguese: 'Pronto para descarregar',
     tok_pisin: 'Redi long rausim',
-    indonesian: 'Siap untuk melepas'
+    indonesian: 'Siap untuk melepas',
+    nepali: 'हटाउन तयार'
   },
   offloadWarning: {
     english:
@@ -283,119 +351,137 @@ export const localizations = {
     tok_pisin:
       'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
     indonesian:
-      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.'
+      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.',
+    nepali:
+      'यसले स्थानीय प्रतिलिपिहरू मेट्नेछ। डाटा क्लाउडमा सुरक्षित रहनेछ र पछि पुन: डाउनलोड गर्न सकिन्छ।'
   },
   storageToFree: {
     english: 'Storage to Free',
     spanish: 'Almacenamiento para Liberar',
     brazilian_portuguese: 'Armazenamento a Liberar',
     tok_pisin: 'Storage Long Freeup',
-    indonesian: 'Penyimpanan yang Dibebaskan'
+    indonesian: 'Penyimpanan yang Dibebaskan',
+    nepali: 'खाली गर्ने भण्डारण'
   },
   continue: {
     english: 'Continue',
     spanish: 'Continuar',
     brazilian_portuguese: 'Continuar',
     tok_pisin: 'Go Het',
-    indonesian: 'Lanjutkan'
+    indonesian: 'Lanjutkan',
+    nepali: 'जारी राख्नुहोस्'
   },
   continueToOffload: {
     english: 'Offload from Device',
     spanish: 'Descargar del Dispositivo',
     brazilian_portuguese: 'Descarregar do Dispositivo',
     tok_pisin: 'Rausim long Mashin',
-    indonesian: 'Lepas dari Perangkat'
+    indonesian: 'Lepas dari Perangkat',
+    nepali: 'उपकरणबाट हटाउनुहोस्'
   },
   offloadingQuest: {
     english: 'Offloading quest...',
     spanish: 'Descargando quest...',
     brazilian_portuguese: 'Descarregando quest...',
     tok_pisin: 'Rausim quest...',
-    indonesian: 'Melepas quest...'
+    indonesian: 'Melepas quest...',
+    nepali: 'क्वेस्ट हटाउँदै...'
   },
   offloadComplete: {
     english: 'Quest offloaded successfully',
     spanish: 'Quest descargada con éxito',
     brazilian_portuguese: 'Quest descarregada com sucesso',
     tok_pisin: 'Quest i rausim orait',
-    indonesian: 'Quest berhasil dilepas'
+    indonesian: 'Quest berhasil dilepas',
+    nepali: 'क्वेस्ट सफलतापूर्वक हटाइयो'
   },
   offloadError: {
     english: 'Failed to offload quest',
     spanish: 'Error al descargar quest',
     brazilian_portuguese: 'Falha ao descarregar quest',
     tok_pisin: 'Pasin long rausim quest i no inap',
-    indonesian: 'Gagal melepas quest'
+    indonesian: 'Gagal melepas quest',
+    nepali: 'क्वेस्ट हटाउन असफल'
   },
   cannotOffloadErrors: {
     english: 'Cannot offload - errors detected',
     spanish: 'No se puede descargar - errores detectados',
     brazilian_portuguese: 'Não é possível descarregar - erros detectados',
     tok_pisin: 'No inap rausim - painimaut sampela rong',
-    indonesian: 'Tidak dapat melepas - kesalahan terdeteksi'
+    indonesian: 'Tidak dapat melepas - kesalahan terdeteksi',
+    nepali: 'हटाउन सकिँदैन - त्रुटिहरू पत्ता लाग्यो'
   },
   allDataVerifiedInCloud: {
     english: 'All data verified in cloud',
     spanish: 'Todos los datos verificados en la nube',
     brazilian_portuguese: 'Todos os dados verificados na nuvem',
     tok_pisin: 'Olgeta data i stret long klaud',
-    indonesian: 'Semua data terverifikasi di cloud'
+    indonesian: 'Semua data terverifikasi di cloud',
+    nepali: 'सबै डाटा क्लाउडमा प्रमाणित'
   },
   checkingPendingChanges: {
     english: 'Checking for pending changes...',
     spanish: 'Verificando cambios pendientes...',
     brazilian_portuguese: 'Verificando alterações pendentes...',
     tok_pisin: 'Checkim sampela senis i no go yet...',
-    indonesian: 'Memeriksa perubahan tertunda...'
+    indonesian: 'Memeriksa perubahan tertunda...',
+    nepali: 'बाँकी परिवर्तनहरू जाँच गर्दै...'
   },
   verifyingDatabaseRecords: {
     english: 'Verifying database records',
     spanish: 'Verificando registros de base de datos',
     brazilian_portuguese: 'Verificando registros do banco de dados',
     tok_pisin: 'Checkim ol rekod long database',
-    indonesian: 'Memverifikasi catatan database'
+    indonesian: 'Memverifikasi catatan database',
+    nepali: 'डाटाबेस रेकर्डहरू प्रमाणित गर्दै'
   },
   verifyingAttachments: {
     english: 'Verifying attachments',
     spanish: 'Verificando archivos adjuntos',
     brazilian_portuguese: 'Verificando anexos',
     tok_pisin: 'Checkim ol fail i pas long',
-    indonesian: 'Memverifikasi lampiran'
+    indonesian: 'Memverifikasi lampiran',
+    nepali: 'संलग्नकहरू प्रमाणित गर्दै'
   },
   waitingForUploads: {
     english: 'Waiting for Uploads',
     spanish: 'Esperando Cargas',
     brazilian_portuguese: 'Aguardando Uploads',
     tok_pisin: 'Wetim Upload',
-    indonesian: 'Menunggu Upload'
+    indonesian: 'Menunggu Upload',
+    nepali: 'अपलोडहरूको लागि पर्खँदै'
   },
   cannotOffload: {
     english: 'Cannot Offload',
     spanish: 'No se puede Descargar',
     brazilian_portuguese: 'Não é possível Descarregar',
     tok_pisin: 'No Inap Rausim',
-    indonesian: 'Tidak dapat Melepas'
+    indonesian: 'Tidak dapat Melepas',
+    nepali: 'हटाउन सकिँदैन'
   },
   analyzingRelatedRecords: {
     english: 'Analyzing related records...',
     spanish: 'Analizando registros relacionados...',
     brazilian_portuguese: 'Analisando registros relacionados...',
     tok_pisin: 'Lukautim ol related records...',
-    indonesian: 'Menganalisis catatan terkait...'
+    indonesian: 'Menganalisis catatan terkait...',
+    nepali: 'सम्बन्धित रेकर्डहरू विश्लेषण गर्दै...'
   },
   discoveryComplete: {
     english: 'Discovery complete',
     spanish: 'Descubrimiento completo',
     brazilian_portuguese: 'Descoberta completa',
     tok_pisin: 'Discovery i pinis',
-    indonesian: 'Penemuan selesai'
+    indonesian: 'Penemuan selesai',
+    nepali: 'खोज पूरा भयो'
   },
   totalRecords: {
     english: 'Total Records',
     spanish: 'Registros Totales',
     brazilian_portuguese: 'Registros Totais',
     tok_pisin: 'Total Records',
-    indonesian: 'Total Catatan'
+    indonesian: 'Total Catatan',
+    nepali: 'कुल रेकर्डहरू'
   },
   discoveryErrorsOccurred: {
     english:
@@ -407,7 +493,9 @@ export const localizations = {
     tok_pisin:
       'Sampela problem i kamap taim long painimaut. Yu ken download yet ol records we mipela painimaut.',
     indonesian:
-      'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.'
+      'Beberapa kesalahan terjadi selama penemuan. Anda masih dapat mengunduh catatan yang ditemukan.',
+    nepali:
+      'खोजको क्रममा केही त्रुटिहरू भए। तपाईं अझै पनि खोजिएका रेकर्डहरू डाउनलोड गर्न सक्नुहुन्छ।'
   },
   questNotFoundInCloud: {
     english:
@@ -419,28 +507,33 @@ export const localizations = {
     tok_pisin:
       'Quest i no gat long cloud database. I may only exist long local o yu no have permission long access it. Plis refresh page o contact support long this persists.',
     indonesian:
-      'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.'
+      'Quest tidak ditemukan di basis data cloud. Mungkin hanya ada secara lokal atau Anda tidak memiliki izin untuk mengaksesnya. Silakan muat ulang halaman atau hubungi dukungan jika masalah ini tetap terjadi.',
+    nepali:
+      'क्लाउड डाटाबेसमा क्वेस्ट फेला परेन। यो स्थानीय रूपमा मात्र अवस्थित हुन सक्छ वा तपाईंसँग यसमा पहुँच गर्ने अनुमति नहुन सक्छ। पृष्ठ रिफ्रेश गर्नुहोस् वा यो समस्या जारी रहेमा समर्थनलाई सम्पर्क गर्नुहोस्।'
   },
   discovering: {
     english: 'Discovering...',
     spanish: 'Descubriendo...',
     brazilian_portuguese: 'Descobrindo...',
     tok_pisin: 'Painimaut...',
-    indonesian: 'Menemukan...'
+    indonesian: 'Menemukan...',
+    nepali: 'खोज्दै...'
   },
   continueToDownload: {
     english: 'Continue to Download',
     spanish: 'Continuar con la Descarga',
     brazilian_portuguese: 'Continuar para Download',
     tok_pisin: 'Go het long Download',
-    indonesian: 'Lanjutkan ke Unduhan'
+    indonesian: 'Lanjutkan ke Unduhan',
+    nepali: 'डाउनलोडमा जारी राख्नुहोस्'
   },
   email: {
     english: 'Email',
     spanish: 'Email',
     brazilian_portuguese: 'E-mail',
     tok_pisin: 'Email',
-    indonesian: 'Email'
+    indonesian: 'Email',
+    nepali: 'इमेल'
   },
   emailAlreadyMemberMessage: {
     english: 'This email address is already a {role} of this project.',
@@ -448,98 +541,136 @@ export const localizations = {
       'Esta dirección de correo electrónico ya es {role} de este proyecto.',
     brazilian_portuguese: 'Este endereço de e-mail já é {role} deste projeto.',
     tok_pisin: 'Dispela email adres i {role} pinis long dispela project.',
-    indonesian: 'Alamat email ini sudah menjadi {role} dari proyek ini.'
+    indonesian: 'Alamat email ini sudah menjadi {role} dari proyek ini.',
+    nepali: 'यो इमेल ठेगाना पहिले नै यस प्रोजेक्टको {role} हो।'
   },
   emailRequired: {
     english: 'Email is required',
     spanish: 'Se requiere email',
     brazilian_portuguese: 'E-mail é obrigatório',
     tok_pisin: 'Email i mas',
-    indonesian: 'Email diperlukan'
+    indonesian: 'Email diperlukan',
+    nepali: 'इमेल आवश्यक छ'
   },
   nameRequired: {
     english: 'Name is required',
     spanish: 'Nombre es requerido',
     brazilian_portuguese: 'Nome é obrigatório',
     tok_pisin: 'Name i mas',
-    indonesian: 'Nama diperlukan'
+    indonesian: 'Nama diperlukan',
+    nepali: 'नाम आवश्यक छ'
   },
   descriptionTooLong: {
     english: 'Description must be less than {max} characters',
     spanish: 'La descripción debe tener menos de {max} caracteres',
     brazilian_portuguese: 'A descrição deve ter menos de {max} caracteres',
     tok_pisin: 'Description i no sem long {max} character',
-    indonesian: 'Deskripsi harus kurang dari {max} karakter'
+    indonesian: 'Deskripsi harus kurang dari {max} karakter',
+    nepali: 'विवरण {max} अक्षरभन्दा कम हुनुपर्छ'
   },
   enterTranslation: {
     english: 'Enter your translation here',
     spanish: 'Ingrese su traducción aquí',
     brazilian_portuguese: 'Digite sua tradução aqui',
     tok_pisin: 'Putim translation bilong yu long hia',
-    indonesian: 'Masukkan terjemahan Anda di sini'
+    indonesian: 'Masukkan terjemahan Anda di sini',
+    nepali: 'यहाँ आफ्नो अनुवाद प्रविष्ट गर्नुहोस्'
+  },
+  enterTranscription: {
+    english: 'Enter your transcription here',
+    spanish: 'Ingrese su transcripción aquí',
+    brazilian_portuguese: 'Digite sua transcrição aqui',
+    tok_pisin: 'Putim transcription bilong yu long hia',
+    indonesian: 'Masukkan transkripsi Anda di sini',
+    nepali: 'यहाँ आफ्नो ट्रान्सक्रिप्सन प्रविष्ट गर्नुहोस्'
+  },
+  enterYourTranscriptionIn: {
+    english: 'Enter your transcription in {language}',
+    spanish: 'Ingrese su transcripción en {language}',
+    brazilian_portuguese: 'Digite sua transcrição em {language}',
+    tok_pisin: 'Putim transcription bilong yu long {language}',
+    indonesian: 'Masukkan transkripsi Anda dalam {language}',
+    nepali: '{language} मा आफ्नो ट्रान्सक्रिप्सन प्रविष्ट गर्नुहोस्'
   },
   enterValidEmail: {
     english: 'Please enter a valid email',
     spanish: 'Por favor ingrese un correo electrónico válido',
     brazilian_portuguese: 'Por favor, digite um e-mail válido',
     tok_pisin: 'Plis putim wanpela gutpela email',
-    indonesian: 'Silakan masukkan email yang valid'
+    indonesian: 'Silakan masukkan email yang valid',
+    nepali: 'कृपया मान्य इमेल प्रविष्ट गर्नुहोस्'
   },
   enterYourEmail: {
     english: 'Enter your email',
     spanish: 'Ingrese su correo electrónico',
     brazilian_portuguese: 'Digite seu e-mail',
     tok_pisin: 'Putim email bilong yu',
-    indonesian: 'Masukkan email Anda'
+    indonesian: 'Masukkan email Anda',
+    nepali: 'आफ्नो इमेल प्रविष्ट गर्नुहोस्'
   },
   enterYourPassword: {
     english: 'Enter your password',
     spanish: 'Ingrese su contraseña',
     brazilian_portuguese: 'Digite sua senha',
     tok_pisin: 'Putim password bilong yu',
-    indonesian: 'Masukkan kata sandi Anda'
+    indonesian: 'Masukkan kata sandi Anda',
+    nepali: 'आफ्नो पासवर्ड प्रविष्ट गर्नुहोस्'
   },
   error: {
     english: 'Error',
     spanish: 'Error',
     brazilian_portuguese: 'Erro',
     tok_pisin: 'Rong',
-    indonesian: 'Kesalahan'
+    indonesian: 'Kesalahan',
+    nepali: 'त्रुटि'
   },
   failedCreateTranslation: {
     english: 'Failed to create translation',
     spanish: 'Error al crear la traducción',
     brazilian_portuguese: 'Falha ao criar tradução',
     tok_pisin: 'I no inap mekim translation',
-    indonesian: 'Gagal membuat terjemahan'
+    indonesian: 'Gagal membuat terjemahan',
+    nepali: 'अनुवाद सिर्जना गर्न असफल'
+  },
+  failedCreateTranscription: {
+    english: 'Failed to create transcription',
+    spanish: 'Error al crear la transcripción',
+    brazilian_portuguese: 'Falha ao criar transcrição',
+    tok_pisin: 'I no inap mekim transcription',
+    indonesian: 'Gagal membuat transkripsi',
+    nepali: 'ट्रान्सक्रिप्सन सिर्जना गर्न असफल'
   },
   failedLoadProjects: {
     english: 'Failed to load projects',
     spanish: 'Error al cargar proyectos',
     brazilian_portuguese: 'Falha ao carregar projetos',
     tok_pisin: 'I no inap loadim ol project',
-    indonesian: 'Gagal memuat proyek'
+    indonesian: 'Gagal memuat proyek',
+    nepali: 'प्रोजेक्टहरू लोड गर्न असफल'
   },
   failedLoadQuests: {
     english: 'Failed to load quests',
     spanish: 'Error al cargar misiones',
     brazilian_portuguese: 'Falha ao carregar missões',
     tok_pisin: 'I no inap loadim ol quest',
-    indonesian: 'Gagal memuat misi'
+    indonesian: 'Gagal memuat misi',
+    nepali: 'क्वेस्टहरू लोड गर्न असफल'
   },
   failedResetPassword: {
     english: 'Failed to reset password',
     spanish: 'Error al restablecer la contraseña',
     brazilian_portuguese: 'Falha ao redefinir senha',
     tok_pisin: 'I no inap resetim password',
-    indonesian: 'Gagal mereset kata sandi'
+    indonesian: 'Gagal mereset kata sandi',
+    nepali: 'पासवर्ड रिसेट गर्न असफल'
   },
   failedSendResetEmail: {
     english: 'Failed to send reset email',
     spanish: 'Error al enviar el correo de restablecimiento',
     brazilian_portuguese: 'Falha ao enviar e-mail de redefinição',
     tok_pisin: 'I no inap salim reset email',
-    indonesian: 'Gagal mengirim email reset'
+    indonesian: 'Gagal mengirim email reset',
+    nepali: 'रिसेट इमेल पठाउन असफल'
   },
   failedToAcceptInvitation: {
     english: 'Failed to accept invitation. Please try again.',
@@ -547,7 +678,8 @@ export const localizations = {
     brazilian_portuguese:
       'Falha ao aceitar o convite. Por favor, tente novamente.',
     tok_pisin: 'I no inap akseptim invitation. Plis traim gen.',
-    indonesian: 'Gagal menerima undangan. Silakan coba lagi.'
+    indonesian: 'Gagal menerima undangan. Silakan coba lagi.',
+    nepali: 'आमन्त्रण स्वीकार गर्न असफल। कृपया फेरि प्रयास गर्नुहोस्।'
   },
   failedToDeclineInvitation: {
     english: 'Failed to decline invitation. Please try again.',
@@ -555,140 +687,168 @@ export const localizations = {
     brazilian_portuguese:
       'Falha ao recusar o convite. Por favor, tente novamente.',
     tok_pisin: 'I no inap refusim invitation. Plis traim gen.',
-    indonesian: 'Gagal menolak undangan. Silakan coba lagi.'
+    indonesian: 'Gagal menolak undangan. Silakan coba lagi.',
+    nepali: 'आमन्त्रण अस्वीकार गर्न असफल। कृपया फेरि प्रयास गर्नुहोस्।'
   },
   failedToVote: {
     english: 'Failed to submit vote',
     spanish: 'Error al enviar el voto',
     brazilian_portuguese: 'Falha ao enviar voto',
     tok_pisin: 'I no inap salim vote',
-    indonesian: 'Gagal mengirim suara'
+    indonesian: 'Gagal mengirim suara',
+    nepali: 'मत पेश गर्न असफल'
   },
   fillFields: {
     english: 'Please fill in all required fields',
     spanish: 'Por favor complete todos los campos requeridos',
     brazilian_portuguese: 'Por favor, preencha todos os campos obrigatórios',
     tok_pisin: 'Plis fulupim olgeta field i mas',
-    indonesian: 'Silakan isi semua bidang yang diperlukan'
+    indonesian: 'Silakan isi semua bidang yang diperlukan',
+    nepali: 'कृपया सबै आवश्यक फिल्डहरू भर्नुहोस्'
   },
   forgotPassword: {
     english: 'I forgot my password',
     spanish: 'Olvidé mi contraseña',
     brazilian_portuguese: 'Esqueci minha senha',
     tok_pisin: 'Mi lusim password bilong mi',
-    indonesian: 'Saya lupa kata sandi saya'
+    indonesian: 'Saya lupa kata sandi saya',
+    nepali: 'मैले पासवर्ड बिर्सेँ'
   },
   invalidResetLink: {
     english: 'Invalid or expired reset link',
     spanish: 'Enlace de restablecimiento inválido o expirado',
     brazilian_portuguese: 'Link de redefinição inválido ou expirado',
     tok_pisin: 'Reset link i no gutpela o i pinis',
-    indonesian: 'Tautan reset tidak valid atau kedaluwarsa'
+    indonesian: 'Tautan reset tidak valid atau kedaluwarsa',
+    nepali: 'अमान्य वा समाप्त रिसेट लिंक'
   },
   logInToTranslate: {
     english: 'You must be logged in to submit translations',
     spanish: 'Debe iniciar sesión para enviar traducciones',
     brazilian_portuguese: 'Você precisa estar logado para enviar traduções',
     tok_pisin: 'Yu mas login pastaim long salim ol translation',
-    indonesian: 'Anda harus masuk untuk mengirim terjemahan'
+    indonesian: 'Anda harus masuk untuk mengirim terjemahan',
+    nepali: 'अनुवादहरू पेश गर्न तपाईं लग इन हुनुपर्छ'
   },
   logInToVote: {
     english: 'You must be logged in to vote',
     spanish: 'Debe iniciar sesión para votar',
     brazilian_portuguese: 'Você precisa estar logado para votar',
     tok_pisin: 'Yu mas login pastaim long vote',
-    indonesian: 'Anda harus masuk untuk memberikan suara'
+    indonesian: 'Anda harus masuk untuk memberikan suara',
+    nepali: 'मत दिन तपाईं लग इन हुनुपर्छ'
   },
   menu: {
     english: 'Menu',
     spanish: 'Menú',
     brazilian_portuguese: 'Menu',
     tok_pisin: 'Menu',
-    indonesian: 'Menu'
+    indonesian: 'Menu',
+    nepali: 'मेनु'
   },
   newTranslation: {
     english: 'New Translation',
     spanish: 'Nueva Traducción',
     brazilian_portuguese: 'Nova Tradução',
     tok_pisin: 'Nupela Translation',
-    indonesian: 'Terjemahan Baru'
+    indonesian: 'Terjemahan Baru',
+    nepali: 'नयाँ अनुवाद'
+  },
+  newTranscription: {
+    english: 'New Transcription',
+    spanish: 'Nueva Transcripción',
+    brazilian_portuguese: 'Nova Transcrição',
+    tok_pisin: 'Nupela Transcription',
+    indonesian: 'Transkripsi Baru',
+    nepali: 'नयाँ ट्रान्सक्रिप्सन'
   },
   newUser: {
     english: 'New user?',
     spanish: '¿Usuario nuevo?',
     brazilian_portuguese: 'Novo usuário?',
     tok_pisin: 'Nupela user?',
-    indonesian: 'Pengguna baru?'
+    indonesian: 'Pengguna baru?',
+    nepali: 'नयाँ प्रयोगकर्ता?'
   },
   newUserRegistration: {
     english: 'New User Registration',
     spanish: 'Registro de nuevo usuario',
     brazilian_portuguese: 'Registro de Novo Usuário',
     tok_pisin: 'Nupela User Registration',
-    indonesian: 'Pendaftaran Pengguna Baru'
+    indonesian: 'Pendaftaran Pengguna Baru',
+    nepali: 'नयाँ प्रयोगकर्ता दर्ता'
   },
   noComment: {
     english: 'No Comment',
     spanish: 'Sin comentarios',
     brazilian_portuguese: 'Sem Comentários',
     tok_pisin: 'No gat comment',
-    indonesian: 'Tidak Ada Komentar'
+    indonesian: 'Tidak Ada Komentar',
+    nepali: 'कुनै टिप्पणी छैन'
   },
   noProject: {
     english: 'No active project found',
     spanish: 'No se encontró ningún proyecto activo',
     brazilian_portuguese: 'Nenhum projeto ativo encontrado',
     tok_pisin: 'No gat active project',
-    indonesian: 'Tidak ada proyek aktif yang ditemukan'
+    indonesian: 'Tidak ada proyek aktif yang ditemukan',
+    nepali: 'कुनै सक्रिय प्रोजेक्ट फेला परेन'
   },
   ok: {
     english: 'OK',
     spanish: 'OK',
     brazilian_portuguese: 'OK',
     tok_pisin: 'Orait',
-    indonesian: 'OK'
+    indonesian: 'OK',
+    nepali: 'ठीक छ'
   },
   offline: {
     english: 'Offline',
     spanish: 'Sin conexión',
     brazilian_portuguese: 'Offline',
     tok_pisin: 'No gat internet',
-    indonesian: 'Offline'
+    indonesian: 'Offline',
+    nepali: 'अफलाइन'
   },
   password: {
     english: 'Password',
     spanish: 'Contraseña',
     brazilian_portuguese: 'Senha',
     tok_pisin: 'Password',
-    indonesian: 'Kata Sandi'
+    indonesian: 'Kata Sandi',
+    nepali: 'पासवर्ड'
   },
   passwordRequired: {
     english: 'Password is required',
     spanish: 'Se requiere contraseña',
     brazilian_portuguese: 'Senha é obrigatória',
     tok_pisin: 'Password i mas',
-    indonesian: 'Kata sandi diperlukan'
+    indonesian: 'Kata sandi diperlukan',
+    nepali: 'पासवर्ड आवश्यक छ'
   },
   passwordMinLength: {
     english: 'Password must be at least 6 characters',
     spanish: 'La contraseña debe tener al menos 6 caracteres',
     brazilian_portuguese: 'A senha deve ter pelo menos 6 caracteres',
     tok_pisin: 'Password i mas gat 6 character',
-    indonesian: 'Kata sandi harus minimal 6 karakter'
+    indonesian: 'Kata sandi harus minimal 6 karakter',
+    nepali: 'पासवर्ड कम्तिमा ६ अक्षर हुनुपर्छ'
   },
   passwordsNoMatch: {
     english: 'Passwords do not match',
     spanish: 'Las contraseñas no coinciden',
     brazilian_portuguese: 'As senhas não coincidem',
     tok_pisin: 'Ol password i no sem',
-    indonesian: 'Kata sandi tidak cocok'
+    indonesian: 'Kata sandi tidak cocok',
+    nepali: 'पासवर्डहरू मेल खाँदैनन्'
   },
   passwordResetSuccess: {
     english: 'Password has been reset successfully',
     spanish: 'La contraseña se ha restablecido correctamente',
     brazilian_portuguese: 'A senha foi redefinida com sucesso',
     tok_pisin: 'Password i reset gut pinis',
-    indonesian: 'Kata sandi berhasil direset'
+    indonesian: 'Kata sandi berhasil direset',
+    nepali: 'पासवर्ड सफलतापूर्वक रिसेट गरियो'
   },
   projectDownloadFailed: {
     english:
@@ -700,61 +860,71 @@ export const localizations = {
     tok_pisin:
       'Invitation i orait, tasol project download i no inap. Yu ken download em bihain long projects page.',
     indonesian:
-      'Undangan diterima, tetapi unduhan proyek gagal. Anda dapat mengunduhnya nanti dari halaman proyek.'
+      'Undangan diterima, tetapi unduhan proyek gagal. Anda dapat mengunduhnya nanti dari halaman proyek.',
+    nepali:
+      'आमन्त्रण स्वीकार गरियो, तर प्रोजेक्ट डाउनलोड असफल भयो। तपाईं पछि प्रोजेक्ट पृष्ठबाट डाउनलोड गर्न सक्नुहुन्छ।'
   },
   projects: {
     english: 'Projects',
     spanish: 'Proyectos',
     brazilian_portuguese: 'Projetos',
     tok_pisin: 'Ol Project',
-    indonesian: 'Proyek'
+    indonesian: 'Proyek',
+    nepali: 'प्रोजेक्टहरू'
   },
   quests: {
     english: 'Quests',
     spanish: 'Misiones',
     brazilian_portuguese: 'Missões',
     tok_pisin: 'Ol Quest',
-    indonesian: 'Misi'
+    indonesian: 'Misi',
+    nepali: 'क्वेस्टहरू'
   },
   project: {
     english: 'Project',
     spanish: 'Proyecto',
-    brazilian_portuguese: 'Projeto'
+    brazilian_portuguese: 'Projeto',
+    nepali: 'प्रोजेक्ट'
   },
   noProjectsFound: {
     english: 'No projects found',
     spanish: 'No se encontraron proyectos',
     brazilian_portuguese: 'Nenhum projeto encontrado',
     tok_pisin: 'Nogat projek i painim',
-    indonesian: 'Tidak ada proyek yang ditemukan'
+    indonesian: 'Tidak ada proyek yang ditemukan',
+    nepali: 'कुनै प्रोजेक्ट फेला परेन'
   },
   noProjectsYet: {
     english: 'No projects yet',
     spanish: 'Aún no hay proyectos',
     brazilian_portuguese: 'Ainda não há projetos',
     tok_pisin: 'I no gat projek yet',
-    indonesian: 'Belum ada proyek'
+    indonesian: 'Belum ada proyek',
+    nepali: 'अहिलेसम्म कुनै प्रोजेक्ट छैन'
   },
   noProjectsAvailable: {
     english: 'No projects available',
     spanish: 'No hay proyectos disponibles',
     brazilian_portuguese: 'Nenhum projeto disponível',
     tok_pisin: 'Nogat projek i stap',
-    indonesian: 'Tidak ada proyek yang tersedia'
+    indonesian: 'Tidak ada proyek yang tersedia',
+    nepali: 'कुनै प्रोजेक्ट उपलब्ध छैन'
   },
   createProject: {
     english: 'Create Project',
     spanish: 'Crear proyecto',
     brazilian_portuguese: 'Criar projeto',
     tok_pisin: 'Wokim Nupela Projek',
-    indonesian: 'Buat Proyek'
+    indonesian: 'Buat Proyek',
+    nepali: 'प्रोजेक्ट सिर्जना गर्नुहोस्'
   },
   published: {
     english: 'Published',
     spanish: 'Publicado',
     brazilian_portuguese: 'Publicado',
     tok_pisin: 'Publisim pinis',
-    indonesian: 'Diterbitkan'
+    indonesian: 'Diterbitkan',
+    nepali: 'प्रकाशित'
   },
   cannotPublishWhileOffline: {
     english: 'Cannot save to cloud while offline',
@@ -762,32 +932,37 @@ export const localizations = {
     brazilian_portuguese:
       'Não é possível salvar na nuvem enquanto está desconectado',
     tok_pisin: 'I no inap save long cloud long no gat internet',
-    indonesian: 'Tidak dapat menyimpan ke cloud saat offline'
+    indonesian: 'Tidak dapat menyimpan ke cloud saat offline',
+    nepali: 'अफलाइन हुँदा क्लाउडमा सेभ गर्न सकिँदैन'
   },
   chapters: {
     english: 'Chapters',
     spanish: 'Capítulos',
     brazilian_portuguese: 'Capítulos',
     tok_pisin: 'Chapter',
-    indonesian: 'Bab'
+    indonesian: 'Bab',
+    nepali: 'अध्यायहरू'
   },
   chapter: {
     english: 'Chapter',
     spanish: 'Capítulo',
     brazilian_portuguese: 'Capítulo',
     tok_pisin: 'Chapter',
-    indonesian: 'Bab'
+    indonesian: 'Bab',
+    nepali: 'अध्याय'
   },
   publishChapter: {
     english: 'Save to Cloud',
     spanish: 'Guardar en la Nube',
     brazilian_portuguese: 'Salvar na Nuvem',
     tok_pisin: 'Save long Cloud',
-    indonesian: 'Simpan ke Cloud'
+    indonesian: 'Simpan ke Cloud',
+    nepali: 'क्लाउडमा सेभ गर्नुहोस्'
   },
   publish: {
     english: 'Save',
     spanish: 'Guardar',
+    nepali: 'सेभ गर्नुहोस्',
     brazilian_portuguese: 'Salvar',
     tok_pisin: 'Save',
     indonesian: 'Simpan'
@@ -802,254 +977,292 @@ export const localizations = {
     tok_pisin:
       'Dispela bai wokim wanpela permanent kopi bilong {questName} long cloud.\n\nOlgeta recording bai save olsem wanpela snapshot we yu no inap senisim. Taim yu save pinis, dispela version i no inap senis, tasol yu ken wokim nupela version bihain sapos yu laik.\n\nSapos papa buk o project i no save long cloud yet, bai ol i save otomatik.',
     indonesian:
-      'Ini akan membuat salinan permanen dari {questName} di cloud.\n\nSemua rekaman akan disimpan sebagai snapshot yang tidak dapat diubah. Setelah disimpan, versi ini tidak dapat diubah, tetapi Anda dapat membuat versi baru nanti jika diperlukan.\n\nJika buku atau proyek induk belum disimpan ke cloud, mereka akan disimpan secara otomatis.'
+      'Ini akan membuat salinan permanen dari {questName} di cloud.\n\nSemua rekaman akan disimpan sebagai snapshot yang tidak dapat diubah. Setelah disimpan, versi ini tidak dapat diubah, tetapi Anda dapat membuat versi baru nanti jika diperlukan.\n\nJika buku atau proyek induk belum disimpan ke cloud, mereka akan disimpan secara otomatis.',
+    nepali:
+      'यसले {questName} को स्थायी प्रतिलिपि क्लाउडमा सिर्जना गर्नेछ।\n\nसबै रेकर्डिङहरू अपरिवर्तनीय स्न्यापशटको रूपमा सेभ हुनेछन्। एक पटक सेभ गरेपछि, यो संस्करण परिवर्तन गर्न सकिँदैन, तर आवश्यक भएमा तपाईं पछि नयाँ संस्करणहरू सिर्जना गर्न सक्नुहुन्छ।\n\nयदि अभिभावक पुस्तक वा प्रोजेक्ट अझै क्लाउडमा सेभ गरिएको छैन भने, तिनीहरू स्वचालित रूपमा सेभ हुनेछन्।'
   },
   quest: {
     english: 'Quest',
     spanish: 'Misión',
-    brazilian_portuguese: 'Missão'
+    brazilian_portuguese: 'Missão',
+    nepali: 'क्वेस्ट'
   },
   questOptions: {
     english: 'Quest Options',
     spanish: 'Opciones de misión',
     brazilian_portuguese: 'Opções de Missão',
     tok_pisin: 'Quest Options',
-    indonesian: 'Opsi Misi'
+    indonesian: 'Opsi Misi',
+    nepali: 'क्वेस्ट विकल्पहरू'
   },
   recording: {
     english: 'Recording',
     spanish: 'Grabando',
     brazilian_portuguese: 'Gravando',
     tok_pisin: 'Recording',
-    indonesian: 'Merekam'
+    indonesian: 'Merekam',
+    nepali: 'रेकर्डिङ'
   },
   register: {
     english: 'Register',
     spanish: 'Registrarse',
     brazilian_portuguese: 'Registrar',
     tok_pisin: 'Register',
-    indonesian: 'Daftar'
+    indonesian: 'Daftar',
+    nepali: 'दर्ता गर्नुहोस्'
   },
   createAccount: {
     english: 'Create Account',
     spanish: 'Crear Cuenta',
     brazilian_portuguese: 'Criar Conta',
     tok_pisin: 'Mekim Account',
-    indonesian: 'Buat Akun'
+    indonesian: 'Buat Akun',
+    nepali: 'खाता सिर्जना गर्नुहोस्'
   },
   registrationFail: {
     english: 'Registration failed',
     spanish: 'Error en el registro',
     brazilian_portuguese: 'Falha no registro',
     tok_pisin: 'Registration i no inap',
-    indonesian: 'Pendaftaran gagal'
+    indonesian: 'Pendaftaran gagal',
+    nepali: 'दर्ता असफल'
   },
   registrationSuccess: {
     english: 'Registration successful',
     spanish: 'Registro exitoso',
     brazilian_portuguese: 'Registro bem-sucedido',
     tok_pisin: 'Registration i orait',
-    indonesian: 'Pendaftaran berhasil'
+    indonesian: 'Pendaftaran berhasil',
+    nepali: 'दर्ता सफल'
   },
   resetPassword: {
     english: 'Reset Password',
     spanish: 'Restablecer contraseña',
     brazilian_portuguese: 'Redefinir Senha',
     tok_pisin: 'Reset Password',
-    indonesian: 'Reset Kata Sandi'
+    indonesian: 'Reset Kata Sandi',
+    nepali: 'पासवर्ड रिसेट गर्नुहोस्'
   },
   returningHero: {
     english: 'Returning hero? Sign In',
     spanish: '¿Héroe que regresa? Inicia sesión',
     brazilian_portuguese: 'Herói retornando? Faça Login',
     tok_pisin: 'Hero i kam bek? Sign In',
-    indonesian: 'Pahlawan kembali? Masuk'
+    indonesian: 'Pahlawan kembali? Masuk',
+    nepali: 'फर्किने नायक? साइन इन गर्नुहोस्'
   },
   search: {
     english: 'Search...',
     spanish: 'Buscar...',
     brazilian_portuguese: 'Buscar...',
     tok_pisin: 'Painim...',
-    indonesian: 'Cari...'
+    indonesian: 'Cari...',
+    nepali: 'खोज्नुहोस्...'
   },
   searchAssets: {
     english: 'Search assets...',
     spanish: 'Buscar recursos...',
     brazilian_portuguese: 'Buscar recursos...',
     tok_pisin: 'Painim ol asset...',
-    indonesian: 'Cari aset...'
+    indonesian: 'Cari aset...',
+    nepali: 'एसेटहरू खोज्नुहोस्...'
   },
   noAssetsFound: {
     english: 'No assets found',
     spanish: 'No se encontraron recursos',
     brazilian_portuguese: 'Nenhum recurso encontrado',
     tok_pisin: 'No gat asset',
-    indonesian: 'Tidak ada aset ditemukan'
+    indonesian: 'Tidak ada aset ditemukan',
+    nepali: 'कुनै एसेट फेला परेन'
   },
   nothingHereYet: {
     english: 'Nothing here yet!',
     spanish: '¡Nada aquí todavía!',
     brazilian_portuguese: '¡Nada aqui ainda!',
     tok_pisin: 'I no gat here yet!',
-    indonesian: 'Belum ada di sini!'
+    indonesian: 'Belum ada di sini!',
+    nepali: 'यहाँ अझै केही छैन!'
   },
   searchQuests: {
     english: 'Search quests...',
     spanish: 'Buscar misiones...',
     brazilian_portuguese: 'Buscar missões...',
     tok_pisin: 'Painim ol quest...',
-    indonesian: 'Cari misi...'
+    indonesian: 'Cari misi...',
+    nepali: 'क्वेस्टहरू खोज्नुहोस्...'
   },
   selectItem: {
     english: 'Select item',
     spanish: 'Seleccionar elemento',
     brazilian_portuguese: 'Selecionar item',
     tok_pisin: 'Makim item',
-    indonesian: 'Pilih item'
+    indonesian: 'Pilih item',
+    nepali: 'वस्तु चयन गर्नुहोस्'
   },
   selectLanguage: {
     english: 'Please select a language',
     spanish: 'Por favor seleccione un idioma',
     brazilian_portuguese: 'Por favor, selecione um idioma',
     tok_pisin: 'Plis makim wanpela tokples',
-    indonesian: 'Silakan pilih bahasa'
+    indonesian: 'Silakan pilih bahasa',
+    nepali: 'कृपया एउटा भाषा चयन गर्नुहोस्'
   },
   selectRegion: {
     english: 'Select Region',
     spanish: 'Seleccionar Región',
     brazilian_portuguese: 'Selecionar Região',
     tok_pisin: 'Makim Region',
-    indonesian: 'Pilih Wilayah'
+    indonesian: 'Pilih Wilayah',
+    nepali: 'क्षेत्र चयन गर्नुहोस्'
   },
   selectRegionToFilterLanguages: {
     english: 'Select a region to see languages from that area',
     spanish: 'Seleccione una región para ver idiomas de esa área',
     brazilian_portuguese: 'Selecionar uma região para ver idiomas dessa área',
     tok_pisin: 'Makim wanpela region long lukim ol tokples bilong ples ya',
-    indonesian: 'Pilih wilayah untuk melihat bahasa dari area tersebut'
+    indonesian: 'Pilih wilayah untuk melihat bahasa dari area tersebut',
+    nepali: 'त्यस क्षेत्रका भाषाहरू हेर्न एउटा क्षेत्र चयन गर्नुहोस्'
   },
   selectYourLanguage: {
     english: 'Select Your Language',
     spanish: 'Seleccione Su Idioma',
     brazilian_portuguese: 'Selecionar Seu Idioma',
     tok_pisin: 'Makim Tokples Bilong Yu',
-    indonesian: 'Pilih Bahasa Anda'
+    indonesian: 'Pilih Bahasa Anda',
+    nepali: 'आफ्नो भाषा चयन गर्नुहोस्'
   },
   createLanguage: {
     english: 'Create Language',
     spanish: 'Crear Idioma',
     brazilian_portuguese: 'Criar Idioma',
     tok_pisin: 'Mekim Tokples',
-    indonesian: 'Buat Bahasa'
+    indonesian: 'Buat Bahasa',
+    nepali: 'भाषा सिर्जना गर्नुहोस्'
   },
   createNewLanguage: {
     english: 'Create New Language',
     spanish: 'Crear Nuevo Idioma',
     brazilian_portuguese: 'Criar Novo Idioma',
     tok_pisin: 'Mekim Nupela Tokples',
-    indonesian: 'Buat Bahasa Baru'
+    indonesian: 'Buat Bahasa Baru',
+    nepali: 'नयाँ भाषा सिर्जना गर्नुहोस्'
   },
   languageNotInList: {
     english: 'My language is not in the list',
     spanish: 'Mi idioma no está en la lista',
     brazilian_portuguese: 'Meu idioma não está na lista',
     tok_pisin: 'Tokples bilong mi i no stap long list',
-    indonesian: 'Bahasa saya tidak ada dalam daftar'
+    indonesian: 'Bahasa saya tidak ada dalam daftar',
+    nepali: 'मेरो भाषा सूचीमा छैन'
   },
   willCreateLanguage: {
     english: 'Will create language',
     spanish: 'Creará idioma',
     brazilian_portuguese: 'Criará idioma',
     tok_pisin: 'Bai mekim tokples',
-    indonesian: 'Akan membuat bahasa'
+    indonesian: 'Akan membuat bahasa',
+    nepali: 'भाषा सिर्जना गरिनेछ'
   },
   nativeName: {
     english: 'Native Name',
     spanish: 'Nombre Nativo',
     brazilian_portuguese: 'Nome Nativo',
     tok_pisin: 'Nem Bilong Tokples',
-    indonesian: 'Nama Asli'
+    indonesian: 'Nama Asli',
+    nepali: 'स्थानीय नाम'
   },
   englishName: {
     english: 'English Name',
     spanish: 'Nombre en Inglés',
     brazilian_portuguese: 'Nome em Inglês',
     tok_pisin: 'Nem Long English',
-    indonesian: 'Nama dalam Bahasa Inggris'
+    indonesian: 'Nama dalam Bahasa Inggris',
+    nepali: 'अंग्रेजी नाम'
   },
   iso6393Code: {
     english: 'ISO 639-3 Code',
     spanish: 'Código ISO 639-3',
     brazilian_portuguese: 'Código ISO 639-3',
     tok_pisin: 'ISO 639-3 Code',
-    indonesian: 'Kode ISO 639-3'
+    indonesian: 'Kode ISO 639-3',
+    nepali: 'ISO 639-3 कोड'
   },
   locale: {
     english: 'Locale',
     spanish: 'Idioma',
     brazilian_portuguese: 'Idioma',
     tok_pisin: 'Locale',
-    indonesian: 'Lokalisasi'
+    indonesian: 'Lokalisasi',
+    nepali: 'लोकेल'
   },
   createAndContinue: {
     english: 'Create and Continue',
     spanish: 'Crear y Continuar',
     brazilian_portuguese: 'Criar e Continuar',
     tok_pisin: 'Mekim na Go Long',
-    indonesian: 'Buat dan Lanjutkan'
+    indonesian: 'Buat dan Lanjutkan',
+    nepali: 'सिर्जना गर्नुहोस् र जारी राख्नुहोस्'
   },
   whatWouldYouLikeToCreate: {
     english: 'What would you like to create?',
     spanish: '¿Qué te gustaría crear?',
     brazilian_portuguese: 'O que você gostaria de criar?',
     tok_pisin: 'Wanem samting yu laik mekim?',
-    indonesian: 'Apa yang ingin Anda buat?'
+    indonesian: 'Apa yang ingin Anda buat?',
+    nepali: 'तपाईं के सिर्जना गर्न चाहनुहुन्छ?'
   },
   createBibleProject: {
     english: 'Bible',
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Baibel',
-    indonesian: 'Alkitab'
+    indonesian: 'Alkitab',
+    nepali: 'बाइबल'
   },
   translateBibleIntoYourLanguage: {
     english: 'Translate the Bible into your language',
     spanish: 'Traduce la Biblia a tu idioma',
     brazilian_portuguese: 'Traduza a Bíblia para o seu idioma',
     tok_pisin: 'Translate Baibel long tokples bilong yu',
-    indonesian: 'Terjemahkan Alkitab ke bahasa Anda'
+    indonesian: 'Terjemahkan Alkitab ke bahasa Anda',
+    nepali: 'बाइबललाई आफ्नो भाषामा अनुवाद गर्नुहोस्'
   },
   createOtherProject: {
     english: 'Other Translation',
     spanish: 'Otra Traducción',
     brazilian_portuguese: 'Outra Tradução',
     tok_pisin: 'Narapela Translation',
-    indonesian: 'Terjemahan Lain'
+    indonesian: 'Terjemahan Lain',
+    nepali: 'अन्य अनुवाद'
   },
   createGeneralTranslationProject: {
     english: 'Create a general translation project',
     spanish: 'Crear un proyecto de traducción general',
     brazilian_portuguese: 'Criar um projeto de tradução geral',
     tok_pisin: 'Mekim wanpela project long translate ol samting',
-    indonesian: 'Buat proyek terjemahan umum'
+    indonesian: 'Buat proyek terjemahan umum',
+    nepali: 'सामान्य अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्'
   },
   selectProject: {
     english: 'Select Project',
     spanish: 'Seleccionar Proyecto',
     brazilian_portuguese: 'Selecionar Projeto',
     tok_pisin: 'Makim Project',
-    indonesian: 'Pilih Proyek'
+    indonesian: 'Pilih Proyek',
+    nepali: 'प्रोजेक्ट चयन गर्नुहोस्'
   },
   createFirstProject: {
     english: 'Create First Project',
     spanish: 'Crear Primer Proyecto',
     brazilian_portuguese: 'Criar Primeiro Projeto',
     tok_pisin: 'Mekim Nambawan Project',
-    indonesian: 'Buat Proyek Pertama'
+    indonesian: 'Buat Proyek Pertama',
+    nepali: 'पहिलो प्रोजेक्ट सिर्जना गर्नुहोस्'
   },
   createNewProject: {
     english: 'Create New Project',
     spanish: 'Crear Nuevo Proyecto',
+    nepali: 'नयाँ प्रोजेक्ट सिर्जना गर्नुहोस्',
     brazilian_portuguese: 'Criar Novo Projeto',
     tok_pisin: 'Mekim Nupela Project',
     indonesian: 'Buat Proyek Baru'
@@ -1059,28 +1272,32 @@ export const localizations = {
     spanish: 'Proyectos existentes en {language}',
     brazilian_portuguese: 'Projetos existentes em {language}',
     tok_pisin: 'Ol project i stap pinis long {language}',
-    indonesian: 'Proyek yang ada dalam {language}'
+    indonesian: 'Proyek yang ada dalam {language}',
+    nepali: '{language} मा अवस्थित प्रोजेक्टहरू'
   },
   noProjectsInLanguage: {
     english: 'No projects yet in {language}',
     spanish: 'Aún no hay proyectos en {language}',
     brazilian_portuguese: 'Ainda não há projetos em {language}',
     tok_pisin: 'I no gat project yet long {language}',
-    indonesian: 'Belum ada proyek dalam {language}'
+    indonesian: 'Belum ada proyek dalam {language}',
+    nepali: '{language} मा अहिलेसम्म कुनै प्रोजेक्ट छैन'
   },
   searchLanguages: {
     english: 'Search languages...',
     spanish: 'Buscar idiomas...',
     brazilian_portuguese: 'Pesquisar idiomas...',
     tok_pisin: 'Painim ol tokples...',
-    indonesian: 'Cari bahasa...'
+    indonesian: 'Cari bahasa...',
+    nepali: 'भाषाहरू खोज्नुहोस्...'
   },
   noLanguagesFound: {
     english: 'No languages found',
     spanish: 'No se encontraron idiomas',
     brazilian_portuguese: 'Nenhum idioma encontrado',
     tok_pisin: 'I no gat tokples',
-    indonesian: 'Tidak ada bahasa ditemukan'
+    indonesian: 'Tidak ada bahasa ditemukan',
+    nepali: 'कुनै भाषा फेला परेन'
   },
   noLanguagesInRegion: {
     english:
@@ -1092,56 +1309,65 @@ export const localizations = {
     tok_pisin:
       'I no gat tokples long dispela region. Yu ken mekim nupela tokples long bihain.',
     indonesian:
-      'Tidak ada bahasa ditemukan di wilayah ini. Anda dapat membuat bahasa baru di bawah ini.'
+      'Tidak ada bahasa ditemukan di wilayah ini. Anda dapat membuat bahasa baru di bawah ini.',
+    nepali:
+      'यस क्षेत्रमा कुनै भाषा फेला परेन। तपाईं तल नयाँ भाषा सिर्जना गर्न सक्नुहुन्छ।'
   },
   typeToSearch: {
     english: 'Type at least {min} characters to search',
     spanish: 'Escriba al menos {min} caracteres para buscar',
     brazilian_portuguese: 'Digite pelo menos {min} caracteres para pesquisar',
     tok_pisin: 'Raitim {min} leta bipo painim',
-    indonesian: 'Ketik setidaknya {min} karakter untuk mencari'
+    indonesian: 'Ketik setidaknya {min} karakter untuk mencari',
+    nepali: 'खोज्न कम्तिमा {min} अक्षर टाइप गर्नुहोस्'
   },
   selectTemplate: {
     english: 'Please select a template',
     spanish: 'Por favor seleccione una plantilla',
     brazilian_portuguese: 'Por favor, selecione uma planta',
     tok_pisin: 'Plis makim wanpela template',
-    indonesian: 'Silakan pilih template'
+    indonesian: 'Silakan pilih template',
+    nepali: 'कृपया एउटा टेम्प्लेट छान्नुहोस्'
   },
   sendResetEmail: {
     english: 'Send Reset Email',
     spanish: 'Enviar correo de restablecimiento',
     brazilian_portuguese: 'Enviar E-mail de Redefinição',
     tok_pisin: 'Salim Reset Email',
-    indonesian: 'Kirim Email Reset'
+    indonesian: 'Kirim Email Reset',
+    nepali: 'रिसेट इमेल पठाउनुहोस्'
   },
   signIn: {
     english: 'Sign In',
     spanish: 'Iniciar Sesión',
     brazilian_portuguese: 'Entrar',
     tok_pisin: 'Sign In',
-    indonesian: 'Masuk'
+    indonesian: 'Masuk',
+    nepali: 'साइन इन गर्नुहोस्'
   },
   signInToSaveOrContribute: {
     english: 'Sign in to save or contribute to projects',
     spanish: 'Inicia sesión para guardar o contribuir a proyectos',
     brazilian_portuguese: 'Entre para salvar ou contribuir com projetos',
     tok_pisin: 'Sign in long seivim o helpim ol project',
-    indonesian: 'Masuk untuk menyimpan atau berkontribusi pada proyek'
+    indonesian: 'Masuk untuk menyimpan atau berkontribusi pada proyek',
+    nepali: 'प्रोजेक्टहरू सेभ गर्न वा योगदान गर्न साइन इन गर्नुहोस्'
   },
   orBrowseAllProjects: {
     english: 'Or browse all public projects',
     spanish: 'O navega todos los proyectos públicos',
     brazilian_portuguese: 'Ou navegue por todos os projetos públicos',
     tok_pisin: 'O lukluk long olgeta public project',
-    indonesian: 'Atau jelajahi semua proyek publik'
+    indonesian: 'Atau jelajahi semua proyek publik',
+    nepali: 'वा सबै सार्वजनिक प्रोजेक्टहरू ब्राउज गर्नुहोस्'
   },
   viewAllProjects: {
     english: 'View All Projects',
     spanish: 'Ver Todos los Proyectos',
     brazilian_portuguese: 'Ver Todos os Projetos',
     tok_pisin: 'Lukim Olgeta Project',
-    indonesian: 'Lihat Semua Proyek'
+    indonesian: 'Lihat Semua Proyek',
+    nepali: 'सबै प्रोजेक्टहरू हेर्नुहोस्'
   },
   signInError: {
     english: 'Something went wrong… Please, check your email and password.',
@@ -1150,129 +1376,247 @@ export const localizations = {
       'Algo deu errado… Por favor, verifique seu e-mail e senha.',
     tok_pisin: 'Samting i rong... Plis checkum email na password bilong yu.',
     indonesian:
-      'Terjadi kesalahan... Silakan periksa email dan kata sandi Anda.'
+      'Terjadi kesalahan... Silakan periksa email dan kata sandi Anda.',
+    nepali: 'केही गलत भयो… कृपया आफ्नो इमेल र पासवर्ड जाँच गर्नुहोस्।'
   },
   logOut: {
     english: 'Log Out',
     spanish: 'Cerrar Sesión',
     brazilian_portuguese: 'Sair',
     tok_pisin: 'Log Out',
-    indonesian: 'Keluar'
+    indonesian: 'Keluar',
+    nepali: 'लग आउट गर्नुहोस्'
   },
   sortBy: {
     english: 'Sort by',
     spanish: 'Ordenar por',
     brazilian_portuguese: 'Ordenar por',
     tok_pisin: 'Sortim long',
-    indonesian: 'Urutkan berdasarkan'
+    indonesian: 'Urutkan berdasarkan',
+    nepali: 'क्रमबद्ध गर्नुहोस्'
   },
   source: {
     english: 'Source',
     spanish: 'Fuente',
     brazilian_portuguese: 'Fonte',
     tok_pisin: 'Source',
-    indonesian: 'Sumber'
+    indonesian: 'Sumber',
+    nepali: 'स्रोत'
   },
   submit: {
     english: 'Submit',
     spanish: 'Enviar',
     brazilian_portuguese: 'Enviar',
     tok_pisin: 'Salim',
-    indonesian: 'Kirim'
+    indonesian: 'Kirim',
+    nepali: 'पेश गर्नुहोस्'
   },
   success: {
     english: 'Success',
     spanish: 'Éxito',
     brazilian_portuguese: 'Sucesso',
     tok_pisin: 'Orait',
-    indonesian: 'Berhasil'
+    indonesian: 'Berhasil',
+    nepali: 'सफल'
   },
   target: {
     english: 'Target',
     spanish: 'Objetivo',
     brazilian_portuguese: 'Alvo',
     tok_pisin: 'Target',
-    indonesian: 'Target'
+    indonesian: 'Target',
+    nepali: 'लक्ष्य'
   },
   username: {
     english: 'Username',
     spanish: 'Nombre de usuario',
     brazilian_portuguese: 'Nome de usuário',
     tok_pisin: 'Username',
-    indonesian: 'Nama pengguna'
+    indonesian: 'Nama pengguna',
+    nepali: 'प्रयोगकर्ता नाम'
   },
   usernameRequired: {
     english: 'Username is required',
     spanish: 'Se requiere nombre de usuario',
     brazilian_portuguese: 'Nome de usuário é obrigatório',
     tok_pisin: 'Username i mas',
-    indonesian: 'Nama pengguna diperlukan'
+    indonesian: 'Nama pengguna diperlukan',
+    nepali: 'प्रयोगकर्ता नाम आवश्यक छ'
   },
   votes: {
     english: 'Votes',
     spanish: 'Votos',
     brazilian_portuguese: 'Votos',
     tok_pisin: 'Ol Vote',
-    indonesian: 'Suara'
+    indonesian: 'Suara',
+    nepali: 'मतहरू'
   },
   voting: {
     english: 'Voting',
     spanish: 'Votación',
-    brazilian_portuguese: 'Votação'
+    brazilian_portuguese: 'Votação',
+    nepali: 'मतदान'
   },
   warning: {
     english: 'Warning',
     spanish: 'Advertencia',
     brazilian_portuguese: 'Aviso',
     tok_pisin: 'Warning',
-    indonesian: 'Peringatan'
+    indonesian: 'Peringatan',
+    nepali: 'चेतावनी'
   },
   welcome: {
     english: 'Welcome back, hero!',
     spanish: '¡Bienvenido de nuevo, héroe!',
     brazilian_portuguese: 'Bem-vindo de volta, herói!',
     tok_pisin: 'Welkam bek, hero!',
-    indonesian: 'Selamat datang kembali, pahlawan!'
+    indonesian: 'Selamat datang kembali, pahlawan!',
+    nepali: 'फेरि स्वागत छ, नायक!'
   },
   welcomeToApp: {
     english: 'Welcome',
     spanish: 'Bienvenido',
     brazilian_portuguese: 'Bem-vindo',
     tok_pisin: 'Welkam',
-    indonesian: 'Selamat datang'
+    indonesian: 'Selamat datang',
+    nepali: 'स्वागत छ'
   },
   recentlyVisited: {
     english: 'Recently Visited',
     spanish: 'Recientemente visitado',
     brazilian_portuguese: 'Visitados Recentemente',
     tok_pisin: 'Nupela taim visitim',
-    indonesian: 'Baru Dikunjungi'
+    indonesian: 'Baru Dikunjungi',
+    nepali: 'हालसालै भ्रमण गरिएको'
   },
   assets: {
     english: 'Assets',
     spanish: 'Recursos',
     brazilian_portuguese: 'Recursos',
     tok_pisin: 'Ol Asset',
-    indonesian: 'Aset'
+    indonesian: 'Aset',
+    nepali: 'एसेटहरू'
   },
   asset: {
     english: 'Asset',
     spanish: 'Recurso',
-    brazilian_portuguese: 'Recurso'
+    brazilian_portuguese: 'Recurso',
+    nepali: 'एसेट'
+  },
+  deleteAssets: {
+    english: 'Delete Assets',
+    spanish: 'Eliminar recursos',
+    brazilian_portuguese: 'Excluir recursos',
+    tok_pisin: 'Rausim ol asset',
+    indonesian: 'Hapus aset',
+    nepali: 'एसेटहरू मेटाउनुहोस्'
+  },
+  deleteAssetsConfirmation: {
+    english:
+      'Are you sure you want to delete {count} asset(s)? This action cannot be undone.',
+    spanish:
+      '¿Estás seguro de que deseas eliminar {count} recurso(s)? Esta acción no se puede deshacer.',
+    brazilian_portuguese:
+      'Tem certeza de que deseja excluir {count} recurso(s)? Esta ação não pode ser desfeita.',
+    tok_pisin:
+      'Yu sua long rausim {count} asset? Dispela action i no inap senisim bek.',
+    indonesian:
+      'Apakah Anda yakin ingin menghapus {count} aset? Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेट(हरू) मेटाउन चाहनुहुन्छ? यो कार्य पूर्ववत गर्न सकिँदैन।'
+  },
+  delete: {
+    english: 'Delete',
+    spanish: 'Eliminar',
+    brazilian_portuguese: 'Excluir',
+    tok_pisin: 'Rausim',
+    indonesian: 'Hapus',
+    nepali: 'मेटाउनुहोस्'
+  },
+  mergeAssets: {
+    english: 'Merge Assets',
+    spanish: 'Combinar recursos',
+    brazilian_portuguese: 'Mesclar recursos',
+    tok_pisin: 'Joinim ol asset',
+    indonesian: 'Gabungkan aset',
+    nepali: 'एसेटहरू मर्ज गर्नुहोस्'
+  },
+  mergeAssetsConfirmation: {
+    english:
+      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.',
+    spanish:
+      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán.',
+    brazilian_portuguese:
+      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos.',
+    tok_pisin:
+      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus.',
+    indonesian:
+      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus.',
+    nepali:
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्।'
+  },
+  merge: {
+    english: 'Merge',
+    spanish: 'Combinar',
+    brazilian_portuguese: 'Mesclar',
+    tok_pisin: 'Joinim',
+    indonesian: 'Gabungkan',
+    nepali: 'मर्ज गर्नुहोस्'
+  },
+  failedToMergeAssets: {
+    english: 'Failed to merge assets. Please try again.',
+    spanish: 'Error al combinar los recursos. Por favor, inténtalo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao mesclar recursos. Por favor, tente novamente.',
+    tok_pisin: 'I no inap joinim ol asset. Plis traim gen.',
+    indonesian: 'Gagal menggabungkan aset. Silakan coba lagi.',
+    nepali: 'एसेटहरू मर्ज गर्न असफल। कृपया पुन: प्रयास गर्नुहोस्।'
+  },
+  failedToDeleteAssets: {
+    english: 'Failed to delete assets. Please try again.',
+    spanish: 'Error al eliminar los recursos. Por favor, inténtalo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao excluir recursos. Por favor, tente novamente.',
+    tok_pisin: 'I no inap rausim ol asset. Plis traim gen.',
+    indonesian: 'Gagal menghapus aset. Silakan coba lagi.',
+    nepali: 'एसेटहरू मेटाउन असफल। कृपया पुन: प्रयास गर्नुहोस्।'
+  },
+  errorLoadingAssets: {
+    english: 'Error loading assets',
+    spanish: 'Error al cargar los recursos',
+    brazilian_portuguese: 'Erro ao carregar recursos',
+    tok_pisin: 'Rong long loadim ol asset',
+    indonesian: 'Kesalahan memuat aset',
+    nepali: 'एसेटहरू लोड गर्न त्रुटि'
+  },
+  noAssetsYetStartRecording: {
+    english: 'No assets yet. Start recording to create your first asset.',
+    spanish:
+      'Aún no hay recursos. Comienza a grabar para crear tu primer recurso.',
+    brazilian_portuguese:
+      'Ainda não há recursos. Comece a gravar para criar seu primeiro recurso.',
+    tok_pisin:
+      'I no gat asset yet. Statim recording long kamapim first asset bilong yu.',
+    indonesian:
+      'Belum ada aset. Mulai merekam untuk membuat aset pertama Anda.',
+    nepali:
+      'अहिलेसम्म कुनै एसेट छैन। तपाईंको पहिलो एसेट सिर्जना गर्न रेकर्डिङ सुरु गर्नुहोस्।'
   },
   remaining: {
     english: 'remaining',
     spanish: 'restante',
     brazilian_portuguese: 'restante',
     tok_pisin: 'stap yet',
-    indonesian: 'tersisa'
+    indonesian: 'tersisa',
+    nepali: 'बाँकी'
   },
   noNotifications: {
     english: 'No notifications',
     spanish: 'No hay notificaciones',
     brazilian_portuguese: 'Nenhuma notificação',
     tok_pisin: 'No gat notification',
-    indonesian: 'Tidak ada notifikasi'
+    indonesian: 'Tidak ada notifikasi',
+    nepali: 'कुनै सूचना छैन'
   },
   noNotificationsSubtext: {
     english: "You'll see project invitations and join requests here",
@@ -1281,49 +1625,57 @@ export const localizations = {
       'Aqui você verá convites para projetos e solicitações de união',
     tok_pisin: 'Yu bai lukim ol project invitation na join request long hia',
     indonesian:
-      'Anda akan melihat undangan proyek dan permintaan bergabung di sini'
+      'Anda akan melihat undangan proyek dan permintaan bergabung di sini',
+    nepali:
+      'तपाईंले यहाँ प्रोजेक्ट निमन्त्रणा र सामेल हुने अनुरोधहरू देख्नुहुनेछ'
   },
   notifications: {
     english: 'Notifications',
     spanish: 'Notificaciones',
     brazilian_portuguese: 'Notificações',
     tok_pisin: 'Ol Notification',
-    indonesian: 'Notifikasi'
+    indonesian: 'Notifikasi',
+    nepali: 'सूचनाहरू'
   },
   profile: {
     english: 'Profile',
     spanish: 'Perfil',
     brazilian_portuguese: 'Perfil',
     tok_pisin: 'Profile',
-    indonesian: 'Profil'
+    indonesian: 'Profil',
+    nepali: 'प्रोफाइल'
   },
   settings: {
     english: 'Settings',
     spanish: 'Configuración',
     brazilian_portuguese: 'Configurações',
     tok_pisin: 'Settings',
-    indonesian: 'Pengaturan'
+    indonesian: 'Pengaturan',
+    nepali: 'सेटिङहरू'
   },
   changePassword: {
     english: 'Change Password',
     spanish: 'Cambiar Contraseña',
     brazilian_portuguese: 'Alterar Senha',
     tok_pisin: 'Senisim Password',
-    indonesian: 'Ubah Kata Sandi'
+    indonesian: 'Ubah Kata Sandi',
+    nepali: 'पासवर्ड परिवर्तन गर्नुहोस्'
   },
   currentPassword: {
     english: 'Current Password',
     spanish: 'Contraseña Actual',
     brazilian_portuguese: 'Senha Atual',
     tok_pisin: 'Password bilong nau',
-    indonesian: 'Kata Sandi Saat Ini'
+    indonesian: 'Kata Sandi Saat Ini',
+    nepali: 'हालको पासवर्ड'
   },
   newPassword: {
     english: 'New Password',
     spanish: 'Nueva Contraseña',
     brazilian_portuguese: 'Nova Senha',
     tok_pisin: 'Nupela Password',
-    indonesian: 'Kata Sandi Baru'
+    indonesian: 'Kata Sandi Baru',
+    nepali: 'नयाँ पासवर्ड'
   },
   onlineOnlyFeatures: {
     english: 'Password changes are only available when online',
@@ -1332,63 +1684,64 @@ export const localizations = {
     brazilian_portuguese:
       'Alterações de senha só estão disponíveis quando você está online',
     tok_pisin: 'Password senisim i ken long taim yu gat internet tasol',
-    indonesian: 'Perubahan kata sandi hanya tersedia saat online'
+    indonesian: 'Perubahan kata sandi hanya tersedia saat online',
+    nepali: 'पासवर्ड परिवर्तन अनलाइन हुँदा मात्र उपलब्ध छ'
   },
   accountDeletionRequiresOnline: {
     english: 'You must be online to delete your account',
     spanish: 'Debes estar en línea para eliminar tu cuenta',
     brazilian_portuguese: 'Você deve estar online para excluir sua conta',
     tok_pisin: 'Yu mas gat internet long rausim account bilong yu',
-    indonesian: 'Anda harus online untuk menghapus akun Anda'
+    indonesian: 'Anda harus online untuk menghapus akun Anda',
+    nepali: 'आफ्नो खाता मेटाउन तपाईं अनलाइन हुनुपर्छ'
   },
   termsAndPrivacyTitle: {
     english: 'Terms & Privacy',
     spanish: 'Términos y Privacidad',
     brazilian_portuguese: 'Termos e Privacidade',
     tok_pisin: 'Terms na Privacy',
-    indonesian: 'Syarat & Privasi'
+    indonesian: 'Syarat & Privasi',
+    nepali: 'सर्तहरू र गोपनीयता'
   },
   verificationRequired: {
     english: 'Verification Required',
     spanish: 'Verificación Requerida',
     brazilian_portuguese: 'Verificação Necessária',
     tok_pisin: 'Verification i mas',
-    indonesian: 'Verifikasi Diperlukan'
+    indonesian: 'Verifikasi Diperlukan',
+    nepali: 'प्रमाणीकरण आवश्यक छ'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the {link}',
-    spanish: 'He leído y acepto los {link}',
-    brazilian_portuguese: 'Eu li e concordo com os {link}',
-    tok_pisin: 'Mi ridim na agri long {link}',
-    indonesian: 'Saya telah membaca dan menyetujui {link}'
-  },
-  termsAndPrivacyLink: {
-    english: 'Terms & Privacy',
-    spanish: 'Términos y Privacidad',
-    brazilian_portuguese: 'Termos e Privacidade',
-    tok_pisin: 'Terms na Privacy',
-    indonesian: 'Syarat & Privasi'
+    english: 'I have read and agree to the Terms & Privacy',
+    spanish: 'He leído y acepto los Términos y Privacidad',
+    brazilian_portuguese: 'Eu li e concordo com os Termos e Privacidade',
+    tok_pisin: 'Mi ridim na agri long Terms na Privacy',
+    indonesian: 'Saya telah membaca dan menyetujui Syarat & Privasi',
+    nepali: 'मैले सर्तहरू र गोपनीयता पढेको छु र स्वीकार गर्छु'
   },
   viewTerms: {
     english: 'View Terms and Privacy',
     spanish: 'Ver Términos y Privacidad',
     brazilian_portuguese: 'Ver Termos e Privacidade',
     tok_pisin: 'Lukim Terms na Privacy',
-    indonesian: 'Lihat Syarat dan Privasi'
+    indonesian: 'Lihat Syarat dan Privasi',
+    nepali: 'सर्तहरू र गोपनीयता हेर्नुहोस्'
   },
   termsRequired: {
     english: 'You must agree to the Terms and Privacy',
     spanish: 'Debe aceptar los Términos y Privacidad',
     brazilian_portuguese: 'Você deve concordar com os Termos e Privacidade',
     tok_pisin: 'Yu mas agri long Terms na Privacy',
-    indonesian: 'Anda harus menyetujui Syarat dan Privasi'
+    indonesian: 'Anda harus menyetujui Syarat dan Privasi',
+    nepali: 'तपाईंले सर्तहरू र गोपनीयता स्वीकार गर्नुपर्छ'
   },
   processing: {
     english: 'Processing...',
     spanish: 'Procesando...',
     brazilian_portuguese: 'Processando...',
     tok_pisin: 'Processing...',
-    indonesian: 'Memproses...'
+    indonesian: 'Memproses...',
+    nepali: 'प्रशोधन हुँदैछ...'
   },
   termsContributionInfo: {
     english:
@@ -1400,7 +1753,9 @@ export const localizations = {
     tok_pisin:
       'Long akseptim ol dispela terms, yu agri long olgeta content yu contributim long LangQuest bai stap fri long olgeta hap long CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
     indonesian:
-      'Dengan menerima syarat ini, Anda setuju bahwa semua konten yang Anda kontribusikan ke LangQuest akan tersedia secara gratis di seluruh dunia di bawah CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.'
+      'Dengan menerima syarat ini, Anda setuju bahwa semua konten yang Anda kontribusikan ke LangQuest akan tersedia secara gratis di seluruh dunia di bawah CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+    nepali:
+      'यी सर्तहरू स्वीकार गरेर, तपाईं सहमत हुनुहुन्छ कि तपाईंले LangQuest मा योगदान गर्ने सबै सामग्री CC0 1.0 Universal (CC0 1.0) Public Domain Dedication अन्तर्गत विश्वव्यापी रूपमा नि:शुल्क उपलब्ध हुनेछ।'
   },
   termsDataInfo: {
     english:
@@ -1412,7 +1767,9 @@ export const localizations = {
     tok_pisin:
       'Dispela i min ol contribution bilong yu ol man ken usim long wanem samting tasol na no nid long tokaut nem bilong yu. Mipela kisim liklik user data tasol: email bilong yu (long kamap bek account) na newsletter subscription sapos yu laik.',
     indonesian:
-      'Ini berarti kontribusi Anda dapat digunakan oleh siapa saja untuk tujuan apa pun tanpa atribusi. Kami mengumpulkan data pengguna minimal: hanya email Anda (untuk pemulihan akun) dan langganan newsletter jika dipilih.'
+      'Ini berarti kontribusi Anda dapat digunakan oleh siapa saja untuk tujuan apa pun tanpa atribusi. Kami mengumpulkan data pengguna minimal: hanya email Anda (untuk pemulihan akun) dan langganan newsletter jika dipilih.',
+    nepali:
+      'यसको मतलब तपाईंको योगदान कुनै पनि व्यक्तिले कुनै पनि उद्देश्यको लागि श्रेय बिना प्रयोग गर्न सक्छ। हामी न्यूनतम प्रयोगकर्ता डाटा सङ्कलन गर्छौं: तपाईंको इमेल मात्र (खाता पुनर्प्राप्तिको लागि) र न्यूजलेटर सदस्यता यदि रोजिएको छ भने।'
   },
   analyticsInfo: {
     english:
@@ -1424,132 +1781,153 @@ export const localizations = {
     tok_pisin:
       'Mipela kisim analytics na diagnostic data long mekim app na experience bilong yu i gutpela moa. Yu ken stopim analytics long wanem taim long profile settings bilong yu. Data bilong yu i go long United States.',
     indonesian:
-      'Kami mengumpulkan data analitik dan diagnostik untuk meningkatkan aplikasi dan pengalaman Anda. Anda dapat memilih keluar dari analitik kapan saja di pengaturan profil Anda. Data Anda diproses dan disimpan di Amerika Serikat.'
+      'Kami mengumpulkan data analitik dan diagnostik untuk meningkatkan aplikasi dan pengalaman Anda. Anda dapat memilih keluar dari analitik kapan saja di pengaturan profil Anda. Data Anda diproses dan disimpan di Amerika Serikat.',
+    nepali:
+      'हामी एप र तपाईंको अनुभव सुधार गर्न विश्लेषण र निदान डाटा सङ्कलन गर्छौं। तपाईं आफ्नो प्रोफाइल सेटिङहरूमा जुनसुकै समय विश्लेषणबाट अप्ट आउट गर्न सक्नुहुन्छ। तपाईंको डाटा संयुक्त राज्य अमेरिकामा प्रशोधन र भण्डारण गरिन्छ।'
   },
   viewFullTerms: {
     english: 'View Full Terms',
     spanish: 'Ver Términos Completos',
     brazilian_portuguese: 'Ver Termos Completos',
     tok_pisin: 'Lukim Olgeta Terms',
-    indonesian: 'Lihat Syarat Lengkap'
+    indonesian: 'Lihat Syarat Lengkap',
+    nepali: 'पूर्ण सर्तहरू हेर्नुहोस्'
   },
   viewFullPrivacy: {
     english: 'View Full Privacy',
     spanish: 'Ver Privacidad Completa',
     brazilian_portuguese: 'Ver Privacidade Completa',
     tok_pisin: 'Lukim Olgeta Privacy',
-    indonesian: 'Lihat Privasi Lengkap'
+    indonesian: 'Lihat Privasi Lengkap',
+    nepali: 'पूर्ण गोपनीयता हेर्नुहोस्'
   },
   submitFeedback: {
     english: 'Submit Feedback',
     spanish: 'Enviar Feedback',
     brazilian_portuguese: 'Enviar Feedback',
     tok_pisin: 'Salim Feedback',
-    indonesian: 'Kirim Umpan Balik'
+    indonesian: 'Kirim Umpan Balik',
+    nepali: 'प्रतिक्रिया पेश गर्नुहोस्'
   },
   reportProject: {
     english: 'Report Project',
     spanish: 'Reportar Proyecto',
-    brazilian_portuguese: 'Reportar Projeto'
+    brazilian_portuguese: 'Reportar Projeto',
+    nepali: 'प्रोजेक्ट रिपोर्ट गर्नुहोस्'
   },
   reportQuest: {
     english: 'Report Quest',
     spanish: 'Reportar Quest',
-    brazilian_portuguese: 'Reportar Quest'
+    brazilian_portuguese: 'Reportar Quest',
+    nepali: 'क्वेस्ट रिपोर्ट गर्नुहोस्'
   },
   reportAsset: {
     english: 'Report Asset',
     spanish: 'Reportar Recurso',
-    brazilian_portuguese: 'Reportar Recurso'
+    brazilian_portuguese: 'Reportar Recurso',
+    nepali: 'एसेट रिपोर्ट गर्नुहोस्'
   },
   reportTranslation: {
     english: 'Report Translation',
     spanish: 'Reportar Traducción',
     brazilian_portuguese: 'Reportar Tradução',
     tok_pisin: 'Reportim Translation',
-    indonesian: 'Laporkan Terjemahan'
+    indonesian: 'Laporkan Terjemahan',
+    nepali: 'अनुवाद रिपोर्ट गर्नुहोस्'
   },
   reportGeneric: {
     english: 'Report',
     spanish: 'Reportar',
-    brazilian_portuguese: 'Reportar'
+    brazilian_portuguese: 'Reportar',
+    nepali: 'रिपोर्ट गर्नुहोस्'
   },
   selectReasonLabel: {
     english: 'Select a reason',
     spanish: 'Seleccione un motivo',
     brazilian_portuguese: 'Selecione um motivo',
     tok_pisin: 'Makim wanpela reson',
-    indonesian: 'Pilih alasan'
+    indonesian: 'Pilih alasan',
+    nepali: 'एउटा कारण चयन गर्नुहोस्'
   },
   additionalDetails: {
     english: 'Additional Details',
     spanish: 'Detalles Adicionales',
     brazilian_portuguese: 'Detalhes Adicionais',
     tok_pisin: 'Moa Details',
-    indonesian: 'Detail Tambahan'
+    indonesian: 'Detail Tambahan',
+    nepali: 'थप विवरणहरू'
   },
   additionalDetailsPlaceholder: {
     english: 'Provide any additional information...',
     spanish: 'Proporcionar cualquier información adicional...',
     brazilian_portuguese: 'Forneça qualquer informação adicional...',
     tok_pisin: 'Givim narapela information...',
-    indonesian: 'Berikan informasi tambahan...'
+    indonesian: 'Berikan informasi tambahan...',
+    nepali: 'कुनै थप जानकारी प्रदान गर्नुहोस्...'
   },
   submitReport: {
     english: 'Submit Report',
     spanish: 'Enviar Reporte',
     brazilian_portuguese: 'Enviar Relatório',
     tok_pisin: 'Salim Report',
-    indonesian: 'Kirim Laporan'
+    indonesian: 'Kirim Laporan',
+    nepali: 'रिपोर्ट पेश गर्नुहोस्'
   },
   submitting: {
     english: 'Submitting...',
     spanish: 'Enviando...',
     brazilian_portuguese: 'Enviando...',
     tok_pisin: 'Salim...',
-    indonesian: 'Mengirim...'
+    indonesian: 'Mengirim...',
+    nepali: 'पेश गर्दै...'
   },
   reportSubmitted: {
     english: 'Report submitted successfully',
     spanish: 'Reporte enviado exitosamente',
     brazilian_portuguese: 'Relatório enviado com sucesso',
     tok_pisin: 'Report i go gut',
-    indonesian: 'Laporan berhasil dikirim'
+    indonesian: 'Laporan berhasil dikirim',
+    nepali: 'रिपोर्ट सफलतापूर्वक पेश गरियो'
   },
   enterEmailForPasswordReset: {
     english: 'Enter your email to reset your password',
     spanish: 'Ingrese su email para restablecer su contraseña',
     brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha',
     tok_pisin: 'Putim email bilong yu long resetim password',
-    indonesian: 'Masukkan email Anda untuk mereset kata sandi'
+    indonesian: 'Masukkan email Anda untuk mereset kata sandi',
+    nepali: 'पासवर्ड रिसेट गर्न आफ्नो इमेल प्रविष्ट गर्नुहोस्'
   },
   failedToSubmitReport: {
     english: 'Failed to submit report',
     spanish: 'Error al enviar el reporte',
     brazilian_portuguese: 'Falha ao enviar relatório',
     tok_pisin: 'I no inap salim report',
-    indonesian: 'Gagal mengirim laporan'
+    indonesian: 'Gagal mengirim laporan',
+    nepali: 'रिपोर्ट पेश गर्न असफल'
   },
   logInToReport: {
     english: 'You must be logged in to report translations',
     spanish: 'Debe iniciar sesión para reportar traducciones',
     brazilian_portuguese: 'Você deve estar logado para reportar traduções',
     tok_pisin: 'Yu mas login pastaim long reportim ol translation',
-    indonesian: 'Anda harus masuk untuk melaporkan terjemahan'
+    indonesian: 'Anda harus masuk untuk melaporkan terjemahan',
+    nepali: 'अनुवादहरू रिपोर्ट गर्न तपाईं लग इन हुनुपर्छ'
   },
   selectReason: {
     english: 'Please select a reason for the report',
     spanish: 'Por favor seleccione un motivo para el reporte',
     brazilian_portuguese: 'Por favor, selecione um motivo para o relatório',
     tok_pisin: 'Plis makim wanpela reson long report',
-    indonesian: 'Silakan pilih alasan untuk laporan'
+    indonesian: 'Silakan pilih alasan untuk laporan',
+    nepali: 'कृपया रिपोर्टको लागि एउटा कारण चयन गर्नुहोस्'
   },
   enableAnalytics: {
     english: 'Enable Analytics',
     spanish: 'Habilitar Análisis',
     brazilian_portuguese: 'Habilitar Análise',
     tok_pisin: 'Onim Analytics',
-    indonesian: 'Aktifkan Analitik'
+    indonesian: 'Aktifkan Analitik',
+    nepali: 'विश्लेषण सक्षम गर्नुहोस्'
   },
   analyticsDescription: {
     english:
@@ -1561,56 +1939,65 @@ export const localizations = {
     tok_pisin:
       'Sapos yu ofim, mipela no bai kisim usage data long mekim app i gutpela.',
     indonesian:
-      'Ketika dinonaktifkan, kami tidak akan mengumpulkan data penggunaan untuk meningkatkan aplikasi.'
+      'Ketika dinonaktifkan, kami tidak akan mengumpulkan data penggunaan untuk meningkatkan aplikasi.',
+    nepali:
+      'असक्षम गरिएको बेला, हामी एप सुधार गर्न प्रयोग डाटा सङ्कलन गर्ने छैनौं।'
   },
   sessionExpired: {
     english: 'Session expired',
     spanish: 'Sesión expirada',
     brazilian_portuguese: 'Sessão expirada',
     tok_pisin: 'Session i pinis',
-    indonesian: 'Sesi kedaluwarsa'
+    indonesian: 'Sesi kedaluwarsa',
+    nepali: 'सत्र समाप्त भयो'
   },
   'reportReason.inappropriate_content': {
     english: 'Inappropriate Content',
     spanish: 'Contenido Inapropiado',
     brazilian_portuguese: 'Conteúdo Inapropriado',
     tok_pisin: 'Content i no gutpela',
-    indonesian: 'Konten Tidak Pantas'
+    indonesian: 'Konten Tidak Pantas',
+    nepali: 'अनुचित सामग्री'
   },
   'reportReason.spam': {
     english: 'Spam',
     spanish: 'Spam',
     brazilian_portuguese: 'Spam',
     tok_pisin: 'Spam',
-    indonesian: 'Spam'
+    indonesian: 'Spam',
+    nepali: 'स्प्याम'
   },
   'reportReason.other': {
     english: 'Other',
     spanish: 'Otro',
     brazilian_portuguese: 'Outro',
     tok_pisin: 'Narapela',
-    indonesian: 'Lainnya'
+    indonesian: 'Lainnya',
+    nepali: 'अन्य'
   },
   updatePassword: {
     english: 'Update Password',
     spanish: 'Actualizar Contraseña',
     brazilian_portuguese: 'Atualizar Senha',
     tok_pisin: 'Updateim Password',
-    indonesian: 'Perbarui Kata Sandi'
+    indonesian: 'Perbarui Kata Sandi',
+    nepali: 'पासवर्ड अपडेट गर्नुहोस्'
   },
   createNewPassword: {
     english: 'Create New Password',
     spanish: 'Crear nueva contraseña',
     brazilian_portuguese: 'Criar nova senha',
     tok_pisin: 'Mekim nupela password',
-    indonesian: 'Buat Kata Sandi Baru'
+    indonesian: 'Buat Kata Sandi Baru',
+    nepali: 'नयाँ पासवर्ड सिर्जना गर्नुहोस्'
   },
   downloadLimitExceeded: {
     english: 'Download Limit Exceeded',
     spanish: 'Límite de descarga excedido',
     brazilian_portuguese: 'Limite de download excedido',
     tok_pisin: 'Download limit i pinis',
-    indonesian: 'Batas Unduhan Terlampaui'
+    indonesian: 'Batas Unduhan Terlampaui',
+    nepali: 'डाउनलोड सीमा नाघ्यो'
   },
   downloadLimitMessage: {
     english:
@@ -1622,14 +2009,17 @@ export const localizations = {
     tok_pisin:
       'Yu traim long download {newDownloads} attachments long total {totalDownloads}, tasol limit i {limit}. Plis unselectim sampela downloads na traim gen.',
     indonesian:
-      'Anda mencoba mengunduh {newDownloads} lampiran untuk total {totalDownloads}, tetapi batasnya adalah {limit}. Silakan batalkan pilihan beberapa unduhan dan coba lagi.'
+      'Anda mencoba mengunduh {newDownloads} lampiran untuk total {totalDownloads}, tetapi batasnya adalah {limit}. Silakan batalkan pilihan beberapa unduhan dan coba lagi.',
+    nepali:
+      'तपाईं {totalDownloads} को कुल लागि {newDownloads} संलग्नकहरू डाउनलोड गर्न प्रयास गर्दै हुनुहुन्छ, तर सीमा {limit} हो। कृपया केही डाउनलोडहरू अचयन गर्नुहोस् र पुन: प्रयास गर्नुहोस्।'
   },
   offlineUndownloadWarning: {
     english: 'Offline Undownload Warning',
     spanish: 'Advertencia de eliminación sin conexión',
     brazilian_portuguese: 'Aviso de remoção de download offline',
     tok_pisin: 'Offline Undownload Warning',
-    indonesian: 'Peringatan Batalkan Unduhan Offline'
+    indonesian: 'Peringatan Batalkan Unduhan Offline',
+    nepali: 'अफलाइन अनडाउनलोड चेतावनी'
   },
   offlineUndownloadMessage: {
     english:
@@ -1641,42 +2031,65 @@ export const localizations = {
     tok_pisin:
       'Yu no gat internet nau. Sapos yu rausim dispela download, yu no inap download gen inap yu gat internet gen. Ol contribution bilong yu i no sync yet bai no kena.',
     indonesian:
-      'Anda sedang offline. Jika Anda menghapus unduhan ini, Anda tidak akan dapat mengunduhnya lagi sampai Anda kembali online. Kontribusi yang belum disinkronkan tidak akan terpengaruh.'
+      'Anda sedang offline. Jika Anda menghapus unduhan ini, Anda tidak akan dapat mengunduhnya lagi sampai Anda kembali online. Kontribusi yang belum disinkronkan tidak akan terpengaruh.',
+    nepali:
+      'तपाईं अहिले अफलाइन हुनुहुन्छ। यदि तपाईंले यो डाउनलोड हटाउनुभयो भने, तपाईं अनलाइन नभएसम्म पुन: डाउनलोड गर्न सक्षम हुनुहुने छैन। तपाईंको सिङ्क नभएका योगदानहरू प्रभावित हुने छैनन्।'
   },
   dontShowAgain: {
     english: "Don't show this message again",
     spanish: 'No mostrar este mensaje nuevamente',
     brazilian_portuguese: 'Não mostrar esta mensagem novamente',
     tok_pisin: 'No soim dispela message gen',
-    indonesian: 'Jangan tampilkan pesan ini lagi'
+    indonesian: 'Jangan tampilkan pesan ini lagi',
+    nepali: 'यो सन्देश फेरि नदेखाउनुहोस्'
   },
   cancel: {
     english: 'Cancel',
     spanish: 'Cancelar',
     brazilian_portuguese: 'Cancelar',
     tok_pisin: 'Cancel',
-    indonesian: 'Batal'
+    indonesian: 'Batal',
+    nepali: 'रद्द गर्नुहोस्'
+  },
+  yes: {
+    english: 'Yes',
+    spanish: 'Sí',
+    brazilian_portuguese: 'Sim',
+    tok_pisin: 'Yes',
+    indonesian: 'Ya',
+    nepali: 'हो'
+  },
+  no: {
+    english: 'No',
+    spanish: 'No',
+    brazilian_portuguese: 'Não',
+    tok_pisin: 'Nogat',
+    indonesian: 'Tidak',
+    nepali: 'होइन'
   },
   confirm: {
     english: 'Confirm',
     spanish: 'Confirmar',
     brazilian_portuguese: 'Confirmar',
     tok_pisin: 'Confirm',
-    indonesian: 'Konfirmasi'
+    indonesian: 'Konfirmasi',
+    nepali: 'पुष्टि गर्नुहोस्'
   },
   blockThisContent: {
     english: 'Block this content',
     spanish: 'Bloquear este contenido',
     brazilian_portuguese: 'Bloquear este conteúdo',
     tok_pisin: 'Blokim dispela content',
-    indonesian: 'Blokir konten ini'
+    indonesian: 'Blokir konten ini',
+    nepali: 'यो सामग्री ब्लक गर्नुहोस्'
   },
   blockThisUser: {
     english: 'Block this user',
     spanish: 'Bloquear este usuario',
     brazilian_portuguese: 'Bloquear este usuário',
     tok_pisin: 'Blokim dispela user',
-    indonesian: 'Blokir pengguna ini'
+    indonesian: 'Blokir pengguna ini',
+    nepali: 'यो प्रयोगकर्ता ब्लक गर्नुहोस्'
   },
   // New backup-related translations
   backup: {
@@ -1684,35 +2097,40 @@ export const localizations = {
     spanish: 'Respaldo',
     brazilian_portuguese: 'Backup',
     tok_pisin: 'Backup',
-    indonesian: 'Cadangan'
+    indonesian: 'Cadangan',
+    nepali: 'ब्याकअप'
   },
   backingUp: {
     english: 'Backing Up...',
     spanish: 'Respaldando...',
     brazilian_portuguese: 'Fazendo Backup...',
     tok_pisin: 'Backup...',
-    indonesian: 'Mencadangkan...'
+    indonesian: 'Mencadangkan...',
+    nepali: 'ब्याकअप गर्दै...'
   },
   restoreBackup: {
     english: 'Restore Backup',
     spanish: 'Restaurar Respaldo',
     brazilian_portuguese: 'Restaurar Backup',
     tok_pisin: 'Restore Backup',
-    indonesian: 'Pulihkan Cadangan'
+    indonesian: 'Pulihkan Cadangan',
+    nepali: 'ब्याकअप पुनर्स्थापना गर्नुहोस्'
   },
   restoring: {
     english: 'Restoring...',
     spanish: 'Restaurando...',
     brazilian_portuguese: 'Restaurando...',
     tok_pisin: 'Restore...',
-    indonesian: 'Memulihkan...'
+    indonesian: 'Memulihkan...',
+    nepali: 'पुनर्स्थापना गर्दै...'
   },
   startBackupTitle: {
     english: 'Create Backup',
     spanish: 'Crear Respaldo',
     brazilian_portuguese: 'Criar Backup',
     tok_pisin: 'Mekim Backup',
-    indonesian: 'Buat Cadangan'
+    indonesian: 'Buat Cadangan',
+    nepali: 'ब्याकअप सिर्जना गर्नुहोस्'
   },
   startBackupMessageAudioOnly: {
     english: 'Would you like to back up your unsynced audio recordings?',
@@ -1722,28 +2140,33 @@ export const localizations = {
       'Gostaria de fazer backup das suas gravações de áudio não sincronizadas?',
     tok_pisin: 'Yu laik backup ol audio recording bilong yu i no sync yet?',
     indonesian:
-      'Apakah Anda ingin mencadangkan rekaman audio yang belum disinkronkan?'
+      'Apakah Anda ingin mencadangkan rekaman audio yang belum disinkronkan?',
+    nepali:
+      'के तपाईं आफ्नो सिङ्क नभएका अडियो रेकर्डिङहरू ब्याकअप गर्न चाहनुहुन्छ?'
   },
   backupAudioAction: {
     english: 'Backup audio and text',
     spanish: 'Respaldar audio y texto',
     brazilian_portuguese: 'Backup de áudio e texto',
     tok_pisin: 'Backup audio na text',
-    indonesian: 'Cadangkan audio dan teks'
+    indonesian: 'Cadangkan audio dan teks',
+    nepali: 'अडियो र टेक्स्ट ब्याकअप गर्नुहोस्'
   },
   backupErrorTitle: {
     english: 'Backup Error',
     spanish: 'Error de Respaldo',
     brazilian_portuguese: 'Erro de Backup',
     tok_pisin: 'Backup Rong',
-    indonesian: 'Kesalahan Cadangan'
+    indonesian: 'Kesalahan Cadangan',
+    nepali: 'ब्याकअप त्रुटि'
   },
   backupCompleteTitle: {
     english: 'Backup Complete',
     spanish: 'Respaldo Completado',
     brazilian_portuguese: 'Backup Concluído',
     tok_pisin: 'Backup Pinis',
-    indonesian: 'Cadangan Selesai'
+    indonesian: 'Cadangan Selesai',
+    nepali: 'ब्याकअप पूरा भयो'
   },
   audioBackupStatus: {
     english: 'Successfully backed up {count} audio recordings',
@@ -1751,14 +2174,16 @@ export const localizations = {
     brazilian_portuguese:
       'Backup de {count} gravações de áudio concluído com sucesso',
     tok_pisin: 'Backup {count} audio recordings gut',
-    indonesian: 'Berhasil mencadangkan {count} rekaman audio'
+    indonesian: 'Berhasil mencadangkan {count} rekaman audio',
+    nepali: '{count} अडियो रेकर्डिङहरू सफलतापूर्वक ब्याकअप गरियो'
   },
   criticalBackupError: {
     english: 'A critical error occurred: {error}',
     spanish: 'Ocurrió un error crítico: {error}',
     brazilian_portuguese: 'Ocorreu um erro crítico: {error}',
     tok_pisin: 'Bikpela rong i kamap: {error}',
-    indonesian: 'Terjadi kesalahan kritis: {error}'
+    indonesian: 'Terjadi kesalahan kritis: {error}',
+    nepali: 'एउटा गम्भीर त्रुटि भयो: {error}'
   },
   databaseNotReady: {
     english: 'Database is not ready. Please try again later.',
@@ -1766,7 +2191,8 @@ export const localizations = {
     brazilian_portuguese:
       'O banco de dados não está pronto. Por favor, tente novamente mais tarde.',
     tok_pisin: 'Database i no redi yet. Plis traim gen bihain.',
-    indonesian: 'Database belum siap. Silakan coba lagi nanti.'
+    indonesian: 'Database belum siap. Silakan coba lagi nanti.',
+    nepali: 'डाटाबेस तयार छैन। कृपया पछि पुन: प्रयास गर्नुहोस्।'
   },
   storagePermissionDenied: {
     english: 'Storage permission denied. Backup cannot proceed.',
@@ -1775,7 +2201,8 @@ export const localizations = {
     brazilian_portuguese:
       'Permissão de armazenamento negada. O backup não pode prosseguir.',
     tok_pisin: 'Storage permission i no. Backup i no inap go.',
-    indonesian: 'Izin penyimpanan ditolak. Cadangan tidak dapat dilanjutkan.'
+    indonesian: 'Izin penyimpanan ditolak. Cadangan tidak dapat dilanjutkan.',
+    nepali: 'भण्डारण अनुमति अस्वीकृत। ब्याकअप अगाडि बढ्न सक्दैन।'
   },
   // Adding missing translation keys
   initializing: {
@@ -1783,12 +2210,14 @@ export const localizations = {
     spanish: 'Inicializando',
     brazilian_portuguese: 'Inicializando',
     tok_pisin: 'Initializing',
-    indonesian: 'Menginisialisasi'
+    indonesian: 'Menginisialisasi',
+    nepali: 'सुरुवात गर्दै'
   },
   syncComplete: {
     english: 'Sync complete',
     spanish: 'Sincronización completa',
     brazilian_portuguese: 'Sincronização completa',
+    nepali: 'सिङ्क पूरा भयो',
     tok_pisin: 'Sync pinis',
     indonesian: 'Sinkronisasi selesai'
   },
@@ -1797,35 +2226,40 @@ export const localizations = {
     spanish: '{current} de {total} archivos',
     brazilian_portuguese: '{current} de {total} arquivos',
     tok_pisin: '{current} long {total} files',
-    indonesian: '{current} dari {total} file'
+    indonesian: '{current} dari {total} file',
+    nepali: '{total} मध्ये {current} फाइलहरू'
   },
   userNotLoggedIn: {
     english: 'You must be logged in to perform this action',
     spanish: 'Debe iniciar sesión para realizar esta acción',
     brazilian_portuguese: 'Você deve estar logado para realizar esta ação',
     tok_pisin: 'Yu mas login pastaim long mekim dispela samting',
-    indonesian: 'Anda harus masuk untuk melakukan tindakan ini'
+    indonesian: 'Anda harus masuk untuk melakukan tindakan ini',
+    nepali: 'यो कार्य गर्न तपाईं लग इन हुनुपर्छ'
   },
   cannotReportOwnTranslation: {
     english: 'You cannot report your own translation',
     spanish: 'No puede reportar su propia traducción',
     brazilian_portuguese: 'Você não pode reportar sua própria tradução',
     tok_pisin: 'Yu no inap reportim translation bilong yu yet',
-    indonesian: 'Anda tidak dapat melaporkan terjemahan Anda sendiri'
+    indonesian: 'Anda tidak dapat melaporkan terjemahan Anda sendiri',
+    nepali: 'तपाईं आफ्नो अनुवाद रिपोर्ट गर्न सक्नुहुन्न'
   },
   cannotReportInactiveTranslation: {
     english: 'You cannot report inactive translation',
     spanish: 'No puede reportar traducción inactiva',
     brazilian_portuguese: 'Você não pode reportar tradução inativa',
     tok_pisin: 'Yu no inap reportim translation i no active',
-    indonesian: 'Anda tidak dapat melaporkan terjemahan yang tidak aktif'
+    indonesian: 'Anda tidak dapat melaporkan terjemahan yang tidak aktif',
+    nepali: 'तपाईं निष्क्रिय अनुवाद रिपोर्ट गर्न सक्नुहुन्न'
   },
   cannotIdentifyUser: {
     english: 'Unable to identify user',
     spanish: 'No se puede identificar al usuario',
     brazilian_portuguese: 'Não foi possível identificar o usuário',
     tok_pisin: 'No inap save user',
-    indonesian: 'Tidak dapat mengidentifikasi pengguna'
+    indonesian: 'Tidak dapat mengidentifikasi pengguna',
+    nepali: 'प्रयोगकर्ता पहिचान गर्न असमर्थ'
   },
   cannotChangeTranslationSettings: {
     english: 'Unathorized to change settings for this translation',
@@ -1835,175 +2269,200 @@ export const localizations = {
       'Você não tem autorização para alterar as configurações desta tradução',
     tok_pisin:
       'Yu no gat rait long senisim settings bilong dispela translation',
-    indonesian: 'Tidak berwenang untuk mengubah pengaturan terjemahan ini'
+    indonesian: 'Tidak berwenang untuk mengubah pengaturan terjemahan ini',
+    nepali: 'यो अनुवादको सेटिङहरू परिवर्तन गर्न अनधिकृत'
   },
   alreadyReportedTranslation: {
     english: 'You have already reported this translation',
     spanish: 'Ya ha reportado esta traducción',
     brazilian_portuguese: 'Você já reportou esta tradução',
     tok_pisin: 'Yu reportim dispela translation pinis',
-    indonesian: 'Anda sudah melaporkan terjemahan ini'
+    indonesian: 'Anda sudah melaporkan terjemahan ini',
+    nepali: 'तपाईंले पहिले नै यो अनुवाद रिपोर्ट गरिसक्नुभयो'
   },
   failedSaveAnalyticsPreference: {
     english: 'Failed to save analytics preference',
     spanish: 'Error al guardar la preferencia de análisis',
     brazilian_portuguese: 'Falha ao salvar preferência de análise',
     tok_pisin: 'I no inap seivim analytics preference',
-    indonesian: 'Gagal menyimpan preferensi analitik'
+    indonesian: 'Gagal menyimpan preferensi analitik',
+    nepali: 'विश्लेषण प्राथमिकता सेभ गर्न असफल'
   },
   currentPasswordRequired: {
     english: 'Current password is required',
     spanish: 'Se requiere la contraseña actual',
     brazilian_portuguese: 'A senha atual é obrigatória',
     tok_pisin: 'Password bilong nau i mas',
-    indonesian: 'Kata sandi saat ini diperlukan'
+    indonesian: 'Kata sandi saat ini diperlukan',
+    nepali: 'हालको पासवर्ड आवश्यक छ'
   },
   profileUpdateSuccess: {
     english: 'Profile updated successfully',
     spanish: 'Perfil actualizado con éxito',
     brazilian_portuguese: 'Perfil atualizado com sucesso',
     tok_pisin: 'Profile i update gut',
-    indonesian: 'Profil berhasil diperbarui'
+    indonesian: 'Profil berhasil diperbarui',
+    nepali: 'प्रोफाइल सफलतापूर्वक अपडेट गरियो'
   },
   failedUpdateProfile: {
     english: 'Failed to update profile',
     spanish: 'Error al actualizar el perfil',
     brazilian_portuguese: 'Falha ao atualizar perfil',
     tok_pisin: 'I no inap updateim profile',
-    indonesian: 'Gagal memperbarui profil'
+    indonesian: 'Gagal memperbarui profil',
+    nepali: 'प्रोफाइल अपडेट गर्न असफल'
   },
   assetNotFound: {
     english: 'Asset not found',
     spanish: 'Recurso no encontrado',
     brazilian_portuguese: 'Recurso não encontrado',
     tok_pisin: 'Asset i no stap',
-    indonesian: 'Aset tidak ditemukan'
+    indonesian: 'Aset tidak ditemukan',
+    nepali: 'एसेट फेला परेन'
   },
   failedLoadAssetData: {
     english: 'Failed to load asset data',
     spanish: 'Error al cargar datos del recurso',
     brazilian_portuguese: 'Falha ao carregar dados do recurso',
     tok_pisin: 'I no inap loadim asset data',
-    indonesian: 'Gagal memuat data aset'
+    indonesian: 'Gagal memuat data aset',
+    nepali: 'एसेट डाटा लोड गर्न असफल'
   },
   failedLoadAssets: {
     english: 'Failed to load assets',
     spanish: 'Error al cargar recursos',
     brazilian_portuguese: 'Falha ao carregar recursos',
     tok_pisin: 'I no inap loadim ol asset',
-    indonesian: 'Gagal memuat aset'
+    indonesian: 'Gagal memuat aset',
+    nepali: 'एसेटहरू लोड गर्न असफल'
   },
   projectMembers: {
     english: 'Project Members',
     spanish: 'Miembros del Proyecto',
     brazilian_portuguese: 'Membros do Projeto',
     tok_pisin: 'Ol Member bilong Project',
-    indonesian: 'Anggota Proyek'
+    indonesian: 'Anggota Proyek',
+    nepali: 'प्रोजेक्ट सदस्यहरू'
   },
   members: {
     english: 'Members',
     spanish: 'Miembros',
     brazilian_portuguese: 'Membros',
     tok_pisin: 'Ol Member',
-    indonesian: 'Anggota'
+    indonesian: 'Anggota',
+    nepali: 'सदस्यहरू'
   },
   invited: {
     english: 'Invited',
     spanish: 'Invitados',
     brazilian_portuguese: 'Convidados',
     tok_pisin: 'Ol i invitim',
-    indonesian: 'Diundang'
+    indonesian: 'Diundang',
+    nepali: 'आमन्त्रित'
   },
   viewInvitation: {
     english: 'View Invitation',
     spanish: 'Ver Invitación',
     brazilian_portuguese: 'Ver Convite',
     tok_pisin: 'Lukim Invitation',
-    indonesian: 'Lihat Undangan'
+    indonesian: 'Lihat Undangan',
+    nepali: 'आमन्त्रण हेर्नुहोस्'
   },
   inviteMembers: {
     english: 'Invite Members',
     spanish: 'Invitar Miembros',
     brazilian_portuguese: 'Convidar Membros',
     tok_pisin: 'Invitim ol Member',
-    indonesian: 'Undang Anggota'
+    indonesian: 'Undang Anggota',
+    nepali: 'सदस्यहरूलाई आमन्त्रित गर्नुहोस्'
   },
   inviteAsOwner: {
     english: 'Invite as owner',
     spanish: 'Invitar como propietario',
     brazilian_portuguese: 'Convidar como proprietário',
     tok_pisin: 'Invitim olsem owner',
-    indonesian: 'Undang sebagai pemilik'
+    indonesian: 'Undang sebagai pemilik',
+    nepali: 'मालिकको रूपमा आमन्त्रित गर्नुहोस्'
   },
   sendInvitation: {
     english: 'Send Invitation',
     spanish: 'Enviar Invitación',
     brazilian_portuguese: 'Enviar Convite',
     tok_pisin: 'Salim Invitation',
-    indonesian: 'Kirim Undangan'
+    indonesian: 'Kirim Undangan',
+    nepali: 'आमन्त्रण पठाउनुहोस्'
   },
   owner: {
     english: 'Owner',
     spanish: 'Propietario',
     brazilian_portuguese: 'Proprietário',
     tok_pisin: 'Owner',
-    indonesian: 'Pemilik'
+    indonesian: 'Pemilik',
+    nepali: 'मालिक'
   },
   member: {
     english: 'Member',
     spanish: 'Miembro',
     brazilian_portuguese: 'Membro',
     tok_pisin: 'Member',
-    indonesian: 'Anggota'
+    indonesian: 'Anggota',
+    nepali: 'सदस्य'
   },
   makeOwner: {
     english: 'Make Owner',
     spanish: 'Hacer Propietario',
     brazilian_portuguese: 'Tornar Proprietário',
     tok_pisin: 'Mekim Owner',
-    indonesian: 'Jadikan Pemilik'
+    indonesian: 'Jadikan Pemilik',
+    nepali: 'मालिक बनाउनुहोस्'
   },
   remove: {
     english: 'Remove',
     spanish: 'Eliminar',
     brazilian_portuguese: 'Remover',
     tok_pisin: 'Rausim',
-    indonesian: 'Hapus'
+    indonesian: 'Hapus',
+    nepali: 'हटाउनुहोस्'
   },
   withdrawInvite: {
     english: 'Withdraw Invite',
     spanish: 'Retirar Invitación',
     brazilian_portuguese: 'Retirar Convite',
     tok_pisin: 'Rausim Invite',
-    indonesian: 'Tarik Undangan'
+    indonesian: 'Tarik Undangan',
+    nepali: 'आमन्त्रण फिर्ता लिनुहोस्'
   },
   you: {
     english: 'You',
     spanish: 'Tú',
     brazilian_portuguese: 'Você',
     tok_pisin: 'Yu',
-    indonesian: 'Anda'
+    indonesian: 'Anda',
+    nepali: 'तपाईं'
   },
   pendingInvitation: {
     english: 'Pending',
     spanish: 'Pendiente',
     brazilian_portuguese: 'Pendente',
     tok_pisin: 'Wet',
-    indonesian: 'Tertunda'
+    indonesian: 'Tertunda',
+    nepali: 'बाँकी'
   },
   noMembers: {
     english: 'No members yet',
     spanish: 'No hay miembros todavía',
     brazilian_portuguese: 'Ainda não há membros',
     tok_pisin: 'No gat member yet',
-    indonesian: 'Belum ada anggota'
+    indonesian: 'Belum ada anggota',
+    nepali: 'अहिलेसम्म कुनै सदस्य छैन'
   },
   noInvitations: {
     english: 'No pending invitations',
     spanish: 'No hay invitaciones pendientes',
     brazilian_portuguese: 'Nenhum convite pendente',
     tok_pisin: 'No gat invitation i wet',
-    indonesian: 'Tidak ada undangan tertunda'
+    indonesian: 'Tidak ada undangan tertunda',
+    nepali: 'कुनै बाँकी आमन्त्रण छैन'
   },
   ownerTooltip: {
     english:
@@ -2015,7 +2474,9 @@ export const localizations = {
     tok_pisin:
       'Ol owner ken mekim content, invitim na promotim narapela member, na ol narapela member no inap daunim o rausim ol long project.',
     indonesian:
-      'Pemilik dapat membuat konten, mengundang dan mempromosikan anggota lain, dan tidak dapat diturunkan kembali ke keanggotaan atau dihapus dari proyek oleh anggota lain.'
+      'Pemilik dapat membuat konten, mengundang dan mempromosikan anggota lain, dan tidak dapat diturunkan kembali ke keanggotaan atau dihapus dari proyek oleh anggota lain.',
+    nepali:
+      'मालिकहरूले सामग्री सिर्जना गर्न, अन्य सदस्यहरूलाई आमन्त्रित गर्न र प्रवर्द्धन गर्न सक्छन्, र अन्य सदस्यहरूद्वारा सदस्यतामा फिर्ता गिराउन वा प्रोजेक्टबाट हटाउन सकिँदैन।'
   },
   confirmRemoveMessage: {
     english: 'Are you sure you want to remove {name} from this project?',
@@ -2023,14 +2484,17 @@ export const localizations = {
     brazilian_portuguese:
       'Tem certeza de que deseja remover {name} deste projeto?',
     tok_pisin: 'Yu tru laik rausim {name} long dispela project?',
-    indonesian: 'Apakah Anda yakin ingin menghapus {name} dari proyek ini?'
+    indonesian: 'Apakah Anda yakin ingin menghapus {name} dari proyek ini?',
+    nepali:
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {name} लाई यो प्रोजेक्टबाट हटाउन चाहनुहुन्छ?'
   },
   confirmPromote: {
     english: 'Confirm Promote',
     spanish: 'Confirmar Promoción',
     brazilian_portuguese: 'Confirmar Promoção',
     tok_pisin: 'Confirm Promote',
-    indonesian: 'Konfirmasi Promosi'
+    indonesian: 'Konfirmasi Promosi',
+    nepali: 'प्रमोशन पुष्टि गर्नुहोस्'
   },
   confirmPromoteMessage: {
     english:
@@ -2042,21 +2506,25 @@ export const localizations = {
     tok_pisin:
       'Yu tru laik mekim {name} i owner? Dispela samting yu no inap senisim bek.',
     indonesian:
-      'Apakah Anda yakin ingin menjadikan {name} sebagai pemilik? Tindakan ini tidak dapat dibatalkan.'
+      'Apakah Anda yakin ingin menjadikan {name} sebagai pemilik? Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {name} लाई मालिक बनाउन चाहनुहुन्छ? यो कार्य पूर्ववत गर्न सकिँदैन।'
   },
   confirmLeave: {
     english: 'Leave Project',
     spanish: 'Abandonar Proyecto',
     brazilian_portuguese: 'Sair do Projeto',
     tok_pisin: 'Lusim Project',
-    indonesian: 'Tinggalkan Proyek'
+    indonesian: 'Tinggalkan Proyek',
+    nepali: 'प्रोजेक्ट छोड्नुहोस्'
   },
   confirmLeaveMessage: {
     english: 'Are you sure you want to leave this project?',
     spanish: '¿Está seguro de que desea abandonar este proyecto?',
     brazilian_portuguese: 'Tem certeza de que deseja sair deste projeto?',
     tok_pisin: 'Yu tru laik lusim dispela project?',
-    indonesian: 'Apakah Anda yakin ingin meninggalkan proyek ini?'
+    indonesian: 'Apakah Anda yakin ingin meninggalkan proyek ini?',
+    nepali: 'के तपाईं यो प्रोजेक्ट छोड्न निश्चित हुनुहुन्छ?'
   },
   cannotLeaveAsOnlyOwner: {
     english:
@@ -2068,7 +2536,9 @@ export const localizations = {
     tok_pisin:
       'Yu no inap lusim dispela project bilong yu stap owner tasol. Plis promotim narapela member i kamap owner pastaim.',
     indonesian:
-      'Anda tidak dapat meninggalkan proyek ini karena Anda adalah satu-satunya pemilik. Silakan promosikan anggota lain menjadi pemilik terlebih dahulu.'
+      'Anda tidak dapat meninggalkan proyek ini karena Anda adalah satu-satunya pemilik. Silakan promosikan anggota lain menjadi pemilik terlebih dahulu.',
+    nepali:
+      'तपाईं एक्लो मालिक भएको हुनाले यो प्रोजेक्ट छोड्न सक्नुहुन्न। कृपया पहिले अर्को सदस्यलाई मालिक बनाउनुहोस्।'
   },
   invitationAlreadySent: {
     english: 'An invitation has already been sent to this email address.',
@@ -2077,84 +2547,96 @@ export const localizations = {
     brazilian_portuguese:
       'Um convite já foi enviado para este endereço de e-mail.',
     tok_pisin: 'Invitation i go pinis long dispela email adres.',
-    indonesian: 'Undangan sudah dikirim ke alamat email ini.'
+    indonesian: 'Undangan sudah dikirim ke alamat email ini.',
+    nepali: 'यो इमेल ठेगानामा पहिले नै आमन्त्रण पठाइसकिएको छ।'
   },
   invitationSent: {
     english: 'Invitation sent successfully',
     spanish: 'Invitación enviada con éxito',
     brazilian_portuguese: 'Convite enviado com sucesso',
     tok_pisin: 'Invitation i go gut',
-    indonesian: 'Undangan berhasil dikirim'
+    indonesian: 'Undangan berhasil dikirim',
+    nepali: 'आमन्त्रण सफलतापूर्वक पठाइयो'
   },
   expiredInvitation: {
     english: 'Expired',
     spanish: 'Expirado',
     brazilian_portuguese: 'Expirado',
     tok_pisin: 'Pinis',
-    indonesian: 'Kedaluwarsa'
+    indonesian: 'Kedaluwarsa',
+    nepali: 'समाप्त भयो'
   },
   declinedInvitation: {
     english: 'Declined',
     spanish: 'Rechazado',
     brazilian_portuguese: 'Recusado',
     tok_pisin: 'Refusim',
-    indonesian: 'Ditolak'
+    indonesian: 'Ditolak',
+    nepali: 'अस्वीकृत'
   },
   withdrawnInvitation: {
     english: 'Withdrawn',
     spanish: 'Retirado',
     brazilian_portuguese: 'Retirado',
     tok_pisin: 'Rausim',
-    indonesian: 'Ditarik'
+    indonesian: 'Ditarik',
+    nepali: 'फिर्ता लिइएको'
   },
   sending: {
     english: 'Sending...',
     spanish: 'Enviando...',
     brazilian_portuguese: 'Enviando...',
     tok_pisin: 'Salim...',
-    indonesian: 'Mengirim...'
+    indonesian: 'Mengirim...',
+    nepali: 'पठाउँदै...'
   },
   failedToRemoveMember: {
     english: 'Failed to remove member',
     spanish: 'Error al eliminar miembro',
     brazilian_portuguese: 'Falha ao remover membro',
     tok_pisin: 'I no inap rausim member',
-    indonesian: 'Gagal menghapus anggota'
+    indonesian: 'Gagal menghapus anggota',
+    nepali: 'सदस्य हटाउन असफल'
   },
   failedToPromoteMember: {
     english: 'Failed to promote member',
     spanish: 'Error al promover miembro',
     brazilian_portuguese: 'Falha ao promover membro',
     tok_pisin: 'I no inap promotim member',
-    indonesian: 'Gagal mempromosikan anggota'
+    indonesian: 'Gagal mempromosikan anggota',
+    nepali: 'सदस्यलाई प्रमोट गर्न असफल'
   },
   failedToLeaveProject: {
     english: 'Failed to leave project',
     spanish: 'Error al abandonar el proyecto',
     brazilian_portuguese: 'Falha ao sair do projeto',
     tok_pisin: 'I no inap lusim project',
-    indonesian: 'Gagal meninggalkan proyek'
+    indonesian: 'Gagal meninggalkan proyek',
+    nepali: 'प्रोजेक्ट छोड्न असफल'
   },
   failedToWithdrawInvitation: {
     english: 'Failed to withdraw invitation',
     spanish: 'Error al retirar la invitación',
     brazilian_portuguese: 'Falha ao retirar o convite',
     tok_pisin: 'I no inap rausim invitation',
-    indonesian: 'Gagal menarik undangan'
+    indonesian: 'Gagal menarik undangan',
+    nepali: 'आमन्त्रण फिर्ता लिन असफल'
   },
   failedToSendInvitation: {
     english: 'Failed to send invitation',
     spanish: 'Error al enviar la invitación',
     brazilian_portuguese: 'Falha ao enviar o convite',
     tok_pisin: 'I no inap salim invitation',
-    indonesian: 'Gagal mengirim undangan'
+    indonesian: 'Gagal mengirim undangan',
+    nepali: 'आमन्त्रण पठाउन असफल'
   },
   privateProject: {
     english: 'Private Project',
     spanish: 'Proyecto Privado',
     brazilian_portuguese: 'Projeto Privado',
     tok_pisin: 'Private Project',
-    indonesian: 'Proyek Pribadi'
+    indonesian: 'Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट'
   },
   privateProjectDescription: {
     english:
@@ -2166,7 +2648,9 @@ export const localizations = {
     tok_pisin:
       'Dispela project i open long olgeta man long lukim, tasol ol member tasol ken contributim.',
     indonesian:
-      'Proyek terbuka untuk dilihat oleh siapa saja, tetapi hanya anggota yang dapat berkontribusi.'
+      'Proyek terbuka untuk dilihat oleh siapa saja, tetapi hanya anggota yang dapat berkontribusi.',
+    nepali:
+      'प्रोजेक्ट जोसुकैले हेर्नको लागि खुला छ, तर सदस्यहरूले मात्र योगदान गर्न सक्छन्।'
   },
   privateProjectInfo: {
     english:
@@ -2178,7 +2662,9 @@ export const localizations = {
     tok_pisin:
       'Long contributim long dispela project, yu mas askim membership. Ol owner bilong project bai lukim request bilong yu.',
     indonesian:
-      'Untuk berkontribusi pada proyek ini, Anda perlu meminta keanggotaan. Pemilik proyek akan meninjau permintaan Anda.'
+      'Untuk berkontribusi pada proyek ini, Anda perlu meminta keanggotaan. Pemilik proyek akan meninjau permintaan Anda.',
+    nepali:
+      'यो प्रोजेक्टमा योगदान गर्न, तपाईंले सदस्यता अनुरोध गर्नुपर्छ। प्रोजेक्ट मालिकहरूले तपाईंको अनुरोध समीक्षा गर्नेछन्।'
   },
   privateProjectNotLoggedIn: {
     english:
@@ -2190,7 +2676,8 @@ export const localizations = {
     tok_pisin:
       'Dispela i private project. Yu mas login pastaim long askim access.',
     indonesian:
-      'Ini adalah proyek pribadi. Anda harus masuk untuk meminta akses.'
+      'Ini adalah proyek pribadi. Anda harus masuk untuk meminta akses.',
+    nepali: 'यो एउटा निजी प्रोजेक्ट हो। पहुँच अनुरोध गर्न तपाईं लग इन हुनुपर्छ।'
   },
   privateProjectLoginRequired: {
     english: 'Please sign in to request membership to this private project.',
@@ -2200,28 +2687,32 @@ export const localizations = {
       'Por favor, faça login para solicitar associação a este projeto privado.',
     tok_pisin:
       'Plis sign in long askim membership long dispela private project.',
-    indonesian: 'Silakan masuk untuk meminta keanggotaan proyek pribadi ini.'
+    indonesian: 'Silakan masuk untuk meminta keanggotaan proyek pribadi ini.',
+    nepali: 'कृपया यो निजी प्रोजेक्टमा सदस्यता अनुरोध गर्न साइन इन गर्नुहोस्।'
   },
   requestMembership: {
     english: 'Request Membership',
     spanish: 'Solicitar Membresía',
     brazilian_portuguese: 'Solicitar Associação',
     tok_pisin: 'Askim Membership',
-    indonesian: 'Minta Keanggotaan'
+    indonesian: 'Minta Keanggotaan',
+    nepali: 'सदस्यता अनुरोध गर्नुहोस्'
   },
   requesting: {
     english: 'Requesting...',
     spanish: 'Solicitando...',
     brazilian_portuguese: 'Solicitando...',
     tok_pisin: 'Askim...',
-    indonesian: 'Meminta...'
+    indonesian: 'Meminta...',
+    nepali: 'अनुरोध गर्दै...'
   },
   requestPending: {
     english: 'Request Pending',
     spanish: 'Solicitud Pendiente',
     brazilian_portuguese: 'Solicitação Pendente',
     tok_pisin: 'Request i wet',
-    indonesian: 'Permintaan Tertunda'
+    indonesian: 'Permintaan Tertunda',
+    nepali: 'अनुरोध बाँकी छ'
   },
   requestPendingDescription: {
     english: 'Your membership request is pending review by the project owners.',
@@ -2232,28 +2723,33 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i wet long ol owner bilong project lukim.',
     indonesian:
-      'Permintaan keanggotaan Anda sedang menunggu tinjauan oleh pemilik proyek.'
+      'Permintaan keanggotaan Anda sedang menunggu tinjauan oleh pemilik proyek.',
+    nepali:
+      'तपाईंको सदस्यता अनुरोध प्रोजेक्ट मालिकहरूद्वारा समीक्षाको लागि पर्खिरहेको छ।'
   },
   withdrawRequest: {
     english: 'Withdraw Request',
     spanish: 'Retirar Solicitud',
     brazilian_portuguese: 'Retirar Solicitação',
     tok_pisin: 'Rausim Request',
-    indonesian: 'Tarik Permintaan'
+    indonesian: 'Tarik Permintaan',
+    nepali: 'अनुरोध फिर्ता लिनुहोस्'
   },
   withdrawing: {
     english: 'Withdrawing...',
     spanish: 'Retirando...',
     brazilian_portuguese: 'Retirando...',
     tok_pisin: 'Rausim...',
-    indonesian: 'Menarik...'
+    indonesian: 'Menarik...',
+    nepali: 'फिर्ता लिँदै...'
   },
   confirmWithdraw: {
     english: 'Withdraw Request',
     spanish: 'Retirar Solicitud',
     brazilian_portuguese: 'Retirar Solicitação',
     tok_pisin: 'Rausim Request',
-    indonesian: 'Tarik Permintaan'
+    indonesian: 'Tarik Permintaan',
+    nepali: 'अनुरोध फिर्ता लिनुहोस्'
   },
   confirmWithdrawRequestMessage: {
     english: 'Are you sure you want to withdraw your membership request?',
@@ -2261,21 +2757,24 @@ export const localizations = {
     brazilian_portuguese:
       'Tem certeza de que deseja retirar sua solicitação de associação?',
     tok_pisin: 'Yu tru laik rausim membership request bilong yu?',
-    indonesian: 'Apakah Anda yakin ingin menarik permintaan keanggotaan Anda?'
+    indonesian: 'Apakah Anda yakin ingin menarik permintaan keanggotaan Anda?',
+    nepali: 'के तपाईं आफ्नो सदस्यता अनुरोध फिर्ता लिन निश्चित हुनुहुन्छ?'
   },
   requestWithdrawn: {
     english: 'Request withdrawn successfully',
     spanish: 'Solicitud retirada con éxito',
     brazilian_portuguese: 'Solicitação retirada com sucesso',
     tok_pisin: 'Request i rausim gut',
-    indonesian: 'Permintaan berhasil ditarik'
+    indonesian: 'Permintaan berhasil ditarik',
+    nepali: 'अनुरोध सफलतापूर्वक फिर्ता लिइयो'
   },
   requestExpired: {
     english: 'Request Expired',
     spanish: 'Solicitud Expirada',
     brazilian_portuguese: 'Solicitação Expirada',
     tok_pisin: 'Request i pinis',
-    indonesian: 'Permintaan Kedaluwarsa'
+    indonesian: 'Permintaan Kedaluwarsa',
+    nepali: 'अनुरोध समाप्त भयो'
   },
   requestExpiredDescription: {
     english:
@@ -2287,21 +2786,25 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis. Yu ken salim nupela request.',
     indonesian:
-      'Permintaan keanggotaan Anda telah kedaluwarsa. Anda dapat mengirim permintaan baru.'
+      'Permintaan keanggotaan Anda telah kedaluwarsa. Anda dapat mengirim permintaan baru.',
+    nepali:
+      'तपाईंको सदस्यता अनुरोध समाप्त भयो। तपाईं नयाँ अनुरोध पेश गर्न सक्नुहुन्छ।'
   },
   requestAgain: {
     english: 'Request Again',
     spanish: 'Solicitar Nuevamente',
     brazilian_portuguese: 'Solicitar Novamente',
     tok_pisin: 'Askim Gen',
-    indonesian: 'Minta Lagi'
+    indonesian: 'Minta Lagi',
+    nepali: 'फेरि अनुरोध गर्नुहोस्'
   },
   requestDeclined: {
     english: 'Request Declined',
     spanish: 'Solicitud Rechazada',
     brazilian_portuguese: 'Solicitação Recusada',
     tok_pisin: 'Request i no',
-    indonesian: 'Permintaan Ditolak'
+    indonesian: 'Permintaan Ditolak',
+    nepali: 'अनुरोध अस्वीकृत'
   },
   requestDeclinedCanRetry: {
     english:
@@ -2313,7 +2816,9 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i no. Yu gat {attempts} moa chance long askim membership.',
     indonesian:
-      'Permintaan keanggotaan Anda ditolak. Anda memiliki {attempts} percobaan lagi untuk meminta keanggotaan.'
+      'Permintaan keanggotaan Anda ditolak. Anda memiliki {attempts} percobaan lagi untuk meminta keanggotaan.',
+    nepali:
+      'तपाईंको सदस्यता अनुरोध अस्वीकार गरियो। तपाईंसँग सदस्यता अनुरोध गर्न {attempts} थप प्रयासहरू बाँकी छन्।'
   },
   requestDeclinedNoRetry: {
     english:
@@ -2325,12 +2830,15 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i no na yu kamap long maximum number bilong chance.',
     indonesian:
-      'Permintaan keanggotaan Anda ditolak dan Anda telah mencapai jumlah maksimum percobaan.'
+      'Permintaan keanggotaan Anda ditolak dan Anda telah mencapai jumlah maksimum percobaan.',
+    nepali:
+      'तपाईंको सदस्यता अनुरोध अस्वीकार गरियो र तपाईंले अधिकतम प्रयासहरूको सीमा पुगिसक्नुभयो।'
   },
   requestWithdrawnTitle: {
     english: 'Request Withdrawn',
     spanish: 'Solicitud Retirada',
     brazilian_portuguese: 'Solicitação Retirada',
+    nepali: 'अनुरोध फिर्ता लिइयो',
     tok_pisin: 'Request i Rausim',
     indonesian: 'Permintaan Ditarik'
   },
@@ -2344,56 +2852,65 @@ export const localizations = {
     tok_pisin:
       'Yu rausim membership request bilong yu. Yu ken salim nupela request long wanem taim.',
     indonesian:
-      'Anda telah menarik permintaan keanggotaan Anda. Anda dapat mengirim permintaan baru kapan saja.'
+      'Anda telah menarik permintaan keanggotaan Anda. Anda dapat mengirim permintaan baru kapan saja.',
+    nepali:
+      'तपाईंले आफ्नो सदस्यता अनुरोध फिर्ता लिनुभयो। तपाईं जुनसुकै समय नयाँ अनुरोध पेश गर्न सक्नुहुन्छ।'
   },
   membershipRequestSent: {
     english: 'Membership request sent successfully',
     spanish: 'Solicitud de membresía enviada con éxito',
     brazilian_portuguese: 'Solicitação de associação enviada com sucesso',
     tok_pisin: 'Membership request i go gut',
-    indonesian: 'Permintaan keanggotaan berhasil dikirim'
+    indonesian: 'Permintaan keanggotaan berhasil dikirim',
+    nepali: 'सदस्यता अनुरोध सफलतापूर्वक पठाइयो'
   },
   failedToRequestMembership: {
     english: 'Failed to request membership',
     spanish: 'Error al solicitar membresía',
     brazilian_portuguese: 'Falha ao solicitar associação',
     tok_pisin: 'I no inap askim membership',
-    indonesian: 'Gagal meminta keanggotaan'
+    indonesian: 'Gagal meminta keanggotaan',
+    nepali: 'सदस्यता अनुरोध गर्न असफल'
   },
   failedToWithdrawRequest: {
     english: 'Failed to withdraw request',
     spanish: 'Error al retirar la solicitud',
     brazilian_portuguese: 'Falha ao retirar a solicitação',
     tok_pisin: 'I no inap rausim request',
-    indonesian: 'Gagal menarik permintaan'
+    indonesian: 'Gagal menarik permintaan',
+    nepali: 'अनुरोध फिर्ता लिन असफल'
   },
   goBack: {
     english: 'Go Back',
     spanish: 'Volver',
     brazilian_portuguese: 'Voltar',
     tok_pisin: 'Go Bek',
-    indonesian: 'Kembali'
+    indonesian: 'Kembali',
+    nepali: 'पछाडि जानुहोस्'
   },
   back: {
     english: 'Back',
     spanish: 'Atrás',
     brazilian_portuguese: 'Voltar',
     tok_pisin: 'Go Bek',
-    indonesian: 'Kembali'
+    indonesian: 'Kembali',
+    nepali: 'पछाडि'
   },
   confirmRemove: {
     english: 'Confirm Remove',
     spanish: 'Confirmar Eliminación',
     brazilian_portuguese: 'Confirmar Remoção',
     tok_pisin: 'Confirm Rausim',
-    indonesian: 'Konfirmasi Hapus'
+    indonesian: 'Konfirmasi Hapus',
+    nepali: 'हटाउने पुष्टि गर्नुहोस्'
   },
   invitationResent: {
     english: 'Invitation resent successfully',
     spanish: 'Invitación reenviada con éxito',
     brazilian_portuguese: 'Convite reenviado com sucesso',
     tok_pisin: 'Invitation i salim gen gut',
-    indonesian: 'Undangan berhasil dikirim ulang'
+    indonesian: 'Undangan berhasil dikirim ulang',
+    nepali: 'आमन्त्रण सफलतापूर्वक पुन: पठाइयो'
   },
   maxInviteAttemptsReached: {
     english: 'Maximum invitation attempts reached for this email',
@@ -2402,7 +2919,8 @@ export const localizations = {
     brazilian_portuguese:
       'Número máximo de tentativas de convite atingido para este e-mail',
     tok_pisin: 'Maximum invitation chance i pinis long dispela email',
-    indonesian: 'Percobaan undangan maksimum tercapai untuk email ini'
+    indonesian: 'Percobaan undangan maksimum tercapai untuk email ini',
+    nepali: 'यो इमेलको लागि अधिकतम आमन्त्रण प्रयासहरूको सीमा पुग्यो'
   },
   invitationAcceptedButDownloadFailed: {
     english:
@@ -2414,42 +2932,49 @@ export const localizations = {
     tok_pisin:
       'Invitation i orait, tasol project download i no inap. Yu ken download em bihain long projects page.',
     indonesian:
-      'Undangan diterima, tetapi unduhan proyek gagal. Anda dapat mengunduhnya nanti dari halaman proyek.'
+      'Undangan diterima, tetapi unduhan proyek gagal. Anda dapat mengunduhnya nanti dari halaman proyek.',
+    nepali:
+      'आमन्त्रण स्वीकार गरियो, तर प्रोजेक्ट डाउनलोड असफल भयो। तपाईं यसलाई पछि प्रोजेक्टहरू पृष्ठबाट डाउनलोड गर्न सक्नुहुन्छ।'
   },
   invitationAcceptedSuccess: {
     english: 'Invitation accepted successfully!',
     spanish: '¡Invitación aceptada con éxito!',
     brazilian_portuguese: 'Convite aceito com sucesso!',
     tok_pisin: 'Invitation i akseptim gut!',
-    indonesian: 'Undangan berhasil diterima!'
+    indonesian: 'Undangan berhasil diterima!',
+    nepali: 'आमन्त्रण सफलतापूर्वक स्वीकार गरियो!'
   },
   invitationDeclined: {
     english: 'Invitation declined.',
     spanish: 'Invitación rechazada.',
     brazilian_portuguese: 'Convite recusado.',
     tok_pisin: 'Invitation i no.',
-    indonesian: 'Undangan ditolak.'
+    indonesian: 'Undangan ditolak.',
+    nepali: 'आमन्त्रण अस्वीकृत।'
   },
   joinRequest: {
     english: 'Join Request',
     spanish: 'Solicitud de Unión',
     brazilian_portuguese: 'Solicitação de Adesão',
     tok_pisin: 'Join Request',
-    indonesian: 'Permintaan Bergabung'
+    indonesian: 'Permintaan Bergabung',
+    nepali: 'सामेल हुने अनुरोध'
   },
   privateProjectAccess: {
     english: 'Private Project Access',
     spanish: 'Acceso a Proyecto Privado',
     brazilian_portuguese: 'Acesso ao Projeto Privado',
     tok_pisin: 'Private Project Access',
-    indonesian: 'Akses Proyek Pribadi'
+    indonesian: 'Akses Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट पहुँच'
   },
   privateProjectDownload: {
     english: 'Private Project Download',
     spanish: 'Descarga de Proyecto Privado',
     brazilian_portuguese: 'Download de Projeto Privado',
     tok_pisin: 'Private Project Download',
-    indonesian: 'Unduh Proyek Pribadi'
+    indonesian: 'Unduh Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट डाउनलोड'
   },
   privateProjectDownloadMessage: {
     english:
@@ -2461,14 +2986,17 @@ export const localizations = {
     tok_pisin:
       'Dispela project i private. Yu ken download content tasol yu no inap contributim translation o vote. Askim access long joinim dispela project na startim contributim.',
     indonesian:
-      'Proyek ini pribadi. Anda dapat mengunduh konten tetapi tidak akan dapat berkontribusi terjemahan atau suara. Minta akses untuk bergabung dengan proyek ini dan mulai berkontribusi.'
+      'Proyek ini pribadi. Anda dapat mengunduh konten tetapi tidak akan dapat berkontribusi terjemahan atau suara. Minta akses untuk bergabung dengan proyek ini dan mulai berkontribusi.',
+    nepali:
+      'यो प्रोजेक्ट निजी छ। तपाईं सामग्री डाउनलोड गर्न सक्नुहुन्छ तर अनुवाद वा मतहरू योगदान गर्न सक्षम हुनुहुने छैन। यो प्रोजेक्टमा सामेल हुन र योगदान गर्न सुरु गर्न पहुँच अनुरोध गर्नुहोस्।'
   },
   privateProjectEditing: {
     english: 'Private Project Editing',
     spanish: 'Edición de Proyecto Privado',
     brazilian_portuguese: 'Edição de Projeto Privado',
     tok_pisin: 'Private Project Editing',
-    indonesian: 'Pengeditan Proyek Pribadi'
+    indonesian: 'Pengeditan Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट सम्पादन'
   },
   privateProjectEditingMessage: {
     english:
@@ -2480,7 +3008,9 @@ export const localizations = {
     tok_pisin:
       'Dispela project i private. Yu mas stap member long editim transcription. Askim access long joinim dispela project.',
     indonesian:
-      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengedit transkripsi. Minta akses untuk bergabung dengan proyek ini.'
+      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengedit transkripsi. Minta akses untuk bergabung dengan proyek ini.',
+    nepali:
+      'यो प्रोजेक्ट निजी छ। ट्रान्सक्रिप्सन सम्पादन गर्न तपाईं सदस्य हुनुपर्छ। यो प्रोजेक्टमा सामेल हुन पहुँच अनुरोध गर्नुहोस्।'
   },
   privateProjectGenericMessage: {
     english:
@@ -2492,14 +3022,17 @@ export const localizations = {
     tok_pisin:
       'Dispela project i private. Yu mas stap member long usim dispela feature. Askim access long joinim dispela project.',
     indonesian:
-      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengakses fitur ini. Minta akses untuk bergabung dengan proyek ini.'
+      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengakses fitur ini. Minta akses untuk bergabung dengan proyek ini.',
+    nepali:
+      'यो प्रोजेक्ट निजी छ। यो सुविधा पहुँच गर्न तपाईं सदस्य हुनुपर्छ। यो प्रोजेक्टमा सामेल हुन पहुँच अनुरोध गर्नुहोस्।'
   },
   privateProjectMembers: {
     english: 'Private Project Members',
     spanish: 'Miembros del Proyecto Privado',
     brazilian_portuguese: 'Membros do Projeto Privado',
     tok_pisin: 'Private Project Members',
-    indonesian: 'Anggota Proyek Pribadi'
+    indonesian: 'Anggota Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट सदस्यहरू'
   },
   privateProjectMembersMessage: {
     english:
@@ -2511,7 +3044,9 @@ export const localizations = {
     tok_pisin:
       'Yu mas stap member long lukim member list na salim invitation. Askim access long joinim dispela project.',
     indonesian:
-      'Anda perlu menjadi anggota untuk melihat daftar anggota dan mengirim undangan. Minta akses untuk bergabung dengan proyek ini.'
+      'Anda perlu menjadi anggota untuk melihat daftar anggota dan mengirim undangan. Minta akses untuk bergabung dengan proyek ini.',
+    nepali:
+      'सदस्य सूची हेर्न र आमन्त्रणहरू पठाउन तपाईं सदस्य हुनुपर्छ। यो प्रोजेक्टमा सामेल हुन पहुँच अनुरोध गर्नुहोस्।'
   },
   privateProjectNotLoggedInInline: {
     english: 'You need to be logged in to access this private project.',
@@ -2519,14 +3054,16 @@ export const localizations = {
     brazilian_portuguese:
       'Você precisa estar logado para acessar este projeto privado.',
     tok_pisin: 'Yu mas login pastaim long access dispela private project.',
-    indonesian: 'Anda perlu masuk untuk mengakses proyek pribadi ini.'
+    indonesian: 'Anda perlu masuk untuk mengakses proyek pribadi ini.',
+    nepali: 'यो निजी प्रोजेक्ट पहुँच गर्न तपाईं लग इन हुनुपर्छ।'
   },
   privateProjectTranslation: {
     english: 'Private Project Translation',
     spanish: 'Traducción de Proyecto Privado',
     brazilian_portuguese: 'Tradução de Projeto Privado',
     tok_pisin: 'Private Project Translation',
-    indonesian: 'Terjemahan Proyek Pribadi'
+    indonesian: 'Terjemahan Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट अनुवाद'
   },
   privateProjectTranslationMessage: {
     english:
@@ -2538,14 +3075,17 @@ export const localizations = {
     tok_pisin:
       'Dispela project i private. Yu mas stap member long salim translation. Askim access long joinim dispela project.',
     indonesian:
-      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengirim terjemahan. Minta akses untuk bergabung dengan proyek ini.'
+      'Proyek ini pribadi. Anda perlu menjadi anggota untuk mengirim terjemahan. Minta akses untuk bergabung dengan proyek ini.',
+    nepali:
+      'यो प्रोजेक्ट निजी छ। अनुवादहरू पेश गर्न तपाईं सदस्य हुनुपर्छ। यो प्रोजेक्टमा सामेल हुन पहुँच अनुरोध गर्नुहोस्।'
   },
   privateProjectVoting: {
     english: 'Private Project Voting',
     spanish: 'Votación de Proyecto Privado',
     brazilian_portuguese: 'Votação de Projeto Privado',
     tok_pisin: 'Private Project Voting',
-    indonesian: 'Pemungutan Suara Proyek Pribadi'
+    indonesian: 'Pemungutan Suara Proyek Pribadi',
+    nepali: 'निजी प्रोजेक्ट मतदान'
   },
   privateProjectVotingMessage: {
     english:
@@ -2557,14 +3097,17 @@ export const localizations = {
     tok_pisin:
       'Dispela project i private. Yu mas stap member long vote long translation. Askim access long joinim dispela project.',
     indonesian:
-      'Proyek ini pribadi. Anda perlu menjadi anggota untuk memilih terjemahan. Minta akses untuk bergabung dengan proyek ini.'
+      'Proyek ini pribadi. Anda perlu menjadi anggota untuk memilih terjemahan. Minta akses untuk bergabung dengan proyek ini.',
+    nepali:
+      'यो प्रोजेक्ट निजी छ। अनुवादहरूमा मतदान गर्न तपाईं सदस्य हुनुपर्छ। यो प्रोजेक्टमा सामेल हुन पहुँच अनुरोध गर्नुहोस्।'
   },
   projectInvitation: {
     english: 'Project Invitation',
     spanish: 'Invitación al Proyecto',
     brazilian_portuguese: 'Convite para o Projeto',
     tok_pisin: 'Project Invitation',
-    indonesian: 'Undangan Proyek'
+    indonesian: 'Undangan Proyek',
+    nepali: 'प्रोजेक्ट आमन्त्रण'
   },
   projectInvitationFrom: {
     english: '{sender} has invited you to join project "{project}" as {role}',
@@ -2575,21 +3118,26 @@ export const localizations = {
     tok_pisin:
       '{sender} i salim yu long joinim project "{project}" long {role}',
     indonesian:
-      '{sender} mengundang Anda untuk bergabung dengan proyek "{project}" sebagai {role}'
+      '{sender} mengundang Anda untuk bergabung dengan proyek "{project}" sebagai {role}',
+    nepali:
+      '{sender} ले तपाईंलाई "{project}" प्रोजेक्टमा {role} को रूपमा सामेल हुन आमन्त्रण गर्नुभयो'
   },
   projectJoinRequestFrom: {
     english: '{sender} has requested to join project "{project}" as {role}',
     spanish:
       '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
-      '{sender} solicitou participar do projeto "{project}" como {role}'
+      '{sender} solicitou participar do projeto "{project}" como {role}',
+    nepali:
+      '{sender} ले "{project}" प्रोजेक्टमा {role} को रूपमा सामेल हुन अनुरोध गर्नुभयो'
   },
   projectWillRemainDownloaded: {
     english: 'Project will remain downloaded',
     spanish: 'El proyecto permanecerá descargado',
     brazilian_portuguese: 'O projeto permanecerá baixado',
     tok_pisin: 'Project i pinis download',
-    indonesian: 'Proyek akan tetap diunduh'
+    indonesian: 'Proyek akan tetap diunduh',
+    nepali: 'प्रोजेक्ट डाउनलोड भएको रहनेछ'
   },
   requestExpiredAttemptsRemaining: {
     english:
@@ -2601,7 +3149,9 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis long 7 days. Yu gat {attempts} chance long attempt{plural}.',
     indonesian:
-      'Permintaan keanggotaan Anda telah kedaluwarsa setelah 7 hari. Anda memiliki {attempts} percobaan{plural} tersisa.'
+      'Permintaan keanggotaan Anda telah kedaluwarsa setelah 7 hari. Anda memiliki {attempts} percobaan{plural} tersisa.',
+    nepali:
+      'तपाईंको अनुरोध ७ दिन पछि समाप्त भयो। तपाईंसँग {attempts} प्रयास{plural} बाँकी छ।'
   },
   requestExpiredInline: {
     english:
@@ -2613,7 +3163,9 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis long 7 days. Yu gat {attempts} chance long attempt{plural}.',
     indonesian:
-      'Permintaan keanggotaan Anda sebelumnya telah kedaluwarsa setelah 7 hari. Anda memiliki {attempts} percobaan{plural} tersisa.'
+      'Permintaan keanggotaan Anda sebelumnya telah kedaluwarsa setelah 7 hari. Anda memiliki {attempts} percobaan{plural} tersisa.',
+    nepali:
+      'तपाईंको अघिल्लो अनुरोध ७ दिन पछि समाप्त भयो। तपाईंसँग {attempts} प्रयास{plural} बाँकी छ।'
   },
   requestExpiredNoAttempts: {
     english: 'Your request expired and you have no more attempts remaining.',
@@ -2623,7 +3175,8 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis na yu no gat moa chance long attempt.',
     indonesian:
-      'Permintaan keanggotaan Anda telah kedaluwarsa dan Anda tidak memiliki percobaan tersisa.'
+      'Permintaan keanggotaan Anda telah kedaluwarsa dan Anda tidak memiliki percobaan tersisa.',
+    nepali: 'तपाईंको अनुरोध समाप्त भयो र तपाईंसँग थप प्रयासहरू बाँकी छैन।'
   },
   requestExpiredNoAttemptsInline: {
     english:
@@ -2635,7 +3188,9 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis long 7 days na yu no gat moa chance long attempt.',
     indonesian:
-      'Permintaan keanggotaan Anda sebelumnya telah kedaluwarsa setelah 7 hari dan Anda tidak memiliki percobaan tersisa.'
+      'Permintaan keanggotaan Anda sebelumnya telah kedaluwarsa setelah 7 hari dan Anda tidak memiliki percobaan tersisa.',
+    nepali:
+      'तपाईंको अघिल्लो अनुरोध ७ दिन पछि समाप्त भयो र तपाईंसँग थप प्रयासहरू बाँकी छैन।'
   },
   requestPendingInline: {
     english:
@@ -2647,7 +3202,9 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i pinis long approval. Yu ken salim notification long review.',
     indonesian:
-      'Permintaan keanggotaan Anda sedang menunggu persetujuan. Anda akan diberitahu ketika sudah diperiksa.'
+      'Permintaan keanggotaan Anda sedang menunggu persetujuan. Anda akan diberitahu ketika sudah diperiksa.',
+    nepali:
+      'तपाईंको सदस्यता अनुरोध स्वीकृतिको लागि पर्खिरहेको छ। यसको समीक्षा हुँदा तपाईंलाई सूचित गरिनेछ।'
   },
   requestDeclinedInline: {
     english:
@@ -2659,18 +3216,21 @@ export const localizations = {
     tok_pisin:
       'Membership request bilong yu i no. Yu gat {attempts} chance long attempt{plural}.',
     indonesian:
-      'Permintaan keanggotaan Anda ditolak. Anda memiliki {attempts} percobaan{plural} tersisa.'
+      'Permintaan keanggotaan Anda ditolak. Anda memiliki {attempts} percobaan{plural} tersisa.',
+    nepali:
+      'तपाईंको अनुरोध अस्वीकार गरियो। तपाईंसँग {attempts} प्रयास{plural} बाँकी छ।'
   },
   requestDeclinedNoRetryInline: {
     english:
       'Your request was declined and you have no more attempts remaining.',
     spanish: 'Su solicitud fue rechazada y no te quedan más intentos.',
     brazilian_portuguese:
-      'Sua solicitação foi recusada e você não tem mais tentativas restantes.',
+      'Sua solicitación fue recusada e você não tem mais tentativas restantes.',
     tok_pisin:
       'Membership request bilong yu i no na yu no gat moa chance long attempt.',
     indonesian:
-      'Permintaan keanggotaan Anda ditolak dan Anda tidak memiliki percobaan tersisa.'
+      'Permintaan keanggotaan Anda ditolak dan Anda tidak memiliki percobaan tersisa.',
+    nepali: 'तपाईंको अनुरोध अस्वीकार गरियो र तपाईंसँग थप प्रयासहरू बाँकी छैन।'
   },
   requestWithdrawnInline: {
     english:
@@ -2682,21 +3242,25 @@ export const localizations = {
     tok_pisin:
       'Yu rausim membership request bilong yu. Yu ken salim nupela request long wanem taim.',
     indonesian:
-      'Anda telah menarik permintaan keanggotaan Anda sebelumnya. Anda dapat mengirim permintaan baru kapan saja.'
+      'Anda telah menarik permintaan keanggotaan Anda sebelumnya. Anda dapat mengirim permintaan baru kapan saja.',
+    nepali:
+      'तपाईंले आफ्नो अघिल्लो अनुरोध फिर्ता लिनुभयो। तपाईं जुनसुकै बेला नयाँ अनुरोध पठाउन सक्नुहुन्छ।'
   },
   viewProject: {
     english: 'View Project',
     spanish: 'Ver Proyecto',
     brazilian_portuguese: 'Ver Projeto',
     tok_pisin: 'View Project',
-    indonesian: 'Lihat Proyek'
+    indonesian: 'Lihat Proyek',
+    nepali: 'प्रोजेक्ट हेर्नुहोस्'
   },
   loadingProjectDetails: {
     english: 'Loading project details...',
     spanish: 'Cargando detalles del proyecto...',
     brazilian_portuguese: 'Carregando detalhes do projeto...',
     tok_pisin: 'Loadim project details...',
-    indonesian: 'Memuat detail proyek...'
+    indonesian: 'Memuat detail proyek...',
+    nepali: 'प्रोजेक्ट विवरण लोड गर्दै...'
   },
   onlyOwnersCanInvite: {
     english: 'Only project owners can invite new members',
@@ -2705,14 +3269,16 @@ export const localizations = {
     brazilian_portuguese:
       'Apenas proprietários do projeto podem convidar novos membros',
     tok_pisin: 'Only owner i project i salim member',
-    indonesian: 'Hanya pemilik proyek yang dapat mengundang anggota baru'
+    indonesian: 'Hanya pemilik proyek yang dapat mengundang anggota baru',
+    nepali: 'प्रोजेक्ट मालिकहरूले मात्र नयाँ सदस्यहरूलाई आमन्त्रित गर्न सक्छन्'
   },
   failedToResendInvitation: {
     english: 'Failed to resend invitation',
     spanish: 'Error al reenviar invitación',
     brazilian_portuguese: 'Falha ao reenviar convite',
     tok_pisin: 'I no inap resendim invitation',
-    indonesian: 'Gagal mengirim ulang undangan'
+    indonesian: 'Gagal mengirim ulang undangan',
+    nepali: 'आमन्त्रण पुन: पठाउन असफल'
   },
   // Restore-related translations
   restoreAndroidOnly: {
@@ -2720,42 +3286,48 @@ export const localizations = {
     spanish: 'La restauración solo está disponible en Android',
     brazilian_portuguese: 'A restauração só está disponível no Android',
     tok_pisin: 'Restore i pinis long Android',
-    indonesian: 'Pemulihan hanya tersedia di Android'
+    indonesian: 'Pemulihan hanya tersedia di Android',
+    nepali: 'पुनर्स्थापना एन्ड्रोइडमा मात्र उपलब्ध छ'
   },
   backupAndroidOnly: {
     english: 'Backup is only available on Android',
     spanish: 'El respaldo solo está disponible en Android',
     brazilian_portuguese: 'O backup só está disponível no Android',
     tok_pisin: 'Backup i pinis long Android',
-    indonesian: 'Cadangan hanya tersedia di Android'
+    indonesian: 'Cadangan hanya tersedia di Android',
+    nepali: 'ब्याकअप एन्ड्रोइडमा मात्र उपलब्ध छ'
   },
   permissionDenied: {
     english: 'Permission Denied',
     spanish: 'Permiso Denegado',
     brazilian_portuguese: 'Permissão Negada',
     tok_pisin: 'Permission i no',
-    indonesian: 'Izin Ditolak'
+    indonesian: 'Izin Ditolak',
+    nepali: 'अनुमति अस्वीकृत'
   },
   grantMicrophonePermission: {
     english: 'Grant Microphone Permission',
     spanish: 'Otorgar Permiso de Microfono',
     brazilian_portuguese: 'Conceder Permissão de Microfone',
     tok_pisin: 'Grant Microphone Permission',
-    indonesian: 'Mengakses Mikrofon'
+    indonesian: 'Mengakses Mikrofon',
+    nepali: 'माइक्रोफोन अनुमति दिनुहोस्'
   },
   autoCalibrate: {
     english: 'Auto-Calibrate',
     spanish: 'Auto-Calibrar',
     brazilian_portuguese: 'Auto-Calibrar',
     tok_pisin: 'Olsem wanem yet',
-    indonesian: 'Auto-Kalibrasi'
+    indonesian: 'Auto-Kalibrasi',
+    nepali: 'स्वत: क्यालिब्रेट'
   },
   calibrateMicrophone: {
     english: 'Calibrate your microphone',
     spanish: 'Calibra tu micrófono',
     brazilian_portuguese: 'Calibre seu microfone',
     tok_pisin: 'Stretim mikrofon bilong yu',
-    indonesian: 'Kalibrasi mikrofon Anda'
+    indonesian: 'Kalibrasi mikrofon Anda',
+    nepali: 'आफ्नो माइक्रोफोन क्यालिब्रेट गर्नुहोस्'
   },
   calibrateMicrophoneDescription: {
     english: 'Let us automatically adjust the sensitivity for your environment',
@@ -2766,21 +3338,25 @@ export const localizations = {
     tok_pisin:
       'Larim mipela stretim sensetiviti bilong mikrofon long ples bilong yu',
     indonesian:
-      'Biarkan kami secara otomatis menyesuaikan sensitivitas untuk lingkungan Anda'
+      'Biarkan kami secara otomatis menyesuaikan sensitivitas untuk lingkungan Anda',
+    nepali:
+      'तपाईंको वातावरणको लागि स्वचालित रूपमा संवेदनशीलता समायोजन गर्न दिनुहोस्'
   },
   skip: {
     english: 'Skip',
     spanish: 'Omitir',
     brazilian_portuguese: 'Pular',
     tok_pisin: 'Lusim',
-    indonesian: 'Lewati'
+    indonesian: 'Lewati',
+    nepali: 'छोड्नुहोस्'
   },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
     spanish: 'Confirmar Restauración de Audio',
     brazilian_portuguese: 'Confirmar Restauração de Áudio',
     tok_pisin: 'Confirm Audio Restore',
-    indonesian: 'Konfirmasi Pemulihan Audio'
+    indonesian: 'Konfirmasi Pemulihan Audio',
+    nepali: 'अडियो पुनर्स्थापना पुष्टि गर्नुहोस्'
   },
   confirmAudioRestoreMessage: {
     english: 'This will restore your audio files from the backup. Continue?',
@@ -2789,21 +3365,25 @@ export const localizations = {
     brazilian_portuguese:
       'Isso restaurará seus arquivos de áudio do backup. Continuar?',
     tok_pisin: 'This i restore audio file bilong backup. Continue?',
-    indonesian: 'Ini akan memulihkan file audio Anda dari cadangan. Lanjutkan?'
+    indonesian: 'Ini akan memulihkan file audio Anda dari cadangan. Lanjutkan?',
+    nepali:
+      'यसले तपाईंको अडियो फाइलहरू ब्याकअपबाट पुनर्स्थापित गर्नेछ। जारी राख्ने?'
   },
   restoreAudioOnly: {
     english: 'Restore Audio',
     spanish: 'Restaurar Audio',
     brazilian_portuguese: 'Restaurar Áudio',
     tok_pisin: 'Restore Audio',
-    indonesian: 'Pemulihan Audio'
+    indonesian: 'Pemulihan Audio',
+    nepali: 'अडियो पुनर्स्थापना गर्नुहोस्'
   },
   failedRestore: {
     english: 'Failed to restore: {error}',
     spanish: 'Error al restaurar: {error}',
     brazilian_portuguese: 'Falha ao restaurar: {error}',
     tok_pisin: 'I no inap restore: {error}',
-    indonesian: 'Gagal memulihkan: {error}'
+    indonesian: 'Gagal memulihkan: {error}',
+    nepali: 'पुनर्स्थापना गर्न असफल: {error}'
   },
   restoreCompleteBase: {
     english:
@@ -2815,42 +3395,49 @@ export const localizations = {
     tok_pisin:
       'Restore i pinis long {audioCopied} audio file i copy. {audioSkippedDueToError} i skip long error.',
     indonesian:
-      'Pemulihan selesai: {audioCopied} file audio disalin, {audioSkippedDueToError} dilewatkan karena kesalahan'
+      'Pemulihan selesai: {audioCopied} file audio disalin, {audioSkippedDueToError} dilewatkan karena kesalahan',
+    nepali:
+      'पुनर्स्थापना पूरा भयो: {audioCopied} अडियो फाइलहरू कपी गरियो, {audioSkippedDueToError} त्रुटिहरूका कारण छोडियो'
   },
   restoreSkippedLocallyPart: {
     english: ', {audioSkippedLocally} skipped (already exists)',
     spanish: ', {audioSkippedLocally} omitidos (ya existen)',
     brazilian_portuguese: ', {audioSkippedLocally} ignorados (já existem)',
     tok_pisin: ', {audioSkippedLocally} i skip long local.',
-    indonesian: ', {audioSkippedLocally} dilewatkan (sudah ada)'
+    indonesian: ', {audioSkippedLocally} dilewatkan (sudah ada)',
+    nepali: ', {audioSkippedLocally} छोडियो (पहिले नै अवस्थित छ)'
   },
   restoreCompleteTitle: {
     english: 'Restore Complete',
     spanish: 'Restauración Completa',
     brazilian_portuguese: 'Restauração Concluída',
     tok_pisin: 'Restore Complete',
-    indonesian: 'Pemulihan Selesai'
+    indonesian: 'Pemulihan Selesai',
+    nepali: 'पुनर्स्थापना पूरा भयो'
   },
   restoreFailedTitle: {
     english: 'Restore Failed: {error}',
     spanish: 'Restauración Fallida: {error}',
     brazilian_portuguese: 'Restauração Falhou: {error}',
     tok_pisin: 'Restore i no: {error}',
-    indonesian: 'Pemulihan Gagal: {error}'
+    indonesian: 'Pemulihan Gagal: {error}',
+    nepali: 'पुनर्स्थापना असफल: {error}'
   },
   projectInvitationTitle: {
     english: 'Project Invitation',
     spanish: 'Invitación al Proyecto',
     brazilian_portuguese: 'Convite para o Projeto',
     tok_pisin: 'Project Invitation',
-    indonesian: 'Undangan Proyek'
+    indonesian: 'Undangan Proyek',
+    nepali: 'प्रोजेक्ट आमन्त्रण'
   },
   joinRequestTitle: {
     english: 'Join Request',
     spanish: 'Solicitud de Unión',
     brazilian_portuguese: 'Solicitação de Adesão',
     tok_pisin: 'Join Request',
-    indonesian: 'Permintaan Bergabung'
+    indonesian: 'Permintaan Bergabung',
+    nepali: 'सामेल हुने अनुरोध'
   },
   invitedYouToJoin: {
     english: '{sender} invited you to join "{project}" as {role}',
@@ -2860,7 +3447,9 @@ export const localizations = {
     tok_pisin:
       '{sender} i salim yu long joinim project "{project}" long {role}',
     indonesian:
-      '{sender} mengundang Anda untuk bergabung dengan proyek "{project}" sebagai {role}'
+      '{sender} mengundang Anda untuk bergabung dengan proyek "{project}" sebagai {role}',
+    nepali:
+      '{sender} ले तपाईंलाई "{project}" मा {role} को रूपमा सामेल हुन आमन्त्रित गर्नुभयो'
   },
   requestedToJoin: {
     english: '{sender} requested to join "{project}" as {role}',
@@ -2870,28 +3459,33 @@ export const localizations = {
     tok_pisin:
       '{sender} i requestim long joinim project "{project}" long {role}',
     indonesian:
-      '{sender} meminta untuk bergabung dengan proyek "{project}" sebagai {role}'
+      '{sender} meminta untuk bergabung dengan proyek "{project}" sebagai {role}',
+    nepali:
+      '{sender} ले "{project}" मा {role} को रूपमा सामेल हुन अनुरोध गर्नुभयो'
   },
   downloadProjectLabel: {
     english: 'Download Project',
     spanish: 'Descargar Proyecto',
     brazilian_portuguese: 'Baixar Projeto',
     tok_pisin: 'Download Project',
-    indonesian: 'Unduh Proyek'
+    indonesian: 'Unduh Proyek',
+    nepali: 'प्रोजेक्ट डाउनलोड गर्नुहोस्'
   },
   projectNotAvailableOfflineWarning: {
     english: 'Project will not be available offline without download',
     spanish: 'El proyecto no estará disponible sin conexión sin descarga',
     brazilian_portuguese: 'O projeto não estará disponíel offline sem download',
     tok_pisin: 'Project i no pinis long download',
-    indonesian: 'Proyek tidak akan tersedia secara offline tanpa unduhan'
+    indonesian: 'Proyek tidak akan tersedia secara offline tanpa unduhan',
+    nepali: 'डाउनलोड बिना प्रोजेक्ट अफलाइन उपलब्ध हुने छैन'
   },
   noNotificationsTitle: {
     english: 'No Notifications',
     spanish: 'Sin Notificaciones',
     brazilian_portuguese: 'Sem Notificações',
     tok_pisin: 'No Notification',
-    indonesian: 'Tidak Ada Notifikasi'
+    indonesian: 'Tidak Ada Notifikasi',
+    nepali: 'कुनै सूचना छैन'
   },
   noNotificationsMessage: {
     english: "You'll see project invitations and join requests here",
@@ -2901,63 +3495,73 @@ export const localizations = {
     tok_pisin:
       'Yu ken salim invitation long project na yu ken salim joinim request long project.',
     indonesian:
-      'Anda akan melihat undangan ke proyek dan permintaan bergabung di sini'
+      'Anda akan melihat undangan ke proyek dan permintaan bergabung di sini',
+    nepali:
+      'तपाईंले यहाँ प्रोजेक्ट आमन्त्रणहरू र सामेल हुने अनुरोधहरू देख्नुहुनेछ'
   },
   invitationAcceptedSuccessfully: {
     english: 'Invitation accepted successfully',
     spanish: 'Invitación aceptada exitosamente',
     brazilian_portuguese: 'Convite aceito com sucesso',
     tok_pisin: 'Invitation i accept gut',
-    indonesian: 'Undangan diterima dengan sukses'
+    indonesian: 'Undangan diterima dengan sukses',
+    nepali: 'आमन्त्रण सफलतापूर्वक स्वीकार गरियो'
   },
   invitationDeclinedSuccessfully: {
     english: 'Invitation declined',
     spanish: 'Invitación rechazada',
     brazilian_portuguese: 'Convite recusado',
     tok_pisin: 'Invitation i no',
-    indonesian: 'Undangan ditolak'
+    indonesian: 'Undangan ditolak',
+    nepali: 'आमन्त्रण अस्वीकृत'
   },
   failedToAcceptInvite: {
     english: 'Failed to accept invitation',
     spanish: 'Error al aceptar invitación',
     brazilian_portuguese: 'Falha ao aceitar convite',
     tok_pisin: 'I no inap accept invitation',
-    indonesian: 'Gagal menerima undangan'
+    indonesian: 'Gagal menerima undangan',
+    nepali: 'आमन्त्रण स्वीकार गर्न असफल'
   },
   failedToDeclineInvite: {
     english: 'Failed to decline invitation',
     spanish: 'Error al rechazar invitación',
     brazilian_portuguese: 'Falha ao recusar convite',
     tok_pisin: 'I no inap decline invitation',
-    indonesian: 'Gagal menolak undangan'
+    indonesian: 'Gagal menolak undangan',
+    nepali: 'आमन्त्रण अस्वीकार गर्न असफल'
   },
   invitationAcceptedDownloadFailed: {
     english: 'Invitation accepted but download failed',
     spanish: 'Invitación aceptada pero la descarga falló',
     brazilian_portuguese: 'Convite aceito mas o download falhou',
     tok_pisin: 'Invitation i accept but i no inap download',
-    indonesian: 'Undangan diterima tapi unduhan gagal'
+    indonesian: 'Undangan diterima tapi unduhan gagal',
+    nepali: 'आमन्त्रण स्वीकार गरियो तर डाउनलोड असफल भयो'
   },
   unknownProject: {
     english: 'Unknown Project',
     spanish: 'Proyecto Desconocido',
     brazilian_portuguese: 'Projeto Desconhecido',
     tok_pisin: 'Unknown Project',
-    indonesian: 'Proyek Tidak Dikenal'
+    indonesian: 'Proyek Tidak Dikenal',
+    nepali: 'अज्ञात प्रोजेक्ट'
   },
   ownerRole: {
     english: 'owner',
     spanish: 'propietario',
     brazilian_portuguese: 'proprietário',
     tok_pisin: 'owner',
-    indonesian: 'pemilik'
+    indonesian: 'pemilik',
+    nepali: 'मालिक'
   },
   memberRole: {
     english: 'member',
     spanish: 'miembro',
     brazilian_portuguese: 'membro',
     tok_pisin: 'member',
-    indonesian: 'anggota'
+    indonesian: 'anggota',
+    nepali: 'सदस्य'
   },
   offlineNotificationMessage: {
     english:
@@ -2969,287 +3573,329 @@ export const localizations = {
     tok_pisin:
       'Yu i no pinis long online. Yu ken salim any changes yu make long sync when yu back online.',
     indonesian:
-      'Anda sedang offline. Perubahan apa pun yang Anda buat akan disinkronkan ketika Anda kembali online.'
+      'Anda sedang offline. Perubahan apa pun yang Anda buat akan disinkronkan ketika Anda kembali online.',
+    nepali:
+      'तपाईं अफलाइन हुनुहुन्छ। तपाईंले गर्नुभएका कुनै पनि परिवर्तनहरू तपाईं अनलाइन फर्किँदा सिङ्क हुनेछन्।'
   },
   filesDownloaded: {
     english: 'files downloaded',
     spanish: 'archivos descargados',
     brazilian_portuguese: 'arquivos baixados',
     tok_pisin: 'ol fail i download pinis',
-    indonesian: 'file diunduh'
+    indonesian: 'file diunduh',
+    nepali: 'फाइलहरू डाउनलोड भयो'
   },
   downloading: {
     english: 'downloading',
     spanish: 'descargando',
     brazilian_portuguese: 'baixando',
     tok_pisin: 'i download nau',
-    indonesian: 'mengunduh'
+    indonesian: 'mengunduh',
+    nepali: 'डाउनलोड गर्दै'
   },
   uploading: {
     english: 'uploading',
     spanish: 'subiendo',
     brazilian_portuguese: 'enviando',
     tok_pisin: 'i upload nau',
-    indonesian: 'mengunggah'
+    indonesian: 'mengunggah',
+    nepali: 'अपलोड गर्दै'
   },
   files: {
     english: 'files',
     spanish: 'archivos',
     brazilian_portuguese: 'arquivos',
     tok_pisin: 'ol fail',
-    indonesian: 'file'
+    indonesian: 'file',
+    nepali: 'फाइलहरू'
   },
   syncingDatabase: {
     english: 'syncing database',
     spanish: 'sincronizando base de datos',
     brazilian_portuguese: 'sincronizando banco de dados',
     tok_pisin: 'i sync database nau',
-    indonesian: 'mengosinkronkan basis data'
+    indonesian: 'mengosinkronkan basis data',
+    nepali: 'डाटाबेस सिङ्क गर्दै'
   },
   lastSync: {
     english: 'last sync',
     spanish: 'última sincronización',
     brazilian_portuguese: 'última sincronização',
     tok_pisin: 'las sync',
-    indonesian: 'sinkron terakhir'
+    indonesian: 'sinkron terakhir',
+    nepali: 'अन्तिम सिङ्क'
   },
   never: {
     english: 'Never',
     spanish: 'Nunca',
     brazilian_portuguese: 'Nunca',
     tok_pisin: 'Nogat',
-    indonesian: 'Tidak pernah'
+    indonesian: 'Tidak pernah',
+    nepali: 'कहिल्यै होइन'
   },
   unknown: {
     english: 'unknown',
     spanish: 'desconocido',
     brazilian_portuguese: 'desconhecido',
     tok_pisin: 'mi no save',
-    indonesian: 'tidak dikenal'
+    indonesian: 'tidak dikenal',
+    nepali: 'अज्ञात'
   },
   notSynced: {
     english: 'not synced',
     spanish: 'no sincronizado',
     brazilian_portuguese: 'não sincronizado',
     tok_pisin: 'i no sync yet',
-    indonesian: 'tidak disinkronkan'
+    indonesian: 'tidak disinkronkan',
+    nepali: 'सिङ्क भएको छैन'
   },
   connecting: {
     english: 'connecting',
     spanish: 'conectando',
     brazilian_portuguese: 'conectando',
     tok_pisin: 'i try long connect',
-    indonesian: 'menghubungkan'
+    indonesian: 'menghubungkan',
+    nepali: 'जडान गर्दै'
   },
   disconnected: {
     english: 'disconnected',
     spanish: 'desconectado',
     brazilian_portuguese: 'desconectado',
     tok_pisin: 'i no connect',
-    indonesian: 'terputus'
+    indonesian: 'terputus',
+    nepali: 'विच्छेद भयो'
   },
   syncingAttachments: {
     english: 'syncing attachments',
     spanish: 'sincronizando archivos adjuntos',
     brazilian_portuguese: 'sincronizando anexos',
     tok_pisin: 'i sync ol attachment',
-    indonesian: 'mengosinkronkan lampiran'
+    indonesian: 'mengosinkronkan lampiran',
+    nepali: 'संलग्नकहरू सिङ्क गर्दै'
   },
   attachmentSync: {
     english: 'attachment sync',
     spanish: 'sincronización de archivos adjuntos',
     brazilian_portuguese: 'sincronização de anexos',
     tok_pisin: 'attachment sync',
-    indonesian: 'sinkron lampiran'
+    indonesian: 'sinkron lampiran',
+    nepali: 'संलग्नक सिङ्क'
   },
   databaseSyncError: {
     english: 'database sync error',
     spanish: 'error de sincronización de base de datos',
     brazilian_portuguese: 'erro de sincronização de banco de dados',
     tok_pisin: 'database sync i gat problem',
-    indonesian: 'kesalahan sinkron basis data'
+    indonesian: 'kesalahan sinkron basis data',
+    nepali: 'डाटाबेस सिङ्क त्रुटि'
   },
   attachmentSyncError: {
     english: 'attachment sync error',
     spanish: 'error de sincronización de archivos adjuntos',
     brazilian_portuguese: 'erro de sincronização de anexos',
     tok_pisin: 'attachment sync i gat problem',
-    indonesian: 'kesalahan sinkron lampiran'
+    indonesian: 'kesalahan sinkron lampiran',
+    nepali: 'संलग्नक सिङ्क त्रुटि'
   },
   uploadingData: {
     english: 'uploading data',
     spanish: 'subiendo datos',
     brazilian_portuguese: 'enviando dados',
     tok_pisin: 'i upload data',
-    indonesian: 'mengunggah data'
+    indonesian: 'mengunggah data',
+    nepali: 'डाटा अपलोड गर्दै'
   },
   downloadingData: {
     english: 'downloading data',
     spanish: 'descargando datos',
     brazilian_portuguese: 'baixando dados',
     tok_pisin: 'i download data',
-    indonesian: 'mengunduh data'
+    indonesian: 'mengunduh data',
+    nepali: 'डाटा डाउनलोड गर्दै'
   },
   syncError: {
     english: 'sync error',
     spanish: 'error de sincronización',
     brazilian_portuguese: 'erro de sincronização',
     tok_pisin: 'sync i gat problem',
-    indonesian: 'kesalahan sinkron'
+    indonesian: 'kesalahan sinkron',
+    nepali: 'सिङ्क त्रुटि'
   },
   tapForDetails: {
     english: 'tap for details',
     spanish: 'toca para ver detalles',
     brazilian_portuguese: 'toque para detalhes',
     tok_pisin: 'presim long lukim moa',
-    indonesian: 'ketuk untuk detail'
+    indonesian: 'ketuk untuk detail',
+    nepali: 'विवरणको लागि ट्याप गर्नुहोस्'
   },
   downloadComplete: {
     english: 'download complete',
     spanish: 'descarga completa',
     brazilian_portuguese: 'download completo',
     tok_pisin: 'download i pinis',
-    indonesian: 'unduhan selesai'
+    indonesian: 'unduhan selesai',
+    nepali: 'डाउनलोड पूरा भयो'
   },
   queued: {
     english: 'queued',
     spanish: 'en cola',
     brazilian_portuguese: 'em fila',
     tok_pisin: 'i wet long lain',
-    indonesian: 'dalam antrian'
+    indonesian: 'dalam antrian',
+    nepali: 'पङ्क्तिमा छ'
   },
   queuedForDownload: {
     english: 'queued for download',
     spanish: 'en cola para descargar',
     brazilian_portuguese: 'em fila para baixar',
     tok_pisin: 'i wet long lain long download',
-    indonesian: 'dalam antrian untuk unduhan'
+    indonesian: 'dalam antrian untuk unduhan',
+    nepali: 'डाउनलोडको लागि पङ्क्तिमा'
   },
   complete: {
     english: 'complete',
     spanish: 'completo',
     brazilian_portuguese: 'completo',
     tok_pisin: 'pinis',
-    indonesian: 'selesai'
+    indonesian: 'selesai',
+    nepali: 'पूरा भयो'
   },
   loadMore: {
     english: 'load more',
     spanish: 'cargar más',
     brazilian_portuguese: 'carregar mais',
     tok_pisin: 'bringim moa',
-    indonesian: 'muat lebih banyak'
+    indonesian: 'muat lebih banyak',
+    nepali: 'थप लोड गर्नुहोस्'
   },
   loading: {
     english: 'loading',
     spanish: 'cargando',
     brazilian_portuguese: 'carregando',
     tok_pisin: 'loadim',
-    indonesian: 'memuat'
+    indonesian: 'memuat',
+    nepali: 'लोड गर्दै'
   },
   assetMadeInvisibleAllQuests: {
     english: 'The asset has been made invisible for all quests',
     spanish: 'El asset ha sido hecho invisible para todas las quests',
     brazilian_portuguese: 'O asset foi feito invisível para todas as quests',
     tok_pisin: 'Asset i make invisible long all quest',
-    indonesian: 'Asset dibuat tidak terlihat untuk semua quest'
+    indonesian: 'Asset dibuat tidak terlihat untuk semua quest',
+    nepali: 'एसेट सबै क्वेस्टहरूको लागि अदृश्य बनाइएको छ'
   },
   assetMadeVisibleAllQuests: {
     english: 'The asset has been made visible for all quests',
     spanish: 'El asset ha sido hecho visible para todas las quests',
     brazilian_portuguese: 'O asset foi feito visível para todas as quests',
     tok_pisin: 'Asset i make visible long all quest',
-    indonesian: 'Asset dibuat terlihat untuk semua quest'
+    indonesian: 'Asset dibuat terlihat untuk semua quest',
+    nepali: 'एसेट सबै क्वेस्टहरूको लागि दृश्य बनाइएको छ'
   },
   assetMadeInactiveAllQuests: {
     english: 'The asset has been made inactive for all quests',
     spanish: 'El asset ha sido hecho inactivo para todas las quests',
     brazilian_portuguese: 'O asset foi feito inativo para todas as quests',
     tok_pisin: 'Asset i make inactive long all quest',
-    indonesian: 'Asset dibuat tidak aktif untuk semua quest'
+    indonesian: 'Asset dibuat tidak aktif untuk semua quest',
+    nepali: 'एसेट सबै क्वेस्टहरूको लागि निष्क्रिय बनाइएको छ'
   },
   assetMadeActiveAllQuests: {
     english: 'The asset has been made active for all quests',
     spanish: 'El asset ha sido hecho activo para todas las quests',
     brazilian_portuguese: 'O asset foi feito ativo para todas as quests',
     tok_pisin: 'Asset i make active long all quest',
-    indonesian: 'Asset dibuat aktif untuk semua quest'
+    indonesian: 'Asset dibuat aktif untuk semua quest',
+    nepali: 'एसेट सबै क्वेस्टहरूको लागि सक्रिय बनाइएको छ'
   },
   failedToUpdateAssetSettings: {
     english: 'Failed to update asset settings',
     spanish: 'Error al actualizar los ajustes del asset',
     brazilian_portuguese: 'Falha ao atualizar os ajustes do asset',
     tok_pisin: 'I no inap update asset settings',
-    indonesian: 'Gagal mengupdate pengaturan asset'
+    indonesian: 'Gagal mengupdate pengaturan asset',
+    nepali: 'एसेट सेटिङहरू अपडेट गर्न असफल'
   },
   assetMadeInvisibleQuest: {
     english: 'The asset has been made invisible for this quest',
     spanish: 'El asset ha sido hecho invisible para esta quest',
     brazilian_portuguese: 'O asset foi feito invisível para esta quest',
     tok_pisin: 'Asset i make invisible long quest',
-    indonesian: 'Asset dibuat tidak terlihat untuk quest ini'
+    indonesian: 'Asset dibuat tidak terlihat untuk quest ini',
+    nepali: 'यो क्वेस्टको लागि एसेट अदृश्य बनाइएको छ'
   },
   assetMadeVisibleQuest: {
     english: 'The asset has been made visible for this quest',
     spanish: 'El asset ha sido hecho visible para esta quest',
     brazilian_portuguese: 'O asset foi feito visível para esta quest',
     tok_pisin: 'Asset i make visible long quest',
-    indonesian: 'Asset dibuat terlihat untuk quest ini'
+    indonesian: 'Asset dibuat terlihat untuk quest ini',
+    nepali: 'यो क्वेस्टको लागि एसेट दृश्य बनाइएको छ'
   },
   assetMadeInactiveQuest: {
     english: 'The asset has been made inactive for this quest',
     spanish: 'El asset ha sido hecho inactivo para esta quest',
     brazilian_portuguese: 'O asset foi feito inativo para esta quest',
     tok_pisin: 'Asset i make inactive long quest',
-    indonesian: 'Asset dibuat tidak aktif untuk quest ini'
+    indonesian: 'Asset dibuat tidak aktif untuk quest ini',
+    nepali: 'यो क्वेस्टको लागि एसेट निष्क्रिय बनाइएको छ'
   },
   assetMadeActiveQuest: {
     english: 'The asset has been made active for this quest',
     spanish: 'El asset ha sido hecho activo para esta quest',
     brazilian_portuguese: 'O asset foi feito ativo para esta quest',
     tok_pisin: 'Asset i make active long quest',
-    indonesian: 'Asset dibuat aktif untuk quest ini'
+    indonesian: 'Asset dibuat aktif untuk quest ini',
+    nepali: 'यो क्वेस्टको लागि एसेट सक्रिय बनाइएको छ'
   },
   assetSettings: {
     english: 'Asset Settings',
     spanish: 'Ajustes del Asset',
     brazilian_portuguese: 'Ajustes do Asset',
     tok_pisin: 'Asset Settings',
-    indonesian: 'Pengaturan Asset'
+    indonesian: 'Pengaturan Asset',
+    nepali: 'एसेट सेटिङहरू'
   },
   assetSettingsLoadError: {
     english: 'Error loading asset settings.',
     spanish: 'Error al cargar la configuración de asset.',
     brazilian_portuguese: 'Erro ao carregar as configurações do asset.',
     tok_pisin: 'I no inap load asset settings',
-    indonesian: 'Gagal memuat pengaturan asset.'
+    indonesian: 'Gagal memuat pengaturan asset.',
+    nepali: 'एसेट सेटिङहरू लोड गर्दा त्रुटि।'
   },
   general: {
     english: 'General',
     spanish: 'General',
     brazilian_portuguese: 'Geral',
     tok_pisin: 'General',
-    indonesian: 'Umum'
+    indonesian: 'Umum',
+    nepali: 'सामान्य'
   },
   currentQuest: {
     english: 'Current Quest',
     spanish: 'Quest Actual',
     brazilian_portuguese: 'Quest Atual',
     tok_pisin: 'Current Quest',
-    indonesian: 'Quest Saat Ini'
+    indonesian: 'Quest Saat Ini',
+    nepali: 'हालको क्वेस्ट'
   },
   visibility: {
     english: 'Visibility',
     spanish: 'Visibilidad',
     brazilian_portuguese: 'Visibilidade',
     tok_pisin: 'Visibility',
-    indonesian: 'Visibilitas'
+    indonesian: 'Visibilitas',
+    nepali: 'दृश्यता'
   },
   active: {
     english: 'Active',
     spanish: 'Activo',
     brazilian_portuguese: 'Ativo',
     tok_pisin: 'Active',
-    indonesian: 'Aktif'
+    indonesian: 'Aktif',
+    nepali: 'सक्रिय'
   },
   visibilityDescription: {
     english:
@@ -3260,7 +3906,9 @@ export const localizations = {
       'O asset é visível por padrão em todas as quests, a menos que seja ocultado individualmente.',
     tok_pisin: 'Asset i save long olgeta quest, sapos yu no haitim wanwan.',
     indonesian:
-      'Asset terlihat secara default di semua quest, kecuali disembunyikan secara individual.'
+      'Asset terlihat secara default di semua quest, kecuali disembunyikan secara individual.',
+    nepali:
+      'एसेट पूर्वनिर्धारित रूपमा सबै क्वेस्टहरूमा देखिन्छ, व्यक्तिगत रूपमा लुकाइएको बाहेक।'
   },
   activeDescription: {
     english:
@@ -3272,7 +3920,9 @@ export const localizations = {
     tok_pisin:
       'Asset i active na yu ken usim long olgeta quest, sapos yu no stopim wanwan.',
     indonesian:
-      'Asset aktif dan dapat digunakan di semua quest, kecuali dinonaktifkan secara individual.'
+      'Asset aktif dan dapat digunakan di semua quest, kecuali dinonaktifkan secara individual.',
+    nepali:
+      'एसेट सक्रिय छ र सबै क्वेस्टहरूमा प्रयोग गर्न सकिन्छ, व्यक्तिगत रूपमा निष्क्रिय पारिएको बाहेक।'
   },
   visibilityDescriptionQuest: {
     english:
@@ -3283,7 +3933,9 @@ export const localizations = {
       'O asset é visível por padrão nesta quest, a menos que seja ocultado individualmente.',
     tok_pisin: 'Asset i save long dispela quest, sapos yu no haitim wanwan.',
     indonesian:
-      'Asset terlihat secara default di quest ini, kecuali disembunyikan secara individual.'
+      'Asset terlihat secara default di quest ini, kecuali disembunyikan secara individual.',
+    nepali:
+      'यो क्वेस्टमा एसेट पूर्वनिर्धारित रूपमा देखिन्छ, व्यक्तिगत रूपमा लुकाइएको बाहेक।'
   },
   assetHiddenAllQuests: {
     english:
@@ -3295,7 +3947,8 @@ export const localizations = {
     tok_pisin:
       'Asset i hait long olgeta quest na yu no ken mekim save long wanpela.',
     indonesian:
-      'Asset disembunyikan di semua quest dan tidak dapat dibuat terlihat di salah satunya.'
+      'Asset disembunyikan di semua quest dan tidak dapat dibuat terlihat di salah satunya.',
+    nepali: 'एसेट सबै क्वेस्टहरूमा लुकाइएको छ र कुनैमा पनि देखाउन सकिँदैन।'
   },
   assetDisabledAllQuests: {
     english:
@@ -3307,7 +3960,8 @@ export const localizations = {
     tok_pisin:
       'Asset i stop long olgeta quest na yu no ken usim long wanpela hap.',
     indonesian:
-      'Asset dinonaktifkan di semua quest dan tidak dapat digunakan di mana pun.'
+      'Asset dinonaktifkan di semua quest dan tidak dapat digunakan di mana pun.',
+    nepali: 'एसेट सबै क्वेस्टहरूमा असक्षम छ र कहीँ पनि प्रयोग गर्न सकिँदैन।'
   },
   assetGeneralSettingsDescription: {
     english: 'These settings affect how the asset behaves across all quests.',
@@ -3318,7 +3972,8 @@ export const localizations = {
     tok_pisin:
       'Ol dispela setting i senisim how asset i wok long olgeta quest.',
     indonesian:
-      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di semua quest.'
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di semua quest.',
+    nepali: 'यी सेटिङहरूले सबै क्वेस्टहरूमा एसेटको व्यवहारलाई प्रभाव पार्छन्।'
   },
   questSpecificSettingsDescription: {
     english:
@@ -3330,7 +3985,8 @@ export const localizations = {
     tok_pisin:
       'Ol dispela setting i senisim how asset i wok long dispela quest.',
     indonesian:
-      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini.'
+      'Pengaturan ini mempengaruhi bagaimana asset berperilaku di quest spesifik ini.',
+    nepali: 'यी सेटिङहरूले यो विशेष क्वेस्टमा एसेटको व्यवहारलाई प्रभाव पार्छन्।'
   },
   assetDisabledWarning: {
     english:
@@ -3342,7 +3998,9 @@ export const localizations = {
     tok_pisin:
       'Dispela asset i stop olgeta ples. Yu no inap senisim setting bilong em long dispela quest.',
     indonesian:
-      'Asset ini dinonaktifkan secara global. Anda tidak dapat mengubah pengaturannya untuk quest ini.'
+      'Asset ini dinonaktifkan secara global. Anda tidak dapat mengubah pengaturannya untuk quest ini.',
+    nepali:
+      'यो एसेट विश्वव्यापी रूपमा असक्षम छ। तपाईं यो क्वेस्टको लागि यसको सेटिङहरू परिवर्तन गर्न सक्नुहुन्न।'
   },
   assetVisibleThisQuest: {
     english: 'The asset is shown in this quest. Unless hidden globally.',
@@ -3353,14 +4011,16 @@ export const localizations = {
     tok_pisin:
       'Asset i save long dispela quest. Sapos i no hait long olgeta hap.',
     indonesian:
-      'Asset ditampilkan di quest ini. Kecuali disembunyikan secara global.'
+      'Asset ditampilkan di quest ini. Kecuali disembunyikan secara global.',
+    nepali: 'यो क्वेस्टमा एसेट देखाइएको छ। विश्वव्यापी रूपमा लुकाइएको बाहेक।'
   },
   assetHiddenThisQuest: {
     english: 'The asset is hidden in this quest.',
     spanish: 'El asset está oculto en esta quest.',
     brazilian_portuguese: 'O asset está oculto nesta quest.',
     tok_pisin: 'Asset i hait long dispela quest.',
-    indonesian: 'Asset disembunyikan di quest ini.'
+    indonesian: 'Asset disembunyikan di quest ini.',
+    nepali: 'यो क्वेस्टमा एसेट लुकाइएको छ।'
   },
   assetActiveThisQuest: {
     english:
@@ -3372,182 +4032,249 @@ export const localizations = {
     tok_pisin:
       'Yu ken usim asset long dispela quest. Sapos i no stop long olgeta hap.',
     indonesian:
-      'Asset dapat digunakan di quest ini. Kecuali dinonaktifkan secara global.'
+      'Asset dapat digunakan di quest ini. Kecuali dinonaktifkan secara global.',
+    nepali:
+      'यो क्वेस्टमा एसेट प्रयोग गर्न सकिन्छ। विश्वव्यापी रूपमा निष्क्रिय पारिएको बाहेक।'
   },
   assetInactiveThisQuest: {
     english: 'The asset is not available in this quest.',
     spanish: 'El asset no está disponible en esta quest.',
     brazilian_portuguese: 'O asset não está disponível nesta quest.',
     tok_pisin: 'Asset i no stap long dispela quest.',
-    indonesian: 'Asset tidak tersedia di quest ini.'
+    indonesian: 'Asset tidak tersedia di quest ini.',
+    nepali: 'यो क्वेस्टमा एसेट उपलब्ध छैन।'
   },
   downloadProjectConfirmation: {
     english: 'Download this project for offline use?',
     spanish: '¿Descargar este proyecto para uso sin conexión?',
     brazilian_portuguese: 'Baixar este projeto para uso offline?',
     tok_pisin: 'Daunim dispela project long usim taim i no gat internet?',
-    indonesian: 'Unduh proyek ini untuk penggunaan offline?'
+    indonesian: 'Unduh proyek ini untuk penggunaan offline?',
+    nepali: 'अफलाइन प्रयोगको लागि यो प्रोजेक्ट डाउनलोड गर्ने?'
   },
   downloadQuestConfirmation: {
     english: 'Download this quest for offline use?',
     spanish: '¿Descargar esta quest para uso sin conexión?',
     brazilian_portuguese: 'Baixar esta quest para uso offline?',
     tok_pisin: 'Daunim dispela quest long usim taim i no gat internet?',
-    indonesian: 'Unduh quest ini untuk penggunaan offline?'
+    indonesian: 'Unduh quest ini untuk penggunaan offline?',
+    nepali: 'अफलाइन प्रयोगको लागि यो क्वेस्ट डाउनलोड गर्ने?'
   },
   thisWillDownload: {
     english: 'This will download:',
     spanish: 'Esto descargará:',
     brazilian_portuguese: 'Isso baixará:',
     tok_pisin: 'Dispela bai daunim:',
-    indonesian: 'Ini akan mengunduh:'
+    indonesian: 'Ini akan mengunduh:',
+    nepali: 'यसले डाउनलोड गर्नेछ:'
   },
   translations: {
     english: 'Translations',
     spanish: 'Traducciones',
     brazilian_portuguese: 'Traduções',
     tok_pisin: 'Ol Translation',
-    indonesian: 'Terjemahan'
+    indonesian: 'Terjemahan',
+    nepali: 'अनुवादहरू'
   },
   doRecord: {
     english: 'Record',
     spanish: 'Grabar',
     brazilian_portuguese: 'Gravar',
     tok_pisin: 'Rekodem',
-    indonesian: 'Rekam'
+    indonesian: 'Rekam',
+    nepali: 'रेकर्ड गर्नुहोस्'
   },
   isRecording: {
     english: 'Recording...',
     spanish: 'Grabando...',
     brazilian_portuguese: 'Gravando...',
     tok_pisin: 'Recording...',
-    indonesian: 'Merekam...'
+    indonesian: 'Merekam...',
+    nepali: 'रेकर्ड गर्दै...'
+  },
+  recordTo: {
+    english: 'Record to',
+    spanish: 'Grabar en',
+    brazilian_portuguese: 'Gravar em',
+    tok_pisin: 'Rekodem long',
+    indonesian: 'Rekam ke',
+    nepali: 'रेकर्ड गर्नुहोस्'
+  },
+  noLabelSelected: {
+    english: 'No label selected',
+    spanish: 'Sin etiqueta seleccionada',
+    brazilian_portuguese: 'Nenhum rótulo selecionado',
+    tok_pisin: 'No label i stap',
+    indonesian: 'Tidak ada label dipilih',
+    nepali: 'कुनै लेबल चयन गरिएको छैन'
+  },
+  startRecordingSession: {
+    english: 'Start Recording Session',
+    spanish: 'Iniciar Sesión de Grabación',
+    brazilian_portuguese: 'Iniciar Sessão de Gravação',
+    tok_pisin: 'Stat Rekodem Taim',
+    indonesian: 'Mulai Sesi Rekaman',
+    nepali: 'रेकर्डिङ सत्र सुरु गर्नुहोस्'
+  },
+  typeToConfirm: {
+    english: 'Type {text} to confirm',
+    spanish: 'Escriba {text} para confirmar',
+    brazilian_portuguese: 'Digite {text} para confirmar',
+    tok_pisin: 'Raitim {text} bilong siaim',
+    indonesian: 'Ketik {text} untuk mengkonfirmasi',
+    nepali: 'पुष्टि गर्न {text} टाइप गर्नुहोस्'
+  },
+  confirmDeletion: {
+    english: 'Confirm Deletion',
+    spanish: 'Confirmar Eliminación',
+    brazilian_portuguese: 'Confirmar Exclusão',
+    tok_pisin: 'Siaim Rausim',
+    indonesian: 'Konfirmasi Penghapusan',
+    nepali: 'मेटाउने पुष्टि गर्नुहोस्'
+  },
+  deleting: {
+    english: 'Deleting...',
+    spanish: 'Eliminando...',
+    brazilian_portuguese: 'Excluindo...',
+    tok_pisin: 'Rausim nau...',
+    indonesian: 'Menghapus...',
+    nepali: 'मेटाउँदै...'
   },
   audioSegments: {
     english: 'Audio Segments',
     spanish: 'Pistas de Audio',
     brazilian_portuguese: 'Pistas de Áudio',
     tok_pisin: 'Ol audio track',
-    indonesian: 'Trek audio'
+    indonesian: 'Trek audio',
+    nepali: 'अडियो खण्डहरू'
   },
   audioSegment: {
     english: 'Audio Segment',
     spanish: 'Pista de Audio',
     brazilian_portuguese: 'Pista de Áudio',
     tok_pisin: 'Ol audio track',
-    indonesian: 'Trek audio'
+    indonesian: 'Trek audio',
+    nepali: 'अडियो खण्ड'
   },
   asAssets: {
     english: 'as Assets',
     spanish: 'como Assets',
     brazilian_portuguese: 'como Assets',
     tok_pisin: 'as Assets',
-    indonesian: 'sebagai Assets'
+    indonesian: 'sebagai Assets',
+    nepali: 'एसेटहरूको रूपमा'
   },
   asAsset: {
     english: 'as Asset',
     spanish: 'como Asset',
     brazilian_portuguese: 'como Asset',
     tok_pisin: 'as Asset',
-    indonesian: 'sebagai Asset'
+    indonesian: 'sebagai Asset',
+    nepali: 'एसेटको रूपमा'
   },
   save: {
     english: 'Save',
     spanish: 'Guardar',
     brazilian_portuguese: 'Salvar',
     tok_pisin: 'Save',
-    indonesian: 'Simpan'
-  },
-  merge: {
-    english: 'Merge',
-    spanish: 'Fusionar',
-    brazilian_portuguese: 'Mesclar',
-    tok_pisin: 'Merge',
-    indonesian: 'Menggabungkan'
+    indonesian: 'Simpan',
+    nepali: 'सुरक्षित गर्नुहोस्'
   },
   projectDirectory: {
     english: 'Project Directory',
     spanish: 'Directorio de Proyecto',
     brazilian_portuguese: 'Diretório de Projeto',
     tok_pisin: 'Project Directory',
-    indonesian: 'Direktori Proyek'
+    indonesian: 'Direktori Proyek',
+    nepali: 'प्रोजेक्ट डाइरेक्टरी'
   },
   projectMadePublic: {
     english: 'The project has been made public',
     spanish: 'El proyecto se ha hecho público',
     brazilian_portuguese: 'O projeto foi tornado público',
     tok_pisin: 'Project i mekim public nau',
-    indonesian: 'Proyek telah dibuat publik'
+    indonesian: 'Proyek telah dibuat publik',
+    nepali: 'प्रोजेक्ट सार्वजनिक बनाइयो'
   },
   projectMadePrivate: {
     english: 'The project has been made private',
     spanish: 'El proyecto se ha hecho privado',
     brazilian_portuguese: 'O projeto foi tornado privado',
     tok_pisin: 'Project i mekim private nau',
-    indonesian: 'Proyek telah dibuat pribadi'
+    indonesian: 'Proyek telah dibuat pribadi',
+    nepali: 'प्रोजेक्ट निजी बनाइयो'
   },
   projectMadeInvisible: {
     english: 'The project has been made invisible',
     spanish: 'El proyecto se ha hecho invisible',
     brazilian_portuguese: 'O projeto foi tornado invisível',
     tok_pisin: 'Project i mekim hait nau',
-    indonesian: 'Proyek telah dibuat tidak terlihat'
+    indonesian: 'Proyek telah dibuat tidak terlihat',
+    nepali: 'प्रोजेक्ट अदृश्य बनाइएको छ'
   },
   projectMadeVisible: {
     english: 'The project has been made visible',
     spanish: 'El proyecto se ha hecho visible',
     brazilian_portuguese: 'O projeto foi tornado visível',
     tok_pisin: 'Project i mekim save nau',
-    indonesian: 'Proyek telah dibuat terlihat'
+    indonesian: 'Proyek telah dibuat terlihat',
+    nepali: 'प्रोजेक्ट दृश्य बनाइएको छ'
   },
   projectMadeInactive: {
     english: 'The project has been made inactive',
     spanish: 'El proyecto se ha hecho inactivo',
     brazilian_portuguese: 'O projeto foi tornado inativo',
     tok_pisin: 'Project i mekim stop nau',
-    indonesian: 'Proyek telah dibuat tidak aktif'
+    indonesian: 'Proyek telah dibuat tidak aktif',
+    nepali: 'प्रोजेक्ट निष्क्रिय बनाइएको छ'
   },
   projectMadeActive: {
     english: 'The project has been made active',
     spanish: 'El proyecto se ha hecho activo',
     brazilian_portuguese: 'O projeto foi tornado ativo',
     tok_pisin: 'Project i mekim active nau',
-    indonesian: 'Proyek telah dibuat aktif'
+    indonesian: 'Proyek telah dibuat aktif',
+    nepali: 'प्रोजेक्ट सक्रिय बनाइएको छ'
   },
   failedToUpdateProjectSettings: {
     english: 'Failed to update project settings',
     spanish: 'Error al actualizar la configuración del proyecto',
     brazilian_portuguese: 'Falha ao atualizar as configurações do projeto',
     tok_pisin: 'I no inap update project settings',
-    indonesian: 'Gagal mengupdate pengaturan proyek'
+    indonesian: 'Gagal mengupdate pengaturan proyek',
+    nepali: 'प्रोजेक्ट सेटिङहरू अपडेट गर्न असफल'
   },
   failedToUpdateProjectVisibility: {
     english: 'Failed to update project visibility',
     spanish: 'Error al actualizar la visibilidad del proyecto',
     brazilian_portuguese: 'Falha ao atualizar a visibilidade do projeto',
     tok_pisin: 'I no inap update project visibility',
-    indonesian: 'Gagal mengupdate visibilitas proyek'
+    indonesian: 'Gagal mengupdate visibilitas proyek',
+    nepali: 'प्रोजेक्ट दृश्यता अपडेट गर्न असफल'
   },
   failedToUpdateProjectActiveStatus: {
     english: 'Failed to update project active status',
     spanish: 'Error al actualizar el estado activo del proyecto',
     brazilian_portuguese: 'Falha ao atualizar o status ativo do projeto',
     tok_pisin: 'I no inap update project active status',
-    indonesian: 'Gagal mengupdate status aktif proyek'
+    indonesian: 'Gagal mengupdate status aktif proyek',
+    nepali: 'प्रोजेक्ट सक्रिय स्थिति अपडेट गर्न असफल'
   },
   projectSettingsLoadError: {
     english: 'Error loading quest settings.',
     spanish: 'Error al cargar la configuración de quest.',
     brazilian_portuguese: 'Erro ao carregar as configurações da quest.',
     tok_pisin: 'I no inap load quest settings.',
-    indonesian: 'Gagal memuat pengaturan quest.'
+    indonesian: 'Gagal memuat pengaturan quest.',
+    nepali: 'क्वेस्ट सेटिङहरू लोड गर्दा त्रुटि।'
   },
   projectSettings: {
     english: 'Project Settings',
     spanish: 'Configuración del Proyecto',
     brazilian_portuguese: 'Configurações do Projeto',
     tok_pisin: 'Project Settings',
-    indonesian: 'Pengaturan Proyek'
+    indonesian: 'Pengaturan Proyek',
+    nepali: 'प्रोजेक्ट सेटिङहरू'
   },
   publicProjectDescription: {
     english: 'Anyone can view and contribute to this project',
@@ -3555,7 +4282,8 @@ export const localizations = {
     brazilian_portuguese:
       'Qualquer pessoa pode ver e contribuir para este projeto',
     tok_pisin: 'Olgeta man i ken lukim na contributim long dispela project',
-    indonesian: 'Siapa saja dapat melihat dan berkontribusi pada proyek ini'
+    indonesian: 'Siapa saja dapat melihat dan berkontribusi pada proyek ini',
+    nepali: 'जोसुकैले यो प्रोजेक्ट हेर्न र योगदान गर्न सक्छन्'
   },
   visibleProjectDescription: {
     english:
@@ -3567,7 +4295,9 @@ export const localizations = {
     tok_pisin:
       'Dispela project i save long public list na olgeta user i ken painim.',
     indonesian:
-      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna.'
+      'Proyek ini muncul di daftar publik dan dapat ditemukan oleh semua pengguna.',
+    nepali:
+      'यो प्रोजेक्ट सार्वजनिक सूचीहरूमा देखिन्छ र सबै प्रयोगकर्ताहरूले फेला पार्न सक्छन्।'
   },
   invisibleProjectDescription: {
     english:
@@ -3579,7 +4309,8 @@ export const localizations = {
     tok_pisin:
       'Dispela project i no save long project directory olsem search result.',
     indonesian:
-      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian.'
+      'Proyek ini tidak ditampilkan di direktori proyek atau hasil pencarian.',
+    nepali: 'यो प्रोजेक्ट प्रोजेक्ट डाइरेक्टरीहरू वा खोज परिणामहरूमा देखिँदैन।'
   },
   activeProjectDescription: {
     english: 'The project is currently open for viewing and contributions.',
@@ -3588,7 +4319,8 @@ export const localizations = {
     brazilian_portuguese:
       'O projeto está atualmente aberto para visualização e contribuições.',
     tok_pisin: 'Dispela project i open nau long lukim na contributim.',
-    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi.'
+    indonesian: 'Proyek saat ini terbuka untuk dilihat dan kontribusi.',
+    nepali: 'प्रोजेक्ट हाल हेर्न र योगदानका लागि खुला छ।'
   },
   inactiveProjectDescription: {
     english:
@@ -3598,154 +4330,177 @@ export const localizations = {
     brazilian_portuguese:
       'Este projeto está atualmente inativo e não está aceitando contribuições.',
     tok_pisin: 'Dispela project i no wok nau na i no acceptim contributim.',
-    indonesian: 'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi.'
+    indonesian:
+      'Proyek ini saat ini tidak aktif dan tidak menerima kontribusi.',
+    nepali: 'यो प्रोजेक्ट हाल निष्क्रिय छ र योगदानहरू स्वीकार गर्दैन।'
   },
   loadingOptions: {
     english: 'Loading options...',
     spanish: 'Cargando opciones...',
     brazilian_portuguese: 'Carregando opções...',
     tok_pisin: 'I loadim ol option...',
-    indonesian: 'Memuat opsi...'
+    indonesian: 'Memuat opsi...',
+    nepali: 'विकल्पहरू लोड गर्दै...'
   },
   loadingTagCategories: {
     english: 'Loading tag categories...',
     spanish: 'Cargando categorías de etiquetas...',
     brazilian_portuguese: 'Carregando categorias de etiquetas...',
     tok_pisin: 'I loadim ol tag category...',
-    indonesian: 'Memuat kategori tag...'
+    indonesian: 'Memuat kategori tag...',
+    nepali: 'ट्याग श्रेणीहरू लोड गर्दै...'
   },
   questSettings: {
     english: 'Quest Settings',
     spanish: 'Configuración de la Misión',
     brazilian_portuguese: 'Configurações da Missão',
     tok_pisin: 'Quest Settings',
-    indonesian: 'Pengaturan Quest'
+    indonesian: 'Pengaturan Quest',
+    nepali: 'क्वेस्ट सेटिङहरू'
   },
   questSettingsLoadError: {
     english: 'Error loading quest settings.',
     spanish: 'Error al cargar la configuración de quest.',
     brazilian_portuguese: 'Erro ao carregar as configurações da quest.',
     tok_pisin: 'I no inap load quest settings.',
-    indonesian: 'Gagal memuat pengaturan quest.'
+    indonesian: 'Gagal memuat pengaturan quest.',
+    nepali: 'क्वेस्ट सेटिङहरू लोड गर्दा त्रुटि।'
   },
   visibleQuestDescription: {
     english: 'This quest is visible to users',
     spanish: 'Esta misión es visible para los usuarios',
     brazilian_portuguese: 'Esta missão é visível para os usuários',
     tok_pisin: 'Dispela quest i save long ol user',
-    indonesian: 'Quest ini terlihat oleh pengguna'
+    indonesian: 'Quest ini terlihat oleh pengguna',
+    nepali: 'यो क्वेस्ट प्रयोगकर्ताहरूलाई देखिन्छ'
   },
   invisibleQuestDescription: {
     english: 'This quest is hidden from users',
     spanish: 'Esta misión está oculta para los usuarios',
     brazilian_portuguese: 'Esta missão está oculta dos usuários',
     tok_pisin: 'Dispela quest i hait long ol user',
-    indonesian: 'Quest ini disembunyikan dari pengguna'
+    indonesian: 'Quest ini disembunyikan dari pengguna',
+    nepali: 'यो क्वेस्ट प्रयोगकर्ताहरूबाट लुकाइएको छ'
   },
   activeQuestDescription: {
     english: 'This quest is available for completion',
     spanish: 'Esta misión está disponible para completar',
     brazilian_portuguese: 'Esta missão está disponível para conclusão',
     tok_pisin: 'Dispela quest i redi long pinisim',
-    indonesian: 'Quest ini tersedia untuk diselesaikan'
+    indonesian: 'Quest ini tersedia untuk diselesaikan',
+    nepali: 'यो क्वेस्ट पूरा गर्नको लागि उपलब्ध छ'
   },
   inactiveQuestDescription: {
     english: 'This quest is temporarily disabled',
     spanish: 'Esta misión está temporalmente deshabilitada',
     brazilian_portuguese: 'Esta missão está temporariamente desabilitada',
     tok_pisin: 'Dispela quest i stop liklik taim',
-    indonesian: 'Quest ini sementara dinonaktifkan'
+    indonesian: 'Quest ini sementara dinonaktifkan',
+    nepali: 'यो क्वेस्ट अस्थायी रूपमा असक्षम छ'
   },
   questMadeInvisible: {
     english: 'The quest has been made invisible',
     spanish: 'La misión se ha hecho invisible',
     brazilian_portuguese: 'A missão foi tornada invisível',
     tok_pisin: 'Quest i mekim hait nau',
-    indonesian: 'Quest telah dibuat tidak terlihat'
+    indonesian: 'Quest telah dibuat tidak terlihat',
+    nepali: 'क्वेस्ट अदृश्य बनाइएको छ'
   },
   questMadeVisible: {
     english: 'The quest has been made visible',
     spanish: 'La misión se ha hecho visible',
     brazilian_portuguese: 'A missão foi tornada visível',
     tok_pisin: 'Quest i mekim save nau',
-    indonesian: 'Quest telah dibuat terlihat'
+    indonesian: 'Quest telah dibuat terlihat',
+    nepali: 'क्वेस्ट दृश्य बनाइएको छ'
   },
   questMadeInactive: {
     english: 'The quest has been made inactive',
     spanish: 'La misión se ha hecho inactiva',
     brazilian_portuguese: 'A missão foi tornada inativa',
     tok_pisin: 'Quest i mekim stop nau',
-    indonesian: 'Quest telah dibuat tidak aktif'
+    indonesian: 'Quest telah dibuat tidak aktif',
+    nepali: 'क्वेस्ट निष्क्रिय बनाइएको छ'
   },
   questMadeActive: {
     english: 'The quest has been made active',
     spanish: 'La misión se ha hecho activa',
     brazilian_portuguese: 'A missão foi tornada ativa',
     tok_pisin: 'Quest i mekim active nau',
-    indonesian: 'Quest telah dibuat aktif'
+    indonesian: 'Quest telah dibuat aktif',
+    nepali: 'क्वेस्ट सक्रिय बनाइएको छ'
   },
   failedToUpdateQuestSettings: {
     english: 'Failed to update quest settings',
     spanish: 'Error al actualizar la configuración de la misión',
     brazilian_portuguese: 'Falha ao atualizar as configurações da missão',
     tok_pisin: 'I no inap update quest settings',
-    indonesian: 'Gagal mengupdate pengaturan quest'
+    indonesian: 'Gagal mengupdate pengaturan quest',
+    nepali: 'क्वेस्ट सेटिङहरू अपडेट गर्न असफल'
   },
   loadingAudio: {
     english: 'Loading audio...',
     spanish: 'Cargando audio...',
     brazilian_portuguese: 'Carregando áudio...',
     tok_pisin: 'I loadim audio...',
-    indonesian: 'Memuat audio...'
+    indonesian: 'Memuat audio...',
+    nepali: 'अडियो लोड गर्दै...'
   },
   updateAvailable: {
     english: 'A new update is available!',
     spanish: '¡Una nueva actualización está disponible!',
     brazilian_portuguese: 'Uma nova atualização está disponível!',
     tok_pisin: 'Nupela update i stap!',
-    indonesian: 'Pembaruan baru tersedia!'
+    indonesian: 'Pembaruan baru tersedia!',
+    nepali: 'नयाँ अपडेट उपलब्ध छ!'
   },
   updateNow: {
     english: 'Update Now',
     spanish: 'Actualizar Ahora',
     brazilian_portuguese: 'Atualizar Agora',
     tok_pisin: 'Update Nau',
-    indonesian: 'Perbarui Sekarang'
+    indonesian: 'Perbarui Sekarang',
+    nepali: 'अहिले अपडेट गर्नुहोस्'
   },
   updateFailed: {
     english: 'Update failed',
     spanish: 'Actualización fallida',
     brazilian_portuguese: 'Atualização falhou',
     tok_pisin: 'Update i pundaun',
-    indonesian: 'Pembaruan gagal'
+    indonesian: 'Pembaruan gagal',
+    nepali: 'अपडेट असफल भयो'
   },
   updateErrorTryAgain: {
     english: 'Please try again or dismiss',
     spanish: 'Por favor intente nuevamente o descarte',
     brazilian_portuguese: 'Por favor tente novamente ou descarte',
     tok_pisin: 'Traim gen o rausim',
-    indonesian: 'Silakan coba lagi atau abaikan'
+    indonesian: 'Silakan coba lagi atau abaikan',
+    nepali: 'कृपया पुन: प्रयास गर्नुहोस् वा खारेज गर्नुहोस्'
   },
   retry: {
     english: 'Retry',
     spanish: 'Reintentar',
     brazilian_portuguese: 'Tentar novamente',
     tok_pisin: 'Traim gen',
-    indonesian: 'Coba lagi'
+    indonesian: 'Coba lagi',
+    nepali: 'पुन: प्रयास गर्नुहोस्'
   },
   enterCommentOptional: {
     english: 'Enter your comment (optional)',
     spanish: 'Escribe tu comentario (opcional)',
     brazilian_portuguese: 'Escreva seu comentário (opcional)',
     tok_pisin: 'Raitim comment bilong yu (yu ken o nogat)',
-    indonesian: 'Masukkan komentar Anda (opsional)'
+    indonesian: 'Masukkan komentar Anda (opsional)',
+    nepali: 'आफ्नो टिप्पणी प्रविष्ट गर्नुहोस् (वैकल्पिक)'
   },
   auth_init_error_title: {
     english: 'Initialization Error',
     spanish: 'Error de Inicialización',
     brazilian_portuguese: 'Erro de Inicialização',
     tok_pisin: 'Initialization Error',
-    indonesian: 'Kesalahan Inisialisasi'
+    indonesian: 'Kesalahan Inisialisasi',
+    nepali: 'सुरुवात त्रुटि'
   },
   auth_init_error_message: {
     english:
@@ -3756,42 +4511,49 @@ export const localizations = {
       'Erro ao inicializar o aplicativo. Por favor, tente sair e entrar novamente.',
     tok_pisin: 'I no inap start app. Plis traim logout na login gen.',
     indonesian:
-      'Gagal menginisialisasi aplikasi. Silakan coba logout dan login kembali.'
+      'Gagal menginisialisasi aplikasi. Silakan coba logout dan login kembali.',
+    nepali:
+      'एप सुरु गर्न असफल भयो। कृपया लगआउट गरेर पुन: लग इन गर्ने प्रयास गर्नुहोस्।'
   },
   auth_init_error_ok: {
     english: 'OK',
     spanish: 'OK',
     brazilian_portuguese: 'OK',
     tok_pisin: 'Orait',
-    indonesian: 'OK'
+    indonesian: 'OK',
+    nepali: 'ठीक छ'
   },
   projectDownloaded: {
     english: 'Project downloaded',
     spanish: 'Proyecto descargado',
     brazilian_portuguese: 'Projeto baixado',
     tok_pisin: 'Project i daun pinis',
-    indonesian: 'Proyek diunduh'
+    indonesian: 'Proyek diunduh',
+    nepali: 'प्रोजेक्ट डाउनलोड भयो'
   },
   passwordMustBeAtLeast6Characters: {
     english: 'Password must be at least 6 characters',
     spanish: 'La contraseña debe tener al menos 6 caracteres',
     brazilian_portuguese: 'A senha deve ter pelo menos 6 caracteres',
     tok_pisin: 'Password i mas gat 6 character o moa',
-    indonesian: 'Kata sandi harus minimal 6 karakter'
+    indonesian: 'Kata sandi harus minimal 6 karakter',
+    nepali: 'पासवर्ड कम्तिमा ६ वर्णको हुनुपर्छ'
   },
   passwordUpdateFailed: {
     english: 'Failed to update password',
     spanish: 'Error al actualizar la contraseña',
     brazilian_portuguese: 'Falha ao atualizar a senha',
     tok_pisin: 'I no inap update password',
-    indonesian: 'Gagal mengupdate kata sandi'
+    indonesian: 'Gagal mengupdate kata sandi',
+    nepali: 'पासवर्ड अपडेट गर्न असफल'
   },
   clearCache: {
     english: 'Clear Cache',
     spanish: 'Limpiar caché',
     brazilian_portuguese: 'Limpar cache',
     tok_pisin: 'Klinim Cache',
-    indonesian: 'Hapus Cache'
+    indonesian: 'Hapus Cache',
+    nepali: 'क्यास खाली गर्नुहोस्'
   },
   clearCacheConfirmation: {
     english: 'Are you sure you want to clear all cached data?',
@@ -3799,14 +4561,16 @@ export const localizations = {
     brazilian_portuguese:
       'Tem certeza que deseja limpar todos os dados em cache?',
     tok_pisin: 'Yu sure long klinim olgeta cache data?',
-    indonesian: 'Apakah Anda yakin ingin menghapus semua data cache?'
+    indonesian: 'Apakah Anda yakin ingin menghapus semua data cache?',
+    nepali: 'के तपाईं सबै क्यास डाटा खाली गर्न निश्चित हुनुहुन्छ?'
   },
   cacheClearedSuccess: {
     english: 'Cache cleared successfully',
     spanish: 'Caché limpiada correctamente',
     brazilian_portuguese: 'Cache limpa com sucesso',
     tok_pisin: 'Cache i klin gut pinis',
-    indonesian: 'Cache berhasil dihapus'
+    indonesian: 'Cache berhasil dihapus',
+    nepali: 'क्यास सफलतापूर्वक खाली गरियो'
   },
   exportRequiresInternet: {
     english: 'This feature requires an internet connection',
@@ -3814,28 +4578,32 @@ export const localizations = {
     brazilian_portuguese:
       'Esta funcionalidade requer uma conexão com a internet',
     tok_pisin: 'Dispela feature i nidim internet connection',
-    indonesian: 'Fitur ini memerlukan koneksi internet'
+    indonesian: 'Fitur ini memerlukan koneksi internet',
+    nepali: 'यो सुविधाको लागि इन्टरनेट जडान आवश्यक छ'
   },
   exportDataComingSoon: {
     english: 'Data export feature coming soon',
     spanish: 'La exportación de datos está próxima',
     brazilian_portuguese: 'A exportação de dados está próxima',
     tok_pisin: 'Data export feature i kam bihain',
-    indonesian: 'Fitur ekspor data segera hadir'
+    indonesian: 'Fitur ekspor data segera hadir',
+    nepali: 'डाटा निर्यात सुविधा छिट्टै आउँदैछ'
   },
   info: {
     english: 'Info',
     spanish: 'Información',
     brazilian_portuguese: 'Informação',
     tok_pisin: 'Info',
-    indonesian: 'Info'
+    indonesian: 'Info',
+    nepali: 'जानकारी'
   },
   enableNotifications: {
     english: 'Enable Notifications',
     spanish: 'Habilitar notificaciones',
     brazilian_portuguese: 'Habilitar notificações',
     tok_pisin: 'Onim Notification',
-    indonesian: 'Aktifkan Notifikasi'
+    indonesian: 'Aktifkan Notifikasi',
+    nepali: 'सूचनाहरू सक्षम गर्नुहोस्'
   },
   notificationsDescription: {
     english: 'Receive notifications for app updates and important information',
@@ -3845,21 +4613,24 @@ export const localizations = {
       'Receber notificações para atualizações do aplicativo e informações importantes',
     tok_pisin: 'Kisim notification long app update na important information',
     indonesian:
-      'Terima notifikasi untuk pembaruan aplikasi dan informasi penting'
+      'Terima notifikasi untuk pembaruan aplikasi dan informasi penting',
+    nepali: 'एप अपडेट र महत्त्वपूर्ण जानकारीको लागि सूचनाहरू प्राप्त गर्नुहोस्'
   },
   contentPreferences: {
     english: 'Content Preferences',
     spanish: 'Preferencias de contenido',
     brazilian_portuguese: 'Preferências de conteúdo',
     tok_pisin: 'Content Preferences',
-    indonesian: 'Preferensi Konten'
+    indonesian: 'Preferensi Konten',
+    nepali: 'सामग्री प्राथमिकताहरू'
   },
   showHiddenContent: {
     english: 'Show Hidden Content',
     spanish: 'Mostrar contenido oculto',
     brazilian_portuguese: 'Mostrar conteúdo oculto',
     tok_pisin: 'Soim Hait Content',
-    indonesian: 'Tampilkan Konten Tersembunyi'
+    indonesian: 'Tampilkan Konten Tersembunyi',
+    nepali: 'लुकेको सामग्री देखाउनुहोस्'
   },
   showHiddenContentDescription: {
     english: 'Allow displaying content that has been marked as invisible',
@@ -3868,21 +4639,24 @@ export const localizations = {
       'Permitir mostrar conteúdo que foi marcado como invisível',
     tok_pisin: 'Larim soim content we ol i makim hait',
     indonesian:
-      'Izinkan menampilkan konten yang ditandai sebagai tidak terlihat'
+      'Izinkan menampilkan konten yang ditandai sebagai tidak terlihat',
+    nepali: 'अदृश्य भनी चिन्ह लगाइएको सामग्री प्रदर्शन गर्न अनुमति दिनुहोस्'
   },
   dataAndStorage: {
     english: 'Data & Storage',
     spanish: 'Datos y almacenamiento',
     brazilian_portuguese: 'Dados e armazenamento',
     tok_pisin: 'Data na Storage',
-    indonesian: 'Data & Penyimpanan'
+    indonesian: 'Data & Penyimpanan',
+    nepali: 'डाटा र भण्डारण'
   },
   downloadOnWifiOnly: {
     english: 'Download on WiFi Only',
     spanish: 'Descargar solo en WiFi',
     brazilian_portuguese: 'Baixar apenas em WiFi',
     tok_pisin: 'Daunim long WiFi tasol',
-    indonesian: 'Unduh hanya di WiFi'
+    indonesian: 'Unduh hanya di WiFi',
+    nepali: 'WiFi मा मात्र डाउनलोड गर्नुहोस्'
   },
   downloadOnWifiOnlyDescription: {
     english: 'Only download content when connected to WiFi',
@@ -3890,21 +4664,24 @@ export const localizations = {
     brazilian_portuguese:
       'Baixar conteúdo apenas quando estiver conectado à WiFi',
     tok_pisin: 'Daunim content taim yu joinim WiFi tasol',
-    indonesian: 'Hanya unduh konten saat terhubung ke WiFi'
+    indonesian: 'Hanya unduh konten saat terhubung ke WiFi',
+    nepali: 'WiFi मा जडान हुँदा मात्र सामग्री डाउनलोड गर्नुहोस्'
   },
   autoBackup: {
     english: 'Auto Backup',
     spanish: 'Copia de seguridad automática',
     brazilian_portuguese: 'Backup automático',
     tok_pisin: 'Auto Backup',
-    indonesian: 'Backup Otomatis'
+    indonesian: 'Backup Otomatis',
+    nepali: 'स्वत: ब्याकअप'
   },
   autoBackupDescription: {
     english: 'Automatically backup your data to the cloud',
     spanish: 'Hacer una copia de seguridad automática de tus datos en la nube',
     brazilian_portuguese: 'Fazer um backup automático dos seus dados na nuvem',
     tok_pisin: 'Otomatik backup data bilong yu long cloud',
-    indonesian: 'Secara otomatis backup data Anda ke cloud'
+    indonesian: 'Secara otomatis backup data Anda ke cloud',
+    nepali: 'आफ्नो डाटा स्वचालित रूपमा क्लाउडमा ब्याकअप गर्नुहोस्'
   },
   clearCacheDescription: {
     english: 'Clear all cached data to free up storage space',
@@ -3913,49 +4690,56 @@ export const localizations = {
     brazilian_portuguese:
       'Limpar todos os dados em cache para liberar espaço de armazenamento',
     tok_pisin: 'Klinim olgeta cache data long mekim moa storage space',
-    indonesian: 'Hapus semua data cache untuk mengosongkan ruang penyimpanan'
+    indonesian: 'Hapus semua data cache untuk mengosongkan ruang penyimpanan',
+    nepali: 'भण्डारण ठाउँ खाली गर्न सबै क्यास डाटा खाली गर्नुहोस्'
   },
   exportData: {
     english: 'Export Data',
     spanish: 'Exportar datos',
     brazilian_portuguese: 'Exportar dados',
     tok_pisin: 'Export Data',
-    indonesian: 'Ekspor Data'
+    indonesian: 'Ekspor Data',
+    nepali: 'डाटा निर्यात गर्नुहोस्'
   },
   exportDataDescription: {
     english: 'Export your data for backup or transfer',
     spanish: 'Exportar tus datos para respaldo o transferencia',
     brazilian_portuguese: 'Exportar seus dados para backup ou transferência',
     tok_pisin: 'Export data bilong yu long backup o transfer',
-    indonesian: 'Ekspor data Anda untuk backup atau transfer'
+    indonesian: 'Ekspor data Anda untuk backup atau transfer',
+    nepali: 'ब्याकअप वा स्थानान्तरणको लागि आफ्नो डाटा निर्यात गर्नुहोस्'
   },
   support: {
     english: 'Support',
     spanish: 'Soporte',
     brazilian_portuguese: 'Suporte',
     tok_pisin: 'Support',
-    indonesian: 'Dukungan'
+    indonesian: 'Dukungan',
+    nepali: 'सहायता'
   },
   helpCenter: {
     english: 'Help Center',
     spanish: 'Centro de ayuda',
     brazilian_portuguese: 'Centro de ajuda',
     tok_pisin: 'Help Center',
-    indonesian: 'Pusat Bantuan'
+    indonesian: 'Pusat Bantuan',
+    nepali: 'सहायता केन्द्र'
   },
   helpCenterComingSoon: {
     english: 'Help center feature coming soon',
     spanish: 'El centro de ayuda está próximo',
     brazilian_portuguese: 'O centro de ajuda está próximo',
     tok_pisin: 'Help center feature i kam bihain',
-    indonesian: 'Fitur pusat bantuan segera hadir'
+    indonesian: 'Fitur pusat bantuan segera hadir',
+    nepali: 'सहायता केन्द्र सुविधा छिट्टै आउँदैछ'
   },
   contactSupport: {
     english: 'Contact Support',
     spanish: 'Contactar soporte',
     brazilian_portuguese: 'Contatar suporte',
     tok_pisin: 'Contact Support',
-    indonesian: 'Hubungi Dukungan'
+    indonesian: 'Hubungi Dukungan',
+    nepali: 'सहायतासँग सम्पर्क गर्नुहोस्'
   },
   contactSupportComingSoon: {
     english: 'Contact support feature coming soon',
@@ -3963,35 +4747,40 @@ export const localizations = {
     brazilian_portuguese:
       'A funcionalidade de contato com o suporte está próxima',
     tok_pisin: 'Contact support feature i kam bihain',
-    indonesian: 'Fitur hubungi dukungan segera hadir'
+    indonesian: 'Fitur hubungi dukungan segera hadir',
+    nepali: 'सहायतासँग सम्पर्क सुविधा छिट्टै आउँदैछ'
   },
   termsAndConditions: {
     english: 'Terms & Conditions',
     spanish: 'Términos y condiciones',
     brazilian_portuguese: 'Termos e condições',
     tok_pisin: 'Terms na Conditions',
-    indonesian: 'Syarat & Ketentuan'
+    indonesian: 'Syarat & Ketentuan',
+    nepali: 'नियम र सर्तहरू'
   },
   termsAndConditionsComingSoon: {
     english: 'Terms & Conditions feature coming soon',
     spanish: 'La función de términos y condiciones está próxima',
     brazilian_portuguese: 'A funcionalidade de termos e condições está próxima',
     tok_pisin: 'Terms na Conditions feature i kam bihain',
-    indonesian: 'Fitur Syarat & Ketentuan segera hadir'
+    indonesian: 'Fitur Syarat & Ketentuan segera hadir',
+    nepali: 'नियम र सर्तहरू सुविधा छिट्टै आउँदैछ'
   },
   experimentalFeatures: {
     english: 'Experimental Features',
     spanish: 'Características Experimentales',
     brazilian_portuguese: 'Recursos Experimentais',
     tok_pisin: 'Experimental Features',
-    indonesian: 'Fitur Eksperimental'
+    indonesian: 'Fitur Eksperimental',
+    nepali: 'प्रयोगात्मक सुविधाहरू'
   },
   aiSuggestions: {
     english: 'AI Suggestions',
     spanish: 'Sugerencias de IA',
     brazilian_portuguese: 'Sugestões de IA',
     tok_pisin: 'AI Suggestions',
-    indonesian: 'Saran AI'
+    indonesian: 'Saran AI',
+    nepali: 'एआई सुझावहरू'
   },
   aiSuggestionsDescription: {
     english:
@@ -4003,14 +4792,17 @@ export const localizations = {
     tok_pisin:
       'Onim AI translation suggestions i save helpim long ol translation klostu',
     indonesian:
-      'Aktifkan saran terjemahan berbasis AI berdasarkan terjemahan terdekat'
+      'Aktifkan saran terjemahan berbasis AI berdasarkan terjemahan terdekat',
+    nepali:
+      'नजिकका अनुवादहरूमा आधारित एआई-संचालित अनुवाद सुझावहरू सक्षम गर्नुहोस्'
   },
   playAll: {
     english: 'Play All Assets',
     spanish: 'Reproducir Todos los Recursos',
     brazilian_portuguese: 'Reproduzir Todos os Recursos',
     tok_pisin: 'Playim Olgeta Assets',
-    indonesian: 'Putar Semua Aset'
+    indonesian: 'Putar Semua Aset',
+    nepali: 'सबै एसेटहरू प्ले गर्नुहोस्'
   },
   playAllDescription: {
     english:
@@ -4022,21 +4814,25 @@ export const localizations = {
     tok_pisin:
       'Onim play all assets feature long playim olgeta audio assets long wanpela taim',
     indonesian:
-      'Aktifkan fitur putar semua aset untuk memutar semua aset audio secara berurutan'
+      'Aktifkan fitur putar semua aset untuk memutar semua aset audio secara berurutan',
+    nepali:
+      'सबै अडियो एसेटहरू क्रमशः प्ले गर्न सबै एसेटहरू प्ले गर्ने सुविधा सक्षम गर्नुहोस्'
   },
   advanced: {
     english: 'Advanced',
     spanish: 'Avanzado',
     brazilian_portuguese: 'Avançado',
     tok_pisin: 'Advanced',
-    indonesian: 'Lanjutan'
+    indonesian: 'Lanjutan',
+    nepali: 'उन्नत'
   },
   debugMode: {
     english: 'Debug Mode',
     spanish: 'Modo de depuración',
     brazilian_portuguese: 'Modo de depuração',
     tok_pisin: 'Debug Mode',
-    indonesian: 'Mode Debug'
+    indonesian: 'Mode Debug',
+    nepali: 'डिबग मोड'
   },
   debugModeDescription: {
     english: 'Enable debug mode for development features',
@@ -4044,7 +4840,8 @@ export const localizations = {
     brazilian_portuguese:
       'Habilitar modo de depuração para funcionalidades de desenvolvimento',
     tok_pisin: 'Onim debug mode long development features',
-    indonesian: 'Aktifkan mode debug untuk fitur pengembangan'
+    indonesian: 'Aktifkan mode debug untuk fitur pengembangan',
+    nepali: 'विकास सुविधाहरूको लागि डिबग मोड सक्षम गर्नुहोस्'
   },
   settingsRequireInternet: {
     english: 'Some settings require an internet connection',
@@ -4052,70 +4849,80 @@ export const localizations = {
     brazilian_portuguese:
       'Algumas configurações requerem uma conexão com a internet',
     tok_pisin: 'Sampela settings i nidim internet connection',
-    indonesian: 'Beberapa pengaturan memerlukan koneksi internet'
+    indonesian: 'Beberapa pengaturan memerlukan koneksi internet',
+    nepali: 'केही सेटिङहरूलाई इन्टरनेट जडान आवश्यक छ'
   },
   internetConnectionRequired: {
     english: 'Internet connection required',
     spanish: 'Se requiere conexión a internet',
     brazilian_portuguese: 'Conexão com a internet necessária',
     tok_pisin: 'Internet connection i mas',
-    indonesian: 'Koneksi internet diperlukan'
+    indonesian: 'Koneksi internet diperlukan',
+    nepali: 'इन्टरनेट जडान आवश्यक छ'
   },
   clear: {
     english: 'Clear',
     spanish: 'Limpiar',
     brazilian_portuguese: 'Limpar',
     tok_pisin: 'Klinim',
-    indonesian: 'Hapus'
+    indonesian: 'Hapus',
+    nepali: 'खाली गर्नुहोस्'
   },
   unnamedAsset: {
     english: 'Unnamed Asset',
     spanish: 'Actividad sin nombre',
     brazilian_portuguese: 'Atividade sem nome',
     tok_pisin: 'Asset i no gat nem',
-    indonesian: 'Asset Tanpa Nama'
+    indonesian: 'Asset Tanpa Nama',
+    nepali: 'नाम नभएको एसेट'
   },
   noAssetSelected: {
     english: 'No Asset Selected',
     spanish: 'No hay actividades seleccionadas',
     brazilian_portuguese: 'Nenhuma atividade selecionada',
     tok_pisin: 'Yu no makim wanpela asset',
-    indonesian: 'Tidak Ada Asset yang Dipilih'
+    indonesian: 'Tidak Ada Asset yang Dipilih',
+    nepali: 'कुनै एसेट छानिएको छैन'
   },
   assetNotAvailableOffline: {
     english: 'Asset not available offline',
     spanish: 'La actividad no está disponible sin conexión',
     brazilian_portuguese: 'A atividade não está disponível offline',
     tok_pisin: 'Asset i no stap taim i no gat internet',
-    indonesian: 'Asset tidak tersedia offline'
+    indonesian: 'Asset tidak tersedia offline',
+    nepali: 'एसेट अफलाइन उपलब्ध छैन'
   },
   cloudError: {
     english: 'Cloud error: {error}',
     spanish: 'Error en la nube: {error}',
     brazilian_portuguese: 'Erro na nuvem: {error}',
     tok_pisin: 'Cloud error: {error}',
-    indonesian: 'Kesalahan cloud: {error}'
+    indonesian: 'Kesalahan cloud: {error}',
+    nepali: 'क्लाउड त्रुटि: {error}'
   },
   assetNotFoundOnline: {
     english: 'Asset not found online',
     spanish: 'La actividad no se encontró en línea',
     brazilian_portuguese: 'A atividade não foi encontrada online',
     tok_pisin: 'Asset i no stap long internet',
-    indonesian: 'Asset tidak ditemukan online'
+    indonesian: 'Asset tidak ditemukan online',
+    nepali: 'एसेट अनलाइन फेला परेन'
   },
   trySwitchingToCloudDataSource: {
     english: 'Try switching to Cloud data source above',
     spanish: 'Intenta cambiar a la fuente de datos en la nube',
     brazilian_portuguese: 'Tente mudar para a fonte de dados na nuvem',
     tok_pisin: 'Traim senisim long Cloud data source antap',
-    indonesian: 'Coba beralih ke sumber data Cloud di atas'
+    indonesian: 'Coba beralih ke sumber data Cloud di atas',
+    nepali: 'माथि क्लाउड डाटा स्रोतमा स्विच गर्ने प्रयास गर्नुहोस्'
   },
   trySwitchingToOfflineDataSource: {
     english: 'Try switching to Offline data source above',
     spanish: 'Intenta cambiar a la fuente de datos sin conexión',
-    brazilian_portuguese: 'Tente mudar para a fonte de dados offline',
+    brazilian_portuguese: 'Tente mudar para a fonte de datos offline',
     tok_pisin: 'Traim senisim long Offline data source antap',
-    indonesian: 'Coba beralih ke sumber data Offline di atas'
+    indonesian: 'Coba beralih ke sumber data Offline di atas',
+    nepali: 'माथि अफलाइन डाटा स्रोतमा स्विच गर्ने प्रयास गर्नुहोस्'
   },
   assetMayNotBeSynchronized: {
     english: 'This asset may not be synchronized or may not exist',
@@ -4123,49 +4930,56 @@ export const localizations = {
     brazilian_portuguese:
       'Esta atividade pode não estar sincronizada ou pode não existir',
     tok_pisin: 'Dispela asset i no sync o i no stap',
-    indonesian: 'Asset ini mungkin tidak tersinkronisasi atau tidak ada'
+    indonesian: 'Asset ini mungkin tidak tersinkronisasi atau tidak ada',
+    nepali: 'यो एसेट सिंक्रोनाइज नभएको वा अवस्थित नहुन सक्छ'
   },
   noContentAvailable: {
     english: 'No content available',
     spanish: 'No hay contenido disponible',
     brazilian_portuguese: 'Nenhum conteúdo disponível',
     tok_pisin: 'I no gat content',
-    indonesian: 'Tidak ada konten tersedia'
+    indonesian: 'Tidak ada konten tersedia',
+    nepali: 'कुनै सामग्री उपलब्ध छैन'
   },
   audioReady: {
     english: 'Audio ready',
     spanish: 'Audio listo',
     brazilian_portuguese: 'Áudio pronto',
     tok_pisin: 'Audio i redi',
-    indonesian: 'Audio siap'
+    indonesian: 'Audio siap',
+    nepali: 'अडियो तयार छ'
   },
   audioNotAvailable: {
     english: 'Audio not available',
     spanish: 'Audio no disponible',
     brazilian_portuguese: 'Áudio não disponível',
     tok_pisin: 'Audio i no stap',
-    indonesian: 'Audio tidak tersedia'
+    indonesian: 'Audio tidak tersedia',
+    nepali: 'अडियो उपलब्ध छैन'
   },
   imagesAvailable: {
     english: 'Images available',
     spanish: 'Imágenes disponibles',
     brazilian_portuguese: 'Imagens disponíveis',
     tok_pisin: 'Ol piksa i stap',
-    indonesian: 'Gambar tersedia'
+    indonesian: 'Gambar tersedia',
+    nepali: 'तस्बिरहरू उपलब्ध छन्'
   },
   language: {
     english: 'Language',
     spanish: 'Idioma',
     brazilian_portuguese: 'Idioma',
     tok_pisin: 'Tokples',
-    indonesian: 'Bahasa'
+    indonesian: 'Bahasa',
+    nepali: 'भाषा'
   },
   template: {
     english: 'Template',
     spanish: 'Plantilla',
     brazilian_portuguese: 'Plantilla',
     tok_pisin: 'Template',
-    indonesian: 'Template'
+    indonesian: 'Template',
+    nepali: 'टेम्प्लेट'
   },
   // template options
   bible: {
@@ -4173,280 +4987,353 @@ export const localizations = {
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Bible',
-    indonesian: 'Alkitab'
+    indonesian: 'Alkitab',
+    nepali: 'बाइबल'
   },
   unstructured: {
     english: 'Unstructured',
     spanish: 'No estructurado',
     brazilian_portuguese: 'Não estruturado',
     tok_pisin: 'Unstructured',
-    indonesian: 'Tidak terstruktur'
+    indonesian: 'Tidak terstruktur',
+    nepali: 'संरचना नभएको'
   },
   audioTracks: {
     english: 'Audio tracks',
     spanish: 'Pistas de audio',
     brazilian_portuguese: 'Pistas de áudio',
     tok_pisin: 'Ol audio track',
-    indonesian: 'Trek audio'
+    indonesian: 'Trek audio',
+    nepali: 'अडियो ट्र्याकहरू'
   },
   membersOnly: {
     english: 'Members Only',
     spanish: 'Solo para miembros',
     brazilian_portuguese: 'Só para membros',
     tok_pisin: 'Member tasol',
-    indonesian: 'Khusus Anggota'
+    indonesian: 'Khusus Anggota',
+    nepali: 'सदस्यहरूको लागि मात्र'
   },
   cloud: {
     english: 'Cloud',
     spanish: 'Nube',
     brazilian_portuguese: 'Nuvem',
     tok_pisin: 'Cloud',
-    indonesian: 'Cloud'
+    indonesian: 'Cloud',
+    nepali: 'क्लाउड'
   },
   syncing: {
     english: 'Syncing',
     spanish: 'Sincronizando',
     brazilian_portuguese: 'Sincronizando',
     tok_pisin: 'I sync',
-    indonesian: 'Sinkronisasi'
+    indonesian: 'Sinkronisasi',
+    nepali: 'सिङ्क गर्दै'
   },
   synced: {
     english: 'Synced',
     spanish: 'Sincronizado',
     brazilian_portuguese: 'Sincronizado',
     tok_pisin: 'Sync pinis',
-    indonesian: 'Tersinkronisasi'
+    indonesian: 'Tersinkronisasi',
+    nepali: 'सिङ्क भयो'
   },
   questSyncedToCloud: {
     english: 'Quest is synced to cloud',
     spanish: 'La misión está sincronizada en la nube',
     brazilian_portuguese: 'A missão está sincronizada na nuvem',
     tok_pisin: 'Quest i sync pinis long cloud',
-    indonesian: 'Quest telah disinkronkan ke cloud'
+    indonesian: 'Quest telah disinkronkan ke cloud',
+    nepali: 'क्वेस्ट क्लाउडमा सिङ्क भएको छ'
   },
   failed: {
     english: 'Failed',
     spanish: 'Fallado',
     brazilian_portuguese: 'Falhado',
     tok_pisin: 'I pail',
-    indonesian: 'Gagal'
+    indonesian: 'Gagal',
+    nepali: 'असफल भयो'
   },
   state: {
     english: 'State',
     spanish: 'Estado',
     brazilian_portuguese: 'Estado',
     tok_pisin: 'State',
-    indonesian: 'Status'
+    indonesian: 'Status',
+    nepali: 'अवस्था'
   },
   noQuestSelected: {
     english: 'No Quest Selected',
     spanish: 'No hay proyecto seleccionado',
     brazilian_portuguese: 'Nenhum projeto selecionado',
     tok_pisin: 'Yu no makim wanpela quest',
-    indonesian: 'Tidak Ada Quest yang Dipilih'
+    indonesian: 'Tidak Ada Quest yang Dipilih',
+    nepali: 'कुनै क्वेस्ट छानिएको छैन'
   },
   liveAttachmentStates: {
     english: 'Live Attachment States',
     spanish: 'Estados de adjuntos en vivo',
     brazilian_portuguese: 'Estados de anexos em tempo real',
     tok_pisin: 'Live Attachment States',
-    indonesian: 'Status Lampiran Langsung'
+    indonesian: 'Status Lampiran Langsung',
+    nepali: 'प्रत्यक्ष संलग्नक अवस्थाहरू'
   },
   searching: {
     english: 'Searching',
     spanish: 'Buscando',
     brazilian_portuguese: 'Buscando',
     tok_pisin: 'I painim',
-    indonesian: 'Mencari'
+    indonesian: 'Mencari',
+    nepali: 'खोज्दै'
   },
   translationSubmittedSuccessfully: {
     english: 'Translation submitted successfully',
     spanish: 'Traducción enviada correctamente',
     brazilian_portuguese: 'Tradução enviada com sucesso',
     tok_pisin: 'Translation i go gut pinis',
-    indonesian: 'Terjemahan berhasil dikirim'
+    indonesian: 'Terjemahan berhasil dikirim',
+    nepali: 'अनुवाद सफलतापूर्वक पेश गरियो'
+  },
+  transcriptionSubmittedSuccessfully: {
+    english: 'Transcription submitted successfully',
+    spanish: 'Transcripción enviada correctamente',
+    brazilian_portuguese: 'Transcrição enviada com sucesso',
+    tok_pisin: 'Transcription i go gut pinis',
+    indonesian: 'Transkripsi berhasil dikirim',
+    nepali: 'ट्रान्सक्रिप्सन सफलतापूर्वक पेश गरियो'
   },
   text: {
     english: 'Text',
     spanish: 'Texto',
     brazilian_portuguese: 'Texto',
     tok_pisin: 'Text',
-    indonesian: 'Teks'
+    indonesian: 'Teks',
+    nepali: 'पाठ'
   },
   audio: {
     english: 'Audio',
     spanish: 'Audio',
     brazilian_portuguese: 'Áudio',
     tok_pisin: 'Audio',
-    indonesian: 'Audio'
+    indonesian: 'Audio',
+    nepali: 'अडियो'
   },
   targetLanguage: {
     english: 'Target Language',
     spanish: 'Idioma de destino',
     brazilian_portuguese: 'Idioma de destino',
     tok_pisin: 'Target Tokples',
-    indonesian: 'Bahasa Target'
+    indonesian: 'Bahasa Target',
+    nepali: 'लक्षित भाषा'
+  },
+  sourceLanguage: {
+    english: 'Source Language',
+    spanish: 'Idioma de origen',
+    brazilian_portuguese: 'Idioma de origem',
+    tok_pisin: 'Source Tokples',
+    indonesian: 'Bahasa Sumber',
+    nepali: 'स्रोत भाषा'
   },
   your: {
     english: 'Your',
     spanish: 'Tu',
     brazilian_portuguese: 'Seu',
     tok_pisin: 'Bilong yu',
-    indonesian: 'Anda'
+    indonesian: 'Anda',
+    nepali: 'तपाईंको'
   },
   translation: {
     english: 'Translation',
     spanish: 'Traducción',
     brazilian_portuguese: 'Tradução',
     tok_pisin: 'Translation',
-    indonesian: 'Terjemahan'
+    indonesian: 'Terjemahan',
+    nepali: 'अनुवाद'
   },
   readyToSubmit: {
     english: 'Ready to submit',
     spanish: 'Listo para enviar',
     brazilian_portuguese: 'Pronto para enviar',
     tok_pisin: 'Redi long salim',
-    indonesian: 'Siap untuk dikirim'
+    indonesian: 'Siap untuk dikirim',
+    nepali: 'पेश गर्न तयार'
   },
   online: {
     english: 'Online',
     spanish: 'En línea',
     brazilian_portuguese: 'Online',
     tok_pisin: 'Online',
-    indonesian: 'Online'
+    indonesian: 'Online',
+    nepali: 'अनलाइन'
   },
   allProjects: {
     english: 'All Projects',
     spanish: 'Todos los proyectos',
     brazilian_portuguese: 'Todos os projetos',
     tok_pisin: 'Olgeta Project',
-    indonesian: 'Semua Proyek'
+    indonesian: 'Semua Proyek',
+    nepali: 'सबै प्रोजेक्टहरू'
   },
   searchProjects: {
     english: 'Search projects...',
     spanish: 'Buscar proyectos...',
     brazilian_portuguese: 'Buscar projetos...',
     tok_pisin: 'Painim ol project...',
-    indonesian: 'Cari proyek...'
+    indonesian: 'Cari proyek...',
+    nepali: 'प्रोजेक्टहरू खोज्नुहोस्...'
   },
   noProjectSelected: {
     english: 'No Project Selected',
     spanish: 'No hay proyecto seleccionado',
     brazilian_portuguese: 'Nenhum projeto selecionado',
     tok_pisin: 'Yu no makim wanpela project',
-    indonesian: 'Tidak Ada Proyek yang Dipilih'
+    indonesian: 'Tidak Ada Proyek yang Dipilih',
+    nepali: 'कुनै प्रोजेक्ट छानिएको छैन'
   },
   noQuestsFound: {
     english: 'No quests found',
     spanish: 'No se encontraron misiones',
     brazilian_portuguese: 'Nenhuma missão encontrada',
     tok_pisin: 'I no gat quest',
-    indonesian: 'Tidak ada quest ditemukan'
+    indonesian: 'Tidak ada quest ditemukan',
+    nepali: 'कुनै क्वेस्ट फेला परेन'
   },
   noQuestsAvailable: {
     english: 'No quests available',
     spanish: 'No hay misiones disponibles',
     brazilian_portuguese: 'Nenhuma missão disponível',
     tok_pisin: 'I no gat quest long usim',
-    indonesian: 'Tidak ada quest tersedia'
+    indonesian: 'Tidak ada quest tersedia',
+    nepali: 'कुनै क्वेस्ट उपलब्ध छैन'
   },
   pleaseLogInToVote: {
     english: 'Please log in to vote',
     spanish: 'Por favor, inicia sesión para votar',
     brazilian_portuguese: 'Por favor, faça login para votar',
     tok_pisin: 'Plis login pastaim long vote',
-    indonesian: 'Silakan login untuk memilih'
+    indonesian: 'Silakan login untuk memilih',
+    nepali: 'कृपया मतदान गर्न लग इन गर्नुहोस्'
+  },
+  pleaseLogInToTranscribe: {
+    english: 'Please log in to transcribe audio',
+    spanish: 'Por favor, inicia sesión para transcribir audio',
+    brazilian_portuguese: 'Por favor, faça login para transcrever áudio',
+    tok_pisin: 'Plis login pastaim long transcribe audio',
+    indonesian: 'Silakan login untuk mentranskripsi audio',
+    nepali: 'कृपया अडियो ट्रान्सक्राइब गर्न लग इन गर्नुहोस्'
+  },
+  transcriptionFailed: {
+    english: 'Failed to transcribe audio. Please try again.',
+    spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao transcrever áudio. Por favor, tente novamente.',
+    tok_pisin: 'I no inap transcribe audio. Plis traim gen.',
+    indonesian: 'Gagal mentranskripsi audio. Silakan coba lagi.',
+    nepali: 'अडियो ट्रान्सक्राइब गर्न असफल। कृपया पुन: प्रयास गर्नुहोस्।'
   },
   yourTranscriptionHasBeenSubmitted: {
     english: 'Your transcription has been submitted',
     spanish: 'Tu transcripción ha sido enviada',
     brazilian_portuguese: 'Sua transcrição foi enviada',
     tok_pisin: 'Transcription bilong yu i go pinis',
-    indonesian: 'Transkripsi Anda telah dikirim'
+    indonesian: 'Transkripsi Anda telah dikirim',
+    nepali: 'तपाईंको ट्रान्सक्रिप्शन पेश गरिएको छ'
   },
   failedToCreateTranscription: {
     english: 'Failed to create transcription',
     spanish: 'Error al crear la transcripción',
     brazilian_portuguese: 'Falha ao criar a transcrição',
     tok_pisin: 'I no inap mekim transcription',
-    indonesian: 'Gagal membuat transkripsi'
+    indonesian: 'Gagal membuat transkripsi',
+    nepali: 'ट्रान्सक्रिप्शन सिर्जना गर्न असफल'
   },
   enterYourTranscription: {
     english: 'Enter your transcription',
     spanish: 'Escribe tu transcripción',
     brazilian_portuguese: 'Digite sua transcrição',
     tok_pisin: 'Raitim transcription bilong yu',
-    indonesian: 'Masukkan transkripsi Anda'
+    indonesian: 'Masukkan transkripsi Anda',
+    nepali: 'आफ्नो ट्रान्सक्रिप्शन प्रविष्ट गर्नुहोस्'
   },
   submitTranscription: {
     english: 'Submit Transcription',
     spanish: 'Enviar transcripción',
     brazilian_portuguese: 'Enviar transcrição',
     tok_pisin: 'Salim Transcription',
-    indonesian: 'Kirim Transkripsi'
+    indonesian: 'Kirim Transkripsi',
+    nepali: 'ट्रान्सक्रिप्शन पेश गर्नुहोस्'
   },
   good: {
     english: 'Good',
     spanish: 'Bueno',
     brazilian_portuguese: 'Bom',
     tok_pisin: 'Gut',
-    indonesian: 'Bagus'
+    indonesian: 'Bagus',
+    nepali: 'राम्रो'
   },
   needsWork: {
     english: 'Needs Work',
     spanish: 'Necesita trabajo',
     brazilian_portuguese: 'Precisa de trabalho',
     tok_pisin: 'I nidim wok moa',
-    indonesian: 'Perlu Perbaikan'
+    indonesian: 'Perlu Perbaikan',
+    nepali: 'सुधार चाहिन्छ'
   },
   pleaseLogInToVoteOnTranslations: {
     english: 'Please log in to vote on translations',
     spanish: 'Por favor, inicia sesión para votar en traducciones',
     brazilian_portuguese: 'Por favor, faça login para votar em traduções',
     tok_pisin: 'Plis login pastaim long vote long ol translation',
-    indonesian: 'Silakan login untuk memilih terjemahan'
+    indonesian: 'Silakan login untuk memilih terjemahan',
+    nepali: 'कृपया अनुवादहरूमा मतदान गर्न लग इन गर्नुहोस्'
   },
   translationNotFound: {
     english: 'Translation not found',
     spanish: 'Traducción no encontrada',
     brazilian_portuguese: 'Tradução não encontrada',
     tok_pisin: 'Translation i no stap',
-    indonesian: 'Terjemahan tidak ditemukan'
+    indonesian: 'Terjemahan tidak ditemukan',
+    nepali: 'अनुवाद फेला परेन'
   },
   noTranslationsYet: {
     english: 'No translations yet. Be the first to translate!',
     spanish: 'No hay traducciones aún. Sé el primero en traducir!',
     brazilian_portuguese: 'Nenhuma tradução ainda. Seja o primeiro a traduzir!',
     tok_pisin: 'I no gat translation yet. Yu ken namba wan long translate!',
-    indonesian: 'Belum ada terjemahan. Jadilah yang pertama menerjemahkan!'
+    indonesian: 'Belum ada terjemahan. Jadilah yang pertama menerjemahkan!',
+    nepali: 'अहिलेसम्म कुनै अनुवाद छैन। पहिलो अनुवादक बन्नुहोस्!'
   },
   viewProjectLimitedAccess: {
     english: 'View Project (Limited Access)',
     spanish: 'Ver proyecto (Acceso limitado)',
     brazilian_portuguese: 'Ver projeto (Acesso limitado)',
     tok_pisin: 'Lukim Project (Limited Access)',
-    indonesian: 'Lihat Proyek (Akses Terbatas)'
+    indonesian: 'Lihat Proyek (Akses Terbatas)',
+    nepali: 'प्रोजेक्ट हेर्नुहोस् (सीमित पहुँच)'
   },
   languages: {
     english: 'Languages',
     spanish: 'Idiomas',
     brazilian_portuguese: 'Idiomas',
     tok_pisin: 'Ol Tokples',
-    indonesian: 'Bahasa'
+    indonesian: 'Bahasa',
+    nepali: 'भाषाहरू'
   },
   downloadRequired: {
     english: 'Download required',
     spanish: 'Descarga requerida',
     brazilian_portuguese: 'Download requerido',
     tok_pisin: 'Yu mas daunim',
-    indonesian: 'Unduhan diperlukan'
+    indonesian: 'Unduhan diperlukan',
+    nepali: 'डाउनलोड आवश्यक छ'
   },
   myProjects: {
     english: 'My Projects',
     spanish: 'Mis proyectos',
     brazilian_portuguese: 'Meus projetos',
     tok_pisin: 'Ol Project Bilong Mi',
-    indonesian: 'Proyek Saya'
+    indonesian: 'Proyek Saya',
+    nepali: 'मेरा प्रोजेक्टहरू'
   },
   statusTranslationActive: {
     english:
@@ -4457,7 +5344,9 @@ export const localizations = {
       'Esta tradução está atualmente ativa. Uma tradução ativa também é visível.',
     tok_pisin:
       'Dispela translation i active nau. Active translation i save tu.',
-    indonesian: 'Terjemahan ini saat ini aktif. Terjemahan aktif juga terlihat.'
+    indonesian:
+      'Terjemahan ini saat ini aktif. Terjemahan aktif juga terlihat.',
+    nepali: 'यो अनुवाद हाल सक्रिय छ। सक्रिय अनुवाद पनि दृश्यमान छ।'
   },
   statusTranslationInactive: {
     english:
@@ -4469,14 +5358,17 @@ export const localizations = {
     tok_pisin:
       'Dispela translation i no active. Yu no ken mekim wanpela samting sapos yu no mekim active gen.',
     indonesian:
-      'Terjemahan ini tidak aktif. Tidak ada tindakan yang dapat dilakukan kecuali diaktifkan kembali.'
+      'Terjemahan ini tidak aktif. Tidak ada tindakan yang dapat dilakukan kecuali diaktifkan kembali.',
+    nepali:
+      'यो अनुवाद निष्क्रिय छ। पुन: सक्रिय नगरेसम्म कुनै कार्य गर्न सकिँदैन।'
   },
   statusTranslationVisible: {
     english: 'This translation is visible to other users.',
     spanish: 'Esta traducción es visible para otros usuarios.',
     brazilian_portuguese: 'Esta tradução está visível para outros usuários.',
     tok_pisin: 'Dispela translation i save long ol narapela user.',
-    indonesian: 'Terjemahan ini terlihat oleh pengguna lain.'
+    indonesian: 'Terjemahan ini terlihat oleh pengguna lain.',
+    nepali: 'यो अनुवाद अन्य प्रयोगकर्ताहरूलाई देखिन्छ।'
   },
   statusTranslationInvisible: {
     english:
@@ -4488,70 +5380,81 @@ export const localizations = {
     tok_pisin:
       'Dispela translation i hait na bai i no soim long ol narapela user. Hait translation i no active tu.',
     indonesian:
-      'Terjemahan ini disembunyikan dan tidak akan ditampilkan kepada pengguna lain. Terjemahan yang tidak terlihat juga tidak aktif.'
+      'Terjemahan ini disembunyikan dan tidak akan ditampilkan kepada pengguna lain. Terjemahan yang tidak terlihat juga tidak aktif.',
+    nepali:
+      'यो अनुवाद लुकाइएको छ र अन्य प्रयोगकर्ताहरूलाई देखाइने छैन। अदृश्य अनुवाद पनि निष्क्रिय छ।'
   },
   statusTranslationMadeVisible: {
     english: 'The translation has been made visible',
     spanish: 'La traducción se ha hecho visible',
     brazilian_portuguese: 'A tradução foi tornada visível',
     tok_pisin: 'Translation i mekim save nau',
-    indonesian: 'Terjemahan telah dibuat terlihat'
+    indonesian: 'Terjemahan telah dibuat terlihat',
+    nepali: 'अनुवाद दृश्यमान बनाइएको छ'
   },
   statusTranslationMadeInvisible: {
     english: 'The translation has been made invisible',
     spanish: 'La traducción se ha hecho invisible',
     brazilian_portuguese: 'A tradução foi tornada invisível',
     tok_pisin: 'Translation i mekim hait nau',
-    indonesian: 'Terjemahan telah dibuat tidak terlihat'
+    indonesian: 'Terjemahan telah dibuat tidak terlihat',
+    nepali: 'अनुवाद अदृश्य बनाइएको छ'
   },
   statusTranslationMadeActive: {
     english: 'The translation has been made active',
     spanish: 'La traducción se ha activado',
     brazilian_portuguese: 'A tradução foi ativada',
     tok_pisin: 'Translation i mekim active nau',
-    indonesian: 'Terjemahan telah diaktifkan'
+    indonesian: 'Terjemahan telah diaktifkan',
+    nepali: 'अनुवाद सक्रिय बनाइएको छ'
   },
   statusTranslationMadeInactive: {
     english: 'The translation has been made inactive',
     spanish: 'La traducción ha sido desactivada',
     brazilian_portuguese: 'A tradução foi desativada',
     tok_pisin: 'Translation i mekim stop nau',
-    indonesian: 'Terjemahan telah dinonaktifkan'
+    indonesian: 'Terjemahan telah dinonaktifkan',
+    nepali: 'अनुवाद निष्क्रिय बनाइएको छ'
   },
   statusTranslationUpdateFailed: {
     english: 'Failed to update translation settings',
     spanish: 'Error al actualizar la configuración de la traducción',
     brazilian_portuguese: 'Falha ao atualizar as configurações da tradução',
     tok_pisin: 'I no inap update translation settings',
-    indonesian: 'Gagal mengupdate pengaturan terjemahan'
+    indonesian: 'Gagal mengupdate pengaturan terjemahan',
+    nepali: 'अनुवाद सेटिङहरू अपडेट गर्न असफल'
   },
   translationSettingsLoadError: {
     english: 'Error loading translation settings.',
     spanish: 'Error al cargar la configuración de traducción.',
     brazilian_portuguese: 'Erro ao carregar as configurações de tradução.',
     tok_pisin: 'I no inap load translation settings.',
-    indonesian: 'Gagal memuat pengaturan terjemahan.'
+    indonesian: 'Gagal memuat pengaturan terjemahan.',
+    nepali: 'अनुवाद सेटिङहरू लोड गर्दा त्रुटि।'
   },
   contentText: {
     english: 'Content Text',
     spanish: 'Texto del Contenido',
     brazilian_portuguese: 'Texto do Conteúdo',
     tok_pisin: 'Content Text',
-    indonesian: 'Teks Konten'
+    indonesian: 'Teks Konten',
+    nepali: 'सामग्री पाठ'
   },
   enterContentText: {
     english: 'Enter content text...',
     spanish: 'Ingrese el texto del contenido...',
     brazilian_portuguese: 'Digite o texto do conteúdo...',
     tok_pisin: 'Putim content text...',
-    indonesian: 'Masukkan teks konten...'
+    indonesian: 'Masukkan teks konten...',
+    nepali: 'सामग्री पाठ प्रविष्ट गर्नुहोस्...'
   },
   saving: {
     english: 'Saving...',
     spanish: 'Guardando...',
     brazilian_portuguese: 'Salvando...',
     tok_pisin: 'Seivim...',
-    indonesian: 'Menyimpan...'
+    indonesian: 'Menyimpan...',
+    nepali: 'सुरक्षित गर्दै...'
   },
   localAssetEditHint: {
     english: 'This asset is local only. Text can be edited until published.',
@@ -4561,297 +5464,503 @@ export const localizations = {
       'Este recurso é apenas local. O texto pode ser editado até ser publicado.',
     tok_pisin:
       'Dispela asset i local tasol. Yu ken senisim text inap yu publishim.',
-    indonesian: 'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.'
+    indonesian:
+      'Aset ini hanya lokal. Teks dapat diedit hingga dipublikasikan.',
+    nepali: 'यो एसेट स्थानीय मात्र छ। प्रकाशित नभएसम्म पाठ सम्पादन गर्न सकिन्छ।'
   },
   requests: {
     english: 'Requests',
     spanish: 'Solicitudes',
     brazilian_portuguese: 'Solicitações',
     tok_pisin: 'Ol askim',
-    indonesian: 'Permintaan'
+    indonesian: 'Permintaan',
+    nepali: 'अनुरोधहरू'
   },
   noPendingRequests: {
     english: 'No pending membership requests',
     spanish: 'No hay solicitudes de membresía pendientes',
     brazilian_portuguese: 'Sem solicitações de adesão pendentes',
     tok_pisin: 'I no gat askim i stap',
-    indonesian: 'Tidak ada permintaan keanggotaan tertunda'
+    indonesian: 'Tidak ada permintaan keanggotaan tertunda',
+    nepali: 'कुनै बाँकी सदस्यता अनुरोध छैन'
   },
   confirmApprove: {
     english: 'Approve Request',
     spanish: 'Aprobar Solicitud',
     brazilian_portuguese: 'Aprovar Solicitação',
     tok_pisin: 'Orait long askim',
-    indonesian: 'Setujui Permintaan'
+    indonesian: 'Setujui Permintaan',
+    nepali: 'अनुरोध स्वीकृत गर्नुहोस्'
   },
   confirmApproveMessage: {
     english: 'Add {name} as a member of this project?',
     spanish: '¿Agregar a {name} como miembro de este proyecto?',
     brazilian_portuguese: 'Adicionar {name} como membro deste projeto?',
     tok_pisin: 'Putim {name} i kamap memba bilong projek?',
-    indonesian: 'Tambahkan {name} sebagai anggota proyek ini?'
+    indonesian: 'Tambahkan {name} sebagai anggota proyek ini?',
+    nepali: '{name} लाई यो प्रोजेक्टको सदस्यको रूपमा थप्ने?'
   },
   requestApproved: {
     english: 'Request approved',
     spanish: 'Solicitud aprobada',
     brazilian_portuguese: 'Solicitação aprovada',
     tok_pisin: 'Askim i orait',
-    indonesian: 'Permintaan disetujui'
+    indonesian: 'Permintaan disetujui',
+    nepali: 'अनुरोध स्वीकृत भयो'
   },
   confirmDeny: {
     english: 'Deny Request',
     spanish: 'Rechazar Solicitud',
     brazilian_portuguese: 'Negar Solicitação',
     tok_pisin: 'Tambu askim',
-    indonesian: 'Tolak Permintaan'
+    indonesian: 'Tolak Permintaan',
+    nepali: 'अनुरोध अस्वीकार गर्नुहोस्'
   },
   confirmDenyMessage: {
     english: 'Deny membership request from {name}?',
     spanish: '¿Rechazar solicitud de membresía de {name}?',
     brazilian_portuguese: 'Negar solicitação de adesão de {name}?',
     tok_pisin: 'Tambu askim bilong {name}?',
-    indonesian: 'Tolak permintaan keanggotaan dari {name}?'
+    indonesian: 'Tolak permintaan keanggotaan dari {name}?',
+    nepali: '{name} बाट सदस्यता अनुरोध अस्वीकार गर्ने?'
   },
   requestDenied: {
     english: 'Request denied',
     spanish: 'Solicitud rechazada',
     brazilian_portuguese: 'Solicitação negada',
     tok_pisin: 'Askim i tambu',
-    indonesian: 'Permintaan ditolak'
+    indonesian: 'Permintaan ditolak',
+    nepali: 'अनुरोध अस्वीकृत भयो'
   },
   failedToApproveRequest: {
     english: 'Failed to approve request',
     spanish: 'Error al aprobar solicitud',
     brazilian_portuguese: 'Falha ao aprovar solicitação',
     tok_pisin: 'Askim i no inap orait',
-    indonesian: 'Gagal menyetujui permintaan'
+    indonesian: 'Gagal menyetujui permintaan',
+    nepali: 'अनुरोध स्वीकृत गर्न असफल'
   },
   failedToDenyRequest: {
     english: 'Failed to deny request',
     spanish: 'Error al rechazar solicitud',
     brazilian_portuguese: 'Falha ao negar solicitação',
     tok_pisin: 'Askim i no inap tambu',
-    indonesian: 'Gagal menolak permintaan'
+    indonesian: 'Gagal menolak permintaan',
+    nepali: 'अनुरोध अस्वीकार गर्न असफल'
   },
   downloadQuestToView: {
     english: 'This quest must be downloaded before you can view it.',
     spanish: 'Este quest debe descargarse antes de poder verlo.',
     brazilian_portuguese: 'Esta quest deve ser baixada antes de visualizá-la.',
     tok_pisin: 'Yu mas daunim dispela quest pastaim long lukim.',
-    indonesian: 'Quest ini harus diunduh sebelum Anda dapat melihatnya.'
+    indonesian: 'Quest ini harus diunduh sebelum Anda dapat melihatnya.',
+    nepali: 'यो क्वेस्ट हेर्नु अघि डाउनलोड गर्नुपर्छ।'
   },
   downloadNow: {
     english: 'Download Now',
     spanish: 'Descargar Ahora',
     brazilian_portuguese: 'Baixar Agora',
     tok_pisin: 'Daunim nau',
-    indonesian: 'Unduh Sekarang'
+    indonesian: 'Unduh Sekarang',
+    nepali: 'अहिले डाउनलोड गर्नुहोस्'
   },
   vadTitle: {
     english: 'Voice Activity',
     spanish: 'Actividad de Voz',
     brazilian_portuguese: 'Atividade de Voz',
     tok_pisin: 'Wok bilong vois',
-    indonesian: 'Aktivitas Suara'
+    indonesian: 'Aktivitas Suara',
+    nepali: 'आवाज गतिविधि'
   },
   vadDescription: {
     english: 'Records automatically when you speak',
     spanish: 'Graba automáticamente cuando hablas',
     brazilian_portuguese: 'Grava automaticamente quando você fala',
     tok_pisin: 'Em i save record pastaim taim yu toktok',
-    indonesian: 'Merekam otomatis saat Anda berbicara'
+    indonesian: 'Merekam otomatis saat Anda berbicara',
+    nepali: 'तपाईं बोल्दा स्वचालित रूपमा रेकर्ड गर्छ'
   },
   vadCurrentLevel: {
     english: 'Current Level',
     spanish: 'Nivel Actual',
     brazilian_portuguese: 'Nível Atual',
     tok_pisin: 'Level nau',
-    indonesian: 'Level Saat Ini'
+    indonesian: 'Level Saat Ini',
+    nepali: 'हालको स्तर'
   },
   vadRecordingNow: {
     english: 'Recording',
     spanish: 'Grabando',
     brazilian_portuguese: 'Gravando',
     tok_pisin: 'I save nau',
-    indonesian: 'Merekam'
+    indonesian: 'Merekam',
+    nepali: 'रेकर्ड गर्दै'
   },
   vadWaiting: {
     english: 'Waiting',
     spanish: 'Esperando',
     brazilian_portuguese: 'Aguardando',
     tok_pisin: 'Wetim',
-    indonesian: 'Menunggu'
+    indonesian: 'Menunggu',
+    nepali: 'पर्खँदै'
   },
   vadPaused: {
     english: 'Paused',
     spanish: 'Pausado',
     brazilian_portuguese: 'Pausado',
     tok_pisin: 'I stop liklik',
-    indonesian: 'Dijeda'
+    indonesian: 'Dijeda',
+    nepali: 'रोकिएको'
   },
   vadThreshold: {
     english: 'Sensitivity',
     spanish: 'Sensibilidad',
     brazilian_portuguese: 'Sensibilidade',
     tok_pisin: 'Strong bilong harim',
-    indonesian: 'Sensitivitas'
+    indonesian: 'Sensitivitas',
+    nepali: 'संवेदनशीलता'
   },
   vadSilenceDuration: {
     english: 'Pause Length',
     spanish: 'Duración de Pausa',
     brazilian_portuguese: 'Duração da Pausa',
     tok_pisin: 'Taim bilong pas',
-    indonesian: 'Durasi Jeda'
+    indonesian: 'Durasi Jeda',
+    nepali: 'रोकाइको लम्बाइ'
   },
   vadSilenceDescription: {
-    english: 'How long to wait before stopping',
-    spanish: 'Tiempo de espera antes de detener',
-    brazilian_portuguese: 'Quanto tempo esperar antes de parar',
-    tok_pisin: 'Hamas taim bipo em i stop',
-    indonesian: 'Berapa lama menunggu sebelum berhenti'
+    english: 'How much silence is needed to determine segment boundaries.',
+    spanish:
+      'Cuánto silencio se necesita para determinar los límites del segmento.',
+    brazilian_portuguese:
+      'Quanto silêncio é necessário para determinar os limites do segmento.',
+    tok_pisin: 'Hamas taim i no gat nois bilong katim toktok.',
+    indonesian:
+      'Berapa lama keheningan yang diperlukan untuk menentukan batas segmen.',
+    nepali: 'खण्ड सीमाहरू निर्धारण गर्न कति मौनता आवश्यक छ।'
+  },
+  vadMinSegmentLength: {
+    english: 'Minimum Segment Length',
+    spanish: 'Longitud Mínima de Segmento',
+    brazilian_portuguese: 'Comprimento Mínimo do Segmento',
+    tok_pisin: 'Liklik Taim Inap Bilong Toktok',
+    indonesian: 'Panjang Segmen Minimum',
+    nepali: 'न्यूनतम खण्ड लम्बाइ'
+  },
+  vadMinSegmentLengthDescription: {
+    english: 'Discard segments below this duration (filter brief noises)',
+    spanish:
+      'Descartar segmentos por debajo de esta duración (filtrar ruidos breves)',
+    brazilian_portuguese:
+      'Descartar segmentos abaixo desta duração (filtrar ruídos breves)',
+    tok_pisin: 'Rausim sotpela rekoding (filta liklik pairap)',
+    indonesian: 'Buang segmen di bawah durasi ini (filter suara singkat)',
+    nepali:
+      'यो अवधिभन्दा कम खण्डहरू त्याग्नुहोस् (छोटो आवाजहरू फिल्टर गर्नुहोस्)'
+  },
+  vadNoFilter: {
+    english: 'No filter',
+    spanish: 'Sin filtro',
+    brazilian_portuguese: 'Sem filtro',
+    tok_pisin: 'No filta',
+    indonesian: 'Tanpa filter',
+    nepali: 'कुनै फिल्टर छैन'
+  },
+  vadLightFilter: {
+    english: 'Light filter',
+    spanish: 'Filtro ligero',
+    brazilian_portuguese: 'Filtro leve',
+    tok_pisin: 'Liklik filta',
+    indonesian: 'Filter ringan',
+    nepali: 'हल्का फिल्टर'
+  },
+  vadMediumFilter: {
+    english: 'Medium filter',
+    spanish: 'Filtro medio',
+    brazilian_portuguese: 'Filtro médio',
+    tok_pisin: 'Namel filta',
+    indonesian: 'Filter sedang',
+    nepali: 'मध्यम फिल्टर'
+  },
+  vadStrongFilter: {
+    english: 'Strong filter',
+    spanish: 'Filtro fuerte',
+    brazilian_portuguese: 'Filtro forte',
+    tok_pisin: 'Strongpela filta',
+    indonesian: 'Filter kuat',
+    nepali: 'बलियो फिल्टर'
   },
   vadSensitive: {
     english: 'Sensitive',
     spanish: 'Sensible',
     brazilian_portuguese: 'Sensível',
     tok_pisin: 'I harim gut',
-    indonesian: 'Sensitif'
+    indonesian: 'Sensitif',
+    nepali: 'संवेदनशील'
   },
   vadNormal: {
     english: 'Normal',
     spanish: 'Normal',
     brazilian_portuguese: 'Normal',
     tok_pisin: 'Nambawan',
-    indonesian: 'Normal'
+    indonesian: 'Normal',
+    nepali: 'सामान्य'
   },
   vadLoud: {
     english: 'Loud',
     spanish: 'Alto',
     brazilian_portuguese: 'Alto',
     tok_pisin: 'Bikpela nois',
-    indonesian: 'Keras'
+    indonesian: 'Keras',
+    nepali: 'चर्को'
   },
   vadVerySensitive: {
     english: 'Very Sensitive',
     spanish: 'Muy Sensible',
     brazilian_portuguese: 'Muito Sensível',
     tok_pisin: 'I harim tumas',
-    indonesian: 'Sangat Sensitif'
+    indonesian: 'Sangat Sensitif',
+    nepali: 'अत्यन्त संवेदनशील'
   },
   vadLoudOnly: {
     english: 'Loud Only',
     spanish: 'Solo Alto',
     brazilian_portuguese: 'Apenas Alto',
     tok_pisin: 'Bikpela nois tasol',
-    indonesian: 'Keras Saja'
+    indonesian: 'Keras Saja',
+    nepali: 'चर्को मात्र'
   },
   vadVeryLoud: {
     english: 'Very Loud',
     spanish: 'Muy Alto',
     brazilian_portuguese: 'Muito Alto',
     tok_pisin: 'Bikpela nois tumas',
-    indonesian: 'Sangat Keras'
+    indonesian: 'Sangat Keras',
+    nepali: 'अत्यन्त चर्को'
   },
   vadQuickSegments: {
     english: 'Quick',
     spanish: 'Rápido',
     brazilian_portuguese: 'Rápido',
     tok_pisin: 'Kwik',
-    indonesian: 'Cepat'
+    indonesian: 'Cepat',
+    nepali: 'छिटो'
   },
   vadBalanced: {
     english: 'Balanced',
     spanish: 'Equilibrado',
     brazilian_portuguese: 'Equilibrado',
     tok_pisin: 'Naispela',
-    indonesian: 'Seimbang'
+    indonesian: 'Seimbang',
+    nepali: 'सन्तुलित'
   },
   vadCompleteThoughts: {
     english: 'Complete',
     spanish: 'Completo',
     brazilian_portuguese: 'Completo',
     tok_pisin: 'Olgeta',
-    indonesian: 'Lengkap'
+    indonesian: 'Lengkap',
+    nepali: 'पूर्ण'
   },
   vadDisplayMode: {
     english: 'Display Mode',
     spanish: 'Modo de Visualización',
     brazilian_portuguese: 'Modo de Exibição',
     tok_pisin: 'Kaim bilong lukim',
-    indonesian: 'Mode Tampilan'
+    indonesian: 'Mode Tampilan',
+    nepali: 'प्रदर्शन मोड'
   },
   vadFullScreen: {
     english: 'Full Screen',
     spanish: 'Pantalla Completa',
     brazilian_portuguese: 'Tela Cheia',
     tok_pisin: 'Fulap skrin',
-    indonesian: 'Layar Penuh'
+    indonesian: 'Layar Penuh',
+    nepali: 'पूर्ण स्क्रिन'
   },
   vadFooter: {
     english: 'Footer',
     spanish: 'Pie de Página',
     brazilian_portuguese: 'Rodapé',
     tok_pisin: 'Asdaun',
-    indonesian: 'Footer'
+    indonesian: 'Footer',
+    nepali: 'फुटर'
   },
   vadDisplayDescription: {
     english: 'Choose how the waveform appears when recording',
     spanish: 'Elige cómo aparece la forma de onda al grabar',
     brazilian_portuguese: 'Escolha como a forma de onda aparece ao gravar',
     tok_pisin: 'Makim olsem wanem wevpom i kamap taim yu save record',
-    indonesian: 'Pilih bagaimana bentuk gelombang muncul saat merekam'
+    indonesian: 'Pilih bagaimana bentuk gelombang muncul saat merekam',
+    nepali: 'रेकर्डिङ गर्दा तरंग कसरी देखा पर्छ छान्नुहोस्'
   },
   vadStop: {
     english: 'Stop Recording',
     spanish: 'Detener Grabación',
     brazilian_portuguese: 'Parar Gravação',
     tok_pisin: 'Stopim rekod',
-    indonesian: 'Berhenti Merekam'
+    indonesian: 'Berhenti Merekam',
+    nepali: 'रेकर्डिङ रोक्नुहोस्'
   },
   vadHelpTitle: {
     english: 'How It Works',
     spanish: 'Cómo Funciona',
     brazilian_portuguese: 'Como Funciona',
     tok_pisin: 'Olsem wanem em i wok',
-    indonesian: 'Cara Kerja'
+    indonesian: 'Cara Kerja',
+    nepali: 'यो कसरी काम गर्छ'
   },
   vadHelpAutomatic: {
-    english: 'Starts when you speak. Stops when you pause.',
-    spanish: 'Inicia cuando hablas. Se detiene cuando haces una pausa.',
+    english:
+      'When sound is detected a segment will automatically start recording. After some silence the segment will be saved. You may record multiple segments like this in sequence while recording is activated.',
+    spanish:
+      'Cuando se detecta sonido, un segmento comenzará a grabarse automáticamente. Después de un silencio, el segmento se guardará. Puedes grabar múltiples segmentos así en secuencia mientras la grabación está activada.',
     brazilian_portuguese:
-      'Inicia quando você fala. Para quando você faz uma pausa.',
-    tok_pisin: 'Em i stat taim yu toktok. Em i stop taim yu pas.',
-    indonesian: 'Dimulai saat Anda berbicara. Berhenti saat Anda berhenti.'
+      'Quando som é detectado, um segmento começará a gravar automaticamente. Após um silêncio, o segmento será salvo. Você pode gravar múltiplos segmentos assim em sequência enquanto a gravação está ativada.',
+    tok_pisin:
+      'Taim masin i harim nois, em bai stat long rekodim. Bihain long taim i no gat nois, em bai sevim. Yu ken rekodim planti taim olsem wanwan taim rekod i op.',
+    indonesian:
+      'Saat suara terdeteksi, segmen akan mulai merekam secara otomatis. Setelah keheningan, segmen akan disimpan. Anda dapat merekam beberapa segmen seperti ini secara berurutan saat perekaman diaktifkan.',
+    nepali:
+      'जब आवाज पत्ता लाग्छ एक खण्ड स्वचालित रूपमा रेकर्डिङ सुरु हुनेछ। केही मौनता पछि खण्ड सेभ हुनेछ। रेकर्डिङ सक्रिय हुँदा तपाईं यसरी क्रमशः धेरै खण्डहरू रेकर्ड गर्न सक्नुहुन्छ।'
   },
   vadHelpSensitivity: {
-    english: 'Lower sensitivity picks up quiet speech.',
-    spanish: 'Menor sensibilidad capta el habla tranquila.',
-    brazilian_portuguese: 'Menor sensibilidade capta fala baixa.',
-    tok_pisin: 'Liklik strong i harim smol toktok.',
-    indonesian: 'Sensitivitas rendah menangkap suara pelan.'
+    english:
+      'Sensitivity sets the threshold to determine when a clip starts and ends. Lower sensitivity picks up quieter speech, but also other potential noises.',
+    spanish:
+      'La sensibilidad controla el umbral que determina cuándo un clip comienza y termina. Con mayor sensibilidad se detecta habla más silenciosa, pero también más ruido de fondo.',
+    brazilian_portuguese:
+      'A sensibilidade define o limite para determinar quando um clipe começa e termina. Sensibilidade mais baixa capta fala mais baixa, mas também outros ruídos potenciais.',
+    tok_pisin:
+      'Sensitiv i makim hamas nois i nidim bilong stat na pinis. Liklik sensitiv i harim smol toktok, tasol em i ken harim tu ol narapela nois.',
+    indonesian:
+      'Sensitivitas mengatur ambang batas untuk menentukan kapan klip dimulai dan berakhir. Sensitivitas rendah menangkap suara pelan, tetapi juga suara lain yang mungkin.',
+    nepali:
+      'संवेदनशीलताले क्लिप कहिले सुरु र समाप्त हुन्छ निर्धारण गर्न सीमा सेट गर्छ। कम संवेदनशीलताले शान्त बोली समात्छ, तर अन्य सम्भावित आवाजहरू पनि।'
   },
   vadHelpPause: {
-    english: 'Shorter pause splits faster. Longer captures everything.',
-    spanish: 'Pausa más corta divide más rápido. Más larga captura todo.',
+    english:
+      'A shorter Pause Length will break your recording into more segments at smaller pauses.',
+    spanish:
+      'Una longitud de pausa más corta dividirá tu grabación en más segmentos en pausas más pequeñas.',
     brazilian_portuguese:
-      'Pausa mais curta divide mais rápido. Mais longa captura tudo.',
-    tok_pisin: 'Liklik taim i katim kwik. Longpela i kisim olgeta.',
+      'Um comprimento de pausa mais curto dividirá sua gravação em mais segmentos em pausas menores.',
+    tok_pisin:
+      'Sotpela taim bilong pas bai katim rekod bilong yu long planti hap long ol liklik taim yu pas.',
     indonesian:
-      'Jeda pendek memisahkan lebih cepat. Lebih lama menangkap semua.'
+      'Durasi jeda yang lebih pendek akan memecah rekaman Anda menjadi lebih banyak segmen pada jeda yang lebih kecil.',
+    nepali:
+      'छोटो रोकाइको लम्बाइले तपाईंको रेकर्डिङलाई साना रोकाइहरूमा धेरै खण्डहरूमा विभाजन गर्नेछ।'
+  },
+  vadHelpMinSegment: {
+    english:
+      'Minimum Segment Length prevents saving of very short segments below the set duration, such as coughs or door slams.',
+    spanish:
+      'La Longitud Mínima de Segmento evita guardar segmentos muy cortos por debajo de la duración establecida, como toses o portazos.',
+    brazilian_portuguese:
+      'O Comprimento Mínimo do Segmento evita salvar segmentos muito curtos abaixo da duração definida, como tosses ou batidas de porta.',
+    tok_pisin:
+      'Liklik Taim Inap i banisim ol sotpela rekod aninit long taim yu makim, olsem kus o doa i paitim.',
+    indonesian:
+      'Panjang Segmen Minimum mencegah penyimpanan segmen yang sangat pendek di bawah durasi yang ditetapkan, seperti batuk atau bunyi pintu.',
+    nepali:
+      'न्यूनतम खण्ड लम्बाइले सेट गरिएको अवधिभन्दा कम धेरै छोटो खण्डहरू सेभ गर्नबाट रोक्छ, जस्तै खोकी वा ढोका ठोक्ने आवाज।'
+  },
+  vadRecordingSettings: {
+    english: 'VAD recording settings',
+    spanish: 'Configuración de grabación VAD',
+    brazilian_portuguese: 'Configurações de gravação VAD',
+    tok_pisin: 'VAD rekoding seting',
+    indonesian: 'Pengaturan perekaman VAD',
+    nepali: 'VAD रेकर्डिङ सेटिङहरू'
+  },
+  startRecording: {
+    english: 'Record',
+    spanish: 'Grabar',
+    brazilian_portuguese: 'Gravar',
+    tok_pisin: 'Rekodim',
+    indonesian: 'Rekam',
+    nepali: 'रेकर्ड'
+  },
+  stopRecording: {
+    english: 'Stop Recording',
+    spanish: 'Detener Grabación',
+    brazilian_portuguese: 'Parar Gravação',
+    tok_pisin: 'Stopim Rekodim',
+    indonesian: 'Hentikan Perekaman',
+    nepali: 'रेकर्डिङ रोक्नुहोस्'
+  },
+  vadRecordingActive: {
+    english: 'VAD recording active',
+    spanish: 'Grabación VAD activa',
+    brazilian_portuguese: 'Gravação VAD ativa',
+    tok_pisin: 'VAD rekoding i wok',
+    indonesian: 'Perekaman VAD aktif',
+    nepali: 'VAD रेकर्डिङ सक्रिय'
+  },
+  recordingHelpTitle: {
+    english: 'Two ways to record',
+    spanish: 'Dos formas de grabar',
+    brazilian_portuguese: 'Duas formas de gravar',
+    tok_pisin: 'Tupela rot bilong rekodim',
+    indonesian: 'Dua cara merekam',
+    nepali: 'रेकर्ड गर्ने दुई तरिका'
+  },
+  recordingHelpVAD: {
+    english:
+      'the record button to start Voice Activity Detection (VAD) recording. This will automatically create new audio segments whenever you pause as you talk. Tap again to end the VAD session.',
+    spanish:
+      'el botón de grabación para iniciar la grabación con Detección de Actividad de Voz (VAD). Esto creará automáticamente nuevos segmentos de audio cada vez que hagas una pausa mientras hablas. Toca de nuevo para finalizar la sesión VAD.',
+    brazilian_portuguese:
+      'o botão de gravação para iniciar a gravação com Detecção de Atividade de Voz (VAD). Isso criará automaticamente novos segmentos de áudio sempre que você pausar enquanto fala. Toque novamente para encerrar a sessão VAD.',
+    tok_pisin:
+      'baten bilong rekodim bilong statim Voice Activity Detection (VAD) rekoding. Em bai wokim nupela ol hap taim yu stopim toktok. Paitim gen bilong pinisim VAD sesion.',
+    indonesian:
+      'tombol rekam untuk memulai perekaman Voice Activity Detection (VAD). Ini akan secara otomatis membuat segmen audio baru setiap kali Anda berhenti sejenak saat berbicara. Ketuk lagi untuk mengakhiri sesi VAD.',
+    nepali:
+      'भ्वाइस एक्टिभिटी डिटेक्शन (VAD) रेकर्डिङ सुरु गर्न रेकर्ड बटन थिच्नुहोस्। यसले तपाईंले बोल्दा रोक्दा स्वचालित रूपमा नयाँ अडियो खण्डहरू सिर्जना गर्नेछ। VAD सत्र समाप्त गर्न फेरि ट्याप गर्नुहोस्।'
+  },
+  recordingHelpPushToTalk: {
+    english: 'to record a single segment, release to stop recording.',
+    spanish: 'para grabar un solo segmento, suelta para detener la grabación.',
+    brazilian_portuguese:
+      'para gravar um único segmento, solte para parar a gravação.',
+    tok_pisin: 'bilong rekodim wanpela hap, lusim bilong stopim rekoding.',
+    indonesian:
+      'untuk merekam satu segmen, lepaskan untuk menghentikan perekaman.',
+    nepali: 'एउटा खण्ड रेकर्ड गर्न, रेकर्डिङ रोक्न छोड्नुहोस्।'
+  },
+  tap: {
+    english: 'Tap',
+    spanish: 'Toca',
+    brazilian_portuguese: 'Toque',
+    tok_pisin: 'Paitim',
+    indonesian: 'Ketuk',
+    nepali: 'ट्याप गर्नुहोस्'
+  },
+  pressAndHold: {
+    english: 'Press and hold',
+    spanish: 'Mantén presionado',
+    brazilian_portuguese: 'Pressione e segure',
+    tok_pisin: 'Presim na holim',
+    indonesian: 'Tekan dan tahan',
+    nepali: 'थिच्नुहोस् र होल्ड गर्नुहोस्'
   },
   vadAutoCalibrate: {
     english: 'Auto-Calibrate',
     spanish: 'Auto-Calibrar',
     brazilian_portuguese: 'Auto-Calibrar',
     tok_pisin: 'Olsem wanem yet',
-    indonesian: 'Auto-Kalibrasi'
+    indonesian: 'Auto-Kalibrasi',
+    nepali: 'स्वत: क्यालिब्रेट'
   },
   vadCalibrating: {
     english: 'Calibrating...',
     spanish: 'Calibrando...',
     brazilian_portuguese: 'Calibrando...',
     tok_pisin: 'Wokim nau...',
-    indonesian: 'Mengkalibrasi...'
+    indonesian: 'Mengkalibrasi...',
+    nepali: 'क्यालिब्रेट गर्दै...'
   },
   vadCalibrationFailed: {
     english: 'Calibration failed. Please try again in a quieter environment.',
@@ -4861,14 +5970,31 @@ export const localizations = {
       'Calibração falhou. Por favor, tente novamente em um ambiente mais silencioso.',
     tok_pisin: 'Em i no wok. Traim gen long ples i no gat tumas nois.',
     indonesian:
-      'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.'
+      'Kalibrasi gagal. Silakan coba lagi di lingkungan yang lebih tenang.',
+    nepali:
+      'क्यालिब्रेसन असफल भयो। कृपया शान्त वातावरणमा पुन: प्रयास गर्नुहोस्।'
+  },
+  vadCalibrateHint: {
+    english:
+      'During auto-calibration remain silent or only allow sounds that you want to be below the sensitivity threshold.',
+    spanish:
+      'Durante la auto-calibración permanece en silencio o solo permite sonidos que deseas que estén por debajo del umbral de sensibilidad.',
+    brazilian_portuguese:
+      'Durante a auto-calibração permaneça em silêncio ou apenas permita sons que você deseja que fiquem abaixo do limite de sensibilidade.',
+    tok_pisin:
+      'Taim masin i wokim kalibresen, yu mas stap isi o larim ol nois tasol we yu laik i stap aninit long mak.',
+    indonesian:
+      'Selama kalibrasi otomatis tetaplah diam atau hanya izinkan suara yang ingin Anda agar berada di bawah ambang sensitivitas.',
+    nepali:
+      'स्वत: क्यालिब्रेसनको समयमा मौन रहनुहोस् वा केवल ती आवाजहरू मात्र अनुमति दिनुहोस् जुन तपाईं संवेदनशीलता सीमाभन्दा तल चाहनुहुन्छ।'
   },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
     spanish: 'Actualización de App Requerida',
     brazilian_portuguese: 'Atualização do App Necessária',
     tok_pisin: 'Yu mas upgreidim app',
-    indonesian: 'Pembaruan Aplikasi Diperlukan'
+    indonesian: 'Pembaruan Aplikasi Diperlukan',
+    nepali: 'एप अपग्रेड आवश्यक छ'
   },
   appUpgradeServerAhead: {
     english:
@@ -4880,7 +6006,9 @@ export const localizations = {
     tok_pisin:
       'Yu mas kisim nupela version bilong app long usim ol nupela samting. Plis upgreidim long go het.',
     indonesian:
-      'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.'
+      'Versi baru aplikasi diperlukan untuk mengakses fitur terbaru. Silakan perbarui untuk melanjutkan.',
+    nepali:
+      'नवीनतम सुविधाहरू पहुँच गर्न एपको नयाँ संस्करण आवश्यक छ। कृपया जारी राख्न अपडेट गर्नुहोस्।'
   },
   appUpgradeServerBehind: {
     english:
@@ -4892,56 +6020,65 @@ export const localizations = {
     tok_pisin:
       'Version bilong app bilong yu i nupela moa long server. Plis contactim support o wetim server i upgreidim.',
     indonesian:
-      'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.'
+      'Versi aplikasi Anda lebih baru dari server. Silakan hubungi dukungan atau tunggu server diperbarui.',
+    nepali:
+      'तपाईंको एप संस्करण सर्भरभन्दा नयाँ छ। कृपया समर्थनलाई सम्पर्क गर्नुहोस् वा सर्भर अपडेट हुने प्रतीक्षा गर्नुहोस्।'
   },
   upgradeToVersion: {
     english: 'Please upgrade to version {version}',
     spanish: 'Por favor actualice a la versión {version}',
     brazilian_portuguese: 'Por favor atualize para a versão {version}',
     tok_pisin: 'Plis upgreidim long version {version}',
-    indonesian: 'Silakan perbarui ke versi {version}'
+    indonesian: 'Silakan perbarui ke versi {version}',
+    nepali: 'कृपया संस्करण {version} मा अपग्रेड गर्नुहोस्'
   },
   currentVersion: {
     english: 'Current Version',
     spanish: 'Versión Actual',
     brazilian_portuguese: 'Versão Atual',
     tok_pisin: 'Version nau',
-    indonesian: 'Versi Saat Ini'
+    indonesian: 'Versi Saat Ini',
+    nepali: 'हालको संस्करण'
   },
   requiredVersion: {
     english: 'Required Version',
     spanish: 'Versión Requerida',
     brazilian_portuguese: 'Versão Necessária',
     tok_pisin: 'Version yu mas gat',
-    indonesian: 'Versi yang Diperlukan'
+    indonesian: 'Versi yang Diperlukan',
+    nepali: 'आवश्यक संस्करण'
   },
   upgradeApp: {
     english: 'Upgrade App',
     spanish: 'Actualizar App',
     brazilian_portuguese: 'Atualizar App',
     tok_pisin: 'Upgreidim App',
-    indonesian: 'Perbarui Aplikasi'
+    indonesian: 'Perbarui Aplikasi',
+    nepali: 'एप अपग्रेड गर्नुहोस्'
   },
   checkingSchemaVersion: {
     english: 'Checking schema compatibility...',
     spanish: 'Verificando compatibilidad del esquema...',
     brazilian_portuguese: 'Verificando compatibilidade do esquema...',
     tok_pisin: 'Checkim schema compatibility...',
-    indonesian: 'Memeriksa kompatibilitas skema...'
+    indonesian: 'Memeriksa kompatibilitas skema...',
+    nepali: 'स्किमा अनुकूलता जाँच गर्दै...'
   },
   scanningCorruptedAttachments: {
     english: 'Scanning for corrupted attachments...',
     spanish: 'Buscando archivos adjuntos corruptos...',
     brazilian_portuguese: 'Procurando anexos corrompidos...',
     tok_pisin: 'Lukluk long ol bagarap fayl...',
-    indonesian: 'Memindai lampiran yang rusak...'
+    indonesian: 'Memindai lampiran yang rusak...',
+    nepali: 'बिग्रिएका संलग्नकहरू स्क्यान गर्दै...'
   },
   noCorruptedAttachments: {
     english: 'No Corrupted Attachments',
     spanish: 'No hay archivos adjuntos corruptos',
     brazilian_portuguese: 'Sem Anexos Corrompidos',
     tok_pisin: 'I no gat bagarap fayl',
-    indonesian: 'Tidak Ada Lampiran Rusak'
+    indonesian: 'Tidak Ada Lampiran Rusak',
+    nepali: 'कुनै बिग्रिएको संलग्नक छैन'
   },
   attachmentDatabaseHealthy: {
     english:
@@ -4952,14 +6089,16 @@ export const localizations = {
       'Seu banco de dados de anexos está saudável. Todos os registros estão válidos.',
     tok_pisin:
       'Database bilong ol fayl bilong yu i gutpela. Olgeta rekod i orait.',
-    indonesian: 'Database lampiran Anda sehat. Semua catatan lampiran valid.'
+    indonesian: 'Database lampiran Anda sehat. Semua catatan lampiran valid.',
+    nepali: 'तपाईंको संलग्नक डाटाबेस स्वस्थ छ। सबै संलग्नक रेकर्डहरू मान्य छन्।'
   },
   corruptedAttachments: {
     english: 'Corrupted Attachments',
     spanish: 'Archivos Adjuntos Corruptos',
     brazilian_portuguese: 'Anexos Corrompidos',
     tok_pisin: 'Ol Bagarap Fayl',
-    indonesian: 'Lampiran Rusak'
+    indonesian: 'Lampiran Rusak',
+    nepali: 'बिग्रिएका संलग्नकहरू'
   },
   foundCorruptedAttachments: {
     english:
@@ -4971,7 +6110,9 @@ export const localizations = {
     tok_pisin:
       'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
     indonesian:
-      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
+      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
+    nepali:
+      'डाटाबेसमा blob URL भएको {count} बिग्रिएको संलग्नक फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
   },
   foundCorruptedAttachmentsPlural: {
     english:
@@ -4983,70 +6124,81 @@ export const localizations = {
     tok_pisin:
       'Mi lukim {count} bagarap fayl wantaim blob URL long database. Ol dispela i mekim sync nogut na yu mas klinim.',
     indonesian:
-      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.'
+      'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
+    nepali:
+      'डाटाबेसमा blob URL भएका {count} बिग्रिएका संलग्नकहरू फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
   },
   cleanAll: {
     english: 'Clean All ({count})',
     spanish: 'Limpiar Todo ({count})',
     brazilian_portuguese: 'Limpar Tudo ({count})',
     tok_pisin: 'Klinim Olgeta ({count})',
-    indonesian: 'Bersihkan Semua ({count})'
+    indonesian: 'Bersihkan Semua ({count})',
+    nepali: 'सबै सफा गर्नुहोस् ({count})'
   },
   cleaning: {
     english: 'Cleaning...',
     spanish: 'Limpiando...',
     brazilian_portuguese: 'Limpando...',
     tok_pisin: 'Mi klinim nau...',
-    indonesian: 'Membersihkan...'
+    indonesian: 'Membersihkan...',
+    nepali: 'सफा गर्दै...'
   },
   size: {
     english: 'Size',
     spanish: 'Tamaño',
     brazilian_portuguese: 'Tamanho',
     tok_pisin: 'Saiz',
-    indonesian: 'Ukuran'
+    indonesian: 'Ukuran',
+    nepali: 'आकार'
   },
   attachmentId: {
     english: 'Attachment ID',
     spanish: 'ID del Archivo Adjunto',
     brazilian_portuguese: 'ID do Anexo',
     tok_pisin: 'ID bilong Fayl',
-    indonesian: 'ID Lampiran'
+    indonesian: 'ID Lampiran',
+    nepali: 'संलग्नक ID'
   },
   localUri: {
     english: 'Local URI',
     spanish: 'URI Local',
     brazilian_portuguese: 'URI Local',
     tok_pisin: 'Local URI',
-    indonesian: 'URI Lokal'
+    indonesian: 'URI Lokal',
+    nepali: 'स्थानीय URI'
   },
   associatedAssets: {
     english: 'Associated Assets ({count})',
     spanish: 'Activos Asociados ({count})',
     brazilian_portuguese: 'Ativos Associados ({count})',
     tok_pisin: 'Ol Asset i go wantaim ({count})',
-    indonesian: 'Aset Terkait ({count})'
+    indonesian: 'Aset Terkait ({count})',
+    nepali: 'सम्बद्ध एसेटहरू ({count})'
   },
   contentLinks: {
     english: 'Content Links ({count})',
     spanish: 'Enlaces de Contenido ({count})',
     brazilian_portuguese: 'Links de Conteúdo ({count})',
     tok_pisin: 'Ol Link bilong Content ({count})',
-    indonesian: 'Tautan Konten ({count})'
+    indonesian: 'Tautan Konten ({count})',
+    nepali: 'सामग्री लिंकहरू ({count})'
   },
   cleanThis: {
     english: 'Clean This',
     spanish: 'Limpiar Esto',
     brazilian_portuguese: 'Limpar Isto',
     tok_pisin: 'Klinim Dispela',
-    indonesian: 'Bersihkan Ini'
+    indonesian: 'Bersihkan Ini',
+    nepali: 'यो सफा गर्नुहोस्'
   },
   cleanCorruptedAttachment: {
     english: 'Clean Corrupted Attachment',
     spanish: 'Limpiar Archivo Adjunto Corrupto',
     brazilian_portuguese: 'Limpar Anexo Corrompido',
     tok_pisin: 'Klinim Bagarap Fayl',
-    indonesian: 'Bersihkan Lampiran Rusak'
+    indonesian: 'Bersihkan Lampiran Rusak',
+    nepali: 'बिग्रिएको संलग्नक सफा गर्नुहोस्'
   },
   cleanCorruptedAttachmentConfirm: {
     english:
@@ -5058,35 +6210,41 @@ export const localizations = {
     tok_pisin:
       'Dispela bai rausim ol rekod bilong bagarap fayl na ol referens bilong en long database. Yu no inap tanim bek dispela.',
     indonesian:
-      'Ini akan menghapus catatan lampiran rusak dan referensinya dari database. Tindakan ini tidak dapat dibatalkan.'
+      'Ini akan menghapus catatan lampiran rusak dan referensinya dari database. Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'यसले बिग्रिएको संलग्नक रेकर्ड र यसको सन्दर्भहरू डाटाबेसबाट हटाउनेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
   },
   clean: {
     english: 'Clean',
     spanish: 'Limpiar',
     brazilian_portuguese: 'Limpar',
     tok_pisin: 'Klinim',
-    indonesian: 'Bersihkan'
+    indonesian: 'Bersihkan',
+    nepali: 'सफा गर्नुहोस्'
   },
   corruptedAttachmentCleanedSuccess: {
     english: 'Corrupted attachment cleaned successfully.',
     spanish: 'Archivo adjunto corrupto limpiado exitosamente.',
     brazilian_portuguese: 'Anexo corrompido limpo com sucesso.',
     tok_pisin: 'Bagarap fayl i klinim gut pinis.',
-    indonesian: 'Lampiran rusak berhasil dibersihkan.'
+    indonesian: 'Lampiran rusak berhasil dibersihkan.',
+    nepali: 'बिग्रिएको संलग्नक सफलतापूर्वक सफा गरियो।'
   },
   failedToCleanAttachment: {
     english: 'Failed to clean attachment: {error}',
     spanish: 'Error al limpiar el archivo adjunto: {error}',
     brazilian_portuguese: 'Falha ao limpar anexo: {error}',
     tok_pisin: 'I no inap klinim fayl: {error}',
-    indonesian: 'Gagal membersihkan lampiran: {error}'
+    indonesian: 'Gagal membersihkan lampiran: {error}',
+    nepali: 'संलग्नक सफा गर्न असफल: {error}'
   },
   cleanAllCorruptedAttachments: {
     english: 'Clean All Corrupted Attachments',
     spanish: 'Limpiar Todos los Archivos Adjuntos Corruptos',
     brazilian_portuguese: 'Limpar Todos os Anexos Corrompidos',
     tok_pisin: 'Klinim Olgeta Bagarap Fayl',
-    indonesian: 'Bersihkan Semua Lampiran Rusak'
+    indonesian: 'Bersihkan Semua Lampiran Rusak',
+    nepali: 'सबै बिग्रिएका संलग्नकहरू सफा गर्नुहोस्'
   },
   cleanAllConfirm: {
     english:
@@ -5098,7 +6256,9 @@ export const localizations = {
     tok_pisin:
       'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
     indonesian:
-      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
+      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'यसले {count} बिग्रिएको संलग्नक सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
   },
   cleanAllConfirmPlural: {
     english:
@@ -5110,14 +6270,17 @@ export const localizations = {
     tok_pisin:
       'Dispela bai klinim {count} bagarap fayl. Yu no inap tanim bek dispela.',
     indonesian:
-      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.'
+      'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'यसले {count} बिग्रिएका संलग्नकहरू सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
   },
   partialSuccess: {
     english: 'Partial Success',
     spanish: 'Éxito Parcial',
     brazilian_portuguese: 'Sucesso Parcial',
     tok_pisin: 'Sampela i Orait',
-    indonesian: 'Berhasil Sebagian'
+    indonesian: 'Berhasil Sebagian',
+    nepali: 'आंशिक सफलता'
   },
   cleanedAttachmentsWithErrors: {
     english:
@@ -5128,7 +6291,8 @@ export const localizations = {
       'Limpou {cleaned} anexo. Ocorreu {errorCount} erro:\n\n{errors}',
     tok_pisin: 'Klinim {cleaned} fayl. {errorCount} rong i kamap:\n\n{errors}',
     indonesian:
-      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
+      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}',
+    nepali: '{cleaned} संलग्नक सफा गरियो। {errorCount} त्रुटि भयो:\n\n{errors}'
   },
   cleanedAttachmentsWithErrorsPlural: {
     english:
@@ -5139,28 +6303,33 @@ export const localizations = {
       'Limpou {cleaned} anexos. Ocorreram {errorCount} erros:\n\n{errors}',
     tok_pisin: 'Klinim {cleaned} fayl. {errorCount} rong i kamap:\n\n{errors}',
     indonesian:
-      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}'
+      'Membersihkan {cleaned} lampiran. {errorCount} kesalahan terjadi:\n\n{errors}',
+    nepali:
+      '{cleaned} संलग्नकहरू सफा गरियो। {errorCount} त्रुटिहरू भयो:\n\n{errors}'
   },
   successfullyCleanedAttachments: {
     english: 'Successfully cleaned {cleaned} corrupted attachment.',
     spanish: 'Se limpió exitosamente {cleaned} archivo adjunto corrupto.',
     brazilian_portuguese: 'Limpou com sucesso {cleaned} anexo corrompido.',
     tok_pisin: 'Klinim gut {cleaned} bagarap fayl.',
-    indonesian: 'Berhasil membersihkan {cleaned} lampiran rusak.'
+    indonesian: 'Berhasil membersihkan {cleaned} lampiran rusak.',
+    nepali: '{cleaned} बिग्रिएको संलग्नक सफलतापूर्वक सफा गरियो।'
   },
   successfullyCleanedAttachmentsPlural: {
     english: 'Successfully cleaned {cleaned} corrupted attachments.',
     spanish: 'Se limpiaron exitosamente {cleaned} archivos adjuntos corruptos.',
     brazilian_portuguese: 'Limpou com sucesso {cleaned} anexos corrompidos.',
     tok_pisin: 'Klinim gut {cleaned} bagarap fayl.',
-    indonesian: 'Berhasil membersihkan {cleaned} lampiran rusak.'
+    indonesian: 'Berhasil membersihkan {cleaned} lampiran rusak.',
+    nepali: '{cleaned} बिग्रिएका संलग्नकहरू सफलतापूर्वक सफा गरियो।'
   },
   failedToCleanAttachments: {
     english: 'Failed to clean attachments: {error}',
     spanish: 'Error al limpiar los archivos adjuntos: {error}',
     brazilian_portuguese: 'Falha ao limpar anexos: {error}',
     tok_pisin: 'I no inap klinim ol fayl: {error}',
-    indonesian: 'Gagal membersihkan lampiran: {error}'
+    indonesian: 'Gagal membersihkan lampiran: {error}',
+    nepali: 'संलग्नकहरू सफा गर्न असफल: {error}'
   },
   failedToLoadCorruptedAttachments: {
     english: 'Failed to load corrupted attachments. Please try again.',
@@ -5169,70 +6338,80 @@ export const localizations = {
     brazilian_portuguese:
       'Falha ao carregar anexos corrompidos. Por favor, tente novamente.',
     tok_pisin: 'I no inap loadim ol bagarap fayl. Plis traim gen.',
-    indonesian: 'Gagal memuat lampiran rusak. Silakan coba lagi.'
+    indonesian: 'Gagal memuat lampiran rusak. Silakan coba lagi.',
+    nepali: 'बिग्रिएका संलग्नकहरू लोड गर्न असफल। कृपया पुन: प्रयास गर्नुहोस्।'
   },
   unnamed: {
     english: 'Unnamed',
     spanish: 'Sin nombre',
     brazilian_portuguese: 'Sem nome',
     tok_pisin: 'I no gat nem',
-    indonesian: 'Tanpa nama'
+    indonesian: 'Tanpa nama',
+    nepali: 'नाम नभएको'
   },
   backToProjects: {
     english: 'Back to Projects',
     spanish: 'Volver a Proyectos',
     brazilian_portuguese: 'Voltar aos Projetos',
     tok_pisin: 'Go bek long ol Projek',
-    indonesian: 'Kembali ke Proyek'
+    indonesian: 'Kembali ke Proyek',
+    nepali: 'प्रोजेक्टहरूमा फर्कनुहोस्'
   },
   downloaded: {
     english: 'Downloaded',
     spanish: 'Descargado',
     brazilian_portuguese: 'Baixado',
     tok_pisin: 'Downloaded',
-    indonesian: 'Diunduh'
+    indonesian: 'Diunduh',
+    nepali: 'डाउनलोड भयो'
   },
   freeUpSpace: {
     english: 'Free Up Space',
     spanish: 'Liberar Espacio',
     brazilian_portuguese: 'Liberar Espaço',
     tok_pisin: 'Free Up Space',
-    indonesian: 'Bebaskan Ruang'
+    indonesian: 'Bebaskan Ruang',
+    nepali: 'ठाउँ खाली गर्नुहोस्'
   },
   storageUsed: {
     english: 'Storage Used',
     spanish: 'Espacio Usado',
     brazilian_portuguese: 'Espaço Usado',
     tok_pisin: 'Storage Used',
-    indonesian: 'Penyimpanan yang Digunakan'
+    indonesian: 'Penyimpanan yang Digunakan',
+    nepali: 'प्रयोग भएको भण्डारण'
   },
   notDownloaded: {
     english: 'Not Downloaded',
     spanish: 'No Descargado',
     brazilian_portuguese: 'Não Baixado',
     tok_pisin: 'Not Downloaded',
-    indonesian: 'Tidak Diunduh'
+    indonesian: 'Tidak Diunduh',
+    nepali: 'डाउनलोड भएको छैन'
   },
   missingCloudData: {
     english: 'Missing Cloud Data',
     spanish: 'Falta Datos en la Nube',
     brazilian_portuguese: 'Dados na Nuvem Faltando',
     tok_pisin: 'No gat ol data long cloud',
-    indonesian: 'Data Cloud Hilang'
+    indonesian: 'Data Cloud Hilang',
+    nepali: 'क्लाउड डाटा हराइरहेको छ'
   },
   deleteAccount: {
     english: 'Delete Account',
     spanish: 'Eliminar Cuenta',
     brazilian_portuguese: 'Excluir Conta',
     tok_pisin: 'Rausim Account',
-    indonesian: 'Hapus Akun'
+    indonesian: 'Hapus Akun',
+    nepali: 'खाता मेटाउनुहोस्'
   },
   accountDeletionTitle: {
     english: 'Delete Your Account',
     spanish: 'Eliminar Tu Cuenta',
     brazilian_portuguese: 'Excluir Sua Conta',
     tok_pisin: 'Rausim Account Bilong Yu',
-    indonesian: 'Hapus Akun Anda'
+    indonesian: 'Hapus Akun Anda',
+    nepali: 'आफ्नो खाता मेटाउनुहोस्'
   },
   accountDeletionWarning: {
     english:
@@ -5244,7 +6423,9 @@ export const localizations = {
     tok_pisin:
       'Bihain long rausim account bilong yu, yu no inap mekim registration o login taim yu no gat internet. Yu mas gat internet long mekim nupela account o login.',
     indonesian:
-      'Setelah menghapus akun Anda, Anda tidak akan dapat mendaftar atau masuk saat offline. Anda harus online untuk membuat akun baru atau masuk.'
+      'Setelah menghapus akun Anda, Anda tidak akan dapat mendaftar atau masuk saat offline. Anda harus online untuk membuat akun baru atau masuk.',
+    nepali:
+      'आफ्नो खाता मेटाएपछि, तपाईं अफलाइन हुँदा दर्ता वा लग इन गर्न सक्नुहुने छैन। नयाँ खाता बनाउन वा लग इन गर्न तपाईं अनलाइन हुनुपर्छ।'
   },
   accountDeletionPIIWarning: {
     english:
@@ -5256,7 +6437,9 @@ export const localizations = {
     tok_pisin:
       'Account bilong yu bai stop wok (soft delete). Ol data bilong yu bai stap, tasol yu no inap go long app inap yu restore account. Yu inap restore account long eni taim, tasol yu mas gat internet long mekim.',
     indonesian:
-      'Akun Anda akan dinonaktifkan (penghapusan lunak). Semua data Anda akan dilestarikan, tetapi Anda tidak akan dapat mengakses aplikasi hingga Anda memulihkan akun Anda. Anda dapat memulihkan akun Anda kapan saja, tetapi Anda harus online untuk melakukannya.'
+      'Akun Anda akan dinonaktifkan (penghapusan lunak). Semua data Anda akan dilestarikan, tetapi Anda tidak akan dapat mengakses aplikasi hingga Anda memulihkan akun Anda. Anda dapat memulihkan akun Anda kapan saja, tetapi Anda harus online untuk melakukannya.',
+    nepali:
+      'तपाईंको खाता निष्क्रिय गरिनेछ (सफ्ट डिलिट)। तपाईंको सबै डाटा सुरक्षित रहनेछ, तर तपाईंले आफ्नो खाता पुनर्स्थापना नगरेसम्म एप पहुँच गर्न सक्नुहुने छैन। तपाईं जुनसुकै बेला आफ्नो खाता पुनर्स्थापना गर्न सक्नुहुन्छ, तर त्यसका लागि तपाईं अनलाइन हुनुपर्छ।'
   },
   accountDeletionContributionsInfo: {
     english:
@@ -5268,7 +6451,9 @@ export const localizations = {
     tok_pisin:
       'Olgeta samting yu bin helpim (project, quest, asset, translation, vote) bai i stap na bai i stap olsem long term yu bin oreti long en taim yu joinim. Account bilong yu inap restore long eni taim, na ol data bilong yu bai kamap bek.',
     indonesian:
-      'Semua kontribusi Anda (proyek, quest, aset, terjemahan, suara) akan dilestarikan dan akan tetap publik sesuai dengan syarat yang telah Anda setujui saat bergabung. Akun Anda dapat dipulihkan kapan saja, dan semua data Anda akan dapat diakses lagi.'
+      'Semua kontribusi Anda (proyek, quest, aset, terjemahan, suara) akan dilestarikan dan akan tetap publik sesuai dengan syarat yang telah Anda setujui saat bergabung. Akun Anda dapat dipulihkan kapan saja, dan semua data Anda akan dapat diakses lagi.',
+    nepali:
+      'तपाईंका सबै योगदानहरू (प्रोजेक्टहरू, क्वेस्टहरू, एसेटहरू, अनुवादहरू, मतहरू) सुरक्षित रहनेछन् र तपाईंले सामेल हुँदा सहमत भएका सर्तहरू अनुसार सार्वजनिक रहनेछन्। तपाईंको खाता जुनसुकै बेला पुनर्स्थापना गर्न सकिन्छ, र तपाईंको सबै डाटा फेरि पहुँचयोग्य हुनेछ।'
   },
   accountDeletionConfirm: {
     english:
@@ -5280,7 +6465,9 @@ export const localizations = {
     tok_pisin:
       'Yu tru long rausim account bilong yu? Yu inap restore long bihain, tasol yu mas gat internet long mekim.',
     indonesian:
-      'Apakah Anda benar-benar yakin ingin menghapus akun Anda? Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya.'
+      'Apakah Anda benar-benar yakin ingin menghapus akun Anda? Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya.',
+    nepali:
+      'के तपाईं आफ्नो खाता मेटाउन निश्चित हुनुहुन्छ? तपाईं यसलाई पछि पुनर्स्थापना गर्न सक्नुहुन्छ, तर त्यसका लागि तपाईं अनलाइन हुनुपर्छ।'
   },
   accountDeletionConfirmMessage: {
     english:
@@ -5292,21 +6479,25 @@ export const localizations = {
     tok_pisin:
       'Account bilong yu bai raus (soft delete). Yu inap restore long bihain long login screen, tasol yu mas gat internet long restore.',
     indonesian:
-      'Akun Anda akan dihapus (penghapusan lunak). Anda dapat memulihkannya nanti dari layar login, tetapi Anda harus online untuk memulihkannya.'
+      'Akun Anda akan dihapus (penghapusan lunak). Anda dapat memulihkannya nanti dari layar login, tetapi Anda harus online untuk memulihkannya.',
+    nepali:
+      'तपाईंको खाता मेटाइनेछ (सफ्ट डिलिट)। तपाईं यसलाई पछि लगइन स्क्रिनबाट पुनर्स्थापना गर्न सक्नुहुन्छ, तर पुनर्स्थापना गर्न तपाईं अनलाइन हुनुपर्छ।'
   },
   accountDeletionStep1Title: {
     english: 'Step 1: Understand the Consequences',
     spanish: 'Paso 1: Entender las Consecuencias',
     brazilian_portuguese: 'Etapa 1: Entender as Consequências',
     tok_pisin: 'Step 1: Save ol Samting Bai Kamap',
-    indonesian: 'Langkah 1: Pahami Konsekuensinya'
+    indonesian: 'Langkah 1: Pahami Konsekuensinya',
+    nepali: 'चरण १: परिणामहरू बुझ्नुहोस्'
   },
   accountDeletionStep2Title: {
     english: 'Step 2: Final Confirmation',
     spanish: 'Paso 2: Confirmación Final',
     brazilian_portuguese: 'Etapa 2: Confirmação Final',
     tok_pisin: 'Step 2: Final Confirm',
-    indonesian: 'Langkah 2: Konfirmasi Akhir'
+    indonesian: 'Langkah 2: Konfirmasi Akhir',
+    nepali: 'चरण २: अन्तिम पुष्टि'
   },
   accountDeletionSuccess: {
     english:
@@ -5318,21 +6509,25 @@ export const localizations = {
     tok_pisin:
       'Account bilong yu i raus pinis (soft delete). Yu inap restore long bihain, tasol yu mas gat internet long mekim. Yu bai sign out nau.',
     indonesian:
-      'Akun Anda telah berhasil dihapus (penghapusan lunak). Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya. Anda akan keluar sekarang.'
+      'Akun Anda telah berhasil dihapus (penghapusan lunak). Anda dapat memulihkannya nanti, tetapi Anda harus online untuk melakukannya. Anda akan keluar sekarang.',
+    nepali:
+      'तपाईंको खाता सफलतापूर्वक मेटाइयो (सफ्ट डिलिट)। तपाईं यसलाई पछि पुनर्स्थापना गर्न सक्नुहुन्छ, तर त्यसका लागि तपाईं अनलाइन हुनुपर्छ। तपाईं अब साइन आउट हुनुहुनेछ।'
   },
   accountDeletionError: {
     english: 'Failed to delete account: {error}',
     spanish: 'Error al eliminar la cuenta: {error}',
     brazilian_portuguese: 'Falha ao excluir conta: {error}',
     tok_pisin: 'I no inap rausim account: {error}',
-    indonesian: 'Gagal menghapus akun: {error}'
+    indonesian: 'Gagal menghapus akun: {error}',
+    nepali: 'खाता मेटाउन असफल: {error}'
   },
   accountDeletedTitle: {
     english: 'Account Deleted',
     spanish: 'Cuenta Eliminada',
     brazilian_portuguese: 'Conta Excluída',
     tok_pisin: 'Account i Raus',
-    indonesian: 'Akun Dihapus'
+    indonesian: 'Akun Dihapus',
+    nepali: 'खाता मेटाइयो'
   },
   accountDeletedMessage: {
     english:
@@ -5344,21 +6539,25 @@ export const localizations = {
     tok_pisin:
       'Account bilong yu i raus pinis. Yu inap restore long kamap bek ol data bilong yu, o yu inap logout na go bek long login.',
     indonesian:
-      'Akun Anda telah dihapus. Anda dapat memulihkannya untuk mendapatkan kembali akses ke semua data Anda, atau Anda dapat keluar dan kembali ke layar login.'
+      'Akun Anda telah dihapus. Anda dapat memulihkannya untuk mendapatkan kembali akses ke semua data Anda, atau Anda dapat keluar dan kembali ke layar login.',
+    nepali:
+      'तपाईंको खाता मेटाइएको छ। तपाईं आफ्नो सबै डाटामा पहुँच पुन: प्राप्त गर्न यसलाई पुनर्स्थापना गर्न सक्नुहुन्छ, वा तपाईं लगआउट गरेर लगइन स्क्रिनमा फर्कन सक्नुहुन्छ।'
   },
   restoreAccount: {
     english: 'Restore Account',
     spanish: 'Restaurar Cuenta',
     brazilian_portuguese: 'Restaurar Conta',
     tok_pisin: 'Restore Account',
-    indonesian: 'Pulihkan Akun'
+    indonesian: 'Pulihkan Akun',
+    nepali: 'खाता पुनर्स्थापना गर्नुहोस्'
   },
   restoreAccountConfirmTitle: {
     english: 'Restore Account?',
     spanish: '¿Restaurar Cuenta?',
     brazilian_portuguese: 'Restaurar Conta?',
     tok_pisin: 'Restore Account?',
-    indonesian: 'Pulihkan Akun?'
+    indonesian: 'Pulihkan Akun?',
+    nepali: 'खाता पुनर्स्थापना गर्ने?'
   },
   restoreAccountConfirmMessage: {
     english:
@@ -5370,7 +6569,9 @@ export const localizations = {
     tok_pisin:
       'Account bilong yu bai restore olgeta. Ol data bilong yu bai kamap bek, na yu inap wokim ol samting olsem bipo.',
     indonesian:
-      'Akun Anda akan dipulihkan sepenuhnya. Semua data Anda akan dapat diakses lagi, dan Anda dapat melanjutkan menggunakan aplikasi secara normal.'
+      'Akun Anda akan dipulihkan sepenuhnya. Semua data Anda akan dapat diakses lagi, dan Anda dapat melanjutkan menggunakan aplikasi secara normal.',
+    nepali:
+      'तपाईंको खाता पूर्ण रूपमा पुनर्स्थापना गरिनेछ। तपाईंको सबै डाटा फेरि पहुँचयोग्य हुनेछ, र तपाईं सामान्य रूपमा एप प्रयोग जारी राख्न सक्नुहुन्छ।'
   },
   accountRestoreSuccess: {
     english: 'Your account has been successfully restored. Welcome back!',
@@ -5378,21 +6579,24 @@ export const localizations = {
     brazilian_portuguese:
       'Sua conta foi restaurada com sucesso. Bem-vindo de volta!',
     tok_pisin: 'Account bilong yu i restore pinis. Welkam bek!',
-    indonesian: 'Akun Anda telah berhasil dipulihkan. Selamat datang kembali!'
+    indonesian: 'Akun Anda telah berhasil dipulihkan. Selamat datang kembali!',
+    nepali: 'तपाईंको खाता सफलतापूर्वक पुनर्स्थापना गरियो। फेरि स्वागत छ!'
   },
   accountRestoreError: {
     english: 'Failed to restore account: {error}',
     spanish: 'Error al restaurar la cuenta: {error}',
     brazilian_portuguese: 'Falha ao restaurar conta: {error}',
     tok_pisin: 'I no inap restore account: {error}',
-    indonesian: 'Gagal memulihkan akun: {error}'
+    indonesian: 'Gagal memulihkan akun: {error}',
+    nepali: 'खाता पुनर्स्थापना गर्न असफल: {error}'
   },
   signInRequired: {
     english: 'Sign In Required',
     spanish: 'Inicio de Sesión Requerido',
     brazilian_portuguese: 'Login Necessário',
     tok_pisin: 'Mas I Mas Sign In',
-    indonesian: 'Masuk Diperlukan'
+    indonesian: 'Masuk Diperlukan',
+    nepali: 'साइन इन आवश्यक छ'
   },
   blockContentLoginMessage: {
     english:
@@ -5404,77 +6608,89 @@ export const localizations = {
     tok_pisin:
       'Mipela save long ol samting yu laik block long account bilong yu. Plis register long ol samting i ken hide stret.',
     indonesian:
-      'Kami menyimpan informasi tentang apa yang akan diblokir di akun Anda. Silakan daftar untuk memastikan konten yang diblokir dapat disembunyikan dengan benar.'
+      'Kami menyimpan informasi tentang apa yang akan diblokir di akun Anda. Silakan daftar untuk memastikan konten yang diblokir dapat disembunyikan dengan benar.',
+    nepali:
+      'हामी तपाईंको खातामा के ब्लक गर्ने बारे जानकारी भण्डारण गर्छौं। कृपया ब्लक गरिएको सामग्री राम्ररी लुकाउन सकिने सुनिश्चित गर्न दर्ता गर्नुहोस्।'
   },
   connected: {
     english: 'Connected',
     spanish: 'Conectado',
     brazilian_portuguese: 'Conectado',
     tok_pisin: 'i connect pinis',
-    indonesian: 'Terhubung'
+    indonesian: 'Terhubung',
+    nepali: 'जडान भयो'
   },
   downloadStatus: {
     english: 'Download Status',
     spanish: 'Estado de Descarga',
     brazilian_portuguese: 'Status de Download',
     tok_pisin: 'Download Status',
-    indonesian: 'Status Unduhan'
+    indonesian: 'Status Unduhan',
+    nepali: 'डाउनलोड स्थिति'
   },
   powersyncStatus: {
     english: 'PowerSync Status',
     spanish: 'Estado de PowerSync',
     brazilian_portuguese: 'Status do PowerSync',
     tok_pisin: 'PowerSync Status',
-    indonesian: 'Status PowerSync'
+    indonesian: 'Status PowerSync',
+    nepali: 'PowerSync स्थिति'
   },
   networkStatus: {
     english: 'Network Status',
     spanish: 'Estado de Red',
     brazilian_portuguese: 'Status da Rede',
     tok_pisin: 'Network Status',
-    indonesian: 'Status Jaringan'
+    indonesian: 'Status Jaringan',
+    nepali: 'नेटवर्क स्थिति'
   },
   attachmentDownloadProgress: {
     english: 'Attachment Download Progress',
     spanish: 'Progreso de Descarga de Archivos',
     brazilian_portuguese: 'Progresso de Download de Anexos',
     tok_pisin: 'Attachment Download Progress',
-    indonesian: 'Kemajuan Unduhan Lampiran'
+    indonesian: 'Kemajuan Unduhan Lampiran',
+    nepali: 'संलग्नक डाउनलोड प्रगति'
   },
   overallProgress: {
     english: 'Overall Progress',
     spanish: 'Progreso General',
     brazilian_portuguese: 'Progresso Geral',
     tok_pisin: 'Overall Progress',
-    indonesian: 'Kemajuan Keseluruhan'
+    indonesian: 'Kemajuan Keseluruhan',
+    nepali: 'समग्र प्रगति'
   },
   currentDownload: {
     english: 'Current Download',
     spanish: 'Descarga Actual',
     brazilian_portuguese: 'Download Atual',
     tok_pisin: 'Current Download',
-    indonesian: 'Unduhan Saat Ini'
+    indonesian: 'Unduhan Saat Ini',
+    nepali: 'हालको डाउनलोड'
   },
   currentUpload: {
     english: 'Current Upload',
     spanish: 'Carga Actual',
     brazilian_portuguese: 'Upload Atual',
     tok_pisin: 'Current Upload',
-    indonesian: 'Unggahan Saat Ini'
+    indonesian: 'Unggahan Saat Ini',
+    nepali: 'हालको अपलोड'
   },
   queueStatus: {
     english: 'Queue Status',
     spanish: 'Estado de Cola',
     brazilian_portuguese: 'Status da Fila',
     tok_pisin: 'Queue Status',
-    indonesian: 'Status Antrian'
+    indonesian: 'Status Antrian',
+    nepali: 'लाम स्थिति'
   },
   allSynced: {
     english: 'All files synced',
     spanish: 'Todos los archivos sincronizados',
     brazilian_portuguese: 'Todos os arquivos sincronizados',
     tok_pisin: 'Olgeta file i sync pinis',
-    indonesian: 'Semua file disinkronkan'
+    indonesian: 'Semua file disinkronkan',
+    nepali: 'सबै फाइलहरू सिङ्क भयो'
   },
   signInToViewDownloadStatus: {
     english: 'Please sign in to view download status and sync information.',
@@ -5484,56 +6700,64 @@ export const localizations = {
       'Por favor, faça login para ver o status de download e informações de sincronização.',
     tok_pisin: 'Plis sign in long lukim download status na sync info.',
     indonesian:
-      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.'
+      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.',
+    nepali: 'कृपया डाउनलोड स्थिति र सिंक जानकारी हेर्न साइन इन गर्नुहोस्।'
   },
   unsynced: {
     english: 'Unsynced',
     spanish: 'No sincronizado',
     brazilian_portuguese: 'Não sincronizado',
     tok_pisin: 'i no sync yet',
-    indonesian: 'Tidak disinkronkan'
+    indonesian: 'Tidak disinkronkan',
+    nepali: 'सिङ्क भएको छैन'
   },
   onboardingCreateProjectTitle: {
     english: 'Record a Bible, or any other content',
     spanish: 'Graba una Biblia o cualquier otro contenido',
     brazilian_portuguese: 'Grave uma Bíblia ou qualquer outro conteúdo',
     tok_pisin: 'Rekodim Baibel o ol narapela samting',
-    indonesian: 'Rekam Alkitab atau konten lainnya'
+    indonesian: 'Rekam Alkitab atau konten lainnya',
+    nepali: 'बाइबल वा अन्य कुनै पनि सामग्री रेकर्ड गर्नुहोस्'
   },
   onboardingCreateProjectSubtitle: {
     english: 'Start by creating your first project',
     spanish: 'Comienza creando tu primer proyecto',
     brazilian_portuguese: 'Comece criando seu primeiro projeto',
     tok_pisin: 'Stat long mekim nupela projek',
-    indonesian: 'Mulai dengan membuat proyek pertama Anda'
+    indonesian: 'Mulai dengan membuat proyek pertama Anda',
+    nepali: 'आफ्नो पहिलो प्रोजेक्ट सिर्जना गरेर सुरु गर्नुहोस्'
   },
   onboardingCreateProjectExample: {
     english: 'Stories',
     spanish: 'Historias',
     brazilian_portuguese: 'Histórias',
     tok_pisin: 'Stori',
-    indonesian: 'Cerita'
+    indonesian: 'Cerita',
+    nepali: 'कथाहरू'
   },
   onboardingCreateProjectDescription: {
     english: 'Example project name',
     spanish: 'Nombre de proyecto de ejemplo',
     brazilian_portuguese: 'Nome do projeto de exemplo',
     tok_pisin: 'Nem bilong projek olsem',
-    indonesian: 'Nama proyek contoh'
+    indonesian: 'Nama proyek contoh',
+    nepali: 'उदाहरण प्रोजेक्ट नाम'
   },
   onboardingCreateProject: {
     english: 'Create Project',
     spanish: 'Crear Proyecto',
     brazilian_portuguese: 'Criar Projeto',
     tok_pisin: 'Mekim Projek',
-    indonesian: 'Buat Proyek'
+    indonesian: 'Buat Proyek',
+    nepali: 'प्रोजेक्ट सिर्जना गर्नुहोस्'
   },
   onboardingCreateQuestTitle: {
     english: 'Organize your content',
     spanish: 'Organiza tu contenido',
     brazilian_portuguese: 'Organize seu conteúdo',
     tok_pisin: 'Oganaisim samting bilong yu',
-    indonesian: 'Organisir konten Anda'
+    indonesian: 'Organisir konten Anda',
+    nepali: 'आफ्नो सामग्री व्यवस्थित गर्नुहोस्'
   },
   onboardingCreateQuestSubtitle: {
     english: 'Add quests to break down your project into manageable pieces',
@@ -5542,35 +6766,41 @@ export const localizations = {
       'Adicione missões para dividir seu projeto em partes gerenciáveis',
     tok_pisin: 'Putim kwest long brukim projek i go long liklik hap',
     indonesian:
-      'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola'
+      'Tambahkan quest untuk membagi proyek Anda menjadi bagian yang dapat dikelola',
+    nepali:
+      'आफ्नो प्रोजेक्टलाई व्यवस्थापन योग्य टुक्राहरूमा विभाजन गर्न क्वेस्टहरू थप्नुहोस्'
   },
   onboardingQuestExample1: {
     english: 'Story 1',
     spanish: 'Historia 1',
     brazilian_portuguese: 'História 1',
     tok_pisin: 'Stori 1',
-    indonesian: 'Cerita 1'
+    indonesian: 'Cerita 1',
+    nepali: 'कथा १'
   },
   onboardingQuestExample2: {
     english: 'Story 2',
     spanish: 'Historia 2',
     brazilian_portuguese: 'História 2',
     tok_pisin: 'Stori 2',
-    indonesian: 'Cerita 2'
+    indonesian: 'Cerita 2',
+    nepali: 'कथा २'
   },
   onboardingCreateQuest: {
     english: 'Create Quest',
     spanish: 'Crear Misión',
     brazilian_portuguese: 'Criar Missão',
     tok_pisin: 'Mekim Kwest',
-    indonesian: 'Buat Quest'
+    indonesian: 'Buat Quest',
+    nepali: 'क्वेस्ट सिर्जना गर्नुहोस्'
   },
   onboardingRecordAudioTitle: {
     english: 'Start recording',
     spanish: 'Comienza a grabar',
     brazilian_portuguese: 'Comece a gravar',
     tok_pisin: 'Stat long rekodim',
-    indonesian: 'Mulai merekam'
+    indonesian: 'Mulai merekam',
+    nepali: 'रेकर्डिङ सुरु गर्नुहोस्'
   },
   onboardingRecordAudioSubtitle: {
     english: 'Hold the button to record, or slide to record anytime you talk',
@@ -5581,35 +6811,41 @@ export const localizations = {
     tok_pisin:
       'Holim button long rekodim, o slipim long rekodim taim yu toktok',
     indonesian:
-      'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara'
+      'Tahan tombol untuk merekam, atau geser untuk merekam kapan saja Anda berbicara',
+    nepali:
+      'रेकर्ड गर्न बटन थिच्नुहोस्, वा तपाईं बोल्दा जुनसुकै बेला रेकर्ड गर्न स्लाइड गर्नुहोस्'
   },
   onboardingRecordMethod1: {
     english: 'Hold button to record',
     spanish: 'Mantén presionado para grabar',
     brazilian_portuguese: 'Mantenha pressionado para gravar',
     tok_pisin: 'Holim button long rekodim',
-    indonesian: 'Tahan tombol untuk merekam'
+    indonesian: 'Tahan tombol untuk merekam',
+    nepali: 'रेकर्ड गर्न बटन थिच्नुहोस्'
   },
   onboardingRecordMethod2: {
     english: 'Slide to record anytime you talk',
     spanish: 'Desliza para grabar cuando hables',
     brazilian_portuguese: 'Deslize para gravar quando falar',
     tok_pisin: 'Slipim long rekodim taim yu toktok',
-    indonesian: 'Geser untuk merekam kapan saja Anda berbicara'
+    indonesian: 'Geser untuk merekam kapan saja Anda berbicara',
+    nepali: 'बोल्दा जुनसुकै बेला रेकर्ड गर्न स्लाइड गर्नुहोस्'
   },
   onboardingStartRecording: {
     english: 'Start Recording',
     spanish: 'Comenzar Grabación',
     brazilian_portuguese: 'Iniciar Gravação',
     tok_pisin: 'Stat Rekodim',
-    indonesian: 'Mulai Merekam'
+    indonesian: 'Mulai Merekam',
+    nepali: 'रेकर्डिङ सुरु गर्नुहोस्'
   },
   onboardingInviteTitle: {
     english: 'Work together',
     spanish: 'Trabaja en equipo',
     brazilian_portuguese: 'Trabalhe juntos',
     tok_pisin: 'Wok wantaim',
-    indonesian: 'Bekerja bersama'
+    indonesian: 'Bekerja bersama',
+    nepali: 'सँगै काम गर्नुहोस्'
   },
   onboardingInviteSubtitle: {
     english:
@@ -5621,84 +6857,97 @@ export const localizations = {
     tok_pisin:
       'Singim ol narapela long wok wantaim. Bai ol kisim notis na lukim projek bilong yu long list bilong ol',
     indonesian:
-      'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka'
+      'Undang orang lain untuk berkolaborasi. Mereka akan menerima notifikasi dan melihat proyek Anda di daftar mereka',
+    nepali:
+      'अरूलाई सहयोग गर्न निम्तो दिनुहोस्। उनीहरूले सूचना प्राप्त गर्नेछन् र उनीहरूको सूचीमा तपाईंको प्रोजेक्ट देख्नेछन्'
   },
   onboardingInviteBenefit1: {
     english: 'They receive a notification',
     spanish: 'Reciben una notificación',
     brazilian_portuguese: 'Eles recebem uma notificação',
     tok_pisin: 'Ol kisim notis',
-    indonesian: 'Mereka menerima notifikasi'
+    indonesian: 'Mereka menerima notifikasi',
+    nepali: 'उनीहरूले सूचना प्राप्त गर्छन्'
   },
   onboardingInviteBenefit2: {
     english: 'Project appears in their list',
     spanish: 'El proyecto aparece en su lista',
     brazilian_portuguese: 'O projeto aparece em sua lista',
     tok_pisin: 'Projek i kamap long list bilong ol',
-    indonesian: 'Proyek muncul di daftar mereka'
+    indonesian: 'Proyek muncul di daftar mereka',
+    nepali: 'प्रोजेक्ट उनीहरूको सूचीमा देखिन्छ'
   },
   onboardingInviteCollaborators: {
     english: 'Invite Collaborators',
     spanish: 'Invitar Colaboradores',
     brazilian_portuguese: 'Convidar Colaboradores',
     tok_pisin: 'Singim Ol Wokman',
-    indonesian: 'Undang Kolaborator'
+    indonesian: 'Undang Kolaborator',
+    nepali: 'सहकर्मीहरूलाई निम्तो दिनुहोस्'
   },
   onboardingContinue: {
     english: 'Continue',
     spanish: 'Continuar',
     brazilian_portuguese: 'Continuar',
     tok_pisin: 'Gohet',
-    indonesian: 'Lanjutkan'
+    indonesian: 'Lanjutkan',
+    nepali: 'जारी राख्नुहोस्'
   },
   onboardingBible: {
     english: 'Bible',
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Baibel',
-    indonesian: 'Alkitab'
+    indonesian: 'Alkitab',
+    nepali: 'बाइबल'
   },
   onboardingOther: {
     english: 'Other',
     spanish: 'Otro',
     brazilian_portuguese: 'Outro',
     tok_pisin: 'Narapela',
-    indonesian: 'Lainnya'
+    indonesian: 'Lainnya',
+    nepali: 'अन्य'
   },
   onboardingBibleSelectBookTitle: {
     english: 'Select a Book',
     spanish: 'Selecciona un Libro',
     brazilian_portuguese: 'Selecione um Livro',
     tok_pisin: 'Pilim Buk',
-    indonesian: 'Pilih Buku'
+    indonesian: 'Pilih Buku',
+    nepali: 'एउटा पुस्तक चयन गर्नुहोस्'
   },
   onboardingBibleSelectBookSubtitle: {
     english: 'Choose which book of the Bible to translate',
     spanish: 'Elige qué libro de la Biblia traducir',
     brazilian_portuguese: 'Escolha qual livro da Bíblia traduzir',
     tok_pisin: 'Pilim wanpela buk bilong Baibel long tanim',
-    indonesian: 'Pilih buku Alkitab mana yang akan diterjemahkan'
+    indonesian: 'Pilih buku Alkitab mana yang akan diterjemahkan',
+    nepali: 'बाइबलको कुन पुस्तक अनुवाद गर्ने छान्नुहोस्'
   },
   onboardingBibleBookExample1: {
     english: 'Genesis',
     spanish: 'Génesis',
     brazilian_portuguese: 'Gênesis',
     tok_pisin: 'Jenesis',
-    indonesian: 'Kejadian'
+    indonesian: 'Kejadian',
+    nepali: 'उत्पत्ति'
   },
   onboardingBibleBookExample2: {
     english: 'Matthew',
     spanish: 'Mateo',
     brazilian_portuguese: 'Mateus',
     tok_pisin: 'Matyu',
-    indonesian: 'Matius'
+    indonesian: 'Matius',
+    nepali: 'मत्ती'
   },
   onboardingBibleCreateChapterTitle: {
     english: 'Create Chapter Quests',
     spanish: 'Crear Quests de Capítulos',
     brazilian_portuguese: 'Criar Quests de Capítulos',
     tok_pisin: 'Mekim Ol Kwest bilong Kapitol',
-    indonesian: 'Buat Quest Bab'
+    indonesian: 'Buat Quest Bab',
+    nepali: 'अध्याय क्वेस्टहरू सिर्जना गर्नुहोस्'
   },
   onboardingBibleCreateChapterSubtitle: {
     english: 'Each chapter becomes a quest you can work on',
@@ -5707,28 +6956,32 @@ export const localizations = {
     brazilian_portuguese:
       'Cada capítulo se torna uma quest em que você pode trabalhar',
     tok_pisin: 'Olgeta kapitol i kamap wanpela kwest yu ken wok long en',
-    indonesian: 'Setiap bab menjadi quest yang dapat Anda kerjakan'
+    indonesian: 'Setiap bab menjadi quest yang dapat Anda kerjakan',
+    nepali: 'प्रत्येक अध्याय एउटा क्वेस्ट बन्छ जसमा तपाईं काम गर्न सक्नुहुन्छ'
   },
   onboardingBibleChapterExample1: {
     english: 'Chapter 1',
     spanish: 'Capítulo 1',
     brazilian_portuguese: 'Capítulo 1',
     tok_pisin: 'Kapitol 1',
-    indonesian: 'Bab 1'
+    indonesian: 'Bab 1',
+    nepali: 'अध्याय १'
   },
   onboardingBibleChapterExample2: {
     english: 'Chapter 2',
     spanish: 'Capítulo 2',
     brazilian_portuguese: 'Capítulo 2',
     tok_pisin: 'Kapitol 2',
-    indonesian: 'Bab 2'
+    indonesian: 'Bab 2',
+    nepali: 'अध्याय २'
   },
   onboardingVisionTitle: {
     english: 'Every language. Every culture.',
     spanish: 'Cada idioma. Cada cultura.',
     brazilian_portuguese: 'Cada idioma. Cada cultura.',
     tok_pisin: 'Olgeta tokples. Olgeta kalsa.',
-    indonesian: 'Setiap bahasa. Setiap budaya.'
+    indonesian: 'Setiap bahasa. Setiap budaya.',
+    nepali: 'प्रत्येक भाषा। प्रत्येक संस्कृति।'
   },
   onboardingVisionSubtitle: {
     english:
@@ -5740,14 +6993,17 @@ export const localizations = {
     tok_pisin:
       'Kisim ol text na audio bilong tokples kwiktaim. Stat long lokal, sync taim yu gat internet. Wok wantaim, tanim tokples, stretim.',
     indonesian:
-      'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.'
+      'Kumpulkan data bahasa teks dan audio dengan cepat. Lokal pertama, sinkronkan saat terhubung. Berkolaborasi, terjemahkan, validasi.',
+    nepali:
+      'पाठ र अडियो भाषा डाटा छिट्टै सङ्कलन गर्नुहोस्। स्थानीय-प्रथम, जडान हुँदा सिंक गर्नुहोस्। सहयोग गर्नुहोस्, अनुवाद गर्नुहोस्, प्रमाणित गर्नुहोस्।'
   },
   onboardingVisionStatement1: {
     english: "Every language having access to the world's knowledge.",
     spanish: 'Cada idioma con acceso al conocimiento del mundo.',
     brazilian_portuguese: 'Cada idioma tendo acesso ao conhecimento do mundo.',
     tok_pisin: 'Olgeta tokples i gat akses long save bilong wol.',
-    indonesian: 'Setiap bahasa memiliki akses ke pengetahuan dunia.'
+    indonesian: 'Setiap bahasa memiliki akses ke pengetahuan dunia.',
+    nepali: 'प्रत्येक भाषाले विश्वको ज्ञानमा पहुँच पाउने।'
   },
   onboardingVisionStatement2: {
     english: 'Every culture sharing its meaning with the world.',
@@ -5755,7 +7011,8 @@ export const localizations = {
     brazilian_portuguese:
       'Cada cultura compartilhando seu significado com o mundo.',
     tok_pisin: 'Olgeta kalsa i salim save bilong en i go long wol.',
-    indonesian: 'Setiap budaya berbagi maknanya dengan dunia.'
+    indonesian: 'Setiap budaya berbagi maknanya dengan dunia.',
+    nepali: 'प्रत्येक संस्कृतिले आफ्नो अर्थ विश्वसँग साझा गर्ने।'
   },
   onboardingVisionCC0: {
     english: 'CC0/public domain data ensures no party can stop this vision.',
@@ -5766,21 +7023,25 @@ export const localizations = {
     tok_pisin:
       'CC0/pablik domain data i mekim olsem wanpela man o grup i no inap stopim dispela visen.',
     indonesian:
-      'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.'
+      'Data CC0/domain publik memastikan tidak ada pihak yang dapat menghentikan visi ini.',
+    nepali:
+      'CC0/सार्वजनिक डोमेन डाटाले कुनै पनि पक्षले यो दृष्टिकोणलाई रोक्न नसक्ने सुनिश्चित गर्छ।'
   },
   onboardingOurVision: {
     english: 'Our Vision',
     spanish: 'Nuestra Visión',
     brazilian_portuguese: 'Nossa Visão',
     tok_pisin: 'Visen Bilong Mipela',
-    indonesian: 'Visi Kami'
+    indonesian: 'Visi Kami',
+    nepali: 'हाम्रो दृष्टि'
   },
   onboardingSelectLanguageTitle: {
     english: 'Choose Your Language',
     spanish: 'Elige Tu Idioma',
     brazilian_portuguese: 'Escolha Seu Idioma',
     tok_pisin: 'Pilim Tokples Bilong Yu',
-    indonesian: 'Pilih Bahasa Anda'
+    indonesian: 'Pilih Bahasa Anda',
+    nepali: 'आफ्नो भाषा छान्नुहोस्'
   },
   onboardingSelectLanguageSubtitle: {
     english: "Select the language you'd like to use for the app interface",
@@ -5789,14 +7050,16 @@ export const localizations = {
     brazilian_portuguese:
       'Selecione o idioma que deseja usar para a interface do aplicativo',
     tok_pisin: 'Pilim tokples yu laikim long yusim long app',
-    indonesian: 'Pilih bahasa yang ingin Anda gunakan untuk antarmuka aplikasi'
+    indonesian: 'Pilih bahasa yang ingin Anda gunakan untuk antarmuka aplikasi',
+    nepali: 'एप इन्टरफेसको लागि तपाईं प्रयोग गर्न चाहनुहुने भाषा चयन गर्नुहोस्'
   },
   exportProgress: {
     english: 'Export Progress',
     spanish: 'Progreso de Exportación',
     brazilian_portuguese: 'Progresso de Exportação',
     tok_pisin: 'Export Progress',
-    indonesian: 'Progres Exportasi'
+    indonesian: 'Progres Exportasi',
+    nepali: 'निर्यात प्रगति'
   },
   exporting: {
     english: 'Exporting chapter... This may take a few moments.',
@@ -5804,42 +7067,48 @@ export const localizations = {
     brazilian_portuguese:
       'Exportando capítulo... Isso pode levar alguns momentos.',
     tok_pisin: 'Exporting chapter... This may take a few moments.',
-    indonesian: 'Mengekspor bab... Ini mungkin memakan beberapa saat.'
+    indonesian: 'Mengekspor bab... Ini mungkin memakan beberapa saat.',
+    nepali: 'अध्याय निर्यात गर्दै... यसले केही क्षण लिन सक्छ।'
   },
   exportReady: {
     english: 'Export is ready!',
     spanish: 'Exportación lista!',
     brazilian_portuguese: 'Exportação pronta!',
     tok_pisin: 'Export is ready!',
-    indonesian: 'Ekspor siap!'
+    indonesian: 'Ekspor siap!',
+    nepali: 'निर्यात तयार छ!'
   },
   share: {
     english: 'Share',
     spanish: 'Compartir',
     brazilian_portuguese: 'Compartilhar',
     tok_pisin: 'Share',
-    indonesian: 'Bagikan'
+    indonesian: 'Bagikan',
+    nepali: 'साझा गर्नुहोस्'
   },
   exportFailed: {
     english: 'Export failed',
     spanish: 'Exportación fallida',
     brazilian_portuguese: 'Exportação falhou',
     tok_pisin: 'Export failed',
-    indonesian: 'Ekspor gagal'
+    indonesian: 'Ekspor gagal',
+    nepali: 'निर्यात असफल भयो'
   },
   close: {
     english: 'Close',
     spanish: 'Cerrar',
     brazilian_portuguese: 'Fechar',
     tok_pisin: 'Close',
-    indonesian: 'Tutup'
+    indonesian: 'Tutup',
+    nepali: 'बन्द गर्नुहोस्'
   },
   exportForDistribution: {
     english: 'Export for Distribution',
     spanish: 'Exportar para distribución',
     brazilian_portuguese: 'Exportar para distribuição',
     tok_pisin: 'Export for Distribution',
-    indonesian: 'Ekspor untuk Distribusi'
+    indonesian: 'Ekspor untuk Distribusi',
+    nepali: 'वितरणको लागि निर्यात'
   },
   exportForDistributionDescription: {
     english: 'This export is intended for public distribution and sharing.',
@@ -5849,14 +7118,16 @@ export const localizations = {
       'Esta exportação é destinada à distribuição e compartilhamento públicos.',
     tok_pisin:
       'Dispela export bilong wok long putim igo aut long olgeta na kisim sindaun wantaim ol arapela.',
-    indonesian: 'Ekspor ini dimaksudkan untuk distribusi dan pembagian publik.'
+    indonesian: 'Ekspor ini dimaksudkan untuk distribusi dan pembagian publik.',
+    nepali: 'यो निर्यात सार्वजनिक वितरण र साझेदारीको लागि हो।'
   },
   exportForFeedback: {
     english: 'Export for Feedback',
     spanish: 'Exportar para feedback',
     brazilian_portuguese: 'Exportar para feedback',
     tok_pisin: 'Export for Feedback',
-    indonesian: 'Ekspor untuk Feedback'
+    indonesian: 'Ekspor untuk Feedback',
+    nepali: 'प्रतिक्रियाको लागि निर्यात'
   },
   exportForFeedbackDescription: {
     english: 'This export is intended for feedback and sharing.',
@@ -5864,21 +7135,24 @@ export const localizations = {
     brazilian_portuguese:
       'Esta exportação é destinada a feedback e compartilhado.',
     tok_pisin: 'Dispela export bilong wok long feedback o share.',
-    indonesian: 'Ekspor ini dimaksudkan untuk feedback dan pembagian.'
+    indonesian: 'Ekspor ini dimaksudkan untuk feedback dan pembagian.',
+    nepali: 'यो निर्यात प्रतिक्रिया र साझेदारीको लागि हो।'
   },
   selectExportType: {
     english: 'Select Export Type',
     spanish: 'Seleccionar tipo de exportación',
     brazilian_portuguese: 'Selecionar tipo de exportação',
     tok_pisin: 'Makim kain export',
-    indonesian: 'Pilih Jenis Ekspor'
+    indonesian: 'Pilih Jenis Ekspor',
+    nepali: 'निर्यात प्रकार छान्नुहोस्'
   },
   shareLocally: {
     english: 'Share File',
     spanish: 'Compartir archivo',
     brazilian_portuguese: 'Compartilhar arquivo',
     tok_pisin: 'Shareim file',
-    indonesian: 'Bagikan file'
+    indonesian: 'Bagikan file',
+    nepali: 'फाइल साझा गर्नुहोस्'
   },
   shareLocallyDescription: {
     english: 'Create a local audio file to save or share',
@@ -5886,14 +7160,16 @@ export const localizations = {
     brazilian_portuguese:
       'Criar um arquivo de áudio local para salvar ou compartilhar',
     tok_pisin: 'Mekim lokal audio fail long save o shareim',
-    indonesian: 'Buat file audio lokal untuk disimpan atau dibagikan'
+    indonesian: 'Buat file audio lokal untuk disimpan atau dibagikan',
+    nepali: 'सुरक्षित वा साझा गर्न स्थानीय अडियो फाइल सिर्जना गर्नुहोस्'
   },
   questExport: {
     english: 'Quest Export',
     spanish: 'Exportación de Quest',
     brazilian_portuguese: 'Exportação de Quest',
     tok_pisin: 'Quest Export',
-    indonesian: 'Ekspor Quest'
+    indonesian: 'Ekspor Quest',
+    nepali: 'क्वेस्ट निर्यात'
   },
   questExportDescription: {
     english:
@@ -5905,21 +7181,68 @@ export const localizations = {
     tok_pisin:
       'Exportim ol bible chapter olsem audio fail long shareim na distributim',
     indonesian:
-      'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan'
+      'Ekspor pasal-pasal alkitab sebagai file audio untuk dibagikan dan didistribusikan',
+    nepali:
+      'साझेदारी र वितरणको लागि बाइबल अध्यायहरूलाई अडियो फाइलहरूको रूपमा निर्यात गर्नुहोस्'
+  },
+  transcription: {
+    english: 'Transcription',
+    spanish: 'Transcripción',
+    brazilian_portuguese: 'Transcrição',
+    tok_pisin: 'Transcription',
+    indonesian: 'Transkripsi',
+    nepali: 'ट्रान्स्क्रिप्सन'
+  },
+  transcriptions: {
+    english: 'Transcriptions',
+    spanish: 'Transcripciones',
+    brazilian_portuguese: 'Transcrições',
+    tok_pisin: 'Ol Transcription',
+    indonesian: 'Transkripsi',
+    nepali: 'ट्रान्स्क्रिप्सनहरू'
+  },
+  noTranscriptionsYet: {
+    english: 'No transcriptions yet. Be the first to transcribe!',
+    spanish: 'No hay transcripciones aún. ¡Sé el primero en transcribir!',
+    brazilian_portuguese:
+      'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
+    tok_pisin: 'I no gat transcription yet. Yu ken namba wan long transcribe!',
+    indonesian: 'Belum ada transkripsi. Jadilah yang pertama mentranskripsi!',
+    nepali:
+      'अहिलेसम्म कुनै ट्रान्स्क्रिप्सन छैन। पहिलो ट्रान्स्क्राइबर बन्नुहोस्!'
+  },
+  transcriptionDescription: {
+    english: 'Enable automatic transcription of audio recordings',
+    spanish: 'Habilitar transcripción automática de grabaciones de audio',
+    brazilian_portuguese:
+      'Habilitar transcrição automática de gravações de áudio',
+    tok_pisin: 'Enablem automatic transcription bilong audio recordings',
+    indonesian: 'Aktifkan transkripsi otomatis rekaman audio',
+    nepali: 'अडियो रेकर्डिङहरूको स्वचालित ट्रान्सक्रिप्सन सक्षम गर्नुहोस्'
+  },
+  transcriptionComplete: {
+    english: 'Transcription Complete',
+    spanish: 'Transcripción completada',
+    brazilian_portuguese: 'Transcrição concluída',
+    tok_pisin: 'Transcription i pinis',
+    indonesian: 'Transkripsi selesai',
+    nepali: 'ट्रान्स्क्रिप्सन पूरा भयो'
   },
   copyFeedbackLink: {
     english: 'Copy Feedback Link',
     spanish: 'Copiar enlace de feedback',
     brazilian_portuguese: 'Copiar link de feedback',
     tok_pisin: 'Kopim feedback link',
-    indonesian: 'Salin Tautan Umpan Balik'
+    indonesian: 'Salin Tautan Umpan Balik',
+    nepali: 'प्रतिक्रिया लिंक कपी गर्नुहोस्'
   },
   copyFeedbackLinkDescription: {
     english: 'Copy a link to share for feedback',
     spanish: 'Copiar un enlace para compartir para feedback',
     brazilian_portuguese: 'Copiar um link para compartilhar para feedback',
     tok_pisin: 'Kopim link long shareim bilong feedback',
-    indonesian: 'Salin tautan untuk dibagikan untuk umpan balik'
+    indonesian: 'Salin tautan untuk dibagikan untuk umpan balik',
+    nepali: 'प्रतिक्रियाको लागि साझा गर्न लिंक कपी गर्नुहोस्'
   },
   feedbackLinkNote: {
     english:
@@ -5931,30 +7254,76 @@ export const localizations = {
     tok_pisin:
       'Notis: Mipela planim long mekim link long LangQuest website we ol export inap lukim na tok long en long bihain.',
     indonesian:
-      'Catatan: Kami berencana untuk mengimplementasikan tautan ke situs web LangQuest di mana ekspor dapat dilihat dan dikomentari di masa depan.'
+      'Catatan: Kami berencana untuk mengimplementasikan tautan ke situs web LangQuest di mana ekspor dapat dilihat dan dikomentari di masa depan.',
+    nepali:
+      'नोट: हामी भविष्यमा LangQuest वेबसाइटमा लिंक लागू गर्ने योजना बनाइरहेका छौं जहाँ निर्यातहरू हेर्न र टिप्पणी गर्न सकिन्छ।'
   },
   linkCopied: {
     english: 'Link copied to clipboard!',
     spanish: '¡Enlace copiado al portapapeles!',
     brazilian_portuguese: 'Link copiado para a área de transferência!',
     tok_pisin: 'Link kopim igo long clipboard!',
-    indonesian: 'Tautan disalin ke clipboard!'
+    indonesian: 'Tautan disalin ke clipboard!',
+    nepali: 'लिंक क्लिपबोर्डमा कपी भयो!'
   },
-
+  verseMarkers: {
+    english: 'Verse Labels',
+    spanish: 'Etiquetas de Versículos',
+    brazilian_portuguese: 'Etiquetas de Versículos',
+    tok_pisin: 'Verse Labels',
+    indonesian: 'Label Versi',
+    nepali: 'पद लेबलहरू'
+  },
+  enableVerseLabelsQuestion: {
+    english: 'Enable Verse Labels?',
+    spanish: '¿Habilitar etiquetas de versículos?',
+    brazilian_portuguese: 'Habilitar etiquetas de versículos?',
+    tok_pisin: 'Enablem verse labels?',
+    indonesian: 'Aktifkan label versi?',
+    nepali: 'पद लेबलहरू सक्षम गर्ने?'
+  },
+  enableVerseLabelsDescription: {
+    english:
+      'This experimental feature helps organize Bible resources using verse labels. You can enable / disable it anytime at the Settings menu.',
+    spanish:
+      'Esta función experimental ayuda a organizar los recursos de la Biblia usando etiquetas de versículos. Puedes habilitarla / deshabilitarla en cualquier momento desde el menú de Configuración.',
+    brazilian_portuguese:
+      'Este recurso experimental ajuda a organizar os recursos da Bíblia usando etiquetas de versículos. Você pode ativá-lo / desativá-lo a qualquer momento no menu de Configurações.',
+    tok_pisin:
+      'Dispela experimental feature i helpim long organaisim Bible resources wantaim verse labels. Yu ken enablem / disableim long Settings menu long anytime.',
+    indonesian:
+      'Fitur eksperimental ini membantu mengorganisir sumber daya Alkitab menggunakan label versi. Anda dapat mengaktifkan / menonaktifkannya kapan saja di menu Pengaturan.',
+    nepali:
+      'यो प्रयोगात्मक सुविधाले पद लेबलहरू प्रयोग गरेर बाइबल स्रोतहरू व्यवस्थित गर्न मद्दत गर्छ। तपाईं यसलाई सेटिङ्स मेनुमा जुनसुकै समय सक्षम / असक्षम गर्न सक्नुहुन्छ।'
+  },
+  verseMarkersDescription: {
+    english: 'Enable verse labels to help organize Bible resources',
+    spanish:
+      'Habilitar etiquetas de versículos para ayudar a organizar recursos de la Biblia',
+    brazilian_portuguese:
+      'Habilitar etiquetas de versículos para ajudar a organizar recursos da Bíblia',
+    tok_pisin: 'Enable verse labels to help organize Bible resources',
+    indonesian:
+      'Aktifkan label versi untuk membantu mengorganisir sumber daya Alkitab',
+    nepali:
+      'बाइबल स्रोतहरू व्यवस्थित गर्न मद्दत गर्न पद लेबलहरू सक्षम गर्नुहोस्'
+  },
   // Languoid Link Suggestion strings
   languoidLinkSuggestionTitle: {
     english: 'Link your language?',
     spanish: '¿Vincular tu idioma?',
     brazilian_portuguese: '¿Vincular seu idioma?',
     tok_pisin: 'Joinim tok ples bilong yu?',
-    indonesian: 'Apakah Anda ingin menghubungkan bahasa Anda?'
+    indonesian: 'Apakah Anda ingin menghubungkan bahasa Anda?',
+    nepali: 'आफ्नो भाषा लिंक गर्नुहुन्छ?'
   },
   languoidLinkSuggestionDrawerTitle: {
     english: 'Link to existing language',
     spanish: 'Vincular a un idioma existente',
     brazilian_portuguese: 'Vincular a um idioma existente',
     tok_pisin: 'Joinim wanpela tok ples',
-    indonesian: 'Hubungkan ke bahasa yang ada'
+    indonesian: 'Hubungkan ke bahasa yang ada',
+    nepali: 'अवस्थित भाषामा लिंक गर्नुहोस्'
   },
   languoidLinkSuggestionDescription: {
     english:
@@ -5966,98 +7335,113 @@ export const localizations = {
     tok_pisin:
       'Mipela painim tok ples i stap pinis we inap wankain long tok ples yu bin mekim. Yu laik joinim wanpela tok ples i stap pinis?',
     indonesian:
-      'Kami menemukan bahasa yang ada yang mungkin cocok dengan yang Anda buat. Apakah Anda ingin menghubungkan ke bahasa yang ada?'
+      'Kami menemukan bahasa yang ada yang mungkin cocok dengan yang Anda buat. Apakah Anda ingin menghubungkan ke bahasa yang ada?',
+    nepali:
+      'हामीले तपाईंले सिर्जना गर्नुभएको सँग मेल खान सक्ने अवस्थित भाषाहरू फेला पार्यौं। के तपाईं अवस्थित भाषामा लिंक गर्न चाहनुहुन्छ?'
   },
   yourLanguage: {
     english: 'Your language',
     spanish: 'Tu idioma',
     brazilian_portuguese: 'Seu idioma',
     tok_pisin: 'Tok ples bilong yu',
-    indonesian: 'Bahasa Anda'
+    indonesian: 'Bahasa Anda',
+    nepali: 'तपाईंको भाषा'
   },
   seeLanguageSuggestions: {
     english: 'See language suggestions',
     spanish: 'Ver sugerencias de idioma',
     brazilian_portuguese: 'Ver sugestões de idioma',
     tok_pisin: 'Lukim ol tok ples bilong en',
-    indonesian: 'Lihat sugesti bahasa'
+    indonesian: 'Lihat sugesti bahasa',
+    nepali: 'भाषा सुझावहरू हेर्नुहोस्'
   },
   keepMyLanguage: {
     english: 'Keep my language',
     spanish: 'Mantener mi idioma',
     brazilian_portuguese: 'Manter meu idioma',
     tok_pisin: 'Holim tok ples bilong mi',
-    indonesian: 'Simpan bahasa saya'
+    indonesian: 'Simpan bahasa saya',
+    nepali: 'मेरो भाषा राख्नुहोस्'
   },
   chooseThisLanguage: {
     english: 'Choose this language',
     spanish: 'Elegir este idioma',
     brazilian_portuguese: 'Escolher este idioma',
     tok_pisin: 'Pilim dispela tok ples',
-    indonesian: 'Pilih bahasa ini'
+    indonesian: 'Pilih bahasa ini',
+    nepali: 'यो भाषा छान्नुहोस्'
   },
   exactMatch: {
     english: 'Exact match',
     spanish: 'Coincidencia exacta',
     brazilian_portuguese: 'Correspondência exata',
     tok_pisin: 'Sem tru',
-    indonesian: 'Kecocokan persis'
+    indonesian: 'Kecocokan persis',
+    nepali: 'ठीक मिल्यो'
   },
   partialMatch: {
     english: 'Partial match',
     spanish: 'Coincidencia parcial',
     brazilian_portuguese: 'Correspondência parcial',
     tok_pisin: 'Luk olsem',
-    indonesian: 'Kecocokan sebagian'
+    indonesian: 'Kecocokan sebagian',
+    nepali: 'आंशिक मिल्यो'
   },
   matchedByName: {
     english: 'Matched by name',
     spanish: 'Coincide por nombre',
     brazilian_portuguese: 'Correspondido por nome',
     tok_pisin: 'Painim long nem',
-    indonesian: 'Cocok berdasarkan nama'
+    indonesian: 'Cocok berdasarkan nama',
+    nepali: 'नामद्वारा मेल खायो'
   },
   matchedByAlias: {
     english: 'Matched by alias',
     spanish: 'Coincide por alias',
     brazilian_portuguese: 'Correspondido por alias',
     tok_pisin: 'Painim long narapela nem',
-    indonesian: 'Cocok berdasarkan alias'
+    indonesian: 'Cocok berdasarkan alias',
+    nepali: 'उपनामद्वारा मेल खायो'
   },
   matchedByIsoCode: {
     english: 'Matched by ISO code',
     spanish: 'Coincide por código ISO',
     brazilian_portuguese: 'Correspondido por código ISO',
     tok_pisin: 'Painim long ISO kod',
-    indonesian: 'Cocok berdasarkan kode ISO'
+    indonesian: 'Cocok berdasarkan kode ISO',
+    nepali: 'ISO कोडद्वारा मेल खायो'
   },
   languageLinkSuccess: {
     english: 'Language linked successfully',
     spanish: 'Idioma vinculado con éxito',
     brazilian_portuguese: 'Idioma vinculado com sucesso',
     tok_pisin: 'Tok ples joinim gut',
-    indonesian: 'Bahasa berhasil dihubungkan'
+    indonesian: 'Bahasa berhasil dihubungkan',
+    nepali: 'भाषा सफलतापूर्वक लिंक भयो'
   },
   languageLinkError: {
     english: 'Failed to link language',
     spanish: 'Error al vincular idioma',
     brazilian_portuguese: 'Falha ao vincular idioma',
     tok_pisin: 'No inap joinim tok ples',
-    indonesian: 'Gagal menghubungkan bahasa'
+    indonesian: 'Gagal menghubungkan bahasa',
+    nepali: 'भाषा लिंक गर्न असफल'
   },
   keepLanguageSuccess: {
     english: 'Your custom language has been kept',
     spanish: 'Tu idioma personalizado ha sido conservado',
     brazilian_portuguese: 'Seu idioma personalizado foi mantido',
     tok_pisin: 'Tok ples bilong yu i stap yet',
-    indonesian: 'Bahasa kustom Anda telah disimpan'
+    indonesian: 'Bahasa kustom Anda telah disimpan',
+    nepali: 'तपाईंको आफ्नै भाषा राखिएको छ'
   },
   enableLanguoidLinkSuggestions: {
     english: 'Language link suggestions',
     spanish: 'Sugerencias de vinculación de idioma',
     brazilian_portuguese: 'Sugestões de vinculação de idioma',
     tok_pisin: 'Ol tok ples bilong joinim',
-    indonesian: 'Saran tautan bahasa'
+    indonesian: 'Saran tautan bahasa',
+    nepali: 'भाषा लिंक सुझावहरू'
   },
   enableLanguoidLinkSuggestionsDescription: {
     english:
@@ -6069,7 +7453,9 @@ export const localizations = {
     tok_pisin:
       'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
     indonesian:
-      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database'
+      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database',
+    nepali:
+      'आफ्नो आफ्नै-सिर्जना गरिएका भाषाहरूलाई डाटाबेसमा अवस्थित भाषाहरूसँग लिंक गर्न सुझावहरू प्राप्त गर्नुहोस्'
   }
 } as const;
 

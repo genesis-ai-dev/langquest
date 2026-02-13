@@ -1,4 +1,7 @@
-import { Audio } from 'expo-av';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync
+} from 'expo-audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
@@ -19,8 +22,10 @@ interface UseMicrophoneEnergy extends UseMicrophoneEnergyState {
   resetEnergy: () => void;
   startSegment: (options?: { prerollMs?: number }) => Promise<void>;
   stopSegment: () => Promise<string | null>;
-  // NEW: SharedValue for high-performance UI updates
+  // SharedValue for high-performance UI updates (no re-renders!)
   energyShared: SharedValue<number>;
+  // Ref for logic that needs the latest value without re-renders
+  energyRef: { current: number };
 }
 
 export function useMicrophoneEnergy(): UseMicrophoneEnergy {
@@ -30,8 +35,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     error: null
   });
 
-  // NEW: SharedValue for high-performance UI updates (no re-renders!)
+  // SharedValue for high-performance UI updates (no re-renders!)
   const energyShared = useSharedValue(0);
+
+  // Ref for logic that needs the latest value (calibration, etc.) - NO re-renders
+  const energyRef = useRef(0);
 
   // Ref to track active state to avoid stale closures
   const isActiveRef = useRef(false);
@@ -79,8 +87,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
-      // Use expo-av for all permission handling
-      const status = await Audio.requestPermissionsAsync();
+      const status = await requestRecordingPermissionsAsync();
       return status.granted;
     } catch (error) {
       setState((prev) => ({
@@ -99,8 +106,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     }
 
     try {
-      // Check permissions first using expo-av
-      const permission = await Audio.getPermissionsAsync();
+      const permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
         const granted = await requestPermissions();
         if (!granted) throw new Error('Microphone permissions required');
@@ -187,6 +193,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     resetEnergy,
     startSegment,
     stopSegment,
-    energyShared
+    energyShared,
+    energyRef
   };
 }
