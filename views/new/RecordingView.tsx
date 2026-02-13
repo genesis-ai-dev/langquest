@@ -308,7 +308,9 @@ const RecordingView = () => {
   }, [audioContext]);
 
   // Insertion wheel state
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
+  const [insertionIndex, setInsertionIndex] = React.useState(() =>
+    _verse ? 1 : 0
+  );
   const listRef = React.useRef<RecordingSelectionListHandle>(null);
 
   // Track footer height for proper scrolling
@@ -814,13 +816,14 @@ const RecordingView = () => {
       wasReplaceRef.current = false;
 
       if (wasPillAdded) {
-        // A pill was added - focus the inserted pill (last item)
-        const targetIndex = Math.max(0, currentCount - 1);
+        // A pill was added - keep boundary selected (no item selected)
+        const targetIndex = currentCount;
+        const scrollIndex = Math.max(0, currentCount - 1);
         debugLog(
-          `📍 Pill added - focusing inserted item: ${currentInsertionIndex} → ${targetIndex}`
+          `📍 Pill added - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex} | scrollIndex: ${scrollIndex}`
         );
         setInsertionIndex(targetIndex);
-        scheduleScrollToIndex(targetIndex, 'pill-added');
+        scheduleScrollToIndex(scrollIndex, 'pill-added-keep-boundary');
       } else if (wasReplace) {
         // REPLACE MODE: Stay on the same position - new asset replaced the old one
         const targetIndex = Math.max(
@@ -2845,7 +2848,7 @@ const RecordingView = () => {
       !isSelectionMode &&
       showAddVerseButton &&
       verseToAdd !== null &&
-      !isVADRecording &&
+      // !isVADRecording &&
       allowAddVerseRef.current;
 
     if (!shouldShow) return null;
@@ -2873,7 +2876,7 @@ const RecordingView = () => {
     isSelectionMode,
     showAddVerseButton,
     verseToAdd,
-    isVADRecording,
+    // isVADRecording,
     handleAddNextVerse
   ]);
 

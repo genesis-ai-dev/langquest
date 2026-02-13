@@ -12,7 +12,7 @@ const { db } = system;
 //   tags: (typeof tag.$inferSelect)[];
 // };
 
-const MAX_RECORDING_SESSIONS = 100;
+const MAX_RECORDING_SESSIONS = 10;
 
 export type Quest = typeof quest.$inferSelect;
 
