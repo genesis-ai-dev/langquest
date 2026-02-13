@@ -180,9 +180,54 @@ jobs:
             } catch (e) {
               fingerprintDiff = fingerprintDiffStr;
             }
-            const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
+            
+            // Format as GitHub code diff
+            function formatSource(source) {
+              if (!source) return '';
+              const parts = [];
+              if (source.type === 'file' || source.type === 'dir') {
+                parts.push(`Path: ${source.filePath}`);
+              } else if (source.type === 'contents') {
+                parts.push(`ID: ${source.id}`);
+              }
+              if (source.hash) {
+                parts.push(`Hash: ${source.hash}`);
+              }
+              if (source.reasons && source.reasons.length > 0) {
+                parts.push(`Reasons: ${source.reasons.join(', ')}`);
+              }
+              return parts.join(' | ');
+            }
+            
+            function formatDiffAsCode(diff) {
+              if (!Array.isArray(diff) || diff.length === 0) {
+                return 'No changes detected.';
+              }
+              
+              const lines = [];
+              diff.forEach((item, index) => {
+                if (item.op === 'added') {
+                  lines.push(`+ Added: ${formatSource(item.addedSource)}`);
+                } else if (item.op === 'removed') {
+                  lines.push(`- Removed: ${formatSource(item.removedSource)}`);
+                } else if (item.op === 'changed') {
+                  lines.push(`- Changed (before): ${formatSource(item.beforeSource)}`);
+                  lines.push(`+ Changed (after): ${formatSource(item.afterSource)}`);
+                }
+                // Add separator between items (except last)
+                if (index < diff.length - 1) {
+                  lines.push('');
+                }
+              });
+              
+              return lines.join('\n');
+            }
+            
+            const codeDiff = formatDiffAsCode(fingerprintDiff);
             // Write to file to avoid output size limits
-            fs.writeFileSync('fingerprint-diff.json', prettifiedDiff);
+            fs.writeFileSync('fingerprint-diff-formatted.txt', codeDiff);
+            // Also keep JSON for reference
+            fs.writeFileSync('fingerprint-diff.json', JSON.stringify(fingerprintDiff, null, 2));
             // Set a flag output instead of the full diff
             core.setOutput('has_diff_file', 'true');
 
@@ -195,18 +240,31 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            let prettifiedDiff = '[]';
-            if (process.env.HAS_DIFF_FILE === 'true' && fs.existsSync('fingerprint-diff.json')) {
-              prettifiedDiff = fs.readFileSync('fingerprint-diff.json', 'utf8');
+            let codeDiff = 'No changes detected.';
+            let jsonDiff = '[]';
+            
+            if (process.env.HAS_DIFF_FILE === 'true') {
+              if (fs.existsSync('fingerprint-diff-formatted.txt')) {
+                codeDiff = fs.readFileSync('fingerprint-diff-formatted.txt', 'utf8');
+              }
+              if (fs.existsSync('fingerprint-diff.json')) {
+                jsonDiff = fs.readFileSync('fingerprint-diff.json', 'utf8');
+              }
             }
             
             const message = '<!-- fingerprint-check -->\n' +
               '⚠️ Native Build Required - Manual Approval Needed\n\n' +
               'This PR requires a native build because the fingerprint has changed compared to the base branch.\n\n' +
               '<details>\n' +
-              '<summary>Fingerprint diff</summary>\n\n' +
+              '<summary>📋 Fingerprint diff</summary>\n\n' +
+              '```diff\n' +
+              codeDiff + '\n' +
+              '```\n\n' +
+              '</details>\n\n' +
+              '<details>\n' +
+              '<summary>🔍 Full JSON diff (for debugging)</summary>\n\n' +
               '```json\n' +
-              prettifiedDiff + '\n' +
+              jsonDiff + '\n' +
               '```\n\n' +
               '</details>\n\n' +
               'Action Required: After confirming with the team, another team member must approve this PR to proceed with merging.\n\n' +

@@ -21,9 +21,6 @@
       "channel": "preview",
       "environment": "preview",
       "distribution": "internal",
-      "cache": {
-        "key": "expo-cache-v2-2026-02-13"
-      },
       "ios": {
         "distribution": "store"
       }
