@@ -1,6 +1,3 @@
-/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
-/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
-/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 // import { Badge } from '@/components/ui/badge';
 import {
@@ -47,7 +44,7 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
 };
-export interface BibleAssetListItemProps {
+export interface AssetCardItemProps {
   asset: AssetQuestLink;
   isPublished: boolean;
   questId: string;
@@ -72,7 +69,7 @@ export interface BibleAssetListItemProps {
   onRename?: (assetId: string, currentName: string | null) => void;
 }
 
-const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
+const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   asset,
   questId,
   isCurrentlyPlaying = false,
@@ -484,8 +481,8 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
  * Returns FALSE if props are DIFFERENT (re-render needed)
  */
 const arePropsEqual = (
-  prevProps: BibleAssetListItemProps,
-  nextProps: BibleAssetListItemProps
+  prevProps: AssetCardItemProps,
+  nextProps: AssetCardItemProps
 ): boolean => {
   // 1. Compare primitive props that affect visual rendering
   if (
@@ -543,9 +540,9 @@ const arePropsEqual = (
  * Memoized BibleAssetListItem component
  * Only re-renders when props that affect visual output change
  */
-export const BibleAssetListItem = React.memo(
-  BibleAssetListItemComponent,
+export const AssetCardItem = React.memo(
+  AssetCardItemComponent,
   arePropsEqual
 );
 
-BibleAssetListItem.displayName = 'BibleAssetListItem';
+AssetCardItem.displayName = 'AssetCardItem';
