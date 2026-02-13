@@ -132,7 +132,7 @@ const RecordingView = () => {
   const _label = recordingData?.label || '';
   const recordingSessionId = recordingData?.recordingSession;
 
-  // Log recording data on mount
+  // Log recording data on mount  
   React.useEffect(() => {
     console.log(
       `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
@@ -650,12 +650,15 @@ const RecordingView = () => {
   // If user hasn't clicked yet, show persisted nextVerse
   const verseToAdd = React.useMemo(() => {
     const limit = persistedLimitVerseRef.current;
+    if (limit === null) {
+      return null;
+    }
 
     if (currentDynamicVerse !== null) {
       // User already clicked Add - next verse is current + 1
       const next = currentDynamicVerse + 1;
       // Check if next is within limit
-      if (limit !== null && next > limit) {
+      if (next > limit) {
         return null; // No more verses to add
       }
       return next;

@@ -113,7 +113,7 @@ import ReorderableList, {
   reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
-import { BibleAssetListItem } from './BibleAssetListItem';
+import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
@@ -279,7 +279,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
             </Pressable>
           </View>
         )}
-      <BibleAssetListItem
+      <AssetCardItem
         asset={asset}
         questId={questId}
         isPublished={isPublished}
