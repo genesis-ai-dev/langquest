@@ -113,5 +113,6 @@ jobs:
     image: latest
     runs_on: macos-medium
     params:
+      record_screen: true
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
