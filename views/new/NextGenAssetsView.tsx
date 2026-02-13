@@ -1029,7 +1029,9 @@ export default function NextGenAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        RNAlert.alert(t('success'), result.message, [{ text: t('ok'), isPreferred: true }]);
+        RNAlert.alert(t('success'), result.message, [
+          { text: t('ok'), isPreferred: true }
+        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok'), isPreferred: true }

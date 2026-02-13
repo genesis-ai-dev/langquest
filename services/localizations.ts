@@ -2285,6 +2285,14 @@ export const localizations = {
     thai: 'คุณแน่ใจหรือไม่ว่าต้องการลบสินทรัพย์ {count} รายการ? การดำเนินการนี้ไม่สามารถยกเลิกได้',
     mandarin: '您确定要删除 {count} 个资产吗？此操作无法撤消。'
   },
+  selected: {
+    english: 'selected',
+    spanish: 'seleccionado(s)',
+    brazilian_portuguese: 'selecionado(s)',
+    tok_pisin: 'selected',
+    indonesian: 'terpilih',
+    nepali: 'चयन गरिएको'
+  },
   delete: {
     english: 'Delete',
     spanish: 'Eliminar',
@@ -6127,6 +6135,14 @@ export const localizations = {
     burmese: 'မှတ်တမ်းတင်ရန်',
     thai: 'บันทึกไปยัง',
     mandarin: '录制到'
+  },
+  after: {
+    english: 'After',
+    spanish: 'Después de',
+    brazilian_portuguese: 'Depois de',
+    tok_pisin: 'Despela',
+    indonesian: 'Setelah',
+    nepali: 'बादमा'
   },
   noLabelSelected: {
     english: 'No label selected',
