@@ -33,6 +33,7 @@ import { Audio } from 'expo-av';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
+  ChevronRight,
   CloudUpload,
   FlagIcon,
   InfoIcon,
@@ -40,7 +41,6 @@ import {
   LockIcon,
   MicIcon,
   PauseIcon,
-  PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -48,7 +48,7 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -67,6 +67,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -81,7 +82,6 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
-import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
 type Asset = typeof asset.$inferSelect;
@@ -91,6 +91,8 @@ type AssetQuestLink = Asset & {
   tag_ids?: string[] | undefined;
 };
 
+const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 999000000;
+
 export default function NextGenAssetsView() {
   const {
     currentQuestId,
@@ -98,7 +100,7 @@ export default function NextGenAssetsView() {
     currentProjectData,
     currentQuestData
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -263,8 +265,6 @@ export default function NextGenAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-  const [showRecording, setShowRecording] = React.useState(false);
-
   const { membership } = useUserPermissions(
     currentProjectId || '',
     'open_project',
@@ -321,6 +321,8 @@ export default function NextGenAssetsView() {
           assetMap.set(asset.id, asset);
         }
       }
+
+      console.log('################## ASSET', asset.name, asset.order_index, asset.id)
     }
 
     return Array.from(assetMap.values());
@@ -388,6 +390,13 @@ export default function NextGenAssetsView() {
 
       const isSelected = selectedAssetIds.has(item.id);
 
+      // Highlight assets from the last recording session
+      const assetMeta = item.metadata as { recordingSessionId?: string } | null;
+      const isHighlighted =
+        !!assetMeta?.recordingSessionId &&
+        assetMeta.recordingSessionId ===
+          selectedQuest?.metadata?.lastRecordingSessionId;
+
       return (
         <>
           <AssetCardItem
@@ -396,6 +405,7 @@ export default function NextGenAssetsView() {
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
+            isHighlighted={isHighlighted}
             onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
             isPublished={isPublished}
@@ -415,7 +425,8 @@ export default function NextGenAssetsView() {
       handleAssetUpdate,
       selectedAssetIds,
       handleToggleSelect,
-      enterSelection
+      enterSelection,
+      selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
 
@@ -1238,9 +1249,40 @@ export default function NextGenAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    // Now show recording
-    setShowRecording(true);
-  }, [audioContext]);
+    if (!currentQuestId) {
+      console.error('Cannot start recording without quest ID');
+      return;
+    }
+
+    // Create recording session and navigate to RecordingView
+    const recordingSessionId =
+      await createQuestRecordingSession(currentQuestId);
+    const selectedAssetId = Array.from(selectedAssetIds)[0];
+    const selectedAsset = selectedAssetId
+      ? assets.find((asset) => asset.id === selectedAssetId)
+      : null;
+    const initialOrderIndex =
+      typeof selectedAsset?.order_index === 'number'
+        ? selectedAsset.order_index
+        : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
+
+    navigate({
+      view: 'recording',
+      questId: currentQuestId,
+      projectId: currentProjectId,
+      recordingData: {
+        initialOrderIndex: initialOrderIndex,
+        recordingSession: recordingSessionId
+      }
+    });
+  }, [
+    audioContext,
+    navigate,
+    currentQuestId,
+    currentProjectId,
+    selectedAssetIds,
+    assets
+  ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
   // This prevents memory leaks when navigating away from the assets view
@@ -1294,20 +1336,6 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Recording mode UI
-  if (showRecording) {
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <RecordingViewSimplified
-        onBack={() => {
-          setShowRecording(false);
-          // Refetch to show newly recorded assets
-          void refetch();
-        }}
-        initialAssets={assets}
-      />
-    );
-  }
 
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
@@ -1457,14 +1485,14 @@ export default function NextGenAssetsView() {
                     <Icon as={CloudUpload} />
                   )}
                 </Button>
-                <Button
+                {/* <Button
                   variant="outline"
                   size="icon"
                   className="border-[1.5px] border-primary"
                   onPress={() => void handleGoToRecording()}
                 >
                   <Icon as={PencilIcon} className="text-primary" />
-                </Button>
+                </Button> */}
                 {currentQuestId && currentProjectId && (
                   <ExportButton
                     questId={currentQuestId}
@@ -1582,80 +1610,86 @@ export default function NextGenAssetsView() {
         />
       )}
 
+      {/* SpeedDial - hidden in selection mode, positioned left when not published */}
+      {/* {selectedAssetIds.size === 0 && ( */}
+        <View
+          style={{
+            bottom: insets.bottom + 24,
+            ...(isPublished ? { right: 24 } : { left: 24 })
+          }}
+          className="absolute z-50"
+        >
+          <SpeedDial>
+            <SpeedDialItems>
+              {/* For anonymous users, only show info button */}
+              {currentUser ? (
+                <>
+                  {allowSettings && isOwner ? (
+                    <SpeedDialItem
+                      icon={SettingsIcon}
+                      variant="outline"
+                      onPress={() => setShowSettingsModal(true)}
+                    />
+                  ) : !hasReported ? (
+                    <SpeedDialItem
+                      icon={FlagIcon}
+                      variant="outline"
+                      onPress={() => setShowReportModal(true)}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {/* Info button always visible */}
+              <SpeedDialItem
+                icon={InfoIcon}
+                variant="outline"
+                onPress={() => {
+                  console.log('📋 [Info] Opening details modal', {
+                    selectedQuest: selectedQuest?.id,
+                    isDownloaded: isQuestDownloaded,
+                    storageBytes: verificationState.estimatedStorageBytes
+                  });
+                  setShowDetailsModal(true);
+                  // Start verification to get storage estimate if quest is downloaded
+                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                    verificationState.startVerification();
+                  }
+                }}
+              />
+            </SpeedDialItems>
+            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
+          </SpeedDial>
+        </View>
+      {/* )} */}
+
       {/* Sticky Record Button Footer - only show for authenticated users */}
       {!isPublished && currentUser && (
         <View
           style={{
             paddingBottom: insets.bottom,
-            paddingRight: 75 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+            paddingRight: 50 // Leave space for SpeedDial when not in selection mode
           }}
+          className="px-2"
         >
-          <Button
-            variant="destructive"
-            size="lg"
-            className="w-full"
+          <Pressable
+            className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
             onPress={() => void handleGoToRecording()}
           >
-            <Icon
-              as={MicIcon}
-              size={24}
-              className="text-destructive-foreground"
-            />
-            <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-              {t('doRecord')}
-            </Text>
-          </Button>
+            <Icon as={MicIcon} size={24} className="text-secondary" />
+            <View className="ml-2 flex-col items-start justify-start gap-0">
+              <Text className="text-center text-base font-semibold text-secondary">
+                {t('startRecordingSession')}
+              </Text>
+              <Text className="w-full text-left text-sm text-secondary">
+                {selectedQuest?.name
+                  ? selectedQuest.name.slice(0, 30)
+                  : t('doRecord')}
+              </Text>
+            </View>
+            <Icon as={ChevronRight} size={24} className="text-secondary" />
+          </Pressable>
         </View>
       )}
-
-      <View
-        style={{
-          bottom: insets.bottom + 24,
-          right: 24
-        }}
-        className="absolute z-[100]"
-      >
-        <SpeedDial>
-          <SpeedDialItems>
-            {/* For anonymous users, only show info button */}
-            {currentUser ? (
-              <>
-                {allowSettings && isOwner ? (
-                  <SpeedDialItem
-                    icon={SettingsIcon}
-                    variant="outline"
-                    onPress={() => setShowSettingsModal(true)}
-                  />
-                ) : !hasReported ? (
-                  <SpeedDialItem
-                    icon={FlagIcon}
-                    variant="outline"
-                    onPress={() => setShowReportModal(true)}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            {/* Info button always visible */}
-            <SpeedDialItem
-              icon={InfoIcon}
-              variant="outline"
-              onPress={() => {
-                console.log('📋 [Info] Opening details modal', {
-                  selectedQuest: selectedQuest?.id,
-                  isDownloaded: isQuestDownloaded,
-                  storageBytes: verificationState.estimatedStorageBytes
-                });
-                setShowDetailsModal(true);
-                // Start verification to get storage estimate if quest is downloaded
-                if (isQuestDownloaded && !verificationState.isVerifying) {
-                  verificationState.startVerification();
-                }
-              }}
-            />
-          </SpeedDialItems>
-          <SpeedDialTrigger />
-        </SpeedDial>
-      </View>
 
       {allowSettings && isOwner && (
         <QuestSettingsModal
