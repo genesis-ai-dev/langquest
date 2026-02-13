@@ -23,6 +23,9 @@
       "distribution": "internal",
       "ios": {
         "distribution": "store"
+      },
+      "env": {
+        "EAS_USE_CACHE": "0"
       }
     },
     "preview-simulator": {
