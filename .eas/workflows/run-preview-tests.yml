@@ -77,7 +77,7 @@ jobs:
     if: ${{ needs.ios_get_build.outputs.build_id }}
     type: repack
     environment: preview
-    runs_on: linux-medium
+    runs_on: macos-medium
     params:
       build_id: ${{ needs.ios_get_build.outputs.build_id }}
 
