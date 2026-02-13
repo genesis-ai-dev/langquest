@@ -40,6 +40,16 @@ jobs:
       profile: preview
       platform: android
 
+  ios_get_build:
+    name: Check for existing ios build
+    needs: [fingerprint]
+    type: get-build
+    environment: preview
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: preview-simulator
+      platform: ios
+
   android_repack:
     name: Repack Android
     needs: [android_get_build]
@@ -61,29 +71,6 @@ jobs:
       platform: android
       profile: preview
 
-  android_maestro:
-    name: Run Android Maestro Tests
-    after: [android_repack, android_build]
-    type: maestro
-    environment: preview
-    image: latest
-    runs_on: linux-medium-nested-virtualization
-    params:
-      build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
-      record_screen: true
-      android_system_image_package: 'system-images;android-31;default;x86_64'
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
-
-  ios_get_build:
-    name: Check for existing ios build
-    needs: [fingerprint]
-    type: get-build
-    environment: preview
-    params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-      profile: preview-simulator
-      platform: ios
-
   ios_repack:
     name: Repack iOS
     needs: [ios_get_build]
@@ -104,6 +91,19 @@ jobs:
     params:
       platform: ios
       profile: preview-simulator
+
+  android_maestro:
+    name: Run Android Maestro Tests
+    after: [android_repack, android_build]
+    type: maestro
+    environment: preview
+    image: latest
+    runs_on: linux-medium-nested-virtualization
+    params:
+      build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
+      record_screen: true
+      android_system_image_package: 'system-images;android-31;default;x86_64'
+      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
   ios_maestro:
     name: Run iOS Maestro Tests
