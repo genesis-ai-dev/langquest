@@ -8,6 +8,8 @@ jsEngine: graaljs
 - launchApp:
     clearState: true
 - assertVisible: Terms & Privacy
+- scrollUntilVisible:
+    element: I agree
 - tapOn: I agree
 - assertVisible: Every language. Every culture.
 - tapOn:
