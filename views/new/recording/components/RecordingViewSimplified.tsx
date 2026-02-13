@@ -4,10 +4,6 @@ import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import {
-  resolveAssetAudio,
-  useAssetAudio
-} from '@/services/assetAudio';
 import { useAuth } from '@/contexts/AuthContext';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
@@ -21,10 +17,12 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import {
+  useAssetAudio
+} from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
@@ -38,7 +36,6 @@ import { Audio } from 'expo-av';
 import { ArrowLeft, ListVideo, PauseIcon } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -53,7 +50,7 @@ import { VADSettingsDrawer } from './VADSettingsDrawer';
 
 // Feature flag: true = use ArrayInsertionWheel, false = use LegendList
 const USE_INSERTION_WHEEL = true;
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
@@ -184,9 +181,6 @@ const RecordingViewSimplified = ({
 
   // Track AbortController for batch loading cleanup
   const batchLoadingControllerRef = React.useRef<AbortController | null>(null);
-
-  // Single SharedValue for play-all progress (only 1 asset plays at a time)
-  const playAllProgress = useSharedValue(0);
 
   // Insertion wheel state
   const [insertionIndex, setInsertionIndex] = React.useState(0);
@@ -394,37 +388,126 @@ const RecordingViewSimplified = ({
   // AUDIO PLAYBACK
   // ============================================================================
 
+  const stopPlayAll = React.useCallback(async () => {
+    console.log('⏸️ stopPlayAll called');
+    isPlayAllRunningRef.current = false;
+    setIsPlayAllRunning(false);
+    setCurrentlyPlayingAssetId(null);
+    await audio.stop();
+  }, [audio]);
+
+  const activateAssetForPlayAll = React.useCallback(
+    async (assetId: string, actualAssetIndex: number) => {
+      setCurrentlyPlayingAssetId(assetId);
+      await Promise.resolve();
+
+      if (wheelRef.current && lastScrolledAssetIdRef.current !== assetId) {
+        wheelRef.current.scrollItemToTop(actualAssetIndex - 1, true);
+        lastScrolledAssetIdRef.current = assetId;
+      }
+    },
+    []
+  );
+
+  /**
+   * Core queue runner for Play All.
+   *
+   * Flow:
+   * 1) Build ordered playlist from current assets and start index.
+   * 2) For each asset: activate UI -> play -> wait for playback end.
+   * 3) Exit immediately if stop was requested.
+   * 4) Always reset Play All state in finally.
+   */
+  const runPlayAll = React.useCallback(
+    async (startIndex: number) => {
+      // Small helper so stop checks read cleanly in the loop.
+      const isPlayAllActive = () => isPlayAllRunningRef.current;
+      // Live-array style: iterate directly over assets by index so if assets
+      // change while Play All is running, queue progression adapts in real time.
+      if (startIndex >= assets.length) {
+        console.warn('⚠️ No assets to play from insertion index');
+        return;
+      }
+
+      // Enter Play All mode once, then keep loop logic simple.
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      debugLog(`▶️ Playing assets sequentially (live list mode)`);
+
+      try {
+        // Sequential queue: each asset fully finishes before next starts.
+        let index = startIndex;
+        while (index < assets.length) {
+          // Stop requested (button toggle, card press, unmount, etc)
+          if (!isPlayAllActive()) break;
+
+          const item = assets[index];
+          if (!item?.id) {
+            index += 1;
+            continue;
+          }
+          const assetId = item.id;
+          const actualAssetIndex = index;
+          // Update list highlight / visibility for this queue position.
+          await activateAssetForPlayAll(assetId, actualAssetIndex);
+
+          debugLog(
+            `▶️ Playing asset at index ${actualAssetIndex} (${assetId.slice(0, 8)})`
+          );
+
+          // Start playback for this asset through AssetAudio abstraction.
+          await audio.play(assetId);
+          // Block until this asset is done (natural end or stop).
+          await audio.waitForPlaybackEnd(assetId);
+          index += 1;
+        }
+      } finally {
+        // Always leave Play All mode, regardless of completion/cancel/error.
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [assets, audio, activateAssetForPlayAll]
+  );
+
   // Handle asset playback (single asset or merged)
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
       try {
+        // During Play All, any asset tap acts as "stop play all" only.
+        if (isPlayAllRunningRef.current) {
+          debugLog(
+            '⏸️ Stopping Play All from asset tap:',
+            assetId.slice(0, 8)
+          );
+          await stopPlayAll();
+          return;
+        }
+
         const isThisAssetPlaying =
           audio.isPlaying && audio.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
-          debugLog('⏸️ Stopping asset:', assetId.slice(0, 8));
+          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
           await audio.stop();
         } else {
-          debugLog('▶️ Playing asset:', assetId.slice(0, 8));
+          console.log('▶️ Playing asset:', assetId.slice(0, 8));
           await audio.play(assetId);
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
       }
     },
-    [audio]
+    [audio, stopPlayAll]
   );
 
   // Handle play all - plays all assets sequentially starting from insertionIndex
   const handlePlayAll = React.useCallback(async () => {
     try {
-      // Check if already playing - toggle to stop
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        await audio.stop();
-        playAllProgress.value = 0;
-        setCurrentlyPlayingAssetId(null);
+        await stopPlayAll();
         debugLog('⏸️ Stopped play all');
         return;
       }
@@ -434,106 +517,14 @@ const RecordingViewSimplified = ({
         return;
       }
 
-      // Determine which assets to process starting from insertionIndex
       const startIndex = Math.min(insertionIndex, assets.length - 1);
-      const assetsToProcess = assets.slice(startIndex);
-
-      if (assetsToProcess.length === 0) {
-        console.warn('⚠️ No assets to play from insertion index');
-        return;
-      }
-
-      debugLog(
-        `🎵 Starting play all from insertion index ${startIndex} (${assetsToProcess.length} assets)...`
-      );
-
-      // Mark as running
-      isPlayAllRunningRef.current = true;
-      setIsPlayAllRunning(true);
-
-      // Build playlist: assets with resolvable audio
-      const playlist: { assetId: string }[] = [];
-      for (const asset of assetsToProcess) {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (!isPlayAllRunningRef.current) {
-          debugLog('⏸️ Play all cancelled during playlist build');
-          return;
-        }
-        const resolved = await resolveAssetAudio(asset.id);
-        if (resolved && resolved.segments.length > 0) {
-          playlist.push({ assetId: asset.id });
-        }
-      }
-
-      if (playlist.length === 0) {
-        console.error('❌ No audio found for any assets');
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        return;
-      }
-
-      debugLog(`▶️ Playing ${playlist.length} assets sequentially`);
-
-      // Play each asset sequentially via AssetAudio
-      for (let i = 0; i < playlist.length; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (!isPlayAllRunningRef.current) {
-          debugLog('⏸️ Play all cancelled');
-          setCurrentlyPlayingAssetId(null);
-          return;
-        }
-
-        const item = playlist[i]!;
-        const actualAssetIndex = startIndex + i;
-
-        setCurrentlyPlayingAssetId(item.assetId);
-        await Promise.resolve();
-
-        // Scroll to this asset in the wheel
-        if (wheelRef.current) {
-          wheelRef.current.scrollItemToTop(actualAssetIndex - 1, true);
-        }
-
-        debugLog(
-          `▶️ [${i + 1}/${playlist.length}] Playing asset at index ${actualAssetIndex} (${item.assetId.slice(0, 8)})`
-        );
-
-        playAllProgress.value = 0;
-        await audio.play(item.assetId);
-
-        // Poll until playback completes or user stops
-        while (true) {
-          await new Promise((r) => setTimeout(r, 100));
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (!isPlayAllRunningRef.current) {
-            await audio.stop();
-            setCurrentlyPlayingAssetId(null);
-            return;
-          }
-          const pos = audio.positionShared.value;
-          const dur = audio.durationShared.value;
-          if (dur > 0) {
-            playAllProgress.value = (pos / dur) * 100;
-          }
-          if (audio.currentAudioId !== item.assetId || !audio.isPlaying) {
-            break;
-          }
-        }
-      }
-
+      await runPlayAll(startIndex);
       debugLog('✅ Finished playing all assets');
-      playAllProgress.value = 0;
-      setCurrentlyPlayingAssetId(null);
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
     } catch (error) {
       console.error('❌ Error playing all assets:', error);
-      playAllProgress.value = 0;
-      setCurrentlyPlayingAssetId(null);
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
+      await stopPlayAll();
     }
-  }, [assets, audio, insertionIndex, playAllProgress]);
+  }, [assets.length, insertionIndex, runPlayAll, stopPlayAll]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1472,13 +1463,11 @@ const RecordingViewSimplified = ({
   const stableHandleRenameAsset = React.useCallback(handleRenameAsset, [
     handleRenameAsset
   ]);
-
   // Memoized render function for LegendList
   // OPTIMIZED: No audioContext.position dependency - progress now uses SharedValues!
   // This eliminates 10 re-renders/second during audio playback
   const renderAssetItem = React.useCallback(
     ({ item, index }: { item: UIAsset; index: number }) => {
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
       const isThisAssetPlayingIndividually =
         audio.isPlaying && audio.currentAudioId === item.id;
       const isThisAssetPlayingInPlayAll =
@@ -1492,11 +1481,6 @@ const RecordingViewSimplified = ({
       // Duration from lazy-loaded metadata
       const duration = item.duration;
 
-      // Get custom progress for play-all mode (only for the currently playing asset)
-      const customProgress = isThisAssetPlayingInPlayAll
-        ? playAllProgress
-        : undefined;
-
       return (
         <AssetCard
           asset={item}
@@ -1507,7 +1491,6 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
-          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1532,7 +1515,6 @@ const RecordingViewSimplified = ({
       audio.currentAudioId,
       isPlayAllRunning,
       currentlyPlayingAssetId,
-      playAllProgress,
       // audioContext.position REMOVED - uses SharedValues now!
       // audioContext.duration REMOVED - not needed for render
       selectedAssetIds,
@@ -1552,7 +1534,6 @@ const RecordingViewSimplified = ({
   // This eliminates re-creating all children 10+ times per second during audio playback
   const wheelChildren = React.useMemo(() => {
     return assetsForLegendList.map((item, index) => {
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
       const isThisAssetPlayingIndividually =
         audio.isPlaying && audio.currentAudioId === item.id;
       const isThisAssetPlayingInPlayAll =
@@ -1567,11 +1548,6 @@ const RecordingViewSimplified = ({
       // Duration from lazy-loaded metadata
       const duration = item.duration;
 
-      // Get custom progress for play-all mode (only for the currently playing asset)
-      const customProgress = isThisAssetPlayingInPlayAll
-        ? playAllProgress
-        : undefined;
-
       return (
         <AssetCard
           key={item.id}
@@ -1583,7 +1559,6 @@ const RecordingViewSimplified = ({
           duration={duration}
           canMergeDown={canMergeDown}
           segmentCount={item.segmentCount}
-          customProgress={customProgress}
           onPress={() => {
             if (isSelectionMode) {
               stableToggleSelect(item.id);
@@ -1609,7 +1584,6 @@ const RecordingViewSimplified = ({
     audio.currentAudioId,
     isPlayAllRunning,
     currentlyPlayingAssetId,
-    playAllProgress,
     // audioContext.position REMOVED - uses SharedValues now!
     // audioContext.duration REMOVED - not needed for render
     selectedAssetIds,
