@@ -74,41 +74,44 @@ jobs:
       android_system_image_package: 'system-images;android-31;default;x86_64'
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
-  # ios_get_build:
-  #   name: Check for existing ios build
-  #   needs: [fingerprint]
-  #   type: get-build
-  #   environment: preview
-  #   params:
-  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-  #     profile: preview-simulator
+  ios_get_build:
+    name: Check for existing ios build
+    needs: [fingerprint]
+    type: get-build
+    environment: preview
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: preview-simulator
+      platform: ios
 
-  # ios_repack:
-  #   name: Repack iOS
-  #   needs: [ios_get_build]
-  #   if: ${{ needs.ios_get_build.outputs.build_id }}
-  #   type: repack
-  #   environment: preview
-  #   params:
-  #     build_id: ${{ needs.ios_get_build.outputs.build_id }}
+  ios_repack:
+    name: Repack iOS
+    needs: [ios_get_build]
+    if: ${{ needs.ios_get_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    runs_on: linux-medium
+    params:
+      build_id: ${{ needs.ios_get_build.outputs.build_id }}
 
-  # ios_build:
-  #   name: Build iOS
-  #   needs: [ios_get_build]
-  #   if: ${{ !needs.ios_get_build.outputs.build_id }}
-  #   type: build
-  #   environment: preview
-  #   params:
-  #     platform: ios
-  #     profile: preview-simulator
+  ios_build:
+    name: Build iOS
+    needs: [ios_get_build]
+    if: ${{ !needs.ios_get_build.outputs.build_id }}
+    type: build
+    environment: preview
+    runs_on: linux-medium
+    params:
+      platform: ios
+      profile: preview-simulator
 
-  # ios_maestro:
-  #   name: Run iOS Maestro Tests
-  #   after: [ios_repack, ios_build]
-  #   type: maestro
-  #   environment: preview
-  #   image: latest
-  #   params:
-  #     build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
-  #     flow_path: ['maestro.yaml']
-  #     flow_path: ['maestro.yaml']
+  ios_maestro:
+    name: Run iOS Maestro Tests
+    after: [ios_repack, ios_build]
+    type: maestro
+    environment: preview
+    image: latest
+    runs_on: linux-medium-nested-virtualization
+    params:
+      build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
+      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
