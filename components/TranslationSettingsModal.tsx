@@ -12,7 +12,8 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -122,7 +123,7 @@ export const TranslationSettingsModal: React.FC<
                   {'Translation Settings'}
                 </Text>
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <Ionicons name="close" size={24} color={colors.text} />
+                  <Icon as={X} size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
 

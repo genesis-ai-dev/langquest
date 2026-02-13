@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, TextInput, View } from 'react-native';
@@ -38,8 +39,8 @@ export const PasswordInput = ({
         }}
         style={styles.icon}
       >
-        <Ionicons
-          name={showPassword ? 'eye-off' : 'eye'}
+        <Icon
+          as={showPassword ? EyeOff : Eye}
           size={24}
           color={placeholderTextColor}
           style={{ opacity: 0.7 }}

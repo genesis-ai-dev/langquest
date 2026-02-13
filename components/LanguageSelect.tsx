@@ -6,7 +6,8 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { colors, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { Globe } from 'lucide-react-native';
 import {
   memo,
   default as React,
@@ -88,8 +89,8 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
 
     const renderLeftIcon = useCallback(
       () => (
-        <Ionicons
-          name="language"
+        <Icon
+          as={Globe}
           size={20}
           color={colors.text}
           style={{ marginRight: spacing.medium }}

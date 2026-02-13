@@ -11,7 +11,17 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Filter,
+  Trash2,
+  ArrowUpDown
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -88,8 +98,8 @@ const CategorySection: React.FC<{
     <View>
       <TouchableOpacity style={styles.heading} onPress={onToggle}>
         <Text style={styles.headingText}>{category}</Text>
-        <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+        <Icon
+          as={isExpanded ? ChevronUp : ChevronDown}
           size={24}
           color={colors.text}
         />
@@ -106,8 +116,8 @@ const CategorySection: React.FC<{
               <Text style={styles.optionText}>{option.label}</Text>
               <View style={sharedStyles.checkboxContainer}>
                 {selectedOptions.includes(option.id) ? (
-                  <Ionicons
-                    name="checkmark-circle"
+                  <Icon
+                    as={CheckCircle2}
                     size={24}
                     color={colors.primary}
                   />
@@ -242,8 +252,8 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                 onPress={() => setActiveTab('filter')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
-                    name="filter"
+                  <Icon
+                    as={Filter}
                     size={24}
                     color={
                       activeTab === 'filter' ? colors.primary : colors.text
@@ -263,8 +273,8 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                 onPress={() => setActiveTab('sort')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
-                    name="swap-vertical"
+                  <Icon
+                    as={ArrowUpDown}
                     size={24}
                     color={activeTab === 'sort' ? colors.primary : colors.text}
                   />
@@ -333,11 +343,11 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                         )
                       }
                     >
-                      <Ionicons
-                        name={
+                      <Icon
+                        as={
                           sortingOptions[index]?.order === 'asc'
-                            ? 'arrow-up'
-                            : 'arrow-down'
+                            ? ArrowUp
+                            : ArrowDown
                         }
                         size={24}
                         color={colors.text}
@@ -348,8 +358,8 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                         style={styles.removeButton}
                         onPress={() => handleSortingChange(index, null)}
                       >
-                        <Ionicons
-                          name="trash-outline"
+                        <Icon
+                          as={Trash2}
                           size={24}
                           color={colors.error}
                         />

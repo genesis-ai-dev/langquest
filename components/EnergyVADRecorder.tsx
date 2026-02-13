@@ -1,4 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { PlayCircle, StopCircle } from 'lucide-react-native';
 import {
   RecordingPresets,
   setAudioModeAsync,
@@ -171,8 +172,8 @@ const EnergyVADRecorder: React.FC<EnergyVADRecorderProps> = ({
         style={[styles.vadButton, isActive && styles.vadButtonActive]}
         onPress={handleToggleEnergyDetection}
       >
-        <Ionicons
-          name={isActive ? 'stop-circle' : 'play-circle'}
+        <Icon
+          as={isActive ? StopCircle : PlayCircle}
           size={40}
           color="white"
         />

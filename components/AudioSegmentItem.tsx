@@ -1,5 +1,6 @@
+import { Icon } from '@/components/ui/icon';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronDown, ChevronUp, Pause, Play, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import WaveformVisualizer from './WaveformVisualizer';
@@ -48,8 +49,8 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           onPress={() => canMoveUp && onMoveUp(segment.id)}
           disabled={!canMoveUp}
         >
-          <Ionicons
-            name="chevron-up"
+          <Icon
+            as={ChevronUp}
             size={20}
             color={canMoveUp ? colors.text : colors.textSecondary}
           />
@@ -60,8 +61,8 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
           onPress={() => canMoveDown && onMoveDown(segment.id)}
           disabled={!canMoveDown}
         >
-          <Ionicons
-            name="chevron-down"
+          <Icon
+            as={ChevronDown}
             size={20}
             color={canMoveDown ? colors.text : colors.textSecondary}
           />
@@ -98,8 +99,8 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
               style={styles.playButton}
               onPress={() => onPlay(segment.uri)}
             >
-              <Ionicons
-                name={isPlaying ? 'pause' : 'play'}
+              <Icon
+                as={isPlaying ? Pause : Play}
                 size={20}
                 color={colors.primary}
               />
@@ -110,7 +111,7 @@ const AudioSegmentItem: React.FC<AudioSegmentItemProps> = ({
             style={styles.deleteButton}
             onPress={() => onDelete(segment.id)}
           >
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Icon as={Trash2} size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>

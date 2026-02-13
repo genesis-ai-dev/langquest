@@ -45,6 +45,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import {
+  AlertTriangle,
   BellIcon,
   CheckIcon,
   HomeIcon,
@@ -941,7 +942,7 @@ export default function NotificationsView() {
                   </View>
                   {!shouldDownload && (
                     <View style={styles.warningContainer}>
-                      <Ionicons name="warning" size={16} color={colors.alert} />
+                      <Icon as={AlertTriangle} size={16} color={colors.alert} />
                       <Text style={styles.warningText}>
                         {t('projectNotAvailableOfflineWarning')}
                       </Text>

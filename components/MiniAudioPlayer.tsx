@@ -4,8 +4,8 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { colors, spacing } from '@/styles/theme';
 import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
-import { SparklesIcon } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
+import { Pause, Play, SparklesIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -61,8 +61,8 @@ export default function MiniAudioPlayer({
         onPress={handlePlayPause}
         style={styles.playButton}
       >
-        <Ionicons
-          name={isThisAudioPlaying ? 'pause' : 'play'}
+        <Icon
+          as={isThisAudioPlaying ? Pause : Play}
           size={24}
           color={colors.text}
         />

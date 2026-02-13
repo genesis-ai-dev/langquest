@@ -1,7 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { borderRadius, colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { ThumbsDown, ThumbsUp } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -68,8 +69,8 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View style={styles.container}>
               <View style={styles.modal}>
-                <Ionicons
-                  name={voteType === 'up' ? 'thumbs-up' : 'thumbs-down'}
+                <Icon
+                  as={voteType === 'up' ? ThumbsUp : ThumbsDown}
                   size={40}
                   color={colors.primary}
                   style={styles.icon}

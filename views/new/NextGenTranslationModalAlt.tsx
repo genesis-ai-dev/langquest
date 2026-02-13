@@ -28,7 +28,8 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import { X } from 'lucide-react-native';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -588,8 +589,8 @@ export default function NextGenTranslationModal({
                     </Button>
                   )}
                   <Pressable onPress={handleClose} className="p-2">
-                    <Ionicons
-                      name="close"
+                    <Icon
+                      as={X}
                       size={24}
                       color={getThemeColor('foreground')}
                     />
