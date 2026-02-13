@@ -21,11 +21,11 @@
       "channel": "preview",
       "environment": "preview",
       "distribution": "internal",
+      "cache": {
+        "key": "expo-cache-v2-2026-02-13"
+      },
       "ios": {
         "distribution": "store"
-      },
-      "env": {
-        "EAS_USE_CACHE": "0"
       }
     },
     "preview-simulator": {
