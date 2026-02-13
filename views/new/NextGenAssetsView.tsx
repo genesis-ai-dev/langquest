@@ -80,7 +80,7 @@ import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import { AssetListItem } from './AssetListItem';
+import { AssetCardItem } from './AssetCardItem';
 import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
@@ -137,6 +137,12 @@ export default function NextGenAssetsView() {
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
+  // Ref to allow stable onPlay callback in renderItem before handler declaration
+  const handlePlayAssetRef = React.useRef<
+    (assetId: string) => void | Promise<void>
+  >((_assetId: string) => {
+    // No-op: replaced by handlePlayAsset
+  });
 
   const currentPlayingAssetIdRef = React.useRef<string | null>(null);
 
@@ -359,6 +365,11 @@ export default function NextGenAssetsView() {
     });
   }, [queryClient]);
 
+  const stableOnPlay = React.useCallback(
+    (assetId: string) => handlePlayAssetRef.current(assetId),
+    []
+  );
+
   const renderItem = React.useCallback(
     ({
       item,
@@ -367,8 +378,8 @@ export default function NextGenAssetsView() {
       item: AssetQuestLink & { source?: HybridDataSource };
       isPublished: boolean;
     }) => {
-      // Check if this asset is currently playing in PlayAll mode
-      const isPlaying = isPlayAllRunning && currentlyPlayingAssetId === item.id;
+      // Highlight/pause should work for both play-all and individual play
+      const isPlaying = currentlyPlayingAssetId === item.id;
 
       // Debug logging for highlighting
       if (isPlaying && __DEV__) {
@@ -379,16 +390,19 @@ export default function NextGenAssetsView() {
 
       return (
         <>
-          <AssetListItem
+          <AssetCardItem
             key={item.id}
             asset={item}
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
+            onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
             isPublished={isPublished}
             isSelected={isSelected}
             onToggleSelect={handleToggleSelect}
+            onSelectForRecording={handleToggleSelect}
+            onEnterSelection={enterSelection}
           />
         </>
       );
@@ -396,11 +410,12 @@ export default function NextGenAssetsView() {
     [
       currentQuestId,
       safeAttachmentStates,
-      isPlayAllRunning,
       currentlyPlayingAssetId,
+      stableOnPlay,
       handleAssetUpdate,
       selectedAssetIds,
-      handleToggleSelect
+      handleToggleSelect,
+      enterSelection
     ]
   );
 
@@ -980,6 +995,60 @@ export default function NextGenAssetsView() {
       currentPlayAllSoundRef.current = null;
     }
   }, [assets, getAssetAudioUris, selectedAssetIds]);
+
+  // Handle play individual asset (same behavior as BibleAssetsView)
+  const handlePlayAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        const isThisAssetPlaying =
+          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+
+        if (isThisAssetPlaying) {
+          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
+          await audioContext.stopCurrentSound();
+          setCurrentlyPlayingAssetId(null);
+        } else {
+          console.log('▶️ Playing asset:', assetId.slice(0, 8));
+          const uris = await getAssetAudioUris(assetId);
+
+          if (uris.length === 0) {
+            console.warn('⚠️ No audio URIs found for asset:', assetId);
+            return;
+          }
+
+          // Visual feedback immediately
+          setCurrentlyPlayingAssetId(assetId);
+
+          if (uris.length === 1 && uris[0]) {
+            await audioContext.playSound(uris[0], assetId);
+          } else if (uris.length > 1) {
+            await audioContext.playSoundSequence(uris, assetId);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to play audio:', error);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [audioContext, getAssetAudioUris]
+  );
+
+  // Update ref so renderItem can use stable callback
+  handlePlayAssetRef.current = handlePlayAsset;
+
+  // Keep card highlight/pause in sync for individual playback.
+  // PlayAll manages currentlyPlayingAssetId directly, so skip while it's active.
+  React.useEffect(() => {
+    if (isPlayAllRunningRef.current) {
+      return;
+    }
+
+    if (audioContext.isPlaying && audioContext.currentAudioId) {
+      setCurrentlyPlayingAssetId(audioContext.currentAudioId);
+    } else if (!audioContext.isPlaying && !audioContext.currentAudioId) {
+      setCurrentlyPlayingAssetId(null);
+    }
+  }, [audioContext.isPlaying, audioContext.currentAudioId]);
 
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
