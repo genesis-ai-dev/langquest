@@ -82,10 +82,12 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
         id: check-compatibility-change
         uses: actions/github-script@v7
+        env:
+          FINGERPRINT_DIFF: ${{ steps.fingerprint.outputs.fingerprint-diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const fingerprintDiff = process.env.FINGERPRINT_DIFF || '[]';
             // Handle fingerprint diff - it's a JSON string, check if it's an empty array
             const trimmedDiff = String(fingerprintDiff).trim();
             // Empty array means no changes (compatible), non-empty means changes
@@ -153,10 +155,19 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
         id: format-diff
         uses: actions/github-script@v7
+        env:
+          FINGERPRINT_DIFF: ${{ steps.fingerprint.outputs.fingerprint-diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fingerprintDiff = ${{ steps.fingerprint.outputs.fingerprint-diff }};
+            const fingerprintDiffStr = process.env.FINGERPRINT_DIFF || '[]';
+            // Parse the JSON string if it's valid JSON, otherwise use as-is
+            let fingerprintDiff;
+            try {
+              fingerprintDiff = JSON.parse(fingerprintDiffStr);
+            } catch (e) {
+              fingerprintDiff = fingerprintDiffStr;
+            }
             const prettifiedDiff = JSON.stringify(fingerprintDiff, null, 2);
             core.setOutput('prettified_diff', prettifiedDiff);
 
