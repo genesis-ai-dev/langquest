@@ -24,6 +24,7 @@ import {
   BookOpenIcon,
   ChurchIcon,
   GlobeIcon,
+  GraduationCapIcon,
   LanguagesIcon,
   PlusIcon,
   XIcon
@@ -64,7 +65,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
 
   const [step, setStep] = useState<Step>('region');
   const [projectType, setProjectType] = useState<
-    'bible' | 'unstructured' | null
+    'bible' | 'unstructured' | 'fia' | null
   >(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(
@@ -310,9 +311,15 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     setStep('create-project');
   };
 
-  const handleProjectTypeSelect = async (type: 'bible' | 'unstructured') => {
+  const handleProjectTypeSelect = async (
+    type: 'bible' | 'unstructured' | 'fia'
+  ) => {
     if (!selectedLanguageId) return;
     setProjectType(type);
+    if (type === 'fia') {
+      // FIA project creation is not yet implemented
+      return;
+    }
     try {
       await createProject(selectedLanguageId);
     } catch (error) {
@@ -652,7 +659,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   </Pressable>
                 </Card>
 
-                {/* Other Translation Project Card */}
+                {/* Custom Translation Project Card */}
                 <Card className="w-full">
                   <Pressable
                     onPress={() => handleProjectTypeSelect('unstructured')}
@@ -682,6 +689,42 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                           ellipsizeMode="tail"
                         >
                           {t('createGeneralTranslationProject')}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                </Card>
+
+                {/* FIA Project Card */}
+                <Card className="w-full opacity-60">
+                  <Pressable
+                    onPress={() => handleProjectTypeSelect('fia')}
+                    disabled={true}
+                    accessibilityRole="button"
+                  >
+                    <View className="flex-row items-center p-6">
+                      <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
+                        <Icon
+                          as={GraduationCapIcon}
+                          size={32}
+                          className="text-primary"
+                        />
+                      </View>
+                      <View className="flex-1 flex-col items-start">
+                        <Text
+                          variant="h4"
+                          className="mb-1"
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {t('createFiaProject')}
+                        </Text>
+                        <Text
+                          className="text-sm text-muted-foreground"
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
+                          {t('fiaComingSoon')}
                         </Text>
                       </View>
                     </View>

@@ -34,13 +34,15 @@ import {
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
+import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import {
   Drawer,
   DrawerClose,
@@ -98,6 +100,8 @@ export default function NextGenProjectsView() {
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
     // this is the TARGET languoid we're translating to
     target_languoid_id: z.string().min(1, t('selectLanguage')),
+    // FIA content language (source) - only used when template is 'fia'
+    source_languoid_id: z.string().optional(),
     description: z
       .string()
       .max(196, t('descriptionTooLong', { max: 196 }))
@@ -227,6 +231,20 @@ export default function NextGenProjectsView() {
     resolver: zodResolver(formSchema),
     disabled: !currentUser?.id
   });
+
+  const watchedTemplate = form.watch('template');
+  const isFiaTemplate = watchedTemplate === 'fia';
+
+  const { fiaLanguoids } = useFiaLanguoids();
+
+  const fiaDropdownData = useMemo(
+    () =>
+      fiaLanguoids.map((lang) => ({
+        label: lang.name ?? lang.id,
+        value: lang.id
+      })),
+    [fiaLanguoids]
+  );
 
   useEffect(() => {
     if (savedLanguage && !form.getValues('target_languoid_id')) {
@@ -1014,7 +1032,13 @@ export default function NextGenProjectsView() {
                     <FormControl>
                       <RadioGroup
                         value={field.value}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Clear source_languoid_id when switching away from FIA
+                          if (value !== 'fia') {
+                            form.setValue('source_languoid_id', undefined);
+                          }
+                        }}
                       >
                         {templateOptions.map((option) => (
                           <RadioGroupItem
@@ -1031,6 +1055,73 @@ export default function NextGenProjectsView() {
                   </FormItem>
                 )}
               />
+
+              {isFiaTemplate && (
+                <FormField
+                  control={form.control}
+                  name="source_languoid_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('fiaContentLanguage')}</FormLabel>
+                      <FormControl>
+                        <Dropdown
+                          style={{
+                            height: 48,
+                            borderWidth: 1,
+                            borderRadius: 8,
+                            paddingHorizontal: 12,
+                            backgroundColor: getThemeColor('card'),
+                            borderColor: getThemeColor('border')
+                          }}
+                          placeholderStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('muted-foreground')
+                          }}
+                          selectedTextStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('foreground')
+                          }}
+                          containerStyle={{
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            borderWidth: 1,
+                            marginTop: 8,
+                            backgroundColor: getThemeColor('card'),
+                            borderColor: getThemeColor('border')
+                          }}
+                          itemTextStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('foreground')
+                          }}
+                          itemContainerStyle={{
+                            borderRadius: 8,
+                            overflow: 'hidden'
+                          }}
+                          activeColor={getThemeColor('primary')}
+                          dropdownPosition="auto"
+                          data={fiaDropdownData}
+                          maxHeight={300}
+                          labelField="label"
+                          valueField="value"
+                          placeholder={t('fiaContentLanguage')}
+                          value={field.value}
+                          onChange={(item) => field.onChange(item.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {isFiaTemplate && (
+                <View className="rounded-md bg-muted p-3">
+                  <Text className="text-sm text-muted-foreground">
+                    {t('fiaComingSoon')}
+                  </Text>
+                </View>
+              )}
+
               <FormField
                 control={form.control}
                 name="private"
@@ -1051,6 +1142,7 @@ export default function NextGenProjectsView() {
               <FormSubmit
                 onPress={form.handleSubmit((data) => createProject(data))}
                 className="flex-row items-center gap-2"
+                disabled={isFiaTemplate}
               >
                 <Text>{t('createObject')}</Text>
               </FormSubmit>

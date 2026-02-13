@@ -1228,20 +1228,20 @@ export const localizations = {
     nepali: 'बाइबललाई आफ्नो भाषामा अनुवाद गर्नुहोस्'
   },
   createOtherProject: {
-    english: 'Other Translation',
-    spanish: 'Otra Traducción',
-    brazilian_portuguese: 'Outra Tradução',
-    tok_pisin: 'Narapela Translation',
-    indonesian: 'Terjemahan Lain',
-    nepali: 'अन्य अनुवाद'
+    english: 'Custom Translation',
+    spanish: 'Traducción Personalizada',
+    brazilian_portuguese: 'Tradução Personalizada',
+    tok_pisin: 'Custom Translation',
+    indonesian: 'Terjemahan Kustom',
+    nepali: 'अनुकूलन अनुवाद'
   },
   createGeneralTranslationProject: {
-    english: 'Create a general translation project',
-    spanish: 'Crear un proyecto de traducción general',
-    brazilian_portuguese: 'Criar um projeto de tradução geral',
-    tok_pisin: 'Mekim wanpela project long translate ol samting',
-    indonesian: 'Buat proyek terjemahan umum',
-    nepali: 'सामान्य अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्'
+    english: 'Create a custom translation project',
+    spanish: 'Crear un proyecto de traducción personalizado',
+    brazilian_portuguese: 'Criar um projeto de tradução personalizado',
+    tok_pisin: 'Mekim wanpela custom project long translate ol samting',
+    indonesian: 'Buat proyek terjemahan kustom',
+    nepali: 'अनुकूलन अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्'
   },
   selectProject: {
     english: 'Select Project',
@@ -5007,12 +5007,60 @@ export const localizations = {
     nepali: 'बाइबल'
   },
   unstructured: {
-    english: 'Unstructured',
-    spanish: 'No estructurado',
-    brazilian_portuguese: 'Não estruturado',
-    tok_pisin: 'Unstructured',
-    indonesian: 'Tidak terstruktur',
-    nepali: 'संरचना नभएको'
+    english: 'Custom',
+    spanish: 'Personalizado',
+    brazilian_portuguese: 'Personalizado',
+    tok_pisin: 'Custom',
+    indonesian: 'Kustom',
+    nepali: 'अनुकूलन'
+  },
+  fia: {
+    english: 'FIA',
+    spanish: 'FIA',
+    brazilian_portuguese: 'FIA',
+    tok_pisin: 'FIA',
+    indonesian: 'FIA',
+    nepali: 'FIA'
+  },
+  fiaDescription: {
+    english: 'Familiarize-Internalize-Articulate',
+    spanish: 'Familiarizar-Internalizar-Articular',
+    brazilian_portuguese: 'Familiarizar-Internalizar-Articular',
+    tok_pisin: 'Familiarize-Internalize-Articulate',
+    indonesian: 'Familiarisasi-Internalisasi-Artikulasi',
+    nepali: 'परिचित-आन्तरिकीकरण-अभिव्यक्त'
+  },
+  fiaContentLanguage: {
+    english: 'FIA content language',
+    spanish: 'Idioma del contenido FIA',
+    brazilian_portuguese: 'Idioma do conteúdo FIA',
+    tok_pisin: 'FIA content language',
+    indonesian: 'Bahasa konten FIA',
+    nepali: 'FIA सामग्री भाषा'
+  },
+  fiaComingSoon: {
+    english: 'FIA project creation coming soon',
+    spanish: 'Creación de proyectos FIA próximamente',
+    brazilian_portuguese: 'Criação de projetos FIA em breve',
+    tok_pisin: 'FIA project creation i kam',
+    indonesian: 'Pembuatan proyek FIA segera hadir',
+    nepali: 'FIA प्रोजेक्ट सिर्जना चाँडै आउँदैछ'
+  },
+  createFiaProject: {
+    english: 'FIA Project',
+    spanish: 'Proyecto FIA',
+    brazilian_portuguese: 'Projeto FIA',
+    tok_pisin: 'FIA Project',
+    indonesian: 'Proyek FIA',
+    nepali: 'FIA प्रोजेक्ट'
+  },
+  createFiaProjectDescription: {
+    english: 'Translate FIA content into your language',
+    spanish: 'Traduce contenido FIA a tu idioma',
+    brazilian_portuguese: 'Traduza conteúdo FIA para o seu idioma',
+    tok_pisin: 'Translatem FIA content long tok ples bilong yu',
+    indonesian: 'Terjemahkan konten FIA ke bahasa Anda',
+    nepali: 'FIA सामग्री तपाईंको भाषामा अनुवाद गर्नुहोस्'
   },
   audioTracks: {
     english: 'Audio tracks',
