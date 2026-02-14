@@ -67,6 +67,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { renameAsset } from '@/database_services/assetService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
@@ -82,6 +83,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
+import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
 type Asset = typeof asset.$inferSelect;
@@ -91,7 +93,7 @@ type AssetQuestLink = Asset & {
   tag_ids?: string[] | undefined;
 };
 
-const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 999000000;
+const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
 
 export default function NextGenAssetsView() {
   const {
@@ -119,6 +121,9 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
+  const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
+  const [renameAssetName, setRenameAssetName] = React.useState('');
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
@@ -328,6 +333,13 @@ export default function NextGenAssetsView() {
     return Array.from(assetMap.values());
   }, [data.pages]);
 
+  const selectedAssetForRecording = React.useMemo(() => {
+    const selectedAssetId = Array.from(selectedAssetIds)[0];
+    return selectedAssetId
+      ? assets.find((asset) => asset.id === selectedAssetId) ?? null
+      : null;
+  }, [selectedAssetIds, assets]);
+
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
@@ -366,6 +378,34 @@ export default function NextGenAssetsView() {
       queryKey: ['assets']
     });
   }, [queryClient]);
+
+  const handleRenameAsset = React.useCallback(
+    (assetId: string, currentName: string | null) => {
+      setRenameAssetId(assetId);
+      setRenameAssetName(currentName ?? '');
+      setShowRenameDrawer(true);
+    },
+    []
+  );
+
+  const handleSaveRename = React.useCallback(
+    async (newName: string) => {
+      if (!renameAssetId) return;
+
+      try {
+        await renameAsset(renameAssetId, newName);
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+      } catch (error) {
+        console.error('❌ Failed to rename asset:', error);
+        if (error instanceof Error) {
+          console.warn('⚠️ Rename blocked:', error.message);
+          RNAlert.alert(t('error'), error.message);
+        }
+      }
+    },
+    [renameAssetId, queryClient, refetch, t]
+  );
 
   const stableOnPlay = React.useCallback(
     (assetId: string) => handlePlayAssetRef.current(assetId),
@@ -408,6 +448,7 @@ export default function NextGenAssetsView() {
             isHighlighted={isHighlighted}
             onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
+            onRename={!isPublished ? handleRenameAsset : undefined}
             isPublished={isPublished}
             isSelected={isSelected}
             onToggleSelect={handleToggleSelect}
@@ -423,6 +464,7 @@ export default function NextGenAssetsView() {
       currentlyPlayingAssetId,
       stableOnPlay,
       handleAssetUpdate,
+      handleRenameAsset,
       selectedAssetIds,
       handleToggleSelect,
       enterSelection,
@@ -1257,14 +1299,21 @@ export default function NextGenAssetsView() {
     // Create recording session and navigate to RecordingView
     const recordingSessionId =
       await createQuestRecordingSession(currentQuestId);
-    const selectedAssetId = Array.from(selectedAssetIds)[0];
-    const selectedAsset = selectedAssetId
-      ? assets.find((asset) => asset.id === selectedAssetId)
-      : null;
+    const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
+      if (typeof asset.order_index !== 'number') {
+        return maxOrder;
+      }
+      if (maxOrder === null || asset.order_index > maxOrder) {
+        return asset.order_index;
+      }
+      return maxOrder;
+    }, null);
     const initialOrderIndex =
-      typeof selectedAsset?.order_index === 'number'
-        ? selectedAsset.order_index
-        : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
+      typeof selectedAssetForRecording?.order_index === 'number'
+        ? selectedAssetForRecording.order_index
+        : typeof lastOrderIndex === 'number'
+          ? (Math.floor(lastOrderIndex / 1000) + 1) * 1000
+          : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
 
     navigate({
       view: 'recording',
@@ -1280,8 +1329,8 @@ export default function NextGenAssetsView() {
     navigate,
     currentQuestId,
     currentProjectId,
-    selectedAssetIds,
-    assets
+    assets,
+    selectedAssetForRecording
   ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
@@ -1681,14 +1730,33 @@ export default function NextGenAssetsView() {
                 {t('startRecordingSession')}
               </Text>
               <Text className="w-full text-left text-sm text-secondary">
-                {selectedQuest?.name
-                  ? selectedQuest.name.slice(0, 30)
-                  : t('doRecord')}
+                {selectedAssetForRecording?.name
+                  ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
+                      0,
+                      30
+                    )
+                  : selectedQuest?.name
+                    ? selectedQuest.name.slice(0, 30)
+                    : t('doRecord')}
               </Text>
             </View>
             <Icon as={ChevronRight} size={24} className="text-secondary" />
           </Pressable>
         </View>
+      )}
+
+      {showRenameDrawer && (
+        <RenameAssetDrawer
+          isOpen={showRenameDrawer}
+          currentName={renameAssetName}
+          onOpenChange={(open) => {
+            setShowRenameDrawer(open);
+            if (!open) {
+              setRenameAssetId(null);
+            }
+          }}
+          onSave={handleSaveRename}
+        />
       )}
 
       {allowSettings && isOwner && (
