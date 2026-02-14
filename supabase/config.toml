@@ -331,6 +331,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/fia-pericopes/index.ts"
 
+[functions.fia-pericope-text]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fia-pericope-text/index.ts"
+
 [functions.predict-translation]
 enabled = true
 verify_jwt = true

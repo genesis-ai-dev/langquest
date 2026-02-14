@@ -37,6 +37,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import {
   BookmarkPlusIcon,
+  BookOpenIcon,
   BrushCleaning,
   CheckCheck,
   ChevronRight,
@@ -86,6 +87,7 @@ import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
+import { useFiaPericopeText } from '@/hooks/useFiaPericopeText';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
@@ -572,6 +574,9 @@ export default function BibleAssetsView() {
   const [showVerseAssignerDrawer, setShowVerseAssignerDrawer] =
     React.useState(false);
 
+  // State for FIA pericope text drawer
+  const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+
   // Manual verse separators created by the user
   const [manualSeparators, setManualSeparators] = React.useState<
     { from: number; to: number; key: string; assetId?: string }[]
@@ -678,6 +683,30 @@ export default function BibleAssetsView() {
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
+
+  // Extract FIA pericope ID from metadata (null for Bible quests)
+  const fiaPericopeId = React.useMemo(() => {
+    if (!selectedQuest?.metadata) return null;
+    const fiaMeta = extractFiaMetadata(selectedQuest.metadata);
+    return fiaMeta?.pericopeId ?? null;
+  }, [selectedQuest?.metadata]);
+
+  // Fetch FIA step 1 text (only for FIA pericope quests)
+  const {
+    text: fiaText,
+    stepTitle: fiaStepTitle,
+    isLoading: fiaTextLoading
+  } = useFiaPericopeText(
+    fiaPericopeId ? currentProjectId : undefined,
+    fiaPericopeId ?? undefined
+  );
+
+  // Auto-open FIA text drawer when text is loaded
+  React.useEffect(() => {
+    if (fiaPericopeId && fiaText && !fiaTextLoading) {
+      setShowFiaTextDrawer(true);
+    }
+  }, [fiaPericopeId, fiaText, fiaTextLoading]);
 
   // Store book name and chapter number for VerseSeparator label
   const bookChapterLabelRef = React.useRef<string>('Verse');
@@ -4311,6 +4340,57 @@ export default function BibleAssetsView() {
             )}
           </DrawerContent>
         </Drawer>
+      )}
+
+      {/* FIA Pericope Text Drawer */}
+      {fiaPericopeId && (
+        <Drawer
+          open={showFiaTextDrawer}
+          onOpenChange={setShowFiaTextDrawer}
+          snapPoints={['92%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>
+                {fiaStepTitle || 'Hear and Heart'}
+              </DrawerTitle>
+              <DrawerDescription>
+                {selectedQuest?.name || ''}
+              </DrawerDescription>
+            </DrawerHeader>
+            <DrawerScrollView>
+              <View className="px-6 pb-12">
+                {fiaTextLoading ? (
+                  <View className="items-center justify-center py-12">
+                    <ActivityIndicator size="large" />
+                    <Text className="mt-3 text-sm text-muted-foreground">
+                      Loading passage text...
+                    </Text>
+                  </View>
+                ) : fiaText ? (
+                  <Text className="text-base leading-7">
+                    {fiaText}
+                  </Text>
+                ) : (
+                  <Text className="text-center text-muted-foreground">
+                    No text available for this pericope.
+                  </Text>
+                )}
+              </View>
+            </DrawerScrollView>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {/* Floating button to re-open FIA text drawer */}
+      {fiaPericopeId && !showFiaTextDrawer && (
+        <Pressable
+          className="absolute bottom-6 left-6 h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg"
+          onPress={() => setShowFiaTextDrawer(true)}
+        >
+          <Icon as={BookOpenIcon} size={20} className="text-primary-foreground" />
+        </Pressable>
       )}
     </View>
   );
