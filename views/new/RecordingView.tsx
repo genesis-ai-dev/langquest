@@ -2929,21 +2929,20 @@ const RecordingView = () => {
 
   // Calculate dynamic height for each item based on type and highlight state
   const getItemHeight = React.useCallback(
-    (item: unknown, index: number, _isSelected: boolean) => {
+    (item: unknown, _index: number, isSelected: boolean) => {
       const typedItem = item as ListItem;
-      const isHighlighted = insertionIndex === index;
 
       if (isPill(typedItem)) {
         // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
-        return isHighlighted && !isReplacing
+        return isSelected && !isReplacing
           ? PILL_HEIGHT_INSERTION
           : PILL_HEIGHT;
       }
 
       // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
-      return isHighlighted && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
+      return isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
     },
-    [insertionIndex, isReplacing]
+    [isReplacing]
   );
 
   return (
