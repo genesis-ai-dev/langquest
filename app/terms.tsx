@@ -96,34 +96,30 @@ function Terms() {
         <Text variant="p">{t('analyticsInfo')}</Text>
       </ScrollView>
 
-      <View className="flex w-full flex-1 flex-col gap-2">
-        <OpacityPressable
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
-          }
-          className="w-full justify-start"
-        >
-          <Text className="font-medium text-primary">{t('viewFullTerms')}</Text>
-        </OpacityPressable>
-        <OpacityPressable
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
-          }
-          className="w-full justify-start"
-        >
-          <Text className="font-medium text-primary">
-            {t('viewFullPrivacy')}
-          </Text>
-        </OpacityPressable>
+      <OpacityPressable
+        onPress={() =>
+          Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
+        }
+        className="w-full justify-start"
+      >
+        <Text className="font-medium text-primary">{t('viewFullTerms')}</Text>
+      </OpacityPressable>
+      <OpacityPressable
+        onPress={() =>
+          Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
+        }
+        className="w-full justify-start"
+      >
+        <Text className="font-medium text-primary">{t('viewFullPrivacy')}</Text>
+      </OpacityPressable>
 
-        {canAcceptTerms && (
-          <View className="w-full">
-            <Button onPress={handleAcceptTerms}>
-              <Text>{t('iAgree')}</Text>
-            </Button>
-          </View>
-        )}
-      </View>
+      {canAcceptTerms && (
+        <View className="w-full">
+          <Button onPress={handleAcceptTerms}>
+            <Text>{t('iAgree')}</Text>
+          </Button>
+        </View>
+      )}
     </View>
   );
 }
