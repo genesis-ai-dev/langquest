@@ -102,6 +102,7 @@ jobs:
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
       record_screen: true
+      device_identifier: 'pixel_6'
       android_system_image_package: 'system-images;android-31;default;x86_64'
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
 
@@ -114,5 +115,6 @@ jobs:
     runs_on: macos-medium
     params:
       record_screen: true
+      device_identifier: 'iPhone 16e'
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
