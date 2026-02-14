@@ -234,7 +234,7 @@ const RecordingView = () => {
   const _label = recordingData?.label || '';
   const recordingSessionId = recordingData?.recordingSession;
 
-  // Log recording data on mount  
+  // Log recording data on mount
   React.useEffect(() => {
     console.log(
       `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
@@ -3028,9 +3028,7 @@ const RecordingView = () => {
 
       if (isPill(typedItem)) {
         // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
-        return isSelected && !isReplacing
-          ? PILL_HEIGHT_INSERTION
-          : PILL_HEIGHT;
+        return isSelected && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
       }
 
       // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
