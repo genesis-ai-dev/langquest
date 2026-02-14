@@ -170,11 +170,20 @@ export interface BibleMetadata {
 }
 
 /**
+ * Tracking information for each recording session
+ */
+export interface RecordingSessionMetadata {
+  id: string;
+  created_at: string;
+}
+/**
  * Extensible metadata type for quests
  * Can be extended with other metadata types as needed
  */
 export interface QuestMetadata {
   bible?: BibleMetadata;
+  lastRecordingSessionId?: string;
+  recordingSessions?: RecordingSessionMetadata[];
   // Add other metadata types here as needed
   // e.g., curriculum?: { unit: string; lesson: number };
 }

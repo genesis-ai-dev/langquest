@@ -41,6 +41,7 @@ export interface NavigationStackItem {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;
