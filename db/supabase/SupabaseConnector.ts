@@ -610,6 +610,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
+
         return;
       }
 
