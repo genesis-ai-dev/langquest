@@ -628,7 +628,7 @@ export const useLocalStore = create<LocalState>()(
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
-                'currentAssetId',
+                'currentAssetId'
                 //'navigationStack' //commented out so the app can remember the last view on reload
               ].includes(key)
           )

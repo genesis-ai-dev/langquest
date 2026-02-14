@@ -118,7 +118,10 @@ export async function extractWaveformFromFile(
   } catch (error) {
     // If WAV parsing fails, try to extract from M4A/other formats using Expo AV
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes('RIFF header') || errorMessage.includes('WAV file')) {
+    if (
+      errorMessage.includes('RIFF header') ||
+      errorMessage.includes('WAV file')
+    ) {
       // Not a WAV file - try M4A/other format extraction
       return await extractWaveformFromAudioFile(uri, barCount, normalize);
     }
@@ -165,7 +168,9 @@ async function extractWaveformFromAudioFile(
         );
       }
     }
-    throw new Error(`Failed to extract waveform from audio file: ${errorMessage}`);
+    throw new Error(
+      `Failed to extract waveform from audio file: ${errorMessage}`
+    );
   }
 }
 

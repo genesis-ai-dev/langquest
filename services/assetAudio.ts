@@ -23,10 +23,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { system } from '@/db/powersync/system';
 import { extractWaveformFromFile } from '@/utils/audioWaveform';
 import { resolveTable } from '@/utils/dbUtils';
-import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS
-} from '@/utils/fileUtils';
+import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { Audio } from 'expo-av';
 import { eq } from 'drizzle-orm';
 
@@ -164,10 +161,9 @@ async function resolveAudioValue(
     const attachment = await system.powersync.getOptional<{
       id: string;
       local_uri: string | null;
-    }>(
-      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-      [audioValue]
-    );
+    }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
+      audioValue
+    ]);
     if (attachment?.local_uri) {
       const localUri = system.permAttachmentQueue.getLocalUri(
         attachment.local_uri
@@ -208,9 +204,9 @@ async function findFallbackUri(
  * Until the DB migration adds the metadata column to asset_content_link,
  * this will return undefined.
  */
-function parseTrimMetadata(
-  contentLink: { metadata?: string | null }
-): { startMs: number; endMs: number } | undefined {
+function parseTrimMetadata(contentLink: {
+  metadata?: string | null;
+}): { startMs: number; endMs: number } | undefined {
   if (!contentLink.metadata) return undefined;
   try {
     const parsed = JSON.parse(contentLink.metadata) as {
@@ -414,9 +410,7 @@ export async function getAssetWaveform(
  * TODO: Wire up to react-native-audio-concat with trim offsets.
  * For now, this is a placeholder that mirrors localAudioConcat.ts structure.
  */
-export function exportAssetAudio(
-  _assetId: string
-): Promise<string> {
+export function exportAssetAudio(_assetId: string): Promise<string> {
   // const audio = await resolveAssetAudio(assetId);
   // if (!audio) throw new Error('No audio found for asset');
   //

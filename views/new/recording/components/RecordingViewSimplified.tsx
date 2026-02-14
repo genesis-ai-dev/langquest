@@ -17,9 +17,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import {
-  useAssetAudio
-} from '@/services/assetAudio';
+import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -478,10 +476,7 @@ const RecordingViewSimplified = ({
       try {
         // During Play All, any asset tap acts as "stop play all" only.
         if (isPlayAllRunningRef.current) {
-          debugLog(
-            '⏸️ Stopping Play All from asset tap:',
-            assetId.slice(0, 8)
-          );
+          debugLog('⏸️ Stopping Play All from asset tap:', assetId.slice(0, 8));
           await stopPlayAll();
           return;
         }

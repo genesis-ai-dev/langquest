@@ -2567,9 +2567,7 @@ export default function BibleAssetsView() {
             selectedAssetIds.has(a.id)
           );
           assetsToProcess =
-            firstSelectedIndex >= 0
-              ? assets.slice(firstSelectedIndex)
-              : assets;
+            firstSelectedIndex >= 0 ? assets.slice(firstSelectedIndex) : assets;
         } else {
           assetsToProcess = assets;
         }
