@@ -53,7 +53,6 @@ export default function SettingsView() {
   );
   // const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
-  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
@@ -78,9 +77,6 @@ export default function SettingsView() {
   // const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
-  );
-  const setEnableVerseMarkers = useLocalStore(
-    (state) => state.setEnableVerseMarkers
   );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
@@ -129,10 +125,6 @@ export default function SettingsView() {
   const handleQuestExportToggle = (value: boolean) => {
     setEnableQuestExport(value);
     console.log('Quest export:', value);
-  };
-
-  const handleVerseMarkersToggle = (value: boolean) => {
-    setEnableVerseMarkers(value);
   };
 
   const handleTranscriptionToggle = (value: boolean) => {
@@ -288,14 +280,6 @@ export default function SettingsView() {
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
           disabled: !isOnline
-        },
-        {
-          id: 'verseMarkers',
-          title: t('verseMarkers'),
-          description: t('verseMarkersDescription'),
-          type: 'toggle',
-          value: enableVerseMarkers,
-          onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
         },
         {
           id: 'transcription',

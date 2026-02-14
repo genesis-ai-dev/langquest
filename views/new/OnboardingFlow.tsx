@@ -317,7 +317,8 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     if (!selectedLanguageId) return;
     setProjectType(type);
     if (type === 'fia') {
-      // FIA project creation is not yet implemented
+      // FIA requires source language selection via the full create drawer
+      handleClose();
       return;
     }
     try {
@@ -696,10 +697,9 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                 </Card>
 
                 {/* FIA Project Card */}
-                <Card className="w-full opacity-60">
+                <Card className="w-full">
                   <Pressable
                     onPress={() => handleProjectTypeSelect('fia')}
-                    disabled={true}
                     accessibilityRole="button"
                   >
                     <View className="flex-row items-center p-6">
@@ -724,7 +724,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                           numberOfLines={2}
                           ellipsizeMode="tail"
                         >
-                          {t('fiaComingSoon')}
+                          {t('createFiaProjectDescription')}
                         </Text>
                       </View>
                     </View>

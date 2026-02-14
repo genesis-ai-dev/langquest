@@ -254,7 +254,8 @@ export function ProjectListItem({
                   {project.private && (
                     <Icon as={LockIcon} className="text-secondary-foreground" />
                   )}
-                  {project.template === 'bible' && (
+                  {(project.template === 'bible' ||
+                    project.template === 'fia') && (
                     <Icon as={BookIcon} className="text-secondary-foreground" />
                   )}
                   {membership === 'owner' && (

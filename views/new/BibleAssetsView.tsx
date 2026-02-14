@@ -85,6 +85,7 @@ import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
@@ -154,6 +155,66 @@ interface ManualSeparator {
   to: number;
   key: string;
   assetId?: string;
+}
+
+// ============================================================================
+// FIA METADATA HELPERS
+// Maps FIA book IDs to BIBLE_BOOKS IDs for label/verse lookup
+// ============================================================================
+
+const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
+  mrk: 'mar',
+  php: 'phi',
+  jol: 'joe',
+  nam: 'nah',
+};
+
+function getBibleBookIdFromFia(fiaBookId: string): string {
+  return FIA_TO_BIBLE_BOOK_ID[fiaBookId] ?? fiaBookId;
+}
+
+/**
+ * Parse FIA verseRange string like "1:1-13" or "4:30-5:20"
+ * Returns chapter, startVerse, endVerse for use in verse labeling
+ */
+function parseFiaVerseRange(verseRange: string): {
+  startChapter: number;
+  startVerse: number;
+  endChapter: number;
+  endVerse: number;
+} | null {
+  // Format: "startChapter:startVerse-endVerse" or "startChapter:startVerse-endChapter:endVerse"
+  const match = verseRange.match(
+    /^(\d+):(\d+)-(?:(\d+):)?(\d+)$/
+  );
+  if (!match) return null;
+  const startChapter = parseInt(match[1]!, 10);
+  const startVerse = parseInt(match[2]!, 10);
+  const endChapter = match[3] ? parseInt(match[3], 10) : startChapter;
+  const endVerse = parseInt(match[4]!, 10);
+  return { startChapter, startVerse, endChapter, endVerse };
+}
+
+/**
+ * Extract FIA metadata from quest metadata (handles both string and object forms)
+ */
+function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
+  try {
+    const parsed =
+      typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'fia' in parsed &&
+      parsed.fia &&
+      typeof parsed.fia === 'object'
+    ) {
+      return parsed.fia as FiaMetadata;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
 }
 
 const RecordingPlaceIndicator = () => (
@@ -627,9 +688,24 @@ export default function BibleAssetsView() {
       return 'Verse';
     }
 
-    // Extract chapter number from metadata.bible.chapter
-    let chapterNum: number | undefined;
     if (selectedQuest.metadata) {
+      // Try FIA metadata first
+      const fiaMeta = extractFiaMetadata(selectedQuest.metadata);
+      if (fiaMeta?.verseRange && fiaMeta.bookId) {
+        const bibleBookId = getBibleBookIdFromFia(fiaMeta.bookId);
+        const book = BIBLE_BOOKS.find((b) => b.id === bibleBookId);
+        const parsed = parseFiaVerseRange(fiaMeta.verseRange);
+        if (book && parsed) {
+          if (parsed.startChapter === parsed.endChapter) {
+            return `${book.shortName} ${parsed.startChapter}`;
+          }
+          return `${book.shortName} ${parsed.startChapter}-${parsed.endChapter}`;
+        }
+        // Fallback: use the quest name (e.g., "Mark 1:1-13")
+        return selectedQuest.name || 'Verse';
+      }
+
+      // Try Bible metadata
       try {
         const metadata: unknown =
           typeof selectedQuest.metadata === 'string'
@@ -643,21 +719,20 @@ export default function BibleAssetsView() {
           typeof metadata.bible === 'object' &&
           'chapter' in metadata.bible
         ) {
-          chapterNum =
+          const chapterNum =
             typeof metadata.bible.chapter === 'number'
               ? metadata.bible.chapter
               : undefined;
+          if (typeof chapterNum === 'number') {
+            const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
+            if (book?.name && chapterNum) {
+              return `${book.shortName} ${chapterNum}`;
+            }
+          }
         }
       } catch {
         // Ignore parse errors
       }
-    }
-
-    if (typeof chapterNum !== 'number') return 'Verse';
-    const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
-
-    if (book?.name && chapterNum) {
-      return `${book.shortName} ${chapterNum}`;
     }
 
     return 'Verse';
@@ -668,14 +743,39 @@ export default function BibleAssetsView() {
     bookChapterLabelRef.current = bookChapterLabel;
   }, [bookChapterLabel]);
 
-  // Get verse count for current chapter
+  // Get verse count for current chapter/pericope
   // Use selectedQuest instead of currentQuestData to ensure we have the metadata from the database
   const verseCount = React.useMemo(() => {
     if (!selectedQuest || !currentBookId) return 0;
 
-    // Extract chapter number from metadata.bible.chapter
-    let chapterNum: number | undefined;
     if (selectedQuest.metadata) {
+      // Try FIA metadata first
+      const fiaMeta = extractFiaMetadata(selectedQuest.metadata);
+      if (fiaMeta?.verseRange) {
+        const parsed = parseFiaVerseRange(fiaMeta.verseRange);
+        if (parsed) {
+          if (parsed.startChapter === parsed.endChapter) {
+            // Single chapter pericope: verse count = endVerse
+            // (verses are numbered from 1 within the chapter)
+            return parsed.endVerse;
+          }
+          // Multi-chapter pericope: use endVerse of last chapter as upper bound
+          // The verse labeler will use numbers up to this value
+          const bibleBookId = getBibleBookIdFromFia(fiaMeta.bookId);
+          const book = BIBLE_BOOKS.find((b) => b.id === bibleBookId);
+          if (book) {
+            // Sum verses from startChapter to endChapter for the full range
+            let total = 0;
+            for (let ch = parsed.startChapter; ch <= parsed.endChapter; ch++) {
+              total += book.verses[ch - 1] ?? 0;
+            }
+            return total;
+          }
+          return parsed.endVerse;
+        }
+      }
+
+      // Try Bible metadata
       try {
         const metadata: unknown =
           typeof selectedQuest.metadata === 'string'
@@ -689,19 +789,21 @@ export default function BibleAssetsView() {
           typeof metadata.bible === 'object' &&
           'chapter' in metadata.bible
         ) {
-          chapterNum =
+          const chapterNum =
             typeof metadata.bible.chapter === 'number'
               ? metadata.bible.chapter
               : undefined;
+          if (typeof chapterNum === 'number') {
+            const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
+            return book?.verses[chapterNum - 1] ?? 0;
+          }
         }
       } catch {
         // Ignore parse errors
       }
     }
 
-    if (typeof chapterNum !== 'number') return 0;
-    const book = BIBLE_BOOKS.find((b) => b.id === currentBookId);
-    return book?.verses[chapterNum - 1] ?? 0;
+    return 0;
   }, [selectedQuest, currentBookId]);
 
   // Query project data to get privacy status if not passed

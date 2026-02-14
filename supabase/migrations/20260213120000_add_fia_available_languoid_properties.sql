@@ -29,7 +29,35 @@ values
   ('0191cd2b-d151-4217-a7d4-19b2346c7b7e', null, 'Bislama', 'language', false, true, now(), now())
 on conflict (id) do nothing;
 
--- Step 2: Insert fia_available property for each FIA language
+-- Step 2: Insert endonym aliases for FIA languages
+-- Languages that already exist in seed data (English, Spanish, Indonesian, Tok Pisin)
+-- already have endonyms. This adds endonyms for the remaining 10.
+-- Uses self-referential aliases (label_languoid_id = subject_languoid_id).
+insert into public.languoid_alias (subject_languoid_id, label_languoid_id, name, alias_type, source_names, active, created_at, last_updated)
+values
+  -- Portuguese: Português
+  ('a1cb9ca9-8f6d-400b-a071-544a32ea1d82', 'a1cb9ca9-8f6d-400b-a071-544a32ea1d82', 'Português', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- French: Français
+  ('155f40c3-cb64-4fdd-aaf7-a55acb42c755', '155f40c3-cb64-4fdd-aaf7-a55acb42c755', 'Français', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Russian: Русский
+  ('2e229bf3-06b7-40ce-b735-1499257c7fef', '2e229bf3-06b7-40ce-b735-1499257c7fef', 'Русский', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Swahili: Kiswahili
+  ('db0ae9dd-35f5-4f04-8f2e-e014c7fb0110', 'db0ae9dd-35f5-4f04-8f2e-e014c7fb0110', 'Kiswahili', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Hindi: हिन्दी
+  ('3502e2a1-3cfd-45f7-8167-a9a67d42c76a', '3502e2a1-3cfd-45f7-8167-a9a67d42c76a', 'हिन्दी', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Standard Arabic: العربية الفصحى
+  ('8cde1960-ad33-41a5-bfdd-bcd92b00e4f3', '8cde1960-ad33-41a5-bfdd-bcd92b00e4f3', 'العربية الفصحى', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Mandarin Chinese: 普通话
+  ('0d75d06f-2692-4127-b810-67dd64fa6eee', '0d75d06f-2692-4127-b810-67dd64fa6eee', '普通话', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Persian: فارسی
+  ('80293000-c406-4390-8de1-67b7ac11ce14', '80293000-c406-4390-8de1-67b7ac11ce14', 'فارسی', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Sudanese Arabic: عربي سوداني
+  ('accfea8f-9b17-4bf7-96b2-56e81196267c', 'accfea8f-9b17-4bf7-96b2-56e81196267c', 'عربي سوداني', 'endonym', ARRAY['lexvo'], true, now(), now()),
+  -- Bislama: Bislama
+  ('0191cd2b-d151-4217-a7d4-19b2346c7b7e', '0191cd2b-d151-4217-a7d4-19b2346c7b7e', 'Bislama', 'endonym', ARRAY['lexvo'], true, now(), now())
+on conflict (subject_languoid_id, label_languoid_id, alias_type, name) do nothing;
+
+-- Step 3: Insert fia_available property for each FIA language
 insert into public.languoid_property (languoid_id, key, value, active, created_at, last_updated)
 values
   ('fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fia_available', 'true', true, now(), now()),

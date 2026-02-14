@@ -2,11 +2,13 @@ import { languoid } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import type { InferSelectModel } from 'drizzle-orm';
+import { useMemo } from 'react';
+import { useLanguoidEndonyms } from './useLanguoids';
 
 type Languoid = InferSelectModel<typeof languoid>;
 
 /**
- * Returns languoids that have FIA content available.
+ * Returns languoids that have FIA content available, along with their endonyms.
  * Filters by languoid_property records where key='fia_available' and value='true'.
  */
 export function useFiaLanguoids() {
@@ -58,5 +60,32 @@ export function useFiaLanguoids() {
     }
   });
 
-  return { fiaLanguoids, isFiaLanguoidsLoading, ...rest };
+  // Fetch endonyms for the FIA languoids
+  const fiaLanguoidIds = useMemo(
+    () => fiaLanguoids.map((l) => l.id),
+    [fiaLanguoids]
+  );
+  const { endonymMap } = useLanguoidEndonyms(fiaLanguoidIds);
+
+  // Build dropdown-ready data: "endonym (English name)" or just the name
+  const fiaDropdownData = useMemo(
+    () =>
+      fiaLanguoids.map((lang) => {
+        const endonym = endonymMap.get(lang.id);
+        const englishName = lang.name ?? lang.id;
+        const label =
+          endonym && endonym !== englishName
+            ? `${endonym} (${englishName})`
+            : englishName;
+        return { label, value: lang.id };
+      }),
+    [fiaLanguoids, endonymMap]
+  );
+
+  return {
+    fiaLanguoids,
+    fiaDropdownData,
+    isFiaLanguoidsLoading,
+    ...rest
+  };
 }

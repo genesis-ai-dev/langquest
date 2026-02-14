@@ -34,7 +34,7 @@ import {
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
@@ -96,21 +96,31 @@ export default function NextGenProjectsView() {
   // Create modal state
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
-  const formSchema = z.object({
-    name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
-    // this is the TARGET languoid we're translating to
-    target_languoid_id: z.string().min(1, t('selectLanguage')),
-    // FIA content language (source) - only used when template is 'fia'
-    source_languoid_id: z.string().optional(),
-    description: z
-      .string()
-      .max(196, t('descriptionTooLong', { max: 196 }))
-      .trim()
-      .optional(),
-    private: z.boolean(),
-    visible: z.boolean(),
-    template: z.enum(templateOptions)
-  });
+  const formSchema = z
+    .object({
+      name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+      // this is the TARGET languoid we're translating to
+      target_languoid_id: z.string().min(1, t('selectLanguage')),
+      // FIA content language (source) - required when template is 'fia'
+      source_languoid_id: z.string().optional(),
+      description: z
+        .string()
+        .max(196, t('descriptionTooLong', { max: 196 }))
+        .trim()
+        .optional(),
+      private: z.boolean(),
+      visible: z.boolean(),
+      template: z.enum(templateOptions)
+    })
+    .refine(
+      (data) =>
+        data.template !== 'fia' ||
+        (data.source_languoid_id && data.source_languoid_id.length > 0),
+      {
+        message: t('selectLanguage'),
+        path: ['source_languoid_id']
+      }
+    );
 
   type FormData = z.infer<typeof formSchema>;
 
@@ -129,10 +139,22 @@ export default function NextGenProjectsView() {
           currentUser.id
         );
 
+        // Also ensure source languoid syncs for FIA projects
+        if (values.source_languoid_id) {
+          await ensureLanguoidDownloadProfile(
+            values.source_languoid_id,
+            currentUser.id
+          );
+        }
+
         // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
           // Create project (target_language_id is deprecated but still required by schema)
-          const { target_languoid_id, ...projectValues } = values;
+          const {
+            target_languoid_id,
+            source_languoid_id,
+            ...projectValues
+          } = values;
           const [newProject] = await tx
             .insert(resolveTable('project', { localOverride: false }))
             .values({
@@ -174,6 +196,18 @@ export default function NextGenProjectsView() {
             active: true,
             download_profiles: [currentUser.id]
           });
+
+          // For FIA projects, also create source language link
+          if (source_languoid_id) {
+            await tx.insert(projectLanguageLinkSynced).values({
+              project_id: newProject.id,
+              language_id: null,
+              languoid_id: source_languoid_id,
+              language_type: 'source',
+              active: true,
+              download_profiles: [currentUser.id]
+            });
+          }
         });
       },
       onSuccess: () => {
@@ -235,16 +269,7 @@ export default function NextGenProjectsView() {
   const watchedTemplate = form.watch('template');
   const isFiaTemplate = watchedTemplate === 'fia';
 
-  const { fiaLanguoids } = useFiaLanguoids();
-
-  const fiaDropdownData = useMemo(
-    () =>
-      fiaLanguoids.map((lang) => ({
-        label: lang.name ?? lang.id,
-        value: lang.id
-      })),
-    [fiaLanguoids]
-  );
+  const { fiaDropdownData } = useFiaLanguoids();
 
   useEffect(() => {
     if (savedLanguage && !form.getValues('target_languoid_id')) {
@@ -1114,14 +1139,6 @@ export default function NextGenProjectsView() {
                 />
               )}
 
-              {isFiaTemplate && (
-                <View className="rounded-md bg-muted p-3">
-                  <Text className="text-sm text-muted-foreground">
-                    {t('fiaComingSoon')}
-                  </Text>
-                </View>
-              )}
-
               <FormField
                 control={form.control}
                 name="private"
@@ -1142,7 +1159,6 @@ export default function NextGenProjectsView() {
               <FormSubmit
                 onPress={form.handleSubmit((data) => createProject(data))}
                 className="flex-row items-center gap-2"
-                disabled={isFiaTemplate}
               >
                 <Text>{t('createObject')}</Text>
               </FormSubmit>

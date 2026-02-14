@@ -170,13 +170,22 @@ export interface BibleMetadata {
 }
 
 /**
+ * FIA-specific metadata for quests
+ * Used to identify FIA books and pericopes
+ */
+export interface FiaMetadata {
+  bookId: string; // FIA book ID (e.g., 'mrk', 'mat')
+  pericopeId?: string; // FIA pericope ID (e.g., 'mrk-p1') - undefined for book-level quests
+  verseRange?: string; // e.g., '1:1-13' - only set for pericope-level quests
+}
+
+/**
  * Extensible metadata type for quests
  * Can be extended with other metadata types as needed
  */
 export interface QuestMetadata {
   bible?: BibleMetadata;
-  // Add other metadata types here as needed
-  // e.g., curriculum?: { unit: string; lesson: number };
+  fia?: FiaMetadata;
 }
 
 function normalizeParams<T>(

@@ -266,8 +266,8 @@ export function SimpleOnboardingFlow({
                   {/* FIA Project Button */}
                   <Button
                     variant="outline"
-                    className="min-h-48 flex-1 basis-[40%] flex-col gap-3 p-6 opacity-60"
-                    disabled
+                    className="min-h-48 flex-1 basis-[40%] flex-col gap-3 p-6"
+                    onPress={() => setStep('done')}
                   >
                     <Icon
                       as={GraduationCapIcon}
@@ -278,7 +278,7 @@ export function SimpleOnboardingFlow({
                       {t('fia')}
                     </Text>
                     <Text className="text-xs text-muted-foreground">
-                      {t('fiaComingSoon')}
+                      {t('fiaDescription')}
                     </Text>
                   </Button>
                 </View>

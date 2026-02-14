@@ -298,8 +298,8 @@ export const useLocalStore = create<LocalState>()(
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
-      enableVerseMarkers: false,
-      verseMarkersFeaturePrompted: false,
+      enableVerseMarkers: true,
+      verseMarkersFeaturePrompted: true,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
 
