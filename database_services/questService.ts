@@ -12,7 +12,7 @@ const { db } = system;
 //   tags: (typeof tag.$inferSelect)[];
 // };
 
-const MAX_RECORDING_SESSIONS = 100;
+const MAX_RECORDING_SESSIONS = 10;
 
 export type Quest = typeof quest.$inferSelect;
 
@@ -55,7 +55,9 @@ function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
   if (typeof rawMetadata === 'string') {
     try {
       const parsed = JSON.parse(rawMetadata);
-      return parsed && typeof parsed === 'object' ? (parsed as QuestMetadata) : {};
+      return parsed && typeof parsed === 'object'
+        ? (parsed as QuestMetadata)
+        : {};
     } catch {
       return {};
     }
@@ -96,7 +98,6 @@ export async function createQuestRecordingSession(
       lastRecordingSessionId: recordingSessionId,
       recordingSessions: nextRecordingSessions
     };
-
 
     console.log('[updatedMetadata]', updatedMetadata);
 

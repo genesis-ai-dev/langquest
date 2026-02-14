@@ -106,9 +106,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import type {
-  ReorderableListReorderEvent
-} from 'react-native-reorderable-list';
+import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
   reorderItems,
   useReorderableDrag
@@ -295,7 +293,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         isSelectedForRecording={isAssetSelectedForRecording}
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
-        isHighlighted={isHighlighted}
+        isHighlighted={isHighlighted && !isPublished}
       />
       {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
         <RecordingPlaceIndicator />
@@ -766,7 +764,6 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
   const [selectedForRecording, setSelectedForRecording] = React.useState<{
@@ -1008,7 +1005,7 @@ export default function BibleAssetsView() {
         orderIndex,
         metadata,
         verseName,
-        name: asset.name ?? undefined as string | undefined
+        name: asset.name ?? (undefined as string | undefined)
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -1419,7 +1416,14 @@ export default function BibleAssetsView() {
     };
 
     void processNewSeparators();
-  }, [manualSeparators, listItems, assets, queryClient, refetch, getAssetMetadata]);
+  }, [
+    manualSeparators,
+    listItems,
+    assets,
+    queryClient,
+    refetch,
+    getAssetMetadata
+  ]);
 
   // Clean up manual separators that have been persisted to asset metadata
   // This ensures the UI correctly reflects which verses are available after metadata updates
@@ -1889,7 +1893,15 @@ export default function BibleAssetsView() {
         RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
       }
     },
-    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t, getAssetMetadata]
+    [
+      assets,
+      selectedAssetIds,
+      cancelSelection,
+      queryClient,
+      refetch,
+      t,
+      getAssetMetadata
+    ]
   );
 
   // Handle removing labels from selected assets
@@ -1946,7 +1958,15 @@ export default function BibleAssetsView() {
       console.error('Failed to remove labels from assets:', error);
       RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
     }
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t, getAssetMetadata]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    queryClient,
+    refetch,
+    t,
+    getAssetMetadata
+  ]);
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -2434,7 +2454,10 @@ export default function BibleAssetsView() {
           questId={currentQuestId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
-          isHighlighted={asset.metadata?.recordingSessionId == selectedQuest?.metadata?.lastRecordingSessionId}
+          isHighlighted={
+            asset.metadata?.recordingSessionId ==
+            selectedQuest?.metadata?.lastRecordingSessionId
+          }
           isSelected={isSelected}
           isSelectionMode={!isPublished && isSelectionMode}
           isAssetSelectedForRecording={isAssetSelectedForRecording}
@@ -2458,7 +2481,6 @@ export default function BibleAssetsView() {
               ? () => handleQuickAddVersePressRef.current?.(asset.id)
               : undefined
           }
-          
         />
       );
     },
@@ -3555,7 +3577,6 @@ export default function BibleAssetsView() {
     );
   }
 
-
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
 
@@ -3911,15 +3932,16 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-          isSelectionMode ? (
-            <View
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
             }}
             className="absolute bottom-0 left-0 right-0 z-40"
-          >            
+          >
             <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
@@ -3928,9 +3950,9 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
             />
-            </View>
-          ) : (
-            <View
+          </View>
+        ) : (
+          <View
             style={{
               paddingBottom: insets.bottom,
               paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
@@ -3950,16 +3972,17 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
-
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name
+                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
+                      : `${t('noLabelSelected')}`}
                 </Text>
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-            </View>
-          ))}
-       {/* )} */}
+          </View>
+        ))}
+      {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
