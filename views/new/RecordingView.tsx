@@ -92,6 +92,108 @@ const isAsset = (item: ListItem): item is UIAsset => item.type === 'asset';
 // Type guard to check if item is a pill
 const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 
+interface PillListRowProps {
+  itemId: string;
+  text: string;
+  isHighlighted: boolean;
+  showSkeleton: boolean;
+  onPress?: () => void;
+}
+
+const PillListRow = React.memo(function PillListRow({
+  itemId,
+  text,
+  isHighlighted,
+  showSkeleton,
+  onPress
+}: PillListRowProps) {
+  return (
+    <>
+      <VersePill
+        key={itemId}
+        text={text}
+        isHighlighted={isHighlighted}
+        onPress={onPress}
+      />
+      {showSkeleton && (
+        <View className="mt-2.5">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
+interface AssetListRowProps {
+  asset: UIAsset;
+  index: number;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  isSelectionMode: boolean;
+  isPlaying: boolean;
+  hideButtons: boolean;
+  duration?: number;
+  canMergeDown: boolean;
+  showSkeleton: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  onPlay: () => void;
+  onDelete: (assetId: string) => void;
+  onMerge: (index: number) => void;
+  onRename: (assetId: string, currentName: string | null) => void;
+  onActionTypeChange: (isReplacing: boolean) => void;
+}
+
+const AssetListRow = React.memo(function AssetListRow({
+  asset,
+  index,
+  isSelected,
+  isHighlighted,
+  isSelectionMode,
+  isPlaying,
+  hideButtons,
+  duration,
+  canMergeDown,
+  showSkeleton,
+  onPress,
+  onLongPress,
+  onPlay,
+  onDelete,
+  onMerge,
+  onRename,
+  onActionTypeChange
+}: AssetListRowProps) {
+  return (
+    <>
+      <RecordAssetCard
+        key={asset.id}
+        asset={asset}
+        index={index}
+        isSelected={isSelected}
+        isHighlighted={isHighlighted}
+        isSelectionMode={isSelectionMode}
+        isPlaying={isPlaying}
+        hideButtons={hideButtons}
+        duration={duration}
+        canMergeDown={canMergeDown}
+        segmentCount={asset.segmentCount}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        onPlay={onPlay}
+        onDelete={onDelete}
+        onMerge={onMerge}
+        onRename={onRename}
+        onActionTypeChange={onActionTypeChange}
+      />
+      {showSkeleton && (
+        <View className="mt-1">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
 // Default order_index for unassigned verses: (999 * 1000 + 1) * 1000 = 999001000
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
 // The extra *1000 leaves space for future insertions between assets
@@ -2675,6 +2777,37 @@ const RecordingView = () => {
     return map;
   }, [sessionItems, createPillCallbacks]);
 
+  const playingAssetIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (audioContext.isPlaying && audioContext.currentAudioId) {
+      ids.add(audioContext.currentAudioId);
+    }
+    if (isPlayAllRunning && currentlyPlayingAssetId) {
+      ids.add(currentlyPlayingAssetId);
+    }
+    return ids;
+  }, [
+    audioContext.isPlaying,
+    audioContext.currentAudioId,
+    isPlayAllRunning,
+    currentlyPlayingAssetId
+  ]);
+
+  const canMergeDownById = React.useMemo(() => {
+    const map = new Map<string, boolean>();
+    sessionItems.forEach((item, index) => {
+      if (!isAsset(item)) return;
+      const nextItem = sessionItems[index + 1];
+      const canMerge =
+        index < sessionItems.length - 1 &&
+        !!nextItem &&
+        isAsset(nextItem) &&
+        nextItem.source !== 'cloud';
+      map.set(item.id, canMerge);
+    });
+    return map;
+  }, [sessionItems]);
+
   // Lazy renderItem for RecordingSelectionList
   // OPTIMIZED: Only renders items when they become visible (virtualization)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
@@ -2688,50 +2821,24 @@ const RecordingView = () => {
           ? (formatVerseRange(item.verse) ?? 'No Label')
           : 'No Label';
         const isHighlighted = insertionIndex === index;
-
-        // Get stable callbacks from Map (avoids creating new functions)
-        const callbacks = pillCallbacksMap.get(item.id);
+        const onPillPress = pillCallbacksMap.get(item.id)?.onPress;
 
         return (
-          <>
-            <VersePill
-              key={item.id}
-              text={pillText}
-              isHighlighted={isHighlighted}
-              onPress={callbacks?.onPress}
-            />
-            {isHighlighted && (
-              <View className="mt-2.5">
-                <RecordAssetCardSkeleton />
-              </View>
-            )}
-          </>
+          <PillListRow
+            itemId={item.id}
+            text={pillText}
+            isHighlighted={isHighlighted}
+            showSkeleton={isHighlighted}
+            onPress={onPillPress}
+          />
         );
       }
 
-      // Asset item rendering
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
-      const isThisAssetPlayingIndividually =
-        audioContext.isPlaying && audioContext.currentAudioId === item.id;
-      const isThisAssetPlayingInPlayAll =
-        isPlayAllRunning && currentlyPlayingAssetId === item.id;
-      const isThisAssetPlaying =
-        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      // isInBatchSelection = selected for batch operations (delete, merge)
+      const isHighlighted = insertionIndex === index;
+      const isThisAssetPlaying = playingAssetIds.has(item.id);
       const isInBatchSelection = selectedAssetIds.has(item.id);
-
-      // Check if next item is an asset (not a pill) and not from cloud
-      const nextItem = sessionItems[index + 1];
-      const canMergeDown =
-        index < sessionItems.length - 1 &&
-        nextItem &&
-        isAsset(nextItem) &&
-        nextItem.source !== 'cloud';
-
-      // Duration from lazy-loaded metadata (get from map, not from item which may be stale)
+      const canMergeDown = canMergeDownById.get(item.id) ?? false;
       const duration = assetDurations.get(item.id) ?? item.duration;
-
-      // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
 
       // Fallback if callbacks not found (shouldn't happen, but defensive)
@@ -2740,48 +2847,35 @@ const RecordingView = () => {
         return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
-      const isHighlighted = insertionIndex === index;
-
       return (
-        <>
-          <RecordAssetCard
-            key={item.id}
-            asset={item}
-            index={index}
-            isSelected={isInBatchSelection}
-            isHighlighted={isHighlighted}
-            isSelectionMode={isSelectionMode}
-            isPlaying={isThisAssetPlaying}
-            hideButtons={isRecording || isVADActive}
-            duration={duration}
-            canMergeDown={canMergeDown}
-            segmentCount={item.segmentCount}
-            onPress={callbacks.onPress}
-            onLongPress={callbacks.onLongPress}
-            onPlay={callbacks.onPlay}
-            onDelete={stableHandleDeleteLocalAsset}
-            onMerge={stableHandleMergeDownLocal}
-            onRename={stableHandleRenameAsset}
-            onActionTypeChange={stableHandleActionTypeChange}
-          />
-          {isHighlighted && !isReplacing && (
-            <View className="mt-1">
-              <RecordAssetCardSkeleton />
-            </View>
-          )}
-        </>
+        <AssetListRow
+          asset={item}
+          index={index}
+          isSelected={isInBatchSelection}
+          isHighlighted={isHighlighted}
+          isSelectionMode={isSelectionMode}
+          isPlaying={isThisAssetPlaying}
+          hideButtons={isRecording || isVADActive}
+          duration={duration}
+          canMergeDown={canMergeDown}
+          showSkeleton={isHighlighted && !isReplacing}
+          onPress={callbacks.onPress}
+          onLongPress={callbacks.onLongPress}
+          onPlay={callbacks.onPlay}
+          onDelete={stableHandleDeleteLocalAsset}
+          onMerge={stableHandleMergeDownLocal}
+          onRename={stableHandleRenameAsset}
+          onActionTypeChange={stableHandleActionTypeChange}
+        />
       );
     },
     [
       formatVerseRange,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      isPlayAllRunning,
-      currentlyPlayingAssetId,
+      playingAssetIds,
       selectedAssetIds,
       isSelectionMode,
       insertionIndex,
-      sessionItems,
+      canMergeDownById,
       assetCallbacksMap,
       pillCallbacksMap,
       assetDurations,
