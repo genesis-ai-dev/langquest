@@ -86,6 +86,7 @@ import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
+import { getNextOrderIndex } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
   renameAsset
@@ -799,6 +800,7 @@ export default function BibleAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enableMerge = useLocalStore((s) => s.enableMerge);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -1176,13 +1178,20 @@ export default function BibleAssetsView() {
                 });
 
                 for (const src of rest) {
-                  // Find all content links for the source asset
+                  // Find all content links for the source asset, ordered by order_index
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
 
-                  // Insert them for the target asset
+                  // Get the next available order_index for the target asset
+                  let nextOrder = await getNextOrderIndex(target.id);
+
+                  // Insert them for the target asset with sequential order_index
                   for (const c of srcContent) {
                     if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
@@ -1192,7 +1201,8 @@ export default function BibleAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
@@ -3949,6 +3959,7 @@ export default function BibleAssetsView() {
               onDelete={handleBatchDeleteSelected}
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
+              showMerge={enableMerge}
             />
           </View>
         ) : (

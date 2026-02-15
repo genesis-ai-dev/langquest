@@ -25,7 +25,8 @@ interface LanguoidDetail {
   ui_ready: boolean | null;
 }
 
-export interface LanguoidLinkSuggestionWithDetails extends LanguoidLinkSuggestion {
+export interface LanguoidLinkSuggestionWithDetails
+  extends LanguoidLinkSuggestion {
   languoid_name: string | null;
   suggested_languoid_name: string | null;
   suggested_languoid_level: string | null;
