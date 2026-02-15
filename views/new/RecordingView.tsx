@@ -8,6 +8,7 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
   renameAsset
 } from '@/database_services/assetService';
@@ -310,6 +311,7 @@ const RecordingView = () => {
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enableMerge = useLocalStore((state) => state.enableMerge);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -2074,7 +2076,10 @@ const RecordingView = () => {
                     audio: true
                   },
                   where: eq(asset_content_link.asset_id, assetId),
-                  orderBy: asc(asset_content_link.created_at)
+                  orderBy: [
+                    asc(asset_content_link.order_index),
+                    asc(asset_content_link.created_at)
+                  ]
                 });
 
               // DEBUG: Log raw query result
@@ -2307,7 +2312,11 @@ const RecordingView = () => {
         const secondContent = await system.db
           .select()
           .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id));
+          .where(eq(contentLocal.asset_id, second.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+        // Get next available order_index for the target asset
+        let nextOrder = await getNextAclOrderIndex(first.id);
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -2317,7 +2326,8 @@ const RecordingView = () => {
             languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            order_index: nextOrder++
           });
         }
 
@@ -2385,7 +2395,11 @@ const RecordingView = () => {
                   const srcContent = await system.db
                     .select()
                     .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id));
+                    .where(eq(contentLocal.asset_id, src.id))
+                    .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+                  // Get next available order_index for the target asset
+                  let nextOrder = await getNextAclOrderIndex(target.id);
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -2396,7 +2410,8 @@ const RecordingView = () => {
                         c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
@@ -3161,6 +3176,7 @@ const RecordingView = () => {
               allowSelectAll={true}
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
+              showMerge={enableMerge}
             />
           </View>
         ) : (

@@ -60,6 +60,7 @@ export default function SettingsView() {
   const enableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.enableLanguoidLinkSuggestions
   );
+  const enableMerge = useLocalStore((state) => state.enableMerge);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -88,6 +89,7 @@ export default function SettingsView() {
   const setEnableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.setEnableLanguoidLinkSuggestions
   );
+  const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
 
   // Settings are loaded from the centralized store
 
@@ -141,6 +143,10 @@ export default function SettingsView() {
 
   const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
     setEnableLanguoidLinkSuggestions(value);
+  };
+
+  const handleMergeToggle = (value: boolean) => {
+    setEnableMerge(value);
   };
 
   const handleClearCache = () => {
@@ -314,6 +320,14 @@ export default function SettingsView() {
           onPress: () =>
             handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
           disabled: !isOnline
+        },
+        {
+          id: 'merge',
+          title: t('enableMerge'),
+          description: t('enableMergeDescription'),
+          type: 'toggle',
+          value: enableMerge,
+          onPress: () => handleMergeToggle(!enableMerge)
         }
       ]
     },

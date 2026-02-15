@@ -7472,6 +7472,28 @@ export const localizations = {
       'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database',
     nepali:
       'आफ्नो आफ्नै-सिर्जना गरिएका भाषाहरूलाई डाटाबेसमा अवस्थित भाषाहरूसँग लिंक गर्न सुझावहरू प्राप्त गर्नुहोस्'
+  },
+  enableMerge: {
+    english: 'Merge assets',
+    spanish: 'Fusionar activos',
+    brazilian_portuguese: 'Mesclar ativos',
+    tok_pisin: 'Joinim ol aset',
+    indonesian: 'Gabungkan aset',
+    nepali: 'सम्पत्तिहरू मर्ज गर्नुहोस्'
+  },
+  enableMergeDescription: {
+    english:
+      'Allow merging multiple audio assets into a single asset. Use with caution — segment order may need manual adjustment after merging.',
+    spanish:
+      'Permitir fusionar múltiples activos de audio en un solo activo. Usar con precaución — el orden de los segmentos puede necesitar ajuste manual después de fusionar.',
+    brazilian_portuguese:
+      'Permitir mesclar vários ativos de áudio em um único ativo. Use com cuidado — a ordem dos segmentos pode precisar de ajuste manual após a mesclagem.',
+    tok_pisin:
+      'Larim joinim planti audio aset i go insait long wanpela aset. Usim gut — order bilong ol segment i ken nidim stretim bihain long joinim.',
+    indonesian:
+      'Izinkan penggabungan beberapa aset audio menjadi satu aset. Gunakan dengan hati-hati — urutan segmen mungkin perlu penyesuaian manual setelah penggabungan.',
+    nepali:
+      'धेरै अडियो सम्पत्तिहरूलाई एकल सम्पत्तिमा मर्ज गर्न अनुमति दिनुहोस्। सावधानीपूर्वक प्रयोग गर्नुहोस् — मर्ज गरेपछि खण्ड क्रम म्यानुअल समायोजन आवश्यक पर्न सक्छ।'
   }
 } as const;
 
