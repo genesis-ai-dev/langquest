@@ -223,8 +223,10 @@ const RecordingView = () => {
     return stack[stack.length - 1]!;
   });
 
+  const { t } = useLocalization();
+
   const recordingData = navigationState?.recordingData;
-  const bookChapterLabel = recordingData?.bookChapterLabel || 'Verse';
+  const bookChapterLabel = recordingData?.bookChapterLabel || t('recordingSession');
   const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
   const _initialOrderIndex =
     recordingData?.initialOrderIndex ?? DEFAULT_ORDER_INDEX;
@@ -242,7 +244,6 @@ const RecordingView = () => {
   }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
 
   const queryClient = useQueryClient();
-  const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { project: currentProject } = useProjectById(currentProjectId);
   const audioContext = useAudio();
@@ -3109,10 +3110,10 @@ const RecordingView = () => {
         </View>
       </View>
       <View
-        className={`flex-0 w-full items-center justify-center py-2 ${isVADActive ? 'bg-destructive' : 'bg-primary/70'}`}
+        className={`flex-0 w-full items-center justify-center py-2 ${isVADActive || isRecording ? 'bg-destructive' : 'bg-primary/70'}`}
       >
         {/* {(isRecording || isVADRecording)? ( */}
-        {isVADActive ? (
+        {isVADActive || isRecording || isVADRecording ? (
           <Text className="text-center text-sm font-semibold text-white">
             {highlightedItemVerse
               ? `${t('recording')}: ${formatVerseRange(highlightedItemVerse)}`
@@ -3122,7 +3123,7 @@ const RecordingView = () => {
           <Text className="text-center text-sm font-semibold text-destructive-foreground">
             {highlightedItemVerse
               ? `${t('recordTo')}: ${formatVerseRange(highlightedItemVerse)}`
-              : `${t('noLabelSelected')}`}
+              : `${t('readyToRecord')}`}
           </Text>
         )}
       </View>

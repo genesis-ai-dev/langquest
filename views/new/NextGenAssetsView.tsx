@@ -14,7 +14,11 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { project, quest as questTable } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  project,
+  quest as questTable
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -68,6 +72,7 @@ import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { renameAsset } from '@/database_services/assetService';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
@@ -83,6 +88,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
@@ -108,9 +114,14 @@ export default function NextGenAssetsView() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
-  // Selection mode for visual highlight (playAll start point)
-  const { selectedAssetIds, enterSelection, cancelSelection } =
-    useSelectionMode();
+  // Selection mode for batch operations and playAll start point
+  const {
+    isSelectionMode,
+    selectedAssetIds,
+    enterSelection,
+    toggleSelect,
+    cancelSelection
+  } = useSelectionMode();
 
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
@@ -220,18 +231,36 @@ export default function NextGenAssetsView() {
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
   const isPublished = selectedQuest?.source === 'synced';
 
-  // Handle single selection (for playAll start point) - always single selection
+  // Handle selection behavior:
+  // - Published: single selection for playAll start point
+  // - Unpublished: multi-selection for batch operations
   const handleToggleSelect = React.useCallback(
     (assetId: string) => {
-      // Single selection: if already selected, deselect. Otherwise, select only this one.
+      if (isPublished) {
+        if (selectedAssetIds.has(assetId)) {
+          cancelSelection();
+        } else {
+          cancelSelection();
+          toggleSelect(assetId);
+        }
+      } else {
+        toggleSelect(assetId);
+      }
+    },
+    [isPublished, selectedAssetIds, cancelSelection, toggleSelect]
+  );
+
+  const handleSelectForRecording = React.useCallback(
+    (assetId: string) => {
       if (selectedAssetIds.has(assetId)) {
         cancelSelection();
       } else {
-        // Select only this one (enterSelection clears previous and sets new)
-        enterSelection(assetId);
+        // Keep simple single-selection without entering selection mode
+        cancelSelection();
+        toggleSelect(assetId);
       }
     },
-    [selectedAssetIds, cancelSelection, enterSelection]
+    [selectedAssetIds, cancelSelection, toggleSelect]
   );
 
   // Query project data to get privacy status if not passed
@@ -326,8 +355,7 @@ export default function NextGenAssetsView() {
           assetMap.set(asset.id, asset);
         }
       }
-
-      console.log('################## ASSET', asset.name, asset.order_index, asset.id)
+      // console.log('################## ASSET', asset.name, asset.order_index, asset.id)
     }
 
     return Array.from(assetMap.values());
@@ -388,6 +416,120 @@ export default function NextGenAssetsView() {
     []
   );
 
+  const handleBatchDeleteSelected = React.useCallback(() => {
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 1) return;
+
+    RNAlert.alert(
+      'Delete Assets',
+      `Are you sure you want to delete ${selectedAssets.length} asset${selectedAssets.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const asset of selectedAssets) {
+                  await audioSegmentService.deleteAudioSegment(asset.id);
+                }
+
+                cancelSelection();
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+              } catch (e) {
+                console.error('Failed to batch delete assets', e);
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to delete assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, t, refetch]);
+
+  const handleBatchMergeSelected = React.useCallback(() => {
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 2) return;
+
+    RNAlert.alert(
+      'Merge Assets',
+      `Are you sure you want to merge ${selectedAssets.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Merge',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                if (!currentUser) return;
+
+                const target = selectedAssets[0]!;
+                const rest = selectedAssets.slice(1);
+                const contentLocal = resolveTable('asset_content_link', {
+                  localOverride: true
+                });
+
+                for (const src of rest) {
+                  const srcContent = await system.db
+                    .select()
+                    .from(asset_content_link)
+                    .where(eq(asset_content_link.asset_id, src.id));
+
+                  for (const c of srcContent) {
+                    if (!c.audio) continue;
+                    await system.db.insert(contentLocal).values({
+                      asset_id: target.id,
+                      source_language_id: c.source_language_id,
+                      languoid_id: c.languoid_id ?? c.source_language_id ?? null,
+                      text: c.text || '',
+                      audio: c.audio,
+                      download_profiles: [currentUser.id]
+                    });
+                  }
+
+                  await audioSegmentService.deleteAudioSegment(src.id);
+                }
+
+                cancelSelection();
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+              } catch (e) {
+                console.error('Failed to batch merge assets', e);
+                RNAlert.alert(t('error'), 'Failed to merge assets. Please try again.');
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    cancelSelection,
+    queryClient,
+    t,
+    refetch
+  ]);
+
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
       if (!renameAssetId) return;
@@ -445,15 +587,16 @@ export default function NextGenAssetsView() {
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
-            isHighlighted={isHighlighted}
+            isHighlighted={isHighlighted && !isPublished}
             onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
             onRename={!isPublished ? handleRenameAsset : undefined}
+            isSelectionMode={!isPublished && isSelectionMode}
             isPublished={isPublished}
             isSelected={isSelected}
             onToggleSelect={handleToggleSelect}
-            onSelectForRecording={handleToggleSelect}
-            onEnterSelection={enterSelection}
+            onSelectForRecording={handleSelectForRecording}
+            onEnterSelection={!isPublished ? enterSelection : undefined}
           />
         </>
       );
@@ -465,8 +608,10 @@ export default function NextGenAssetsView() {
       stableOnPlay,
       handleAssetUpdate,
       handleRenameAsset,
+      isSelectionMode,
       selectedAssetIds,
       handleToggleSelect,
+      handleSelectForRecording,
       enterSelection,
       selectedQuest?.metadata?.lastRecordingSessionId
     ]
@@ -1659,8 +1804,8 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* SpeedDial - hidden in selection mode, positioned left when not published */}
-      {/* {selectedAssetIds.size === 0 && ( */}
+      {/* Hide SpeedDial in selection mode */}
+      {!isSelectionMode && (
         <View
           style={{
             bottom: insets.bottom + 24,
@@ -1709,41 +1854,58 @@ export default function NextGenAssetsView() {
             <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
           </SpeedDial>
         </View>
-      {/* )} */}
+      )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-        <View
-          style={{
-            paddingBottom: insets.bottom,
-            paddingRight: 50 // Leave space for SpeedDial when not in selection mode
-          }}
-          className="px-2"
-        >
-          <Pressable
-            className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
-            onPress={() => void handleGoToRecording()}
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50
+            }}
+            className="absolute bottom-0 left-0 right-0 z-40"
           >
-            <Icon as={MicIcon} size={24} className="text-secondary" />
-            <View className="ml-2 flex-col items-start justify-start gap-0">
-              <Text className="text-center text-base font-semibold text-secondary">
-                {t('startRecordingSession')}
-              </Text>
-              <Text className="w-full text-left text-sm text-secondary">
-                {selectedAssetForRecording?.name
-                  ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
-                      0,
-                      30
-                    )
-                  : selectedQuest?.name
-                    ? selectedQuest.name.slice(0, 30)
-                    : t('doRecord')}
-              </Text>
-            </View>
-            <Icon as={ChevronRight} size={24} className="text-secondary" />
-          </Pressable>
-        </View>
-      )}
+            <RecordSelectionControls
+              selectedCount={selectedAssetIds.size}
+              onCancel={cancelSelection}
+              onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
+            />
+          </View>
+        ) : (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50
+            }}
+            className="px-2"
+          >
+            <Pressable
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              onPress={() => void handleGoToRecording()}
+            >
+              <Icon as={MicIcon} size={24} className="text-secondary" />
+              <View className="ml-2 flex-col items-start justify-start gap-0">
+                <Text className="text-center text-base font-semibold text-secondary">
+                  {t('startRecordingSession')}
+                </Text>
+                <Text className="w-full text-left text-sm text-secondary">
+                  {selectedAssetForRecording?.name
+                    ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
+                        0,
+                        30
+                      )
+                    : selectedQuest?.name
+                      ? selectedQuest.name.slice(0, 30)
+                      : t('doRecord')}
+                </Text>
+              </View>
+              <Icon as={ChevronRight} size={24} className="text-secondary" />
+            </Pressable>
+          </View>
+        ))}
 
       {showRenameDrawer && (
         <RenameAssetDrawer
