@@ -1615,7 +1615,10 @@ const RecordingViewSimplified = ({
                     .select()
                     .from(contentLocal)
                     .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+                    .orderBy(
+                      asc(contentLocal.order_index),
+                      asc(contentLocal.created_at)
+                    );
 
                   // Get next available order_index for the target asset
                   let nextOrder = await getNextAclOrderIndex(target.id);

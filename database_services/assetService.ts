@@ -381,7 +381,9 @@ export async function updateContentLinkOrder(
     await system.db
       .update(aclTable)
       .set({ order_index: i + 1 })
-      .where(and(eq(aclTable.id, orderedIds[i]), eq(aclTable.asset_id, assetId)));
+      .where(
+        and(eq(aclTable.id, orderedIds[i]!), eq(aclTable.asset_id, assetId))
+      );
   }
 }
 
