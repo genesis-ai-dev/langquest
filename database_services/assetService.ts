@@ -4,7 +4,7 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 /**
  * Asset metadata structure for verse ranges
@@ -14,6 +14,7 @@ export interface AssetMetadata {
     from: number;
     to: number;
   };
+  recordingSessionId?: string;
 }
 
 /**
@@ -38,7 +39,7 @@ export async function renameAsset(
       .where(eq(assetLocalTable.id, assetId))
       .limit(1);
 
-    if (!localAsset || localAsset.length === 0) {
+    if (localAsset.length === 0) {
       throw new Error(
         'Asset not found in local table - cannot rename synced assets'
       );
@@ -52,7 +53,7 @@ export async function renameAsset(
       .where(eq(syncedTable.id, assetId))
       .limit(1);
 
-    if (syncedAsset && syncedAsset.length > 0) {
+    if (syncedAsset.length > 0) {
       throw new Error(
         'Cannot rename synced assets - they are immutable once published'
       );
@@ -104,7 +105,7 @@ export async function updateAssetContentText(
       .where(whereCondition)
       .limit(1);
 
-    if (!localAssetContent || localAssetContent.length === 0) {
+    if (localAssetContent.length === 0) {
       throw new Error(
         'Asset content not found in local table - cannot edit synced content'
       );
@@ -122,7 +123,7 @@ export async function updateAssetContentText(
       .where(eq(syncedTable.id, targetContentId))
       .limit(1);
 
-    if (syncedAssetContent && syncedAssetContent.length > 0) {
+    if (syncedAssetContent.length > 0) {
       throw new Error(
         'Cannot edit synced asset content - it is immutable once published'
       );
@@ -163,7 +164,7 @@ export async function updateAssetMetadata(
       .where(eq(assetLocalTable.id, assetId))
       .limit(1);
 
-    if (!localAsset || localAsset.length === 0) {
+    if (localAsset.length === 0) {
       throw new Error(
         'Asset not found in local table - cannot update synced assets'
       );
@@ -177,7 +178,7 @@ export async function updateAssetMetadata(
       .where(eq(syncedTable.id, assetId))
       .limit(1);
 
-    if (syncedAsset && syncedAsset.length > 0) {
+    if (syncedAsset.length > 0) {
       throw new Error(
         'Cannot update synced assets - they are immutable once published'
       );
@@ -267,4 +268,140 @@ export async function batchUpdateAssetMetadata(
     console.error('Failed to batch update assets:', error);
     throw error;
   }
+}
+
+/**
+ * Normalize order_index for recorded verses
+ * Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
+ * This function reads assets from DB and reassigns order_index with thousand scale
+ * @param questId - The quest ID to normalize assets for
+ * @param verses - Array of verse numbers that were recorded
+ */
+export async function normalizeOrderIndexForVerses(
+  questId: string,
+  verses: number[]
+): Promise<void> {
+  if (!questId || verses.length === 0) return;
+
+  const assetTable = resolveTable('asset', { localOverride: true });
+  const questAssetLinkTable = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+
+  for (const verse of verses) {
+    // Calculate order_index range for this verse
+    // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
+    // Example: verse 7 → 7000000 to 7999999
+    const minOrderIndex = verse * 1000 * 1000;
+    const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
+
+    try {
+      // Query assets by order_index range using join with quest_asset_link
+      // This ensures we only get assets that belong to this quest
+      const assetsInVerse = await system.db
+        .select({
+          id: assetTable.id,
+          name: assetTable.name,
+          order_index: assetTable.order_index
+        })
+        .from(assetTable)
+        .innerJoin(
+          questAssetLinkTable,
+          eq(assetTable.id, questAssetLinkTable.asset_id)
+        )
+        .where(
+          and(
+            eq(questAssetLinkTable.quest_id, questId),
+            gte(assetTable.order_index, minOrderIndex),
+            lte(assetTable.order_index, maxOrderIndex)
+          )
+        )
+        .orderBy(asc(assetTable.order_index));
+
+      if (assetsInVerse.length === 0) {
+        continue;
+      }
+
+      // Recalculate order_index with thousand scale
+      // Formula: (verse * 1000 + sequential) * 1000
+      // sequential starts at 1: 7001000, 7002000, 7003000...
+      const updates: AssetUpdatePayload[] = [];
+      let hasChanges = false;
+
+      for (let i = 0; i < assetsInVerse.length; i++) {
+        const asset = assetsInVerse[i];
+        if (!asset) continue;
+
+        const sequential = i + 1; // 1-based
+        const newOrderIndex = (verse * 1000 + sequential) * 1000;
+
+        // Only update if order_index changed
+        if (asset.order_index !== newOrderIndex) {
+          hasChanges = true;
+          updates.push({
+            assetId: asset.id,
+            order_index: newOrderIndex
+          });
+        }
+      }
+
+      if (hasChanges && updates.length > 0) {
+        await batchUpdateAssetMetadata(updates);
+        console.log(
+          `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
+        );
+      }
+    } catch (error) {
+      console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
+    }
+  }
+}
+
+/**
+ * Update the order_index of content links within an asset.
+ * Accepts an array of content link IDs in the desired order.
+ * Each ID gets assigned order_index = its position in the array (1-based).
+ *
+ * NOTE: We use 1-based indexing so that every position differs from the
+ * column default (0). PowerSync only includes changed columns in CRUD
+ * patches, so setting order_index to 0 on a record that already has 0
+ * would silently omit it from the sync payload.
+ *
+ * @param assetId - The asset whose content links are being reordered
+ * @param orderedIds - Content link IDs in the desired display order
+ */
+export async function updateContentLinkOrder(
+  assetId: string,
+  orderedIds: string[]
+): Promise<void> {
+  const aclTable = resolveTable('asset_content_link');
+
+  // Update each content link's order_index based on its position (1-based)
+  for (let i = 0; i < orderedIds.length; i++) {
+    await system.db
+      .update(aclTable)
+      .set({ order_index: i + 1 })
+      .where(
+        and(eq(aclTable.id, orderedIds[i]!), eq(aclTable.asset_id, assetId))
+      );
+  }
+}
+
+/**
+ * Get the next available order_index for a given asset's content links.
+ * Useful when inserting new content links (e.g. during merge).
+ *
+ * @param assetId - The asset to check
+ * @returns The next order_index value (max + 1, or 1 if no content links exist)
+ */
+export async function getNextOrderIndex(assetId: string): Promise<number> {
+  const aclTable = resolveTable('asset_content_link');
+
+  const result = await system.db
+    .select({ maxOrder: sql<number>`MAX(${aclTable.order_index})` })
+    .from(aclTable)
+    .where(eq(aclTable.asset_id, assetId));
+
+  const maxOrder = result[0]?.maxOrder;
+  return (maxOrder ?? 0) + 1;
 }

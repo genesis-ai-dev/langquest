@@ -534,6 +534,10 @@ export async function publishQuest(questId: string, projectId: string) {
         'Failed to save audio attachments',
         failedAudioUploadResults
       );
+      // return {
+      //   success: false,
+      //   message: `Failed to save ${failedAudioUploadResults.length} audio attachment(s)`
+      // };
     }
 
     console.log('Quest published successfully');

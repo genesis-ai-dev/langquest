@@ -1,8 +1,10 @@
-name: run-tests
+name: Run production tests
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize]
     branches: ['main']
+
     paths:
       - '**'
       - '!**/*.md'
@@ -44,6 +46,7 @@ jobs:
     if: ${{ needs.android_get_build.outputs.build_id }}
     type: repack
     environment: production
+    runs_on: linux-medium
     params:
       build_id: ${{ needs.android_get_build.outputs.build_id }}
 
@@ -53,6 +56,7 @@ jobs:
     if: ${{ !needs.android_get_build.outputs.build_id }}
     type: build
     environment: production
+    runs_on: linux-medium
     params:
       platform: android
       profile: production-simulator
@@ -63,13 +67,12 @@ jobs:
     type: maestro
     environment: production
     image: latest
+    runs_on: linux-medium-nested-virtualization
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
+      record_screen: true
+      android_system_image_package: 'system-images;android-31;default;x86_64'
       flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
-    env:
-      APP_ID: ${{ secrets.APP_ID }}
-      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
-      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
 
   # ios_get_build:
   #   name: Check for existing ios build

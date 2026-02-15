@@ -86,11 +86,13 @@ import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
+import { getNextOrderIndex } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
   renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -105,14 +107,13 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
-  ReorderableListReorderEvent,
   reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
-import { BibleAssetListItem } from './BibleAssetListItem';
-import BibleRecordingView from './recording/components/BibleRecordingView';
-import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
+import { AssetCardItem } from './AssetCardItem';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -124,6 +125,7 @@ interface AssetMetadata {
     from: number;
     to: number;
   };
+  recordingSessionId?: string;
 }
 
 type AssetQuestLink = Asset & {
@@ -224,12 +226,14 @@ interface DraggableAssetItemProps {
   hasAvailableVerses: boolean;
   showDragHandle: boolean;
   isDragFixed: boolean;
+  isHighlighted: boolean;
   onPlay: (assetId: string) => void;
   onToggleSelect: (assetId: string) => void;
   onEnterSelection?: (assetId: string) => void;
   onSelectForRecording?: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
   onAddVersePress?: () => void;
+  onQuickAddVersePress?: () => void;
 }
 
 const DraggableAssetItem = React.memo(function DraggableAssetItem({
@@ -243,12 +247,14 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   hasAvailableVerses,
   showDragHandle,
   isDragFixed,
+  isHighlighted,
   onPlay,
   onToggleSelect,
   onEnterSelection,
   onSelectForRecording,
   onRename,
-  onAddVersePress
+  onAddVersePress,
+  onQuickAddVersePress
 }: DraggableAssetItemProps) {
   const drag = useReorderableDrag();
 
@@ -261,7 +267,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         hasAvailableVerses && (
           <View className="flex flex-row items-center justify-center gap-1 py-2">
             <Pressable
-              onPress={onAddVersePress}
+              onPress={onQuickAddVersePress}
+              onLongPress={onAddVersePress}
               className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 active:bg-primary/20"
             >
               <Icon as={BookmarkPlusIcon} size={14} className="text-primary" />
@@ -271,7 +278,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
             </Pressable>
           </View>
         )}
-      <BibleAssetListItem
+      <AssetCardItem
         asset={asset}
         questId={questId}
         isPublished={isPublished}
@@ -287,6 +294,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         isSelectedForRecording={isAssetSelectedForRecording}
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
+        isHighlighted={isHighlighted && !isPublished}
       />
       {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
         <RecordingPlaceIndicator />
@@ -446,7 +454,7 @@ export default function BibleAssetsView() {
     currentQuestData,
     currentBookId
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -536,6 +544,25 @@ export default function BibleAssetsView() {
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const getAssetMetadata = React.useCallback(
+    (rawMetadata: unknown): AssetMetadata | null => {
+      if (!rawMetadata) return null;
+      if (typeof rawMetadata === 'string') {
+        try {
+          const parsed = JSON.parse(rawMetadata);
+          return parsed && typeof parsed === 'object'
+            ? (parsed as AssetMetadata)
+            : null;
+        } catch {
+          return null;
+        }
+      }
+      return typeof rawMetadata === 'object'
+        ? (rawMetadata as AssetMetadata)
+        : null;
+    },
+    []
+  );
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
@@ -738,8 +765,6 @@ export default function BibleAssetsView() {
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
-  const [showRecording, setShowRecording] = React.useState(false);
-
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
   const [selectedForRecording, setSelectedForRecording] = React.useState<{
@@ -749,6 +774,7 @@ export default function BibleAssetsView() {
     orderIndex: number;
     metadata: AssetMetadata | null;
     verseName: string; // e.g., "1:5" or "1:5-7"
+    name?: string;
   } | null>(null);
 
   const { membership } = useUserPermissions(
@@ -774,6 +800,7 @@ export default function BibleAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enableMerge = useLocalStore((s) => s.enableMerge);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -979,7 +1006,8 @@ export default function BibleAssetsView() {
         assetId,
         orderIndex,
         metadata,
-        verseName
+        verseName,
+        name: asset.name ?? (undefined as string | undefined)
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -1150,13 +1178,20 @@ export default function BibleAssetsView() {
                 });
 
                 for (const src of rest) {
-                  // Find all content links for the source asset
+                  // Find all content links for the source asset, ordered by order_index
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
 
-                  // Insert them for the target asset
+                  // Get the next available order_index for the target asset
+                  let nextOrder = await getNextOrderIndex(target.id);
+
+                  // Insert them for the target asset with sequential order_index
                   for (const c of srcContent) {
                     if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
@@ -1166,7 +1201,8 @@ export default function BibleAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
@@ -1313,6 +1349,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1355,6 +1392,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1388,7 +1426,14 @@ export default function BibleAssetsView() {
     };
 
     void processNewSeparators();
-  }, [manualSeparators, listItems, assets, queryClient, refetch]);
+  }, [
+    manualSeparators,
+    listItems,
+    assets,
+    queryClient,
+    refetch,
+    getAssetMetadata
+  ]);
 
   // Clean up manual separators that have been persisted to asset metadata
   // This ensures the UI correctly reflects which verses are available after metadata updates
@@ -1481,6 +1526,7 @@ export default function BibleAssetsView() {
           assetsToUpdate.push({
             assetId: item.content.id,
             metadata: {
+              ...(getAssetMetadata(item.content.metadata) ?? {}),
               verse: {
                 from: newFrom,
                 to: newTo
@@ -1507,7 +1553,7 @@ export default function BibleAssetsView() {
         );
       }
     },
-    [listItems, queryClient, refetch]
+    [listItems, queryClient, refetch, getAssetMetadata]
   );
 
   // Compute the allowed range for a new separator based on existing separators
@@ -1526,7 +1572,7 @@ export default function BibleAssetsView() {
 
       // Get the CURRENT separator's "from" value (this is the ceiling for new range)
       let currentFrom: number | undefined;
-      if (currentSep && currentSep.type === 'separator') {
+      if (currentSep?.type === 'separator') {
         currentFrom = currentSep.from;
       }
 
@@ -1534,7 +1580,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = currentIdx - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -1834,6 +1880,7 @@ export default function BibleAssetsView() {
           (asset, index) => ({
             assetId: asset.id,
             metadata: {
+              ...(getAssetMetadata(asset.metadata) ?? {}),
               verse: { from, to }
             },
             order_index:
@@ -1856,7 +1903,15 @@ export default function BibleAssetsView() {
         RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
       }
     },
-    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]
+    [
+      assets,
+      selectedAssetIds,
+      cancelSelection,
+      queryClient,
+      refetch,
+      t,
+      getAssetMetadata
+    ]
   );
 
   // Handle removing labels from selected assets
@@ -1891,7 +1946,10 @@ export default function BibleAssetsView() {
       const updates: AssetUpdatePayload[] = selectedAssets.map(
         (asset, index) => ({
           assetId: asset.id,
-          metadata: null,
+          metadata: {
+            ...(getAssetMetadata(asset.metadata) ?? {}),
+            verse: undefined
+          },
           order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
         })
       );
@@ -1910,7 +1968,15 @@ export default function BibleAssetsView() {
       console.error('Failed to remove labels from assets:', error);
       RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
     }
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    queryClient,
+    refetch,
+    t,
+    getAssetMetadata
+  ]);
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -1956,8 +2022,9 @@ export default function BibleAssetsView() {
   // When returning from BibleRecordingView, normalize order_index for recorded verses
   // Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
   // This function reads assets from DB and reassigns order_index with thousand scale
+  // NOTE: This function is now available in assetService.ts and is called by RecordingView
   // ============================================================================
-  const normalizeOrderIndexForVerses = React.useCallback(
+  const _normalizeOrderIndexForVerses = React.useCallback(
     async (verses: number[]) => {
       if (!currentQuestId || verses.length === 0) return;
 
@@ -2053,7 +2120,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = assetIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2063,7 +2130,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = assetIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2110,6 +2177,63 @@ export default function BibleAssetsView() {
     [listItems, verseCount]
   );
 
+  const getNextAvailableVerse = React.useCallback(
+    (assetId: string): number | null => {
+      const assetIndex = listItems.findIndex(
+        (item) => item.type === 'asset' && item.content.id === assetId
+      );
+
+      if (assetIndex === -1) {
+        return null;
+      }
+
+      // Find previous separator (looking backward)
+      let prevTo: number | undefined;
+      for (let i = assetIndex - 1; i >= 0; i--) {
+        const item = listItems[i];
+        if (item?.type === 'separator' && item.to !== undefined) {
+          prevTo = item.to;
+          break;
+        }
+      }
+
+      // Find next separator (looking forward)
+      let nextFrom: number | undefined;
+      for (let i = assetIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (item?.type === 'separator' && item.from !== undefined) {
+          nextFrom = item.from;
+          break;
+        }
+      }
+
+      // Calculate range - only between prevTo and nextFrom
+      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
+
+      // Ensure valid range and check if there's actually space available
+      const finalFrom = Math.max(1, rangeFrom);
+      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+
+      // Check if there's actually space between separators
+      // If prevTo + 1 > nextFrom - 1, there's no space
+      if (
+        prevTo !== undefined &&
+        nextFrom !== undefined &&
+        prevTo + 1 > nextFrom - 1
+      ) {
+        return null;
+      }
+
+      if (finalFrom > finalTo || finalFrom > (verseCount || 1)) {
+        return null;
+      }
+
+      return finalFrom;
+    },
+    [listItems, verseCount]
+  );
+
   // Get available verses for editing a separator (between previous and next separators)
   const getRangeForSeparator = React.useCallback(
     (separatorKey: string) => {
@@ -2125,7 +2249,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = separatorIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2135,7 +2259,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2190,7 +2314,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2240,6 +2364,19 @@ export default function BibleAssetsView() {
       from: range.from,
       to: range.to
     });
+  };
+
+  const handleQuickAddVersePressRef = React.useRef<
+    ((assetId: string) => void) | undefined
+  >(undefined);
+  handleQuickAddVersePressRef.current = (assetId: string) => {
+    const nextVerse = getNextAvailableVerse(assetId);
+    if (nextVerse === null) {
+      return;
+    }
+    addVerseSeparator(nextVerse, nextVerse, assetId);
+    // Clear recording selection when any label is added
+    setSelectedForRecording(null);
   };
 
   const handleEditSeparatorRef = React.useRef<
@@ -2327,6 +2464,10 @@ export default function BibleAssetsView() {
           questId={currentQuestId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
+          isHighlighted={
+            asset.metadata?.recordingSessionId ==
+            selectedQuest?.metadata?.lastRecordingSessionId
+          }
           isSelected={isSelected}
           isSelectionMode={!isPublished && isSelectionMode}
           isAssetSelectedForRecording={isAssetSelectedForRecording}
@@ -2343,6 +2484,11 @@ export default function BibleAssetsView() {
           onAddVersePress={
             isAssetSelectedForRecording && hasAvailableVerses
               ? () => handleAddVersePressRef.current?.(asset.id)
+              : undefined
+          }
+          onQuickAddVersePress={
+            isAssetSelectedForRecording && hasAvailableVerses
+              ? () => handleQuickAddVersePressRef.current?.(asset.id)
               : undefined
           }
         />
@@ -2365,7 +2511,8 @@ export default function BibleAssetsView() {
       selectedForRecording?.separatorKey,
       handleSelectForRecording,
       handleSelectSeparatorForRecording,
-      handleRenameAsset
+      handleRenameAsset,
+      selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
 
@@ -2945,6 +3092,11 @@ export default function BibleAssetsView() {
 
   // Handle going to recording - stops any playing audio first
   const handleGoToRecording = React.useCallback(async () => {
+    if (!currentQuestId) {
+      console.error('Cannot start recording without quest ID');
+      return;
+    }
+
     // Stop PlayAll if running
     if (isPlayAllRunningRef.current) {
       isPlayAllRunningRef.current = false;
@@ -2969,9 +3121,41 @@ export default function BibleAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    // Now show recording
-    setShowRecording(true);
-  }, [audioContext]);
+    // Navigate to recording view
+    const recordingOrderIndex =
+      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
+    const recordingSessionId =
+      await createQuestRecordingSession(currentQuestId);
+
+    navigate({
+      view: 'recording',
+      questId: currentQuestId,
+      projectId: currentProjectId,
+      recordingData: {
+        recordingSession: recordingSessionId,
+        bookChapterLabel: bookChapterLabel,
+        bookChapterLabelFull: selectedQuest?.name,
+        initialOrderIndex: recordingOrderIndex,
+        verse: selectedForRecording?.metadata?.verse,
+        nextVerse: nextVerse,
+        limitVerse: limitVerse,
+        label: selectedForRecording?.verseName
+      }
+    });
+  }, [
+    audioContext,
+    navigate,
+    currentQuestId,
+    currentProjectId,
+    bookChapterLabel,
+    selectedQuest?.name,
+    selectedForRecording?.orderIndex,
+    selectedForRecording?.metadata?.verse,
+    selectedForRecording?.verseName,
+    lastUnassignedOrderIndex,
+    nextVerse,
+    limitVerse
+  ]);
 
   // Cleanup effect: Stop audio when component unmounts
   React.useEffect(() => {
@@ -3199,8 +3383,6 @@ export default function BibleAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
-
-        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok') }
@@ -3339,17 +3521,24 @@ export default function BibleAssetsView() {
           sequentialInGroup++;
 
           // Determine the metadata based on the current separator
+          const currentMetadata = getAssetMetadata(item.content.metadata);
+          const baseMetadata = currentMetadata ?? {};
           const newMetadata: AssetMetadata | null = currentSeparator?.from
             ? {
+                ...baseMetadata,
                 verse: {
                   from: currentSeparator.from,
                   to: currentSeparator.to ?? currentSeparator.from
                 }
               }
-            : null;
+            : baseMetadata.recordingSessionId
+              ? {
+                  ...baseMetadata,
+                  verse: undefined
+                }
+              : null;
 
           // Check if metadata or order_index has changed
-          const currentMetadata = item.content.metadata;
           const currentOrderIndex = item.content.order_index;
 
           const metadataChanged =
@@ -3387,7 +3576,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [queryClient, refetch]
+    [queryClient, refetch, getAssetMetadata]
   );
 
   if (!currentQuestId) {
@@ -3395,43 +3584,6 @@ export default function BibleAssetsView() {
       <View className="flex-1 items-center justify-center p-6">
         <Text>{t('noQuestSelected')}</Text>
       </View>
-    );
-  }
-
-  // Recording mode UI
-  if (showRecording) {
-    // Calculate initialOrderIndex:
-    // - If an asset is selected, use its order_index
-    // - Otherwise, use the last unassigned order_index (to continue from where we left off)
-    // - If no unassigned assets exist, undefined will trigger default in BibleRecordingView
-    const recordingOrderIndex =
-      selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <BibleRecordingView
-        onBack={async (recordedVerses) => {
-          setShowRecording(false);
-          setSelectedForRecording(null); // Clear selection when exiting
-
-          // Normalize order_index for recorded verses before refetching
-          // This converts unit-scale (7001001) to thousand-scale (7001000)
-          if (recordedVerses && recordedVerses.length > 0) {
-            await normalizeOrderIndexForVerses(recordedVerses);
-          }
-
-          // Refetch to show newly recorded assets with normalized order_index
-          void refetch();
-        }}
-        initialAssets={assets}
-        label={selectedForRecording?.verseName}
-        initialOrderIndex={recordingOrderIndex}
-        verse={selectedForRecording?.metadata?.verse}
-        bookChapterLabel={bookChapterLabel}
-        bookChapterLabelFull={selectedQuest?.name}
-        nextVerse={nextVerse}
-        limitVerse={limitVerse}
-      />
     );
   }
 
@@ -3759,7 +3911,7 @@ export default function BibleAssetsView() {
                   ) : null}
                 </>
               ) : null}
-              {!isPublished && (
+              {!isPublished && currentUser && (
                 <SpeedDialItem
                   icon={BrushCleaning}
                   variant="outline"
@@ -3790,23 +3942,34 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-        <View
-          style={{
-            paddingBottom: insets.bottom,
-            paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
-          }}
-          className="px-2"
-        >
-          {isSelectionMode ? (
-            <BibleSelectionControls
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="absolute bottom-0 left-0 right-0 z-40"
+          >
+            <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
+              showMerge={enableMerge}
             />
-          ) : (
+          </View>
+        ) : (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="px-2"
+          >
             <Pressable
               //variant="destructive"
               // size="lg"
@@ -3820,18 +3983,17 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                    : t('noLabelSelected')}
-                  {/* {selectedForRecording?.verseName
-                  ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                  : t('doRecord')} */}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name
+                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
+                      : `${t('noLabelSelected')}`}
                 </Text>
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-          )}
-        </View>
-      )}
+          </View>
+        ))}
+      {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
