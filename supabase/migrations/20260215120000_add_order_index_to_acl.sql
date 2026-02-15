@@ -3,28 +3,9 @@
 -- Purpose: Persist segment ordering within assets so that merged/reordered
 --          segments maintain their intended playback sequence.
 
--- Add order_index column (default 0 for new single-segment assets)
+-- Add order_index column (default 0 = unset, meaning fall back to created_at ordering)
 alter table public.asset_content_link
   add column if not exists order_index integer not null default 0;
-
--- Backfill: assign sequential order_index (1-based) based on created_at within each asset
--- We use 1-based indexing so that every valid position differs from the column
--- default (0). This is important because PowerSync only includes changed columns
--- in CRUD patches — setting order_index to 0 on a record that already has 0
--- would silently omit it from the sync payload, causing reorder operations to fail.
-with ranked as (
-  select
-    id,
-    row_number() over (
-      partition by asset_id
-      order by created_at asc
-    ) as rn
-  from public.asset_content_link
-)
-update public.asset_content_link acl
-set order_index = ranked.rn
-from ranked
-where acl.id = ranked.id;
 
 -- Create composite index for efficient ordering queries
 create index if not exists idx_acl_asset_order
@@ -37,8 +18,8 @@ comment on column public.asset_content_link.order_index is
 -- This handles uploads from older app versions that don't include order_index
 -- in their records. Without this, all content links from old clients would get
 -- order_index = 0, breaking order-dependent features like audio export.
--- The trigger queries the current max order_index for the asset and assigns
--- the next sequential value (1-based).
+-- The trigger determines the chronological position based on created_at and
+-- shifts existing content links to make room if needed.
 create or replace function public.auto_assign_acl_order_index()
 returns trigger
 language plpgsql
