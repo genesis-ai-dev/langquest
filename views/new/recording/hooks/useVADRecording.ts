@@ -209,6 +209,22 @@ export function useVADRecording({
           console.error('❌ Failed to reconfigure VAD:', error);
         });
     }
+
+    // Cleanup: ensure native energy detection is stopped on unmount
+    // Without this, if VAD was active when the view unmounts, the native
+    // AudioRecord would continue running in the background, consuming CPU/battery
+    return () => {
+      if (isActive) {
+        console.log('🧹 useVADRecording cleanup: stopping energy detection');
+        void MicrophoneEnergyModule.disableVAD();
+        void stopEnergyDetection().catch((error) => {
+          console.error(
+            '❌ Failed to stop energy detection during cleanup:',
+            error
+          );
+        });
+      }
+    };
   }, [
     isVADActive,
     isActive,
@@ -329,6 +345,13 @@ export function useVADRecording({
     return () => {
       segmentStartSubscription.remove();
       segmentCompleteSubscription.remove();
+      // Belt-and-suspenders: removeAllListeners to clean up any leaked native
+      // listeners from previous mount cycles. The Expo NativeModule EventEmitter
+      // (C++ JSI) may not properly clean up listeners when subscription.remove()
+      // is called during React.lazy + Suspense unmount/remount cycles.
+      // Since useVADRecording is the sole consumer of these events, this is safe.
+      MicrophoneEnergyModule.removeAllListeners('onSegmentStart');
+      MicrophoneEnergyModule.removeAllListeners('onSegmentComplete');
       if (segmentTimeoutRef.current) {
         clearTimeout(segmentTimeoutRef.current);
       }
