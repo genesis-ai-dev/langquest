@@ -5284,6 +5284,14 @@ export const localizations = {
     thai: 'ปฏิเสธคำเชิญ',
     mandarin: '邀请已拒绝'
   },
+  mustBeOnlineToAcceptInvite: {
+    english: 'You must be online to accept an invitation',
+    spanish: 'Debes estar en línea para aceptar una invitación',
+    brazilian_portuguese: 'Você precisa estar online para aceitar um convite',
+    tok_pisin: 'Yu mas stap long internet bilong accept invitation',
+    indonesian: 'Anda harus online untuk menerima undangan',
+    nepali: 'आमन्त्रण स्वीकार गर्न तपाईं अनलाइनमा हुनुपर्छ'
+  },
   failedToAcceptInvite: {
     english: 'Failed to accept invitation',
     spanish: 'Error al aceptar invitación',
