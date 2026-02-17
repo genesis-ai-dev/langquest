@@ -4,8 +4,11 @@ onFlowStart:
 ---
 - evalScript: ${output.username = faker.internet().username()}
 - evalScript: ${output.email = faker.internet().emailAddress()}
+- runFlow:
+    when:
+      platform: iOS
+    file: _ios-toggle-autofill-passwords.yaml
 - runFlow: _launch-and-onboard.yaml
-- runFlow: _ios-toggle-autofill-passwords.yaml
 - tapOn: Create Account
 - tapOn: Username
 - inputText: ${output.username}-testing

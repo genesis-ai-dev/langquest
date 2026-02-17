@@ -1,8 +1,10 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Sign-in flow - launches app, onboards, and signs in
+- runFlow:
+    when:
+      platform: iOS
+    file: _ios-toggle-autofill-passwords.yaml
 - runFlow: _launch-and-onboard.yaml
-- runFlow: _ios-toggle-autofill-passwords.yaml
 - tapOn:
     text: Sign In
     index: -1
