@@ -10,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
-  renameAsset
+  renameAsset,
+  updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
@@ -2315,8 +2316,10 @@ const RecordingView = () => {
           .where(eq(contentLocal.asset_id, second.id))
           .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
 
-        // Get next available order_index for the target asset
-        let nextOrder = await getNextAclOrderIndex(first.id);
+        // Get next available order_index for the target asset (local table)
+        let nextOrder = await getNextAclOrderIndex(first.id, {
+          localOverride: true
+        });
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -2332,6 +2335,18 @@ const RecordingView = () => {
         }
 
         await audioSegmentService.deleteAudioSegment(second.id);
+
+        // Normalize all content links on target to 1-based ordering
+        const allContent = await system.db
+          .select({ id: contentLocal.id })
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, first.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        await updateContentLinkOrder(
+          first.id,
+          allContent.map((c) => c.id),
+          { localOverride: true }
+        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2401,8 +2416,10 @@ const RecordingView = () => {
                       asc(contentLocal.created_at)
                     );
 
-                  // Get next available order_index for the target asset
-                  let nextOrder = await getNextAclOrderIndex(target.id);
+                  // Get next available order_index for the target asset (local table)
+                  let nextOrder = await getNextAclOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -2420,6 +2437,21 @@ const RecordingView = () => {
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 // Remove merged assets from session list (all except target get deleted)
                 const deletedIds = new Set(rest.map((a) => a.id));
