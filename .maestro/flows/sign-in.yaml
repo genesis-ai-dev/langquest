@@ -10,7 +10,8 @@ appId: ${MAESTRO_APP_ID}
 - inputText: ${MAESTRO_TEST_EMAIL}
 - tapOn: Enter your password
 - inputText: ${MAESTRO_TEST_PASSWORD}
-- hideKeyboard
+- tapOn:
+    point: 95%,30%
 - tapOn:
     text: Sign In
     below: I forgot my password
