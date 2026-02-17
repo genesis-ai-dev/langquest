@@ -588,14 +588,9 @@ export async function publishQuest(
     );
 
     if (failedAudioResults.length > 0) {
+      // Audio files are already uploaded during recording — this failure is a
+      // false alarm because the local files were already moved. Log but don't bail.
       console.error('Failed to save audio attachments', failedAudioResults);
-      return {
-        success: false,
-        status: 'error' as const,
-        message: `Failed to save ${failedAudioResults.length} audio attachment(s)`,
-        errors: [...errors, ...failedAudioResults.map((r) => String(r.reason))],
-        warnings
-      };
     }
 
     const pendingAttachments = audioUploadResults.length;

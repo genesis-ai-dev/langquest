@@ -33,6 +33,7 @@ interface RecordSelectionControlsProps {
   onSelectAll?: () => void;
   allowAssignVerse?: boolean;
   onAssignVerse?: () => void;
+  showMerge?: boolean;
 }
 
 export const RecordSelectionControls = React.memo(
@@ -45,7 +46,8 @@ export const RecordSelectionControls = React.memo(
     allSelected = false,
     onSelectAll,
     allowAssignVerse = false,
-    onAssignVerse
+    onAssignVerse,
+    showMerge = true
   }: RecordSelectionControlsProps) {
     const { t } = useLocalization();
     return (
@@ -69,18 +71,20 @@ export const RecordSelectionControls = React.memo(
                 <Icon as={allSelected ? ListX : ListChecks} />
               </Button>
             )}
-            <Button
-              variant="default"
-              size="default"
-              disabled={selectedCount < 2}
-              onPress={onMerge}
-              className="p-1"
-            >
-              <View className="flex-row items-center px-0">
-                <Icon as={Merge} />
-                <Text className="ml-2 text-xs">{t('merge')}</Text>
-              </View>
-            </Button>
+            {showMerge && (
+              <Button
+                variant="default"
+                size="default"
+                disabled={selectedCount < 2}
+                onPress={onMerge}
+                className="p-1"
+              >
+                <View className="flex-row items-center px-0">
+                  <Icon as={Merge} />
+                  <Text className="ml-2 text-xs">{t('merge')}</Text>
+                </View>
+              </Button>
+            )}
             <Button
               variant="destructive"
               disabled={selectedCount < 1}

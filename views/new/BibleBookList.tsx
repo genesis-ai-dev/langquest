@@ -53,8 +53,8 @@ export function BibleBookList({
   const setEnableVerseMarkers = useLocalStore(
     (state) => state.setEnableVerseMarkers
   );
-  // Show modal if verseMarkersFeaturePrompted is false
-  const showPromptModal = verseMarkersFeaturePrompted === false;
+  // Verse markers are now on by default — no longer prompt
+  const showPromptModal = false;
 
   const handleYes = () => {
     setVerseMarkersFeaturePrompted(true);

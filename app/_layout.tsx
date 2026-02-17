@@ -7,6 +7,7 @@ import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
+import { LocalizationProvider } from '@/hooks/useLocalization';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
@@ -146,23 +147,25 @@ export default function RootLayout() {
         <PreAuthMigrationCheck>
           <AuthProvider>
             <QueryProvider>
-              <AudioProvider>
-                <SafeAreaProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <KeyboardProvider>
-                      <StatusBar style={systemBarsStyle} />
-                      {/* OTA Update Banner - shown before login and after */}
-                      <UpdateBanner />
-                      <BottomSheetModalProvider>
-                        <ThemeProvider value={NAV_THEME[scheme]}>
-                          <Stack screenOptions={{ headerShown: false }} />
-                          <PortalHost />
-                        </ThemeProvider>
-                      </BottomSheetModalProvider>
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </SafeAreaProvider>
-              </AudioProvider>
+              <LocalizationProvider>
+                <AudioProvider>
+                  <SafeAreaProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <KeyboardProvider>
+                        <StatusBar style={systemBarsStyle} />
+                        {/* OTA Update Banner - shown before login and after */}
+                        <UpdateBanner />
+                        <BottomSheetModalProvider>
+                          <ThemeProvider value={NAV_THEME[scheme]}>
+                            <Stack screenOptions={{ headerShown: false }} />
+                            <PortalHost />
+                          </ThemeProvider>
+                        </BottomSheetModalProvider>
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </SafeAreaProvider>
+                </AudioProvider>
+              </LocalizationProvider>
             </QueryProvider>
           </AuthProvider>
         </PreAuthMigrationCheck>
