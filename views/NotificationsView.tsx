@@ -493,6 +493,11 @@ export default function NotificationsView() {
   ) => {
     if (processingIds.has(notificationId)) return;
 
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
     console.log('[handleAccept] Starting with params:', {
       notificationId,
       type,
