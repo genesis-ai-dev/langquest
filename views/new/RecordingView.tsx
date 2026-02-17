@@ -30,6 +30,7 @@ import {
   saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
@@ -55,6 +56,7 @@ import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
+import { useHybridData } from './useHybridData';
 
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
@@ -264,26 +266,42 @@ const RecordingView = () => {
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
-  // Static target languoid fetch – doesn't change during recording, no PowerSync listener needed
-  const { data: targetLanguoidId = null } = useQuery({
-    queryKey: ['project-target-languoid', 'static', currentProjectId],
-    queryFn: async () => {
-      if (!currentProjectId) return null;
-      const rows = await system.db
+  // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
+  const { data: targetLanguoidLink = [] } = useHybridData<{
+    languoid_id: string | null;
+  }>({
+    dataType: 'project-target-languoid-id',
+    queryKeyParams: [currentProjectId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
         .select({ languoid_id: project_language_link.languoid_id })
         .from(project_language_link)
         .where(
           and(
-            eq(project_language_link.project_id, currentProjectId),
+            eq(project_language_link.project_id, currentProjectId!),
             eq(project_language_link.language_type, 'target')
           )
         )
-        .limit(1);
-      return rows[0]?.languoid_id ?? null;
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentProjectId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_link')
+        .select('languoid_id')
+        .eq('project_id', currentProjectId)
+        .eq('language_type', 'target')
+        .not('languoid_id', 'is', null)
+        .limit(1)
+        .overrideTypes<{ languoid_id: string | null }[]>();
+      if (error) throw error;
+      return data;
     },
-    enabled: !!currentProjectId,
-    staleTime: Infinity
+    enableCloudQuery: !!currentProjectId,
+    enableOfflineQuery: !!currentProjectId
   });
+
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);

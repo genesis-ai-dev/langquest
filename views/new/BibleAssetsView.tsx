@@ -87,12 +87,10 @@ import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
-  getNextOrderIndex,
-  updateContentLinkOrder
-} from '@/database_services/assetService';
-import {
   batchUpdateAssetMetadata,
-  renameAsset
+  getNextOrderIndex,
+  renameAsset,
+  updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
