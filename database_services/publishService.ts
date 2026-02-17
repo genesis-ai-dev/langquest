@@ -619,7 +619,10 @@ async function gatherChapterData(chapterId: string): Promise<ChapterData> {
       .select()
       .from(assetContentLinkLocal)
       .where(inArray(assetContentLinkLocal.asset_id, assetIds))
-      .orderBy(assetContentLinkLocal.created_at);
+      .orderBy(
+        assetContentLinkLocal.order_index,
+        assetContentLinkLocal.created_at
+      );
 
     console.log(`🔗 Found ${assetContentLinks.length} content links`);
   }
