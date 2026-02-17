@@ -691,8 +691,10 @@ type GetInfiniteQueryParam<T> = Parameters<
   typeof useInfiniteQuery<HybridPageData<T>>
 >[0];
 
-interface InfiniteQueryContext<T>
-  extends QueryFunctionContext<GetQueryParam<T>['queryKey'], number> {
+interface InfiniteQueryContext<T> extends QueryFunctionContext<
+  GetQueryParam<T>['queryKey'],
+  number
+> {
   pageSize: number;
 }
 
