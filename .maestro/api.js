@@ -134,30 +134,41 @@ function generatePasswordResetLink(email) {
 
 function deleteProject(projectName) {
   // Validate projectName is defined and is a non-empty string
-  if (!projectName || typeof projectName !== 'string' || projectName.trim() === '') {
+  if (
+    !projectName ||
+    typeof projectName !== 'string' ||
+    projectName.trim() === ''
+  ) {
     throw new Error(
-      'Project name is required and must be a non-empty string. Received: ' + projectName
+      'Project name is required and must be a non-empty string. Received: ' +
+        projectName
     );
   }
 
   console.log('Deleting project with name:', projectName);
-  
+
   // First, get the project by name using Supabase REST API
   const getProjectResponse = http.get(
-    supabaseUrl + '/rest/v1/project?name=eq.' + encodeURIComponent(projectName) + '&select=id',
+    supabaseUrl +
+      '/rest/v1/project?name=eq.' +
+      encodeURIComponent(projectName) +
+      '&select=id',
     {
       headers: {
         Authorization: 'Bearer ' + serviceRoleKey,
         apikey: serviceRoleKey,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+        Prefer: 'return=representation'
       }
     }
   );
 
   if (getProjectResponse.status !== 200) {
     throw new Error(
-      'Failed to query project: ' + getProjectResponse.status + ' ' + getProjectResponse.body
+      'Failed to query project: ' +
+        getProjectResponse.status +
+        ' ' +
+        getProjectResponse.body
     );
   }
 
@@ -178,14 +189,17 @@ function deleteProject(projectName) {
         Authorization: 'Bearer ' + serviceRoleKey,
         apikey: serviceRoleKey,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+        Prefer: 'return=representation'
       }
     }
   );
 
   if (deleteResponse.status !== 200 && deleteResponse.status !== 204) {
     throw new Error(
-      'Failed to delete project: ' + deleteResponse.status + ' ' + deleteResponse.body
+      'Failed to delete project: ' +
+        deleteResponse.status +
+        ' ' +
+        deleteResponse.body
     );
   }
 
