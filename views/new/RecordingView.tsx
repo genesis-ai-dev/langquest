@@ -336,8 +336,9 @@ const RecordingView = () => {
   // Used to normalize order_index when returning to BibleAssetsView
   const recordedVersesRef = React.useRef<Set<number>>(new Set());
 
-  // Track if the user is allowed to add a new verse
-  const allowAddVerseRef = React.useRef<boolean>(true);
+  // Track if the user is allowed to add a new verse.
+  // Once the first recording is made without a verse, this locks to false for the session.
+  const [allowAddVerse, setAllowAddVerse] = React.useState(true);
 
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
@@ -533,7 +534,7 @@ const RecordingView = () => {
         };
 
         if (!newAsset.verse) {
-          allowAddVerseRef.current = false;
+          setAllowAddVerse(false);
         }
 
         debugLog(
@@ -1653,7 +1654,7 @@ const RecordingView = () => {
 
     // If starting recording without verse, disable adding new verses
     if (!verse) {
-      allowAddVerseRef.current = false;
+      setAllowAddVerse(false);
     }
 
     setIsRecording(true);
@@ -2964,7 +2965,7 @@ const RecordingView = () => {
       showAddVerseButton &&
       verseToAdd !== null &&
       // !isVADRecording &&
-      allowAddVerseRef.current;
+      allowAddVerse;
 
     if (!shouldShow) return null;
 
@@ -2992,6 +2993,7 @@ const RecordingView = () => {
     showAddVerseButton,
     verseToAdd,
     // isVADRecording,
+    allowAddVerse,
     handleAddNextVerse
   ]);
 
@@ -3096,7 +3098,8 @@ const RecordingView = () => {
                   console.error('Failed to normalize order_index:', error);
                 }
               }
-              // Navigate back
+              // Invalidate all asset queries so the parent list picks up new/deleted recordings
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               goBack();
             }}
           >
