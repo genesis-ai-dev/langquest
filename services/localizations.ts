@@ -134,6 +134,8 @@ export const localizations = {
     english: 'Options',
     spanish: 'Opciones',
     brazilian_portuguese: 'Opções',
+    tok_pisin: 'Ol options',
+    indonesian: 'Opsi',
     nepali: 'विकल्पहरू',
     hindi: 'विकल्प',
     burmese: 'ရွေးချယ်စရာများ',
@@ -288,6 +290,10 @@ export const localizations = {
   },
   newQuest: {
     english: 'New Quest',
+    spanish: 'Nueva Misión',
+    brazilian_portuguese: 'Nova Missão',
+    tok_pisin: 'Nupela Quest',
+    indonesian: 'Quest Baru',
     nepali: 'नयाँ क्वेस्ट',
     hindi: 'नया क्वेस्ट',
     burmese: 'Quest အသစ်',
@@ -296,6 +302,10 @@ export const localizations = {
   },
   questName: {
     english: 'Quest Name',
+    spanish: 'Nombre de la Misión',
+    brazilian_portuguese: 'Nome da Missão',
+    tok_pisin: 'Nem bilong Quest',
+    indonesian: 'Nama Quest',
     nepali: 'क्वेस्टको नाम',
     hindi: 'क्वेस्ट का नाम',
     burmese: 'Quest အမည်',
@@ -1043,6 +1053,18 @@ export const localizations = {
     thai: 'ปฏิเสธคำเชิญไม่สำเร็จ กรุณาลองอีกครั้ง',
     mandarin: '拒绝邀请失败。请重试。'
   },
+  mustBeOnlineToAcceptInvite: {
+    english: 'You must be online to accept an invitation',
+    spanish: 'Debes estar en línea para aceptar una invitación',
+    brazilian_portuguese: 'Você precisa estar online para aceitar um convite',
+    tok_pisin: 'Yu mas stap long internet bilong accept invitation',
+    indonesian: 'Anda harus online untuk menerima undangan',
+    nepali: 'आमन्त्रण स्वीकार गर्न तपाईं अनलाइनमा हुनुपर्छ',
+    hindi: 'आमंत्रण स्वीकार करने के लिए आपको ऑनलाइन होना होगा',
+    burmese: 'ဖိတ်ခေါ်မှုကို လက်ခံရန် သင်သည် အင်တာနက်ရှိရမည်',
+    thai: 'คุณต้องออนไลน์เพื่อยอมรับคำเชิญ',
+    mandarin: '您必须在线才能接受邀请'
+  },
   failedToVote: {
     english: 'Failed to submit vote',
     spanish: 'Error al enviar el voto',
@@ -1332,6 +1354,8 @@ export const localizations = {
     english: 'Project',
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto',
+    tok_pisin: 'Projek',
+    indonesian: 'Proyek',
     nepali: 'प्रोजेक्ट',
     hindi: 'परियोजना',
     burmese: 'စီမံကိန်း',
@@ -1484,6 +1508,8 @@ export const localizations = {
     english: 'Quest',
     spanish: 'Misión',
     brazilian_portuguese: 'Missão',
+    tok_pisin: 'Quest',
+    indonesian: 'Misi',
     nepali: 'क्वेस्ट',
     hindi: 'क्वेस्ट',
     burmese: 'Quest',
@@ -2189,6 +2215,8 @@ export const localizations = {
     english: 'Voting',
     spanish: 'Votación',
     brazilian_portuguese: 'Votação',
+    tok_pisin: 'Voting',
+    indonesian: 'Pemungutan Suara',
     nepali: 'मतदान',
     hindi: 'मतदान',
     burmese: 'မဲပေးခြင်း',
@@ -2259,6 +2287,8 @@ export const localizations = {
     english: 'Asset',
     spanish: 'Recurso',
     brazilian_portuguese: 'Recurso',
+    tok_pisin: 'Asset',
+    indonesian: 'Aset',
     nepali: 'एसेट',
     hindi: 'एसेट',
     burmese: 'ပိုင်ဆိုင်မှု',
@@ -2303,7 +2333,11 @@ export const localizations = {
     brazilian_portuguese: 'selecionado(s)',
     tok_pisin: 'selected',
     indonesian: 'terpilih',
-    nepali: 'चयन गरिएको'
+    nepali: 'चयन गरिएको',
+    hindi: 'चयनित',
+    burmese: 'ရွေးချယ်ထားသည်',
+    thai: 'ที่เลือก',
+    mandarin: '已选择'
   },
   delete: {
     english: 'Delete',
@@ -2746,6 +2780,8 @@ export const localizations = {
     english: 'Report Project',
     spanish: 'Reportar Proyecto',
     brazilian_portuguese: 'Reportar Projeto',
+    tok_pisin: 'Reportim Projek',
+    indonesian: 'Laporkan Proyek',
     nepali: 'प्रोजेक्ट रिपोर्ट गर्नुहोस्',
     hindi: 'परियोजना रिपोर्ट करें',
     burmese: 'စီမံကိန်းကို သတင်းပို့ပါ',
@@ -2756,6 +2792,8 @@ export const localizations = {
     english: 'Report Quest',
     spanish: 'Reportar Quest',
     brazilian_portuguese: 'Reportar Quest',
+    tok_pisin: 'Reportim Quest',
+    indonesian: 'Laporkan Misi',
     nepali: 'क्वेस्ट रिपोर्ट गर्नुहोस्',
     hindi: 'क्वेस्ट रिपोर्ट करें',
     burmese: 'Quest ကို သတင်းပို့ပါ',
@@ -2766,6 +2804,8 @@ export const localizations = {
     english: 'Report Asset',
     spanish: 'Reportar Recurso',
     brazilian_portuguese: 'Reportar Recurso',
+    tok_pisin: 'Reportim Asset',
+    indonesian: 'Laporkan Aset',
     nepali: 'एसेट रिपोर्ट गर्नुहोस्',
     hindi: 'एसेट रिपोर्ट करें',
     burmese: 'ပိုင်ဆိုင်မှုကို သတင်းပို့ပါ',
@@ -2788,6 +2828,8 @@ export const localizations = {
     english: 'Report',
     spanish: 'Reportar',
     brazilian_portuguese: 'Reportar',
+    tok_pisin: 'Reportim',
+    indonesian: 'Laporkan',
     nepali: 'रिपोर्ट गर्नुहोस्',
     hindi: 'रिपोर्ट करें',
     burmese: 'သတင်းပို့ပါ',
@@ -4706,6 +4748,10 @@ export const localizations = {
       '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
       '{sender} solicitou participar do projeto "{project}" como {role}',
+    tok_pisin:
+      '{sender} i askim long joinim projek "{project}" olsem {role}',
+    indonesian:
+      '{sender} telah meminta untuk bergabung dengan proyek "{project}" sebagai {role}',
     nepali:
       '{sender} ले "{project}" प्रोजेक्टमा {role} को रूपमा सामेल हुन अनुरोध गर्नुभयो',
     hindi:
@@ -6173,7 +6219,11 @@ export const localizations = {
     brazilian_portuguese: 'Depois de',
     tok_pisin: 'Despela',
     indonesian: 'Setelah',
-    nepali: 'बादमा'
+    nepali: 'बादमा',
+    hindi: 'बाद',
+    burmese: 'ပြီးနောက်',
+    thai: 'หลังจาก',
+    mandarin: '之后'
   },
   noLabelSelected: {
     english: 'No label selected',
@@ -9164,7 +9214,15 @@ export const localizations = {
     indonesian:
       'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
     nepali:
-      'डाटाबेसमा blob URL भएको {count} बिग्रिएको संलग्नक फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
+      'डाटाबेसमा blob URL भएको {count} बिग्रिएको संलग्नक फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।',
+    hindi:
+      'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिला। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
+    thai:
+      'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    mandarin:
+      '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
   foundCorruptedAttachmentsPlural: {
     english:
@@ -9178,7 +9236,15 @@ export const localizations = {
     indonesian:
       'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
     nepali:
-      'डाटाबेसमा blob URL भएका {count} बिग्रिएका संलग्नकहरू फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
+      'डाटाबेसमा blob URL भएका {count} बिग्रिएका संलग्नकहरू फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।',
+    hindi:
+      'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिले। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲများကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
+    thai:
+      'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    mandarin:
+      '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
   cleanAll: {
     english: 'Clean All ({count})',
@@ -9186,7 +9252,11 @@ export const localizations = {
     brazilian_portuguese: 'Limpar Tudo ({count})',
     tok_pisin: 'Klinim Olgeta ({count})',
     indonesian: 'Bersihkan Semua ({count})',
-    nepali: 'सबै सफा गर्नुहोस् ({count})'
+    nepali: 'सबै सफा गर्नुहोस् ({count})',
+    hindi: 'सभी साफ करें ({count})',
+    burmese: 'အားလုံး ရှင်းလင်းပါ ({count})',
+    thai: 'ทำความสะอาดทั้งหมด ({count})',
+    mandarin: '清理全部 ({count})'
   },
   cleaning: {
     english: 'Cleaning...',
@@ -9242,7 +9312,11 @@ export const localizations = {
     brazilian_portuguese: 'Ativos Associados ({count})',
     tok_pisin: 'Ol Asset i go wantaim ({count})',
     indonesian: 'Aset Terkait ({count})',
-    nepali: 'सम्बद्ध एसेटहरू ({count})'
+    nepali: 'सम्बद्ध एसेटहरू ({count})',
+    hindi: 'संबद्ध एसेट ({count})',
+    burmese: 'ဆက်စပ်သော ပိုင်ဆိုင်မှုများ ({count})',
+    thai: 'สินทรัพย์ที่เกี่ยวข้อง ({count})',
+    mandarin: '关联资产 ({count})'
   },
   contentLinks: {
     english: 'Content Links ({count})',
@@ -9250,7 +9324,11 @@ export const localizations = {
     brazilian_portuguese: 'Links de Conteúdo ({count})',
     tok_pisin: 'Ol Link bilong Content ({count})',
     indonesian: 'Tautan Konten ({count})',
-    nepali: 'सामग्री लिंकहरू ({count})'
+    nepali: 'सामग्री लिंकहरू ({count})',
+    hindi: 'सामग्री लिंक ({count})',
+    burmese: 'အကြောင်းအရာ လင့်ခ်များ ({count})',
+    thai: 'ลิงก์เนื้อหา ({count})',
+    mandarin: '内容链接 ({count})'
   },
   cleanThis: {
     english: 'Clean This',
@@ -9326,7 +9404,11 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao limpar anexo: {error}',
     tok_pisin: 'I no inap klinim fayl: {error}',
     indonesian: 'Gagal membersihkan lampiran: {error}',
-    nepali: 'संलग्नक सफा गर्न असफल: {error}'
+    nepali: 'संलग्नक सफा गर्न असफल: {error}',
+    hindi: 'संलग्नक साफ करने में विफल: {error}',
+    burmese: 'ဖိုင်တွဲကို ရှင်းလင်း၍မရပါ: {error}',
+    thai: 'ล้างไฟล์แนบไม่สำเร็จ: {error}',
+    mandarin: '清理附件失败: {error}'
   },
   cleanAllCorruptedAttachments: {
     english: 'Clean All Corrupted Attachments',
@@ -9352,7 +9434,15 @@ export const localizations = {
     indonesian:
       'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'यसले {count} बिग्रिएको संलग्नक सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
+      'यसले {count} बिग्रिएको संलग्नक सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।',
+    hindi:
+      'यह {count} दूषित संलग्नक को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
+    burmese:
+      'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
+    thai:
+      'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin:
+      '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   cleanAllConfirmPlural: {
     english:
@@ -9366,7 +9456,15 @@ export const localizations = {
     indonesian:
       'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'यसले {count} बिग्रिएका संलग्नकहरू सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
+      'यसले {count} बिग्रिएका संलग्नकहरू सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।',
+    hindi:
+      'यह {count} दूषित संलग्नकों को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
+    burmese:
+      'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲများကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
+    thai:
+      'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin:
+      '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   partialSuccess: {
     english: 'Partial Success',
