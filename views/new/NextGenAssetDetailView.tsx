@@ -12,10 +12,11 @@ import { Text as RNPText } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import { updateContentLinkOrder } from '@/database_services/assetService';
 import type { LayerStatus } from '@/database_services/types';
-import type { asset_content_link } from '@/db/drizzleSchema';
 import {
   asset,
+  asset_content_link,
   languoid as languoidTable,
   project,
   project_language_link
@@ -39,7 +40,7 @@ import {
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -54,7 +55,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import type { FlatList as FlatListType, ViewToken } from 'react-native';
-import { Dimensions, FlatList, Text, View } from 'react-native';
+import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
@@ -88,7 +89,12 @@ function useNextGenOfflineAsset(assetId: string) {
         system.db.query.asset.findFirst({
           where: eq(asset.id, assetId),
           with: {
-            content: true
+            content: {
+              orderBy: [
+                asc(asset_content_link.order_index),
+                asc(asset_content_link.created_at)
+              ]
+            }
           }
         })
       );
@@ -127,6 +133,14 @@ function useNextGenOfflineAsset(assetId: string) {
         `
         )
         .eq('id', assetId)
+        .order('order_index', {
+          referencedTable: 'asset_content_link',
+          ascending: true
+        })
+        .order('created_at', {
+          referencedTable: 'asset_content_link',
+          ascending: true
+        })
         .limit(1)
         .overrideTypes<
           (Omit<typeof asset.$inferSelect, 'images'> & {
@@ -183,6 +197,8 @@ export default function NextGenAssetDetailView() {
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
+  const [showReorderInput, setShowReorderInput] = useState(false);
+  const [reorderValue, setReorderValue] = useState('');
 
   // Transcription feature
   const enableTranscription = useLocalStore(
@@ -956,20 +972,79 @@ export default function NextGenAssetDetailView() {
                       />
                     </Button>
 
-                    {/* Pagination dots */}
-                    <View className="flex-row items-center gap-1.5">
-                      {activeAsset.content.map((_, index) => (
-                        <View
-                          key={index}
-                          className={cn(
-                            'h-2 w-2 rounded-full',
-                            index === currentContentIndex
-                              ? 'bg-primary'
-                              : 'bg-muted-foreground/30'
-                          )}
+                    {/* Position indicator */}
+                    {showReorderInput && allowEditing ? (
+                      <View className="flex-row items-center gap-2">
+                        <TextInput
+                          style={{
+                            height: 40,
+                            minWidth: 40,
+                            paddingHorizontal: 8,
+                            fontSize: 14,
+                            textAlign: 'center'
+                          }}
+                          className="rounded border border-primary bg-background text-foreground"
+                          keyboardType="number-pad"
+                          value={reorderValue}
+                          onChangeText={setReorderValue}
+                          autoFocus
+                          selectTextOnFocus
+                          returnKeyType="done"
+                          onSubmitEditing={async () => {
+                            const newPos = parseInt(reorderValue, 10);
+                            const content = activeAsset.content;
+                            if (
+                              !content ||
+                              isNaN(newPos) ||
+                              newPos < 1 ||
+                              newPos > content.length
+                            ) {
+                              setShowReorderInput(false);
+                              return;
+                            }
+                            const targetIndex = newPos - 1;
+                            if (targetIndex !== currentContentIndex) {
+                              // Build new order: move current item to target position
+                              const ids = content.map((c) => c.id);
+                              const movedId = ids.splice(
+                                currentContentIndex,
+                                1
+                              )[0]!;
+                              ids.splice(targetIndex, 0, movedId);
+                              await updateContentLinkOrder(activeAsset.id, ids, {
+                                localOverride: activeAsset.source === 'local'
+                              });
+                              setCurrentContentIndex(targetIndex);
+                            }
+                            setShowReorderInput(false);
+                          }}
+                          onBlur={() => setShowReorderInput(false)}
                         />
-                      ))}
-                    </View>
+                        <Text className="text-sm text-muted-foreground">
+                          of {activeAsset.content.length}
+                        </Text>
+                      </View>
+                    ) : allowEditing ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3"
+                        onPress={() => {
+                          setReorderValue(String(currentContentIndex + 1));
+                          setShowReorderInput(true);
+                        }}
+                      >
+                        <Text className="text-xs text-foreground">
+                          {currentContentIndex + 1} of{' '}
+                          {activeAsset.content.length}
+                        </Text>
+                      </Button>
+                    ) : (
+                      <Text className="text-sm text-muted-foreground">
+                        {currentContentIndex + 1} of{' '}
+                        {activeAsset.content.length}
+                      </Text>
+                    )}
 
                     <Button
                       variant="ghost"

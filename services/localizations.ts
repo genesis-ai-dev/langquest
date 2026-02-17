@@ -11123,6 +11123,40 @@ export const localizations = {
       'သင်၏ စိတ်ကြိုက် ဖန်တီးထားသော ဘာသာစကားများကို ဒေတာဘေ့စ်ရှိ ရှိပြီးသား ဘာသာစကားများသို့ ချိတ်ဆက်ရန် အကြံပြုချက်များ ရယူပါ',
     thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่คุณสร้างเองกับภาษาที่มีอยู่ในฐานข้อมูล',
     mandarin: '获取建议，将您自定义创建的语言链接到数据库中的现有语言'
+  },
+  enableMerge: {
+    english: 'Merge assets',
+    spanish: 'Fusionar activos',
+    brazilian_portuguese: 'Mesclar ativos',
+    tok_pisin: 'Joinim ol aset',
+    indonesian: 'Gabungkan aset',
+    nepali: 'सम्पत्तिहरू मर्ज गर्नुहोस्',
+    hindi: 'एसेट मर्ज करें',
+    burmese: 'ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ပါ',
+    thai: 'รวมสินทรัพย์',
+    mandarin: '合并资产'
+  },
+  enableMergeDescription: {
+    english:
+      'Allow merging multiple audio assets into a single asset. Use with caution — segment order may need manual adjustment after merging.',
+    spanish:
+      'Permitir fusionar múltiples activos de audio en un solo activo. Usar con precaución — el orden de los segmentos puede necesitar ajuste manual después de fusionar.',
+    brazilian_portuguese:
+      'Permitir mesclar vários ativos de áudio em um único ativo. Use com cuidado — a ordem dos segmentos pode precisar de ajuste manual após a mesclagem.',
+    tok_pisin:
+      'Larim joinim planti audio aset i go insait long wanpela aset. Usim gut — order bilong ol segment i ken nidim stretim bihain long joinim.',
+    indonesian:
+      'Izinkan penggabungan beberapa aset audio menjadi satu aset. Gunakan dengan hati-hati — urutan segmen mungkin perlu penyesuaian manual setelah penggabungan.',
+    nepali:
+      'धेरै अडियो सम्पत्तिहरूलाई एकल सम्पत्तिमा मर्ज गर्न अनुमति दिनुहोस्। सावधानीपूर्वक प्रयोग गर्नुहोस् — मर्ज गरेपछि खण्ड क्रम म्यानुअल समायोजन आवश्यक पर्न सक्छ।',
+    hindi:
+      'कई ऑडियो एसेट को एक एसेट में मर्ज करने की अनुमति दें। सावधानी से उपयोग करें — मर्ज करने के बाद सेगमेंट क्रम को मैन्युअल रूप से समायोजित करने की आवश्यकता हो सकती है।',
+    burmese:
+      'အသံပိုင်ဆိုင်မှုများစွာကို တစ်ခုတည်းသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ခွင့်ပြုပါ။ သတိဖြင့် အသုံးပြုပါ — ပေါင်းစပ်ပြီးနောက် အပိုင်းအစ အစဉ်ကို လက်ဖြင့် ညှိယူရန် လိုအပ်နိုင်သည်။',
+    thai:
+      'อนุญาตให้รวมสินทรัพย์เสียงหลายรายการเป็นสินทรัพย์เดียว ใช้ด้วยความระมัดระวัง — ลำดับของส่วนอาจต้องปรับด้วยตนเองหลังจากรวม',
+    mandarin:
+      '允许将多个音频资产合并为单个资产。请谨慎使用 — 合并后可能需要手动调整片段顺序。'
   }
 } as const;
 

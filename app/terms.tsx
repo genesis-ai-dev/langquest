@@ -22,7 +22,7 @@ function Terms() {
     acceptTerms();
     // After accepting terms, show the onboarding walkthrough
     // The onboarding will show automatically when navigating to projects view
-    router.navigate('/');
+    router.replace('/');
   }, [acceptTerms, router]);
 
   const handleClosePress = useCallback(() => {
