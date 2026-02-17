@@ -3207,8 +3207,6 @@ export default function BibleAssetsView() {
       // Reset state
       setCurrentlyPlayingAssetId(null);
       setIsPlayAllRunning(false);
-
-      console.log('🧹 Cleaned up BibleAssetsView on unmount');
     };
   }, []);
 
