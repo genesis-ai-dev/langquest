@@ -372,9 +372,12 @@ export async function normalizeOrderIndexForVerses(
  */
 export async function updateContentLinkOrder(
   assetId: string,
-  orderedIds: string[]
+  orderedIds: string[],
+  options?: { localOverride?: boolean }
 ): Promise<void> {
-  const aclTable = resolveTable('asset_content_link');
+  const aclTable = resolveTable('asset_content_link', {
+    localOverride: options?.localOverride ?? false
+  });
 
   // Update each content link's order_index based on its position (1-based)
   for (let i = 0; i < orderedIds.length; i++) {
@@ -394,8 +397,13 @@ export async function updateContentLinkOrder(
  * @param assetId - The asset to check
  * @returns The next order_index value (max + 1, or 1 if no content links exist)
  */
-export async function getNextOrderIndex(assetId: string): Promise<number> {
-  const aclTable = resolveTable('asset_content_link');
+export async function getNextOrderIndex(
+  assetId: string,
+  options?: { localOverride?: boolean }
+): Promise<number> {
+  const aclTable = resolveTable('asset_content_link', {
+    localOverride: options?.localOverride ?? false
+  });
 
   const result = await system.db
     .select({ maxOrder: sql<number>`MAX(${aclTable.order_index})` })

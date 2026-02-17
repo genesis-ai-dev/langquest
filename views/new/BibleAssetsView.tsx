@@ -86,7 +86,10 @@ import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
-import { getNextOrderIndex } from '@/database_services/assetService';
+import {
+  getNextOrderIndex,
+  updateContentLinkOrder
+} from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
   renameAsset
@@ -1188,8 +1191,10 @@ export default function BibleAssetsView() {
                       asc(asset_content_link.created_at)
                     );
 
-                  // Get the next available order_index for the target asset
-                  let nextOrder = await getNextOrderIndex(target.id);
+                  // Get the next available order_index for the target asset (local table)
+                  let nextOrder = await getNextOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   // Insert them for the target asset with sequential order_index
                   for (const c of srcContent) {
@@ -1209,6 +1214,21 @@ export default function BibleAssetsView() {
                   // Delete the source asset
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 cancelSelection();
                 setSelectedForRecording(null);

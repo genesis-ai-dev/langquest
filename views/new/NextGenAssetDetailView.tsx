@@ -1011,7 +1011,9 @@ export default function NextGenAssetDetailView() {
                                 1
                               )[0]!;
                               ids.splice(targetIndex, 0, movedId);
-                              await updateContentLinkOrder(activeAsset.id, ids);
+                              await updateContentLinkOrder(activeAsset.id, ids, {
+                                localOverride: activeAsset.source === 'local'
+                              });
                               setCurrentContentIndex(targetIndex);
                             }
                             setShowReorderInput(false);
