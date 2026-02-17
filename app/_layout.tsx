@@ -148,23 +148,23 @@ export default function RootLayout() {
           <AuthProvider>
             <QueryProvider>
               <LocalizationProvider>
-              <AudioProvider>
-                <SafeAreaProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <KeyboardProvider>
-                      <StatusBar style={systemBarsStyle} />
-                      {/* OTA Update Banner - shown before login and after */}
-                      <UpdateBanner />
-                      <BottomSheetModalProvider>
-                        <ThemeProvider value={NAV_THEME[scheme]}>
-                          <Stack screenOptions={{ headerShown: false }} />
-                          <PortalHost />
-                        </ThemeProvider>
-                      </BottomSheetModalProvider>
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </SafeAreaProvider>
-              </AudioProvider>
+                <AudioProvider>
+                  <SafeAreaProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <KeyboardProvider>
+                        <StatusBar style={systemBarsStyle} />
+                        {/* OTA Update Banner - shown before login and after */}
+                        <UpdateBanner />
+                        <BottomSheetModalProvider>
+                          <ThemeProvider value={NAV_THEME[scheme]}>
+                            <Stack screenOptions={{ headerShown: false }} />
+                            <PortalHost />
+                          </ThemeProvider>
+                        </BottomSheetModalProvider>
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </SafeAreaProvider>
+                </AudioProvider>
               </LocalizationProvider>
             </QueryProvider>
           </AuthProvider>
