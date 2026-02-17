@@ -64,7 +64,9 @@ interface LocalizationContextValue {
   t: (key: LocalizationKey, options?: InterpolationValues | number) => string;
 }
 
-const LocalizationContext = createContext<LocalizationContextValue | null>(null);
+const LocalizationContext = createContext<LocalizationContextValue | null>(
+  null
+);
 
 /**
  * Provider that makes a single PowerSync query for the user's languoid.
@@ -165,10 +167,7 @@ export function LocalizationProvider({
     [userLanguage]
   );
 
-  const value = useMemo(
-    () => ({ userLanguage, t }),
-    [userLanguage, t]
-  );
+  const value = useMemo(() => ({ userLanguage, t }), [userLanguage, t]);
 
   return (
     <LocalizationContext.Provider value={value}>
@@ -200,9 +199,7 @@ export function useLocalization(languageOverride?: string | null) {
         langAny.english_name &&
         typeof langAny.english_name === 'string'
       ) {
-        resolvedLang = mapLanguoidNameToSupportedLanguage(
-          langAny.english_name
-        );
+        resolvedLang = mapLanguoidNameToSupportedLanguage(langAny.english_name);
       }
     }
 
