@@ -41,8 +41,9 @@ interface RecordingSelectionListPropsBase<T> {
 }
 
 // Lazy rendering with data + renderItem
-interface RecordingSelectionListPropsLazy<T>
-  extends RecordingSelectionListPropsBase<T> {
+interface RecordingSelectionListPropsLazy<
+  T
+> extends RecordingSelectionListPropsBase<T> {
   data: T[];
   renderItem: (
     item: T,

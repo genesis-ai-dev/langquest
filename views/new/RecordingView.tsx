@@ -10,12 +10,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
-  renameAsset
+  renameAsset,
+  updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useProjectById } from '@/hooks/db/useProjects';
+import type { Project } from '@/hooks/db/useProjects';
 import {
   useAppNavigation,
   useCurrentNavigation
@@ -31,7 +32,7 @@ import {
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
@@ -212,6 +213,16 @@ interface _AssetMetadata {
 }
 
 const RecordingView = () => {
+  // Guard ref to prevent post-unmount state updates (memory leak prevention)
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Get navigation state and functions
   const { goBack } = useAppNavigation();
   const navigation = useCurrentNavigation();
@@ -232,25 +243,30 @@ const RecordingView = () => {
   const _verse = recordingData?.verse;
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
-  const _label = recordingData?.label || '';
   const recordingSessionId = recordingData?.recordingSession;
-
-  // Log recording data on mount
-  React.useEffect(() => {
-    console.log(
-      `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
-    );
-  }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
 
   const queryClient = useQueryClient();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { project: currentProject } = useProjectById(currentProjectId);
+
+  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
+  const { data: currentProject = null } = useQuery({
+    queryKey: ['project', 'static', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const result = await system.db.query.project.findFirst({
+        where: (fields, { eq }) => eq(fields.id, currentProjectId)
+      });
+      return (result as Project) ?? null;
+    },
+    enabled: !!currentProjectId,
+    staleTime: Infinity
+  });
+
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
-  // Get target languoid_id from project_language_link
-
+  // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
@@ -339,8 +355,9 @@ const RecordingView = () => {
   // Used to normalize order_index when returning to BibleAssetsView
   const recordedVersesRef = React.useRef<Set<number>>(new Set());
 
-  // Track if the user is allowed to add a new verse
-  const allowAddVerseRef = React.useRef<boolean>(true);
+  // Track if the user is allowed to add a new verse.
+  // Once the first recording is made without a verse, this locks to false for the session.
+  const [allowAddVerse, setAllowAddVerse] = React.useState(true);
 
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
@@ -536,7 +553,7 @@ const RecordingView = () => {
         };
 
         if (!newAsset.verse) {
-          allowAddVerseRef.current = false;
+          setAllowAddVerse(false);
         }
 
         debugLog(
@@ -1656,7 +1673,7 @@ const RecordingView = () => {
 
     // If starting recording without verse, disable adding new verses
     if (!verse) {
-      allowAddVerseRef.current = false;
+      setAllowAddVerse(false);
     }
 
     setIsRecording(true);
@@ -1941,9 +1958,15 @@ const RecordingView = () => {
     isManualRecording: isRecording
   });
 
-  // Invalidate queries when VAD mode ends
+  // Invalidate queries when VAD mode transitions from active → inactive
+  // Use a ref to track if VAD was previously active, so we only invalidate
+  // on actual transitions (not on initial mount when isVADActive is false)
+  const wasVADActiveRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isVADActive) {
+    if (isVADActive) {
+      wasVADActiveRef.current = true;
+    } else if (wasVADActiveRef.current) {
+      wasVADActiveRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
@@ -2035,7 +2058,7 @@ const RecordingView = () => {
 
       // Process assets in batches to prevent blocking
       const processBatch = async (startIdx: number) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !mountedRef.current) return;
 
         const BATCH_SIZE = 5; // Process 5 assets at a time
         const batch = assetsToLoad.slice(startIdx, startIdx + BATCH_SIZE);
@@ -2197,11 +2220,10 @@ const RecordingView = () => {
           }
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (controller.signal.aborted) {
+          if (controller.signal.aborted || !mountedRef.current) {
             return;
           } else {
             if (newCounts.size > 0) {
-              // Merge with existing counts
               setAssetSegmentCounts((prev) => {
                 const merged = new Map(prev);
                 for (const [id, count] of newCounts) {
@@ -2215,7 +2237,6 @@ const RecordingView = () => {
             }
 
             if (newDurations.size > 0) {
-              // Merge with existing durations
               setAssetDurations((prev) => {
                 const merged = new Map(prev);
                 for (const [id, duration] of newDurations) {
@@ -2242,9 +2263,11 @@ const RecordingView = () => {
           } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
-            setTimeout(() => {
+            const errorTimeoutId = setTimeout(() => {
+              timeoutIdsRef.current.delete(errorTimeoutId);
               void processBatch(startIdx + BATCH_SIZE);
             }, 16);
+            timeoutIdsRef.current.add(errorTimeoutId);
           }
         }
       };
@@ -2315,8 +2338,10 @@ const RecordingView = () => {
           .where(eq(contentLocal.asset_id, second.id))
           .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
 
-        // Get next available order_index for the target asset
-        let nextOrder = await getNextAclOrderIndex(first.id);
+        // Get next available order_index for the target asset (local table)
+        let nextOrder = await getNextAclOrderIndex(first.id, {
+          localOverride: true
+        });
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -2332,6 +2357,18 @@ const RecordingView = () => {
         }
 
         await audioSegmentService.deleteAudioSegment(second.id);
+
+        // Normalize all content links on target to 1-based ordering
+        const allContent = await system.db
+          .select({ id: contentLocal.id })
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, first.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        await updateContentLinkOrder(
+          first.id,
+          allContent.map((c) => c.id),
+          { localOverride: true }
+        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2401,8 +2438,10 @@ const RecordingView = () => {
                       asc(contentLocal.created_at)
                     );
 
-                  // Get next available order_index for the target asset
-                  let nextOrder = await getNextAclOrderIndex(target.id);
+                  // Get next available order_index for the target asset (local table)
+                  let nextOrder = await getNextAclOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -2420,6 +2459,21 @@ const RecordingView = () => {
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 // Remove merged assets from session list (all except target get deleted)
                 const deletedIds = new Set(rest.map((a) => a.id));
@@ -2961,7 +3015,7 @@ const RecordingView = () => {
       showAddVerseButton &&
       verseToAdd !== null &&
       // !isVADRecording &&
-      allowAddVerseRef.current;
+      allowAddVerse;
 
     if (!shouldShow) return null;
 
@@ -2989,6 +3043,7 @@ const RecordingView = () => {
     showAddVerseButton,
     verseToAdd,
     // isVADRecording,
+    allowAddVerse,
     handleAddNextVerse
   ]);
 
@@ -3093,7 +3148,8 @@ const RecordingView = () => {
                   console.error('Failed to normalize order_index:', error);
                 }
               }
-              // Navigate back
+              // Invalidate all asset queries so the parent list picks up new/deleted recordings
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               goBack();
             }}
           >
