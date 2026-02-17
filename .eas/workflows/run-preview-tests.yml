@@ -104,7 +104,7 @@ jobs:
       record_screen: true
       device_identifier: 'pixel_6'
       android_system_image_package: 'system-images;android-31;default;x86_64'
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']
 
   ios_maestro:
     name: Run iOS Maestro Tests
@@ -117,4 +117,4 @@ jobs:
       record_screen: true
       device_identifier: 'iPhone 16e'
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']

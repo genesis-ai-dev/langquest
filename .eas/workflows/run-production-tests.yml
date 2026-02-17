@@ -103,7 +103,7 @@ jobs:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
       record_screen: true
       android_system_image_package: 'system-images;android-31;default;x86_64'
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']
 
   ios_maestro:
     name: Run iOS Maestro Tests
@@ -115,4 +115,4 @@ jobs:
     params:
       record_screen: true
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']

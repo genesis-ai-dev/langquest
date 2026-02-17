@@ -1,0 +1,23 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Sign-in flow - launches app, onboards, and signs in
+- runFlow:
+    file: _launch-and-onboard.yaml
+- tapOn:
+    text: Sign In
+    index: -1
+- tapOn: Enter your email
+- inputText: ${MAESTRO_TEST_EMAIL}
+- tapOn: Enter your password
+- inputText: ${MAESTRO_TEST_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: Sign In
+    below: I forgot my password
+- tapOn:
+    id: app-drawer-menu-button
+- tapOn: Profile
+- assertVisible:
+    text: Profile
+    above:
+      text: ${MAESTRO_TEST_EMAIL}

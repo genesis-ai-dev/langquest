@@ -20,6 +20,6 @@
     "llm_supp_files",
     "node_modules",
     "supabase/functions/**/*",
-    "maestro/**/*"
+    ".maestro/**/*"
   ]
 }

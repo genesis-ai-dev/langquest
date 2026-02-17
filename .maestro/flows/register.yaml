@@ -1,19 +1,11 @@
 appId: ${MAESTRO_APP_ID}
 onFlowStart:
-  - runScript: ./api.js
-jsEngine: graaljs
+  - runScript: ../api.js
 ---
 - evalScript: ${output.username = faker.internet().username()}
 - evalScript: ${output.email = faker.internet().emailAddress()}
-- launchApp:
-    clearState: true
-- assertVisible: Terms & Privacy
-- scrollUntilVisible:
-    element: I agree
-- tapOn: I agree
-- assertVisible: Every language. Every culture.
-- tapOn:
-    id: onboarding-close-button
+- runFlow:
+    file: _launch-and-onboard.yaml
 - tapOn: Create Account
 - tapOn: Username
 - inputText: ${output.username}-testing
@@ -23,13 +15,13 @@ jsEngine: graaljs
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
-- hideKeyboard
+- pressKey: Enter
 - tapOn:
-    point: 10%,69%
+    id: checkbox # checkboxes are hard to find by maestro in LangQuest, using id
 - tapOn: Register
 - assertVisible: Projects
 - tapOn:
-    point: 89%,5%
+    id: app-drawer-menu-button
 - tapOn: Profile
 - assertVisible: Profile
 - evalScript: ${output.api.deleteUser(output.email)}

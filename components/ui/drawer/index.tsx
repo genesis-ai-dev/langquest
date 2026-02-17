@@ -17,7 +17,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../button';
 import { Text } from '../text';
@@ -233,6 +233,10 @@ const DrawerContent = React.forwardRef<
   return (
     <BottomSheetModal
       ref={context?.ref}
+      accessible={Platform.select({
+        // setting it to false on Android seems to cause issues with TalkBack instead
+        ios: false
+      })}
       onChange={handleSheetChanges}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
