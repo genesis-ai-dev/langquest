@@ -74,6 +74,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     return () => {
       energySubscription.remove();
       errorSubscription.remove();
+      // Belt-and-suspenders: removeAllListeners to clean up any leaked native
+      // listeners from previous mount cycles (see useVADRecording comment about
+      // React.lazy + Suspense causing stale listeners)
+      MicrophoneEnergyModule.removeAllListeners('onEnergyResult');
+      MicrophoneEnergyModule.removeAllListeners('onError');
     };
   }, [energyShared]);
 
