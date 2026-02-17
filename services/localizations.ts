@@ -2584,17 +2584,16 @@ export const localizations = {
     mandarin: '需要验证'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the Terms & Privacy',
-    spanish: 'He leído y acepto los Términos y Privacidad',
-    brazilian_portuguese: 'Eu li e concordo com os Termos e Privacidade',
-    tok_pisin: 'Mi ridim na agri long Terms na Privacy',
-    indonesian: 'Saya telah membaca dan menyetujui Syarat & Privasi',
-    nepali: 'मैले सर्तहरू र गोपनीयता पढेको छु र स्वीकार गर्छु',
-    hindi: 'मैंने नियम और गोपनीयता पढ़ ली है और सहमत हूं',
-    burmese:
-      'ကျွန်ုပ်သည် စည်းမျဉ်းများနှင့် ကိုယ်ရေးလုံခြုံမှုကို ဖတ်ရှုပြီး သဘောတူပါသည်',
-    thai: 'ฉันได้อ่านและยอมรับข้อกำหนดและความเป็นส่วนตัวแล้ว',
-    mandarin: '我已阅读并同意条款和隐私'
+    english: 'I have read and agree to the {link}',
+    spanish: 'He leído y acepto los {link}',
+    brazilian_portuguese: 'Eu li e concordo com os {link}',
+    tok_pisin: 'Mi ridim na agri long {link}',
+    indonesian: 'Saya telah membaca dan menyetujui {link}',
+    nepali: 'मैले {link} पढेको छु र स्वीकार गर्छु',
+    hindi: 'मैंने {link} पढ़ ली है और सहमत हूं',
+    burmese: 'ကျွန်ုပ်သည် {link} ကို ဖတ်ရှုပြီး သဘောတူပါသည်',
+    thai: 'ฉันได้อ่านและยอมรับ{link}แล้ว',
+    mandarin: '我已阅读并同意{link}'
   },
   termsAndPrivacyLink: {
     english: 'Terms & Privacy',
