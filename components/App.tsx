@@ -60,7 +60,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoading && !dateTermsAccepted) {
-      router.navigate('/terms');
+      router.replace('/terms');
     }
   }, [isLoading, dateTermsAccepted, router]);
 

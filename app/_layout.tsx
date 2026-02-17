@@ -7,6 +7,7 @@ import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
+import { LocalizationProvider } from '@/hooks/useLocalization';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
@@ -146,6 +147,7 @@ export default function RootLayout() {
         <PreAuthMigrationCheck>
           <AuthProvider>
             <QueryProvider>
+              <LocalizationProvider>
               <AudioProvider>
                 <SafeAreaProvider>
                   <GestureHandlerRootView style={{ flex: 1 }}>
@@ -163,6 +165,7 @@ export default function RootLayout() {
                   </GestureHandlerRootView>
                 </SafeAreaProvider>
               </AudioProvider>
+              </LocalizationProvider>
             </QueryProvider>
           </AuthProvider>
         </PreAuthMigrationCheck>

@@ -1212,8 +1212,6 @@ export default function NextGenAssetsView() {
       currentPlayingAssetIdRef.current = null;
       setCurrentlyPlayingAssetId(null);
       setIsPlayAllRunning(false);
-
-      console.log('🧹 Cleaned up NextGenAssetsView on unmount');
     };
   }, []);
 

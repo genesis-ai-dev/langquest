@@ -227,13 +227,6 @@ function AssetCardInternal({
 
   // Extract verse range from metadata if available
   const verseRange = React.useMemo(() => {
-    console.log('🔍 LabeledAssetCard - Checking metadata:', {
-      assetId: asset.id,
-      assetName: asset.name,
-      metadata: asset.metadata,
-      metadataType: typeof asset.metadata
-    });
-
     if (!asset.metadata) {
       return null;
     }

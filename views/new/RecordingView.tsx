@@ -15,7 +15,7 @@ import {
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useProjectById } from '@/hooks/db/useProjects';
+import type { Project } from '@/hooks/db/useProjects';
 import {
   useAppNavigation,
   useCurrentNavigation
@@ -29,9 +29,8 @@ import {
   saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
@@ -55,7 +54,6 @@ import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
-import { useHybridData } from './useHybridData';
 
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
@@ -212,6 +210,16 @@ interface _AssetMetadata {
 }
 
 const RecordingView = () => {
+  // Guard ref to prevent post-unmount state updates (memory leak prevention)
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Get navigation state and functions
   const { goBack } = useAppNavigation();
   const navigation = useCurrentNavigation();
@@ -232,60 +240,49 @@ const RecordingView = () => {
   const _verse = recordingData?.verse;
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
-  const _label = recordingData?.label || '';
   const recordingSessionId = recordingData?.recordingSession;
-
-  // Log recording data on mount
-  React.useEffect(() => {
-    console.log(
-      `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
-    );
-  }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
 
   const queryClient = useQueryClient();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { project: currentProject } = useProjectById(currentProjectId);
+
+  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
+  const { data: currentProject = null } = useQuery({
+    queryKey: ['project', 'static', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const result = await system.db.query.project.findFirst({
+        where: (fields, { eq }) => eq(fields.id, currentProjectId)
+      });
+      return (result as Project) ?? null;
+    },
+    enabled: !!currentProjectId,
+    staleTime: Infinity
+  });
+
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
-  // Get target languoid_id from project_language_link
-
-  const { data: targetLanguoidLink = [] } = useHybridData<{
-    languoid_id: string | null;
-  }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [currentProjectId || ''],
-    offlineQuery: toCompilableQuery(
-      system.db
+  // Static target languoid fetch – doesn't change during recording, no PowerSync listener needed
+  const { data: targetLanguoidId = null } = useQuery({
+    queryKey: ['project-target-languoid', 'static', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const rows = await system.db
         .select({ languoid_id: project_language_link.languoid_id })
         .from(project_language_link)
         .where(
           and(
-            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.project_id, currentProjectId),
             eq(project_language_link.language_type, 'target')
           )
         )
-        .limit(1)
-    ),
-    cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('project_language_link')
-        .select('languoid_id')
-        .eq('project_id', currentProjectId)
-        .eq('language_type', 'target')
-        .not('languoid_id', 'is', null)
-        .limit(1)
-        .overrideTypes<{ languoid_id: string | null }[]>();
-      if (error) throw error;
-      return data;
+        .limit(1);
+      return rows[0]?.languoid_id ?? null;
     },
-    enableCloudQuery: !!currentProjectId,
-    enableOfflineQuery: !!currentProjectId
+    enabled: !!currentProjectId,
+    staleTime: Infinity
   });
-
-  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -1941,9 +1938,15 @@ const RecordingView = () => {
     isManualRecording: isRecording
   });
 
-  // Invalidate queries when VAD mode ends
+  // Invalidate queries when VAD mode transitions from active → inactive
+  // Use a ref to track if VAD was previously active, so we only invalidate
+  // on actual transitions (not on initial mount when isVADActive is false)
+  const wasVADActiveRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isVADActive) {
+    if (isVADActive) {
+      wasVADActiveRef.current = true;
+    } else if (wasVADActiveRef.current) {
+      wasVADActiveRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
@@ -2035,7 +2038,7 @@ const RecordingView = () => {
 
       // Process assets in batches to prevent blocking
       const processBatch = async (startIdx: number) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !mountedRef.current) return;
 
         const BATCH_SIZE = 5; // Process 5 assets at a time
         const batch = assetsToLoad.slice(startIdx, startIdx + BATCH_SIZE);
@@ -2197,11 +2200,10 @@ const RecordingView = () => {
           }
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (controller.signal.aborted) {
+          if (controller.signal.aborted || !mountedRef.current) {
             return;
           } else {
             if (newCounts.size > 0) {
-              // Merge with existing counts
               setAssetSegmentCounts((prev) => {
                 const merged = new Map(prev);
                 for (const [id, count] of newCounts) {
@@ -2215,7 +2217,6 @@ const RecordingView = () => {
             }
 
             if (newDurations.size > 0) {
-              // Merge with existing durations
               setAssetDurations((prev) => {
                 const merged = new Map(prev);
                 for (const [id, duration] of newDurations) {
@@ -2242,9 +2243,11 @@ const RecordingView = () => {
           } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
-            setTimeout(() => {
+            const errorTimeoutId = setTimeout(() => {
+              timeoutIdsRef.current.delete(errorTimeoutId);
               void processBatch(startIdx + BATCH_SIZE);
             }, 16);
+            timeoutIdsRef.current.add(errorTimeoutId);
           }
         }
       };
