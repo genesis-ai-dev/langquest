@@ -86,17 +86,17 @@ import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
-import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
-import { useFiaPericopeText } from '@/hooks/useFiaPericopeText';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
   renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
+import { useFiaPericopeText } from '@/hooks/useFiaPericopeText';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
@@ -168,7 +168,7 @@ const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
   php: 'phi',
   jol: 'joe',
-  nam: 'nah',
+  nam: 'nah'
 };
 
 function getBibleBookIdFromFia(fiaBookId: string): string {
@@ -186,9 +186,7 @@ function parseFiaVerseRange(verseRange: string): {
   endVerse: number;
 } | null {
   // Format: "startChapter:startVerse-endVerse" or "startChapter:startVerse-endChapter:endVerse"
-  const match = verseRange.match(
-    /^(\d+):(\d+)-(?:(\d+):)?(\d+)$/
-  );
+  const match = verseRange.match(/^(\d+):(\d+)-(?:(\d+):)?(\d+)$/);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);
@@ -4352,12 +4350,8 @@ export default function BibleAssetsView() {
         >
           <DrawerContent>
             <DrawerHeader>
-              <DrawerTitle>
-                {fiaStepTitle || 'Hear and Heart'}
-              </DrawerTitle>
-              <DrawerDescription>
-                {selectedQuest?.name || ''}
-              </DrawerDescription>
+              <DrawerTitle>{fiaStepTitle || 'Hear and Heart'}</DrawerTitle>
+              <DrawerDescription>{selectedQuest?.name || ''}</DrawerDescription>
             </DrawerHeader>
             <DrawerScrollView>
               <View className="px-6 pb-12">
@@ -4369,9 +4363,7 @@ export default function BibleAssetsView() {
                     </Text>
                   </View>
                 ) : fiaText ? (
-                  <Text className="text-base leading-7">
-                    {fiaText}
-                  </Text>
+                  <Text className="text-base leading-7">{fiaText}</Text>
                 ) : (
                   <Text className="text-center text-muted-foreground">
                     No text available for this pericope.
@@ -4389,7 +4381,11 @@ export default function BibleAssetsView() {
           className="absolute bottom-6 left-6 h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg"
           onPress={() => setShowFiaTextDrawer(true)}
         >
-          <Icon as={BookOpenIcon} size={20} className="text-primary-foreground" />
+          <Icon
+            as={BookOpenIcon}
+            size={20}
+            className="text-primary-foreground"
+          />
         </Pressable>
       )}
     </View>
