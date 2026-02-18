@@ -4748,8 +4748,7 @@ export const localizations = {
       '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
       '{sender} solicitou participar do projeto "{project}" como {role}',
-    tok_pisin:
-      '{sender} i askim long joinim projek "{project}" olsem {role}',
+    tok_pisin: '{sender} i askim long joinim projek "{project}" olsem {role}',
     indonesian:
       '{sender} telah meminta untuk bergabung dengan proyek "{project}" sebagai {role}',
     nepali:
@@ -5329,14 +5328,6 @@ export const localizations = {
     burmese: 'ဖိတ်ခေါ်စာ ငြင်းဆိုပါသည်',
     thai: 'ปฏิเสธคำเชิญ',
     mandarin: '邀请已拒绝'
-  },
-  mustBeOnlineToAcceptInvite: {
-    english: 'You must be online to accept an invitation',
-    spanish: 'Debes estar en línea para aceptar una invitación',
-    brazilian_portuguese: 'Você precisa estar online para aceitar um convite',
-    tok_pisin: 'Yu mas stap long internet bilong accept invitation',
-    indonesian: 'Anda harus online untuk menerima undangan',
-    nepali: 'आमन्त्रण स्वीकार गर्न तपाईं अनलाइनमा हुनुपर्छ'
   },
   failedToAcceptInvite: {
     english: 'Failed to accept invitation',
@@ -9219,8 +9210,7 @@ export const localizations = {
       'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिला। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
     burmese:
       'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
-    thai:
-      'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    thai: 'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
     mandarin:
       '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
@@ -9241,8 +9231,7 @@ export const localizations = {
       'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिले। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
     burmese:
       'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲများကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
-    thai:
-      'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    thai: 'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
     mandarin:
       '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
@@ -9439,10 +9428,8 @@ export const localizations = {
       'यह {count} दूषित संलग्नक को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
     burmese:
       'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
-    thai:
-      'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
-    mandarin:
-      '这将清理 {count} 个损坏的附件。此操作无法撤消。'
+    thai: 'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin: '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   cleanAllConfirmPlural: {
     english:
@@ -9461,10 +9448,8 @@ export const localizations = {
       'यह {count} दूषित संलग्नकों को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
     burmese:
       'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲများကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
-    thai:
-      'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
-    mandarin:
-      '这将清理 {count} 个损坏的附件。此操作无法撤消。'
+    thai: 'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin: '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   partialSuccess: {
     english: 'Partial Success',
