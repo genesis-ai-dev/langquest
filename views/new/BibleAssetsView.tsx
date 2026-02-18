@@ -99,7 +99,8 @@ import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
-import { useFiaPericopeText } from '@/hooks/useFiaPericopeText';
+import { FiaStepDrawer } from '@/components/FiaStepDrawer';
+import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
@@ -715,22 +716,19 @@ export default function BibleAssetsView() {
     return fiaMeta?.pericopeId ?? null;
   }, [selectedQuest?.metadata]);
 
-  // Fetch FIA step 1 text (only for FIA pericope quests)
-  const {
-    text: fiaText,
-    stepTitle: fiaStepTitle,
-    isLoading: fiaTextLoading
-  } = useFiaPericopeText(
-    fiaPericopeId ? currentProjectId : undefined,
-    fiaPericopeId ?? undefined
-  );
+  // Fetch all FIA steps (only for FIA pericope quests)
+  const { data: fiaStepsData, isLoading: fiaStepsLoading } =
+    useFiaPericopeSteps(
+      fiaPericopeId ? currentProjectId : undefined,
+      fiaPericopeId ?? undefined
+    );
 
-  // Auto-open FIA text drawer when text is loaded
+  // Auto-open FIA steps drawer when data is loaded
   React.useEffect(() => {
-    if (fiaPericopeId && fiaText && !fiaTextLoading) {
+    if (fiaPericopeId && fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, fiaText, fiaTextLoading]);
+  }, [fiaPericopeId, fiaStepsData, fiaStepsLoading]);
 
   // Store book name and chapter number for VerseSeparator label
   const bookChapterLabelRef = React.useRef<string>('Verse');
@@ -3813,6 +3811,18 @@ export default function BibleAssetsView() {
               <Icon as={BookmarkPlusIcon} className="text-primary" />
             </Button>
           )}
+          {fiaPericopeId && (
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              onPress={() => setShowFiaTextDrawer(true)}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Pressable>
+          )}
         </View>
 
         {/* Right side: Publish/Export buttons (isolated) */}
@@ -4442,54 +4452,15 @@ export default function BibleAssetsView() {
         </Drawer>
       )}
 
-      {/* FIA Pericope Text Drawer */}
-      {fiaPericopeId && (
-        <Drawer
-          open={showFiaTextDrawer}
-          onOpenChange={setShowFiaTextDrawer}
-          snapPoints={['92%']}
-          enableDynamicSizing={false}
-        >
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>{fiaStepTitle || 'Hear and Heart'}</DrawerTitle>
-              <DrawerDescription>{selectedQuest?.name || ''}</DrawerDescription>
-            </DrawerHeader>
-            <DrawerScrollView>
-              <View className="px-6 pb-12">
-                {fiaTextLoading ? (
-                  <View className="items-center justify-center py-12">
-                    <ActivityIndicator size="large" />
-                    <Text className="mt-3 text-sm text-muted-foreground">
-                      Loading passage text...
-                    </Text>
-                  </View>
-                ) : fiaText ? (
-                  <Text className="text-base leading-7">{fiaText}</Text>
-                ) : (
-                  <Text className="text-center text-muted-foreground">
-                    No text available for this pericope.
-                  </Text>
-                )}
-              </View>
-            </DrawerScrollView>
-          </DrawerContent>
-        </Drawer>
-      )}
+      {/* FIA Pericope Steps Drawer */}
+      <FiaStepDrawer
+        open={showFiaTextDrawer}
+        onOpenChange={setShowFiaTextDrawer}
+        projectId={currentProjectId}
+        pericopeId={fiaPericopeId ?? undefined}
+        questName={selectedQuest?.name}
+      />
 
-      {/* Floating button to re-open FIA text drawer */}
-      {fiaPericopeId && !showFiaTextDrawer && (
-        <Pressable
-          className="absolute bottom-6 left-6 h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg"
-          onPress={() => setShowFiaTextDrawer(true)}
-        >
-          <Icon
-            as={BookOpenIcon}
-            size={20}
-            className="text-primary-foreground"
-          />
-        </Pressable>
-      )}
     </View>
   );
 }

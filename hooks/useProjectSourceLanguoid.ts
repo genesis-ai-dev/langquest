@@ -86,6 +86,7 @@ export function useProjectSourceLanguoid(projectId: string) {
       return null;
     },
     enabled: !!projectId,
+    staleTime: Infinity,
     retry: 3,
     retryDelay: 2000
   });
