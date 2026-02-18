@@ -1,4 +1,6 @@
+import { BibleReaderContent } from '@/components/BibleReaderContent';
 import { Icon } from '@/components/ui/icon';
+import { PortalHost } from '@rn-primitives/portal';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import {
@@ -26,6 +28,7 @@ import type {
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  BookOpenIcon,
   CheckIcon,
   ChevronDownIcon,
   ClapperboardIcon,
@@ -62,6 +65,8 @@ interface FiaStepDrawerProps {
   projectId: string | undefined;
   pericopeId: string | undefined;
   questName?: string;
+  fiaBookId?: string;
+  verseRange?: string;
 }
 
 // --- Audio Player ---
@@ -650,8 +655,11 @@ export function FiaStepDrawer({
   onOpenChange,
   projectId,
   pericopeId,
-  questName
+  questName,
+  fiaBookId,
+  verseRange
 }: FiaStepDrawerProps) {
+  const [activeTab, setActiveTab] = React.useState<'guide' | 'bible'>('guide');
   const [activeStep, setActiveStep] = React.useState('hear-and-heart');
   const [completedSteps, setCompletedSteps] = React.useState<Set<string>>(
     new Set()
@@ -713,12 +721,75 @@ export function FiaStepDrawer({
         <View style={{ flex: 1 }} className="bg-background px-6">
           <DrawerHeader className="pb-0">
             <DrawerTitle>
-              {currentStep?.title || 'FIA Steps'}
+              {activeTab === 'guide'
+                ? (currentStep?.title || 'FIA Steps')
+                : 'Bible'}
             </DrawerTitle>
             <DrawerDescription>{questName || ''}</DrawerDescription>
           </DrawerHeader>
 
-          {isLoading ? (
+          {/* Guide / Bible tab row */}
+          <View className="flex-row gap-2 border-b border-border px-2 pb-2">
+            <TouchableOpacity
+              onPress={() => setActiveTab('guide')}
+              className={`flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2 ${
+                activeTab === 'guide' ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <Icon
+                as={HeartIcon}
+                size={16}
+                className={
+                  activeTab === 'guide'
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground'
+                }
+              />
+              <Text
+                className={`text-sm font-semibold ${
+                  activeTab === 'guide'
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                Guide
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActiveTab('bible')}
+              className={`flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2 ${
+                activeTab === 'bible' ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={16}
+                className={
+                  activeTab === 'bible'
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground'
+                }
+              />
+              <Text
+                className={`text-sm font-semibold ${
+                  activeTab === 'bible'
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                Bible
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {activeTab === 'bible' ? (
+            <BibleReaderContent
+              projectId={projectId}
+              fiaBookId={fiaBookId}
+              verseRange={verseRange}
+              portalHost="fia-drawer"
+            />
+          ) : isLoading ? (
             <View className="flex-1 items-center justify-center py-12">
               <ActivityIndicator size="large" />
               <Text className="mt-3 text-sm text-muted-foreground">
@@ -843,6 +914,7 @@ export function FiaStepDrawer({
               </DrawerScrollView>
             </>
           ) : null}
+          <PortalHost name="fia-drawer" />
         </View>
       </DrawerContent>
     </Drawer>
