@@ -179,6 +179,10 @@ export interface FiaMetadata {
   verseRange?: string; // e.g., '1:1-13' - only set for pericope-level quests
 }
 
+export interface RecordingSessionMetadata {
+  id: string;
+  created_at: string;
+}
 /**
  * Extensible metadata type for quests
  * Can be extended with other metadata types as needed
@@ -186,6 +190,10 @@ export interface FiaMetadata {
 export interface QuestMetadata {
   bible?: BibleMetadata;
   fia?: FiaMetadata;
+  lastRecordingSessionId?: string;
+  recordingSessions?: RecordingSessionMetadata[];
+  // Add other metadata types here as needed
+  // e.g., curriculum?: { unit: string; lesson: number };
 }
 
 function normalizeParams<T>(
@@ -616,6 +624,7 @@ export function createAssetContentLinkTable<
         .references(() => asset.id),
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
+      order_index: int().notNull().default(0),
       ...extraColumns
     },
     (table) => {
@@ -624,6 +633,7 @@ export function createAssetContentLinkTable<
         index('asset_content_link_source_language_id_idx').on(
           table.source_language_id
         ),
+        index('idx_acl_asset_order').on(table.asset_id, table.order_index),
         ...normalizeParams(extraConfig, table)
       ];
     }

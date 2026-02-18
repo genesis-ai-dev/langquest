@@ -41,6 +41,7 @@ export interface NavigationStackItem {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;
@@ -146,6 +147,8 @@ export interface LocalState {
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
+  enableMerge: boolean;
+  setEnableMerge: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
@@ -299,9 +302,10 @@ export const useLocalStore = create<LocalState>()(
       enablePlayAll: false,
       enableQuestExport: false,
       enableVerseMarkers: true,
-      verseMarkersFeaturePrompted: true,
+      verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
+      enableMerge: false,
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
@@ -432,6 +436,7 @@ export const useLocalStore = create<LocalState>()(
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
+      setEnableMerge: (enabled) => set({ enableMerge: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) =>

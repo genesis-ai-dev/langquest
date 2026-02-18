@@ -28,6 +28,7 @@ export interface NavigationState {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;

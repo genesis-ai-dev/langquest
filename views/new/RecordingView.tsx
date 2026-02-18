@@ -8,13 +8,15 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
-  renameAsset
+  renameAsset,
+  updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useProjectById } from '@/hooks/db/useProjects';
+import type { Project } from '@/hooks/db/useProjects';
 import {
   useAppNavigation,
   useCurrentNavigation
@@ -30,7 +32,7 @@ import {
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
@@ -92,6 +94,108 @@ const isAsset = (item: ListItem): item is UIAsset => item.type === 'asset';
 // Type guard to check if item is a pill
 const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 
+interface PillListRowProps {
+  itemId: string;
+  text: string;
+  isHighlighted: boolean;
+  showSkeleton: boolean;
+  onPress?: () => void;
+}
+
+const PillListRow = React.memo(function PillListRow({
+  itemId,
+  text,
+  isHighlighted,
+  showSkeleton,
+  onPress
+}: PillListRowProps) {
+  return (
+    <>
+      <VersePill
+        key={itemId}
+        text={text}
+        isHighlighted={isHighlighted}
+        onPress={onPress}
+      />
+      {showSkeleton && (
+        <View className="mt-2.5">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
+interface AssetListRowProps {
+  asset: UIAsset;
+  index: number;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  isSelectionMode: boolean;
+  isPlaying: boolean;
+  hideButtons: boolean;
+  duration?: number;
+  canMergeDown: boolean;
+  showSkeleton: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  onPlay: () => void;
+  onDelete: (assetId: string) => void;
+  onMerge: (index: number) => void;
+  onRename: (assetId: string, currentName: string | null) => void;
+  onActionTypeChange: (isReplacing: boolean) => void;
+}
+
+const AssetListRow = React.memo(function AssetListRow({
+  asset,
+  index,
+  isSelected,
+  isHighlighted,
+  isSelectionMode,
+  isPlaying,
+  hideButtons,
+  duration,
+  canMergeDown,
+  showSkeleton,
+  onPress,
+  onLongPress,
+  onPlay,
+  onDelete,
+  onMerge,
+  onRename,
+  onActionTypeChange
+}: AssetListRowProps) {
+  return (
+    <>
+      <RecordAssetCard
+        key={asset.id}
+        asset={asset}
+        index={index}
+        isSelected={isSelected}
+        isHighlighted={isHighlighted}
+        isSelectionMode={isSelectionMode}
+        isPlaying={isPlaying}
+        hideButtons={hideButtons}
+        duration={duration}
+        canMergeDown={canMergeDown}
+        segmentCount={asset.segmentCount}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        onPlay={onPlay}
+        onDelete={onDelete}
+        onMerge={onMerge}
+        onRename={onRename}
+        onActionTypeChange={onActionTypeChange}
+      />
+      {showSkeleton && (
+        <View className="mt-1">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
 // Default order_index for unassigned verses: (999 * 1000 + 1) * 1000 = 999001000
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
 // The extra *1000 leaves space for future insertions between assets
@@ -109,6 +213,16 @@ interface _AssetMetadata {
 }
 
 const RecordingView = () => {
+  // Guard ref to prevent post-unmount state updates (memory leak prevention)
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Get navigation state and functions
   const { goBack } = useAppNavigation();
   const navigation = useCurrentNavigation();
@@ -129,24 +243,30 @@ const RecordingView = () => {
   const _verse = recordingData?.verse;
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
-  const _label = recordingData?.label || '';
-
-  // Log recording data on mount
-  React.useEffect(() => {
-    console.log(
-      `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
-    );
-  }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
+  const recordingSessionId = recordingData?.recordingSession;
 
   const queryClient = useQueryClient();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { project: currentProject } = useProjectById(currentProjectId);
+
+  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
+  const { data: currentProject = null } = useQuery({
+    queryKey: ['project', 'static', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const result = await system.db.query.project.findFirst({
+        where: (fields, { eq }) => eq(fields.id, currentProjectId)
+      });
+      return (result as Project) ?? null;
+    },
+    enabled: !!currentProjectId,
+    staleTime: Infinity
+  });
+
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
-  // Get target languoid_id from project_language_link
-
+  // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
@@ -207,6 +327,7 @@ const RecordingView = () => {
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enableMerge = useLocalStore((state) => state.enableMerge);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -234,8 +355,9 @@ const RecordingView = () => {
   // Used to normalize order_index when returning to BibleAssetsView
   const recordedVersesRef = React.useRef<Set<number>>(new Set());
 
-  // Track if the user is allowed to add a new verse
-  const allowAddVerseRef = React.useRef<boolean>(true);
+  // Track if the user is allowed to add a new verse.
+  // Once the first recording is made without a verse, this locks to false for the session.
+  const [allowAddVerse, setAllowAddVerse] = React.useState(true);
 
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
@@ -307,7 +429,9 @@ const RecordingView = () => {
   }, [audioContext]);
 
   // Insertion wheel state
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
+  const [insertionIndex, setInsertionIndex] = React.useState(() =>
+    _verse ? 1 : 0
+  );
   const listRef = React.useRef<RecordingSelectionListHandle>(null);
 
   // Track footer height for proper scrolling
@@ -429,7 +553,7 @@ const RecordingView = () => {
         };
 
         if (!newAsset.verse) {
-          allowAddVerseRef.current = false;
+          setAllowAddVerse(false);
         }
 
         debugLog(
@@ -649,12 +773,15 @@ const RecordingView = () => {
   // If user hasn't clicked yet, show persisted nextVerse
   const verseToAdd = React.useMemo(() => {
     const limit = persistedLimitVerseRef.current;
+    if (limit === null) {
+      return null;
+    }
 
     if (currentDynamicVerse !== null) {
       // User already clicked Add - next verse is current + 1
       const next = currentDynamicVerse + 1;
       // Check if next is within limit
-      if (limit !== null && next > limit) {
+      if (next > limit) {
         return null; // No more verses to add
       }
       return next;
@@ -810,13 +937,14 @@ const RecordingView = () => {
       wasReplaceRef.current = false;
 
       if (wasPillAdded) {
-        // A pill was added - focus the inserted pill (last item)
-        const targetIndex = Math.max(0, currentCount - 1);
+        // A pill was added - keep boundary selected (no item selected)
+        const targetIndex = currentCount;
+        const scrollIndex = Math.max(0, currentCount - 1);
         debugLog(
-          `📍 Pill added - focusing inserted item: ${currentInsertionIndex} → ${targetIndex}`
+          `📍 Pill added - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex} | scrollIndex: ${scrollIndex}`
         );
         setInsertionIndex(targetIndex);
-        scheduleScrollToIndex(targetIndex, 'pill-added');
+        scheduleScrollToIndex(scrollIndex, 'pill-added-keep-boundary');
       } else if (wasReplace) {
         // REPLACE MODE: Stay on the same position - new asset replaced the old one
         const targetIndex = Math.max(
@@ -1545,7 +1673,7 @@ const RecordingView = () => {
 
     // If starting recording without verse, disable adding new verses
     if (!verse) {
-      allowAddVerseRef.current = false;
+      setAllowAddVerse(false);
     }
 
     setIsRecording(true);
@@ -1670,6 +1798,12 @@ const RecordingView = () => {
             // Use the verse that was captured when recording started
             // This ensures we use the correct verse for middle-of-list recordings
             const verseToUse = currentRecordingVerseRef.current;
+            const metadataToSave = {
+              ...(verseToUse ? { verse: verseToUse } : {}),
+              ...(recordingSessionId
+                ? { recordingSessionId: recordingSessionId }
+                : {})
+            };
 
             const newAssetId = await saveRecording({
               questId: currentQuestId,
@@ -1679,7 +1813,8 @@ const RecordingView = () => {
               orderIndex: targetOrder,
               audioUri: localUri,
               assetName: assetName, // Pass the reserved name
-              metadata: verseToUse ? { verse: verseToUse } : null // Pass verse metadata if provided
+              metadata:
+                Object.keys(metadataToSave).length > 0 ? metadataToSave : null
             });
 
             // Log the saved asset details
@@ -1759,6 +1894,7 @@ const RecordingView = () => {
       currentUser,
       queryClient,
       targetLanguoidId,
+      recordingSessionId,
       addSessionAsset,
       saveNameCounter,
       getInsertionContext
@@ -1822,9 +1958,15 @@ const RecordingView = () => {
     isManualRecording: isRecording
   });
 
-  // Invalidate queries when VAD mode ends
+  // Invalidate queries when VAD mode transitions from active → inactive
+  // Use a ref to track if VAD was previously active, so we only invalidate
+  // on actual transitions (not on initial mount when isVADActive is false)
+  const wasVADActiveRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isVADActive) {
+    if (isVADActive) {
+      wasVADActiveRef.current = true;
+    } else if (wasVADActiveRef.current) {
+      wasVADActiveRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
@@ -1916,7 +2058,7 @@ const RecordingView = () => {
 
       // Process assets in batches to prevent blocking
       const processBatch = async (startIdx: number) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !mountedRef.current) return;
 
         const BATCH_SIZE = 5; // Process 5 assets at a time
         const batch = assetsToLoad.slice(startIdx, startIdx + BATCH_SIZE);
@@ -1957,7 +2099,10 @@ const RecordingView = () => {
                     audio: true
                   },
                   where: eq(asset_content_link.asset_id, assetId),
-                  orderBy: asc(asset_content_link.created_at)
+                  orderBy: [
+                    asc(asset_content_link.order_index),
+                    asc(asset_content_link.created_at)
+                  ]
                 });
 
               // DEBUG: Log raw query result
@@ -2075,11 +2220,10 @@ const RecordingView = () => {
           }
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (controller.signal.aborted) {
+          if (controller.signal.aborted || !mountedRef.current) {
             return;
           } else {
             if (newCounts.size > 0) {
-              // Merge with existing counts
               setAssetSegmentCounts((prev) => {
                 const merged = new Map(prev);
                 for (const [id, count] of newCounts) {
@@ -2093,7 +2237,6 @@ const RecordingView = () => {
             }
 
             if (newDurations.size > 0) {
-              // Merge with existing durations
               setAssetDurations((prev) => {
                 const merged = new Map(prev);
                 for (const [id, duration] of newDurations) {
@@ -2120,9 +2263,11 @@ const RecordingView = () => {
           } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
-            setTimeout(() => {
+            const errorTimeoutId = setTimeout(() => {
+              timeoutIdsRef.current.delete(errorTimeoutId);
               void processBatch(startIdx + BATCH_SIZE);
             }, 16);
+            timeoutIdsRef.current.add(errorTimeoutId);
           }
         }
       };
@@ -2190,7 +2335,13 @@ const RecordingView = () => {
         const secondContent = await system.db
           .select()
           .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id));
+          .where(eq(contentLocal.asset_id, second.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+        // Get next available order_index for the target asset (local table)
+        let nextOrder = await getNextAclOrderIndex(first.id, {
+          localOverride: true
+        });
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -2200,11 +2351,24 @@ const RecordingView = () => {
             languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            order_index: nextOrder++
           });
         }
 
         await audioSegmentService.deleteAudioSegment(second.id);
+
+        // Normalize all content links on target to 1-based ordering
+        const allContent = await system.db
+          .select({ id: contentLocal.id })
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, first.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        await updateContentLinkOrder(
+          first.id,
+          allContent.map((c) => c.id),
+          { localOverride: true }
+        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2268,7 +2432,16 @@ const RecordingView = () => {
                   const srcContent = await system.db
                     .select()
                     .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id));
+                    .where(eq(contentLocal.asset_id, src.id))
+                    .orderBy(
+                      asc(contentLocal.order_index),
+                      asc(contentLocal.created_at)
+                    );
+
+                  // Get next available order_index for the target asset (local table)
+                  let nextOrder = await getNextAclOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -2279,12 +2452,28 @@ const RecordingView = () => {
                         c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 // Remove merged assets from session list (all except target get deleted)
                 const deletedIds = new Set(rest.map((a) => a.id));
@@ -2660,6 +2849,37 @@ const RecordingView = () => {
     return map;
   }, [sessionItems, createPillCallbacks]);
 
+  const playingAssetIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (audioContext.isPlaying && audioContext.currentAudioId) {
+      ids.add(audioContext.currentAudioId);
+    }
+    if (isPlayAllRunning && currentlyPlayingAssetId) {
+      ids.add(currentlyPlayingAssetId);
+    }
+    return ids;
+  }, [
+    audioContext.isPlaying,
+    audioContext.currentAudioId,
+    isPlayAllRunning,
+    currentlyPlayingAssetId
+  ]);
+
+  const canMergeDownById = React.useMemo(() => {
+    const map = new Map<string, boolean>();
+    sessionItems.forEach((item, index) => {
+      if (!isAsset(item)) return;
+      const nextItem = sessionItems[index + 1];
+      const canMerge =
+        index < sessionItems.length - 1 &&
+        !!nextItem &&
+        isAsset(nextItem) &&
+        nextItem.source !== 'cloud';
+      map.set(item.id, canMerge);
+    });
+    return map;
+  }, [sessionItems]);
+
   // Lazy renderItem for RecordingSelectionList
   // OPTIMIZED: Only renders items when they become visible (virtualization)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
@@ -2673,50 +2893,24 @@ const RecordingView = () => {
           ? (formatVerseRange(item.verse) ?? 'No Label')
           : 'No Label';
         const isHighlighted = insertionIndex === index;
-
-        // Get stable callbacks from Map (avoids creating new functions)
-        const callbacks = pillCallbacksMap.get(item.id);
+        const onPillPress = pillCallbacksMap.get(item.id)?.onPress;
 
         return (
-          <>
-            <VersePill
-              key={item.id}
-              text={pillText}
-              isHighlighted={isHighlighted}
-              onPress={callbacks?.onPress}
-            />
-            {isHighlighted && (
-              <View className="mt-2.5">
-                <RecordAssetCardSkeleton />
-              </View>
-            )}
-          </>
+          <PillListRow
+            itemId={item.id}
+            text={pillText}
+            isHighlighted={isHighlighted}
+            showSkeleton={isHighlighted}
+            onPress={onPillPress}
+          />
         );
       }
 
-      // Asset item rendering
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
-      const isThisAssetPlayingIndividually =
-        audioContext.isPlaying && audioContext.currentAudioId === item.id;
-      const isThisAssetPlayingInPlayAll =
-        isPlayAllRunning && currentlyPlayingAssetId === item.id;
-      const isThisAssetPlaying =
-        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      // isInBatchSelection = selected for batch operations (delete, merge)
+      const isHighlighted = insertionIndex === index;
+      const isThisAssetPlaying = playingAssetIds.has(item.id);
       const isInBatchSelection = selectedAssetIds.has(item.id);
-
-      // Check if next item is an asset (not a pill) and not from cloud
-      const nextItem = sessionItems[index + 1];
-      const canMergeDown =
-        index < sessionItems.length - 1 &&
-        nextItem &&
-        isAsset(nextItem) &&
-        nextItem.source !== 'cloud';
-
-      // Duration from lazy-loaded metadata (get from map, not from item which may be stale)
+      const canMergeDown = canMergeDownById.get(item.id) ?? false;
       const duration = assetDurations.get(item.id) ?? item.duration;
-
-      // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
 
       // Fallback if callbacks not found (shouldn't happen, but defensive)
@@ -2725,48 +2919,35 @@ const RecordingView = () => {
         return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
-      const isHighlighted = insertionIndex === index;
-
       return (
-        <>
-          <RecordAssetCard
-            key={item.id}
-            asset={item}
-            index={index}
-            isSelected={isInBatchSelection}
-            isHighlighted={isHighlighted}
-            isSelectionMode={isSelectionMode}
-            isPlaying={isThisAssetPlaying}
-            hideButtons={isRecording || isVADActive}
-            duration={duration}
-            canMergeDown={canMergeDown}
-            segmentCount={item.segmentCount}
-            onPress={callbacks.onPress}
-            onLongPress={callbacks.onLongPress}
-            onPlay={callbacks.onPlay}
-            onDelete={stableHandleDeleteLocalAsset}
-            onMerge={stableHandleMergeDownLocal}
-            onRename={stableHandleRenameAsset}
-            onActionTypeChange={stableHandleActionTypeChange}
-          />
-          {isHighlighted && !isReplacing && (
-            <View className="mt-1">
-              <RecordAssetCardSkeleton />
-            </View>
-          )}
-        </>
+        <AssetListRow
+          asset={item}
+          index={index}
+          isSelected={isInBatchSelection}
+          isHighlighted={isHighlighted}
+          isSelectionMode={isSelectionMode}
+          isPlaying={isThisAssetPlaying}
+          hideButtons={isRecording || isVADActive}
+          duration={duration}
+          canMergeDown={canMergeDown}
+          showSkeleton={isHighlighted && !isReplacing}
+          onPress={callbacks.onPress}
+          onLongPress={callbacks.onLongPress}
+          onPlay={callbacks.onPlay}
+          onDelete={stableHandleDeleteLocalAsset}
+          onMerge={stableHandleMergeDownLocal}
+          onRename={stableHandleRenameAsset}
+          onActionTypeChange={stableHandleActionTypeChange}
+        />
       );
     },
     [
       formatVerseRange,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      isPlayAllRunning,
-      currentlyPlayingAssetId,
+      playingAssetIds,
       selectedAssetIds,
       isSelectionMode,
       insertionIndex,
-      sessionItems,
+      canMergeDownById,
       assetCallbacksMap,
       pillCallbacksMap,
       assetDurations,
@@ -2833,8 +3014,8 @@ const RecordingView = () => {
       !isSelectionMode &&
       showAddVerseButton &&
       verseToAdd !== null &&
-      !isVADRecording &&
-      allowAddVerseRef.current;
+      // !isVADRecording &&
+      allowAddVerse;
 
     if (!shouldShow) return null;
 
@@ -2861,7 +3042,8 @@ const RecordingView = () => {
     isSelectionMode,
     showAddVerseButton,
     verseToAdd,
-    isVADRecording,
+    // isVADRecording,
+    allowAddVerse,
     handleAddNextVerse
   ]);
 
@@ -2914,21 +3096,18 @@ const RecordingView = () => {
 
   // Calculate dynamic height for each item based on type and highlight state
   const getItemHeight = React.useCallback(
-    (item: unknown, index: number, _isSelected: boolean) => {
+    (item: unknown, _index: number, isSelected: boolean) => {
       const typedItem = item as ListItem;
-      const isHighlighted = insertionIndex === index;
 
       if (isPill(typedItem)) {
         // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
-        return isHighlighted && !isReplacing
-          ? PILL_HEIGHT_INSERTION
-          : PILL_HEIGHT;
+        return isSelected && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
       }
 
       // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
-      return isHighlighted && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
+      return isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
     },
-    [insertionIndex, isReplacing]
+    [isReplacing]
   );
 
   return (
@@ -2969,7 +3148,8 @@ const RecordingView = () => {
                   console.error('Failed to normalize order_index:', error);
                 }
               }
-              // Navigate back
+              // Invalidate all asset queries so the parent list picks up new/deleted recordings
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               goBack();
             }}
           >
@@ -3055,6 +3235,7 @@ const RecordingView = () => {
               allowSelectAll={true}
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
+              showMerge={enableMerge}
             />
           </View>
         ) : (
