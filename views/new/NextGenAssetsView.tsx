@@ -355,7 +355,6 @@ export default function NextGenAssetsView() {
           assetMap.set(asset.id, asset);
         }
       }
-      // console.log('################## ASSET', asset.name, asset.order_index, asset.id)
     }
 
     return Array.from(assetMap.values());
