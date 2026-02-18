@@ -266,27 +266,7 @@ const RecordingView = () => {
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
-  // Static target languoid fetch – doesn't change during recording, no PowerSync listener needed
-  // const { data: targetLanguoidId = null } = useQuery({
-  //   queryKey: ['project-target-languoid', 'static', currentProjectId],
-  //   queryFn: async () => {
-  //     if (!currentProjectId) return null;
-  //     const rows = await system.db
-  //       .select({ languoid_id: project_language_link.languoid_id })
-  //       .from(project_language_link)
-  //       .where(
-  //         and(
-  //           eq(project_language_link.project_id, currentProjectId),
-  //           eq(project_language_link.language_type, 'target')
-  //         )
-  //       )
-  //       .limit(1);
-  //     return rows[0]?.languoid_id ?? null;
-  //   },
-  //   enabled: !!currentProjectId,
-  //   staleTime: Infinity
-  // });
-
+  // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
@@ -321,7 +301,7 @@ const RecordingView = () => {
     enableOfflineQuery: !!currentProjectId
   });
 
-  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;  
+  const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);

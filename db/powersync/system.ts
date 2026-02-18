@@ -552,9 +552,8 @@ export class System {
 
           if (needsMigration) {
             // Check degraded mode - only throw MigrationNeededError if we should retry
-            const { shouldRetryMigration, isDegradedMode } = await import(
-              '../../services/degradedModeService'
-            );
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
             const isDegraded = await isDegradedMode();
             const shouldRetry = await shouldRetryMigration();
 
@@ -588,9 +587,8 @@ export class System {
               '[System] ⚠️  Migration still needed after pre-auth check'
             );
             // Check degraded mode - only throw MigrationNeededError if we should retry
-            const { shouldRetryMigration, isDegradedMode } = await import(
-              '../../services/degradedModeService'
-            );
+            const { shouldRetryMigration, isDegradedMode } =
+              await import('../../services/degradedModeService');
             const isDegraded = await isDegradedMode();
             const shouldRetry = await shouldRetryMigration();
 
@@ -618,9 +616,8 @@ export class System {
 
         // CRITICAL: Check degraded mode before PowerSync initialization
         // In degraded mode, we skip sync to prevent data corruption with outdated schema
-        const { isDegradedMode: checkDegradedMode } = await import(
-          '../../services/degradedModeService'
-        );
+        const { isDegradedMode: checkDegradedMode } =
+          await import('../../services/degradedModeService');
         const isDegraded = await checkDegradedMode();
 
         if (isDegraded) {
@@ -664,9 +661,8 @@ export class System {
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
         console.log('[System] Checking server schema version...');
-        const { checkAppUpgradeNeeded } = await import(
-          '../schemaVersionService'
-        );
+        const { checkAppUpgradeNeeded } =
+          await import('../schemaVersionService');
         // Create raw database wrapper from PowerSync for schema version check
         const dbForSchemaCheck = {
           getAll: async (sql: string, params?: unknown[]) => {
@@ -1356,9 +1352,8 @@ export class System {
       // Fast check first - most users won't have corrupted attachments
       console.log('[System] Checking for corrupted attachments...');
       try {
-        const { getCorruptedCount, cleanupAllCorrupted } = await import(
-          '@/services/corruptedAttachmentsService'
-        );
+        const { getCorruptedCount, cleanupAllCorrupted } =
+          await import('@/services/corruptedAttachmentsService');
         const corruptedCount = await getCorruptedCount();
 
         if (corruptedCount > 0) {
@@ -1564,9 +1559,8 @@ export class System {
       console.log('[System] Starting migration process...');
 
       // Dynamic import to avoid circular dependencies
-      const { runMigrations, getMinimumSchemaVersion } = await import(
-        '../migrations/index'
-      );
+      const { runMigrations, getMinimumSchemaVersion } =
+        await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Create migrationDb if not already set (works for both pre-auth and post-auth)
@@ -1773,9 +1767,8 @@ export class System {
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Check degraded mode first
-      const { shouldRetryMigration, isDegradedMode } = await import(
-        '../../services/degradedModeService'
-      );
+      const { shouldRetryMigration, isDegradedMode } =
+        await import('../../services/degradedModeService');
       const isDegraded = await isDegradedMode();
       const shouldRetry = await shouldRetryMigration();
 
