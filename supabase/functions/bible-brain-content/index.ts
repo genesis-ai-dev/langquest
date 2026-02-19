@@ -87,8 +87,12 @@ function pickBestFileset(filesets: any[], types: string[], bookId?: string): str
       (f: any) => f.type === t && validSizes.includes(f.size)
     );
     if (matching.length > 0) {
-      const complete = matching.find((f: { size: string }) => f.size === 'C');
-      return (complete ?? matching[0]).id;
+      // Prefer non-opus variants (opus16 re-encodes lack timestamp data)
+      // deno-lint-ignore no-explicit-any
+      const nonOpus = matching.filter((f: any) => !f.id.includes('-opus'));
+      const candidates = nonOpus.length > 0 ? nonOpus : matching;
+      const complete = candidates.find((f: { size: string }) => f.size === 'C');
+      return (complete ?? candidates[0]).id;
     }
   }
   return null;

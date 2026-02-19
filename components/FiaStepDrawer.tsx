@@ -1,6 +1,5 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
 import { Icon } from '@/components/ui/icon';
-import { PortalHost } from '@rn-primitives/portal';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import {
@@ -787,7 +786,6 @@ export function FiaStepDrawer({
               projectId={projectId}
               fiaBookId={fiaBookId}
               verseRange={verseRange}
-              portalHost="fia-drawer"
             />
           ) : isLoading ? (
             <View className="flex-1 items-center justify-center py-12">
@@ -914,7 +912,6 @@ export function FiaStepDrawer({
               </DrawerScrollView>
             </>
           ) : null}
-          <PortalHost name="fia-drawer" />
         </View>
       </DrawerContent>
     </Drawer>

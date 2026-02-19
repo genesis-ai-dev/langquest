@@ -273,6 +273,35 @@ export interface LocalState {
 
   theme: Theme;
   setTheme: (theme: Theme) => void;
+
+  // Bible reader preferences
+  bibleTranslationByProject: Record<
+    string,
+    {
+      bibleId: string;
+      name: string;
+      vname: string | null;
+      textFilesetId: string | null;
+      audioFilesetId: string | null;
+      hasText: boolean;
+      hasAudio: boolean;
+    }
+  >;
+  setBibleTranslation: (
+    projectId: string,
+    bible: {
+      bibleId: string;
+      name: string;
+      vname: string | null;
+      textFilesetId: string | null;
+      audioFilesetId: string | null;
+      hasText: boolean;
+      hasAudio: boolean;
+    }
+  ) => void;
+  bibleRecentTranslations: Record<string, string[]>;
+  bibleAudioPositions: Record<string, number>;
+  setBibleAudioPosition: (key: string, positionMs: number) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -578,7 +607,37 @@ export const useLocalStore = create<LocalState>()(
             lastDownloadUpdate: null,
             lastUploadUpdate: null
           }
-        })
+        }),
+
+      // Bible reader preferences
+      bibleTranslationByProject: {},
+      setBibleTranslation: (projectId, bible) =>
+        set((state) => {
+          const recentIds = state.bibleRecentTranslations[projectId] ?? [];
+          const updated = [
+            bible.bibleId,
+            ...recentIds.filter((id) => id !== bible.bibleId)
+          ].slice(0, 10);
+          return {
+            bibleTranslationByProject: {
+              ...state.bibleTranslationByProject,
+              [projectId]: bible
+            },
+            bibleRecentTranslations: {
+              ...state.bibleRecentTranslations,
+              [projectId]: updated
+            }
+          };
+        }),
+      bibleRecentTranslations: {},
+      bibleAudioPositions: {},
+      setBibleAudioPosition: (key, positionMs) =>
+        set((state) => ({
+          bibleAudioPositions: {
+            ...state.bibleAudioPositions,
+            [key]: positionMs
+          }
+        }))
     }),
     {
       name: 'local-store',

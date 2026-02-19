@@ -1,12 +1,6 @@
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -16,21 +10,82 @@ import {
 } from '@/hooks/useBibleBrainBibles';
 import {
   useBibleBrainContent,
+  type BibleBrainAudioChapter,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
+import { useLocalStore } from '@/store/localStore';
+import { getThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { BookOpenIcon, HeadphonesIcon, TypeIcon } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import {
+  BookOpenIcon,
+  HeadphonesIcon,
+  SearchIcon,
+  TypeIcon
+} from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 
-// --- Audio Player (mirrors StepAudioPlayer from FiaStepDrawer) ---
+const EMPTY_STRING_ARRAY: string[] = [];
+
+// --- Verse highlighting from timestamps ---
+
+function verseKeyFromTimestamps(
+  chapter: BibleBrainAudioChapter,
+  localSec: number
+): string {
+  if (!chapter.timestamps?.length) {
+    return `${chapter.chapter}-0`;
+  }
+
+  let activeVerse = chapter.timestamps[0]!.verseStart;
+  for (const ts of chapter.timestamps) {
+    if (localSec >= ts.timestamp) {
+      activeVerse = ts.verseStart;
+    } else {
+      break;
+    }
+  }
+  return `${chapter.chapter}-${activeVerse}`;
+}
+
+function getActiveVerseKey(
+  positionMs: number,
+  audioChapters: BibleBrainAudioChapter[]
+): string | null {
+  if (!audioChapters.length) return null;
+
+  let cumulativeMs = 0;
+  for (const chapter of audioChapters) {
+    const chapterDurationMs = chapter.duration * 1000;
+    if (positionMs < cumulativeMs + chapterDurationMs) {
+      const localSec = (positionMs - cumulativeMs) / 1000;
+      return verseKeyFromTimestamps(chapter, localSec);
+    }
+    cumulativeMs += chapterDurationMs;
+  }
+
+  // Position exceeds reported durations (seek overshoot or rounding) --
+  // clamp to the last chapter
+  const last = audioChapters[audioChapters.length - 1]!;
+  const localSec = (positionMs - (cumulativeMs - last.duration * 1000)) / 1000;
+  return verseKeyFromTimestamps(last, localSec);
+}
+
+// --- Audio Player ---
 
 function BibleAudioPlayer({
   audioUrls,
-  audioId
+  audioId,
+  savedPositionMs
 }: {
   audioUrls: string[];
   audioId: string;
+  savedPositionMs?: number;
 }) {
   const {
     playSound,
@@ -57,8 +112,14 @@ function BibleAudioPlayer({
       await resumeSound();
     } else if (audioUrls.length === 1) {
       await playSound(audioUrls[0]!, audioId);
+      if (savedPositionMs && savedPositionMs > 0) {
+        await setPosition(savedPositionMs);
+      }
     } else {
       await playSoundSequence(audioUrls, audioId);
+      if (savedPositionMs && savedPositionMs > 0) {
+        await setPosition(savedPositionMs);
+      }
     }
   };
 
@@ -116,71 +177,188 @@ function BibleAudioPlayer({
   );
 }
 
-// --- Translation Picker ---
+// --- Translation Picker (searchable Dropdown) ---
+
+interface DropdownItem {
+  value: string;
+  label: string;
+  hasText: boolean;
+  hasAudio: boolean;
+  isRecent: boolean;
+}
 
 function TranslationPicker({
   bibles,
   selectedId,
   onSelect,
-  portalHost
+  recentIds
 }: {
   bibles: BibleBrainBible[];
   selectedId: string | null;
   onSelect: (bible: BibleBrainBible) => void;
-  portalHost?: string;
+  recentIds: string[];
 }) {
-  const selected = bibles.find((b) => b.id === selectedId);
-  const selectedOption = selected
-    ? { value: selected.id, label: selected.vname || selected.name }
-    : undefined;
+  const [search, setSearch] = useState('');
+
+  const dropdownData = useMemo(() => {
+    const recentSet = new Set(recentIds);
+    const items: DropdownItem[] = bibles.map((b) => ({
+      value: b.id,
+      label: formatBibleLabel(b),
+      hasText: b.hasText,
+      hasAudio: b.hasAudio,
+      isRecent: recentSet.has(b.id)
+    }));
+
+    // Sort: recent first (in order), then the rest by name
+    items.sort((a, b) => {
+      if (a.isRecent && !b.isRecent) return -1;
+      if (!a.isRecent && b.isRecent) return 1;
+      if (a.isRecent && b.isRecent) {
+        return recentIds.indexOf(a.value) - recentIds.indexOf(b.value);
+      }
+      return a.label.localeCompare(b.label);
+    });
+
+    return items;
+  }, [bibles, recentIds]);
 
   return (
     <View className="px-4 py-2">
-      <Select
-        value={selectedOption}
-        onValueChange={(option) => {
-          if (!option) return;
-          const bible = bibles.find((b) => b.id === option.value);
-          if (bible) onSelect(bible);
+      <Dropdown
+        style={{
+          height: 44,
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          backgroundColor: getThemeColor('card'),
+          borderColor: getThemeColor('border')
         }}
-      >
-        <SelectTrigger className="flex-row items-center gap-2">
-          <Icon as={BookOpenIcon} size={16} className="text-muted-foreground" />
-          <SelectValue
-            className="native:text-sm flex-1 text-sm"
-            placeholder="Select translation..."
-          />
-        </SelectTrigger>
-        <SelectContent className="max-w-[90vw]" portalHost={portalHost}>
-          {bibles.map((bible) => (
-            <SelectItem
-              key={bible.id}
-              value={bible.id}
-              label={formatBibleLabel(bible)}
+        placeholderStyle={{
+          fontSize: 14,
+          color: getThemeColor('muted-foreground')
+        }}
+        selectedTextStyle={{
+          fontSize: 14,
+          color: getThemeColor('foreground')
+        }}
+        containerStyle={{
+          borderRadius: 8,
+          overflow: 'hidden',
+          borderWidth: 1,
+          marginTop: 4,
+          backgroundColor: getThemeColor('card'),
+          borderColor: getThemeColor('border')
+        }}
+        dropdownPosition="auto"
+        itemTextStyle={{
+          fontSize: 14,
+          color: getThemeColor('foreground')
+        }}
+        itemContainerStyle={{
+          borderRadius: 6,
+          overflow: 'hidden'
+        }}
+        activeColor={getThemeColor('accent')}
+        data={dropdownData}
+        search
+        maxHeight={350}
+        labelField="label"
+        valueField="value"
+        placeholder="Select translation..."
+        value={selectedId}
+        onChange={(item) => {
+          const bible = bibles.find((b) => b.id === item.value);
+          if (bible) onSelect(bible);
+          setSearch('');
+        }}
+        renderInputSearch={(onSearchInternal) => (
+          <View className="overflow-hidden border-b border-border">
+            <Input
+              value={search}
+              onChangeText={(text) => {
+                setSearch(text);
+                onSearchInternal(text);
+              }}
+              placeholder="Search translations..."
+              prefix={SearchIcon}
+              size="sm"
+              className="border-0"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-          ))}
-        </SelectContent>
-      </Select>
+          </View>
+        )}
+        flatListProps={{
+          style: { backgroundColor: getThemeColor('card') },
+          keyboardShouldPersistTaps: 'handled' as const,
+          nestedScrollEnabled: true
+        }}
+        renderLeftIcon={() => (
+          <Icon
+            as={BookOpenIcon}
+            className="mr-2 text-muted-foreground"
+            size={16}
+          />
+        )}
+        renderItem={(item, selected) => (
+          <View
+            className={`flex-row items-center px-3 py-3 ${selected ? 'bg-accent' : ''}`}
+          >
+            <View className="flex-1">
+              <Text
+                className={`text-sm ${selected ? 'font-medium text-accent-foreground' : 'text-foreground'}`}
+                numberOfLines={2}
+              >
+                {item.label}
+              </Text>
+              {item.isRecent && (
+                <Text className="text-xs text-muted-foreground">
+                  Recently used
+                </Text>
+              )}
+            </View>
+            <View className="ml-2 flex-row gap-1">
+              {item.hasText && (
+                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+                  <Icon
+                    as={TypeIcon}
+                    size={10}
+                    className="text-muted-foreground"
+                  />
+                </View>
+              )}
+              {item.hasAudio && (
+                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+                  <Icon
+                    as={HeadphonesIcon}
+                    size={10}
+                    className="text-muted-foreground"
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+      />
     </View>
   );
 }
 
 function formatBibleLabel(bible: BibleBrainBible): string {
-  const name = bible.vname || bible.name;
-  const badges: string[] = [];
-  if (bible.hasText) badges.push('Text');
-  if (bible.hasAudio) badges.push('Audio');
-  return badges.length > 0 ? `${name} [${badges.join(', ')}]` : name;
+  return bible.vname || bible.name;
 }
 
-// --- Verse Display ---
+// --- Verse Display with highlighting + onLayout for auto-scroll ---
 
 function VerseDisplay({
   verses,
-  activeVerse
+  activeVerseKey,
+  onVerseLayout
 }: {
   verses: BibleBrainVerse[];
-  activeVerse: number | null;
+  activeVerseKey: string | null;
+  onVerseLayout: (key: string, y: number) => void;
 }) {
   if (verses.length === 0) {
     return (
@@ -194,49 +372,24 @@ function VerseDisplay({
 
   return (
     <View className="px-4 py-3">
-      <Text className="text-base leading-7">
-        {verses.map((v) => (
-          <Text
-            key={`${v.chapter}-${v.verseStart}`}
-            className={
-              activeVerse === v.verseStart
-                ? 'bg-primary/20 text-base leading-7'
-                : 'text-base leading-7'
-            }
+      {verses.map((v) => {
+        const key = `${v.chapter}-${v.verseStart}`;
+        const isActive = activeVerseKey === key;
+        return (
+          <View
+            key={key}
+            onLayout={(e) => onVerseLayout(key, e.nativeEvent.layout.y)}
+            className={`rounded px-1 py-0.5 ${isActive ? 'bg-primary/15' : ''}`}
           >
-            <Text className="text-xs font-bold text-primary">
-              {v.verseStart}{' '}
+            <Text className="text-base leading-7">
+              <Text className="text-xs font-bold text-primary">
+                {v.verseStart}{' '}
+              </Text>
+              {v.verseText}
             </Text>
-            {v.verseText}{' '}
-          </Text>
-        ))}
-      </Text>
-    </View>
-  );
-}
-
-// --- Capability badges ---
-
-function CapabilityBadges({ bible }: { bible: BibleBrainBible | undefined }) {
-  if (!bible) return null;
-  return (
-    <View className="flex-row gap-2 px-4 pb-1">
-      {bible.hasText && (
-        <View className="flex-row items-center gap-1 rounded-full bg-secondary/50 px-2 py-0.5">
-          <Icon as={TypeIcon} size={12} className="text-muted-foreground" />
-          <Text className="text-xs text-muted-foreground">Text</Text>
-        </View>
-      )}
-      {bible.hasAudio && (
-        <View className="flex-row items-center gap-1 rounded-full bg-secondary/50 px-2 py-0.5">
-          <Icon
-            as={HeadphonesIcon}
-            size={12}
-            className="text-muted-foreground"
-          />
-          <Text className="text-xs text-muted-foreground">Audio</Text>
-        </View>
-      )}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -247,14 +400,12 @@ interface BibleReaderContentProps {
   projectId: string | undefined;
   fiaBookId: string | undefined;
   verseRange: string | undefined;
-  portalHost?: string;
 }
 
 export function BibleReaderContent({
   projectId,
   fiaBookId,
-  verseRange,
-  portalHost
+  verseRange
 }: BibleReaderContentProps) {
   const { bibles, isLoading: biblesLoading, error: biblesError } =
     useBibleBrainBibles(projectId);
@@ -262,14 +413,53 @@ export function BibleReaderContent({
     null
   );
 
-  // Auto-select first bible with both text + audio when list loads
+  // Persistence
+  const savedTranslation = useLocalStore(
+    (s) => (projectId ? s.bibleTranslationByProject[projectId] : undefined)
+  );
+  const recentIds = useLocalStore(
+    (s) =>
+      projectId
+        ? (s.bibleRecentTranslations[projectId] ?? EMPTY_STRING_ARRAY)
+        : EMPTY_STRING_ARRAY
+  );
+  const setBibleTranslation = useLocalStore((s) => s.setBibleTranslation);
+  const bibleAudioPositions = useLocalStore((s) => s.bibleAudioPositions);
+  const setBibleAudioPosition = useLocalStore((s) => s.setBibleAudioPosition);
+
+  // Auto-select: saved translation > best match > first
   useEffect(() => {
-    if (bibles.length > 0 && !selectedBible) {
-      const best =
-        bibles.find((b) => b.hasText && b.hasAudio) ?? bibles[0]!;
-      setSelectedBible(best);
+    if (bibles.length === 0 || selectedBible) return;
+
+    if (savedTranslation) {
+      const saved = bibles.find((b) => b.id === savedTranslation.bibleId);
+      if (saved) {
+        setSelectedBible(saved);
+        return;
+      }
     }
-  }, [bibles, selectedBible]);
+
+    const best = bibles.find((b) => b.hasText && b.hasAudio) ?? bibles[0]!;
+    setSelectedBible(best);
+  }, [bibles, selectedBible, savedTranslation]);
+
+  const handleSelectBible = useCallback(
+    (bible: BibleBrainBible) => {
+      setSelectedBible(bible);
+      if (projectId) {
+        setBibleTranslation(projectId, {
+          bibleId: bible.id,
+          name: bible.name,
+          vname: bible.vname,
+          textFilesetId: bible.textFilesetId,
+          audioFilesetId: bible.audioFilesetId,
+          hasText: bible.hasText,
+          hasAudio: bible.hasAudio
+        });
+      }
+    },
+    [projectId, setBibleTranslation]
+  );
 
   const {
     data: content,
@@ -289,9 +479,77 @@ export function BibleReaderContent({
 
   const audioId = `bible-${selectedBible?.id}-${fiaBookId}-${verseRange}`;
 
-  // Determine active verse from timestamps + audio position
-  // (simplified: no active tracking for now, can enhance later)
-  const activeVerse: number | null = null;
+  // --- Audio state (single call) ---
+  const {
+    isPlaying,
+    isPaused,
+    currentAudioId,
+    position
+  } = useAudio({ stopOnUnmount: false });
+
+  const isThisAudioActive =
+    (isPlaying || isPaused) && currentAudioId === audioId;
+
+  // --- Verse highlighting ---
+  const activeVerseKey = useMemo(() => {
+    if (!isThisAudioActive || !isPlaying || !content?.audio?.length) return null;
+    return getActiveVerseKey(position, content.audio);
+  }, [isThisAudioActive, isPlaying, position, content?.audio]);
+
+  // --- Auto-scroll ---
+  const scrollRef = useRef<any>(null);
+  const verseOffsetsRef = useRef<Map<string, number>>(new Map());
+  const lastScrolledVerseRef = useRef<string | null>(null);
+
+  const handleVerseLayout = useCallback((key: string, y: number) => {
+    verseOffsetsRef.current.set(key, y);
+  }, []);
+
+  useEffect(() => {
+    if (!activeVerseKey || activeVerseKey === lastScrolledVerseRef.current) {
+      return;
+    }
+    lastScrolledVerseRef.current = activeVerseKey;
+    const y = verseOffsetsRef.current.get(activeVerseKey);
+    if (y !== undefined) {
+      scrollRef.current?.scrollTo?.({ y: Math.max(0, y - 40), animated: true });
+    }
+  }, [activeVerseKey]);
+
+  // --- Audio position persistence ---
+  const positionKey = `${selectedBible?.id}:${fiaBookId}:${verseRange}`;
+  const savedPosition = bibleAudioPositions[positionKey];
+
+  const prevPlayingRef = useRef(false);
+
+  useEffect(() => {
+    const wasPlaying = prevPlayingRef.current;
+    const nowPaused = isPaused && currentAudioId === audioId;
+    prevPlayingRef.current = isPlaying && currentAudioId === audioId;
+
+    if (wasPlaying && nowPaused && position > 0) {
+      setBibleAudioPosition(positionKey, position);
+    }
+  }, [
+    isPaused,
+    isPlaying,
+    currentAudioId,
+    audioId,
+    position,
+    positionKey,
+    setBibleAudioPosition
+  ]);
+
+  // Save position on unmount
+  useEffect(() => {
+    return () => {
+      const pos = prevPlayingRef.current ? position : 0;
+      if (pos > 0) {
+        setBibleAudioPosition(positionKey, pos);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionKey]);
 
   // Loading states
   if (biblesLoading) {
@@ -333,13 +591,16 @@ export function BibleReaderContent({
       <TranslationPicker
         bibles={bibles}
         selectedId={selectedBible?.id ?? null}
-        onSelect={setSelectedBible}
-        portalHost={portalHost}
+        onSelect={handleSelectBible}
+        recentIds={recentIds}
       />
-      <CapabilityBadges bible={selectedBible ?? undefined} />
 
       {selectedBible?.hasAudio && audioUrls.length > 0 && (
-        <BibleAudioPlayer audioUrls={audioUrls} audioId={audioId} />
+        <BibleAudioPlayer
+          audioUrls={audioUrls}
+          audioId={audioId}
+          savedPositionMs={savedPosition}
+        />
       )}
 
       {contentLoading ? (
@@ -356,11 +617,12 @@ export function BibleReaderContent({
           </Text>
         </View>
       ) : (
-        <DrawerScrollView style={{ flex: 1 }}>
+        <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
           {content?.verses && content.verses.length > 0 ? (
             <VerseDisplay
               verses={content.verses}
-              activeVerse={activeVerse}
+              activeVerseKey={activeVerseKey}
+              onVerseLayout={handleVerseLayout}
             />
           ) : selectedBible?.hasText ? (
             <View className="items-center justify-center p-8">
