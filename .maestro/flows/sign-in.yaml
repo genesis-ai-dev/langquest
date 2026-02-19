@@ -1,0 +1,26 @@
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow:
+    when:
+      platform: iOS
+    file: _ios-toggle-autofill-passwords.yaml
+- runFlow: _launch-and-onboard.yaml
+- tapOn:
+    text: Sign In
+    index: -1
+- tapOn: Enter your email
+- inputText: ${MAESTRO_TEST_EMAIL}
+- tapOn: Enter your password
+- inputText: ${MAESTRO_TEST_PASSWORD}
+- tapOn:
+    point: 95%,30%
+- tapOn:
+    text: Sign In
+    below: I forgot my password
+- tapOn:
+    id: app-drawer-menu-button
+- tapOn: Profile
+- assertVisible:
+    text: Profile
+    above:
+      text: ${MAESTRO_TEST_EMAIL}

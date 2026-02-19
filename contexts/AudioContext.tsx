@@ -1,4 +1,8 @@
-import { Audio } from 'expo-av';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer
+} from 'expo-audio';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -18,7 +22,7 @@ import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
  *   sound.getStatusAsync()           →  player.status / player.duration / player.currentTime
  *   sound.setPositionAsync(ms)       →  player.seekTo(seconds)  ← NOTE: seconds, not ms
  *   sound.setOnPlaybackStatusUpdate  →  player.addListener('playbackStatusUpdate', ...)
- *   Audio.setAudioModeAsync(...)     →  Audio.setAudioModeAsync(...)  (similar)
+ *   Audio.setAudioModeAsync(...)     →  setAudioModeAsync(...)  (similar)
  *
  * AssetAudio (services/assetAudio.ts) also has one direct expo-av usage in
  * loadDuration() that will need updating at the same time.
@@ -62,7 +66,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   //   and use that to set the duration for audio progress bar animation
   // - sparse native status callbacks for truth/corrections
   // - continuous UI-thread timing for smooth movement
-  const STATUS_UPDATE_INTERVAL_MS = 5000;
   const DRIFT_CORRECTION_THRESHOLD_MS = 80;
   // Initial merged-playback timing estimate: add this much wall-clock time
   // per segment before we do the one-time last-segment slope correction.
@@ -82,7 +85,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const durationShared = useSharedValue(0);
   const cumulativePositionShared = useSharedValue(0);
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
+  const soundListenerRef = useRef<{ remove: () => void } | null>(null);
   const lastReactStateUpdateMs = useRef(0);
   const currentAudioIdRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
@@ -92,7 +96,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const playbackSessionRef = useRef(0);
   const preloadedSegmentRef = useRef<{
     index: number;
-    sound: Audio.Sound;
+    sound: AudioPlayer;
   } | null>(null);
   const animationStartWallClockMsRef = useRef<number | null>(null);
   const animationStartPositionMsRef = useRef(0);
@@ -127,6 +131,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     setIsPlaying(playing);
   };
 
+  // expo-audio players load asynchronously; wait until duration/position are usable.
+  const waitForPlayerLoaded = async (player: AudioPlayer): Promise<void> => {
+    if (player.isLoaded) return;
+    await new Promise<void>((resolve) => {
+      const timeoutId = setTimeout(resolve, 5000);
+      const checkId = setInterval(() => {
+        if (!player.isLoaded) return;
+        clearInterval(checkId);
+        clearTimeout(timeoutId);
+        resolve();
+      }, 10);
+    });
+  };
+
   const resolvePlaybackWaiters = (audioId: string | null) => {
     if (!audioId) return;
     const waiters = playbackCompletionWaitersRef.current.get(audioId);
@@ -159,9 +177,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearStatusListener = () => {
-    if (soundRef.current) {
-      soundRef.current.setOnPlaybackStatusUpdate(null);
-    }
+    soundListenerRef.current?.remove();
+    soundListenerRef.current = null;
   };
 
   const resetPredictedProgress = () => {
@@ -188,8 +205,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     preloadedSegmentRef.current = null;
     if (!preloaded) return;
     try {
-      preloaded.sound.setOnPlaybackStatusUpdate(null);
-      await preloaded.sound.unloadAsync();
+      preloaded.sound.pause();
+      preloaded.sound.release();
     } catch {
       // Ignore preload unload errors
     }
@@ -210,23 +227,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (!segment) return;
 
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: segment.uri },
-        { shouldPlay: false }
-      );
-      await sound.setProgressUpdateIntervalAsync(STATUS_UPDATE_INTERVAL_MS);
+      const sound = createAudioPlayer(segment.uri);
+      await waitForPlayerLoaded(sound);
 
       const shouldSeek = segment.startMs != null && segment.startMs > 0;
       if (shouldSeek) {
-        await sound.setPositionAsync(segment.startMs!, {
-          toleranceMillisBefore: 0,
-          toleranceMillisAfter: 0
-        });
+        sound.seekTo(segment.startMs! / 1000);
       }
 
       if (sessionId !== playbackSessionRef.current) {
         try {
-          await sound.unloadAsync();
+          sound.release();
         } catch {
           // Ignore stale preload unload errors
         }
@@ -297,8 +308,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     cumulativePositionSharedRef.current.value = 0;
 
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      soundRef.current.pause();
+      soundRef.current.release();
       soundRef.current = null;
     }
     await unloadPreloadedSegment();
@@ -315,7 +326,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const setPosition = async (newPosition: number) => {
     if (soundRef.current && isPlaying) {
-      await soundRef.current.setPositionAsync(newPosition);
+      soundRef.current.seekTo(newPosition / 1000);
       setPositionState(newPosition);
       cumulativePositionSharedRef.current.value = newPosition;
       positionSharedRef.current.value = newPosition;
@@ -361,17 +372,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // Stop current sound if any is playing
     if (soundRef.current) {
       clearStatusListener();
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      soundRef.current.pause();
+      soundRef.current.release();
       soundRef.current = null;
     }
     isAdvancingSegmentRef.current = false;
 
     // Set up audio mode
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true
     });
 
     const shouldSeek = segment.startMs != null && segment.startMs > 0;
@@ -381,17 +392,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     let lastSegmentRemainingMsAtStart: number | null = null;
 
     try {
-      let sound: Audio.Sound;
+      let sound: AudioPlayer;
       if (canUsePreloaded) {
         sound = preloaded.sound;
         preloadedSegmentRef.current = null;
       } else {
-        const created = await Audio.Sound.createAsync(
-          { uri: segment.uri },
-          { shouldPlay: false }
-        );
-        sound = created.sound;
-        await sound.setProgressUpdateIntervalAsync(STATUS_UPDATE_INTERVAL_MS);
+        sound = createAudioPlayer(segment.uri);
+        await waitForPlayerLoaded(sound);
       }
 
       soundRef.current = sound;
@@ -404,16 +411,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Seek to startMs before starting playback (unless preloaded segment
       // was already seeked during background preload).
       if (shouldSeek && !canUsePreloaded) {
-        await sound.setPositionAsync(segment.startMs!, {
-          toleranceMillisBefore: 0,
-          toleranceMillisAfter: 0
-        });
+        sound.seekTo(segment.startMs! / 1000);
       }
 
       // Get initial status to set the duration
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        const fullDurationMs = status.durationMillis ?? 0;
+      if (sound.isLoaded) {
+        const fullDurationMs = sound.duration * 1000;
 
         // Effective duration for this segment (respecting start/end)
         const startMs = segment.startMs ?? 0;
@@ -443,7 +446,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             const segStartMs = segment.startMs ?? 0;
             const playedInSegmentAtStart = Math.max(
               0,
-              status.positionMillis - segStartMs
+              sound.currentTime * 1000 - segStartMs
             );
             const playedTotalAtStart =
               cumulativeBefore + playedInSegmentAtStart;
@@ -463,81 +466,88 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Set up listener for position updates + natural completion.
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) {
-          return;
-        }
-
-        const now = Date.now();
-        const guarded = now < statusGuardUntilMsRef.current;
-        const currentSeg =
-          sequenceSegments.current[currentSequenceIndex.current];
-        const cumulativeDuration = cumulativeDurationBeforeCurrent();
-        const segStartMs = currentSeg?.startMs ?? 0;
-        const positionInSegment = status.positionMillis - segStartMs;
-        const totalPosition =
-          cumulativeDuration + Math.max(0, positionInSegment);
-
-        // While the guard is active, skip all position writes and drift
-        // correction. The deterministic withTiming animation is running
-        // smoothly on the UI thread and must not be interrupted by
-        // real-position hard-sets from these early callbacks.
-        if (!guarded) {
-          cumulativePositionSharedRef.current.value = totalPosition;
-          if (now - lastReactStateUpdateMs.current >= REACT_STATE_THROTTLE_MS) {
-            lastReactStateUpdateMs.current = now;
-            setPositionState(totalPosition);
+      soundListenerRef.current = sound.addListener(
+        'playbackStatusUpdate',
+        (status) => {
+          if (!sound.isLoaded) {
+            return;
           }
 
-          // For merged playback, keep one continuous timeline and do not
-          // restart timing at segment boundaries.
-          if (!useSequenceLevelProgressRef.current) {
-            const currentTargetTotal =
-              cumulativeDuration +
-              (segmentDurations.current[currentSequenceIndex.current] || 0);
-            const predicted = predictedPositionNow();
-            const drift =
-              predicted == null
-                ? Number.POSITIVE_INFINITY
-                : totalPosition - predicted;
-            if (Math.abs(drift) >= DRIFT_CORRECTION_THRESHOLD_MS) {
-              startPredictedProgressAnimation(
-                totalPosition,
-                currentTargetTotal
-              );
+          const now = Date.now();
+          const guarded = now < statusGuardUntilMsRef.current;
+          const currentSeg =
+            sequenceSegments.current[currentSequenceIndex.current];
+          const cumulativeDuration = cumulativeDurationBeforeCurrent();
+          const segStartMs = currentSeg?.startMs ?? 0;
+          const currentPositionMs =
+            (status.currentTime ?? sound.currentTime) * 1000;
+          const positionInSegment = currentPositionMs - segStartMs;
+          const totalPosition =
+            cumulativeDuration + Math.max(0, positionInSegment);
+
+          // While the guard is active, skip all position writes and drift
+          // correction. The deterministic withTiming animation is running
+          // smoothly on the UI thread and must not be interrupted by
+          // real-position hard-sets from these early callbacks.
+          if (!guarded) {
+            cumulativePositionSharedRef.current.value = totalPosition;
+            if (
+              now - lastReactStateUpdateMs.current >=
+              REACT_STATE_THROTTLE_MS
+            ) {
+              lastReactStateUpdateMs.current = now;
+              setPositionState(totalPosition);
+            }
+
+            // For merged playback, keep one continuous timeline and do not
+            // restart timing at segment boundaries.
+            if (!useSequenceLevelProgressRef.current) {
+              const currentTargetTotal =
+                cumulativeDuration +
+                (segmentDurations.current[currentSequenceIndex.current] || 0);
+              const predicted = predictedPositionNow();
+              const drift =
+                predicted == null
+                  ? Number.POSITIVE_INFINITY
+                  : totalPosition - predicted;
+              if (Math.abs(drift) >= DRIFT_CORRECTION_THRESHOLD_MS) {
+                startPredictedProgressAnimation(totalPosition, currentTargetTotal);
+              }
             }
           }
-        }
 
-        // Enforce endMs boundary for trimmed playback.
-        if (
-          currentSeg?.endMs != null &&
-          status.positionMillis >= currentSeg.endMs &&
-          !isAdvancingSegmentRef.current
-        ) {
-          isAdvancingSegmentRef.current = true;
-          clearStatusListener();
-          void sound.stopAsync().then(() => {
-            void sound.unloadAsync();
-            soundRef.current = null;
+          // Enforce endMs boundary for trimmed playback.
+          if (
+            currentSeg?.endMs != null &&
+            currentPositionMs >= currentSeg.endMs &&
+            !isAdvancingSegmentRef.current
+          ) {
+            isAdvancingSegmentRef.current = true;
+            clearStatusListener();
+            sound.pause();
+            sound.release();
+            if (soundRef.current === sound) {
+              soundRef.current = null;
+            }
             void playNextInSequence();
-          });
-          return;
-        }
+            return;
+          }
 
-        if (status.didJustFinish) {
-          if (isAdvancingSegmentRef.current) return;
-          isAdvancingSegmentRef.current = true;
-          clearStatusListener();
-          void sound.unloadAsync();
-          soundRef.current = null;
-          // playNextInSequence advances to the next segment, or resets
-          // all state if no segments remain.
-          void playNextInSequence();
+          if (status.didJustFinish) {
+            if (isAdvancingSegmentRef.current) return;
+            isAdvancingSegmentRef.current = true;
+            clearStatusListener();
+            sound.release();
+            if (soundRef.current === sound) {
+              soundRef.current = null;
+            }
+            // playNextInSequence advances to the next segment, or resets
+            // all state if no segments remain.
+            void playNextInSequence();
+          }
         }
-      });
-
-      await sound.playAsync();
+      );
+      sound.play();
 
       // One-time retime: when the final segment actually starts playing,
       // retime from current progress so remaining time matches that segment.
@@ -610,15 +620,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       try {
         for (let index = 0; index < segments.length; index++) {
           const seg = segments[index]!;
-          const { sound } = await Audio.Sound.createAsync({ uri: seg.uri });
-          const status = await sound.getStatusAsync();
-          await sound.unloadAsync();
-          if (status.isLoaded) {
-            const fullMs = status.durationMillis ?? 0;
+          const sound = createAudioPlayer(seg.uri);
+          await waitForPlayerLoaded(sound);
+          if (sound.isLoaded) {
+            const fullMs = sound.duration * 1000;
             const startMs = seg.startMs ?? 0;
             const endMs = seg.endMs ?? fullMs;
             segmentDurations.current[index] = Math.max(0, endMs - startMs);
           }
+          sound.release();
         }
 
         const totalDuration = totalSequenceDuration();
@@ -658,7 +668,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       resetPredictedProgress();
       clearStatusListener();
       if (soundRef.current) {
-        void soundRef.current.unloadAsync();
+        soundRef.current.release();
       }
       void unloadPreloadedSegment();
     };

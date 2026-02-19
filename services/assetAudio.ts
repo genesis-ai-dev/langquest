@@ -24,7 +24,7 @@ import { system } from '@/db/powersync/system';
 import { extractWaveformFromFile } from '@/utils/audioWaveform';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import { eq } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
@@ -70,21 +70,32 @@ function computeTotalDuration(segments: AssetAudioSegment[]): number {
   return segments.reduce((sum, seg) => sum + effectiveDuration(seg), 0);
 }
 
+const waitForPlayerLoaded = async (player: ReturnType<typeof createAudioPlayer>) => {
+  if (player.isLoaded) return;
+  await new Promise<void>((resolve) => {
+    const timeoutId = setTimeout(resolve, 5000);
+    const checkId = setInterval(() => {
+      if (!player.isLoaded) return;
+      clearInterval(checkId);
+      clearTimeout(timeoutId);
+      resolve();
+    }, 10);
+  });
+};
+
 /**
- * Load duration for a single audio URI by briefly creating an expo-av Sound.
- *
- * EXPO-AUDIO MIGRATION: Replace Audio.Sound.createAsync with the expo-audio
- * equivalent (AudioPlayer). This is the only direct expo-av usage in this
- * file — all playback routes through AudioContext.
+ * Load duration for a single audio URI by briefly creating an expo-audio player.
  */
 async function loadDuration(uri: string): Promise<number> {
+  let player: ReturnType<typeof createAudioPlayer> | null = null;
   try {
-    const { sound } = await Audio.Sound.createAsync({ uri });
-    const status = await sound.getStatusAsync();
-    await sound.unloadAsync();
-    return status.isLoaded ? (status.durationMillis ?? 0) : 0;
+    player = createAudioPlayer(uri);
+    await waitForPlayerLoaded(player);
+    return player.isLoaded ? player.duration * 1000 : 0;
   } catch {
     return 0;
+  } finally {
+    player?.release();
   }
 }
 

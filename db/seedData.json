@@ -118,9 +118,9 @@
       "creator_id": null
     },
     {
-      "id": "lang-por-br",
+      "id": "lang-hin",
       "parent_id": null,
-      "name": "Brazilian Portuguese",
+      "name": "Hindi",
       "level": "language",
       "ui_ready": true,
       "active": true,
@@ -130,9 +130,9 @@
       "creator_id": null
     },
     {
-      "id": "lang-tpi",
+      "id": "lang-mya",
       "parent_id": null,
-      "name": "Tok Pisin",
+      "name": "Burmese",
       "level": "language",
       "ui_ready": true,
       "active": true,
@@ -142,9 +142,9 @@
       "creator_id": null
     },
     {
-      "id": "lang-ind",
+      "id": "lang-tha",
       "parent_id": null,
-      "name": "Indonesian",
+      "name": "Thai",
       "level": "language",
       "ui_ready": true,
       "active": true,
@@ -154,9 +154,9 @@
       "creator_id": null
     },
     {
-      "id": "lang-nep",
+      "id": "lang-cmn",
       "parent_id": null,
-      "name": "Nepali",
+      "name": "Mandarin",
       "level": "language",
       "ui_ready": true,
       "active": true,
@@ -233,10 +233,10 @@
       "creator_id": null
     },
     {
-      "id": "alias-por-br-endonym",
-      "subject_languoid_id": "lang-por-br",
-      "label_languoid_id": "lang-por-br",
-      "name": "Português Brasileiro",
+      "id": "alias-hin-endonym",
+      "subject_languoid_id": "lang-hin",
+      "label_languoid_id": "lang-hin",
+      "name": "हिन्दी",
       "alias_type": "endonym",
       "source_names": ["lexvo"],
       "active": true,
@@ -246,10 +246,10 @@
       "creator_id": null
     },
     {
-      "id": "alias-tpi-endonym",
-      "subject_languoid_id": "lang-tpi",
-      "label_languoid_id": "lang-tpi",
-      "name": "Tok Pisin",
+      "id": "alias-mya-endonym",
+      "subject_languoid_id": "lang-mya",
+      "label_languoid_id": "lang-mya",
+      "name": "မြန်မာ",
       "alias_type": "endonym",
       "source_names": ["lexvo"],
       "active": true,
@@ -259,10 +259,10 @@
       "creator_id": null
     },
     {
-      "id": "alias-ind-endonym",
-      "subject_languoid_id": "lang-ind",
-      "label_languoid_id": "lang-ind",
-      "name": "Bahasa Indonesia",
+      "id": "alias-tha-endonym",
+      "subject_languoid_id": "lang-tha",
+      "label_languoid_id": "lang-tha",
+      "name": "ไทย",
       "alias_type": "endonym",
       "source_names": ["lexvo"],
       "active": true,
@@ -272,10 +272,10 @@
       "creator_id": null
     },
     {
-      "id": "alias-nep-endonym",
-      "subject_languoid_id": "lang-nep",
-      "label_languoid_id": "lang-nep",
-      "name": "नेपाली",
+      "id": "alias-cmn-endonym",
+      "subject_languoid_id": "lang-cmn",
+      "label_languoid_id": "lang-cmn",
+      "name": "普通话",
       "alias_type": "endonym",
       "source_names": ["lexvo"],
       "active": true,
@@ -352,11 +352,11 @@
       "creator_id": null
     },
     {
-      "id": "lsrc-por-br-iso",
+      "id": "lsrc-hin-iso",
       "name": "iso639-3",
       "version": null,
-      "languoid_id": "lang-por-br",
-      "unique_identifier": "por",
+      "languoid_id": "lang-hin",
+      "unique_identifier": "hin",
       "url": null,
       "active": true,
       "download_profiles": null,
@@ -365,11 +365,11 @@
       "creator_id": null
     },
     {
-      "id": "lsrc-tpi-iso",
+      "id": "lsrc-mya-iso",
       "name": "iso639-3",
       "version": null,
-      "languoid_id": "lang-tpi",
-      "unique_identifier": "tpi",
+      "languoid_id": "lang-mya",
+      "unique_identifier": "mya",
       "url": null,
       "active": true,
       "download_profiles": null,
@@ -378,11 +378,11 @@
       "creator_id": null
     },
     {
-      "id": "lsrc-ind-iso",
+      "id": "lsrc-tha-iso",
       "name": "iso639-3",
       "version": null,
-      "languoid_id": "lang-ind",
-      "unique_identifier": "ind",
+      "languoid_id": "lang-tha",
+      "unique_identifier": "tha",
       "url": null,
       "active": true,
       "download_profiles": null,
@@ -391,11 +391,11 @@
       "creator_id": null
     },
     {
-      "id": "lsrc-nep-iso",
+      "id": "lsrc-cmn-iso",
       "name": "iso639-3",
       "version": null,
-      "languoid_id": "lang-nep",
-      "unique_identifier": "nep",
+      "languoid_id": "lang-cmn",
+      "unique_identifier": "cmn",
       "url": null,
       "active": true,
       "download_profiles": null,

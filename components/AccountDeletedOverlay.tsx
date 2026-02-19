@@ -72,6 +72,7 @@ export function AccountDeletedOverlay() {
       RNAlert.alert(t('success'), t('accountRestoreSuccess'), [
         {
           text: t('ok'),
+          isPreferred: true,
           onPress: () => {
             // Navigate to projects page after restore
             goToProjects();

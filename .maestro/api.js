@@ -132,7 +132,83 @@ function generatePasswordResetLink(email) {
   return resetLink;
 }
 
+function deleteProject(projectName) {
+  // Validate projectName is defined and is a non-empty string
+  if (
+    !projectName ||
+    typeof projectName !== 'string' ||
+    projectName.trim() === ''
+  ) {
+    throw new Error(
+      'Project name is required and must be a non-empty string. Received: ' +
+        projectName
+    );
+  }
+
+  console.log('Deleting project with name:', projectName);
+
+  // First, get the project by name using Supabase REST API
+  const getProjectResponse = http.get(
+    supabaseUrl +
+      '/rest/v1/project?name=eq.' +
+      encodeURIComponent(projectName) +
+      '&select=id',
+    {
+      headers: {
+        Authorization: 'Bearer ' + serviceRoleKey,
+        apikey: serviceRoleKey,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      }
+    }
+  );
+
+  if (getProjectResponse.status !== 200) {
+    throw new Error(
+      'Failed to query project: ' +
+        getProjectResponse.status +
+        ' ' +
+        getProjectResponse.body
+    );
+  }
+
+  // Parse the response to get the project ID
+  const projects = JSON.parse(getProjectResponse.body);
+  if (!projects || projects.length === 0) {
+    throw new Error('Project not found with name: ' + projectName);
+  }
+
+  const projectId = projects[0].id;
+  console.log('Found project ID:', projectId);
+
+  // Delete the project by ID
+  const deleteResponse = http.delete(
+    supabaseUrl + '/rest/v1/project?id=eq.' + projectId,
+    {
+      headers: {
+        Authorization: 'Bearer ' + serviceRoleKey,
+        apikey: serviceRoleKey,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      }
+    }
+  );
+
+  if (deleteResponse.status !== 200 && deleteResponse.status !== 204) {
+    throw new Error(
+      'Failed to delete project: ' +
+        deleteResponse.status +
+        ' ' +
+        deleteResponse.body
+    );
+  }
+
+  console.log('Successfully deleted project:', projectName);
+  return deleteResponse;
+}
+
 output.api = {
   deleteUser,
-  generatePasswordResetLink
+  generatePasswordResetLink,
+  deleteProject
 };

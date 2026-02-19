@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { renameAsset } from '@/database_services/assetService';
+import {
+  getNextOrderIndex as getNextAclOrderIndex,
+  renameAsset
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
   asset,
@@ -30,7 +33,7 @@ import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, getTableColumns } from 'drizzle-orm';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import { ArrowLeft, ListVideo, PauseIcon } from 'lucide-react-native';
 import React from 'react';
 import { InteractionManager, View } from 'react-native';
@@ -143,6 +146,7 @@ const RecordingViewSimplified = ({
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enableMerge = useLocalStore((state) => state.enableMerge);
 
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
@@ -934,7 +938,10 @@ const RecordingViewSimplified = ({
                     audio: true
                   },
                   where: eq(asset_content_link.asset_id, assetId),
-                  orderBy: asc(asset_content_link.created_at)
+                  orderBy: [
+                    asc(asset_content_link.order_index),
+                    asc(asset_content_link.created_at)
+                  ]
                 });
 
               // DEBUG: Log raw query result
@@ -1010,15 +1017,29 @@ const RecordingViewSimplified = ({
 
                   if (audioUri) {
                     // Load audio file to get duration
-                    const { sound } = await Audio.Sound.createAsync({
-                      uri: audioUri
+                    const player = createAudioPlayer(audioUri);
+                    // Wait for player to load
+                    await new Promise<void>((resolve) => {
+                      if (player.isLoaded) {
+                        resolve();
+                        return;
+                      }
+                      const check = setInterval(() => {
+                        if (player.isLoaded) {
+                          clearInterval(check);
+                          resolve();
+                        }
+                      }, 10);
+                      setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                      }, 5000);
                     });
-                    const status = await sound.getStatusAsync();
-                    await sound.unloadAsync();
 
-                    if (status.isLoaded && status.durationMillis) {
-                      totalDuration += status.durationMillis;
+                    if (player.isLoaded && player.duration > 0) {
+                      totalDuration += player.duration * 1000;
                     }
+                    player.release();
                   }
                 } catch (err) {
                   // Skip this segment if we can't load it
@@ -1163,7 +1184,11 @@ const RecordingViewSimplified = ({
         const secondContent = await system.db
           .select()
           .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id));
+          .where(eq(contentLocal.asset_id, second.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+        // Get next available order_index for the target asset
+        let nextOrder = await getNextAclOrderIndex(first.id);
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -1173,7 +1198,8 @@ const RecordingViewSimplified = ({
             languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            order_index: nextOrder++
           });
         }
 
@@ -1226,6 +1252,7 @@ const RecordingViewSimplified = ({
         {
           text: t('merge'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1241,7 +1268,14 @@ const RecordingViewSimplified = ({
                   const srcContent = await system.db
                     .select()
                     .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id));
+                    .where(eq(contentLocal.asset_id, src.id))
+                    .orderBy(
+                      asc(contentLocal.order_index),
+                      asc(contentLocal.created_at)
+                    );
+
+                  // Get next available order_index for the target asset
+                  let nextOrder = await getNextAclOrderIndex(target.id);
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -1252,7 +1286,8 @@ const RecordingViewSimplified = ({
                         c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
@@ -1320,6 +1355,7 @@ const RecordingViewSimplified = ({
         {
           text: t('delete'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1707,6 +1743,7 @@ const RecordingViewSimplified = ({
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              showMerge={enableMerge}
             />
           </View>
         ) : (

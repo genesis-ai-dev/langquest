@@ -41,6 +41,7 @@ export interface NavigationStackItem {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;
@@ -146,6 +147,8 @@ export interface LocalState {
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
+  enableMerge: boolean;
+  setEnableMerge: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
@@ -298,10 +301,11 @@ export const useLocalStore = create<LocalState>()(
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
-      enableVerseMarkers: false,
+      enableVerseMarkers: true,
       verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
+      enableMerge: false,
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
@@ -399,7 +403,11 @@ export const useLocalStore = create<LocalState>()(
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
         set({ theme });
-        colorScheme.set(theme);
+        // Only set colorScheme if NativeWind is initialized and theme is not 'system'
+        // 'system' theme should use the OS color scheme, not be set explicitly
+        if (colorScheme && theme !== 'system') {
+          colorScheme.set(theme);
+        }
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
@@ -432,6 +440,7 @@ export const useLocalStore = create<LocalState>()(
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
+      setEnableMerge: (enabled) => set({ enableMerge: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) =>
@@ -582,7 +591,7 @@ export const useLocalStore = create<LocalState>()(
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
-          colorScheme.set(state.theme);
+          state.setTheme(state.theme);
           // Validate and clamp VAD threshold if invalid
           if (
             typeof state.vadThreshold !== 'number' ||

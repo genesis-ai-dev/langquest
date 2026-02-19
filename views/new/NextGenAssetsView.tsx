@@ -29,7 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
@@ -133,7 +133,7 @@ export default function NextGenAssetsView() {
   // New PlayAll state (starts from selected asset)
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
   const isPlayAllRunningRef = React.useRef(false);
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
@@ -833,8 +833,8 @@ export default function NextGenAssetsView() {
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
             currentPlayAllSoundRef.current = null;
           } catch (error) {
             console.error('Error stopping sound:', error);
@@ -938,29 +938,22 @@ export default function NextGenAssetsView() {
 
           // Play this URI and wait for it to finish
           await new Promise<void>((resolve) => {
-            // Create and play the sound
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                // Store reference for immediate cancellation
-                currentPlayAllSoundRef.current = sound;
+            try {
+              const player = createAudioPlayer(uri);
+              currentPlayAllSoundRef.current = player;
+              player.play();
 
-                // Set up listener for when sound finishes
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  if (status.didJustFinish) {
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
+              player.addListener('playbackStatusUpdate', (status) => {
+                if (!status.didJustFinish) return;
                 currentPlayAllSoundRef.current = null;
-                resolve(); // Continue to next even on error
+                player.release();
+                resolve();
               });
+            } catch (error) {
+              console.error('Failed to play audio:', error);
+              currentPlayAllSoundRef.current = null;
+              resolve(); // Continue to next even on error
+            }
           });
         }
       }
@@ -1035,9 +1028,13 @@ export default function NextGenAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
+
+        RNAlert.alert(t('success'), result.message, [
+          { text: t('ok'), isPreferred: true }
+        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
-          { text: t('ok') }
+          { text: t('ok'), isPreferred: true }
         ]);
       }
     },
@@ -1046,7 +1043,7 @@ export default function NextGenAssetsView() {
       RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
-        [{ text: t('ok') }]
+        [{ text: t('ok'), isPreferred: true }]
       );
     }
   });
@@ -1152,8 +1149,8 @@ export default function NextGenAssetsView() {
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
-          await currentPlayAllSoundRef.current.stopAsync();
-          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current.pause();
+          currentPlayAllSoundRef.current.release();
           currentPlayAllSoundRef.current = null;
         } catch (error) {
           console.error('Error stopping sound:', error);
@@ -1191,16 +1188,13 @@ export default function NextGenAssetsView() {
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+          } catch {
+            // Ignore errors during cleanup
+          }
+          currentPlayAllSoundRef.current = null;
         }
       }
 
@@ -1212,8 +1206,6 @@ export default function NextGenAssetsView() {
       currentPlayingAssetIdRef.current = null;
       setCurrentlyPlayingAssetId(null);
       setIsPlayAllRunning(false);
-
-      console.log('🧹 Cleaned up NextGenAssetsView on unmount');
     };
   }, []);
 
@@ -1245,7 +1237,7 @@ export default function NextGenAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
@@ -1371,6 +1363,7 @@ export default function NextGenAssetsView() {
                         {
                           text: t('publish'),
                           style: 'default',
+                          isPreferred: true,
                           onPress: () => {
                             publishQuest();
                           }
