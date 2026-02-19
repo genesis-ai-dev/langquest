@@ -26,7 +26,12 @@ import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
-import { CheckCircleIcon, CircleIcon, PauseIcon, PlayIcon } from 'lucide-react-native';
+import {
+  CheckCircleIcon,
+  CircleIcon,
+  PauseIcon,
+  PlayIcon
+} from 'lucide-react-native';
 import React from 'react';
 import type { GestureResponderEvent } from 'react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -50,7 +55,7 @@ interface AssetCardProps {
   isHighlighted: boolean; // Visual highlight (recording insertion point)
   isSelectionMode: boolean;
   isPlaying: boolean;
-  hideButtons?: boolean; // Hide action buttons 
+  hideButtons?: boolean; // Hide action buttons
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
@@ -78,10 +83,10 @@ function formatDuration(ms: number): string {
 }
 
 // Component to manage mutually exclusive button selection
-function AssetActionButtons({ 
-  selectedType, 
-  onSelectionChange 
-}: { 
+function AssetActionButtons({
+  selectedType,
+  onSelectionChange
+}: {
   selectedType: 'new' | 'replace';
   onSelectionChange: (type: 'new' | 'replace') => void;
 }) {
@@ -94,16 +99,19 @@ function AssetActionButtons({
   }, [onSelectionChange]);
 
   return (
-    <View className="flex-row items-center justify-center gap-1" style={{ zIndex: 1 }}>
-      <ButtonNewAssetAction 
-        type="new" 
-        onPress={handleNewPress} 
-        selected={selectedType === 'new'} 
+    <View
+      className="flex-row items-center justify-center gap-1"
+      style={{ zIndex: 1 }}
+    >
+      <ButtonNewAssetAction
+        type="new"
+        onPress={handleNewPress}
+        selected={selectedType === 'new'}
       />
-      <ButtonNewAssetAction 
-        type="replace" 
-        onPress={handleReplacePress} 
-        selected={selectedType === 'replace'} 
+      <ButtonNewAssetAction
+        type="replace"
+        onPress={handleReplacePress}
+        selected={selectedType === 'replace'}
       />
     </View>
   );
@@ -148,7 +156,9 @@ function RecordAssetCardInternal({
     const isReplace = actionType === 'replace';
     return {
       playButtonBg: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
-      playButtonActive: isReplace ? 'active:bg-destructive/40' : 'active:bg-primary/40',
+      playButtonActive: isReplace
+        ? 'active:bg-destructive/40'
+        : 'active:bg-primary/40',
       progressBar: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
       segmentBadge: isReplace ? 'bg-destructive/20' : 'bg-primary/20',
       textColor: isReplace ? 'text-red-500' : 'text-primary'
@@ -191,14 +201,17 @@ function RecordAssetCardInternal({
   const progressBarStyle = useAnimatedStyle(() => {
     'worklet';
     const progress = animatedProgress.value;
-    const width = interpolate(
+    const widthPercent = interpolate(
       progress,
       [0, 95, 100],
       [0, 97, 100],
       Extrapolation.CLAMP
     );
+    const scaleX = widthPercent / 100;
     return {
-      width: `${width}%`
+      width: '100%',
+      transform: [{ scaleX }],
+      transformOrigin: 'left center'
     };
   });
 
@@ -244,119 +257,127 @@ function RecordAssetCardInternal({
         className={cn(
           'relative overflow-hidden rounded-lg border p-3',
           isHighlighted && !isSelectionMode
-            ? (actionType === 'replace' ? 'border-destructive border-dashed bg-destructive/10' : 'border-primary bg-card')
+            ? actionType === 'replace'
+              ? 'border-dashed border-destructive bg-destructive/10'
+              : 'border-primary bg-card'
             : isSelected
               ? 'border-primary bg-primary/10'
               : 'border-border bg-card'
         )}
       >
-      {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
-      {isPlaying && (
-        <View
-          style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
-          pointerEvents="none"
-        >
-          <Animated.View
-            className={cn('h-full', themeColors.progressBar)}
-            style={progressBarStyle}
-          />
-        </View>
-      )}
-
-      {/* Content - z-index ensures it appears above progress bar */}
-      <View
-        className="flex-row items-center justify-center gap-3"
-        style={{ zIndex: 1 }}
-      >
-        <View className="min-w-[28px] items-center justify-center self-center rounded border border-border bg-muted px-2 py-0.5">
-          <Text className="text-xs font-semibold text-muted-foreground">
-            {index + 1}
-          </Text>
-        </View>
-        {/* Play/Pause Button */}
-        <TouchableOpacity
-          onPress={handlePlayPress}
-          className={cn(
-            'ml-2 flex h-7 w-7 items-center justify-center rounded-full',
-            themeColors.playButtonBg,
-            themeColors.playButtonActive
-          )}
-          activeOpacity={0.7}
-        >
-          <Icon
-            as={isPlaying ? PauseIcon : PlayIcon}
-            size={16}
-            className={isPlaying ? themeColors.textColor : `${themeColors.textColor}`  }
-          />
-        </TouchableOpacity>
-
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            {/* Label with rename functionality - prevents card play when tapped */}
-            <TouchableOpacity
-              onPress={() => {
-                if (!isSelectionMode && isRenameable && onRename) {
-                  onRename(asset.id, asset.name);
-                }
-              }}
-              disabled={isSelectionMode || !isRenameable || !onRename}
-              activeOpacity={0.7}
-            >
-              <Text
-                className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
-              >
-                {asset.name || t('unnamedAsset')}
-              </Text>
-            </TouchableOpacity>
-            {segmentCount && segmentCount > 1 && (
-              <View className={cn('rounded px-1.5 py-0.5', themeColors.segmentBadge)}>
-                <Text className="text-xs font-medium text-primary">
-                  {segmentCount}
-                </Text>
-              </View>
-            )}
+        {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
+        {isPlaying && (
+          <View
+            style={[StyleSheet.absoluteFillObject, { zIndex: 0 }]}
+            pointerEvents="none"
+          >
+            <Animated.View
+              className={cn('h-full', themeColors.progressBar)}
+              style={progressBarStyle}
+            />
           </View>
-          <View className="flex-row items-center gap-2">
-            {/* <Text className="text-xs text-muted-foreground">
+        )}
+
+        {/* Content - z-index ensures it appears above progress bar */}
+        <View
+          className="flex-row items-center justify-center gap-3"
+          style={{ zIndex: 1 }}
+        >
+          <View className="min-w-[28px] items-center justify-center self-center rounded border border-border bg-muted px-2 py-0.5">
+            <Text className="text-xs font-semibold text-muted-foreground">
+              {index + 1}
+            </Text>
+          </View>
+          {/* Play/Pause Button */}
+          <TouchableOpacity
+            onPress={handlePlayPress}
+            className={cn(
+              'ml-2 flex h-7 w-7 items-center justify-center rounded-full',
+              themeColors.playButtonBg,
+              themeColors.playButtonActive
+            )}
+            activeOpacity={0.7}
+          >
+            <Icon
+              as={isPlaying ? PauseIcon : PlayIcon}
+              size={16}
+              className={
+                isPlaying ? themeColors.textColor : `${themeColors.textColor}`
+              }
+            />
+          </TouchableOpacity>
+
+          <View className="flex-1">
+            <View className="flex-row items-center gap-2">
+              {/* Label with rename functionality - prevents card play when tapped */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (!isSelectionMode && isRenameable && onRename) {
+                    onRename(asset.id, asset.name);
+                  }
+                }}
+                disabled={isSelectionMode || !isRenameable || !onRename}
+                activeOpacity={0.7}
+              >
+                <Text
+                  className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                >
+                  {asset.name || t('unnamedAsset')}
+                </Text>
+              </TouchableOpacity>
+              {segmentCount && segmentCount > 1 && (
+                <View
+                  className={cn(
+                    'rounded px-1.5 py-0.5',
+                    themeColors.segmentBadge
+                  )}
+                >
+                  <Text className="text-xs font-medium text-primary">
+                    {segmentCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View className="flex-row items-center gap-2">
+              {/* <Text className="text-xs text-muted-foreground">
               {asset.created_at && new Date(asset.created_at).toLocaleString()}
             </Text> */}
-        {duration !== undefined && duration > 0 && (
-          <Text
-            className="font-mono text-xs text-muted-foreground"
-            style={{ letterSpacing: 0.5 }}
-          >
-            {formatDuration(duration)}
-          </Text>
-        )}            
+              {duration !== undefined && duration > 0 && (
+                <Text
+                  className="font-mono text-xs text-muted-foreground"
+                  style={{ letterSpacing: 0.5 }}
+                >
+                  {formatDuration(duration)}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
 
-
-        {/* Selection checkbox - only show for local assets in selection mode */}
-        {
-          isLocal && (
-            isSelectionMode ? (
+          {/* Selection checkbox - only show for local assets in selection mode */}
+          {isLocal &&
+            (isSelectionMode ? (
               <TouchableOpacity
-              onPress={handleSelectionToggle}
-              className="pl-2"
-              style={{ zIndex: 1 }}
-              activeOpacity={0.7}
+                onPress={handleSelectionToggle}
+                className="pl-2"
+                style={{ zIndex: 1 }}
+                activeOpacity={0.7}
               >
-              <Icon
-              as={isSelected ? CheckCircleIcon : CircleIcon}
-              size={20}
-              className={isSelected ? 'text-primary' : 'text-muted-foreground'}
-              />
+                <Icon
+                  as={isSelected ? CheckCircleIcon : CircleIcon}
+                  size={20}
+                  className={
+                    isSelected ? 'text-primary' : 'text-muted-foreground'
+                  }
+                />
               </TouchableOpacity>
             ) : isHighlighted && !hideButtons ? (
-              <AssetActionButtons 
+              <AssetActionButtons
                 selectedType={actionType}
                 onSelectionChange={setActionType}
               />
-            ) : null 
-          ) }
+            ) : null)}
+        </View>
       </View>
-    </View>
     </TouchableOpacity>
   );
 }
@@ -368,32 +389,35 @@ function RecordAssetCardInternal({
  * OPTIMIZATION: progress removed from comparison - now uses SharedValues
  * This eliminates 10 re-renders/second during audio playback!
  */
-export const RecordAssetCard = React.memo(RecordAssetCardInternal, (prev, next) => {
-  // Custom equality check - only re-render if these props change
-  return (
-    prev.asset.id === next.asset.id &&
-    prev.asset.name === next.asset.name &&
-    prev.asset.source === next.asset.source &&
-    prev.index === next.index &&
-    prev.isSelected === next.isSelected &&
-    prev.isHighlighted === next.isHighlighted &&
-    prev.isSelectionMode === next.isSelectionMode &&
-    prev.isPlaying === next.isPlaying &&
-    prev.hideButtons === next.hideButtons &&
-    // prev.progress removed - uses SharedValues now!
-    prev.duration === next.duration &&
-    prev.segmentCount === next.segmentCount &&
-    prev.canMergeDown === next.canMergeDown &&
-    // Compare customProgress SharedValue reference (needed when it changes from undefined to SharedValue)
-    prev.customProgress === next.customProgress &&
-    // Callbacks are stable (wrapped in useCallback in parent), so we can skip checking them
-    prev.onPress === next.onPress &&
-    prev.onLongPress === next.onLongPress &&
-    prev.onPlay === next.onPlay &&
-    prev.onRename === next.onRename &&
-    prev.onActionTypeChange === next.onActionTypeChange &&
-    prev.onDelete === next.onDelete &&
-    prev.onMerge === next.onMerge &&
-    prev.onEdit === next.onEdit
-  );
-});
+export const RecordAssetCard = React.memo(
+  RecordAssetCardInternal,
+  (prev, next) => {
+    // Custom equality check - only re-render if these props change
+    return (
+      prev.asset.id === next.asset.id &&
+      prev.asset.name === next.asset.name &&
+      prev.asset.source === next.asset.source &&
+      prev.index === next.index &&
+      prev.isSelected === next.isSelected &&
+      prev.isHighlighted === next.isHighlighted &&
+      prev.isSelectionMode === next.isSelectionMode &&
+      prev.isPlaying === next.isPlaying &&
+      prev.hideButtons === next.hideButtons &&
+      // prev.progress removed - uses SharedValues now!
+      prev.duration === next.duration &&
+      prev.segmentCount === next.segmentCount &&
+      prev.canMergeDown === next.canMergeDown &&
+      // Compare customProgress SharedValue reference (needed when it changes from undefined to SharedValue)
+      prev.customProgress === next.customProgress &&
+      // Callbacks are stable (wrapped in useCallback in parent), so we can skip checking them
+      prev.onPress === next.onPress &&
+      prev.onLongPress === next.onLongPress &&
+      prev.onPlay === next.onPlay &&
+      prev.onRename === next.onRename &&
+      prev.onActionTypeChange === next.onActionTypeChange &&
+      prev.onDelete === next.onDelete &&
+      prev.onMerge === next.onMerge &&
+      prev.onEdit === next.onEdit
+    );
+  }
+);

@@ -41,6 +41,7 @@ export interface NavigationStackItem {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;
@@ -53,6 +54,9 @@ export interface NavigationStackItem {
 
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
+
+// AsyncStorage keys for user preferences
+export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
 
 // VAD (Voice Activity Detection) constants - single source of truth
 export const VAD_THRESHOLD_MIN = 0.001;
@@ -125,6 +129,8 @@ export interface LocalState {
   setDebugMode: (enabled: boolean) => void;
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
+  offlineUndownloadWarningEnabled: boolean;
+  setOfflineUndownloadWarningEnabled: (enabled: boolean) => void;
 
   // Experimental features
   enableAiSuggestions: boolean;
@@ -141,6 +147,8 @@ export interface LocalState {
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
+  enableMerge: boolean;
+  setEnableMerge: (enabled: boolean) => void;
 
   // Trim modal settings
   trimPlayPreview: boolean;
@@ -217,6 +225,20 @@ export interface LocalState {
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
 
+  // Version tracking and migration state
+  lastAppVersion: string | null;
+  setLastAppVersion: (version: string | null) => void;
+  lastSchemaVersion: string | null;
+  setLastSchemaVersion: (version: string | null) => void;
+  lastUpdateId: string | null;
+  setLastUpdateId: (updateId: string | null) => void;
+  lastFailedVersion: string | null;
+  setLastFailedVersion: (version: string | null) => void;
+  degradedMode: boolean;
+  setDegradedMode: (enabled: boolean) => void;
+  migrationRetryCount: number;
+  setMigrationRetryCount: (count: number) => void;
+
   // Onboarding dismissal tracking
   onboardingDismissed: boolean;
   setOnboardingDismissed: (dismissed: boolean) => void;
@@ -277,15 +299,17 @@ export const useLocalStore = create<LocalState>()(
       autoBackup: false,
       debugMode: false,
       showHiddenContent: false,
+      offlineUndownloadWarningEnabled: true, // Default to showing warning
 
       // Experimental features (defaults)
       enableAiSuggestions: false,
       enablePlayAll: false,
       enableQuestExport: false,
-      enableVerseMarkers: false,
+      enableVerseMarkers: true,
       verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
+      enableMerge: false,
 
       // Trim modal settings (defaults)
       trimPlayPreview: true,
@@ -356,6 +380,21 @@ export const useLocalStore = create<LocalState>()(
           dismissedUpdateVersion: null
         }),
 
+      // Version tracking and migration state
+      lastAppVersion: null,
+      setLastAppVersion: (version) => set({ lastAppVersion: version }),
+      lastSchemaVersion: null,
+      setLastSchemaVersion: (version) => set({ lastSchemaVersion: version }),
+      lastUpdateId: null,
+      setLastUpdateId: (updateId) => set({ lastUpdateId: updateId }),
+      lastFailedVersion: null,
+      setLastFailedVersion: (version) => set({ lastFailedVersion: version }),
+      degradedMode: false,
+      setDegradedMode: (enabled) => set({ degradedMode: enabled }),
+      migrationRetryCount: 0,
+      setMigrationRetryCount: (count) =>
+        set({ migrationRetryCount: Math.max(0, count) }),
+
       // Onboarding dismissal tracking
       onboardingDismissed: false,
       setOnboardingDismissed: (dismissed) =>
@@ -371,7 +410,11 @@ export const useLocalStore = create<LocalState>()(
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
         set({ theme });
-        colorScheme.set(theme);
+        // Only set colorScheme if NativeWind is initialized and theme is not 'system'
+        // 'system' theme should use the OS color scheme, not be set explicitly
+        if (colorScheme && theme !== 'system') {
+          colorScheme.set(theme);
+        }
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
@@ -389,6 +432,8 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
+      setOfflineUndownloadWarningEnabled: (enabled) =>
+        set({ offlineUndownloadWarningEnabled: enabled }),
 
       // Experimental features setters
       setEnableAiSuggestions: (enabled) =>
@@ -402,6 +447,7 @@ export const useLocalStore = create<LocalState>()(
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
+      setEnableMerge: (enabled) => set({ enableMerge: enabled }),
 
       setTrimPlayPreview: (enabled) => set({ trimPlayPreview: enabled }),
 
@@ -551,10 +597,10 @@ export const useLocalStore = create<LocalState>()(
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
       // skipHydration: true,
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
-          colorScheme.set(state.theme);
+          state.setTheme(state.theme);
           // Validate and clamp VAD threshold if invalid
           if (
             typeof state.vadThreshold !== 'number' ||
@@ -565,6 +611,29 @@ export const useLocalStore = create<LocalState>()(
               `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
             );
             state.vadThreshold = VAD_THRESHOLD_DEFAULT;
+          }
+
+          // Migrate offline undownload warning preference from old AsyncStorage key
+          if (!state.offlineUndownloadWarningEnabled) {
+            try {
+              const oldValue = await AsyncStorage.getItem(
+                OFFLINE_UNDOWNLOAD_WARNING_KEY
+              );
+              if (oldValue !== null) {
+                const migratedValue = oldValue === 'true';
+                state.offlineUndownloadWarningEnabled = migratedValue;
+                // Optionally remove the old key after migration
+                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
+                console.log(
+                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+                );
+              }
+            } catch (error) {
+              console.error(
+                '[LocalStore] Error migrating offline undownload warning preference:',
+                error
+              );
+            }
           }
         }
       },
@@ -577,8 +646,8 @@ export const useLocalStore = create<LocalState>()(
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
-                'currentAssetId',
-                //'navigationStack' //removing this allows the app to remember the last view
+                'currentAssetId'
+                //'navigationStack' //commented out so the app can remember the last view on reload
               ].includes(key)
           )
         )

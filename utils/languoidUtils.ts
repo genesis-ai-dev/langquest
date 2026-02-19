@@ -8,6 +8,31 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
+/**
+ * NO-OP: This function is kept for API compatibility but does nothing.
+ *
+ * Previously, this function called an RPC to add the user to a languoid's
+ * download_profiles. This is now handled automatically by a database trigger
+ * (propagate_pll_to_languoid_download_profiles_trigger) that fires when
+ * project_language_link rows are inserted.
+ *
+ * The trigger-based approach is simpler and handles all cases uniformly:
+ * - Old app users (no app-side call needed)
+ * - New app users (trigger fires when insert syncs)
+ * - Offline users (trigger fires when they come online)
+ *
+ * @param _languoid_id - Unused
+ * @param _profile_id - Unused
+ * @deprecated This function is a no-op. The database trigger handles everything.
+ */
+export async function ensureLanguoidDownloadProfile(
+  _languoid_id: string,
+  _profile_id: string
+): Promise<void> {
+  // No-op: Database trigger handles this automatically when project_language_link
+  // is inserted. See migration: 20260205150100_add_project_language_link_languoid_trigger.sql
+}
+
 export interface CreateLanguoidParams {
   name: string;
   level?: 'family' | 'language' | 'dialect';
@@ -123,6 +148,8 @@ export async function findOrCreateLanguoidByName(
     .limit(1);
 
   if (existing) {
+    // Ensure the user's profile is in download_profiles for this existing languoid
+    await ensureLanguoidDownloadProfile(existing.id, creator_id);
     return existing.id;
   }
 
@@ -139,6 +166,7 @@ export async function findOrCreateLanguoidByName(
 /**
  * Creates a project_language_link with languoid_id
  * Creates in synced table for immediate project publishing
+ * Also ensures the languoid's download_profiles includes the creator
  *
  * PK is now (project_id, languoid_id, language_type) - languoid_id is required
  *
@@ -177,6 +205,10 @@ export async function createProjectLanguageLinkWithLanguoid(
     return;
   }
 
+  // Ensure the languoid's download_profiles includes this user
+  // This is critical for offline sync - the languoid must sync to the user's device
+  await ensureLanguoidDownloadProfile(languoid_id, creator_id);
+
   // Create new link - languoid_id is required (part of PK), language_id is optional
   await system.db.insert(projectLanguageLinkSynced).values({
     project_id,
@@ -191,11 +223,12 @@ export async function createProjectLanguageLinkWithLanguoid(
 /**
  * Creates an asset_content_link with languoid_id
  * Handles both offline and online scenarios
+ * Also ensures the languoid's download_profiles includes the creator
  *
  * @param asset_id - The asset ID
  * @param languoid_id - The languoid ID
- * @param language_id - Optional language_id for backward compatibility
  * @param creator_id - The user creating the link
+ * @param language_id - Optional language_id for backward compatibility
  * @param text - Optional text content
  * @param audio - Optional audio file IDs
  */
@@ -210,6 +243,10 @@ export async function createAssetContentLinkWithLanguoid(
   const assetContentLinkLocal = resolveTable('asset_content_link', {
     localOverride: true
   });
+
+  // Ensure the languoid's download_profiles includes this user
+  // This is critical for offline sync - the languoid must sync to the user's device
+  await ensureLanguoidDownloadProfile(languoid_id, creator_id);
 
   const contentLinkId = uuid.v4();
 

@@ -1,6 +1,6 @@
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { decode as decodeBase64 } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import uuid from 'react-native-uuid';
 
 /**
@@ -51,40 +51,94 @@ export function getDirectory(uri: string) {
 /**
  * Delete a file if it exists. No-ops if uri is falsy or file is missing.
  */
-export async function deleteIfExists(uri: string | null | undefined) {
-  await FileSystem.deleteAsync(uri ?? '', { idempotent: true });
+export function deleteIfExists(uri: string | null | undefined) {
+  if (!uri) return;
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // Idempotent - ignore errors (file may not exist or be a directory)
+    try {
+      const dir = new Directory(uri);
+      if (dir.exists) {
+        dir.delete();
+      }
+    } catch {
+      // Silently ignore
+    }
+  }
 }
 
-export async function getFileInfo(uri: string | null | undefined) {
-  return await FileSystem.getInfoAsync(uri ?? '');
+export function getFileInfo(uri: string | null | undefined) {
+  if (!uri)
+    return { exists: false as const, size: undefined, isDirectory: false };
+  try {
+    const file = new File(uri);
+    if (file.exists) {
+      return {
+        exists: true as const,
+        size: file.size ?? undefined,
+        isDirectory: false,
+        uri
+      };
+    }
+    const dir = new Directory(uri);
+    if (dir.exists) {
+      return {
+        exists: true as const,
+        size: dir.size ?? undefined,
+        isDirectory: true,
+        uri
+      };
+    }
+    return { exists: false as const, size: undefined, isDirectory: false, uri };
+  } catch {
+    return { exists: false as const, size: undefined, isDirectory: false, uri };
+  }
 }
 
 /**
  * Check if a file exists at the given uri.
  */
-export async function fileExists(uri: string | null | undefined) {
-  const fileInfo = await getFileInfo(uri);
-  return fileInfo.exists;
-}
-
-export async function ensureDir(uri: string) {
-  const directoryInfo = await FileSystem.getInfoAsync(uri);
-  if (!directoryInfo.exists || !directoryInfo.isDirectory) {
-    await FileSystem.makeDirectoryAsync(uri, {
-      intermediates: true
-    });
+export function fileExists(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  try {
+    const file = new File(uri);
+    return file.exists;
+  } catch {
+    return false;
   }
 }
 
-export async function writeFile(
+export function ensureDir(uri: string) {
+  const dir = new Directory(uri);
+  if (!dir.exists) {
+    dir.create();
+  }
+}
+
+export function writeFile(
   fileURI: string,
-  base64Data: string,
+  data: string,
   options?: { encoding?: 'utf8' | 'base64' }
 ) {
-  const { encoding = FileSystem.EncodingType.UTF8 } = options ?? {};
+  const { encoding = 'utf8' } = options ?? {};
   const dir = getDirectory(fileURI);
-  await ensureDir(dir);
-  await FileSystem.writeAsStringAsync(fileURI, base64Data, { encoding });
+  ensureDir(dir);
+  const file = new File(fileURI);
+  if (encoding === 'base64') {
+    // Decode base64 to bytes and write as binary
+    const binaryString = atob(data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    file.write(bytes);
+  } else {
+    file.write(data);
+  }
 }
 
 /**
@@ -124,48 +178,46 @@ export function normalizeFileUri(uri: string): string {
   return normalized;
 }
 
-export async function moveFile(sourceUri: string, targetUri: string) {
-  // On iOS Simulator, FileSystem.moveAsync has a bug where it appends /.. to paths
-  // Workaround: Use copy + delete instead of move
-  // This is more reliable across platforms and avoids the simulator bug
-
+export function moveFile(sourceUri: string, targetUri: string) {
   // Normalize both URIs to ensure they're properly formatted
   const fromUri = normalizeFileUri(sourceUri);
   const toUri = normalizeFileUri(targetUri);
 
+  const sourceFile = new File(fromUri);
+
   try {
-    // Try moveAsync first (faster on real devices)
-    await FileSystem.moveAsync({ from: fromUri, to: toUri });
+    // Use the new File.move() API - handles move natively
+    sourceFile.move(new File(toUri));
   } catch (error) {
-    // If moveAsync fails (e.g., iOS Simulator bug), fall back to copy + delete
+    // If move fails (e.g., iOS Simulator bug), fall back to copy + delete
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('/..') || errorMessage.includes('not writable')) {
-      console.log('⚠️ moveAsync failed, using copy + delete fallback');
+      console.log('moveAsync failed, using copy + delete fallback');
       // Copy the file
-      await FileSystem.copyAsync({ from: fromUri, to: toUri });
-      // Delete the source file - ensure URI is normalized before deletion
-      const deleteUri = normalizeFileUri(fromUri);
+      const src = new File(fromUri);
+      src.copy(new File(toUri));
+      // Delete the source file
       try {
-        await FileSystem.deleteAsync(deleteUri, { idempotent: true });
+        const toDelete = new File(normalizeFileUri(fromUri));
+        if (toDelete.exists) {
+          toDelete.delete();
+        }
       } catch (deleteError) {
-        // If deletion fails (common on iOS Simulator with temp files), log but don't fail
-        // Temp files will be cleaned up automatically by the OS
+        const deleteUri = normalizeFileUri(fromUri);
         const isTempFile =
           deleteUri.includes('/tmp/') || deleteUri.includes('/tmp');
         if (isTempFile) {
           console.log(
-            `⚠️ Failed to delete temp file (will be cleaned up automatically): ${deleteUri}`
+            `Failed to delete temp file (will be cleaned up automatically): ${deleteUri}`
           );
         } else {
-          // For non-temp files, log the error but don't throw - file was already copied
           console.warn(
-            `⚠️ Failed to delete source file after copy: ${deleteUri}`,
+            `Failed to delete source file after copy: ${deleteUri}`,
             deleteError
           );
         }
       }
     } else {
-      // Re-throw if it's a different error
       throw error;
     }
   }
@@ -175,32 +227,33 @@ export async function readFile(
   fileURI: string,
   _options?: { encoding?: 'utf8' | 'base64' }
 ) {
-  if (!(await fileExists(fileURI))) {
+  const file = new File(fileURI);
+  if (!file.exists) {
     throw new Error(`File does not exist: ${fileURI}`);
   }
 
   // For binary files (audio, images, etc.), always read as base64
   // This prevents data corruption from UTF-8 conversion
-  const fileContent = await FileSystem.readAsStringAsync(fileURI, {
-    encoding: FileSystem.EncodingType.Base64
-  });
+  const fileContent = await file.base64();
 
   // Convert base64 to ArrayBuffer properly
   return base64ToArrayBuffer(fileContent);
 }
 
-export async function deleteFile(uri: string) {
-  if (await fileExists(uri)) {
-    await FileSystem.deleteAsync(uri);
+export function deleteFile(uri: string) {
+  const file = new File(uri);
+  if (file.exists) {
+    file.delete();
   }
 }
 
-export async function copyFile(sourceUri: string, targetUri: string) {
-  await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
+export function copyFile(sourceUri: string, targetUri: string) {
+  const source = new File(sourceUri);
+  source.copy(new File(targetUri));
 }
 
 export function getDocumentDirectory() {
-  return FileSystem.documentDirectory;
+  return Paths.document.uri;
 }
 
 const encoder = new TextEncoder();
@@ -214,7 +267,12 @@ export function base64ToArrayBuffer(base64: string) {
 }
 
 export function getLocalUri(filePath: string) {
-  return `${getDocumentDirectory()}${filePath}`;
+  const docDir = getDocumentDirectory();
+  // Ensure single slash between directory and file path
+  const normalizedPath = filePath.startsWith('/')
+    ? filePath.slice(1)
+    : filePath;
+  return `${docDir}/${normalizedPath}`;
 }
 
 export function getLocalFilePathSuffix(filename: string): string {
@@ -247,7 +305,7 @@ export async function saveAudioLocally(uri: string) {
   const extension = cleanSourceUri.split('.').pop() || 'wav';
 
   const newUri = `local/${uuid.v4()}.${extension}`;
-  console.log('🔍 Saving audio file locally:', cleanSourceUri, newUri);
+  console.log('Saving audio file locally:', cleanSourceUri, newUri);
 
   // Initial delay to allow native module to finish writing the file
   // This is especially important for Android where the file write may not be fully flushed
@@ -261,9 +319,8 @@ export async function saveAudioLocally(uri: string) {
   let fileExistsNow = false;
 
   console.log(`🔍 Checking if file exists: ${cleanSourceUri}`);
-  
   for (let attempt = 0; attempt < maxRetries; attempt++) {
-    fileExistsNow = await fileExists(cleanSourceUri);
+    fileExistsNow = fileExists(cleanSourceUri);
     if (fileExistsNow) {
       console.log(`✅ File found on attempt ${attempt + 1}/${maxRetries}`);
       break;
@@ -271,7 +328,7 @@ export async function saveAudioLocally(uri: string) {
 
     if (attempt < maxRetries - 1) {
       console.log(
-        `⏳ File not found yet (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelayMs}ms...`
+        `File not found yet (attempt ${attempt + 1}/${maxRetries}), retrying in ${retryDelayMs}ms...`
       );
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     } else {
@@ -283,28 +340,17 @@ export async function saveAudioLocally(uri: string) {
 
   if (!fileExistsNow) {
     // Get file info for better error message
-    const fileInfo = await getFileInfo(cleanSourceUri);
-    const errorMsg = `File does not exist after ${maxRetries} attempts (${maxRetries * retryDelayMs}ms total): ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
-    console.error('❌', errorMsg);
-    
-    // Additional debugging: check if parent directory exists
-    const parentDir = getDirectory(cleanSourceUri);
-    console.error('❌ Checking parent directory:', parentDir);
-    try {
-      const dirInfo = await getFileInfo(parentDir);
-      console.error('❌ Parent directory info:', JSON.stringify(dirInfo));
-    } catch (dirError) {
-      console.error('❌ Failed to get parent directory info:', dirError);
-    }
-    
+    const fileInfo = getFileInfo(cleanSourceUri);
+    const errorMsg = `File does not exist after ${maxRetries} attempts: ${cleanSourceUri}. File info: ${JSON.stringify(fileInfo)}`;
+    console.error(errorMsg);
     throw new Error(errorMsg);
   }
 
   const newPath = getLocalAttachmentUri(newUri);
-  await ensureDir(getDirectory(newPath));
+  ensureDir(getDirectory(newPath));
 
   // Debug: Log the URIs before moving
-  console.log('📦 Moving file:', {
+  console.log('Moving file:', {
     from: cleanSourceUri,
     to: newPath,
     fromLength: cleanSourceUri.length,
@@ -312,22 +358,24 @@ export async function saveAudioLocally(uri: string) {
   });
 
   try {
-    await moveFile(cleanSourceUri, newPath);
+    moveFile(cleanSourceUri, newPath);
   } catch (error) {
     // Enhanced error logging for debugging
-    const sourceStillExists = await fileExists(cleanSourceUri);
-    console.error('❌ moveFile error details:', {
+    console.error('moveFile error details:', {
       error,
       sourceUri: cleanSourceUri,
       targetUri: newPath,
-      sourceExists: sourceStillExists,
-      targetExists: await fileExists(newPath)
+      sourceExists: fileExists(cleanSourceUri),
+      targetExists: fileExists(newPath)
     });
-    
+
     // Fallback: try to copy instead of move
     // This can happen if the source file was already moved/deleted or has permission issues
+    const sourceStillExists = fileExists(cleanSourceUri);
     if (sourceStillExists) {
-      console.log('⚠️ Move failed but source exists, attempting copy as fallback...');
+      console.log(
+        '⚠️ Move failed but source exists, attempting copy as fallback...'
+      );
       try {
         await copyFile(cleanSourceUri, newPath);
         console.log('✅ Copy succeeded, now deleting source...');
@@ -343,6 +391,6 @@ export async function saveAudioLocally(uri: string) {
     }
   }
 
-  console.log('✅ Audio file saved locally:', getLocalAttachmentUri(newUri));
+  console.log('Audio file saved locally:', getLocalAttachmentUri(newUri));
   return newUri;
 }

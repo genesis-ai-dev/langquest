@@ -7,26 +7,38 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { normalizeOrderIndexForVerses, renameAsset } from '@/database_services/assetService';
+import {
+  getNextOrderIndex as getNextAclOrderIndex,
+  normalizeOrderIndexForVerses,
+  renameAsset,
+  updateContentLinkOrder
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  project as projectTable,
+  project_language_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation, useCurrentNavigation } from '@/hooks/useAppNavigation';
+import type { Project } from '@/hooks/db/useProjects';
+import {
+  useAppNavigation,
+  useCurrentNavigation
+} from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
-  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -86,6 +98,108 @@ const isAsset = (item: ListItem): item is UIAsset => item.type === 'asset';
 // Type guard to check if item is a pill
 const isPill = (item: ListItem): item is VersePillItem => item.type === 'pill';
 
+interface PillListRowProps {
+  itemId: string;
+  text: string;
+  isHighlighted: boolean;
+  showSkeleton: boolean;
+  onPress?: () => void;
+}
+
+const PillListRow = React.memo(function PillListRow({
+  itemId,
+  text,
+  isHighlighted,
+  showSkeleton,
+  onPress
+}: PillListRowProps) {
+  return (
+    <>
+      <VersePill
+        key={itemId}
+        text={text}
+        isHighlighted={isHighlighted}
+        onPress={onPress}
+      />
+      {showSkeleton && (
+        <View className="mt-2.5">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
+interface AssetListRowProps {
+  asset: UIAsset;
+  index: number;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  isSelectionMode: boolean;
+  isPlaying: boolean;
+  hideButtons: boolean;
+  duration?: number;
+  canMergeDown: boolean;
+  showSkeleton: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  onPlay: () => void;
+  onDelete: (assetId: string) => void;
+  onMerge: (index: number) => void;
+  onRename: (assetId: string, currentName: string | null) => void;
+  onActionTypeChange: (isReplacing: boolean) => void;
+}
+
+const AssetListRow = React.memo(function AssetListRow({
+  asset,
+  index,
+  isSelected,
+  isHighlighted,
+  isSelectionMode,
+  isPlaying,
+  hideButtons,
+  duration,
+  canMergeDown,
+  showSkeleton,
+  onPress,
+  onLongPress,
+  onPlay,
+  onDelete,
+  onMerge,
+  onRename,
+  onActionTypeChange
+}: AssetListRowProps) {
+  return (
+    <>
+      <RecordAssetCard
+        key={asset.id}
+        asset={asset}
+        index={index}
+        isSelected={isSelected}
+        isHighlighted={isHighlighted}
+        isSelectionMode={isSelectionMode}
+        isPlaying={isPlaying}
+        hideButtons={hideButtons}
+        duration={duration}
+        canMergeDown={canMergeDown}
+        segmentCount={asset.segmentCount}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        onPlay={onPlay}
+        onDelete={onDelete}
+        onMerge={onMerge}
+        onRename={onRename}
+        onActionTypeChange={onActionTypeChange}
+      />
+      {showSkeleton && (
+        <View className="mt-1">
+          <RecordAssetCardSkeleton />
+        </View>
+      )}
+    </>
+  );
+});
+
 // Default order_index for unassigned verses: (999 * 1000 + 1) * 1000 = 999001000
 // Sequence starts at 1, not 0 (e.g., verse 7 → 7001000, 7002000...)
 // The extra *1000 leaves space for future insertions between assets
@@ -103,43 +217,60 @@ interface _AssetMetadata {
 }
 
 const RecordingView = () => {
+  // Guard ref to prevent post-unmount state updates (memory leak prevention)
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Get navigation state and functions
   const { goBack } = useAppNavigation();
   const navigation = useCurrentNavigation();
   const { currentQuestId, currentProjectId } = navigation;
-  
   // Get recording-specific data from navigation state
   const navigationState = useLocalStore((state) => {
     const stack = state.navigationStack;
     if (!Array.isArray(stack) || stack.length === 0) return null;
     return stack[stack.length - 1]!;
   });
-  
+
   const recordingData = navigationState?.recordingData;
   const bookChapterLabel = recordingData?.bookChapterLabel || 'Verse';
   const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
-  const _initialOrderIndex = recordingData?.initialOrderIndex ?? DEFAULT_ORDER_INDEX;
+  const _initialOrderIndex =
+    recordingData?.initialOrderIndex ?? DEFAULT_ORDER_INDEX;
   const _verse = recordingData?.verse;
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
-  const _label = recordingData?.label || '';
-  
-  // Log recording data on mount
-  React.useEffect(() => {
-    console.log(
-      `📥 RecordingView data | initialOrderIndex: ${_initialOrderIndex} | label: "${_label}" | verse: ${_verse ? `${_verse.from}-${_verse.to}` : 'null'} | nextVerse: ${nextVerse} | limitVerse: ${limitVerse}`
-    );
-  }, [_initialOrderIndex, _label, _verse, nextVerse, limitVerse]);
+  const recordingSessionId = recordingData?.recordingSession;
 
   const queryClient = useQueryClient();
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { project: currentProject } = useProjectById(currentProjectId);
+
+  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
+  const { data: currentProject = null } = useQuery({
+    queryKey: ['project', 'static', currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const result = await system.db.query.project.findFirst({
+        where: eq(projectTable.id, currentProjectId)
+      });
+      return (result as Project) ?? null;
+    },
+    enabled: !!currentProjectId,
+    staleTime: Infinity
+  });
+
   const audioContext = useAudio();
+  const assetAudio = useAssetAudio();
   const insets = useSafeAreaInsets();
 
-  // Get target languoid_id from project_language_link
-   
+  // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
@@ -190,18 +321,17 @@ const RecordingView = () => {
   const setVadSilenceDuration = useLocalStore(
     (state) => state.setVadSilenceDuration
   );
-   
+
   const vadMinSegmentLength = useLocalStore(
-     
     (state) => state.vadMinSegmentLength
   );
-   
+
   const setVadMinSegmentLength = useLocalStore(
-     
     (state) => state.setVadMinSegmentLength
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
+  const enableMerge = useLocalStore((state) => state.enableMerge);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -229,8 +359,9 @@ const RecordingView = () => {
   // Used to normalize order_index when returning to BibleAssetsView
   const recordedVersesRef = React.useRef<Set<number>>(new Set());
 
-  // Track if the user is allowed to add a new verse
-  const allowAddVerseRef = React.useRef<boolean>(true);
+  // Track if the user is allowed to add a new verse.
+  // Once the first recording is made without a verse, this locks to false for the session.
+  const [allowAddVerse, setAllowAddVerse] = React.useState(true);
 
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
@@ -284,9 +415,6 @@ const RecordingView = () => {
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
   // Ref to track if handlePlayAll is running (for cancellation)
   const isPlayAllRunningRef = React.useRef(false);
-  // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
-
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
@@ -302,7 +430,9 @@ const RecordingView = () => {
   }, [audioContext]);
 
   // Insertion wheel state
-  const [insertionIndex, setInsertionIndex] = React.useState(0);
+  const [insertionIndex, setInsertionIndex] = React.useState(() =>
+    _verse ? 1 : 0
+  );
   const listRef = React.useRef<RecordingSelectionListHandle>(null);
 
   // Track footer height for proper scrolling
@@ -311,7 +441,6 @@ const RecordingView = () => {
   const ROW_HEIGHT_INSERTION = 132;
   const PILL_HEIGHT = 56;
   const PILL_HEIGHT_INSERTION = 122;
-
 
   // Dynamic verse tracking for automatic progression
   // Initialize with _verse.from if available, otherwise null (user must click "Add verse" button)
@@ -364,8 +493,8 @@ const RecordingView = () => {
   // When user exits and returns, the list starts with just the initial verse pill
   // Assets are still saved to database, but we don't load existing ones
   const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
-    // Initialize with the initial verse pill
     if (!_verse) return [];
+
     const initialVerse = _verse;
     const initialPill: VersePillItem = {
       type: 'pill',
@@ -391,6 +520,7 @@ const RecordingView = () => {
       name: string;
       order_index: number;
       verse?: { from: number; to: number } | null;
+      duration?: number;
     }) => {
       const targetOrderIndex = newAsset.order_index;
 
@@ -402,7 +532,7 @@ const RecordingView = () => {
             const itemName = isAsset(item)
               ? item.name
               : `pill-${item.verse?.from ?? 'null'}`;
-            console.log(
+            debugLog(
               `📊 UI Shift: "${itemName}" ${item.order_index} → ${item.order_index + 1}`
             );
             return { ...item, order_index: item.order_index + 1 };
@@ -419,15 +549,15 @@ const RecordingView = () => {
           order_index: targetOrderIndex,
           source: 'local',
           segmentCount: 1,
-          duration: undefined,
+          duration: newAsset.duration, // Use duration from recording callback (avoids Audio.Sound.createAsync)
           verse: newAsset.verse ?? null
         };
 
         if (!newAsset.verse) {
-          allowAddVerseRef.current = false;
+          setAllowAddVerse(false);
         }
 
-        console.log(
+        debugLog(
           `➕ Adding "${newAsset.name}" with order_index: ${targetOrderIndex} | verse: ${newAsset.verse ? `${newAsset.verse.from}-${newAsset.verse.to}` : 'null'}`
         );
 
@@ -644,12 +774,15 @@ const RecordingView = () => {
   // If user hasn't clicked yet, show persisted nextVerse
   const verseToAdd = React.useMemo(() => {
     const limit = persistedLimitVerseRef.current;
+    if (limit === null) {
+      return null;
+    }
 
     if (currentDynamicVerse !== null) {
       // User already clicked Add - next verse is current + 1
       const next = currentDynamicVerse + 1;
       // Check if next is within limit
-      if (limit !== null && next > limit) {
+      if (next > limit) {
         return null; // No more verses to add
       }
       return next;
@@ -671,7 +804,7 @@ const RecordingView = () => {
     const highlightedVerseStr = highlightedAssetVerse
       ? `${highlightedAssetVerse.from}-${highlightedAssetVerse.to}`
       : 'null';
-    console.log(
+    debugLog(
       `🔘 State | insertionIdx: ${insertionIndex} | assetsLen: ${assets.length} | isAtEnd: ${isAtEndOfList} | debouncedIsAtEnd: ${debouncedIsAtEnd} | highlightedVerse: ${highlightedVerseStr} | verseToAdd: ${verseToAdd} | currentDynamic: ${currentDynamicVerse} | pillText: ${versePillText}`
     );
   }, [
@@ -692,7 +825,7 @@ const RecordingView = () => {
   const handleAddNextVerse = React.useCallback(() => {
     if (verseToAdd === null) return;
 
-    console.log(`➕ Adding verse ${verseToAdd} as pill to list`);
+    debugLog(`➕ Adding verse ${verseToAdd} as pill to list`);
 
     // Calculate order_index for the first asset of this verse
     // Formula: (verse * 1000 + 1) * 1000
@@ -702,7 +835,7 @@ const RecordingView = () => {
     // Update appendOrderIndexRef to point to after this new pill
     appendOrderIndexRef.current = newOrderIndex + 1;
 
-    console.log(
+    debugLog(
       `📊 Adding pill for verse ${verseToAdd} | order_index: ${newOrderIndex} | next append: ${appendOrderIndexRef.current}`
     );
 
@@ -751,20 +884,53 @@ const RecordingView = () => {
   // Track if a pill was just added (to distinguish from asset recording)
   const wasPillAddedRef = React.useRef<boolean>(false);
 
+  // Auto-scroll request token to ignore stale scheduled scrolls
+  const scrollRequestIdRef = React.useRef(0);
+
+  // Schedule a single scroll after list/layout settle.
+  // If another insertion happens before this runs, the older request is ignored.
+  const scheduleScrollToIndex = React.useCallback(
+    (targetIndex: number, reason: string) => {
+      const requestId = ++scrollRequestIdRef.current;
+      const timeoutId = setTimeout(() => {
+        timeoutIdsRef.current.delete(timeoutId);
+        InteractionManager.runAfterInteractions(() => {
+          requestAnimationFrame(() => {
+            if (scrollRequestIdRef.current !== requestId) {
+              return;
+            }
+            try {
+              listRef.current?.scrollToIndex(targetIndex, true);
+            } catch (error) {
+              console.error(`Failed to scroll (${reason}):`, error);
+            }
+          });
+        });
+      }, 0);
+      timeoutIdsRef.current.add(timeoutId);
+    },
+    []
+  );
+
   // Auto-scroll behavior differs between list and wheel
   React.useEffect(() => {
     const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
+    const currentInsertionIndex = insertionIndexRef.current;
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
-      console.log(
-        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${insertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
+      debugLog(
+        `📜 Item added | prevCount: ${previousCount} → ${currentCount} | insertionIndex: ${currentInsertionIndex} | wasInMiddle: ${wasRecordingInMiddleRef.current} | wasPillAdded: ${wasPillAddedRef.current} | wasReplace: ${wasReplaceRef.current}`
       );
 
       const wasInMiddle = wasRecordingInMiddleRef.current;
       const wasPillAdded = wasPillAddedRef.current;
       const wasReplace = wasReplaceRef.current;
+      // Source of truth for "card selected vs no selection" before insertion:
+      // - selected card: index < previousCount
+      // - no selection (boundary): index >= previousCount
+      const hadCardSelectedBeforeInsert = currentInsertionIndex < previousCount;
 
       // Reset the flags
       wasRecordingInMiddleRef.current = false;
@@ -772,421 +938,143 @@ const RecordingView = () => {
       wasReplaceRef.current = false;
 
       if (wasPillAdded) {
-        // A pill was added - move to the end
-        console.log(
-          `📍 Pill added - moving to end: ${insertionIndex} → ${currentCount}`
+        // A pill was added - keep boundary selected (no item selected)
+        const targetIndex = currentCount;
+        const scrollIndex = Math.max(0, currentCount - 1);
+        debugLog(
+          `📍 Pill added - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex} | scrollIndex: ${scrollIndex}`
         );
-        setInsertionIndex(currentCount);
-
-        // Scroll to the end
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(currentCount, true);
-          } catch (error) {
-            console.error('Failed to scroll after pill added:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(scrollIndex, 'pill-added-keep-boundary');
       } else if (wasReplace) {
         // REPLACE MODE: Stay on the same position - new asset replaced the old one
-        console.log(
-          `📍 Replace mode - staying at position: ${insertionIndex}`
+        const targetIndex = Math.max(
+          0,
+          Math.min(currentInsertionIndex, currentCount - 1)
         );
-        // Don't change insertionIndex - we're staying on the newly replaced asset
-        // Scroll to current position to ensure visibility
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(insertionIndex, true);
-          } catch (error) {
-            console.error('Failed to scroll after replace:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
-      } else if (wasInMiddle) {
-        // Recorded in the middle - move to the new asset
-        const newIndex = insertionIndex + 1;
-        console.log(
-          `📍 Moving to new asset (recorded in middle): ${insertionIndex} → ${newIndex}`
+        debugLog(`📍 Replace mode - staying at position: ${targetIndex}`);
+        // Stay on replaced position and ensure it is visible
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(targetIndex, 'replace');
+      } else if (hadCardSelectedBeforeInsert) {
+        // A card was selected before insertion - move to the newly inserted asset
+        const newIndex = Math.min(currentInsertionIndex + 1, currentCount - 1);
+        debugLog(
+          `📍 Card selected before insert - moving to new asset: ${currentInsertionIndex} → ${newIndex} | wasInMiddleFlag: ${wasInMiddle}`
         );
         setInsertionIndex(newIndex);
-
-        // Scroll to the new item
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(newIndex, true);
-          } catch (error) {
-            console.error('Failed to scroll:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        scheduleScrollToIndex(newIndex, 'selected-before-insert');
       } else {
-        // Asset appended at the end - move to stay at end
-        console.log(
-          `📍 Moving to end (appended): ${insertionIndex} → ${currentCount}`
+        // No card selected before insertion (boundary) - keep boundary selected
+        // while keeping scroll visually anchored near the last inserted card.
+        const targetIndex = currentCount;
+        const scrollIndex = Math.max(0, currentCount - 1);
+        debugLog(
+          `📍 No card selected before insert - keeping boundary selected: ${currentInsertionIndex} → ${targetIndex} | scrollIndex: ${scrollIndex} | wasInMiddleFlag: ${wasInMiddle}`
         );
-        setInsertionIndex(currentCount);
-
-        // Scroll to the end
-        const timeoutId = setTimeout(() => {
-          try {
-            listRef.current?.scrollToIndex(currentCount, true);
-          } catch (error) {
-            console.error('Failed to scroll:', error);
-          }
-          timeoutIdsRef.current.delete(timeoutId);
-        }, 100);
-        timeoutIdsRef.current.add(timeoutId);
+        setInsertionIndex(targetIndex);
+        scheduleScrollToIndex(scrollIndex, 'appended-at-end-keep-boundary');
       }
     }
 
     previousItemCountRef.current = currentCount;
-  }, [sessionItems.length, insertionIndex]);
+  }, [sessionItems.length, scheduleScrollToIndex]);
 
   // ============================================================================
   // AUDIO PLAYBACK
   // ============================================================================
 
-  // Fetch audio URIs for an asset
-  // Includes fallback logic for local-only files when server records are removed
-  const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
+  const stopPlayAll = React.useCallback(async () => {
+    isPlayAllRunningRef.current = false;
+    setIsPlayAllRunning(false);
+    setCurrentlyPlayingAssetId(null);
+    await assetAudio.stop();
+  }, [assetAudio]);
 
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
+  const activateAssetForPlayAll = React.useCallback(
+    async (assetId: string, wheelIndex: number) => {
+      setCurrentlyPlayingAssetId(assetId);
+      await Promise.resolve();
 
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
-        );
-
-        if (uniqueLinks.length === 0) {
-          debugLog('No content links found for asset:', assetId);
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            debugLog(
-              `  📎 Content link has ${audioArray.length} audio file(s):`,
-              audioArray
-            );
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
-
-        if (audioValues.length === 0) {
-          debugLog('No audio values found in content links');
-          return [];
-        }
-
-        // Process each audio value - can be either a local URI or an attachment ID
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          // Check if this is already a local URI (starts with 'local/' or 'file://')
-          if (audioValue.startsWith('local/')) {
-            // It's a direct local URI from saveAudioLocally()
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              uris.push(constructedUri);
-              debugLog(
-                '✅ Using direct local URI:',
-                constructedUri.slice(0, 80)
-              );
-            } else {
-              // File doesn't exist at expected path - try to find it in attachment queue
-              debugLog(
-                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-              );
-
-              if (system.permAttachmentQueue) {
-                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-                const filename = audioValue.replace(/^local\//, '');
-                // Extract UUID part (without extension) for more flexible matching
-                const uuidPart = filename.split('.')[0];
-
-                // Search attachment queue by filename or UUID
-                let attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-                );
-
-                // If not found, try searching all attachments for this asset's content links
-                if (!attachment && uniqueLinks.length > 0) {
-                  const allAttachmentIds = uniqueLinks
-                    .flatMap((link) => link.audio ?? [])
-                    .filter(
-                      (av): av is string =>
-                        typeof av === 'string' &&
-                        !av.startsWith('local/') &&
-                        !av.startsWith('file://')
-                    );
-                  if (allAttachmentIds.length > 0) {
-                    const placeholders = allAttachmentIds
-                      .map(() => '?')
-                      .join(',');
-                    attachment = await system.powersync.getOptional<{
-                      id: string;
-                      filename: string | null;
-                      local_uri: string | null;
-                    }>(
-                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                      allAttachmentIds
-                    );
-                  }
-                }
-
-                if (attachment?.local_uri) {
-                  const foundUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  // Verify the found file actually exists
-                  if (await fileExists(foundUri)) {
-                    uris.push(foundUri);
-                    debugLog(
-                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                    );
-                  } else {
-                    debugLog(
-                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                    );
-                  }
-                } else {
-                  // Try fallback to local table for alternative audio values
-                  const fallbackLink = contentLinksLocal.find(
-                    (link) => link.asset_id === assetId
-                  );
-                  if (fallbackLink?.audio) {
-                    for (const fallbackAudioValue of fallbackLink.audio) {
-                      if (fallbackAudioValue.startsWith('file://')) {
-                        if (await fileExists(fallbackAudioValue)) {
-                          uris.push(fallbackAudioValue);
-                          debugLog(`✅ Found fallback file URI`);
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI - verify it exists
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-              debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
-            } else {
-              debugLog(`⚠️ File URI does not exist: ${audioValue}`);
-              // Try to find in attachment queue by extracting filename from path
-              if (system.permAttachmentQueue) {
-                const filename = audioValue.split('/').pop();
-                if (filename) {
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                    [filename, filename]
-                  );
-
-                  if (attachment?.local_uri) {
-                    const foundUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
-                    );
-                    if (await fileExists(foundUri)) {
-                      uris.push(foundUri);
-                      debugLog(`✅ Found attachment in queue for file URI`);
-                    }
-                  }
-                }
-              }
-            }
-          } else {
-            // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) {
-              // No attachment queue - try fallback to local table
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      break;
-                    }
-                  }
-                }
-              }
-              continue;
-            }
-
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-                debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
-              }
-            } else {
-              // Attachment ID not found in queue - try fallback to local table
-              debugLog(
-                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-              );
-
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      debugLog(
-                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      debugLog(
-                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  }
-                }
-              } else {
-                debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
-              }
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
+      if (listRef.current) {
+        listRef.current.scrollToIndex(wheelIndex - 1, true);
       }
     },
     []
+  );
+
+  const runPlayAll = React.useCallback(
+    async (startIndex: number) => {
+      const isPlayAllActive = () => isPlayAllRunningRef.current;
+      if (startIndex >= sessionItems.length) {
+        console.warn('⚠️ No items to play from current position');
+        return;
+      }
+
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      try {
+        let wheelIndex = startIndex;
+        while (wheelIndex < sessionItems.length) {
+          if (!isPlayAllActive()) break;
+
+          const item = sessionItems[wheelIndex];
+          if (!item || isPill(item)) {
+            wheelIndex += 1;
+            continue;
+          }
+
+          const assetId = item.id;
+          await activateAssetForPlayAll(assetId, wheelIndex);
+          if (!isPlayAllActive()) break;
+
+          await assetAudio.play(assetId);
+          await assetAudio.waitForPlaybackEnd(assetId);
+          if (!isPlayAllActive()) break;
+
+          wheelIndex += 1;
+        }
+      } finally {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [sessionItems, activateAssetForPlayAll, assetAudio]
   );
 
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
       try {
+        if (isPlayAllRunningRef.current) {
+          await stopPlayAll();
+          return;
+        }
+
         const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+          assetAudio.isPlaying && assetAudio.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
           debugLog('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
+          await assetAudio.stop();
         } else {
           debugLog('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
-
-          if (uris.length === 0) {
-            console.error('❌ No audio URIs found for asset:', assetId);
-            return;
-          }
-
-          if (uris.length === 1 && uris[0]) {
-            debugLog('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            debugLog(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
-          }
+          await assetAudio.play(assetId);
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
       }
     },
-    [audioContext, getAssetAudioUris]
+    [assetAudio, stopPlayAll]
   );
 
-  // Handle play all assets - optimized version with direct control
+  // Handle play all assets - event-driven via AssetAudio
   const handlePlayAll = React.useCallback(async () => {
     try {
-      // Check if already playing - toggle to stop
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          } catch (error) {
-            console.error('Error stopping sound:', error);
-          }
-        }
-        
-        setCurrentlyPlayingAssetId(null);
-        // Reset SharedValues when stopping
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
+        await stopPlayAll();
         debugLog('⏸️ Stopped play all');
         return;
       }
@@ -1196,133 +1084,18 @@ const RecordingView = () => {
         return;
       }
 
-      // Mark as running
-      isPlayAllRunningRef.current = true;
-      setIsPlayAllRunning(true);
-
       // If no item is selected (at end of list), start from the beginning
       // Otherwise, start from the selected item
-      const startIndex = insertionIndex >= sessionItems.length ? 0 : insertionIndex;
-      
-      debugLog(`🎵 Starting play all from position ${startIndex} (insertionIndex: ${insertionIndex})`);
+      const startIndex =
+        insertionIndex >= sessionItems.length ? 0 : insertionIndex;
 
-      let assetsPlayed = 0;
-
-      // Iterate directly through sessionItems starting from startIndex
-      for (let wheelIndex = startIndex; wheelIndex < sessionItems.length; wheelIndex++) {
-        // Check if cancelled
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (!isPlayAllRunningRef.current) {
-          debugLog('⏸️ Play all cancelled');
-          setCurrentlyPlayingAssetId(null);
-          // Reset SharedValues when cancelled
-          audioContext.positionShared.value = 0;
-          audioContext.durationShared.value = 0;
-          return;
-        }
-
-        const item = sessionItems[wheelIndex];
-        
-        // Skip if no item or if it's a pill
-        if (!item || isPill(item)) {
-          debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
-          continue;
-        }
-
-        // It's an asset - play it
-        const asset = item;
-        
-        // Get URIs for this asset
-        const uris = await getAssetAudioUris(asset.id);
-        if (uris.length === 0) {
-          debugLog(`⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`);
-          continue;
-        }
-
-        // HIGHLIGHT THIS ASSET
-        setCurrentlyPlayingAssetId(asset.id);
-        
-        // Scroll to this position in the list
-        if (listRef.current) {
-          listRef.current.scrollToIndex(wheelIndex - 1, true);
-        }
-        
-        assetsPlayed++;
-        debugLog(
-          `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
-        );
-
-        // Play all URIs for this asset sequentially
-        for (const uri of uris) {
-          // Check if cancelled
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (!isPlayAllRunningRef.current) {
-            setCurrentlyPlayingAssetId(null);
-            // Reset SharedValues when cancelled
-            audioContext.positionShared.value = 0;
-            audioContext.durationShared.value = 0;
-            return;
-          }
-
-          // Play this URI and wait for it to finish
-          await new Promise<void>((resolve) => {
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                currentPlayAllSoundRef.current = sound;
-                
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  // Update SharedValues for progress bar animation (60fps on UI thread)
-                  if (status.isPlaying) {
-                    audioContext.positionShared.value = status.positionMillis;
-                    audioContext.durationShared.value = status.durationMillis ?? 0;
-                  }
-
-                  if (status.didJustFinish) {
-                    // Reset SharedValues when segment finishes
-                    audioContext.positionShared.value = 0;
-                    audioContext.durationShared.value = 0;
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
-                currentPlayAllSoundRef.current = null;
-                resolve();
-              });
-          });
-        }
-      }
-
-      if (assetsPlayed === 0) {
-        console.warn('⚠️ No assets found to play from current position');
-      }
-
-      // Done playing all
+      await runPlayAll(startIndex);
       debugLog('✅ Finished playing all assets');
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues when finished
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues on error
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
+      await stopPlayAll();
     }
-  }, [audioContext, getAssetAudioUris, insertionIndex, sessionItems]);
+  }, [insertionIndex, runPlayAll, sessionItems.length, stopPlayAll]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -1340,8 +1113,9 @@ const RecordingView = () => {
    */
   const getInsertionContext = React.useCallback(
     (currentIndex: number = insertionIndex) => {
-      const isAtEnd = sessionItems.length === 0 || currentIndex >= sessionItems.length;
-      console.log(
+      const isAtEnd =
+        sessionItems.length === 0 || currentIndex >= sessionItems.length;
+      debugLog(
         '🔍 getInsertionContext | currentIndex:',
         currentIndex,
         '| sessionItems.length:',
@@ -1359,7 +1133,7 @@ const RecordingView = () => {
           : appendOrderIndexRef.current; // Fallback for empty list
         const verse = lastItem?.verse ?? persistedVerseRef.current ?? null;
 
-        console.log(
+        debugLog(
           '🔍 At END | lastItem order_index:',
           lastItem?.order_index,
           '| calculated orderIndex:',
@@ -1389,6 +1163,17 @@ const RecordingView = () => {
     insertionIndexRef.current = insertionIndex;
   }, [insertionIndex]);
 
+  // Refs for values read inside card callbacks (prevents callback recreation on every click)
+  const sessionItemsRef = React.useRef(sessionItems);
+  React.useEffect(() => {
+    sessionItemsRef.current = sessionItems;
+  }, [sessionItems]);
+
+  const isSelectionModeRef = React.useRef(isSelectionMode);
+  React.useEffect(() => {
+    isSelectionModeRef.current = isSelectionMode;
+  }, [isSelectionMode]);
+
   // Track if we're currently in the middle of the list (for VAD continuous recording)
   // When VAD starts, we capture the position and use same order_index for all segments
   // until VAD stops or user moves the wheel
@@ -1416,17 +1201,21 @@ const RecordingView = () => {
       const selectedItem = contextIsAtEnd
         ? sessionItems[sessionItems.length - 1]
         : sessionItems[insertionIndexRef.current];
-      
+
       // REPLACE MODE: Capture the asset to replace when VAD starts (only first segment will delete it)
       const highlightedItem = sessionItems[insertionIndexRef.current];
-      console.log(`🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
-      
+      debugLog(
+        `🔍 VAD REPLACE DEBUG | isReplacing: ${isReplacing} | contextIsAtEnd: ${contextIsAtEnd} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`
+      );
+
       if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
         assetToReplaceRef.current = highlightedItem.id;
-        console.log(`🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+        debugLog(
+          `🔄 VAD REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`
+        );
       }
       // Note: Don't reset assetToReplaceRef here if not replacing - it might have been set by manual recording
-      
+
       const itemName = selectedItem
         ? isPill(selectedItem)
           ? `pill-${selectedItem.verse?.from ?? 'null'}`
@@ -1439,7 +1228,7 @@ const RecordingView = () => {
     } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
-      console.log(
+      debugLog(
         '[INSERTION INDEX REF 000X VAD]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
         vadInsertionIndexRef.current,
         insertionIndexRef.current
@@ -1457,12 +1246,12 @@ const RecordingView = () => {
 
   // Manual recording handlers
   const handleRecordingStart = React.useCallback(() => {
-    console.log('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
+    debugLog('🚀 handleRecordingStart CALLED! isRecording:', isRecording);
     if (isRecording) return;
 
     const currentInsertionIndex = insertionIndexRef.current;
 
-    console.log(
+    debugLog(
       `🎬 Recording START | insertionIndex: ${currentInsertionIndex} | sessionItems.length: ${sessionItems.length} | isReplacing: ${isReplacing}`
     );
 
@@ -1481,16 +1270,22 @@ const RecordingView = () => {
     // REPLACE MODE: Capture the asset to replace (only if highlighted item is an asset)
     // Use insertionIndex directly to get the highlighted item
     const highlightedItem = sessionItems[currentInsertionIndex];
-    
-    console.log(`🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`);
-    
+
+    debugLog(
+      `🔍 REPLACE DEBUG | isReplacing: ${isReplacing} | isAtEnd: ${isAtEnd} | currentInsertionIndex: ${currentInsertionIndex} | highlightedItem: ${highlightedItem ? (isPill(highlightedItem) ? 'PILL' : `ASSET:${highlightedItem.name}`) : 'null'}`
+    );
+
     if (isReplacing && highlightedItem && !isPill(highlightedItem)) {
       assetToReplaceRef.current = highlightedItem.id;
-      console.log(`🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`);
+      debugLog(
+        `🔄 REPLACE MODE: Will replace asset "${highlightedItem.name}" (${highlightedItem.id.slice(0, 8)})`
+      );
     } else {
       assetToReplaceRef.current = null;
       if (isReplacing) {
-        console.log(`⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`);
+        debugLog(
+          `⚠️ REPLACE MODE FAILED: ${!highlightedItem ? 'No highlighted item' : isPill(highlightedItem) ? 'Item is a pill' : 'Unknown reason'}`
+        );
       }
     }
 
@@ -1507,7 +1302,7 @@ const RecordingView = () => {
 
     // If starting recording without verse, disable adding new verses
     if (!verse) {
-      allowAddVerseRef.current = false;
+      setAllowAddVerse(false);
     }
 
     setIsRecording(true);
@@ -1518,7 +1313,7 @@ const RecordingView = () => {
         : highlightedItem.name
       : 'none';
 
-    console.log(
+    debugLog(
       `🎯 Recording ${isAtEnd ? 'at END' : 'in MIDDLE'} | index: ${currentInsertionIndex} | item: "${itemName}" | order_index: ${orderIndex} | verse: ${verse ? `${verse.from}-${verse.to}` : 'null'}`
     );
   }, [isRecording, sessionItems, getInsertionContext, isReplacing]);
@@ -1534,21 +1329,27 @@ const RecordingView = () => {
   }, []);
 
   const handleRecordingComplete = React.useCallback(
-    async (uri: string, _duration: number, _waveformData: number[]) => {
+    async (uri: string, recordingDuration: number, _waveformData: number[]) => {
       // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
-      console.log(`🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`);
+      debugLog(
+        `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
+      );
       if (assetToReplaceRef.current) {
         const assetIdToReplace = assetToReplaceRef.current;
         assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
         setIsReplacing(false); // Reset replace mode after first recording
         wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
-        
-        console.log(`🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`);
-        
+
+        debugLog(
+          `🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`
+        );
+
         try {
           await audioSegmentService.deleteAudioSegment(assetIdToReplace);
           // Remove from session assets list
-          setSessionItems((prev) => prev.filter((a) => a.id !== assetIdToReplace));
+          setSessionItems((prev) =>
+            prev.filter((a) => a.id !== assetIdToReplace)
+          );
           await queryClient.invalidateQueries({
             queryKey: ['assets', 'by-quest', currentQuestId],
             exact: false
@@ -1590,7 +1391,7 @@ const RecordingView = () => {
         nameCounterRef.current++; // Increment immediately to reserve this number
         const assetName = String(nextNumber).padStart(3, '0');
         pendingAssetNamesRef.current.add(assetName);
-        console.log(
+        debugLog(
           `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
         );
 
@@ -1626,6 +1427,12 @@ const RecordingView = () => {
             // Use the verse that was captured when recording started
             // This ensures we use the correct verse for middle-of-list recordings
             const verseToUse = currentRecordingVerseRef.current;
+            const metadataToSave = {
+              ...(verseToUse ? { verse: verseToUse } : {}),
+              ...(recordingSessionId
+                ? { recordingSessionId: recordingSessionId }
+                : {})
+            };
 
             const newAssetId = await saveRecording({
               questId: currentQuestId,
@@ -1635,7 +1442,8 @@ const RecordingView = () => {
               orderIndex: targetOrder,
               audioUri: localUri,
               assetName: assetName, // Pass the reserved name
-              metadata: verseToUse ? { verse: verseToUse } : null // Pass verse metadata if provided
+              metadata:
+                Object.keys(metadataToSave).length > 0 ? metadataToSave : null
             });
 
             // Log the saved asset details
@@ -1648,8 +1456,25 @@ const RecordingView = () => {
               id: newAssetId,
               name: assetName,
               order_index: targetOrder,
-              verse: verseToUse
+              verse: verseToUse,
+              duration: recordingDuration > 0 ? recordingDuration : undefined
             });
+
+            // Pre-populate metadata Maps so the lazy loading effect
+            // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
+            loadedAssetIdsRef.current.add(newAssetId);
+            setAssetSegmentCounts((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, 1);
+              return next;
+            });
+            if (recordingDuration > 0) {
+              setAssetDurations((prev) => {
+                const next = new Map(prev);
+                next.set(newAssetId, recordingDuration);
+                return next;
+              });
+            }
 
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
@@ -1698,6 +1523,7 @@ const RecordingView = () => {
       currentUser,
       queryClient,
       targetLanguoidId,
+      recordingSessionId,
       addSessionAsset,
       saveNameCounter,
       getInsertionContext
@@ -1761,9 +1587,15 @@ const RecordingView = () => {
     isManualRecording: isRecording
   });
 
-  // Invalidate queries when VAD mode ends
+  // Invalidate queries when VAD mode transitions from active → inactive
+  // Use a ref to track if VAD was previously active, so we only invalidate
+  // on actual transitions (not on initial mount when isVADActive is false)
+  const wasVADActiveRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isVADActive) {
+    if (isVADActive) {
+      wasVADActiveRef.current = true;
+    } else if (wasVADActiveRef.current) {
+      wasVADActiveRef.current = false;
       void queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', currentQuestId],
         exact: false
@@ -1855,7 +1687,7 @@ const RecordingView = () => {
 
       // Process assets in batches to prevent blocking
       const processBatch = async (startIdx: number) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !mountedRef.current) return;
 
         const BATCH_SIZE = 5; // Process 5 assets at a time
         const batch = assetsToLoad.slice(startIdx, startIdx + BATCH_SIZE);
@@ -1896,7 +1728,10 @@ const RecordingView = () => {
                     audio: true
                   },
                   where: eq(asset_content_link.asset_id, assetId),
-                  orderBy: asc(asset_content_link.created_at)
+                  orderBy: [
+                    asc(asset_content_link.order_index),
+                    asc(asset_content_link.created_at)
+                  ]
                 });
 
               // DEBUG: Log raw query result
@@ -1932,8 +1767,10 @@ const RecordingView = () => {
               // AUDIO FILES: Extract all audio file references from all segments
               // This flattens the audio arrays from all content_link rows
               const audioValues = contentLinks
-                .flatMap((link) => link.audio ?? [])
-                .filter((value): value is string => !!value);
+                .flatMap((link: { audio: string[] | null }) => link.audio ?? [])
+                .filter(
+                  (value: string | null | undefined): value is string => !!value
+                );
 
               // DEBUG: Log audio values found
               debugLog(
@@ -1972,15 +1809,30 @@ const RecordingView = () => {
 
                   if (audioUri) {
                     // Load audio file to get duration
-                    const { sound } = await Audio.Sound.createAsync({
-                      uri: audioUri
+                    const player = createAudioPlayer(audioUri);
+                    // Wait for player to load
+                    await new Promise<void>((resolve) => {
+                      if (player.isLoaded) {
+                        resolve();
+                        return;
+                      }
+                      const check = setInterval(() => {
+                        if (player.isLoaded) {
+                          clearInterval(check);
+                          resolve();
+                        }
+                      }, 10);
+                      // Safety timeout
+                      setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                      }, 5000);
                     });
-                    const status = await sound.getStatusAsync();
-                    await sound.unloadAsync();
 
-                    if (status.isLoaded && status.durationMillis) {
-                      totalDuration += status.durationMillis;
+                    if (player.isLoaded && player.duration) {
+                      totalDuration += player.duration * 1000;
                     }
+                    player.release();
                   }
                 } catch (err) {
                   // Skip this segment if we can't load it
@@ -2014,11 +1866,10 @@ const RecordingView = () => {
           }
 
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (controller.signal.aborted) {
+          if (controller.signal.aborted || !mountedRef.current) {
             return;
           } else {
             if (newCounts.size > 0) {
-              // Merge with existing counts
               setAssetSegmentCounts((prev) => {
                 const merged = new Map(prev);
                 for (const [id, count] of newCounts) {
@@ -2032,7 +1883,6 @@ const RecordingView = () => {
             }
 
             if (newDurations.size > 0) {
-              // Merge with existing durations
               setAssetDurations((prev) => {
                 const merged = new Map(prev);
                 for (const [id, duration] of newDurations) {
@@ -2059,9 +1909,11 @@ const RecordingView = () => {
           } else {
             console.error('Failed to load asset metadata batch:', error);
             // Continue with next batch even if this one failed
-            setTimeout(() => {
+            const errorTimeoutId = setTimeout(() => {
+              timeoutIdsRef.current.delete(errorTimeoutId);
               void processBatch(startIdx + BATCH_SIZE);
             }, 16);
+            timeoutIdsRef.current.add(errorTimeoutId);
           }
         }
       };
@@ -2129,7 +1981,13 @@ const RecordingView = () => {
         const secondContent = await system.db
           .select()
           .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id));
+          .where(eq(contentLocal.asset_id, second.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+        // Get next available order_index for the target asset (local table)
+        let nextOrder = await getNextAclOrderIndex(first.id, {
+          localOverride: true
+        });
 
         for (const c of secondContent) {
           if (!c.audio) continue;
@@ -2139,11 +1997,24 @@ const RecordingView = () => {
             languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
             text: c.text || '',
             audio: c.audio,
-            download_profiles: [currentUser.id]
+            download_profiles: [currentUser.id],
+            order_index: nextOrder++
           });
         }
 
         await audioSegmentService.deleteAudioSegment(second.id);
+
+        // Normalize all content links on target to 1-based ordering
+        const allContent = await system.db
+          .select({ id: contentLocal.id })
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, first.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        await updateContentLinkOrder(
+          first.id,
+          allContent.map((c: { id: string }) => c.id),
+          { localOverride: true }
+        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2207,7 +2078,16 @@ const RecordingView = () => {
                   const srcContent = await system.db
                     .select()
                     .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id));
+                    .where(eq(contentLocal.asset_id, src.id))
+                    .orderBy(
+                      asc(contentLocal.order_index),
+                      asc(contentLocal.created_at)
+                    );
+
+                  // Get next available order_index for the target asset (local table)
+                  let nextOrder = await getNextAclOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -2218,12 +2098,28 @@ const RecordingView = () => {
                         c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c: { id: string }) => c.id),
+                  { localOverride: true }
+                );
 
                 // Remove merged assets from session list (all except target get deleted)
                 const deletedIds = new Set(rest.map((a) => a.id));
@@ -2423,17 +2319,6 @@ const RecordingView = () => {
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-        
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current.stopAsync().then(() => {
-            void currentPlayAllSoundRef.current?.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          }).catch(() => {
-            // Ignore errors during cleanup
-            currentPlayAllSoundRef.current = null;
-          });
-        }
       }
 
       // Clear all refs to free memory
@@ -2464,14 +2349,26 @@ const RecordingView = () => {
   // RENDER HELPERS
   // ============================================================================
 
-  // Stable callbacks for AssetCard (don't change unless handlers change)
-  const stableHandlePlayAsset = React.useCallback(handlePlayAsset, [
-    handlePlayAsset
-  ]);
-  const stableToggleSelect = React.useCallback(toggleSelect, [toggleSelect]);
-  const stableEnterSelection = React.useCallback(enterSelection, [
-    enterSelection
-  ]);
+  // Callback refs for card factories - reading via refs makes factories stable
+  // (zero deps) so callback Maps are only recreated when sessionItems changes
+  // structurally (items added/removed), NOT when insertionIndex/isSelectionMode change.
+  const handlePlayAssetRef = React.useRef(handlePlayAsset);
+  React.useEffect(() => {
+    handlePlayAssetRef.current = handlePlayAsset;
+  }, [handlePlayAsset]);
+
+  const toggleSelectRef = React.useRef(toggleSelect);
+  React.useEffect(() => {
+    toggleSelectRef.current = toggleSelect;
+  }, [toggleSelect]);
+
+  const enterSelectionRef = React.useRef(enterSelection);
+  React.useEffect(() => {
+    enterSelectionRef.current = enterSelection;
+  }, [enterSelection]);
+
+  // These callbacks are passed directly to RecordAssetCard (not through factories)
+  // They change infrequently so useCallback wrappers are fine
   const stableHandleDeleteLocalAsset = React.useCallback(
     handleDeleteLocalAsset,
     [handleDeleteLocalAsset]
@@ -2482,26 +2379,37 @@ const RecordingView = () => {
   const stableHandleRenameAsset = React.useCallback(handleRenameAsset, [
     handleRenameAsset
   ]);
-  
-  const stableHandleActionTypeChange = React.useCallback((isReplacingMode: boolean) => {
-    setIsReplacing(isReplacingMode);
-  }, []);
+
+  const stableHandleActionTypeChange = React.useCallback(
+    (isReplacingMode: boolean) => {
+      setIsReplacing(isReplacingMode);
+    },
+    []
+  );
 
   // ============================================================================
-  // OPTIMIZED CALLBACKS MAP - Prevents creating new functions in wheelChildren
+  // OPTIMIZED CALLBACKS MAP - Zero-dependency factories
   // ============================================================================
+  // By reading insertionIndex, sessionItems.length, isSelectionMode, and handler
+  // functions from refs, these factories have ZERO dependencies. This means the
+  // callback Maps below only recreate when sessionItems changes structurally
+  // (items added/removed), NOT on every card click or selection toggle.
+  //
+  // BEFORE: click card → insertionIndex changes → factories recreated →
+  //         Maps recreated → renderListItem recreated → ALL cards re-render
+  // AFTER:  click card → insertionIndex changes → factories STABLE →
+  //         Maps STABLE → only 2 cards re-render (old + new highlight)
 
-  // Create a memoized factory for asset callbacks
-  // This prevents creating new inline functions in wheelChildren useMemo
+  // Stable factory for asset callbacks (ZERO dependencies)
   const createAssetCallbacks = React.useCallback(
     (assetId: string, index: number) => ({
       onPress: () => {
-        if (isSelectionMode) {
-          stableToggleSelect(assetId);
+        if (isSelectionModeRef.current) {
+          toggleSelectRef.current(assetId);
         } else {
           // Toggle highlight: if clicking on already highlighted card, move to end
-          if (insertionIndex === index) {
-            setInsertionIndex(sessionItems.length);
+          if (insertionIndexRef.current === index) {
+            setInsertionIndex(sessionItemsRef.current.length);
           } else {
             setInsertionIndex(index);
           }
@@ -2509,34 +2417,33 @@ const RecordingView = () => {
       },
       onLongPress: () => {
         // Long press enters selection mode and selects this asset
-        if (!isSelectionMode) {
-          stableEnterSelection(assetId);
+        if (!isSelectionModeRef.current) {
+          enterSelectionRef.current(assetId);
         }
       },
       onPlay: () => {
-        void stableHandlePlayAsset(assetId);
+        void handlePlayAssetRef.current(assetId);
       }
     }),
-    [isSelectionMode, stableToggleSelect, stableEnterSelection, stableHandlePlayAsset, insertionIndex, sessionItems.length]
+    [] // Zero dependencies - all values read from refs
   );
 
-  // Create a memoized factory for pill callbacks
+  // Stable factory for pill callbacks (ZERO dependencies)
   const createPillCallbacks = React.useCallback(
     (index: number) => ({
       onPress: () => {
         // Toggle highlight: if clicking on already highlighted pill, move to end
-        if (insertionIndex === index) {
-          setInsertionIndex(sessionItems.length);
+        if (insertionIndexRef.current === index) {
+          setInsertionIndex(sessionItemsRef.current.length);
         } else {
           setInsertionIndex(index);
         }
       }
     }),
-    [insertionIndex, sessionItems.length]
+    [] // Zero dependencies - all values read from refs
   );
 
-  // Create a Map of callbacks per asset (only recreates when dependencies change)
-  // This is much more efficient than creating new functions in the render loop
+  // Callback Maps - only recreate when sessionItems changes structurally
   const assetCallbacksMap = React.useMemo(() => {
     const map = new Map<
       string,
@@ -2556,7 +2463,7 @@ const RecordingView = () => {
     return map;
   }, [sessionItems, createAssetCallbacks]);
 
-  // Create a Map of callbacks per pill (only recreates when dependencies change)
+  // Pill callback Map - only recreate when sessionItems changes structurally
   const pillCallbacksMap = React.useMemo(() => {
     const map = new Map<
       string,
@@ -2574,6 +2481,37 @@ const RecordingView = () => {
     return map;
   }, [sessionItems, createPillCallbacks]);
 
+  const playingAssetIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (audioContext.isPlaying && audioContext.currentAudioId) {
+      ids.add(audioContext.currentAudioId);
+    }
+    if (isPlayAllRunning && currentlyPlayingAssetId) {
+      ids.add(currentlyPlayingAssetId);
+    }
+    return ids;
+  }, [
+    audioContext.isPlaying,
+    audioContext.currentAudioId,
+    isPlayAllRunning,
+    currentlyPlayingAssetId
+  ]);
+
+  const canMergeDownById = React.useMemo(() => {
+    const map = new Map<string, boolean>();
+    sessionItems.forEach((item, index) => {
+      if (!isAsset(item)) return;
+      const nextItem = sessionItems[index + 1];
+      const canMerge =
+        index < sessionItems.length - 1 &&
+        !!nextItem &&
+        isAsset(nextItem) &&
+        nextItem.source !== 'cloud';
+      map.set(item.id, canMerge);
+    });
+    return map;
+  }, [sessionItems]);
+
   // Lazy renderItem for RecordingSelectionList
   // OPTIMIZED: Only renders items when they become visible (virtualization)
   // No audioContext.position/duration dependencies - progress now uses SharedValues!
@@ -2587,48 +2525,24 @@ const RecordingView = () => {
           ? (formatVerseRange(item.verse) ?? 'No Label')
           : 'No Label';
         const isHighlighted = insertionIndex === index;
-
-        // Get stable callbacks from Map (avoids creating new functions)
-        const callbacks = pillCallbacksMap.get(item.id);
+        const onPillPress = pillCallbacksMap.get(item.id)?.onPress;
 
         return (
-          <>
-            <VersePill
-              key={item.id}
-              text={pillText}
-              isHighlighted={isHighlighted}
-              onPress={callbacks?.onPress}
-            />
-          {isHighlighted && <View className="mt-2.5">
-            <RecordAssetCardSkeleton />
-          </View>}
-          </>
+          <PillListRow
+            itemId={item.id}
+            text={pillText}
+            isHighlighted={isHighlighted}
+            showSkeleton={isHighlighted}
+            onPress={onPillPress}
+          />
         );
       }
 
-      // Asset item rendering
-      // Check if this asset is playing individually OR if it's the currently playing asset during play-all
-      const isThisAssetPlayingIndividually =
-        audioContext.isPlaying && audioContext.currentAudioId === item.id;
-      const isThisAssetPlayingInPlayAll =
-        isPlayAllRunning && currentlyPlayingAssetId === item.id;
-      const isThisAssetPlaying =
-        isThisAssetPlayingIndividually || isThisAssetPlayingInPlayAll;
-      // isInBatchSelection = selected for batch operations (delete, merge)
+      const isHighlighted = insertionIndex === index;
+      const isThisAssetPlaying = playingAssetIds.has(item.id);
       const isInBatchSelection = selectedAssetIds.has(item.id);
-
-      // Check if next item is an asset (not a pill) and not from cloud
-      const nextItem = sessionItems[index + 1];
-      const canMergeDown =
-        index < sessionItems.length - 1 &&
-        nextItem &&
-        isAsset(nextItem) &&
-        nextItem.source !== 'cloud';
-
-      // Duration from lazy-loaded metadata (get from map, not from item which may be stale)
+      const canMergeDown = canMergeDownById.get(item.id) ?? false;
       const duration = assetDurations.get(item.id) ?? item.duration;
-
-      // Get stable callbacks from Map (avoids creating new functions)
       const callbacks = assetCallbacksMap.get(item.id);
 
       // Fallback if callbacks not found (shouldn't happen, but defensive)
@@ -2637,12 +2551,8 @@ const RecordingView = () => {
         return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
       }
 
-      const isHighlighted = insertionIndex === index;
-
       return (
-        <>
-        <RecordAssetCard
-          key={item.id}
+        <AssetListRow
           asset={item}
           index={index}
           isSelected={isInBatchSelection}
@@ -2652,7 +2562,7 @@ const RecordingView = () => {
           hideButtons={isRecording || isVADActive}
           duration={duration}
           canMergeDown={canMergeDown}
-          segmentCount={item.segmentCount}
+          showSkeleton={isHighlighted && !isReplacing}
           onPress={callbacks.onPress}
           onLongPress={callbacks.onLongPress}
           onPlay={callbacks.onPlay}
@@ -2660,23 +2570,16 @@ const RecordingView = () => {
           onMerge={stableHandleMergeDownLocal}
           onRename={stableHandleRenameAsset}
           onActionTypeChange={stableHandleActionTypeChange}
-          />
-          {isHighlighted && !isReplacing && <View className="mt-1">
-            <RecordAssetCardSkeleton />
-          </View>}
-        </>
+        />
       );
     },
     [
       formatVerseRange,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      isPlayAllRunning,
-      currentlyPlayingAssetId,
+      playingAssetIds,
       selectedAssetIds,
       isSelectionMode,
       insertionIndex,
-      sessionItems,
+      canMergeDownById,
       assetCallbacksMap,
       pillCallbacksMap,
       assetDurations,
@@ -2693,40 +2596,40 @@ const RecordingView = () => {
   // List callbacks (memoized to prevent unnecessary re-renders)
   const handleListIndexChange = React.useCallback(
     (newIndex: number) => {
-      const item = sessionItems[newIndex];
+      const item = sessionItemsRef.current[newIndex];
       const itemDesc = item
         ? isPill(item)
           ? `pill-${item.verse?.from ?? 'null'}`
           : item.name
         : 'end';
-      
+
       // In selection mode, clicking on an asset toggles its selection instead of changing insertion index
-      if (isSelectionMode && item && isAsset(item)) {
-        console.log(`📋 List onChange (selection mode): toggling ${item.name}`);
-        stableToggleSelect(item.id);
+      if (isSelectionModeRef.current && item && isAsset(item)) {
+        debugLog(`📋 List onChange (selection mode): toggling ${item.name}`);
+        toggleSelectRef.current(item.id);
         return;
       }
-      
-      console.log(
-        `📋 List onChange: ${insertionIndex} → ${newIndex} | ${itemDesc} ${item?.order_index}`
+
+      debugLog(
+        `📋 List onChange: ${insertionIndexRef.current} → ${newIndex} | ${itemDesc} ${item?.order_index}`
       );
       setInsertionIndex(newIndex);
     },
-    [sessionItems, insertionIndex, isSelectionMode, stableToggleSelect]
+    [] // Zero dependencies - all values read from refs
   );
 
-  const handleListLongPress = React.useCallback(
+  const _handleListLongPress = React.useCallback(
     (index: number) => {
       // Enter batch selection mode when long pressing an asset
-      const item = sessionItems[index];
+      const item = sessionItemsRef.current[index];
       if (item && isAsset(item)) {
-        stableEnterSelection(item.id);
+        enterSelectionRef.current(item.id);
       }
     },
-    [sessionItems, stableEnterSelection]
+    [] // Zero dependencies - all values read from refs
   );
 
-  const canListItemLongPress = React.useCallback(
+  const _canListItemLongPress = React.useCallback(
     (item: ListItem) => isAsset(item),
     []
   );
@@ -2743,8 +2646,8 @@ const RecordingView = () => {
       !isSelectionMode &&
       showAddVerseButton &&
       verseToAdd !== null &&
-      !isVADRecording &&
-      allowAddVerseRef.current;
+      // !isVADRecording &&
+      allowAddVerse;
 
     if (!shouldShow) return null;
 
@@ -2771,67 +2674,72 @@ const RecordingView = () => {
     isSelectionMode,
     showAddVerseButton,
     verseToAdd,
-    isVADRecording,
+    // isVADRecording,
+    allowAddVerse,
     handleAddNextVerse
   ]);
 
   const boundaryComponent = useMemo(
     () => (
-    <>
-      {
-        (sessionItems.length === 0 || insertionIndex >= sessionItems.length) && (
-          <View className="px-2 mt-0.5">
-            <RecordAssetCardSkeleton />
-          </View>
-        )
-      }
-      <View
-        style={{ height: ROW_HEIGHT }}
-        className="flex-row items-center justify-center px-4"
-      >
-        <View className="flex-1" />
+      <>
+        {!isReplacing &&
+          (sessionItems.length === 0 ||
+            insertionIndex >= sessionItems.length) && (
+            <View className="mt-0.5 px-2">
+              <RecordAssetCardSkeleton />
+            </View>
+          )}
         <View
-          className="flex-row items-center gap-2"
-          style={{ flex: 1, justifyContent: 'center' }}
+          style={{ height: ROW_HEIGHT }}
+          className="flex-row items-center justify-center px-4"
         >
-          {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
+          <View className="flex-1" />
           <View
-            className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 px-2"
-            style={{
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="flex-row items-center gap-2"
+            style={{ flex: 1, justifyContent: 'center' }}
           >
-            <Icon as={Ellipsis} size={20} className="text-secondary-foreground/50" />
-            {/* <Icon
+            {/* Language-agnostic visual: mic + circle-plus = "add recording here" */}
+            <View
+              className="flex-row items-center justify-center rounded-full border border-dashed border-primary/50 bg-primary/10 px-2"
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Icon
+                as={Ellipsis}
+                size={20}
+                className="text-secondary-foreground/50"
+              />
+              {/* <Icon
               as={ArrowDownNarrowWide}
               size={20}
               style={{ marginLeft: 4 }}
               className="text-secondary-foreground/50"
             /> */}
+            </View>
           </View>
+          <View className="flex-1">{addButtonComponent}</View>
         </View>
-        <View className="flex-1">{addButtonComponent}</View>
-      </View>
-    </>
+      </>
     ),
-    [addButtonComponent, insertionIndex, isReplacing]
+    [addButtonComponent, insertionIndex, isReplacing, sessionItems.length]
   );
 
   // Calculate dynamic height for each item based on type and highlight state
   const getItemHeight = React.useCallback(
-    (item: ListItem, index: number, _isSelected: boolean) => {
-      const isHighlighted = insertionIndex === index;
-      
-      if (isPill(item)) {
+    (item: unknown, _index: number, isSelected: boolean) => {
+      const typedItem = item as ListItem;
+
+      if (isPill(typedItem)) {
         // Pill: use PILL_HEIGHT or PILL_HEIGHT_INSERTION if highlighted (and skeleton visible)
-        return isHighlighted && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
+        return isSelected && !isReplacing ? PILL_HEIGHT_INSERTION : PILL_HEIGHT;
       }
-      
+
       // Asset card: use ROW_HEIGHT or ROW_HEIGHT_INSERTION if highlighted (and skeleton visible)
-      return isHighlighted && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
+      return isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT;
     },
-    [insertionIndex, isReplacing]
+    [isReplacing]
   );
 
   return (
@@ -2864,12 +2772,16 @@ const RecordingView = () => {
                   `📤 Returning with ${recordedVerses.length} recorded verse(s): [${recordedVerses.join(', ')}]`
                 );
                 try {
-                  await normalizeOrderIndexForVerses(currentQuestId, recordedVerses);
+                  await normalizeOrderIndexForVerses(
+                    currentQuestId,
+                    recordedVerses
+                  );
                 } catch (error) {
                   console.error('Failed to normalize order_index:', error);
                 }
               }
-              // Navigate back
+              // Invalidate all asset queries so the parent list picks up new/deleted recordings
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               goBack();
             }}
           >
@@ -2928,6 +2840,10 @@ const RecordingView = () => {
             value={insertionIndex}
             onChange={handleListIndexChange}
             rowHeight={ROW_HEIGHT}
+            getItemKey={(item) => item.id}
+            getBoundaryHeight={(_index, isSelected) =>
+              isSelected && !isReplacing ? ROW_HEIGHT_INSERTION : ROW_HEIGHT
+            }
             getItemHeight={getItemHeight}
             className="h-full flex-1"
             bottomInset={footerHeight}
@@ -2951,6 +2867,7 @@ const RecordingView = () => {
               allowSelectAll={true}
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
+              showMerge={enableMerge}
             />
           </View>
         ) : (
@@ -3000,8 +2917,8 @@ const RecordingView = () => {
             setAutoCalibrateOnOpen(false);
           }
         }}
-        minSegmentLength={vadMinSegmentLength}  
-        onMinSegmentLengthChange={setVadMinSegmentLength}  
+        minSegmentLength={vadMinSegmentLength}
+        onMinSegmentLengthChange={setVadMinSegmentLength}
         threshold={vadThreshold}
         onThresholdChange={setVadThreshold}
         silenceDuration={vadSilenceDuration}

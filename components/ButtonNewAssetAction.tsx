@@ -25,26 +25,29 @@ const ButtonNewAssetActionComponent = ({
   const primaryColor = useThemeColor('primary');
   const destructiveColor = useThemeColor('destructive');
   const mutedColor = useThemeColor('muted');
-  
+
   const buttonConfig = useMemo(() => {
     const isNew = type === 'new';
     const baseColor = isNew ? primaryColor : destructiveColor;
-    
+
     // If not selected, use muted color or a semi-transparent version
-    const backgroundColor = selected 
-      ? baseColor 
-      : (mutedColor || `${baseColor}40`);
-    
+    const backgroundColor = selected
+      ? baseColor
+      : mutedColor || `${baseColor}40`;
+
     // Red border when replace is selected
-    const borderColor = selected && type === 'replace' ? destructiveColor : undefined;
-    
+    const borderColor =
+      selected && type === 'replace' ? destructiveColor : undefined;
+
     return {
       backgroundColor,
       borderColor,
       icon: isNew ? PlusIcon : Repeat2,
       text: isNew ? 'Add_new' : 'Replace',
-      iconColor: selected 
-        ? (isNew ? 'text-primary-foreground' : 'text-destructive-foreground')
+      iconColor: selected
+        ? isNew
+          ? 'text-primary-foreground'
+          : 'text-destructive-foreground'
         : 'text-muted-foreground'
     };
   }, [type, primaryColor, destructiveColor, mutedColor, selected]);
@@ -65,18 +68,15 @@ const ButtonNewAssetActionComponent = ({
   );
 
   return (
-    <Pressable
-      onPress={onPress}
-      className={cn('active:opacity-80', className)}
-    >
+    <Pressable onPress={onPress} className={cn('active:opacity-80', className)}>
       <View
-        style={{ 
+        style={{
           backgroundColor: buttonConfig.backgroundColor,
           borderColor: buttonConfig.borderColor,
           borderWidth: buttonConfig.borderColor ? 2 : 0
         }}
         className={cn(
-          'rounded-full flex flex-row items-center justify-center gap-2 ',
+          'flex flex-row items-center justify-center gap-2 rounded-full',
           showText ? 'px-4 py-2' : 'p-2'
         )}
       >
@@ -98,31 +98,31 @@ const ButtonNewAssetActionComponent = ({
 
 /**
  * Action button for adding or replacing assets
- * 
+ *
  * @param type - Defines the action type: "new" (add) or "replace" (replace)
  * @param onPress - Function executed when clicking the button
  * @param direction - (Optional) If "reverse", displays text + icon; otherwise, icon + text
  * @param showText - (Optional) If true, displays the text alongside the icon
  * @param selected - (Optional) If true, shows normal color; if false, shows lighter/muted color. Defaults to true
  * @param className - (Optional) Additional CSS classes
- * 
+ *
  * @example
  * ```tsx
  * // Add button with icon only
  * <ButtonNewAssetAction type="new" onPress={() => console.log('Add')} />
- * 
+ *
  * // Replace button with text
- * <ButtonNewAssetAction 
- *   type="replace" 
- *   onPress={() => console.log('Replace')} 
- *   showText 
+ * <ButtonNewAssetAction
+ *   type="replace"
+ *   onPress={() => console.log('Replace')}
+ *   showText
  * />
- * 
+ *
  * // Button with text and icon reversed, not selected
- * <ButtonNewAssetAction 
- *   type="new" 
- *   onPress={() => console.log('Add')} 
- *   showText 
+ * <ButtonNewAssetAction
+ *   type="new"
+ *   onPress={() => console.log('Add')}
+ *   showText
  *   direction="reverse"
  *   selected={false}
  * />

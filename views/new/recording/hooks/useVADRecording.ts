@@ -16,6 +16,16 @@ import React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
 
+// ============================================================================
+// MODULE-LEVEL LISTENER GENERATION COUNTER
+// When React.lazy + Suspense causes the component to unmount and remount,
+// old event listeners from the previous instance may not be properly cleaned up
+// by the native module. This counter ensures that ONLY the latest hook instance's
+// listeners process events. Stale listeners detect their generation is outdated
+// and skip, allowing the current instance's listener to handle the event.
+// ============================================================================
+let listenerGeneration = 0;
+
 interface UseVADRecordingProps {
   threshold: number;
   silenceDuration: number;
@@ -199,6 +209,22 @@ export function useVADRecording({
           console.error('❌ Failed to reconfigure VAD:', error);
         });
     }
+
+    // Cleanup: ensure native energy detection is stopped on unmount
+    // Without this, if VAD was active when the view unmounts, the native
+    // AudioRecord would continue running in the background, consuming CPU/battery
+    return () => {
+      if (isActive) {
+        console.log('🧹 useVADRecording cleanup: stopping energy detection');
+        void MicrophoneEnergyModule.disableVAD();
+        void stopEnergyDetection().catch((error) => {
+          console.error(
+            '❌ Failed to stop energy detection during cleanup:',
+            error
+          );
+        });
+      }
+    };
   }, [
     isVADActive,
     isActive,
@@ -214,10 +240,23 @@ export function useVADRecording({
   ]);
 
   React.useEffect(() => {
+    // Increment generation counter. Only listeners matching the latest generation
+    // will process events. Stale listeners from previous mount cycles will skip.
+    listenerGeneration++;
+    const myGeneration = listenerGeneration;
+
     // Listen for segment start events from native module
     const segmentStartSubscription = MicrophoneEnergyModule.addListener(
       'onSegmentStart', // Type will be available after native module rebuild
       () => {
+        // Skip if this listener belongs to a stale hook instance
+        if (myGeneration !== listenerGeneration) {
+          console.log(
+            `⚠️ Native VAD: Stale onSegmentStart listener (gen ${myGeneration} vs current ${listenerGeneration}), skipping`
+          );
+          return;
+        }
+
         console.log('🎬 Native VAD: Segment starting');
 
         // CRITICAL: Update SharedValue FIRST for instant UI response (< 5ms)
@@ -260,6 +299,14 @@ export function useVADRecording({
     const segmentCompleteSubscription = MicrophoneEnergyModule.addListener(
       'onSegmentComplete',
       (payload: { uri: string; duration: number }) => {
+        // Skip if this listener belongs to a stale hook instance
+        if (myGeneration !== listenerGeneration) {
+          console.log(
+            `⚠️ Native VAD: Stale onSegmentComplete listener (gen ${myGeneration} vs current ${listenerGeneration}), skipping`
+          );
+          return;
+        }
+
         console.log(
           '📼 Native VAD: Segment complete:',
           payload.uri || 'DISCARDED',
@@ -298,6 +345,13 @@ export function useVADRecording({
     return () => {
       segmentStartSubscription.remove();
       segmentCompleteSubscription.remove();
+      // Belt-and-suspenders: removeAllListeners to clean up any leaked native
+      // listeners from previous mount cycles. The Expo NativeModule EventEmitter
+      // (C++ JSI) may not properly clean up listeners when subscription.remove()
+      // is called during React.lazy + Suspense unmount/remount cycles.
+      // Since useVADRecording is the sole consumer of these events, this is safe.
+      MicrophoneEnergyModule.removeAllListeners('onSegmentStart');
+      MicrophoneEnergyModule.removeAllListeners('onSegmentComplete');
       if (segmentTimeoutRef.current) {
         clearTimeout(segmentTimeoutRef.current);
       }

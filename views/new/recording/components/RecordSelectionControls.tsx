@@ -24,53 +24,79 @@ interface RecordSelectionControlsProps {
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
+  allowAssignVerse?: boolean;
+  onAssignVerse?: () => void;
+  showMerge?: boolean;
 }
 
-export const RecordSelectionControls = React.memo(function RecordSelectionControls({
-  selectedCount,
-  onCancel,
-  onMerge,
-  onDelete,
-  allowSelectAll = false,
-  allSelected = false,
-  onSelectAll
-}: RecordSelectionControlsProps) {
-  const { t } = useLocalization();
-  return (
-    <View className="mb-3 w-full flex-row items-center justify-between bg-card p-3 px-4">
-      <Text className="text-xs text-muted-foreground font-bold flex-1">{selectedCount} {t('selected')}</Text>
-      <View className="align-between flex-row">
-        <View className="flex-row gap-2 h-full items-center">
-          {allowSelectAll && onSelectAll && (
-            <Button variant="default" onPress={onSelectAll} size="sm">
-              <Icon as={allSelected ? ListX : ListChecks} />
+export const RecordSelectionControls = React.memo(
+  function RecordSelectionControls({
+    selectedCount,
+    onCancel,
+    onMerge,
+    onDelete,
+    allowSelectAll = false,
+    allSelected = false,
+    onSelectAll,
+    allowAssignVerse = false,
+    onAssignVerse,
+    showMerge = true
+  }: RecordSelectionControlsProps) {
+    const { t } = useLocalization();
+    return (
+      <View className="mb-3 w-full flex-row items-center justify-between bg-card px-2 py-3">
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          className="flex-1 text-xs font-bold text-muted-foreground"
+        >
+          {selectedCount} {t('selected')}
+        </Text>
+        <View className="align-between flex-row">
+          <View className="h-full flex-row items-center gap-2">
+            {allowAssignVerse && onAssignVerse && (
+              <Button variant="default" onPress={onAssignVerse} size="default">
+                <Icon as={Bookmark} />
+              </Button>
+            )}
+            {allowSelectAll && onSelectAll && (
+              <Button variant="default" onPress={onSelectAll} size="default">
+                <Icon as={allSelected ? ListX : ListChecks} />
+              </Button>
+            )}
+            {showMerge && (
+              <Button
+                variant="default"
+                size="default"
+                disabled={selectedCount < 2}
+                onPress={onMerge}
+                className="p-1"
+              >
+                <View className="flex-row items-center px-0">
+                  <Icon as={Merge} />
+                  <Text className="ml-2 text-xs">{t('merge')}</Text>
+                </View>
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              disabled={selectedCount < 1}
+              onPress={onDelete}
+              size="default"
+            >
+              <Icon as={Trash2} />
             </Button>
-          )}
+          </View>
           <Button
-            variant="default"
-            size="sm"
-            disabled={selectedCount < 2}
-            onPress={onMerge}
-            className='p-1'
+            variant="ghost"
+            onPress={onCancel}
+            className="ml-1 mt-1"
+            size="icon"
           >
-            <View className="flex-row items-center px-2">
-              <Icon as={Merge} />
-              <Text className="ml-2 text-xs">{t('merge')}</Text>
-            </View>
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={selectedCount < 1}
-            onPress={onDelete}
-            size="sm"
-          >
-            <Icon as={Trash2} />
-          </Button>
-        </View>
-          <Button variant="ghost" onPress={onCancel} className='ml-3' size="sm">
             <Icon as={X} />
           </Button>
+        </View>
       </View>
-    </View>
-  );
-});
+    );
+  }
+);

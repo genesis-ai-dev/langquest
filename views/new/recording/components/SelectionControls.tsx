@@ -34,6 +34,7 @@ interface SelectionControlsProps {
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
+  showMerge?: boolean;
 }
 
 export const SelectionControls = React.memo(function SelectionControls({
@@ -45,7 +46,8 @@ export const SelectionControls = React.memo(function SelectionControls({
   onAssignVerse,
   allowSelectAll = false,
   allSelected = false,
-  onSelectAll
+  onSelectAll,
+  showMerge = true
 }: SelectionControlsProps) {
   const { t } = useLocalization();
   const shouldShowTrim = selectedCount === 1 && !!onTrim;
@@ -77,10 +79,7 @@ export const SelectionControls = React.memo(function SelectionControls({
               </View>
             </Button>
           ) : shouldShowMerge ? (
-            <Button
-              variant="default"
-              onPress={onMerge}
-            >
+            <Button variant="default" onPress={onMerge}>
               <View className="flex-row items-center">
                 <Icon as={Merge} />
                 <Text className="ml-2 text-sm">{t('merge')}</Text>

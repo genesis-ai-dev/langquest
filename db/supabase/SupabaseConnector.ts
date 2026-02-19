@@ -55,7 +55,8 @@ interface CompositeKeyConfig {
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private compositeKeyTables: CompositeKeyConfig[] = [];
   client: SupabaseClient;
-  private currentSession: Session | null = null;
+  // Made public to allow AuthContext to access cached session when offline
+  currentSession: Session | null = null;
 
   constructor(protected system: System) {
     console.log('Creating Supabase client (supabaseConnector constructor');
@@ -273,19 +274,48 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
     if (!session) {
       console.log('[SupabaseConnector] No stored session, fetching fresh...');
-      const {
-        data: { session: freshSession },
-        error
-      } = await this.client.auth.getSession();
 
-      if (!freshSession || error) {
-        throw new Error(
-          `Could not fetch Supabase credentials: ${JSON.stringify(error)}`
+      // Add timeout to prevent infinite hang when offline
+      // Supabase may attempt token refresh which can block indefinitely offline
+      const FETCH_TIMEOUT_MS = 5000;
+
+      try {
+        const sessionPromise = this.client.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Session fetch timed out')),
+            FETCH_TIMEOUT_MS
+          )
         );
-      }
 
-      session = freshSession;
-      this.currentSession = session;
+        const { data, error } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]);
+        const freshSession = data?.session;
+
+        if (!freshSession || error) {
+          throw new Error(
+            `Could not fetch Supabase credentials: ${JSON.stringify(error)}`
+          );
+        }
+
+        session = freshSession;
+        this.currentSession = session;
+      } catch (error) {
+        // If we have a cached session, use it even if potentially expired
+        // PowerSync will handle auth errors and trigger credential refresh
+        if (this.currentSession) {
+          console.warn(
+            '[SupabaseConnector] Session fetch failed, using cached session:',
+            error instanceof Error ? error.message : error
+          );
+          session = this.currentSession;
+        } else {
+          // No cached session available - re-throw the error
+          throw error;
+        }
+      }
     }
 
     console.log('[SupabaseConnector] Using session for user:', session.user.id);
@@ -580,6 +610,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
+
         return;
       }
 
@@ -633,10 +664,26 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   updateSession(session: Session | null) {
-    console.log(
-      '[SupabaseConnector] Updating session:',
-      session ? 'Session present' : 'Session cleared'
-    );
-    this.currentSession = session;
+    // Safety net: Refuse to clear session in production
+    // End users should never be signed out - they stay authenticated forever
+    // This prevents offline-induced session clearing from Supabase
+    if (!session && this.currentSession) {
+      if (__DEV__) {
+        console.log('[SupabaseConnector] Clearing session (dev mode allowed)');
+        this.currentSession = null;
+      } else {
+        console.log(
+          '[SupabaseConnector] Refusing to clear session in production - users stay authenticated'
+        );
+        // Keep existing session - don't clear
+        return;
+      }
+    } else {
+      console.log(
+        '[SupabaseConnector] Updating session:',
+        session ? 'Session present' : 'No existing session to clear'
+      );
+      this.currentSession = session;
+    }
   }
 }

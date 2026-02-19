@@ -1,10 +1,11 @@
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 import { Icon } from './ui/icon';
@@ -116,7 +117,9 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
 
   return (
     <>
-      <TouchableOpacity
+      <Button
+        variant="plain"
+        size="auto"
         onPress={handlePress}
         className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={10}
@@ -127,7 +130,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         ) : (
           <Icon as={IconComponent} size={size} className={iconClassName} />
         )}
-      </TouchableOpacity>
+      </Button>
 
       {/* Download confirmation modal */}
       {downloadType && stats && (

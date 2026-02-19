@@ -946,7 +946,7 @@ export default function ProjectDirectoryView() {
 
     // Default unstructured project view
     return (
-      <View className="flex-1 flex-col gap-4 p-4">
+      <View className="flex-1 flex-col gap-4 p-6 pt-0">
         <View className="flex flex-col gap-4">
           <View className="flex flex-row items-center justify-between gap-2">
             <View className="flex flex-row items-center gap-2">

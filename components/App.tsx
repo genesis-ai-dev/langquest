@@ -44,9 +44,9 @@ export default function App() {
 
   useDrizzleStudio();
 
-  // Initialize network listener on app startup
+  // Initialize network listener immediately on app startup
+  // This should not depend on isSystemReady - network status is independent of PowerSync
   useEffect(() => {
-    if (!isSystemReady) return;
     console.log('[App] Initializing network listener...');
     const cleanup = initializeNetwork();
     const cleanupPostHog = initializePostHogWithStore();
@@ -56,11 +56,11 @@ export default function App() {
       cleanup();
       cleanupPostHog?.();
     };
-  }, [isSystemReady]);
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !dateTermsAccepted) {
-      router.navigate('/terms');
+      router.replace('/terms');
     }
   }, [isLoading, dateTermsAccepted, router]);
 

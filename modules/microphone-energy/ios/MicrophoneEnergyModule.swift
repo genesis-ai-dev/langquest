@@ -1,4 +1,4 @@
-﻿import ExpoModulesCore
+import ExpoModulesCore
 import AVFoundation
 import Foundation
 
@@ -81,7 +81,7 @@ public class MicrophoneEnergyModule: Module {
         }
         
         do {
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP])
             try audioSession.setActive(true)
             
             audioEngine = AVAudioEngine()
@@ -106,7 +106,7 @@ public class MicrophoneEnergyModule: Module {
                 
                 if let converter = self.audioConverter, let desired = self.desiredFormat {
                     guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: desired, frameCapacity: buffer.frameLength) else { return }
-                    var inputProvided = false
+                    nonisolated(unsafe) var inputProvided = false
                     let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
                         if !inputProvided { outStatus.pointee = .haveData; inputProvided = true; return buffer }
                         else { outStatus.pointee = .noDataNow; return nil }

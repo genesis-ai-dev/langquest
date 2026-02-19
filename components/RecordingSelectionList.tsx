@@ -23,22 +23,27 @@ export interface RecordingSelectionListHandle {
   getSelectedIndex: () => number;
 }
 
-interface RecordingSelectionListPropsBase {
+interface RecordingSelectionListPropsBase<T> {
   value: number; // selected index (0..N, where N is "insert at end")
   onChange?: (index: number) => void;
   rowHeight: number; // Default/base height for items
   className?: string;
   bottomInset?: number;
   boundaryComponent?: React.ReactNode;
+  /** Stable key extractor for data items (recommended: use item.id) */
+  getItemKey?: (item: T, index: number) => string;
   /** Extra data that triggers re-render when changed (e.g., isSelectionMode) */
   extraData?: unknown;
   /** Optional function to calculate height for each item dynamically */
-  getItemHeight?: (item: unknown, index: number, isSelected: boolean) => number;
+  getItemHeight?: (item: T, index: number, isSelected: boolean) => number;
+  /** Optional function to calculate the boundary (final row) height dynamically */
+  getBoundaryHeight?: (index: number, isSelected: boolean) => number;
 }
 
 // Lazy rendering with data + renderItem
-interface RecordingSelectionListPropsLazy<T>
-  extends RecordingSelectionListPropsBase {
+interface RecordingSelectionListPropsLazy<
+  T
+> extends RecordingSelectionListPropsBase<T> {
   data: T[];
   renderItem: (
     item: T,
@@ -63,8 +68,10 @@ function RecordingSelectionListInternal<T>(
     boundaryComponent,
     data,
     renderItem,
+    getItemKey,
     extraData,
-    getItemHeight
+    getItemHeight,
+    getBoundaryHeight
   } = props;
 
   const listRef = React.useRef<LegendListRef>(null);
@@ -73,10 +80,17 @@ function RecordingSelectionListInternal<T>(
   // Total item count includes all data items + 1 boundary item at the end
   const itemCount = data.length + 1;
 
+  // Always treat selection as 0..N (where N is the final boundary)
+  // This avoids "no item selected" states when the list length changes.
+  const clampedValue = React.useMemo(
+    () => Math.max(0, Math.min(itemCount - 1, value)),
+    [itemCount, value]
+  );
+
   // Update ref when prop changes
   React.useEffect(() => {
-    selectedIndexRef.current = value;
-  }, [value]);
+    selectedIndexRef.current = clampedValue;
+  }, [clampedValue]);
 
   // Scroll to selected item
   const scrollToIndex = React.useCallback(
@@ -124,34 +138,43 @@ function RecordingSelectionListInternal<T>(
   // Optimize LegendList by providing item types (items with same type have similar heights)
   const getItemType = React.useCallback(
     (item: { type: 'item' | 'boundary'; index: number; data?: T }) => {
-      if (item.type === 'boundary') return 'boundary';
-      
+      if (item.type === 'boundary') {
+        if (getBoundaryHeight) {
+          const isSelected = item.index === clampedValue;
+          return isSelected ? 'boundarySelected' : 'boundary';
+        }
+        return 'boundary';
+      }
+
       // If getItemHeight is provided, calculate the height and categorize
       if (getItemHeight && item.data) {
-        const isSelected = item.index === value;
+        const isSelected = item.index === clampedValue;
         const height = getItemHeight(item.data, item.index, isSelected);
         // Categorize by height ranges for better list performance
         if (height <= 66) return 'small';
         if (height <= 132) return 'medium';
         return 'large';
       }
-      
+
       return 'default';
     },
-    [getItemHeight, value]
+    [clampedValue, getBoundaryHeight, getItemHeight]
   );
 
   // Render list item
   const renderListItem = React.useCallback(
     ({ item }: { item: (typeof listData)[number] }) => {
-      const isSelected = item.index === value;
+      const isSelected = item.index === clampedValue;
 
       // Calculate height for this item
-      const itemHeight = item.type === 'boundary' 
-        ? rowHeight 
-        : getItemHeight 
-          ? getItemHeight(item.data!, item.index, isSelected)
-          : rowHeight;
+      const itemHeight =
+        item.type === 'boundary'
+          ? getBoundaryHeight
+            ? getBoundaryHeight(item.index, isSelected)
+            : rowHeight
+          : getItemHeight
+            ? getItemHeight(item.data!, item.index, isSelected)
+            : rowHeight;
 
       // Render boundary item
       if (item.type === 'boundary') {
@@ -161,12 +184,12 @@ function RecordingSelectionListInternal<T>(
             //   onPress={() => handleItemPress(item.index)}
             //   activeOpacity={0.7}
             // >
-              <View
-                style={{ height: itemHeight }}
-                // className={isSelected ? 'bg-primary/10' : ''}
-              >
-                {boundaryComponent}
-              </View>
+            <View
+              style={{ height: itemHeight }}
+              // className={isSelected ? 'bg-primary/10' : ''}
+            >
+              {boundaryComponent}
+            </View>
             // </TouchableOpacity>
           );
         }
@@ -207,9 +230,10 @@ function RecordingSelectionListInternal<T>(
       );
     },
     [
-      value,
+      clampedValue,
       rowHeight,
       getItemHeight,
+      getBoundaryHeight,
       boundaryComponent,
       handleItemPress,
       renderItem
@@ -223,7 +247,11 @@ function RecordingSelectionListInternal<T>(
         data={listData}
         renderItem={renderListItem}
         keyExtractor={(item) =>
-          item.type === 'boundary' ? 'boundary' : `item-${item.index}`
+          item.type === 'boundary'
+            ? 'boundary'
+            : getItemKey
+              ? getItemKey(item.data!, item.index)
+              : `item-${item.index}`
         }
         estimatedItemSize={rowHeight}
         getItemType={getItemType}

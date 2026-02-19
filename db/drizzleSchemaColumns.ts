@@ -170,11 +170,20 @@ export interface BibleMetadata {
 }
 
 /**
+ * Tracking information for each recording session
+ */
+export interface RecordingSessionMetadata {
+  id: string;
+  created_at: string;
+}
+/**
  * Extensible metadata type for quests
  * Can be extended with other metadata types as needed
  */
 export interface QuestMetadata {
   bible?: BibleMetadata;
+  lastRecordingSessionId?: string;
+  recordingSessions?: RecordingSessionMetadata[];
   // Add other metadata types here as needed
   // e.g., curriculum?: { unit: string; lesson: number };
 }
@@ -607,6 +616,7 @@ export function createAssetContentLinkTable<
         .references(() => asset.id),
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
+      order_index: int().notNull().default(0),
       ...extraColumns
     },
     (table) => {
@@ -615,6 +625,7 @@ export function createAssetContentLinkTable<
         index('asset_content_link_source_language_id_idx').on(
           table.source_language_id
         ),
+        index('idx_acl_asset_order').on(table.asset_id, table.order_index),
         ...normalizeParams(extraConfig, table)
       ];
     }

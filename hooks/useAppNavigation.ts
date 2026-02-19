@@ -3,11 +3,11 @@
  * Replaces Expo Router with instant state transitions
  */
 
+import { useLocalization } from '@/hooks/useLocalization';
 import type { AppView, NavigationStackItem } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { profiler } from '@/utils/profiler';
 import { useCallback, useMemo } from 'react';
-import { useLocalization } from './useLocalization';
 
 export interface NavigationState {
   view: AppView;
@@ -28,6 +28,7 @@ export interface NavigationState {
 
   // Recording view specific data
   recordingData?: {
+    recordingSession?: string;
     bookChapterLabel?: string;
     bookChapterLabelFull?: string;
     initialOrderIndex?: number;

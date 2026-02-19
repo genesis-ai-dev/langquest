@@ -11,7 +11,6 @@ import {
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
-import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
@@ -30,11 +29,11 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
 import {
   BookmarkPlusIcon,
   BrushCleaning,
@@ -53,7 +52,13 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import type { FlatList } from 'react-native';
+import {
+  ActivityIndicator,
+  InteractionManager,
+  Pressable,
+  View
+} from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -88,16 +93,17 @@ import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
-  renameAsset
+  getNextOrderIndex,
+  renameAsset,
+  updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { AppConfig } from '@/db/supabase/AppConfig';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
@@ -105,15 +111,13 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import type {
-  ReorderableListReorderEvent
-} from 'react-native-reorderable-list';
+import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
   reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
-import { BibleAssetListItem } from './BibleAssetListItem';
-import { BibleSelectionControls } from './recording/components/BibleSelectionControls';
+import { AssetCardItem } from './AssetCardItem';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
@@ -127,6 +131,7 @@ interface AssetMetadata {
     from: number;
     to: number;
   };
+  recordingSessionId?: string;
 }
 
 type AssetQuestLink = Asset & {
@@ -227,12 +232,14 @@ interface DraggableAssetItemProps {
   hasAvailableVerses: boolean;
   showDragHandle: boolean;
   isDragFixed: boolean;
+  isHighlighted: boolean;
   onPlay: (assetId: string) => void;
   onToggleSelect: (assetId: string) => void;
   onEnterSelection?: (assetId: string) => void;
   onSelectForRecording?: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
   onAddVersePress?: () => void;
+  onQuickAddVersePress?: () => void;
 }
 
 const DraggableAssetItem = React.memo(function DraggableAssetItem({
@@ -246,12 +253,14 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   hasAvailableVerses,
   showDragHandle,
   isDragFixed,
+  isHighlighted,
   onPlay,
   onToggleSelect,
   onEnterSelection,
   onSelectForRecording,
   onRename,
-  onAddVersePress
+  onAddVersePress,
+  onQuickAddVersePress
 }: DraggableAssetItemProps) {
   const drag = useReorderableDrag();
 
@@ -264,7 +273,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         hasAvailableVerses && (
           <View className="flex flex-row items-center justify-center gap-1 py-2">
             <Pressable
-              onPress={onAddVersePress}
+              onPress={onQuickAddVersePress}
+              onLongPress={onAddVersePress}
               className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 active:bg-primary/20"
             >
               <Icon as={BookmarkPlusIcon} size={14} className="text-primary" />
@@ -274,7 +284,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
             </Pressable>
           </View>
         )}
-      <BibleAssetListItem
+      <AssetCardItem
         asset={asset}
         questId={questId}
         isPublished={isPublished}
@@ -290,6 +300,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         isSelectedForRecording={isAssetSelectedForRecording}
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
+        isHighlighted={isHighlighted && !isPublished}
       />
       {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
         <RecordingPlaceIndicator />
@@ -451,7 +462,7 @@ export default function BibleAssetsView() {
   } = useCurrentNavigation();
   const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
-  const audioContext = useAudio();
+  const assetAudio = useAssetAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
@@ -539,17 +550,32 @@ export default function BibleAssetsView() {
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  // Track which asset is currently playing during play-all
-  const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
-    string | null
-  >(null);
+  const getAssetMetadata = React.useCallback(
+    (rawMetadata: unknown): AssetMetadata | null => {
+      if (!rawMetadata) return null;
+      if (typeof rawMetadata === 'string') {
+        try {
+          const parsed = JSON.parse(rawMetadata);
+          return parsed && typeof parsed === 'object'
+            ? (parsed as AssetMetadata)
+            : null;
+        } catch {
+          return null;
+        }
+      }
+      return typeof rawMetadata === 'object'
+        ? (rawMetadata as AssetMetadata)
+        : null;
+    },
+    []
+  );
   // Track if PlayAll is running (for button icon state)
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
-  // OLD handlePlayAllAssets refs - commented out
-  // const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
-  // const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
-  // const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
-  // const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
+  // Track active asset during PlayAll to avoid highlight gaps between clips.
+  const [playAllActiveAssetId, setPlayAllActiveAssetId] = React.useState<
+    string | null
+  >(null);
+  const listRef = React.useRef<FlatList<ListItem> | null>(null);
   const fixedItemsIndexesRef = React.useRef<number[]>([0]);
   // Ref to allow handlePlayAsset to be used in renderItem before it's defined
   const handlePlayAssetRef = React.useRef<
@@ -580,27 +606,29 @@ export default function BibleAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
-    dataType: 'current-quest',
-    queryKeyParams: [currentQuestId],
-    offlineQuery: toCompilableQuery(
-      system.db.query.quest.findFirst({
-        where: eq(questTable.id, currentQuestId!)
-      })
-    ),
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('id', currentQuestId)
-        .overrideTypes<Quest[]>();
-      if (error) throw error;
-      return data;
-    },
-    enableCloudQuery: !!currentQuestId,
-    enableOfflineQuery: !!currentQuestId,
-    getItemId: (item) => item.id
-  });
+  const { data: queriedQuestData, refetch: refetchQuest } =
+    useHybridData<Quest>({
+      dataType: 'current-quest',
+      queryKeyParams: [currentQuestId],
+      offlineQuery: toCompilableQuery(
+        system.db.query.quest.findMany({
+          where: eq(questTable.id, currentQuestId!),
+          limit: 1
+        })
+      ),
+      cloudQueryFn: async () => {
+        const { data, error } = await system.supabaseConnector.client
+          .from('quest')
+          .select('*')
+          .eq('id', currentQuestId)
+          .overrideTypes<Quest[]>();
+        if (error) throw error;
+        return data;
+      },
+      enableCloudQuery: !!currentQuestId,
+      enableOfflineQuery: !!currentQuestId,
+      getItemId: (item) => item.id
+    });
 
   // Prefer queried data (fresh) over navigation data (may be stale)
   // This ensures UI updates immediately after publishing without needing to navigate away
@@ -706,13 +734,16 @@ export default function BibleAssetsView() {
   }, [selectedQuest, currentBookId]);
 
   // Query project data to get privacy status if not passed
-  const { data: queriedProjectData } = useHybridData({
+  const { data: queriedProjectData } = useHybridData<
+    Pick<typeof project.$inferSelect, 'id' | 'private' | 'creator_id'>
+  >({
     dataType: 'project-privacy-assets',
     queryKeyParams: [currentProjectId],
     offlineQuery: toCompilableQuery(
-      system.db.query.project.findFirst({
+      system.db.query.project.findMany({
         where: eq(project.id, currentProjectId!),
-        columns: { id: true, private: true, creator_id: true }
+        columns: { id: true, private: true, creator_id: true },
+        limit: 1
       })
     ),
     cloudQueryFn: async () => {
@@ -740,7 +771,6 @@ export default function BibleAssetsView() {
       }
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
-
 
   // Track selected item for recording insertion
   // Can be an asset (insert after) or a separator (insert at beginning of verse)
@@ -777,6 +807,7 @@ export default function BibleAssetsView() {
   const currentStatus = useStatusContext();
   currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+  const enableMerge = useLocalStore((s) => s.enableMerge);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -983,7 +1014,7 @@ export default function BibleAssetsView() {
         orderIndex,
         metadata,
         verseName,
-        name: asset.name ?? undefined as string | undefined
+        name: asset.name ?? (undefined as string | undefined)
       });
     },
     [selectedForRecording?.type, selectedForRecording?.assetId]
@@ -1093,6 +1124,7 @@ export default function BibleAssetsView() {
         {
           text: 'Delete',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1142,6 +1174,7 @@ export default function BibleAssetsView() {
         {
           text: 'Merge',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1154,13 +1187,22 @@ export default function BibleAssetsView() {
                 });
 
                 for (const src of rest) {
-                  // Find all content links for the source asset
+                  // Find all content links for the source asset, ordered by order_index
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
 
-                  // Insert them for the target asset
+                  // Get the next available order_index for the target asset (local table)
+                  let nextOrder = await getNextOrderIndex(target.id, {
+                    localOverride: true
+                  });
+
+                  // Insert them for the target asset with sequential order_index
                   for (const c of srcContent) {
                     if (!c.audio) continue;
                     await system.db.insert(contentLocal).values({
@@ -1170,13 +1212,29 @@ export default function BibleAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   // Delete the source asset
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                // Normalize all content links on target to 1-based ordering
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c: { id: string }) => c.id),
+                  { localOverride: true }
+                );
 
                 cancelSelection();
                 setSelectedForRecording(null);
@@ -1317,6 +1375,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1359,6 +1418,7 @@ export default function BibleAssetsView() {
               assetsToUpdate.push({
                 assetId: item.content.id,
                 metadata: {
+                  ...(getAssetMetadata(item.content.metadata) ?? {}),
                   verse: {
                     from: separator.from,
                     to: separator.to ?? separator.from
@@ -1392,7 +1452,14 @@ export default function BibleAssetsView() {
     };
 
     void processNewSeparators();
-  }, [manualSeparators, listItems, assets, queryClient, refetch]);
+  }, [
+    manualSeparators,
+    listItems,
+    assets,
+    queryClient,
+    refetch,
+    getAssetMetadata
+  ]);
 
   // Clean up manual separators that have been persisted to asset metadata
   // This ensures the UI correctly reflects which verses are available after metadata updates
@@ -1485,6 +1552,7 @@ export default function BibleAssetsView() {
           assetsToUpdate.push({
             assetId: item.content.id,
             metadata: {
+              ...(getAssetMetadata(item.content.metadata) ?? {}),
               verse: {
                 from: newFrom,
                 to: newTo
@@ -1511,7 +1579,7 @@ export default function BibleAssetsView() {
         );
       }
     },
-    [listItems, queryClient, refetch]
+    [listItems, queryClient, refetch, getAssetMetadata]
   );
 
   // Compute the allowed range for a new separator based on existing separators
@@ -1530,7 +1598,7 @@ export default function BibleAssetsView() {
 
       // Get the CURRENT separator's "from" value (this is the ceiling for new range)
       let currentFrom: number | undefined;
-      if (currentSep && currentSep.type === 'separator') {
+      if (currentSep?.type === 'separator') {
         currentFrom = currentSep.from;
       }
 
@@ -1538,7 +1606,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = currentIdx - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -1838,6 +1906,7 @@ export default function BibleAssetsView() {
           (asset, index) => ({
             assetId: asset.id,
             metadata: {
+              ...(getAssetMetadata(asset.metadata) ?? {}),
               verse: { from, to }
             },
             order_index:
@@ -1860,7 +1929,15 @@ export default function BibleAssetsView() {
         RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
       }
     },
-    [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]
+    [
+      assets,
+      selectedAssetIds,
+      cancelSelection,
+      queryClient,
+      refetch,
+      t,
+      getAssetMetadata
+    ]
   );
 
   // Handle removing labels from selected assets
@@ -1895,7 +1972,10 @@ export default function BibleAssetsView() {
       const updates: AssetUpdatePayload[] = selectedAssets.map(
         (asset, index) => ({
           assetId: asset.id,
-          metadata: null,
+          metadata: {
+            ...(getAssetMetadata(asset.metadata) ?? {}),
+            verse: undefined
+          },
           order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
         })
       );
@@ -1914,7 +1994,15 @@ export default function BibleAssetsView() {
       console.error('Failed to remove labels from assets:', error);
       RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
     }
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, refetch, t]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    queryClient,
+    refetch,
+    t,
+    getAssetMetadata
+  ]);
 
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
@@ -1944,7 +2032,7 @@ export default function BibleAssetsView() {
     // Use memo key instead of Map reference for stable dependencies (always 1 string)
   }, [safeAttachmentStates]);
 
-  const handleAssetUpdate = React.useCallback(async () => {
+  const _handleAssetUpdate = React.useCallback(async () => {
     // await queryClient.invalidateQueries({
     //   // queryKey: ['assets', 'by-quest', currentQuestId],
     //   queryKey: ['by-quest', currentQuestId],
@@ -2058,7 +2146,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = assetIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2068,7 +2156,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = assetIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2115,6 +2203,63 @@ export default function BibleAssetsView() {
     [listItems, verseCount]
   );
 
+  const getNextAvailableVerse = React.useCallback(
+    (assetId: string): number | null => {
+      const assetIndex = listItems.findIndex(
+        (item) => item.type === 'asset' && item.content.id === assetId
+      );
+
+      if (assetIndex === -1) {
+        return null;
+      }
+
+      // Find previous separator (looking backward)
+      let prevTo: number | undefined;
+      for (let i = assetIndex - 1; i >= 0; i--) {
+        const item = listItems[i];
+        if (item?.type === 'separator' && item.to !== undefined) {
+          prevTo = item.to;
+          break;
+        }
+      }
+
+      // Find next separator (looking forward)
+      let nextFrom: number | undefined;
+      for (let i = assetIndex + 1; i < listItems.length; i++) {
+        const item = listItems[i];
+        if (item?.type === 'separator' && item.from !== undefined) {
+          nextFrom = item.from;
+          break;
+        }
+      }
+
+      // Calculate range - only between prevTo and nextFrom
+      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
+
+      // Ensure valid range and check if there's actually space available
+      const finalFrom = Math.max(1, rangeFrom);
+      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+
+      // Check if there's actually space between separators
+      // If prevTo + 1 > nextFrom - 1, there's no space
+      if (
+        prevTo !== undefined &&
+        nextFrom !== undefined &&
+        prevTo + 1 > nextFrom - 1
+      ) {
+        return null;
+      }
+
+      if (finalFrom > finalTo || finalFrom > (verseCount || 1)) {
+        return null;
+      }
+
+      return finalFrom;
+    },
+    [listItems, verseCount]
+  );
+
   // Get available verses for editing a separator (between previous and next separators)
   const getRangeForSeparator = React.useCallback(
     (separatorKey: string) => {
@@ -2130,7 +2275,7 @@ export default function BibleAssetsView() {
       let prevTo: number | undefined;
       for (let i = separatorIndex - 1; i >= 0; i--) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.to !== undefined) {
+        if (item?.type === 'separator' && item.to !== undefined) {
           prevTo = item.to;
           break;
         }
@@ -2140,7 +2285,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2195,7 +2340,7 @@ export default function BibleAssetsView() {
       let nextFrom: number | undefined;
       for (let i = separatorIndex + 1; i < listItems.length; i++) {
         const item = listItems[i];
-        if (item && item.type === 'separator' && item.from !== undefined) {
+        if (item?.type === 'separator' && item.from !== undefined) {
           nextFrom = item.from;
           break;
         }
@@ -2245,6 +2390,19 @@ export default function BibleAssetsView() {
       from: range.from,
       to: range.to
     });
+  };
+
+  const handleQuickAddVersePressRef = React.useRef<
+    ((assetId: string) => void) | undefined
+  >(undefined);
+  handleQuickAddVersePressRef.current = (assetId: string) => {
+    const nextVerse = getNextAvailableVerse(assetId);
+    if (nextVerse === null) {
+      return;
+    }
+    addVerseSeparator(nextVerse, nextVerse, assetId);
+    // Clear recording selection when any label is added
+    setSelectedForRecording(null);
   };
 
   const handleEditSeparatorRef = React.useRef<
@@ -2305,16 +2463,14 @@ export default function BibleAssetsView() {
 
       // Handle asset items
       const asset = item.content;
-      const isPlaying =
-        (audioContext.isPlaying &&
-          (audioContext.currentAudioId === asset.id ||
-            (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID &&
-              currentlyPlayingAssetId === asset.id))) ||
-        currentlyPlayingAssetId === asset.id;
+      const isPlaying = isPlayAllRunning
+        ? playAllActiveAssetId === asset.id
+        : assetAudio.isPlaying && assetAudio.currentAudioId === asset.id;
 
       const isSelected = selectedAssetIds.has(asset.id);
 
       const isAssetSelectedForRecording =
+        !isPlayAllRunning &&
         !isPublished &&
         selectedForRecording?.type === 'asset' &&
         selectedForRecording?.assetId === asset.id;
@@ -2332,6 +2488,10 @@ export default function BibleAssetsView() {
           questId={currentQuestId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
+          isHighlighted={
+            asset.metadata?.recordingSessionId ==
+            selectedQuest?.metadata?.lastRecordingSessionId
+          }
           isSelected={isSelected}
           isSelectionMode={!isPublished && isSelectionMode}
           isAssetSelectedForRecording={isAssetSelectedForRecording}
@@ -2350,15 +2510,21 @@ export default function BibleAssetsView() {
               ? () => handleAddVersePressRef.current?.(asset.id)
               : undefined
           }
+          onQuickAddVersePress={
+            isAssetSelectedForRecording && hasAvailableVerses
+              ? () => handleQuickAddVersePressRef.current?.(asset.id)
+              : undefined
+          }
         />
       );
     },
     [
       isPublished,
       currentQuestId,
-      audioContext.isPlaying,
-      audioContext.currentAudioId,
-      currentlyPlayingAssetId,
+      assetAudio.isPlaying,
+      assetAudio.currentAudioId,
+      isPlayAllRunning,
+      playAllActiveAssetId,
       stableOnPlay,
       getRangeForAsset,
       isSelectionMode,
@@ -2370,7 +2536,8 @@ export default function BibleAssetsView() {
       selectedForRecording?.separatorKey,
       handleSelectForRecording,
       handleSelectSeparatorForRecording,
-      handleRenameAsset
+      handleRenameAsset,
+      selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
 
@@ -2415,368 +2582,62 @@ export default function BibleAssetsView() {
     currentQuestId
   );
 
-  // Special audio ID for "play all" mode
-  const PLAY_ALL_AUDIO_ID = 'play-all-assets';
-
-  // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
-  // Includes fallback logic for local-only files when server records are removed
-  const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
-
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
-
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        if (uniqueLinks.length === 0) {
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        if (audioValues.length === 0) {
-          return [];
-        }
-
-        // Process each audio value - can be either a local URI or an attachment ID
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          // Check if this is already a local URI (starts with 'local/' or 'file://')
-          if (audioValue.startsWith('local/')) {
-            // It's a direct local URI from saveAudioLocally()
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              uris.push(constructedUri);
-            } else {
-              // File doesn't exist at expected path - try to find it in attachment queue
-              console.log(
-                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-              );
-
-              if (system.permAttachmentQueue) {
-                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-                const filename = audioValue.replace(/^local\//, '');
-                // Extract UUID part (without extension) for more flexible matching
-                const uuidPart = filename.split('.')[0];
-
-                // Search attachment queue by filename or UUID
-                let attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-                );
-
-                // If not found, try searching all attachments for this asset's content links
-                if (!attachment && uniqueLinks.length > 0) {
-                  const allAttachmentIds = uniqueLinks
-                    .flatMap((link) => link.audio ?? [])
-                    .filter(
-                      (av): av is string =>
-                        typeof av === 'string' &&
-                        !av.startsWith('local/') &&
-                        !av.startsWith('file://')
-                    );
-                  if (allAttachmentIds.length > 0) {
-                    const placeholders = allAttachmentIds
-                      .map(() => '?')
-                      .join(',');
-                    attachment = await system.powersync.getOptional<{
-                      id: string;
-                      filename: string | null;
-                      local_uri: string | null;
-                    }>(
-                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                      allAttachmentIds
-                    );
-                  }
-                }
-
-                if (attachment?.local_uri) {
-                  const foundUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  // Verify the found file actually exists
-                  if (await fileExists(foundUri)) {
-                    uris.push(foundUri);
-                    console.log(
-                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                    );
-                  } else {
-                    console.warn(
-                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                    );
-                  }
-                } else {
-                  // Try fallback to local table for alternative audio values
-                  const fallbackLink = contentLinksLocal.find(
-                    (link) => link.asset_id === assetId
-                  );
-                  if (fallbackLink?.audio) {
-                    for (const fallbackAudioValue of fallbackLink.audio) {
-                      if (fallbackAudioValue.startsWith('file://')) {
-                        if (await fileExists(fallbackAudioValue)) {
-                          uris.push(fallbackAudioValue);
-                          console.log(`✅ Found fallback file URI`);
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI - verify it exists
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-            } else {
-              console.warn(`File URI does not exist: ${audioValue}`);
-              // Try to find in attachment queue by extracting filename from path
-              if (system.permAttachmentQueue) {
-                const filename = audioValue.split('/').pop();
-                if (filename) {
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                    [filename, filename]
-                  );
-
-                  if (attachment?.local_uri) {
-                    const foundUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
-                    );
-                    if (await fileExists(foundUri)) {
-                      uris.push(foundUri);
-                      console.log(`✅ Found attachment in queue for file URI`);
-                    }
-                  }
-                }
-              }
-            }
-          } else {
-            // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) {
-              // No attachment queue - try fallback to local table
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      break;
-                    }
-                  }
-                }
-              }
-              continue;
-            }
-
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-              }
-            } else {
-              // Attachment ID not found in queue - try fallback to local table
-              console.log(
-                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-              );
-
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      console.log(
-                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      console.log(
-                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  }
-                }
-              } else {
-                // Try to get cloud URL if local not available
-                try {
-                  if (!AppConfig.supabaseBucket) {
-                    continue;
-                  }
-                  const { data } = system.supabaseConnector.client.storage
-                    .from(AppConfig.supabaseBucket)
-                    .getPublicUrl(audioValue);
-                  if (data.publicUrl) {
-                    uris.push(data.publicUrl);
-                  }
-                } catch (error) {
-                  console.error('Failed to get cloud audio URL:', error);
-                }
-              }
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
-      }
-    },
-    []
-  );
-
-  // OLD handlePlayAllAssets - Asset ranges for play-all: maps each asset to its time range
-  // const assetTimeRangesRef = React.useRef<
-  //   { assetId: string; startMs: number; endMs: number }[]
-  // >([]);
-
-  // Calculate which asset should be highlighted based on position
-  // NOTE: This is only used for handlePlayAsset (individual)
-  // handlePlayAll (new function) controls currentlyPlayingAssetId directly
-  const derivedCurrentlyPlayingAssetId = React.useMemo(() => {
-    // Not playing at all
-    if (!audioContext.isPlaying) {
-      return null;
-    }
-
-    // Playing a single asset (not play-all mode) - return directly
-    if (audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID) {
-      return audioContext.currentAudioId;
-    }
-
-    // OLD handlePlayAllAssets logic - commented out
-    // // Play-all mode (handlePlayAllAssets): Use time ranges if available
-    // const ranges = assetTimeRangesRef.current;
-    // if (ranges.length > 0) {
-    //   const position = audioContext.position;
-    //   for (const range of ranges) {
-    //     if (position >= range.startMs && position < range.endMs) {
-    //       return range.assetId;
-    //     }
-    //   }
-    //   // Position beyond all ranges - return last asset
-    //   return ranges[ranges.length - 1]?.assetId || null;
-    // }
-
-    // // Fallback to first asset in order
-    // return assetOrderRef.current[0] || null;
-
-    return null;
-  }, [
-    audioContext.isPlaying,
-    audioContext.currentAudioId,
-    audioContext.position
-  ]);
-
   // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
   const isPlayAllRunningRef = React.useRef(false);
-  // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
 
-  // Ref to hold latest audioContext for cleanup (avoids stale closure)
-  const audioContextCurrentRef = React.useRef(audioContext);
-  React.useEffect(() => {
-    audioContextCurrentRef.current = audioContext;
-  }, [audioContext]);
+  const stopPlayAll = React.useCallback(async () => {
+    isPlayAllRunningRef.current = false;
+    setIsPlayAllRunning(false);
+    setPlayAllActiveAssetId(null);
+    await assetAudio.stop();
+  }, [assetAudio]);
 
-  // Update state only for handlePlayAsset and handlePlayAllAssets
-  // handlePlayAll controls state directly so we skip when it's running
-  React.useEffect(() => {
-    // Skip if handlePlayAll is controlling the state directly
-    if (isPlayAllRunningRef.current) {
-      return;
-    }
+  const scrollToAssetInPlayAll = React.useCallback(
+    (assetId: string) => {
+      const listIndex = listItems.findIndex(
+        (item) => item.type === 'asset' && item.content.id === assetId
+      );
+      if (listIndex < 0) return;
 
-    // Only update if we're in audioContext-controlled playback mode
-    if (
-      audioContext.isPlaying &&
-      (audioContext.currentAudioId === PLAY_ALL_AUDIO_ID ||
-        audioContext.currentAudioId)
-    ) {
-      setCurrentlyPlayingAssetId(derivedCurrentlyPlayingAssetId);
-    } else if (!audioContext.isPlaying && !audioContext.currentAudioId) {
-      // Clear highlight when audio finishes naturally
-      setCurrentlyPlayingAssetId(null);
-    }
-  }, [
-    derivedCurrentlyPlayingAssetId,
-    audioContext.isPlaying,
-    audioContext.currentAudioId
-  ]);
+      // Defer until interactions settle to improve reliability while reordering/list updates occur.
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          const list = listRef.current;
+          if (!list) return;
+          try {
+            if (typeof list.scrollToIndex === 'function') {
+              list.scrollToIndex({
+                index: listIndex,
+                animated: true,
+                viewPosition: 0.3
+              });
+              return;
+            }
+            if (typeof list.scrollToOffset === 'function') {
+              list.scrollToOffset({
+                offset: Math.max(0, listIndex * 72),
+                animated: true
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to auto-scroll play-all asset:', error);
+          }
+        });
+      });
+    },
+    [listItems]
+  );
 
-  // Handle play all - plays all assets sequentially with direct asset-audio linking
-  // Uses assets that have isAssetSelectedForRecording={true} in BibleAssetListItem (determined by selectedForRecording)
-  // Takes selectedAsset as parameter to avoid recreating the function when selection changes
+  const activateAssetForPlayAll = React.useCallback(
+    async (assetId: string) => {
+      setPlayAllActiveAssetId(assetId);
+      await Promise.resolve();
+      scrollToAssetInPlayAll(assetId);
+    },
+    [scrollToAssetInPlayAll]
+  );
 
+  // Handle play all - plays all assets sequentially via assetAudio service
   const handlePlayAll = React.useCallback(
     async (
       selectedAsset?: { type: 'asset' | 'separator'; assetId?: string } | null
@@ -2784,205 +2645,93 @@ export default function BibleAssetsView() {
       try {
         // Check if already playing - toggle to stop
         if (isPlayAllRunningRef.current) {
-          isPlayAllRunningRef.current = false;
-          setIsPlayAllRunning(false);
-
-          // Stop current sound immediately
-          if (currentPlayAllSoundRef.current) {
-            try {
-              await currentPlayAllSoundRef.current.stopAsync();
-              await currentPlayAllSoundRef.current.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            } catch (error) {
-              console.error('Error stopping sound:', error);
-            }
-          }
-
-          setCurrentlyPlayingAssetId(null);
-          console.log('⏸️ Stopped play all');
+          await stopPlayAll();
           return;
         }
 
         // Determine which assets to process based on selection state
         let assetsToProcess: AssetQuestLink[];
 
-        // Priority 1: selectedForRecording (for unpublished quests with recording selection)
         if (selectedAsset?.type === 'asset' && selectedAsset?.assetId) {
           const selectedIndex = assets.findIndex(
             (a) => a.id === selectedAsset.assetId
           );
-          if (selectedIndex >= 0) {
-            assetsToProcess = assets.slice(selectedIndex);
-          } else {
-            assetsToProcess = assets;
-          }
-        }
-        // Priority 2: selectedAssetIds (for published quests with visual selection)
-        else if (selectedAssetIds.size > 0) {
+          assetsToProcess =
+            selectedIndex >= 0 ? assets.slice(selectedIndex) : assets;
+        } else if (selectedAssetIds.size > 0) {
           const firstSelectedIndex = assets.findIndex((a) =>
             selectedAssetIds.has(a.id)
           );
-          if (firstSelectedIndex >= 0) {
-            assetsToProcess = assets.slice(firstSelectedIndex);
-            console.log(
-              `🎵 Starting from first selected asset at index ${firstSelectedIndex}`
-            );
-          } else {
-            assetsToProcess = assets;
-          }
-        }
-        // Priority 3: No selection, play all
-        else {
+          assetsToProcess =
+            firstSelectedIndex >= 0 ? assets.slice(firstSelectedIndex) : assets;
+        } else {
           assetsToProcess = assets;
         }
 
-        if (assetsToProcess.length === 0) {
-          console.warn('⚠️ No assets to play');
-          return;
-        }
+        if (assetsToProcess.length === 0) return;
 
-        console.log(
-          `🎵 Starting play all from ${assetsToProcess.length} assets...`
-        );
-
-        // Mark as running
         isPlayAllRunningRef.current = true;
         setIsPlayAllRunning(true);
 
-        // Build playlist: Array<{assetId, uris}>
-        const playlist: { assetId: string; uris: string[] }[] = [];
-
+        // Play each asset sequentially.
+        // Keep highlight continuous across clip boundaries by controlling it here.
         for (const asset of assetsToProcess) {
-          // Check if cancelled
           if (!isPlayAllRunningRef.current) {
-            console.log('⏸️ Play all cancelled during playlist build');
+            setPlayAllActiveAssetId(null);
             return;
           }
 
-          // Get URIs for this asset (getAssetAudioUris handles all the resolution)
-          const uris = await getAssetAudioUris(asset.id);
-          if (uris.length > 0) {
-            playlist.push({ assetId: asset.id, uris });
-          }
+          await activateAssetForPlayAll(asset.id);
+          if (!isPlayAllRunningRef.current) break;
+
+          await assetAudio.play(asset.id);
+          await assetAudio.waitForPlaybackEnd(asset.id);
+          if (!isPlayAllRunningRef.current) break;
         }
 
-        if (playlist.length === 0) {
-          console.error('❌ No audio URIs found for any assets');
-          isPlayAllRunningRef.current = false;
-          setIsPlayAllRunning(false);
-          return;
-        }
-
-        console.log(
-          `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
-        );
-
-        // STEP 2: Play each asset sequentially with direct linking
-        for (let i = 0; i < playlist.length; i++) {
-          // Check if cancelled
-          if (!isPlayAllRunningRef.current) {
-            console.log('⏸️ Play all cancelled');
-            setCurrentlyPlayingAssetId(null);
-            return;
-          }
-
-          const item = playlist[i]!;
-
-          // HIGHLIGHT THIS ASSET - direct link!
-          setCurrentlyPlayingAssetId(item.assetId);
-          console.log(
-            `▶️ [${i + 1}/${playlist.length}] Playing asset ${item.assetId.slice(0, 8)} (${item.uris.length} segments)`
-          );
-
-          // Play all URIs for this asset sequentially
-          for (const uri of item.uris) {
-            // Check if cancelled
-            if (!isPlayAllRunningRef.current) {
-              setCurrentlyPlayingAssetId(null);
-              return;
-            }
-
-            // Play this URI and wait for it to finish
-            await new Promise<void>((resolve) => {
-              // Create and play the sound
-              Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-                .then(({ sound }) => {
-                  // Store reference for immediate cancellation
-                  currentPlayAllSoundRef.current = sound;
-
-                  // Set up listener for when sound finishes
-                  sound.setOnPlaybackStatusUpdate((status) => {
-                    if (!status.isLoaded) return;
-
-                    if (status.didJustFinish) {
-                      currentPlayAllSoundRef.current = null;
-                      void sound.unloadAsync().then(() => {
-                        resolve();
-                      });
-                    }
-                  });
-                })
-                .catch((error) => {
-                  console.error('Failed to play audio:', error);
-                  currentPlayAllSoundRef.current = null;
-                  resolve(); // Continue to next even on error
-                });
-            });
-          }
-        }
-
-        // Done playing all
-        console.log('✅ Finished playing all assets');
-        setCurrentlyPlayingAssetId(null);
+        // Done
         isPlayAllRunningRef.current = false;
         setIsPlayAllRunning(false);
-        currentPlayAllSoundRef.current = null;
+        setPlayAllActiveAssetId(null);
       } catch (error) {
-        console.error('❌ Erro ao tocar todos os assets:', error);
-        setCurrentlyPlayingAssetId(null);
+        console.error('Failed to play all assets:', error);
         isPlayAllRunningRef.current = false;
         setIsPlayAllRunning(false);
-        currentPlayAllSoundRef.current = null;
+        setPlayAllActiveAssetId(null);
       }
     },
-    [assets, getAssetAudioUris, selectedAssetIds]
+    [activateAssetForPlayAll, assets, assetAudio, selectedAssetIds, stopPlayAll]
   );
 
   // Handle going to recording - stops any playing audio first
   const handleGoToRecording = React.useCallback(async () => {
-    // Stop PlayAll if running
-    if (isPlayAllRunningRef.current) {
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-
-      // Stop current sound immediately
-      if (currentPlayAllSoundRef.current) {
-        try {
-          await currentPlayAllSoundRef.current.stopAsync();
-          await currentPlayAllSoundRef.current.unloadAsync();
-          currentPlayAllSoundRef.current = null;
-        } catch (error) {
-          console.error('Error stopping sound:', error);
-        }
-      }
-
-      setCurrentlyPlayingAssetId(null);
+    if (!currentQuestId) {
+      console.error('Cannot start recording without quest ID');
+      return;
     }
 
-    // Stop any other audio from audioContext
-    if (audioContext.isPlaying) {
-      await audioContext.stopCurrentSound();
+    // Stop PlayAll if running
+    if (isPlayAllRunningRef.current) {
+      await stopPlayAll();
+    }
+
+    // Stop any playing audio
+    else if (assetAudio.isPlaying) {
+      await assetAudio.stop();
     }
 
     // Navigate to recording view
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-    
+    const recordingSessionId =
+      await createQuestRecordingSession(currentQuestId);
+
     navigate({
       view: 'recording',
       questId: currentQuestId,
       projectId: currentProjectId,
       recordingData: {
+        recordingSession: recordingSessionId,
         bookChapterLabel: bookChapterLabel,
         bookChapterLabelFull: selectedQuest?.name,
         initialOrderIndex: recordingOrderIndex,
@@ -2993,7 +2742,8 @@ export default function BibleAssetsView() {
       }
     });
   }, [
-    audioContext,
+    assetAudio,
+    stopPlayAll,
     navigate,
     currentQuestId,
     currentProjectId,
@@ -3007,173 +2757,45 @@ export default function BibleAssetsView() {
     limitVerse
   ]);
 
+  // Ref to hold latest assetAudio for cleanup (avoids stale closure)
+  const assetAudioRef = React.useRef(assetAudio);
+  React.useEffect(() => {
+    assetAudioRef.current = assetAudio;
+  }, [assetAudio]);
+
   // Cleanup effect: Stop audio when component unmounts
   React.useEffect(() => {
     return () => {
-      // Stop audio playback if playing (access via ref for latest state)
-      if (audioContextCurrentRef.current.isPlaying) {
-        void audioContextCurrentRef.current.stopCurrentSound();
-      }
-
-      // Stop PlayAll if running
-      if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
-        }
-      }
-
-      // Reset state
-      setCurrentlyPlayingAssetId(null);
+      isPlayAllRunningRef.current = false;
+      void assetAudioRef.current.stop();
       setIsPlayAllRunning(false);
-
-      console.log('🧹 Cleaned up BibleAssetsView on unmount');
+      setPlayAllActiveAssetId(null);
     };
   }, []);
-
-  // OLD handlePlayAllAssets function - commented out (replaced by handlePlayAll)
-  // const handlePlayAllAssets = React.useCallback(async () => {
-  //   try {
-  //     const isPlayingAll =
-  //       audioContext.isPlaying &&
-  //       audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
-  //
-  //     if (isPlayingAll) {
-  //       await audioContext.stopCurrentSound();
-  //       setCurrentlyPlayingAssetId(null);
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //     } else {
-  //       if (assets.length === 0) {
-  //         console.warn('⚠️ No assets to play');
-  //         return;
-  //       }
-  //
-  //       // Collect all URIs from all assets in order, tracking which asset each URI belongs to
-  //       const allUris: string[] = [];
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //
-  //       // Build time ranges for each asset
-  //       let cumulativeTime = 0;
-  //       for (const asset of assets) {
-  //         const uris = await getAssetAudioUris(asset.id);
-  //         if (uris.length > 0) {
-  //           const assetStartTime = cumulativeTime;
-  //           assetOrderRef.current.push(asset.id);
-  //
-  //           // Add all URIs for this asset
-  //           for (const uri of uris) {
-  //             allUris.push(uri);
-  //             uriOrderRef.current.push(uri);
-  //             assetUriMapRef.current.set(uri, asset.id);
-  //
-  //             // Load duration for this URI
-  //             try {
-  //               const { sound } = await Audio.Sound.createAsync({ uri });
-  //               const status = await sound.getStatusAsync();
-  //               await sound.unloadAsync();
-  //               if (status.isLoaded) {
-  //                 const duration = status.durationMillis ?? 0;
-  //                 segmentDurationsRef.current.push(duration);
-  //                 cumulativeTime += duration;
-  //               } else {
-  //                 segmentDurationsRef.current.push(0);
-  //               }
-  //             } catch {
-  //               segmentDurationsRef.current.push(0);
-  //             }
-  //           }
-  //
-  //           // Store the time range for this asset
-  //           assetTimeRangesRef.current.push({
-  //             assetId: asset.id,
-  //             startMs: assetStartTime,
-  //             endMs: cumulativeTime
-  //           });
-  //
-  //           console.log(
-  //             `📊 Asset ${asset.id.slice(0, 8)}: ${Math.round(assetStartTime)}ms - ${Math.round(cumulativeTime)}ms (${uris.length} segments)`
-  //           );
-  //         }
-  //       }
-  //
-  //       if (allUris.length === 0) {
-  //         console.error('❌ No audio URIs found for any assets');
-  //         return;
-  //       }
-  //
-  //       console.log(
-  //         `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets (total: ${Math.round(cumulativeTime)}ms)`
-  //       );
-  //
-  //       // Start playing (AudioContext will handle sequence playback)
-  //       await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Failed to play all assets:', error);
-  //     setCurrentlyPlayingAssetId(null);
-  //     assetUriMapRef.current.clear();
-  //     assetOrderRef.current = [];
-  //     uriOrderRef.current = [];
-  //     segmentDurationsRef.current = [];
-  //   }
-  // }, [audioContext, getAssetAudioUris, assets]);
 
   // Handle play individual asset
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
       try {
+        // During Play All, asset tap acts as "stop play all".
+        if (isPlayAllRunningRef.current) {
+          await stopPlayAll();
+          return;
+        }
+
         const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+          assetAudio.isPlaying && assetAudio.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
-          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
-          setCurrentlyPlayingAssetId(null);
+          await assetAudio.stop();
         } else {
-          console.log('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
-
-          if (uris.length === 0) {
-            console.warn('⚠️ No audio URIs found for asset:', assetId);
-            return;
-          }
-
-          // Set the asset as currently playing immediately for visual feedback
-          setCurrentlyPlayingAssetId(assetId);
-
-          if (uris.length === 1 && uris[0]) {
-            console.log('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            console.log(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
-          }
+          await assetAudio.play(assetId);
         }
       } catch (error) {
-        console.error('❌ Failed to play audio:', error);
-        setCurrentlyPlayingAssetId(null);
+        console.error('Failed to play audio:', error);
       }
     },
-    [audioContext, getAssetAudioUris]
+    [assetAudio, stopPlayAll]
   );
 
   // Update ref so renderItem can use it
@@ -3250,10 +2872,12 @@ export default function BibleAssetsView() {
 
         console.log('✅ [Publish Quest] All queries invalidated');
 
-        RNAlert.alert(t('success'), result.message, [{ text: t('ok') }]);
+        RNAlert.alert(t('success'), result.message, [
+          { text: t('ok'), isPreferred: true }
+        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
-          { text: t('ok') }
+          { text: t('ok'), isPreferred: true }
         ]);
       }
     },
@@ -3262,7 +2886,7 @@ export default function BibleAssetsView() {
       RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
-        [{ text: t('ok') }]
+        [{ text: t('ok'), isPreferred: true }]
       );
     }
   });
@@ -3389,17 +3013,24 @@ export default function BibleAssetsView() {
           sequentialInGroup++;
 
           // Determine the metadata based on the current separator
+          const currentMetadata = getAssetMetadata(item.content.metadata);
+          const baseMetadata = currentMetadata ?? {};
           const newMetadata: AssetMetadata | null = currentSeparator?.from
             ? {
+                ...baseMetadata,
                 verse: {
                   from: currentSeparator.from,
                   to: currentSeparator.to ?? currentSeparator.from
                 }
               }
-            : null;
+            : baseMetadata.recordingSessionId
+              ? {
+                  ...baseMetadata,
+                  verse: undefined
+                }
+              : null;
 
           // Check if metadata or order_index has changed
-          const currentMetadata = item.content.metadata;
           const currentOrderIndex = item.content.order_index;
 
           const metadataChanged =
@@ -3437,7 +3068,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [queryClient, refetch]
+    [queryClient, refetch, getAssetMetadata]
   );
 
   if (!currentQuestId) {
@@ -3448,7 +3079,6 @@ export default function BibleAssetsView() {
     );
   }
 
-
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
 
@@ -3457,7 +3087,7 @@ export default function BibleAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <View className="flex flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
         <View className="flex flex-row items-center gap-2">
@@ -3534,25 +3164,6 @@ export default function BibleAssetsView() {
 
         {/* Right side: Publish/Export buttons (isolated) */}
         <View className="flex flex-row items-center gap-2">
-          {/* OLD handlePlayAllAssets button - commented out (replaced by Library icon button) */}
-          {/* {assets.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={handlePlayAllAssets}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={
-                  audioContext.isPlaying &&
-                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                    ? PauseIcon
-                    : PlayIcon
-                }
-                size={20}
-              />
-            </Button>
-          )} */}
           {isPublished ? (
             // Show cloud badge and export button if user is creator, member, or owner
             canSeePublishedBadge ? (
@@ -3633,6 +3244,7 @@ export default function BibleAssetsView() {
                         {
                           text: t('publish'),
                           style: 'default',
+                          isPreferred: true,
                           onPress: () => {
                             publishQuest();
                           }
@@ -3710,6 +3322,7 @@ export default function BibleAssetsView() {
         )
       ) : (
         <ReorderableList
+          ref={listRef}
           data={listItems}
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
@@ -3773,7 +3386,7 @@ export default function BibleAssetsView() {
                   ) : null}
                 </>
               ) : null}
-              {!isPublished && (
+              {!isPublished && currentUser && (
                 <SpeedDialItem
                   icon={BrushCleaning}
                   variant="outline"
@@ -3804,24 +3417,35 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
-        <View
-          style={{
-            paddingBottom: insets.bottom,
-            paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
-          }}
-          className="px-2"
-        >
-          {isSelectionMode ? (
-            <BibleSelectionControls
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="absolute bottom-0 left-0 right-0 z-40"
+          >
+            <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
               onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
+              allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
+              showMerge={enableMerge}
             />
-          ) : (
+          </View>
+        ) : (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+            }}
+            className="px-2"
+          >
             <Pressable
               //variant="destructive"
               // size="lg"
@@ -3835,18 +3459,17 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name ? `${(t('after')+" "+selectedForRecording.name).slice(0, 20)}` : `${t('noLabelSelected')}`}
-                  {/* {selectedForRecording?.verseName
-                  ? `${t('doRecord')} ${bookChapterLabelRef.current}:${selectedForRecording.verseName}`
-                  : t('doRecord')} */}
+                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    : selectedForRecording?.name
+                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
+                      : `${t('noLabelSelected')}`}
                 </Text>
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>
-          )}
-        </View>
-      )}
+          </View>
+        ))}
+      {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
