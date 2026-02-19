@@ -5,9 +5,10 @@ import { Text } from '@/components/ui/text';
 import WaveformVisualizer from '@/components/WaveformVisualizer';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { AssetAudio, AssetAudioSegment } from '@/services/assetAudio';
+import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
 import { useThemeColor, useThemeToken } from '@/utils/styleUtils';
-import { Audio } from 'expo-av';
 import { Sparkles } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -24,8 +25,7 @@ interface TrimSegmentModalProps {
   isOpen: boolean;
   segmentName?: string | null;
   waveformData?: number[];
-  audioUris?: string[];
-  audioDurations?: number[];
+  assetAudio?: AssetAudio | null;
   onClose: () => void;
   onConfirm?: () => void;
 }
@@ -34,13 +34,15 @@ export function TrimSegmentModal({
   isOpen,
   segmentName,
   waveformData,
-  audioUris,
-  audioDurations,
+  assetAudio,
   onClose,
   onConfirm
 }: TrimSegmentModalProps) {
   const { t } = useLocalization();
   const { width } = useWindowDimensions();
+  const audio = useAssetAudio();
+  const audioRef = React.useRef(audio);
+  audioRef.current = audio;
   const barCount = 128;
   const waveformHeight = 64;
   const minSelectionWidthPx = 32;
@@ -54,25 +56,28 @@ export function TrimSegmentModal({
   const rightDragStartRef = React.useRef(selectionEnd);
   const activeHandleRef = React.useRef<'start' | 'end'>('start');
 
-  // Audio playback state
-  const soundRef = React.useRef<Audio.Sound | null>(null);
-  const playbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const hasUserInteractedRef = React.useRef(false);
+  const isOpenRef = React.useRef(isOpen);
+  isOpenRef.current = isOpen;
   const trimPlayPreview = useLocalStore((state) => state.trimPlayPreview);
   const setTrimPlayPreview = useLocalStore(
     (state) => state.setTrimPlayPreview
   );
 
   const clipDurations = React.useMemo(
-    () => audioDurations ?? [],
-    [audioDurations]
+    () => assetAudio?.segments.map((s) => s.durationMs) ?? [],
+    [assetAudio]
   );
   const totalDuration = React.useMemo(
     () => clipDurations.reduce((sum, d) => sum + d, 0),
     [clipDurations]
   );
-  const hasAudioSequence = (audioUris?.length ?? 0) > 0 && totalDuration > 0;
+  const audioUris = React.useMemo(
+    () => assetAudio?.segments.map((s) => s.uri) ?? [],
+    [assetAudio]
+  );
+  const hasAudioSequence = audioUris.length > 0 && totalDuration > 0;
 
   const primaryColor = useThemeColor('primary');
   const primaryToken = useThemeToken('primary');
@@ -214,13 +219,11 @@ export function TrimSegmentModal({
 
   React.useEffect(() => {
     if (!isOpen) {
-      // Reset interaction flag when modal closes
       hasUserInteractedRef.current = false;
       return;
     }
     const nextStart = trimBounds.minStartFraction;
     const nextEnd = trimBounds.maxEndFraction;
-    // Reset trim points when modal opens (but don't trigger playback)
     setSelectionStart(nextStart);
     setSelectionEnd(nextEnd > nextStart ? nextEnd : 1);
     hasUserInteractedRef.current = false;
@@ -234,125 +237,65 @@ export function TrimSegmentModal({
     selectionEndRef.current = selectionEnd;
   }, [selectionEnd]);
 
-  // Stop any currently playing sound and clear scheduled stop timer
-  const stopCurrentPlayback = React.useCallback(async () => {
-    if (playbackTimerRef.current) {
-      clearTimeout(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-    if (soundRef.current) {
-      try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-      } catch {
-        // Ignore cleanup errors
-      }
-      soundRef.current = null;
-    }
-  }, []);
+  // Build an AssetAudio with current trim points from selection handles,
+  // then delegate to useAssetAudio().play() which handles seek, endpoint
+  // enforcement, and multi-clip sequencing via AudioContext.
+  const buildTrimmedAssetAudio = React.useCallback((): AssetAudio | null => {
+    if (!assetAudio || totalDuration <= 0) return null;
 
-  // Play audio segment between trim points (debounced)
-  const playSegment = React.useCallback(async () => {
-    if (!hasAudioSequence || !audioUris || clipDurations.length === 0) return;
+    const startTimeMs = selectionStart * totalDuration;
+    const endTimeMs = selectionEnd * totalDuration;
 
-    // Stop any currently playing sound
-    await stopCurrentPlayback();
+    let acc = 0;
+    const trimmedSegments: AssetAudioSegment[] = [];
 
-    try {
-      // Calculate start and end times in milliseconds
-      const startTime = selectionStart * totalDuration;
-      const endTime = selectionEnd * totalDuration;
-      const segmentDuration = endTime - startTime;
+    for (const seg of assetAudio.segments) {
+      const segStart = acc;
+      acc += seg.durationMs;
+      const segEnd = acc;
 
-      if (segmentDuration <= 0) return;
+      if (segEnd <= startTimeMs || segStart >= endTimeMs) continue;
 
-      const findClipIndex = (timeMs: number) => {
-        let acc = 0;
-        for (let i = 0; i < clipDurations.length; i++) {
-          const next = acc + (clipDurations[i] ?? 0);
-          if (timeMs < next) {
-            return { index: i, offset: timeMs - acc };
-          }
-          acc = next;
+      trimmedSegments.push({
+        ...seg,
+        trim: {
+          startMs: Math.max(0, startTimeMs - segStart),
+          endMs: Math.min(seg.durationMs, endTimeMs - segStart)
         }
-        return {
-          index: Math.max(0, clipDurations.length - 1),
-          offset: clipDurations[clipDurations.length - 1] ?? 0
-        };
-      };
-
-      const { index: startIdx, offset: startOffset } = findClipIndex(startTime);
-      const { index: endIdx, offset: endOffset } = findClipIndex(endTime);
-
-      for (let i = startIdx; i <= endIdx; i++) {
-        const uri = audioUris[i];
-        if (!uri) continue;
-        const clipStart = i === startIdx ? startOffset : 0;
-        const clipEnd =
-          i === endIdx ? endOffset : (clipDurations[i] ?? 0);
-        const clipPlayDuration = clipEnd - clipStart;
-
-        if (clipPlayDuration <= 0) continue;
-
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: false, progressUpdateIntervalMillis: 50 }
-        );
-        soundRef.current = sound;
-
-        // Seek with tight tolerance for more accurate start position on AAC
-        await sound.setPositionAsync(Math.round(clipStart), {
-          toleranceMillisBefore: 0,
-          toleranceMillisAfter: 0
-        });
-
-        await new Promise<void>((resolve) => {
-          let resolved = false;
-          const stopAndResolve = () => {
-            if (resolved) return;
-            resolved = true;
-            if (playbackTimerRef.current) {
-              clearTimeout(playbackTimerRef.current);
-              playbackTimerRef.current = null;
-            }
-            void sound.stopAsync().then(() => {
-              void sound.unloadAsync();
-              if (soundRef.current === sound) {
-                soundRef.current = null;
-              }
-              resolve();
-            });
-          };
-
-          // Use a timer to stop at the expected end time
-          playbackTimerRef.current = setTimeout(stopAndResolve, clipPlayDuration);
-
-          // Safety net: also monitor position in case the timer drifts
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (!status.isLoaded) return;
-            const currentPosition = status.positionMillis || 0;
-            if (currentPosition >= clipEnd - 10 || status.didJustFinish) {
-              stopAndResolve();
-            }
-          });
-
-          void sound.playAsync();
-        });
-      }
-    } catch (error) {
-      console.error('Failed to play audio segment:', error);
-      await stopCurrentPlayback();
+      });
     }
-  }, [audioUris, clipDurations, hasAudioSequence, selectionStart, selectionEnd, totalDuration, stopCurrentPlayback]);
 
-  // Debounced playback trigger (300ms delay)
-  const debouncedPlaySegment = useDebouncedCallback(
-    playSegment,
-    [audioUris, clipDurations, selectionStart, selectionEnd, totalDuration],
+    const totalDurationMs = trimmedSegments.reduce(
+      (sum, seg) =>
+        sum + (seg.trim ? seg.trim.endMs - seg.trim.startMs : seg.durationMs),
+      0
+    );
+
+    return { ...assetAudio, segments: trimmedSegments, totalDurationMs };
+  }, [assetAudio, selectionStart, selectionEnd, totalDuration]);
+
+  const playPreview = React.useCallback(async () => {
+    if (!isOpenRef.current) return;
+    const trimmed = buildTrimmedAssetAudio();
+    if (!trimmed) return;
+    await audioRef.current.play(trimmed);
+  }, [buildTrimmedAssetAudio]);
+
+  const stopPreview = React.useCallback(async () => {
+    await audioRef.current.stop();
+  }, []);
+  const stopPreviewOnInteraction = React.useCallback(() => {
+    if (!trimPlayPreview) return;
+    void stopPreview();
+  }, [trimPlayPreview, stopPreview]);
+
+  const debouncedPlayPreview = useDebouncedCallback(
+    playPreview,
+    [assetAudio, selectionStart, selectionEnd, totalDuration],
     300
   );
 
-  // Trigger playback when trim points change (debounced) - but only when not dragging and user has interacted
+  // Trigger playback when trim points change (debounced)
   React.useEffect(() => {
     if (
       !isOpen ||
@@ -363,7 +306,7 @@ export function TrimSegmentModal({
     ) {
       return;
     }
-    debouncedPlaySegment();
+    debouncedPlayPreview();
   }, [
     isOpen,
     hasAudioSequence,
@@ -371,18 +314,18 @@ export function TrimSegmentModal({
     selectionStart,
     selectionEnd,
     isDragging,
-    debouncedPlaySegment
+    debouncedPlayPreview
   ]);
 
-  // Cleanup: stop and unload sound when modal closes or component unmounts
+  // Stop playback when modal closes or component unmounts
   React.useEffect(() => {
     if (!isOpen) {
-      void stopCurrentPlayback();
+      void stopPreview();
     }
     return () => {
-      void stopCurrentPlayback();
+      void stopPreview();
     };
-  }, [isOpen, stopCurrentPlayback]);
+  }, [isOpen, stopPreview]);
 
   const clamp = React.useCallback(
     (value: number, min: number, max: number) =>
@@ -411,9 +354,8 @@ export function TrimSegmentModal({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         setIsDragging(true);
-        hasUserInteractedRef.current = true; // Mark that user has interacted
-        // Stop any currently playing audio when drag starts
-        void stopCurrentPlayback();
+        hasUserInteractedRef.current = true;
+        stopPreviewOnInteraction();
         leftDragStartRef.current = selectionStartRef.current;
       },
       onPanResponderMove: (_, gesture) => {
@@ -442,9 +384,8 @@ export function TrimSegmentModal({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         setIsDragging(true);
-        hasUserInteractedRef.current = true; // Mark that user has interacted
-        // Stop any currently playing audio when drag starts
-        void stopCurrentPlayback();
+        hasUserInteractedRef.current = true;
+        stopPreviewOnInteraction();
         rightDragStartRef.current = selectionEndRef.current;
       },
       onPanResponderMove: (_, gesture) => {
@@ -470,7 +411,13 @@ export function TrimSegmentModal({
 
     setLeftPanHandlers(leftResponder.panHandlers);
     setRightPanHandlers(rightResponder.panHandlers);
-  }, [clamp, minSelectionFraction, trimBounds, waveformWidth, stopCurrentPlayback]);
+  }, [
+    clamp,
+    minSelectionFraction,
+    trimBounds,
+    waveformWidth,
+    stopPreviewOnInteraction
+  ]);
 
   const selectionStartPx = waveformWidth * selectionStart;
   const selectionEndPx = waveformWidth * selectionEnd;
@@ -497,7 +444,7 @@ export function TrimSegmentModal({
         if (waveformWidth <= 0) return;
         setIsDragging(true);
         hasUserInteractedRef.current = true;
-        void stopCurrentPlayback();
+        stopPreviewOnInteraction();
 
         const locationX = event.nativeEvent.locationX;
         const clampedX = clamp(locationX, 0, waveformWidth);
@@ -572,17 +519,22 @@ export function TrimSegmentModal({
       }
     });
     setWaveformPanHandlers(responder.panHandlers);
-  }, [clamp, minSelectionFraction, trimBounds, waveformWidth, stopCurrentPlayback]);
+  }, [
+    clamp,
+    minSelectionFraction,
+    trimBounds,
+    waveformWidth,
+    stopPreviewOnInteraction
+  ]);
 
   // Auto-trim: detect silence thresholds and set trim points automatically
   const handleAutoTrim = React.useCallback(() => {
     if (!resampledWaveform.length || totalDuration <= 0) return;
 
-    const SILENCE_THRESHOLD = 0.12; // Reasonable threshold for silence (12% of max amplitude)
-    const BUFFER_MS = 50; // Buffer before/after detected audio (50ms)
+    const SILENCE_THRESHOLD = 0.12;
+    const BUFFER_MS = 50;
     const bufferFraction = BUFFER_MS / totalDuration;
 
-    // Find first non-silent bar from left
     let leftBarIndex = 0;
     for (let i = 0; i < resampledWaveform.length; i++) {
       if ((resampledWaveform[i] ?? 0) > SILENCE_THRESHOLD) {
@@ -591,7 +543,6 @@ export function TrimSegmentModal({
       }
     }
 
-    // Find last non-silent bar from right
     let rightBarIndex = resampledWaveform.length - 1;
     for (let i = resampledWaveform.length - 1; i >= 0; i--) {
       if ((resampledWaveform[i] ?? 0) > SILENCE_THRESHOLD) {
@@ -600,11 +551,9 @@ export function TrimSegmentModal({
       }
     }
 
-    // Convert bar indices to fractions (0-1)
     const leftFraction = leftBarIndex / (resampledWaveform.length - 1);
     const rightFraction = rightBarIndex / (resampledWaveform.length - 1);
 
-    // Apply buffer (subtract from left, add to right)
     const newStart = Math.min(
       trimBounds.maxStartFraction,
       Math.max(trimBounds.minStartFraction, leftFraction - bufferFraction)
@@ -614,9 +563,7 @@ export function TrimSegmentModal({
       Math.min(trimBounds.maxEndFraction, rightFraction + bufferFraction)
     );
 
-    // Ensure minimum selection width
     if (newEnd - newStart < minSelectionFraction) {
-      // If selection is too small, center it
       const center = (newStart + newEnd) / 2;
       const halfWidth = minSelectionFraction / 2;
       setSelectionStart(Math.max(0, center - halfWidth));
@@ -626,7 +573,6 @@ export function TrimSegmentModal({
       setSelectionEnd(newEnd);
     }
 
-    // Mark that user has interacted (so playback will trigger)
     hasUserInteractedRef.current = true;
   }, [resampledWaveform, totalDuration, minSelectionFraction, trimBounds]);
 
@@ -651,7 +597,7 @@ export function TrimSegmentModal({
           {segmentName ? (
             <Text className="mt-2 text-sm text-muted-foreground">
               {segmentName}
-              {audioUris && audioUris.length > 1
+              {audioUris.length > 1
                 ? ` (${t('mergedAudio')})`
                 : ''}
             </Text>

@@ -309,6 +309,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   );
 });
 
+const ListItemSeparator = () => <View className="h-1" />;
+
 // ============================================================================
 // HELPER FUNCTIONS (moved outside component for better performance)
 // ============================================================================
@@ -953,26 +955,27 @@ export default function BibleAssetsView() {
     assetsRef.current = assets;
   }, [assets]);
 
-  // Handler for selecting/deselecting an asset for recording insertion
-  // Optimized with ref to avoid recreation on every asset change
-  // Handle single selection for published quests (for playAll start point)
+  // Ref to avoid recreating handleToggleSelect on every selection change.
+  // Without this, every toggle creates a new Set → new handleToggleSelect →
+  // new renderItem → DraggableAssetItem's React.memo sees new onToggleSelect →
+  // ALL items re-render instead of just the toggled one.
+  const selectedAssetIdsRef = React.useRef(selectedAssetIds);
+  selectedAssetIdsRef.current = selectedAssetIds;
+
   const handleToggleSelect = React.useCallback(
     (assetId: string) => {
       if (isPublished) {
-        // Single selection: if already selected, deselect. Otherwise, select only this one.
-        if (selectedAssetIds.has(assetId)) {
+        if (selectedAssetIdsRef.current.has(assetId)) {
           cancelSelection();
         } else {
-          // Clear all and select only this one
           cancelSelection();
           toggleSelect(assetId);
         }
       } else {
-        // Multi-selection for batch operations when not published
         toggleSelect(assetId);
       }
     },
-    [isPublished, selectedAssetIds, cancelSelection, toggleSelect]
+    [isPublished, cancelSelection, toggleSelect]
   );
 
   const handleSelectForRecording = React.useCallback(
@@ -2808,13 +2811,11 @@ export default function BibleAssetsView() {
     handleCloseTrimModal,
     trimTargetAsset,
     trimWaveformData,
-    trimAudioUris,
-    trimAudioDurations,
+    trimAssetAudio,
     canTrimSelected
   } = useTrimModal({
     selectedAssetIds,
-    assets,
-    getAssetAudioUris
+    assets
   });
 
   // Handle publish button press with useMutation
@@ -3331,7 +3332,8 @@ export default function BibleAssetsView() {
           autoscrollThreshold={0.15}
           autoscrollSpeedScale={1.5}
           onScroll={scrollHandler}
-          ItemSeparatorComponent={() => <View className="h-1" />}
+          ItemSeparatorComponent={ListItemSeparator}
+          windowSize={10}
           ListFooterComponent={
             <>
               {/* Loading indicator for infinite scroll */}
@@ -3582,14 +3584,15 @@ export default function BibleAssetsView() {
       )}
 
       {/* Trim Segment Modal */}
-      <TrimSegmentModal
-        isOpen={isTrimModalOpen}
-        segmentName={trimTargetAsset?.name ?? null}
-        waveformData={trimWaveformData}
-        audioUris={trimAudioUris}
-        audioDurations={trimAudioDurations}
-        onClose={handleCloseTrimModal}
-      />
+      {isTrimModalOpen && (
+        <TrimSegmentModal
+          isOpen={isTrimModalOpen}
+          segmentName={trimTargetAsset?.name ?? null}
+          waveformData={trimWaveformData}
+          assetAudio={trimAssetAudio}
+          onClose={handleCloseTrimModal}
+        />
+      )}
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && showPrivateAccessModal && (

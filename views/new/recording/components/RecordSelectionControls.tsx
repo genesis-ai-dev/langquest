@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
+import { Bookmark, ListChecks, ListX, Merge, Scissors, Trash2, X } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -21,6 +21,7 @@ interface RecordSelectionControlsProps {
   onCancel: () => void;
   onMerge: () => void;
   onDelete: () => void;
+  onTrim?: () => void;
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
@@ -35,6 +36,7 @@ export const RecordSelectionControls = React.memo(
     onCancel,
     onMerge,
     onDelete,
+    onTrim,
     allowSelectAll = false,
     allSelected = false,
     onSelectAll,
@@ -43,6 +45,8 @@ export const RecordSelectionControls = React.memo(
     showMerge = true
   }: RecordSelectionControlsProps) {
     const { t } = useLocalization();
+    const shouldShowTrim = selectedCount === 1 && !!onTrim;
+    const shouldShowMerge = selectedCount >= 2;
     return (
       <View className="mb-3 w-full flex-row items-center justify-between bg-card px-2 py-3">
         <Text
@@ -64,11 +68,22 @@ export const RecordSelectionControls = React.memo(
                 <Icon as={allSelected ? ListX : ListChecks} />
               </Button>
             )}
-            {showMerge && (
+            {shouldShowTrim ? (
               <Button
                 variant="default"
                 size="default"
-                disabled={selectedCount < 2}
+                onPress={onTrim}
+                className="p-1"
+              >
+                <View className="flex-row items-center px-0">
+                  <Icon as={Scissors} />
+                  <Text className="ml-2 text-xs">{t('trim')}</Text>
+                </View>
+              </Button>
+            ) : showMerge && shouldShowMerge ? (
+              <Button
+                variant="default"
+                size="default"
                 onPress={onMerge}
                 className="p-1"
               >
@@ -77,7 +92,7 @@ export const RecordSelectionControls = React.memo(
                   <Text className="ml-2 text-xs">{t('merge')}</Text>
                 </View>
               </Button>
-            )}
+            ) : null}
             <Button
               variant="destructive"
               disabled={selectedCount < 1}

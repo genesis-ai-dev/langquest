@@ -5,12 +5,14 @@
  *
  * Recording views already have waveform data captured during recording, so
  * the modal opens instantly.  BibleAssetsView does NOT have waveform data
- * up-front, so the hook falls back to reading the audio file and extracting
- * a real waveform on the fly.
+ * up-front, so the hook falls back to Asset audio (resolveAssetAudio +
+ * getAssetWaveform) to load URIs, durations, and waveform on the fly.
+ *
+ * Asset audio is imported dynamically when opening the modal to avoid
+ * loading it during initial app startup (can cause blank screen).
  */
 
-import { extractWaveformFromFile } from '@/utils/audioWaveform';
-import { Audio } from 'expo-av';
+import type { AssetAudio } from '@/services/assetAudio';
 import React from 'react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -29,16 +31,9 @@ interface UseTrimModalOptions {
   /**
    * Waveform data captured during recording (keyed by asset ID).
    * If provided, the hook will look here first before attempting to
-   * extract waveform data from the audio file.
+   * load waveform via Asset audio (getAssetWaveform).
    */
   assetWaveformData?: Map<string, number[]>;
-  /**
-   * Resolver that returns local audio URIs for a given asset ID.
-   * Required when the view does NOT have waveform data from recording
-   * (e.g. BibleAssetsView).  If omitted, the hook will only open the
-   * modal when waveform data already exists.
-   */
-  getAssetAudioUris?: (assetId: string) => Promise<string[]>;
 }
 
 interface UseTrimModalReturn {
@@ -52,10 +47,8 @@ interface UseTrimModalReturn {
   trimTargetAsset: AssetLike | null;
   /** Waveform amplitude data for the trim target (or undefined) */
   trimWaveformData: number[] | undefined;
-  /** Audio URIs for the trim target (sequence order) */
-  trimAudioUris: string[];
-  /** Per-clip audio durations in milliseconds (sequence order) */
-  trimAudioDurations: number[];
+  /** Resolved AssetAudio for the trim target (or null) */
+  trimAssetAudio: AssetAudio | null;
   /** Whether trim is available for the current selection */
   canTrimSelected: boolean;
   /**
@@ -70,8 +63,7 @@ interface UseTrimModalReturn {
 export function useTrimModal({
   selectedAssetIds,
   assets,
-  assetWaveformData: externalWaveformData,
-  getAssetAudioUris
+  assetWaveformData: externalWaveformData
 }: UseTrimModalOptions): UseTrimModalReturn {
   // Internal waveform cache (used when loading from file)
   const [internalWaveformData, setInternalWaveformData] = React.useState<
@@ -82,9 +74,8 @@ export function useTrimModal({
   const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
     string | null
   >(null);
-  const [trimAudioUris, setTrimAudioUris] = React.useState<string[]>([]);
-  const [trimAudioDurations, setTrimAudioDurations] = React.useState<number[]>(
-    []
+  const [trimAssetAudio, setTrimAssetAudio] = React.useState<AssetAudio | null>(
+    null
   );
 
   // Merge external (recording-time) data with internally-loaded data.
@@ -126,11 +117,11 @@ export function useTrimModal({
     // If we already have waveform data, trim is available
     if (mergedWaveformData.has(selectedId)) return true;
 
-    // If we can load waveform data (have a URI resolver) and asset is local
-    if (getAssetAudioUris && asset.source !== 'cloud') return true;
+    // If asset is local (not cloud), we can load via Asset audio
+    if (asset.source !== 'cloud') return true;
 
     return false;
-  }, [selectedAssetIds, assets, mergedWaveformData, getAssetAudioUris]);
+  }, [selectedAssetIds, assets, mergedWaveformData]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -147,97 +138,30 @@ export function useTrimModal({
       );
     }
 
-    // If we don't have a URI resolver, only allow trimming when waveform data exists
-    if (!getAssetAudioUris) {
-      if (mergedWaveformData.has(firstSelectedId)) {
-        setTrimTargetAssetId(firstSelectedId);
-        setTrimAudioUris([]);
-        setTrimAudioDurations([]);
-        setIsTrimModalOpen(true);
-      } else {
-        console.warn('No waveform data and no URI resolver – cannot open trim.');
-      }
+    const asset = assets.find((a) => a.id === firstSelectedId);
+    if (asset?.source === 'cloud') {
+      console.warn('Cannot trim cloud-only assets (no local audio).');
       return;
     }
 
-    const buildSequenceWaveform = async (
-      uris: string[],
-      durations: number[],
-      totalBars: number
-    ) => {
-      if (uris.length === 1) {
-        return await extractWaveformFromFile(uris[0]!, totalBars, {
-          normalize: false
-        });
-      }
-
-      const totalDuration = durations.reduce((sum, d) => sum + d, 0);
-      let remainingBars = totalBars;
-      let remainingWeight = totalDuration > 0 ? totalDuration : uris.length;
-
-      const merged: number[] = [];
-
-      for (let i = 0; i < uris.length; i++) {
-        const isLast = i === uris.length - 1;
-        const weight = totalDuration > 0 ? durations[i]! : 1;
-        let bars = isLast
-          ? remainingBars
-          : Math.max(1, Math.round((remainingBars * weight) / remainingWeight));
-
-        const clipsLeft = uris.length - i;
-        const maxBarsForThis = Math.max(1, remainingBars - (clipsLeft - 1));
-        bars = Math.min(bars, maxBarsForThis);
-
-        const clipWaveform = await extractWaveformFromFile(uris[i]!, bars, {
-          normalize: false
-        });
-        merged.push(...clipWaveform);
-
-        remainingBars -= bars;
-        remainingWeight -= weight;
-      }
-
-      return merged;
-    };
-
-    const loadDurations = async (uris: string[]) => {
-      const durations = await Promise.all(
-        uris.map(async (uri) => {
-          try {
-            const { sound } = await Audio.Sound.createAsync({ uri });
-            const status = await sound.getStatusAsync();
-            await sound.unloadAsync();
-            return status.isLoaded && status.durationMillis
-              ? status.durationMillis
-              : 0;
-          } catch {
-            return 0;
-          }
-        })
-      );
-      return durations;
-    };
-
-    // Async load → then open
     void (async () => {
       try {
-        const uris = await getAssetAudioUris(firstSelectedId);
-        const filteredUris = uris.filter((uri) => Boolean(uri));
+        const { resolveAssetAudio, getAssetWaveform } = await import(
+          '@/services/assetAudio'
+        );
 
-        if (filteredUris.length === 0) {
-          console.warn('No audio URIs found for asset:', firstSelectedId);
+        const resolved = await resolveAssetAudio(firstSelectedId);
+        if (!resolved || resolved.segments.length === 0) {
+          console.warn('No audio found for asset:', firstSelectedId);
           return;
         }
 
-        const durations = await loadDurations(filteredUris);
-        const shouldUseExistingWaveform =
-          filteredUris.length === 1 && mergedWaveformData.has(firstSelectedId);
-
-        let waveform: number[] | undefined = undefined;
-        if (shouldUseExistingWaveform) {
-          waveform = mergedWaveformData.get(firstSelectedId);
-        } else {
-          waveform = await buildSequenceWaveform(filteredUris, durations, 128);
+        // Use existing waveform from recording if available; otherwise load
+        if (!mergedWaveformData.has(firstSelectedId)) {
+          const waveform = await getAssetWaveform(firstSelectedId, {
+            ignoreTrim: true,
+            barCount: 128
+          });
           setInternalWaveformData((prev) => {
             const next = new Map(prev);
             next.set(firstSelectedId, waveform ?? []);
@@ -246,20 +170,18 @@ export function useTrimModal({
         }
 
         setTrimTargetAssetId(firstSelectedId);
-        setTrimAudioUris(filteredUris);
-        setTrimAudioDurations(durations);
+        setTrimAssetAudio(resolved);
         setIsTrimModalOpen(true);
       } catch (error) {
         console.error('Failed to load audio for trimming:', error);
       }
     })();
-  }, [selectedAssetIds, mergedWaveformData, getAssetAudioUris]);
+  }, [selectedAssetIds, mergedWaveformData, assets]);
 
   const handleCloseTrimModal = React.useCallback(() => {
     setIsTrimModalOpen(false);
     setTrimTargetAssetId(null);
-    setTrimAudioUris([]);
-    setTrimAudioDurations([]);
+    setTrimAssetAudio(null);
   }, []);
 
   // ── External setter (used by recording views after recording) ──────────
@@ -281,8 +203,7 @@ export function useTrimModal({
     handleCloseTrimModal,
     trimTargetAsset,
     trimWaveformData,
-    trimAudioUris,
-    trimAudioDurations,
+    trimAssetAudio,
     canTrimSelected,
     setWaveformData
   };
