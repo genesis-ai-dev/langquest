@@ -40,6 +40,16 @@ jobs:
       profile: preview
       platform: android
 
+  ios_get_build:
+    name: Check for existing ios build
+    needs: [fingerprint]
+    type: get-build
+    environment: preview
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: preview-simulator
+      platform: ios
+
   android_repack:
     name: Repack Android
     needs: [android_get_build]
@@ -61,6 +71,27 @@ jobs:
       platform: android
       profile: preview
 
+  ios_repack:
+    name: Repack iOS
+    needs: [ios_get_build]
+    if: ${{ needs.ios_get_build.outputs.build_id }}
+    type: repack
+    environment: preview
+    runs_on: macos-medium
+    params:
+      build_id: ${{ needs.ios_get_build.outputs.build_id }}
+
+  ios_build:
+    name: Build iOS
+    needs: [ios_get_build]
+    if: ${{ !needs.ios_get_build.outputs.build_id }}
+    type: build
+    environment: preview
+    runs_on: macos-medium
+    params:
+      platform: ios
+      profile: preview-simulator
+
   android_maestro:
     name: Run Android Maestro Tests
     after: [android_repack, android_build]
@@ -71,44 +102,19 @@ jobs:
     params:
       build_id: ${{ needs.android_repack.outputs.build_id || needs.android_build.outputs.build_id }}
       record_screen: true
+      device_identifier: 'pixel_6'
       android_system_image_package: 'system-images;android-31;default;x86_64'
-      flow_path: ['maestro/register.yaml', 'maestro/sign-in.yaml']
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']
 
-  # ios_get_build:
-  #   name: Check for existing ios build
-  #   needs: [fingerprint]
-  #   type: get-build
-  #   environment: preview
-  #   params:
-  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-  #     profile: preview-simulator
-
-  # ios_repack:
-  #   name: Repack iOS
-  #   needs: [ios_get_build]
-  #   if: ${{ needs.ios_get_build.outputs.build_id }}
-  #   type: repack
-  #   environment: preview
-  #   params:
-  #     build_id: ${{ needs.ios_get_build.outputs.build_id }}
-
-  # ios_build:
-  #   name: Build iOS
-  #   needs: [ios_get_build]
-  #   if: ${{ !needs.ios_get_build.outputs.build_id }}
-  #   type: build
-  #   environment: preview
-  #   params:
-  #     platform: ios
-  #     profile: preview-simulator
-
-  # ios_maestro:
-  #   name: Run iOS Maestro Tests
-  #   after: [ios_repack, ios_build]
-  #   type: maestro
-  #   environment: preview
-  #   image: latest
-  #   params:
-  #     build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
-  #     flow_path: ['maestro.yaml']
-  #     flow_path: ['maestro.yaml']
+  ios_maestro:
+    name: Run iOS Maestro Tests
+    after: [ios_repack, ios_build]
+    type: maestro
+    environment: preview
+    image: latest
+    runs_on: macos-medium
+    params:
+      record_screen: true
+      device_identifier: 'iPhone 16e'
+      build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
+      flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']

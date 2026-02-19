@@ -75,7 +75,11 @@ INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready",
 	('7a735df4-4f4e-4a03-b60e-eb7911152cf4', NULL, 'Nepali', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', NULL, 'Brazilian Portuguese', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', NULL, 'Tok Pisin', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', NULL, 'Indonesian', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', NULL, 'Indonesian', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', NULL, 'Hindi', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', NULL, 'Burmese', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', NULL, 'Thai', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', NULL, 'Mandarin', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -91,7 +95,11 @@ INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_langu
 	('a1a1a1a1-0006-4000-8000-000000000006', '7a735df4-4f4e-4a03-b60e-eb7911152cf4', '7a735df4-4f4e-4a03-b60e-eb7911152cf4', 'नेपाली', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0007-4000-8000-000000000007', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'Português Brasileiro', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0008-4000-8000-000000000008', 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'Tok Pisin', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('a1a1a1a1-0009-4000-8000-000000000009', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'Bahasa Indonesia', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('a1a1a1a1-0009-4000-8000-000000000009', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'Bahasa Indonesia', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0010-4000-8000-000000000010', 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'हिन्दी', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0011-4000-8000-000000000011', 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'မြန်မာ', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0012-4000-8000-000000000012', 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'ไทย', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0013-4000-8000-000000000013', 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', '普通话', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -107,7 +115,11 @@ INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", 
 	('b2b2b2b2-0006-4000-8000-000000000006', 'iso639-3', NULL, '7a735df4-4f4e-4a03-b60e-eb7911152cf4', 'npi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0007-4000-8000-000000000007', 'iso639-3', NULL, 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'por', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0008-4000-8000-000000000008', 'iso639-3', NULL, 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'tpi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('b2b2b2b2-0009-4000-8000-000000000009', 'iso639-3', NULL, 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'ind', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('b2b2b2b2-0009-4000-8000-000000000009', 'iso639-3', NULL, 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'ind', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0010-4000-8000-000000000010', 'iso639-3', NULL, 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'hin', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0011-4000-8000-000000000011', 'iso639-3', NULL, 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'mya', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0012-4000-8000-000000000012', 'iso639-3', NULL, 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'tha', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0013-4000-8000-000000000013', 'iso639-3', NULL, 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', 'cmn', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --

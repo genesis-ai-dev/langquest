@@ -201,14 +201,17 @@ function RecordAssetCardInternal({
   const progressBarStyle = useAnimatedStyle(() => {
     'worklet';
     const progress = animatedProgress.value;
-    const width = interpolate(
+    const widthPercent = interpolate(
       progress,
       [0, 95, 100],
       [0, 97, 100],
       Extrapolation.CLAMP
     );
+    const scaleX = widthPercent / 100;
     return {
-      width: `${width}%`
+      width: '100%',
+      transform: [{ scaleX }],
+      transformOrigin: 'left center'
     };
   });
 

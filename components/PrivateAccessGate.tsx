@@ -325,6 +325,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       {
         text: t('confirm'),
         style: 'destructive',
+        isPreferred: true,
         onPress: () => {
           void (async () => {
             setIsSubmitting(true);

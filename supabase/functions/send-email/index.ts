@@ -23,7 +23,11 @@ const signupEmailSubjects = {
   'pt-BR': 'Confirme sua conta LangQuest',
   'id-ID': 'Konfirmasi Akun LangQuest Anda',
   'tpi-PG': 'Strongim LangQuest Akaun bilong yu',
-  ne: 'तपाईंको LangQuest खाता पुष्टि गर्नुहोस्'
+  ne: 'तपाईंको LangQuest खाता पुष्टि गर्नुहोस्',
+  hi: 'अपना LangQuest खाता पुष्टि करें',
+  my: 'သင်၏ LangQuest အကောင့်ကို အတည်ပြုပါ',
+  th: 'ยืนยันบัญชี LangQuest ของคุณ',
+  'zh-CN': '确认您的 LangQuest 账户'
 };
 // Email subject translations
 const emailSubjects = {
@@ -36,7 +40,11 @@ const emailSubjects = {
     'pt-BR': 'Redefina sua senha do LangQuest',
     'id-ID': 'Atur Ulang Kata Sandi LangQuest Anda',
     'tpi-PG': 'Resetim LangQuest Password bilong yu',
-    ne: 'तपाईंको LangQuest पासवर्ड रिसेट गर्नुहोस्'
+    ne: 'तपाईंको LangQuest पासवर्ड रिसेट गर्नुहोस्',
+    hi: 'अपना LangQuest पासवर्ड रीसेट करें',
+    my: 'သင်၏ LangQuest စကားဝှက်ကို ပြန်လည်သတ်မှတ်ပါ',
+    th: 'รีเซ็ตรหัสผ่าน LangQuest ของคุณ',
+    'zh-CN': '重置您的 LangQuest 密码'
   },
   invite: {
     en: "You've been invited to join a project on LangQuest",
@@ -45,7 +53,11 @@ const emailSubjects = {
     'pt-BR': 'Você foi convidado para participar de um projeto no LangQuest',
     'id-ID': 'Anda telah diundang untuk bergabung dalam proyek di LangQuest',
     'tpi-PG': 'Yu telah strongim langquest bilong yu',
-    ne: 'तपाईंलाई LangQuest मा एउटा प्रोजेक्टमा सामेल हुन आमन्त्रित गरिएको छ'
+    ne: 'तपाईंलाई LangQuest मा एउटा प्रोजेक्टमा सामेल हुन आमन्त्रित गरिएको छ',
+    hi: 'आपको LangQuest पर एक प्रोजेक्ट में शामिल होने के लिए आमंत्रित किया गया है',
+    my: 'သင့်အား LangQuest တွင် စီမံကိန်းတစ်ခုတွင် ပါဝင်ရန် ဖိတ်ခေါ်ထားပါသည်',
+    th: 'คุณได้รับเชิญให้เข้าร่วมโครงการใน LangQuest',
+    'zh-CN': '您已被邀请加入 LangQuest 上的项目'
   }
 };
 const emailTypeEndpoint = {
@@ -72,7 +84,14 @@ function mapLanguoidNameToLocale(
     'tok pisin': 'tpi-PG',
     'standard indonesian': 'id-ID',
     indonesian: 'id-ID', // Also handle just "Indonesian"
-    nepali: 'ne'
+    nepali: 'ne',
+    hindi: 'hi',
+    burmese: 'my',
+    myanmar: 'my',
+    thai: 'th',
+    mandarin: 'zh-CN',
+    'mandarin chinese': 'zh-CN',
+    chinese: 'zh-CN'
   };
 
   return mapping[normalized] ?? 'en';

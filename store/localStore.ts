@@ -403,7 +403,11 @@ export const useLocalStore = create<LocalState>()(
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
         set({ theme });
-        colorScheme.set(theme);
+        // Only set colorScheme if NativeWind is initialized and theme is not 'system'
+        // 'system' theme should use the OS color scheme, not be set explicitly
+        if (colorScheme && theme !== 'system') {
+          colorScheme.set(theme);
+        }
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
@@ -587,7 +591,7 @@ export const useLocalStore = create<LocalState>()(
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
-          colorScheme.set(state.theme);
+          state.setTheme(state.theme);
           // Validate and clamp VAD threshold if invalid
           if (
             typeof state.vadThreshold !== 'number' ||
@@ -633,8 +637,8 @@ export const useLocalStore = create<LocalState>()(
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
-                'currentAssetId',
-                'navigationStack'
+                'currentAssetId'
+                //'navigationStack' //commented out so the app can remember the last view on reload
               ].includes(key)
           )
         )

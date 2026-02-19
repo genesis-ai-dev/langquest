@@ -29,7 +29,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   ArrowDownNarrowWide,
   ArrowLeft,
@@ -298,7 +298,7 @@ const BibleRecordingView = ({
   // Ref to track if handlePlayAll is running (for cancellation)
   const isPlayAllRunningRef = React.useRef(false);
   // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
 
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
@@ -1175,8 +1175,8 @@ const BibleRecordingView = ({
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
             currentPlayAllSoundRef.current = null;
           } catch (error) {
             console.error('Error stopping sound:', error);
@@ -1259,26 +1259,22 @@ const BibleRecordingView = ({
 
           // Play this URI and wait for it to finish
           await new Promise<void>((resolve) => {
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                currentPlayAllSoundRef.current = sound;
+            try {
+              const player = createAudioPlayer(uri);
+              currentPlayAllSoundRef.current = player;
+              player.play();
 
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  if (status.didJustFinish) {
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
+              player.addListener('playbackStatusUpdate', (status) => {
+                if (!status.didJustFinish) return;
                 currentPlayAllSoundRef.current = null;
+                player.release();
                 resolve();
               });
+            } catch (error) {
+              console.error('Failed to play audio:', error);
+              currentPlayAllSoundRef.current = null;
+              resolve();
+            }
           });
         }
       }
@@ -1902,15 +1898,28 @@ const BibleRecordingView = ({
 
                   if (audioUri) {
                     // Load audio file to get duration
-                    const { sound } = await Audio.Sound.createAsync({
-                      uri: audioUri
+                    const player = createAudioPlayer(audioUri);
+                    await new Promise<void>((resolve) => {
+                      if (player.isLoaded) {
+                        resolve();
+                        return;
+                      }
+                      const check = setInterval(() => {
+                        if (player.isLoaded) {
+                          clearInterval(check);
+                          resolve();
+                        }
+                      }, 10);
+                      setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                      }, 5000);
                     });
-                    const status = await sound.getStatusAsync();
-                    await sound.unloadAsync();
 
-                    if (status.isLoaded && status.durationMillis) {
-                      totalDuration += status.durationMillis;
+                    if (player.isLoaded && player.duration > 0) {
+                      totalDuration += player.duration * 1000;
                     }
+                    player.release();
                   }
                 } catch (err) {
                   // Skip this segment if we can't load it
@@ -2127,6 +2136,7 @@ const BibleRecordingView = ({
         {
           text: 'Merge',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -2235,6 +2245,7 @@ const BibleRecordingView = ({
         {
           text: 'Delete',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -2369,16 +2380,13 @@ const BibleRecordingView = ({
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+          } catch {
+            // Ignore errors during cleanup
+          }
+          currentPlayAllSoundRef.current = null;
         }
       }
 
