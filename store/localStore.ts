@@ -5,51 +5,17 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 type Profile = typeof profile.$inferSelect;
-// Navigation types (forward declaration to avoid circular import)
-export type AppView =
-  | 'projects'
-  | 'quests'
-  | 'assets'
-  | 'asset-detail'
-  | 'bible-assets'
-  | 'recording'
-  | 'profile'
-  | 'notifications'
-  | 'settings'
-  | 'corrupted-attachments'
-  | 'account-deletion'
-  | 'download-status';
 
-export interface NavigationStackItem {
-  view: AppView;
-  projectId?: string;
-  projectName?: string;
-  projectTemplate?: string | null;
-  bookId?: string; // For Bible projects - which book is being viewed
-  questId?: string;
-  questName?: string;
-  assetId?: string;
-  assetName?: string;
-  timestamp: number;
-
-  // Optional: Pass full data objects to avoid re-querying
-  // Components will use these if available, otherwise fallback to querying
-  projectData?: Record<string, unknown>;
-  bookQuestData?: Record<string, unknown>;
-  questData?: Record<string, unknown>;
-  assetData?: Record<string, unknown>;
-
-  // Recording view specific data
-  recordingData?: {
-    recordingSession?: string;
-    bookChapterLabel?: string;
-    bookChapterLabelFull?: string;
-    initialOrderIndex?: number;
-    verse?: { from: number; to: number };
-    nextVerse?: number | null;
-    limitVerse?: number | null;
-    label?: string;
-  };
+// Recording data passed via Zustand (complex objects can't go in route params)
+export interface RecordingData {
+  recordingSession?: string;
+  bookChapterLabel?: string;
+  bookChapterLabelFull?: string;
+  initialOrderIndex?: number;
+  verse?: { from: number; to: number };
+  nextVerse?: number | null;
+  limitVerse?: number | null;
+  label?: string;
 }
 
 export type Language = typeof language.$inferSelect;
@@ -181,14 +147,9 @@ export interface LocalState {
     view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
   ) => void;
 
-  // Navigation context - just IDs, not full data
-  currentProjectId: string | null;
-  currentQuestId: string | null;
-  currentAssetId: string | null;
-
-  // State-driven navigation stack
-  navigationStack: NavigationStackItem[];
-  setNavigationStack: (stack: NavigationStackItem[]) => void;
+  // Recording data (stored in Zustand because complex objects can't go in route params)
+  currentRecordingData: RecordingData | null;
+  setCurrentRecordingData: (data: RecordingData | null) => void;
 
   // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
@@ -252,14 +213,6 @@ export interface LocalState {
   setUILanguage: (lang: Language) => void;
   setSavedLanguage: (lang: Language) => void;
 
-  // Navigation context setters
-  setCurrentContext: (
-    projectId?: string,
-    questId?: string,
-    assetId?: string
-  ) => void;
-  clearCurrentContext: () => void;
-
   // Recently visited functions
   addRecentProject: (project: RecentProject) => void;
   addRecentQuest: (quest: RecentQuest) => void;
@@ -321,20 +274,9 @@ export const useLocalStore = create<LocalState>()(
       authView: null,
       setAuthView: (view) => set({ authView: view }),
 
-      // Navigation context
-      currentProjectId: null,
-      currentQuestId: null,
-      currentAssetId: null,
-
-      // State-driven navigation stack
-      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
-      setNavigationStack: (stack) => {
-        // Ensure navigationStack is always an array
-        const safeStack = Array.isArray(stack)
-          ? stack
-          : [{ view: 'projects' as AppView, timestamp: Date.now() }];
-        set({ navigationStack: safeStack });
-      },
+      // Recording data (stored in Zustand because complex objects can't go in route params)
+      currentRecordingData: null,
+      setCurrentRecordingData: (data) => set({ currentRecordingData: data }),
 
       // Recently visited items (max 5 each)
       recentProjects: [],
@@ -482,20 +424,6 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
 
-      // Navigation context setters
-      setCurrentContext: (projectId, questId, assetId) =>
-        set({
-          currentProjectId: projectId || null,
-          currentQuestId: questId || null,
-          currentAssetId: assetId || null
-        }),
-      clearCurrentContext: () =>
-        set({
-          currentProjectId: null,
-          currentQuestId: null,
-          currentAssetId: null
-        }),
-
       // Recently visited functions
       addRecentProject: (project) =>
         set((state) => {
@@ -631,15 +559,7 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) =>
-              ![
-                'systemReady',
-                'currentUser', // I don't think we're getting this from the local store any more
-                'currentProjectId',
-                'currentQuestId',
-                'currentAssetId',
-                'navigationStack'
-              ].includes(key)
+            ([key]) => !['systemReady', 'currentUser'].includes(key)
           )
         )
     }

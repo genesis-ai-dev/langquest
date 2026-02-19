@@ -31,12 +31,10 @@ import { Button } from './ui/button';
 export default function AppHeader({
   drawerToggleCallback,
   isCloudLoading = false,
-  isNavigating = false,
   onOnboardingPress
 }: {
   drawerToggleCallback: () => void;
   isCloudLoading?: boolean;
-  isNavigating?: boolean;
   onOnboardingPress?: () => void;
 }) {
   const {
@@ -192,21 +190,17 @@ export default function AppHeader({
                     >
                       {crumb.onPress ? (
                         <Pressable
-                          onPress={isNavigating ? undefined : crumb.onPress}
-                          disabled={isNavigating}
+                          onPress={crumb.onPress}
                           // onPressIn={() => setPressedIndex(index)}
                           // onPressOut={() => setPressedIndex(null)}
                           hitSlop={5}
-                          className={`flex-shrink rounded p-1 ${
-                            isNavigating ? 'opacity-50' : ''
-                          }`}
+                          className="flex-shrink rounded p-1"
                           style={({ pressed }) => [
                             {
-                              backgroundColor:
-                                !isNavigating && pressed
-                                  ? 'rgba(255, 255, 255, 0.15)'
-                                  : '',
-                              opacity: pressed ? 0.8 : isNavigating ? 0.5 : 1,
+                              backgroundColor: pressed
+                                ? 'rgba(255, 255, 255, 0.15)'
+                                : '',
+                              opacity: pressed ? 0.8 : 1,
                               transform: [{ scale: pressed ? 0.98 : 1 }]
                             }
                           ]}

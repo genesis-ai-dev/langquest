@@ -11,7 +11,6 @@ import { LocalizationProvider } from '@/hooks/useLocalization';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
 import { PowerSyncContext } from '@powersync/react';
-// Removed NavThemeProvider and PortalHost to align with SystemBars-only approach
 import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -31,10 +30,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { cssTokens } from '@/generated-tokens';
 import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { initializePostHogWithStore } from '@/services/posthog';
+import { useLocalStore } from '@/store/localStore';
+import { initializeNetwork } from '@/store/networkStore';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -43,10 +47,9 @@ import {
   ReanimatedLogLevel
 } from 'react-native-reanimated';
 
-// This is the default configuration
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
-  strict: false // Disables warnings with nativewind animations
+  strict: false
 });
 
 LogBox.ignoreAllLogs(true);
@@ -62,6 +65,86 @@ export const NAV_THEME = {
   }
 };
 
+/**
+ * Root navigator with Stack.Protected guards.
+ * Must be rendered inside providers so hooks (useAuth, useLocalStore) work.
+ */
+function RootNavigator() {
+  const {
+    isLoading,
+    isAuthenticated,
+    sessionType,
+    isSystemReady,
+    migrationNeeded,
+    appUpgradeNeeded
+  } = useAuth();
+  const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
+  const authView = useLocalStore((s) => s.authView);
+
+  useDrizzleStudio();
+
+  useEffect(() => {
+    const cleanup = initializeNetwork();
+    const cleanupPostHog = initializePostHogWithStore();
+    return () => {
+      cleanup();
+      cleanupPostHog?.();
+    };
+  }, []);
+
+  const termsAccepted = !!dateTermsAccepted;
+
+  // Auth-modal visible keeps the app mounted (prevents visual restart during login)
+  const authModalVisible = !!authView;
+
+  // Blocking states (only for authenticated users)
+  const needsMigration =
+    termsAccepted && isAuthenticated && !!migrationNeeded;
+  const needsUpgrade =
+    termsAccepted && isAuthenticated && !!appUpgradeNeeded;
+  const needsPasswordReset =
+    termsAccepted && isAuthenticated && sessionType === 'password-reset';
+
+  // System ready: anonymous users are always ready, authenticated users wait
+  const systemReady = isAuthenticated ? isSystemReady : true;
+
+  // App is accessible when there are no blocking states
+  const appReady =
+    termsAccepted &&
+    !needsMigration &&
+    !needsUpgrade &&
+    !needsPasswordReset &&
+    (!isLoading || authModalVisible) &&
+    (systemReady || authModalVisible);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="terms"
+        options={{ presentation: 'modal' }}
+      />
+
+      <Stack.Protected guard={appReady}>
+        <Stack.Screen name="(app)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={needsPasswordReset}>
+        <Stack.Screen name="reset-password" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={needsMigration}>
+        <Stack.Screen name="migration" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={needsUpgrade}>
+        <Stack.Screen name="upgrade" />
+      </Stack.Protected>
+
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   if (Platform.OS === 'web') {
     // @ts-expect-error - globalThis._frameTimestamp is not defined
@@ -72,10 +155,8 @@ export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = useState(false);
 
-  // Initialize dev tools plugin for database MCP access
   useExpoDb();
 
-  // Load Noto Sans fonts
   const [fontsLoaded] = useFonts({
     'NotoSans-Regular': NotoSans_400Regular,
     'NotoSans-Medium': NotoSans_500Medium,
@@ -84,40 +165,26 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // async function init() {
-    //   await tagService.preloadTagsIntoCache();
-    // }
-    // void init();
-
     if (Platform.OS === 'web') return;
-    console.log('[_layout] Setting up deep link handler');
 
-    // Handle deep links
     const handleUrl = (url: string) => {
-      console.log('[_layout] Received deep link:', url);
       void handleAuthDeepLink(url);
     };
 
-    // Set up deep link listener
     const subscription = Linking.addEventListener('url', (event) => {
       handleUrl(event.url);
     });
 
-    // Check for initial URL (app opened via deep link)
     void Linking.getInitialURL().then((url) => {
       if (url) {
-        console.log('[_layout] Initial URL:', url);
         handleUrl(url);
       }
     });
 
     return () => {
-      console.log('[_layout] Cleaning up deep link listener');
       subscription.remove();
     };
   }, []);
-
-  console.log('[RootLayout] Rendering...');
 
   useIsomorphicLayoutEffect(() => {
     if (hasMounted.current) {
@@ -125,7 +192,6 @@ export default function RootLayout() {
     }
 
     if (Platform.OS === 'web') {
-      // Adds the background color to the html element to prevent white background on overscroll.
       document.documentElement.classList.add('bg-background');
     }
     setIsColorSchemeLoaded(true);
@@ -139,8 +205,6 @@ export default function RootLayout() {
   const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
 
-  console.log('[RootLayout] scheme:', scheme);
-
   return (
     <PowerSyncContext.Provider value={system.powersync}>
       <PostHogProvider>
@@ -153,11 +217,10 @@ export default function RootLayout() {
                     <GestureHandlerRootView style={{ flex: 1 }}>
                       <KeyboardProvider>
                         <StatusBar style={systemBarsStyle} />
-                        {/* OTA Update Banner - shown before login and after */}
                         <UpdateBanner />
                         <BottomSheetModalProvider>
                           <ThemeProvider value={NAV_THEME[scheme]}>
-                            <Stack screenOptions={{ headerShown: false }} />
+                            <RootNavigator />
                             <PortalHost />
                           </ThemeProvider>
                         </BottomSheetModalProvider>

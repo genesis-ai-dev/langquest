@@ -96,7 +96,8 @@ export default function NextGenAssetsView() {
     currentQuestId,
     currentProjectId,
     currentProjectData,
-    currentQuestData
+    currentQuestData,
+    currentProjectName: navProjectName
   } = useCurrentNavigation();
   const { goBack } = useAppNavigation();
   const { currentUser } = useAuth();
@@ -1232,9 +1233,9 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Get project name for PrivateAccessGate
-  // Note: queriedProjectData doesn't include name, so we only use currentProjectData
-  const projectName = currentProjectData?.name || '';
+  // Get project name for PrivateAccessGate - prefer route params, fallback to data object
+  const projectName =
+    navProjectName || (currentProjectData?.name as string) || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">

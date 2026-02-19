@@ -453,7 +453,8 @@ export default function BibleAssetsView() {
     currentProjectId,
     currentProjectData,
     currentQuestData,
-    currentBookId
+    currentBookId,
+    currentProjectName: navProjectName
   } = useCurrentNavigation();
   const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
@@ -3602,9 +3603,9 @@ export default function BibleAssetsView() {
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
 
-  // Get project name for PrivateAccessGate
-  // Note: queriedProjectData doesn't include name, so we only use currentProjectData
-  const projectName = currentProjectData?.name || '';
+  // Get project name for PrivateAccessGate - prefer route params, fallback to data object
+  const projectName =
+    navProjectName || (currentProjectData?.name as string) || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">

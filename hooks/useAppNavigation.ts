@@ -1,144 +1,123 @@
 /**
- * State-driven navigation system for single-route architecture
- * Replaces Expo Router with instant state transitions
+ * Navigation hook powered by expo-router native stack.
+ * All route state (IDs, names) comes from expo-router params.
+ * Views use useCurrentNavigation() for read-only context and useAppNavigation() for navigation actions.
  */
 
-import type { AppView, NavigationStackItem } from '@/store/localStore';
-import { useLocalStore } from '@/store/localStore';
-import { profiler } from '@/utils/profiler';
-import { useCallback, useMemo } from 'react';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { RecordingData } from '@/store/localStore';
+import { useLocalStore } from '@/store/localStore';
+import type { Href } from 'expo-router';
+import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
+import { useCallback, useMemo } from 'react';
+
+/** Type helper to cast route strings for typed routes (regenerated at build time) */
+function href(path: string, params?: Record<string, string>): Href {
+  if (params) {
+    return { pathname: path, params } as unknown as Href;
+  }
+  return path as unknown as Href;
+}
 
 export interface NavigationState {
-  view: AppView;
+  view: string;
   projectId?: string;
   projectName?: string;
   projectTemplate?: string | null;
-  bookId?: string; // For Bible projects - which book is being viewed
+  bookId?: string;
   questId?: string;
   questName?: string;
   assetId?: string;
   assetName?: string;
+  recordingData?: RecordingData;
+}
 
-  // Optional: Pass full data objects to avoid re-querying
-  projectData?: Record<string, unknown>;
-  bookQuestData?: Record<string, unknown>;
-  questData?: Record<string, unknown>;
-  assetData?: Record<string, unknown>;
+/**
+ * Determine the current "view" name from expo-router segments.
+ * Maps route segments to view names used by components (e.g. 'projects', 'quests', 'assets').
+ */
+function segmentsToView(segments: string[]): string {
+  // Remove the (app) group segment
+  const filtered = segments.filter((s) => s !== '(app)');
 
-  // Recording view specific data
-  recordingData?: {
-    recordingSession?: string;
-    bookChapterLabel?: string;
-    bookChapterLabelFull?: string;
-    initialOrderIndex?: number;
-    verse?: { from: number; to: number };
-    nextVerse?: number | null;
-    limitVerse?: number | null;
-    label?: string;
-  };
+  if (filtered.length === 0) return 'projects';
+
+  const first = filtered[0];
+
+  switch (first) {
+    case 'project':
+      return 'quests';
+    case 'quest':
+      return 'assets';
+    case 'bible-quest':
+      return 'bible-assets';
+    case 'asset':
+      return 'asset-detail';
+    case 'recording':
+      return 'recording';
+    case 'profile':
+      return 'profile';
+    case 'notifications':
+      return 'notifications';
+    case 'settings':
+      return 'settings';
+    case 'corrupted-attachments':
+      return 'corrupted-attachments';
+    case 'account-deletion':
+      return 'account-deletion';
+    case 'download-status':
+      return 'download-status';
+    default:
+      return 'projects';
+  }
 }
 
 export function useAppNavigation() {
-  const {
-    navigationStack,
-    setNavigationStack,
-    addRecentQuest,
-    addRecentAsset,
-    enableVerseMarkers
-  } = useLocalStore();
+  const router = useRouter();
+  const segments = useSegments();
+  const params = useGlobalSearchParams<{
+    projectId?: string;
+    questId?: string;
+    assetId?: string;
+    projectName?: string;
+    projectTemplate?: string;
+    questName?: string;
+    assetName?: string;
+    bookId?: string;
+  }>();
+  const { addRecentQuest, addRecentAsset, enableVerseMarkers } =
+    useLocalStore();
   const { t } = useLocalization();
 
-  // Ensure navigationStack is always an array - safe access pattern
-  const safeNavigationStack = useMemo(() => {
-    if (Array.isArray(navigationStack) && navigationStack.length > 0) {
-      return navigationStack;
-    }
-    // Use a constant timestamp for default state to avoid impure Date.now() in render
-    return [{ view: 'projects' as AppView, timestamp: 0 }];
-  }, [navigationStack]);
+  const currentView = useMemo(() => segmentsToView(segments), [segments]);
 
-  // Current navigation state - always ensure we have a valid state object
-  const currentState = useMemo(() => {
-    const stack = safeNavigationStack;
-    const lastItem = stack[stack.length - 1];
+  // Read context from route params (undefined for compatibility with existing views)
+  const currentProjectId = (params.projectId as string) || undefined;
+  const currentQuestId = (params.questId as string) || undefined;
+  const currentAssetId = (params.assetId as string) || undefined;
+  const currentProjectName = (params.projectName as string) || undefined;
+  const currentProjectTemplate =
+    (params.projectTemplate as string) || undefined;
+  const currentQuestName = (params.questName as string) || undefined;
+  const currentAssetName = (params.assetName as string) || undefined;
+  const currentBookId = (params.bookId as string) || undefined;
 
-    // Ensure we always return a properly structured state object
-    if (lastItem && typeof lastItem === 'object' && 'view' in lastItem) {
-      return lastItem;
-    }
-
-    // Fallback to default state if lastItem is malformed
-    return {
-      view: 'projects' as AppView,
-      timestamp: 0
-    };
-  }, [safeNavigationStack]);
-
-  // Navigation functions with instant state transitions
-  const navigate = useCallback(
-    (newState: Partial<NavigationState>) => {
-      profiler.startNavigation(
-        `${newState.view}:${newState.projectId || newState.questId || newState.assetId || 'main'}`
-      );
-
-      const fullState: NavigationStackItem = {
-        ...currentState,
-        ...newState,
-        timestamp: Date.now()
-      };
-
-      const stack = safeNavigationStack;
-      setNavigationStack([...stack, fullState]);
-      profiler.endNavigation(
-        `${newState.view}:${newState.projectId || newState.questId || newState.assetId || 'main'}`
-      );
-    },
-    [currentState, safeNavigationStack, setNavigationStack]
-  );
-
+  // Navigation functions using expo-router
   const goBack = useCallback(() => {
-    const stack = safeNavigationStack;
-    if (stack.length > 1) {
-      setNavigationStack(stack.slice(0, -1));
+    if (router.canGoBack()) {
+      router.back();
     }
-  }, [safeNavigationStack, setNavigationStack]);
+  }, [router]);
 
   const goToRoot = useCallback(() => {
-    setNavigationStack([{ view: 'projects', timestamp: Date.now() }]);
-  }, [setNavigationStack]);
+    router.dismissAll();
+  }, [router]);
 
-  // Navigate back to a specific view by removing newer entries from the stack
-  const goBackToView = useCallback(
-    (targetView: AppView) => {
-      const stack = safeNavigationStack;
-      // Find the last occurrence of the target view in the stack
-      let targetIndex = -1;
-      for (let i = stack.length - 1; i >= 0; i--) {
-        if (stack[i]?.view === targetView) {
-          targetIndex = i;
-          break;
-        }
-      }
-
-      if (targetIndex >= 0) {
-        // Remove all items after the target
-        setNavigationStack(stack.slice(0, targetIndex + 1));
-      } else {
-        // If not found in stack, navigate fresh
-        navigate({ view: targetView });
-      }
-    },
-    [safeNavigationStack, setNavigationStack, navigate]
-  );
-
-  // Specific navigation functions
   const goToProjects = useCallback(() => {
-    // Check if we're already at a deeper level - if so, go back
-    if (currentState.view !== 'projects') {
-      goBackToView('projects');
+    if (currentView !== 'projects') {
+      router.dismissTo(href('/(app)/'));
     }
-  }, [currentState.view, goBackToView]);
+  }, [currentView, router]);
 
   const goToProject = useCallback(
     (projectData: {
@@ -147,33 +126,29 @@ export function useAppNavigation() {
       template?: string | null;
       projectData?: Record<string, unknown>;
     }) => {
-      // Check if we're already at this project or deeper
-      if (
-        currentState.projectId === projectData.id &&
-        currentState.view === 'quests'
-      ) {
-        // Already here, do nothing
-        return;
+      if (currentProjectId === projectData.id && currentView === 'quests') {
+        return; // Already here
       }
 
-      // If we're at a deeper level (assets or asset-detail) with the same project, go back
+      const routeHref = href('/(app)/project/[projectId]', {
+        projectId: projectData.id,
+        projectName: projectData.name || '',
+        projectTemplate: projectData.template || ''
+      });
+
+      // If deeper, dismiss back to projects then push
       if (
-        currentState.projectId === projectData.id &&
-        (currentState.view === 'assets' || currentState.view === 'asset-detail')
+        currentProjectId === projectData.id &&
+        (currentView === 'assets' ||
+          currentView === 'asset-detail' ||
+          currentView === 'bible-assets')
       ) {
-        goBackToView('quests');
+        router.dismissTo(routeHref);
       } else {
-        // Navigate fresh
-        navigate({
-          view: 'quests',
-          projectId: projectData.id,
-          projectName: projectData.name,
-          projectTemplate: projectData.template,
-          projectData: projectData.projectData // Pass project data forward!
-        });
+        router.push(routeHref);
       }
     },
-    [currentState, navigate, goBackToView]
+    [currentProjectId, currentView, router]
   );
 
   const goToQuest = useCallback(
@@ -184,11 +159,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
-      const assetView =
-        questData.projectData?.template === 'bible' && enableVerseMarkers
-          ? 'bible-assets'
-          : 'assets';
-      // Track recently visited
+      const isBible =
+        questData.projectData?.template === 'bible' && enableVerseMarkers;
+      const assetView = isBible ? 'bible-assets' : 'assets';
+
       addRecentQuest({
         id: questData.id,
         name: questData.name || 'Quest',
@@ -196,35 +170,35 @@ export function useAppNavigation() {
         visitedAt: new Date()
       });
 
-      // Check if we're already at this quest
-      if (
-        currentState.questId === questData.id &&
-        currentState.view === assetView
-      ) {
-        // Already here, do nothing
-        return;
+      if (currentQuestId === questData.id && currentView === assetView) {
+        return; // Already here
       }
 
-      // If we're at asset-detail for this quest, go back
-      if (
-        currentState.questId === questData.id &&
-        currentState.view === 'asset-detail'
-      ) {
-        goBackToView(assetView);
+      const routeParams = {
+        questId: questData.id,
+        projectId: questData.project_id,
+        projectName: currentProjectName || '',
+        projectTemplate: currentProjectTemplate || '',
+        questName: questData.name || '',
+        bookId: currentBookId || ''
+      };
+
+      if (isBible) {
+        router.push(href('/(app)/bible-quest/[questId]', routeParams));
       } else {
-        // Navigate fresh, pass data forward and preserve bookId (for Bible navigation)
-        navigate({
-          view: assetView,
-          questId: questData.id,
-          questName: questData.name,
-          projectId: questData.project_id,
-          bookId: currentState.bookId, // Preserve bookId for back navigation
-          projectData: questData.projectData || currentState.projectData,
-          questData: questData.questData
-        });
+        router.push(href('/(app)/quest/[questId]', routeParams));
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
+    [
+      currentQuestId,
+      currentView,
+      currentProjectName,
+      currentProjectTemplate,
+      currentBookId,
+      router,
+      addRecentQuest,
+      enableVerseMarkers
+    ]
   );
 
   const goToAsset = useCallback(
@@ -237,16 +211,14 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
-      // Use provided IDs or fall back to current state
-      const targetProjectId = assetData.projectId || currentState.projectId;
-      const targetQuestId = assetData.questId || currentState.questId;
+      const targetProjectId = assetData.projectId || currentProjectId;
+      const targetQuestId = assetData.questId || currentQuestId;
 
       if (!targetProjectId || !targetQuestId) {
         console.warn('Cannot navigate to asset without projectId and questId');
         return;
       }
 
-      // Track recently visited
       addRecentAsset({
         id: assetData.id,
         name: assetData.name || 'Asset',
@@ -255,131 +227,194 @@ export function useAppNavigation() {
         visitedAt: new Date()
       });
 
-      navigate({
-        view: 'asset-detail',
-        assetId: assetData.id,
-        assetName: assetData.name,
-        projectId: targetProjectId,
-        questId: targetQuestId,
-        bookId: currentState.bookId, // Preserve bookId for back navigation
-        projectData: assetData.projectData || currentState.projectData,
-        questData: assetData.questData || currentState.questData,
-        assetData: assetData.assetData
-      });
+      router.push(
+        href('/(app)/asset/[assetId]', {
+          assetId: assetData.id,
+          assetName: assetData.name || '',
+          projectId: targetProjectId,
+          questId: targetQuestId,
+          projectName: currentProjectName || '',
+          projectTemplate: currentProjectTemplate || '',
+          questName: currentQuestName || '',
+          bookId: currentBookId || ''
+        })
+      );
     },
-    [navigate, currentState, addRecentAsset]
+    [
+      currentProjectId,
+      currentQuestId,
+      currentProjectName,
+      currentProjectTemplate,
+      currentQuestName,
+      currentBookId,
+      router,
+      addRecentAsset
+    ]
   );
 
   const goToProfile = useCallback(() => {
-    navigate({ view: 'profile' });
-  }, [navigate]);
+    router.push(href('/(app)/profile'));
+  }, [router]);
 
   const goToNotifications = useCallback(() => {
-    navigate({ view: 'notifications' });
-  }, [navigate]);
+    router.push(href('/(app)/notifications'));
+  }, [router]);
 
   const goToSettings = useCallback(() => {
-    navigate({ view: 'settings' });
-  }, [navigate]);
+    router.push(href('/(app)/settings'));
+  }, [router]);
 
   const goToCorruptedAttachments = useCallback(() => {
-    navigate({ view: 'corrupted-attachments' });
-  }, [navigate]);
+    router.push(href('/(app)/corrupted-attachments'));
+  }, [router]);
 
   const goToAccountDeletion = useCallback(() => {
-    navigate({ view: 'account-deletion' });
-  }, [navigate]);
+    router.push(href('/(app)/account-deletion'));
+  }, [router]);
 
   const goToDownloadStatus = useCallback(() => {
-    navigate({ view: 'download-status' });
-  }, [navigate]);
+    router.push(href('/(app)/download-status'));
+  }, [router]);
+
+  // Generic navigate function for backward compatibility (recording, etc.)
+  const navigate = useCallback(
+    (newState: Partial<NavigationState>) => {
+      if (newState.view === 'recording') {
+        // Store recording data in Zustand before navigating
+        useLocalStore
+          .getState()
+          .setCurrentRecordingData(newState.recordingData || null);
+        router.push(
+          href('/(app)/recording', {
+            questId: newState.questId || currentQuestId || '',
+            projectId: newState.projectId || currentProjectId || '',
+            projectName: currentProjectName || '',
+            projectTemplate: currentProjectTemplate || '',
+            questName: currentQuestName || '',
+            bookId: newState.bookId || currentBookId || ''
+          })
+        );
+      } else if (newState.view) {
+        // Fallback for any other view navigation
+        const viewToRoute: Record<string, string> = {
+          projects: '/(app)/',
+          quests: '/(app)/project/',
+          assets: '/(app)/quest/',
+          'bible-assets': '/(app)/bible-quest/',
+          'asset-detail': '/(app)/asset/',
+          recording: '/(app)/recording',
+          profile: '/(app)/profile',
+          notifications: '/(app)/notifications',
+          settings: '/(app)/settings',
+          'corrupted-attachments': '/(app)/corrupted-attachments',
+          'account-deletion': '/(app)/account-deletion',
+          'download-status': '/(app)/download-status'
+        };
+        const route = viewToRoute[newState.view];
+        if (route) {
+          router.push(href(route));
+        }
+      }
+    },
+    [
+      router,
+      currentProjectId,
+      currentQuestId,
+      currentProjectName,
+      currentProjectTemplate,
+      currentQuestName,
+      currentBookId
+    ]
+  );
 
   // Breadcrumb navigation
   const breadcrumbs = useMemo(() => {
     const crumbs: { label: string; onPress?: () => void }[] = [];
-
     const projectsLabel = t('projects');
 
-    // Guard against malformed currentState (should always have view based on useMemo logic)
-    if (!('view' in currentState)) {
-      return [{ label: projectsLabel, onPress: goToProjects }];
-    }
-
-    const state = currentState;
-
-    if (state.view === 'projects') {
+    if (currentView === 'projects') {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
-    } else if (state.view === 'quests' && state.projectName) {
+    } else if (currentView === 'quests' && currentProjectName) {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
-      crumbs.push({ label: state.projectName, onPress: undefined });
+      crumbs.push({ label: currentProjectName, onPress: undefined });
     } else if (
-      state.view === 'assets' &&
-      state.projectName &&
-      state.questName
+      (currentView === 'assets' || currentView === 'bible-assets') &&
+      currentProjectName &&
+      currentQuestName
     ) {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
-        label: state.projectName,
+        label: currentProjectName,
         onPress: () =>
           goToProject({
-            id: state.projectId!,
-            name: state.projectName,
-            template: state.projectTemplate
+            id: currentProjectId!,
+            name: currentProjectName,
+            template: currentProjectTemplate
           })
       });
-      crumbs.push({ label: state.questName, onPress: undefined });
+      crumbs.push({ label: currentQuestName, onPress: undefined });
     } else if (
-      state.view === 'asset-detail' &&
-      state.projectName &&
-      state.questName &&
-      state.assetName
+      currentView === 'asset-detail' &&
+      currentProjectName &&
+      currentQuestName &&
+      currentAssetName
     ) {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({
-        label: state.projectName,
+        label: currentProjectName,
         onPress: () =>
           goToProject({
-            id: state.projectId!,
-            name: state.projectName,
-            template: state.projectTemplate
+            id: currentProjectId!,
+            name: currentProjectName,
+            template: currentProjectTemplate
           })
       });
       crumbs.push({
-        label: state.questName,
+        label: currentQuestName,
         onPress: () =>
           goToQuest({
-            id: state.questId!,
-            project_id: state.projectId!,
-            name: state.questName,
-            projectData: state.projectData
+            id: currentQuestId!,
+            project_id: currentProjectId!,
+            name: currentQuestName
           })
       });
-      crumbs.push({ label: state.assetName, onPress: undefined });
+      crumbs.push({ label: currentAssetName, onPress: undefined });
     }
 
-    // Always return at least one crumb to prevent empty array errors
     return crumbs.length > 0
       ? crumbs
       : [{ label: projectsLabel, onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest, t]);
+  }, [
+    currentView,
+    currentProjectId,
+    currentProjectName,
+    currentProjectTemplate,
+    currentQuestId,
+    currentQuestName,
+    currentAssetName,
+    goToProjects,
+    goToProject,
+    goToQuest,
+    t
+  ]);
 
   return {
-    // Current state
-    currentView: currentState.view,
-    currentProjectId: currentState.projectId,
-    currentQuestId: currentState.questId,
-    currentAssetId: currentState.assetId,
-    currentProjectName: currentState.projectName,
-    currentProjectTemplate: currentState.projectTemplate,
-    currentBookId: currentState.bookId,
-    currentQuestName: currentState.questName,
-    currentAssetName: currentState.assetName,
+    // Current state (read from route params)
+    currentView,
+    currentProjectId,
+    currentQuestId,
+    currentAssetId,
+    currentProjectName,
+    currentProjectTemplate,
+    currentBookId,
+    currentQuestName,
+    currentAssetName,
 
-    // Data objects (for instant navigation)
-    currentProjectData: currentState.projectData,
-    currentBookQuestData: currentState.bookQuestData,
-    currentQuestData: currentState.questData,
-    currentAssetData: currentState.assetData,
+    // Data objects from Zustand cache (for instant navigation)
+    currentProjectData: undefined as Record<string, unknown> | undefined,
+    currentBookQuestData: undefined as Record<string, unknown> | undefined,
+    currentQuestData: undefined as Record<string, unknown> | undefined,
+    currentAssetData: undefined as Record<string, unknown> | undefined,
 
     // Navigation functions
     navigate,
@@ -398,11 +433,14 @@ export function useAppNavigation() {
 
     // Utilities
     breadcrumbs,
-    canGoBack: safeNavigationStack.length > 1,
-    navigationStack: safeNavigationStack
+    canGoBack: router.canGoBack()
   };
 }
 
+/**
+ * Read-only hook for accessing current navigation context.
+ * Uses route params from expo-router for IDs and names.
+ */
 export function useCurrentNavigation() {
   const {
     currentView,
@@ -420,7 +458,6 @@ export function useCurrentNavigation() {
     currentAssetData
   } = useAppNavigation();
 
-  // Memoize objects to prevent infinite re-renders
   const currentProject = useMemo(() => {
     return currentProjectId
       ? {
@@ -465,7 +502,6 @@ export function useCurrentNavigation() {
     currentQuestName,
     currentAssetName,
     currentProjectName,
-    // Data objects for instant rendering
     currentProjectData,
     currentBookQuestData,
     currentQuestData,

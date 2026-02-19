@@ -228,14 +228,10 @@ const RecordingView = () => {
   const navigation = useCurrentNavigation();
   const { currentQuestId, currentProjectId } = navigation;
 
-  // Get recording-specific data from navigation state
-  const navigationState = useLocalStore((state) => {
-    const stack = state.navigationStack;
-    if (!Array.isArray(stack) || stack.length === 0) return null;
-    return stack[stack.length - 1]!;
-  });
-
-  const recordingData = navigationState?.recordingData;
+  // Get recording-specific data from Zustand store (set before navigating)
+  const recordingData = useLocalStore(
+    (state) => state.currentRecordingData
+  );
   const bookChapterLabel = recordingData?.bookChapterLabel || 'Verse';
   const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
   const _initialOrderIndex =
