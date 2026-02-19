@@ -1,8 +1,5 @@
-import {
-  createAudioPlayer,
-  setAudioModeAsync,
-  type AudioPlayer
-} from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -206,7 +203,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (!preloaded) return;
     try {
       preloaded.sound.pause();
-      preloaded.sound.release();
+      await Promise.resolve(preloaded.sound.release());
     } catch {
       // Ignore preload unload errors
     }
@@ -232,12 +229,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const shouldSeek = segment.startMs != null && segment.startMs > 0;
       if (shouldSeek) {
-        sound.seekTo(segment.startMs! / 1000);
+        await sound.seekTo(segment.startMs! / 1000);
       }
 
       if (sessionId !== playbackSessionRef.current) {
         try {
-          sound.release();
+          void sound.release();
         } catch {
           // Ignore stale preload unload errors
         }
@@ -326,7 +323,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const setPosition = async (newPosition: number) => {
     if (soundRef.current && isPlaying) {
-      soundRef.current.seekTo(newPosition / 1000);
+      await soundRef.current.seekTo(newPosition / 1000);
       setPositionState(newPosition);
       cumulativePositionSharedRef.current.value = newPosition;
       positionSharedRef.current.value = newPosition;
@@ -411,7 +408,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Seek to startMs before starting playback (unless preloaded segment
       // was already seeked during background preload).
       if (shouldSeek && !canUsePreloaded) {
-        sound.seekTo(segment.startMs! / 1000);
+        await sound.seekTo(segment.startMs! / 1000);
       }
 
       // Get initial status to set the duration
@@ -484,8 +481,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             sequenceSegments.current[currentSequenceIndex.current];
           const cumulativeDuration = cumulativeDurationBeforeCurrent();
           const segStartMs = currentSeg?.startMs ?? 0;
-          const currentPositionMs =
-            (status.currentTime ?? sound.currentTime) * 1000;
+          const currentPositionMs = status.currentTime * 1000;
           const positionInSegment = currentPositionMs - segStartMs;
           const totalPosition =
             cumulativeDuration + Math.max(0, positionInSegment);
@@ -516,7 +512,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
                   ? Number.POSITIVE_INFINITY
                   : totalPosition - predicted;
               if (Math.abs(drift) >= DRIFT_CORRECTION_THRESHOLD_MS) {
-                startPredictedProgressAnimation(totalPosition, currentTargetTotal);
+                startPredictedProgressAnimation(
+                  totalPosition,
+                  currentTargetTotal
+                );
               }
             }
           }

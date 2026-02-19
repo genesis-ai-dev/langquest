@@ -52,7 +52,12 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, InteractionManager, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  InteractionManager,
+  Pressable,
+  View
+} from 'react-native';
 import type { FlatList } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -599,8 +604,8 @@ export default function BibleAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData<Quest>(
-    {
+  const { data: queriedQuestData, refetch: refetchQuest } =
+    useHybridData<Quest>({
       dataType: 'current-quest',
       queryKeyParams: [currentQuestId],
       offlineQuery: toCompilableQuery(
@@ -621,8 +626,7 @@ export default function BibleAssetsView() {
       enableCloudQuery: !!currentQuestId,
       enableOfflineQuery: !!currentQuestId,
       getItemId: (item) => item.id
-    }
-  );
+    });
 
   // Prefer queried data (fresh) over navigation data (may be stale)
   // This ensures UI updates immediately after publishing without needing to navigate away

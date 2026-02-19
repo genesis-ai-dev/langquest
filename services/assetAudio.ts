@@ -70,7 +70,9 @@ function computeTotalDuration(segments: AssetAudioSegment[]): number {
   return segments.reduce((sum, seg) => sum + effectiveDuration(seg), 0);
 }
 
-const waitForPlayerLoaded = async (player: ReturnType<typeof createAudioPlayer>) => {
+const waitForPlayerLoaded = async (
+  player: ReturnType<typeof createAudioPlayer>
+) => {
   if (player.isLoaded) return;
   await new Promise<void>((resolve) => {
     const timeoutId = setTimeout(resolve, 5000);
@@ -114,7 +116,7 @@ async function resolveAudioValue(
   // --- Direct local path (from saveAudioLocally) ---
   if (audioValue.startsWith('local/')) {
     const constructedUri = await getLocalAttachmentUriWithOPFS(audioValue);
-    if (await fileExists(constructedUri)) return constructedUri;
+    if (fileExists(constructedUri)) return constructedUri;
 
     // Fallback: search attachment queue
     if (system.permAttachmentQueue) {
@@ -132,7 +134,7 @@ async function resolveAudioValue(
         const foundUri = system.permAttachmentQueue.getLocalUri(
           attachment.local_uri
         );
-        if (await fileExists(foundUri)) return foundUri;
+        if (fileExists(foundUri)) return foundUri;
       }
     }
 
@@ -142,7 +144,7 @@ async function resolveAudioValue(
 
   // --- Full file URI ---
   if (audioValue.startsWith('file://')) {
-    if (await fileExists(audioValue)) return audioValue;
+    if (fileExists(audioValue)) return audioValue;
 
     // Fallback: search attachment queue by filename
     if (system.permAttachmentQueue) {
@@ -160,7 +162,7 @@ async function resolveAudioValue(
           const foundUri = system.permAttachmentQueue.getLocalUri(
             attachment.local_uri
           );
-          if (await fileExists(foundUri)) return foundUri;
+          if (fileExists(foundUri)) return foundUri;
         }
       }
     }
@@ -179,7 +181,7 @@ async function resolveAudioValue(
       const localUri = system.permAttachmentQueue.getLocalUri(
         attachment.local_uri
       );
-      if (await fileExists(localUri)) return localUri;
+      if (fileExists(localUri)) return localUri;
     }
   }
 
@@ -202,9 +204,9 @@ async function findFallbackUri(
   for (const value of fallbackLink.audio) {
     if (value.startsWith('local/')) {
       const uri = await getLocalAttachmentUriWithOPFS(value);
-      if (await fileExists(uri)) return uri;
+      if (fileExists(uri)) return uri;
     } else if (value.startsWith('file://')) {
-      if (await fileExists(value)) return value;
+      if (fileExists(value)) return value;
     }
   }
   return null;
