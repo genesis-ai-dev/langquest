@@ -466,12 +466,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Set up listener for position updates + natural completion.
+      // Track whether the player has actually started playing, used as a guard
+      // so that the !status.playing fallback doesn't fire on initial load.
+      let hasStartedPlaying = false;
       soundListenerRef.current = sound.addListener(
         'playbackStatusUpdate',
         (status) => {
-          if (!sound.isLoaded) {
+          if (!status.isLoaded) {
             return;
           }
+
+          if (status.playing) hasStartedPlaying = true;
 
           const now = Date.now();
           const guarded = now < statusGuardUntilMsRef.current;
@@ -533,7 +538,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          if (status.didJustFinish) {
+          // expo-audio doesn't fire didJustFinish reliably on all platforms.
+          // Fallback: treat playing→false (after having started) as completion,
+          // since the listener is always removed before any manual pause/stop.
+          if (status.didJustFinish || (hasStartedPlaying && !status.playing)) {
             if (isAdvancingSegmentRef.current) return;
             isAdvancingSegmentRef.current = true;
             clearStatusListener();
@@ -698,7 +706,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 /**
  * Hook to access audio playback functionality.
  * @param options - Configuration options
- * @param options.stopOnUnmount - Whether to stop audio when component unmounts (default: true)
+ * @param options.stopOnUnmount - Whether to stop audio when component unmounts (default: false)
  */
 export function useAudio(options?: { stopOnUnmount?: boolean }) {
   const context = useContext(AudioContext);
@@ -706,7 +714,9 @@ export function useAudio(options?: { stopOnUnmount?: boolean }) {
     throw new Error('useAudio must be used within an AudioProvider');
   }
 
-  const stopOnUnmount = options?.stopOnUnmount ?? true;
+  // Default to false so transient/virtualized consumers (e.g., list cards)
+  // do not accidentally stop shared playback when they unmount.
+  const stopOnUnmount = options?.stopOnUnmount ?? false;
   const stopCurrentSoundRef = React.useRef(context.stopCurrentSound);
 
   // Keep ref updated with latest function
