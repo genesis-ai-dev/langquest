@@ -39,6 +39,7 @@ import {
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
+  ArrowLeftIcon,
   CheckCheck,
   ChevronRight,
   CloudUpload,
@@ -3741,7 +3742,11 @@ export default function BibleAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
+      <Button variant="ghost" size="sm" className="self-start" onPress={goBack}>
+        <Icon as={ArrowLeftIcon} />
+        <Text>Back</Text>
+      </Button>
       <View className="flex flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
         <View className="flex flex-row items-center gap-2">

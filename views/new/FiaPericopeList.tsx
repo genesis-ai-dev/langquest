@@ -12,14 +12,17 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
-import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
-import { useFiaPericopes, type FiaPericopeQuest } from '@/hooks/useFiaPericopes';
-import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
+import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
+import {
+  useFiaPericopes,
+  type FiaPericopeQuest
+} from '@/hooks/useFiaPericopes';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useProjectById } from '@/hooks/db/useProjects';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
@@ -34,7 +37,7 @@ const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
   php: 'phi',
   jol: 'joe',
-  nam: 'nah',
+  nam: 'nah'
 };
 
 function getFiaBookIcon(fiaBookId: string) {
@@ -104,13 +107,15 @@ function PericopeButton({
       <Button
         variant={exists ? 'default' : 'outline'}
         className={cn(
-          'w-full flex-col gap-1 py-3',
+          'h-auto w-full flex-col gap-1 py-5',
           !exists && 'border-dashed',
           needsDownload && 'opacity-50',
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={disabled || needsDownload || (!existingQuest && !canCreateNew)}
+        disabled={
+          disabled || needsDownload || (!existingQuest && !canCreateNew)
+        }
       >
         {isCreatingThis ? (
           <ActivityIndicator size="small" />
@@ -197,10 +202,10 @@ export function FiaPericopeList({
   const canCreateNew = isMember;
 
   // Existing pericope quests (local + cloud, with source tracking)
-  const {
-    pericopes: existingPericopes,
-    isLoadingCloud
-  } = useFiaPericopes(projectId, book.id);
+  const { pericopes: existingPericopes, isLoadingCloud } = useFiaPericopes(
+    projectId,
+    book.id
+  );
 
   React.useEffect(() => {
     onCloudLoadingChange?.(isLoadingCloud);
@@ -275,11 +280,17 @@ export function FiaPericopeList({
       };
 
       await queryClient.setQueriesData(
-        { queryKey: ['fia-pericope-quests', 'local', projectId, book.id], exact: false },
+        {
+          queryKey: ['fia-pericope-quests', 'local', projectId, book.id],
+          exact: false
+        },
         updateCache
       );
       await queryClient.setQueriesData(
-        { queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id], exact: false },
+        {
+          queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id],
+          exact: false
+        },
         updateCache
       );
     },
@@ -380,8 +391,7 @@ export function FiaPericopeList({
       if (profiles) {
         const parsed =
           typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-        isDownloaded =
-          Array.isArray(parsed) && parsed.includes(currentUser.id);
+        isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
       }
       const isCloudQuest =
         questRow?.source === 'cloud' || existing.source === 'cloud';
@@ -418,7 +428,7 @@ export function FiaPericopeList({
         id: result.questId,
         project_id: projectId,
         name: result.questName,
-        projectData: project as Record<string, unknown>,
+        projectData: project as Record<string, unknown>
       });
     } catch (error) {
       console.error('Failed to create pericope quest:', error);
@@ -463,7 +473,7 @@ export function FiaPericopeList({
       <LegendList
         data={pericopeItems}
         keyExtractor={(item) => item.id}
-        numColumns={4}
+        numColumns={3}
         estimatedItemSize={90}
         contentContainerStyle={{ paddingHorizontal: 8 }}
         columnWrapperStyle={{ gap: 8 }}
