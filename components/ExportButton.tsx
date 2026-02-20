@@ -8,11 +8,12 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { ExportProgressModal } from './ExportProgressModal';
+import { ExportQuestList } from './ExportQuestList';
 import { ExportTypeSelector } from './ExportTypeSelector';
 
 interface ExportButtonProps {
@@ -39,6 +40,7 @@ export function ExportButton({
   const membership = passedMembership ?? fetchedMembership;
   const exportMutation = useChapterExport();
   const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showExportQuestList, setShowExportQuestList] = useState(false);
   const [currentExportId, setCurrentExportId] = useState<string | null>(null);
   const [isConcatenating, setIsConcatenating] = useState(false);
 
@@ -89,7 +91,7 @@ export function ExportButton({
   // Don't show export button if feature flag is disabled or user doesn't have permissions
   // Wait for membership to load if we don't have passed membership
   if (!enableQuestExport) {
-    return null;
+    // return null;
   }
 
   // If membership is still loading and we don't have passed membership, don't show button yet
@@ -165,6 +167,7 @@ export function ExportButton({
       <Button
         variant="outline"
         size="icon"
+        // onPress={() => setShowExportQuestList(true)}
         onPress={() => setShowTypeSelector(true)}
         disabled={disabled || exportMutation.isPending || isConcatenating}
         className="border-[1.5px] border-primary"
@@ -176,6 +179,14 @@ export function ExportButton({
         )}
       </Button>
 
+      <ExportQuestList
+        isOpen={showExportQuestList}
+        onClose={() => setShowExportQuestList(false)}
+        currentProjectId={projectId}
+        currentQuestId={questId}
+      />
+
+      {/* Fluxo antigo mantido para preservar funções atuais. */}
       <ExportTypeSelector
         visible={showTypeSelector}
         onClose={() => setShowTypeSelector(false)}
