@@ -91,6 +91,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     index: number;
     sound: AudioPlayer;
   } | null>(null);
+  const endpointTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationStartWallClockMsRef = useRef<number | null>(null);
   const animationStartPositionMsRef = useRef(0);
   const animationTargetPositionMsRef = useRef(0);
@@ -176,6 +177,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const clearStatusListener = () => {
     soundListenerRef.current?.remove();
     soundListenerRef.current = null;
+  };
+
+  const clearEndpointTimer = () => {
+    if (endpointTimerRef.current != null) {
+      clearTimeout(endpointTimerRef.current);
+      endpointTimerRef.current = null;
+    }
   };
 
   const resetPredictedProgress = () => {
@@ -292,6 +300,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const stopCurrentSound = async () => {
     playbackSessionRef.current += 1;
     const finishingAudioId = currentAudioIdRef.current;
+    clearEndpointTimer();
     clearStatusListener();
     isAdvancingSegmentRef.current = false;
     useSequenceLevelProgressRef.current = false;
@@ -367,6 +376,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
    */
   const playSegment = async (segment: AudioSegment, audioId?: string) => {
     // Stop current sound if any is playing
+    clearEndpointTimer();
     if (soundRef.current) {
       clearStatusListener();
       soundRef.current.pause();
@@ -522,6 +532,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
             statusGuardUntilMsRef.current =
               (animationStartWallClockMsRef.current ?? now) + 1000;
+
+            // Precise endpoint timer: status callbacks fire on an interval
+            // and can overshoot endMs by hundreds of ms. A setTimeout
+            // started from the actual playback start is far more accurate.
+            if (currentSeg?.endMs != null) {
+              const remainingMs = currentSeg.endMs - currentPositionMs;
+              if (remainingMs > 0) {
+                clearEndpointTimer();
+                const capturedSession = playbackSessionRef.current;
+                endpointTimerRef.current = setTimeout(() => {
+                  endpointTimerRef.current = null;
+                  if (capturedSession !== playbackSessionRef.current) return;
+                  if (isAdvancingSegmentRef.current) return;
+                  isAdvancingSegmentRef.current = true;
+                  clearEndpointTimer();
+                  clearStatusListener();
+                  sound.pause();
+                  sound.release();
+                  if (soundRef.current === sound) {
+                    soundRef.current = null;
+                  }
+                  void playNextInSequence();
+                }, remainingMs);
+              }
+            }
           }
 
           const guarded = now < statusGuardUntilMsRef.current;
@@ -541,13 +576,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Enforce endMs boundary for trimmed playback.
+          // Fallback endMs enforcement via status callback (timer above is primary).
           if (
             currentSeg?.endMs != null &&
             currentPositionMs >= currentSeg.endMs &&
             !isAdvancingSegmentRef.current
           ) {
             isAdvancingSegmentRef.current = true;
+            clearEndpointTimer();
             clearStatusListener();
             sound.pause();
             sound.release();
@@ -657,6 +693,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     return () => {
       playbackSessionRef.current += 1;
+      clearEndpointTimer();
       resetPredictedProgress();
       clearStatusListener();
       if (soundRef.current) {
