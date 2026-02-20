@@ -1,4 +1,5 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
+import { FiaIcon } from '@/components/icons/FiaIcon';
 import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
@@ -719,12 +720,26 @@ export function FiaStepDrawer({
       <DrawerContent asChild>
         <View style={{ flex: 1 }} className="bg-background px-6">
           <DrawerHeader className="pb-0">
-            <DrawerTitle>
-              {activeTab === 'guide'
-                ? (currentStep?.title || 'FIA Steps')
-                : 'Bible'}
-            </DrawerTitle>
-            <DrawerDescription>{questName || ''}</DrawerDescription>
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 flex-col gap-0.5">
+                <DrawerTitle>
+                  {activeTab === 'guide'
+                    ? (currentStep?.title || 'FIA Steps')
+                    : 'Bible'}
+                </DrawerTitle>
+                <DrawerDescription>{questName || ''}</DrawerDescription>
+              </View>
+              <TouchableOpacity
+                className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+                onPress={() => onOpenChange(false)}
+              >
+                <Icon
+                  as={BookOpenIcon}
+                  size={20}
+                  className="text-primary-foreground"
+                />
+              </TouchableOpacity>
+            </View>
           </DrawerHeader>
 
           {/* Guide / Bible tab row */}
@@ -736,7 +751,7 @@ export function FiaStepDrawer({
               }`}
             >
               <Icon
-                as={HeartIcon}
+                as={FiaIcon}
                 size={16}
                 className={
                   activeTab === 'guide'

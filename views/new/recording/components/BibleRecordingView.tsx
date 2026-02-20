@@ -12,7 +12,13 @@ import {
   renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
+import { FiaStepDrawer } from '@/components/FiaStepDrawer';
+import {
+  asset_content_link,
+  project_language_link,
+  quest as questTable
+} from '@/db/drizzleSchema';
+import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useCurrentNavigation } from '@/hooks/useAppNavigation';
@@ -33,6 +39,7 @@ import { Audio } from 'expo-av';
 import {
   ArrowDownNarrowWide,
   ArrowLeft,
+  BookOpenIcon,
   ChevronLeft,
   ListVideo,
   Mic,
@@ -40,7 +47,7 @@ import {
   Plus
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { InteractionManager, View } from 'react-native';
+import { InteractionManager, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from '../../useHybridData';
 import { useSelectionMode } from '../hooks/useSelectionMode';
@@ -53,8 +60,25 @@ import { RenameAssetDrawer } from './RenameAssetDrawer';
 import { SelectionControls } from './SelectionControls';
 import { VADSettingsDrawer } from './VADSettingsDrawer';
 
-// Feature flag: true = use ArrayInsertionWheel, false = use LegendList
-// const USE_INSERTION_WHEEL = true;
+function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
+  try {
+    const parsed =
+      typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'fia' in parsed &&
+      parsed.fia &&
+      typeof parsed.fia === 'object'
+    ) {
+      return parsed.fia as FiaMetadata;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -192,6 +216,42 @@ const BibleRecordingView = ({
   });
 
   const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
+
+  // Fetch quest metadata for FIA drawer support
+  type Quest = typeof questTable.$inferSelect;
+  const { data: questData } = useHybridData<Quest>({
+    dataType: 'current-quest',
+    queryKeyParams: [currentQuestId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select()
+        .from(questTable)
+        .where(eq(questTable.id, currentQuestId!))
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentQuestId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('id', currentQuestId)
+        .overrideTypes<Quest[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentQuestId,
+    enableOfflineQuery: !!currentQuestId,
+    getItemId: (item) => item.id
+  });
+
+  const selectedQuest = questData?.[0];
+  const fiaMetaExtracted = React.useMemo(() => {
+    if (!selectedQuest?.metadata) return null;
+    return extractFiaMetadata(selectedQuest.metadata);
+  }, [selectedQuest?.metadata]);
+
+  const fiaPericopeId = fiaMetaExtracted?.pericopeId ?? null;
+  const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -2702,9 +2762,22 @@ const BibleRecordingView = ({
               />
             </Button>
           )}
-          <Text className="text-base font-semibold text-muted-foreground">
-            {assets.length} {t('assets').toLowerCase()}
-          </Text>
+          {fiaPericopeId ? (
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              onPress={() => setShowFiaTextDrawer(true)}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Pressable>
+          ) : (
+            <Text className="text-base font-semibold text-muted-foreground">
+              {assets.length} {t('assets').toLowerCase()}
+            </Text>
+          )}
         </View>
       </View>
       <View
@@ -2830,6 +2903,17 @@ const BibleRecordingView = ({
 
       {/* Recording Help Dialog - shown once on first visit */}
       <RecordingHelpDialog />
+
+      {/* FIA Pericope Steps Drawer (only for FIA projects) */}
+      <FiaStepDrawer
+        open={showFiaTextDrawer}
+        onOpenChange={setShowFiaTextDrawer}
+        projectId={currentProjectId}
+        pericopeId={fiaPericopeId ?? undefined}
+        questName={selectedQuest?.name}
+        fiaBookId={fiaMetaExtracted?.bookId}
+        verseRange={fiaMetaExtracted?.verseRange}
+      />
     </View>
   );
 };

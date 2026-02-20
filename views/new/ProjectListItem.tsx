@@ -1,4 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { FiaIcon } from '@/components/icons/FiaIcon';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Button } from '@/components/ui/button';
 import {
@@ -254,9 +255,11 @@ export function ProjectListItem({
                   {project.private && (
                     <Icon as={LockIcon} className="text-secondary-foreground" />
                   )}
-                  {(project.template === 'bible' ||
-                    project.template === 'fia') && (
+                  {project.template === 'bible' && (
                     <Icon as={BookIcon} className="text-secondary-foreground" />
+                  )}
+                  {project.template === 'fia' && (
+                    <Icon as={FiaIcon} className="text-secondary-foreground" />
                   )}
                   {membership === 'owner' && (
                     <Icon as={CrownIcon} className="text-primary" />
