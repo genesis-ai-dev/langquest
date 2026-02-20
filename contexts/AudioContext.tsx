@@ -232,7 +232,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (!segment) return;
 
     try {
-      const sound = createAudioPlayer(segment.uri);
+      const sound = createAudioPlayer(segment.uri, { updateInterval: 50 });
       await waitForPlayerLoaded(sound);
 
       const shouldSeek = segment.startMs != null && segment.startMs > 0;
@@ -407,7 +407,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         sound = preloaded.sound;
         preloadedSegmentRef.current = null;
       } else {
-        sound = createAudioPlayer(segment.uri);
+        sound = createAudioPlayer(segment.uri, { updateInterval: 50 });
         await waitForPlayerLoaded(sound);
       }
 
@@ -532,31 +532,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
             statusGuardUntilMsRef.current =
               (animationStartWallClockMsRef.current ?? now) + 1000;
-
-            // Precise endpoint timer: status callbacks fire on an interval
-            // and can overshoot endMs by hundreds of ms. A setTimeout
-            // started from the actual playback start is far more accurate.
-            if (currentSeg?.endMs != null) {
-              const remainingMs = currentSeg.endMs - currentPositionMs;
-              if (remainingMs > 0) {
-                clearEndpointTimer();
-                const capturedSession = playbackSessionRef.current;
-                endpointTimerRef.current = setTimeout(() => {
-                  endpointTimerRef.current = null;
-                  if (capturedSession !== playbackSessionRef.current) return;
-                  if (isAdvancingSegmentRef.current) return;
-                  isAdvancingSegmentRef.current = true;
-                  clearEndpointTimer();
-                  clearStatusListener();
-                  sound.pause();
-                  sound.release();
-                  if (soundRef.current === sound) {
-                    soundRef.current = null;
-                  }
-                  void playNextInSequence();
-                }, remainingMs);
-              }
-            }
           }
 
           const guarded = now < statusGuardUntilMsRef.current;
@@ -576,10 +551,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Fallback endMs enforcement via status callback (timer above is primary).
+          // Safety-net: if the setTimeout timer hasn't fired yet but the
+          // native position has already reached/passed endMs, stop now.
           if (
             currentSeg?.endMs != null &&
-            currentPositionMs >= currentSeg.endMs &&
+            currentPositionMs >= currentSeg.endMs - 10 &&
             !isAdvancingSegmentRef.current
           ) {
             isAdvancingSegmentRef.current = true;
@@ -612,6 +588,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         }
       );
       sound.play();
+
+      // Precise endpoint timer started immediately after play(), using the
+      // pre-calculated clip duration. This avoids waiting for a status
+      // callback (which can be stale/late) before scheduling the stop.
+      if (segment.endMs != null) {
+        const seekPos = segment.startMs ?? 0;
+        const clipDurationMs = segment.endMs - seekPos;
+        if (clipDurationMs > 0) {
+          clearEndpointTimer();
+          const capturedSession = playbackSessionRef.current;
+          endpointTimerRef.current = setTimeout(() => {
+            endpointTimerRef.current = null;
+            if (capturedSession !== playbackSessionRef.current) return;
+            if (isAdvancingSegmentRef.current) return;
+            isAdvancingSegmentRef.current = true;
+            clearStatusListener();
+            sound.pause();
+            sound.release();
+            if (soundRef.current === sound) {
+              soundRef.current = null;
+            }
+            void playNextInSequence();
+          }, clipDurationMs);
+        }
+      }
 
       // Preload exactly one segment ahead while current segment is playing.
       if (useSequenceLevelProgressRef.current) {
