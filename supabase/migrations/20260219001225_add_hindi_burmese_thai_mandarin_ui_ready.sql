@@ -75,25 +75,6 @@ WHERE EXISTS (
 )
 ON CONFLICT (subject_languoid_id, label_languoid_id, alias_type, name) DO NOTHING;
 
--- Add Burmese exonymic alias (Myanmar) - only if the languoid exists
-INSERT INTO public.languoid_alias (
-    subject_languoid_id,
-    label_languoid_id,
-    name,
-    alias_type,
-    source_names
-)
-SELECT
-    'fa8369a5-03a6-4d1e-ba44-152409a2f97c',
-    'fa8369a5-03a6-4d1e-ba44-152409a2f97c',
-    'Myanmar',
-    'exonym'::public.alias_type,
-    ARRAY['lexvo']
-WHERE EXISTS (
-    SELECT 1 FROM public.languoid WHERE id = 'fa8369a5-03a6-4d1e-ba44-152409a2f97c'
-)
-ON CONFLICT (subject_languoid_id, label_languoid_id, alias_type, name) DO NOTHING;
-
 -- ============================================================================
 -- Thai (ไทย)
 -- ISO 639-3: tha
@@ -165,3 +146,50 @@ WHERE EXISTS (
     SELECT 1 FROM public.languoid WHERE id = '0d75d06f-2692-4127-b810-67dd64fa6eee'
 )
 ON CONFLICT (subject_languoid_id, label_languoid_id, alias_type, name) DO NOTHING;
+
+-- ============================================================================
+-- Add name column to region_alias
+-- This was missing from the original table definition.
+-- languoid_alias has a name column; region_alias should too.
+-- ============================================================================
+
+ALTER TABLE public.region_alias
+  ADD COLUMN IF NOT EXISTS name text;
+
+-- Update unique constraint to include name, allowing multiple named aliases
+-- per region per language (e.g., "Myanmar" and "Burma" both in English)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.region_alias'::regclass
+      AND conname = 'uq_region_alias'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.region_alias DROP CONSTRAINT uq_region_alias';
+  END IF;
+  EXECUTE 'ALTER TABLE public.region_alias
+           ADD CONSTRAINT uq_region_alias UNIQUE (subject_region_id, label_languoid_id, name)';
+END$$;
+
+CREATE INDEX IF NOT EXISTS idx_region_alias_name ON public.region_alias(name);
+
+-- ============================================================================
+-- Add "Burma" as a region alias for the Myanmar region
+-- Myanmar already exists as a region; Burma is a common English alternative.
+-- English languoid ID: bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd
+-- ============================================================================
+
+INSERT INTO public.region_alias (
+    id,
+    subject_region_id,
+    label_languoid_id,
+    name
+)
+SELECT
+    gen_random_uuid()::text,
+    r.id,
+    'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd',
+    'Burma'
+FROM public.region r
+WHERE r.name = 'Myanmar'
+ON CONFLICT (subject_region_id, label_languoid_id, name) DO NOTHING;

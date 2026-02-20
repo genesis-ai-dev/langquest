@@ -3942,8 +3942,12 @@ export default function BibleAssetsView() {
                     storageBytes: verificationState.estimatedStorageBytes
                   });
                   setShowDetailsModal(true);
-                  // Start verification to get storage estimate if quest is downloaded
-                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                  // Start verification to get storage estimate if quest is downloaded and exists in cloud
+                  if (
+                    isQuestDownloaded &&
+                    !verificationState.isVerifying &&
+                    selectedQuest?.source !== 'local'
+                  ) {
                     verificationState.startVerification();
                   }
                 }}

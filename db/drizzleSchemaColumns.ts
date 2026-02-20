@@ -1354,6 +1354,7 @@ export function createRegionAliasTable<
       label_languoid_id: text()
         .notNull()
         .references(() => languoid.id),
+      name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       creator_id: text().references(() => profile.id),
       ...extraColumns
@@ -1361,6 +1362,7 @@ export function createRegionAliasTable<
     (table) => [
       index('region_alias_subject_idx').on(table.subject_region_id),
       index('region_alias_label_idx').on(table.label_languoid_id),
+      index('region_alias_name_idx').on(table.name),
       ...normalizeParams(extraConfig, table)
     ]
   );
