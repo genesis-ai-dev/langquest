@@ -58,16 +58,12 @@ interface AudioContextType {
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
-  // Hybrid progress model:
-  // - Get duration for a segment or segment sequence
-  //   and use that to set the duration for audio progress bar animation
-  // - sparse native status callbacks for truth/corrections
-  // - continuous UI-thread timing for smooth movement
-  const DRIFT_CORRECTION_THRESHOLD_MS = 80;
-  // Initial merged-playback timing estimate: add this much wall-clock time
-  // per segment before we do the one-time last-segment slope correction.
+  // Progress model: preload durations upfront, then start a withTiming
+  // animation right at sound.play() so the bar appears at 0% when audio
+  // begins. Single segments animate 1:1 with audio duration. Multi-segment
+  // sequences use padding for inter-segment gaps, then retime on the last
+  // segment. Status callbacks update React state but don't touch positionShared.
   const MERGED_SEGMENT_PADDING_MS = 250;
-  const FINAL_SEGMENT_END_FUDGE_MS = 40;
   // How often to push React state (triggers re-renders). Keep low to reduce
   // JS-thread pressure — progress bars use SharedValues, not React state.
   const REACT_STATE_THROTTLE_MS = 100;
@@ -158,7 +154,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const waitForPlaybackEnd = async (audioId: string) => {
     if (!audioId) return;
-    if (currentAudioIdRef.current !== audioId || !isPlayingRef.current) {
+    if (currentAudioIdRef.current !== audioId) {
+      return;
+    }
+    // Allow waiting during startup before first status.playing callback.
+    if (!isPlayingRef.current && !soundRef.current) {
       return;
     }
 
@@ -387,6 +387,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const preloaded = preloadedSegmentRef.current;
     const canUsePreloaded = preloaded?.index === segmentIndex;
     let lastSegmentRemainingMsAtStart: number | null = null;
+    let initialPaddedWallClock: number | null = null;
+    let isFirstSegment = false;
+    let isLastSegment = false;
 
     try {
       let sound: AudioPlayer;
@@ -399,7 +402,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       soundRef.current = sound;
-      setIsPlayingState(true);
 
       if (audioId) {
         setCurrentAudioIdState(audioId);
@@ -424,42 +426,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         segmentDurations.current[currentSequenceIndex.current] =
           effectiveDuration;
 
-        // Single-segment playback animates per segment.
-        // Merged sequences start from playSound() and keep a single timeline
-        // (no per-segment retiming).
-        if (!useSequenceLevelProgressRef.current) {
-          const totalDuration = totalSequenceDuration();
-          setDuration(totalDuration);
-          durationSharedRef.current.value = totalDuration;
+        isFirstSegment = currentSequenceIndex.current === 0;
+        isLastSegment =
+          currentSequenceIndex.current ===
+          sequenceSegments.current.length - 1;
+
+        if (isFirstSegment && !isLastSegment) {
+          // Multi-segment: compute padded wall-clock for initial animation
+          // (started after sound.play() below).
+          const seqTotal = totalSequenceDuration();
+          initialPaddedWallClock =
+            seqTotal +
+            sequenceSegments.current.length * MERGED_SEGMENT_PADDING_MS;
+        } else if (isLastSegment && !hasRetimedLastSegmentRef.current) {
           const cumulativeBefore = cumulativeDurationBeforeCurrent();
-          const targetTotal = cumulativeBefore + effectiveDuration;
-          startPredictedProgressAnimation(cumulativeBefore, targetTotal);
-        } else {
-          const isLastSegment =
-            currentSequenceIndex.current ===
-            sequenceSegments.current.length - 1;
-          if (isLastSegment && !hasRetimedLastSegmentRef.current) {
-            const cumulativeBefore = cumulativeDurationBeforeCurrent();
-            const segStartMs = segment.startMs ?? 0;
-            const playedInSegmentAtStart = Math.max(
-              0,
-              sound.currentTime * 1000 - segStartMs
-            );
-            const playedTotalAtStart =
-              cumulativeBefore + playedInSegmentAtStart;
-            const remainingTotal =
-              totalSequenceDuration() -
-              playedTotalAtStart +
-              FINAL_SEGMENT_END_FUDGE_MS;
-            lastSegmentRemainingMsAtStart = Math.max(0, remainingTotal);
-          }
+          const segStartMs = segment.startMs ?? 0;
+          const playedInSegmentAtStart = Math.max(
+            0,
+            sound.currentTime * 1000 - segStartMs
+          );
+          const playedTotalAtStart =
+            cumulativeBefore + playedInSegmentAtStart;
+          const remainingTotal =
+            totalSequenceDuration() - playedTotalAtStart;
+          lastSegmentRemainingMsAtStart = Math.max(0, remainingTotal);
         }
-        // Guard: block all status-callback position writes for 1 second.
-        // This lets the deterministic withTiming animation run uninterrupted
-        // through the startup burst of eager expo-av callbacks.
-        // animationStartWallClockMsRef was just set by the call above.
-        statusGuardUntilMsRef.current =
-          (animationStartWallClockMsRef.current ?? 0) + 1000;
       }
 
       // Set up listener for position updates + natural completion.
@@ -473,10 +464,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          if (status.playing) hasStartedPlaying = true;
-
           const now = Date.now();
-          const guarded = now < statusGuardUntilMsRef.current;
           const currentSeg =
             sequenceSegments.current[currentSequenceIndex.current];
           const cumulativeDuration = cumulativeDurationBeforeCurrent();
@@ -485,6 +473,58 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           const positionInSegment = currentPositionMs - segStartMs;
           const totalPosition =
             cumulativeDuration + Math.max(0, positionInSegment);
+          const sequenceTotalDuration = totalSequenceDuration();
+
+          if (status.playing && !hasStartedPlaying) {
+            hasStartedPlaying = true;
+            setIsPlayingState(true);
+
+            // Start bar at 0% when playback actually starts, then speed-match
+            // using measured already-played audio so end-time stays exact.
+            if (isFirstSegment) {
+              const alreadyPlayed = Math.max(0, totalPosition);
+              const durationOverrideMs = isLastSegment
+                ? Math.max(0, sequenceTotalDuration - alreadyPlayed)
+                : Math.max(
+                    0,
+                    (initialPaddedWallClock ?? sequenceTotalDuration) -
+                      alreadyPlayed
+                  );
+              startPredictedProgressAnimation(
+                0,
+                sequenceTotalDuration,
+                durationOverrideMs
+              );
+
+              if (isLastSegment) {
+                hasRetimedLastSegmentRef.current = true;
+              }
+            } else if (
+              isLastSegment &&
+              lastSegmentRemainingMsAtStart != null &&
+              !hasRetimedLastSegmentRef.current &&
+              useSequenceLevelProgressRef.current
+            ) {
+              const predicted = predictedPositionNow();
+              const fromPosition = Math.max(
+                cumulativeDurationBeforeCurrent(),
+                predicted ?? positionSharedRef.current.value
+              );
+              if (sequenceTotalDuration > fromPosition) {
+                startPredictedProgressAnimation(
+                  fromPosition,
+                  sequenceTotalDuration,
+                  Math.max(0, sequenceTotalDuration - totalPosition)
+                );
+              }
+              hasRetimedLastSegmentRef.current = true;
+            }
+
+            statusGuardUntilMsRef.current =
+              (animationStartWallClockMsRef.current ?? now) + 1000;
+          }
+
+          const guarded = now < statusGuardUntilMsRef.current;
 
           // While the guard is active, skip all position writes and drift
           // correction. The deterministic withTiming animation is running
@@ -498,25 +538,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             ) {
               lastReactStateUpdateMs.current = now;
               setPositionState(totalPosition);
-            }
-
-            // For merged playback, keep one continuous timeline and do not
-            // restart timing at segment boundaries.
-            if (!useSequenceLevelProgressRef.current) {
-              const currentTargetTotal =
-                cumulativeDuration +
-                (segmentDurations.current[currentSequenceIndex.current] || 0);
-              const predicted = predictedPositionNow();
-              const drift =
-                predicted == null
-                  ? Number.POSITIVE_INFINITY
-                  : totalPosition - predicted;
-              if (Math.abs(drift) >= DRIFT_CORRECTION_THRESHOLD_MS) {
-                startPredictedProgressAnimation(
-                  totalPosition,
-                  currentTargetTotal
-                );
-              }
             }
           }
 
@@ -556,30 +577,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       );
       sound.play();
 
-      // One-time retime: when the final segment actually starts playing,
-      // retime from current progress so remaining time matches that segment.
-      if (
-        lastSegmentRemainingMsAtStart != null &&
-        !hasRetimedLastSegmentRef.current &&
-        useSequenceLevelProgressRef.current
-      ) {
-        const sequenceTotalDuration = totalSequenceDuration();
-        const predicted = predictedPositionNow();
-        const fromPosition = Math.max(
-          cumulativeDurationBeforeCurrent(),
-          predicted ?? positionSharedRef.current.value
-        );
-        if (sequenceTotalDuration > fromPosition) {
-          // Keep the progress scale fixed and only adjust slope.
-          startPredictedProgressAnimation(
-            fromPosition,
-            sequenceTotalDuration,
-            lastSegmentRemainingMsAtStart
-          );
-        }
-        hasRetimedLastSegmentRef.current = true;
-      }
-
       // Preload exactly one segment ahead while current segment is playing.
       if (useSequenceLevelProgressRef.current) {
         const currentSession = playbackSessionRef.current;
@@ -617,43 +614,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     currentSequenceIndex.current = 0;
     segmentDurations.current = new Array<number>(segments.length).fill(0);
     cumulativePositionSharedRef.current.value = 0;
-    useSequenceLevelProgressRef.current = segments.length > 1;
+    useSequenceLevelProgressRef.current = true;
     hasRetimedLastSegmentRef.current = false;
 
-    // For multi-segment sequences, preload durations for accurate total display.
-    // Single segments get their duration set inside playSegment.
+    // Preload durations for accurate total display and padded animation.
     // NOTE: Process sequentially to avoid ExoPlayer threading issues on Android.
-    if (segments.length > 1) {
-      try {
-        for (let index = 0; index < segments.length; index++) {
-          const seg = segments[index]!;
-          const sound = createAudioPlayer(seg.uri);
-          await waitForPlayerLoaded(sound);
-          if (sound.isLoaded) {
-            const fullMs = sound.duration * 1000;
-            const startMs = seg.startMs ?? 0;
-            const endMs = seg.endMs ?? fullMs;
-            segmentDurations.current[index] = Math.max(0, endMs - startMs);
-          }
-          sound.release();
+    try {
+      for (let index = 0; index < segments.length; index++) {
+        const seg = segments[index]!;
+        const sound = createAudioPlayer(seg.uri);
+        await waitForPlayerLoaded(sound);
+        if (sound.isLoaded) {
+          const fullMs = sound.duration * 1000;
+          const startMs = seg.startMs ?? 0;
+          const endMs = seg.endMs ?? fullMs;
+          segmentDurations.current[index] = Math.max(0, endMs - startMs);
         }
-
-        const totalDuration = totalSequenceDuration();
-        const initialEstimatedWallClockMs =
-          totalDuration + segments.length * MERGED_SEGMENT_PADDING_MS;
-        setDuration(totalDuration);
-        durationSharedRef.current.value = totalDuration;
-        if (totalDuration > 0) {
-          startPredictedProgressAnimation(
-            0,
-            totalDuration,
-            initialEstimatedWallClockMs
-          );
-        }
-      } catch {
-        // Failed to preload durations, will calculate on the fly
-        useSequenceLevelProgressRef.current = false;
+        sound.release();
       }
+
+      const totalDuration = totalSequenceDuration();
+      setDuration(totalDuration);
+      durationSharedRef.current.value = totalDuration;
+    } catch {
+      // Failed to preload durations, will calculate on the fly
+      useSequenceLevelProgressRef.current = false;
     }
 
     // Play first segment
