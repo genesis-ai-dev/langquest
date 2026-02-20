@@ -167,8 +167,8 @@ export function ExportButton({
       <Button
         variant="outline"
         size="icon"
-        // onPress={() => setShowExportQuestList(true)}
-        onPress={() => setShowTypeSelector(true)}
+        onPress={() => setShowExportQuestList(true)}
+        // onPress={() => setShowTypeSelector(true)}
         disabled={disabled || exportMutation.isPending || isConcatenating}
         className="border-[1.5px] border-primary"
       >

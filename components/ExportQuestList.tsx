@@ -1,16 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { LegendList } from '@legendapp/list';
 import React from 'react';
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  View
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    SafeAreaView,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,6 +43,9 @@ export function ExportQuestList({
   );
   const [hasUserTouchedSelection, setHasUserTouchedSelection] =
     React.useState(false);
+  const [mergedFile, setMergedFile] = React.useState(true);
+  const [includeCsvFile, setIncludeCsvFile] = React.useState(true);
+  const [shareEnable, setShareEnable] = React.useState(false);
 
   const assets = React.useMemo(() => {
     const allAssets = data.pages.flatMap((page) => page.data) as AssetItem[];
@@ -126,18 +130,49 @@ export function ExportQuestList({
       onRequestClose={onClose}
     >
       <SafeAreaView className="flex-1 bg-background">
-        {/* ── Fixed header (Tarefa 1: pt respeita a safe area do smartphone) ── */}
         <View
           style={{ paddingTop: insets.top + 16 }}
-          className="border-b border-border px-6 pb-4"
+          className="border-b border-border px-6 pb-4 flex-row items-center justify-between"
         >
-          <Text variant="h4">Export Quest</Text>
-          <Text className="text-sm text-muted-foreground">
-            {quest?.name || '-'}
-          </Text>
+            <View className="flex-col">
+                <Text variant="h4">Export Quest</Text>
+                <Text className="text-sm text-muted-foreground">
+                    {quest?.name || '-'}
+                </Text>
+            </View>
+            <View className="flex-row items-center gap-3">
+              <Text className="text-sm font-medium">Download</Text>
+              <Switch
+                checked={shareEnable}
+                onCheckedChange={setShareEnable}
+                //className='border-primary-foreground'
+              />
+              <Text className="text-sm font-medium">Share</Text>
+            </View>
         </View>
 
-        {/* ── Fixed list-header (Tarefa 2: sem card, apenas linha simples) ── */}
+
+        { !shareEnable && (
+        <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
+          <View className="flex-row flex-wrap items-center justify-center gap-4 w-full">
+            <View className="flex-row items-center gap-2">
+              <Checkbox
+                checked={mergedFile}
+                onCheckedChange={(v) => setMergedFile(v === true)}
+              />
+              <Text className="text-sm">Merged File</Text>
+            </View>
+            <View className="flex-row items-center gap-2">
+              <Checkbox
+                checked={includeCsvFile}
+                onCheckedChange={(v) => setIncludeCsvFile(v === true)}
+              />
+              <Text className="text-sm">Include CSV File</Text>
+            </View>
+          </View>
+        </View>
+        )}
+
         <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
           <View className="flex-row items-center gap-3">
             <Checkbox
@@ -171,8 +206,7 @@ export function ExportQuestList({
                     onPress={() => handleToggleAsset(item.id)}
                     className="mb-2 flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
                   >
-                    {/* pointerEvents="none" evita duplo disparo:
-                        só o Pressable do row gerencia o toggle */}
+                    {/* pointerEvents="none" avoid double trigger */}
                     <View pointerEvents="none">
                       <Checkbox checked={checked} onCheckedChange={noop} />
                     </View>
@@ -203,7 +237,7 @@ export function ExportQuestList({
         {/* ── Fixed footer ── */}
         <View className="border-t border-border px-6 pb-4 pt-4">
           <Button>
-            <Text>Export</Text>
+            <Text>{`${shareEnable ? 'Share' : 'Download'}`}</Text>
           </Button>
           <Button onPress={onClose} variant="outline" className="mb-2">
             <Text>Cancel</Text>
