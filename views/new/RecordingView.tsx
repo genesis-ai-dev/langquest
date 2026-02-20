@@ -14,7 +14,8 @@ import {
   updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { FiaStepDrawer } from '@/components/FiaStepDrawer';
+import { FiaStepDrawer, INITIAL_FIA_DRAWER_STATE } from '@/components/FiaStepDrawer';
+import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   asset_content_link,
   project_language_link,
@@ -364,6 +365,7 @@ const RecordingView = () => {
 
   const fiaPericopeId = fiaMetaExtracted?.pericopeId ?? null;
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+  const fiaDrawerStateRef = React.useRef<FiaDrawerState>({ ...INITIAL_FIA_DRAWER_STATE });
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -3383,6 +3385,7 @@ const RecordingView = () => {
         questName={selectedQuestForFia?.name}
         fiaBookId={fiaMetaExtracted?.bookId}
         verseRange={fiaMetaExtracted?.verseRange}
+        persistedState={fiaDrawerStateRef}
       />
     </View>
   );

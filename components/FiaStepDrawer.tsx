@@ -57,6 +57,20 @@ const STEP_CONFIG = [
   { id: 'speaking-the-word', label: 'Speak', icon: MessageCircleIcon }
 ] as const;
 
+// --- Persisted state ---
+
+export interface FiaDrawerState {
+  activeTab: 'guide' | 'bible';
+  activeStep: string;
+  completedSteps: string[];
+}
+
+export const INITIAL_FIA_DRAWER_STATE: FiaDrawerState = {
+  activeTab: 'guide',
+  activeStep: 'hear-and-heart',
+  completedSteps: []
+};
+
 // --- Props ---
 
 interface FiaStepDrawerProps {
@@ -67,6 +81,7 @@ interface FiaStepDrawerProps {
   questName?: string;
   fiaBookId?: string;
   verseRange?: string;
+  persistedState?: React.MutableRefObject<FiaDrawerState>;
 }
 
 // --- Audio Player ---
@@ -83,7 +98,7 @@ function StepAudioPlayer({ audioUrl }: { audioUrl: string | null }) {
     position,
     duration,
     setPosition
-  } = useAudio();
+  } = useAudio({ stopOnUnmount: false });
 
   const audioId = `fia-step-${audioUrl}`;
   const isThisPlaying = isPlaying && currentAudioId === audioId;
@@ -657,14 +672,21 @@ export function FiaStepDrawer({
   pericopeId,
   questName,
   fiaBookId,
-  verseRange
+  verseRange,
+  persistedState
 }: FiaStepDrawerProps) {
-  const [activeTab, setActiveTab] = React.useState<'guide' | 'bible'>('guide');
-  const [activeStep, setActiveStep] = React.useState('hear-and-heart');
+  const saved = persistedState?.current;
+  const [activeTab, setActiveTab] = React.useState<'guide' | 'bible'>(
+    saved?.activeTab ?? 'guide'
+  );
+  const [activeStep, setActiveStep] = React.useState(
+    saved?.activeStep ?? 'hear-and-heart'
+  );
   const [completedSteps, setCompletedSteps] = React.useState<Set<string>>(
-    new Set()
+    new Set(saved?.completedSteps ?? [])
   );
   const scrollRef = React.useRef<any>(null);
+  const dataLoadedRef = React.useRef(false);
   const { data, isLoading, error } = useFiaPericopeSteps(
     pericopeId ? projectId : undefined,
     pericopeId ?? undefined
@@ -676,12 +698,27 @@ export function FiaStepDrawer({
   const isLastStep = currentStepIndex === STEP_CONFIG.length - 1;
   const isStepCompleted = completedSteps.has(activeStep);
 
+  // Only reset to defaults on first data load when no persisted state exists
   React.useEffect(() => {
-    if (data && !isLoading) {
-      setActiveStep('hear-and-heart');
-      setCompletedSteps(new Set());
+    if (data && !isLoading && !dataLoadedRef.current) {
+      dataLoadedRef.current = true;
+      if (!saved?.activeStep) {
+        setActiveStep('hear-and-heart');
+        setCompletedSteps(new Set());
+      }
     }
-  }, [data, isLoading]);
+  }, [data, isLoading, saved?.activeStep]);
+
+  // Sync state back to parent ref so it survives drawer unmount
+  React.useEffect(() => {
+    if (persistedState) {
+      persistedState.current = {
+        activeTab,
+        activeStep,
+        completedSteps: Array.from(completedSteps)
+      };
+    }
+  }, [activeTab, activeStep, completedSteps, persistedState]);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo?.({ y: 0, animated: false });
@@ -707,6 +744,20 @@ export function FiaStepDrawer({
       return next;
     });
   };
+
+  // Pause any drawer audio (FIA step or Bible) when drawer closes
+  const { pauseSound: pauseGlobal, isPlaying: isGlobalPlaying, currentAudioId: globalAudioId } = useAudio({ stopOnUnmount: false });
+  const prevOpenRef = React.useRef(open);
+  React.useEffect(() => {
+    if (prevOpenRef.current && !open && isGlobalPlaying) {
+      const isFiaAudio = globalAudioId?.startsWith('fia-step-');
+      const isBibleAudio = globalAudioId?.startsWith('bible-');
+      if (isFiaAudio || isBibleAudio) {
+        void pauseGlobal();
+      }
+    }
+    prevOpenRef.current = open;
+  }, [open, isGlobalPlaying, globalAudioId, pauseGlobal]);
 
   if (!pericopeId) return null;
 

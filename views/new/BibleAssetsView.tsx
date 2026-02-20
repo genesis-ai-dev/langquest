@@ -99,7 +99,8 @@ import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
-import { FiaStepDrawer } from '@/components/FiaStepDrawer';
+import { FiaStepDrawer, INITIAL_FIA_DRAWER_STATE } from '@/components/FiaStepDrawer';
+import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
@@ -582,6 +583,7 @@ export default function BibleAssetsView() {
 
   // State for FIA pericope text drawer
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+  const fiaDrawerStateRef = React.useRef<FiaDrawerState>({ ...INITIAL_FIA_DRAWER_STATE });
 
   // Manual verse separators created by the user
   const [manualSeparators, setManualSeparators] = React.useState<
@@ -4462,6 +4464,7 @@ export default function BibleAssetsView() {
         questName={selectedQuest?.name}
         fiaBookId={fiaMetaExtracted?.bookId}
         verseRange={fiaMetaExtracted?.verseRange}
+        persistedState={fiaDrawerStateRef}
       />
 
     </View>

@@ -121,6 +121,8 @@ export default function ProjectDirectoryView() {
     React.useState(false);
   const [chapterListCloudLoading, setChapterListCloudLoading] =
     React.useState(false);
+  const [pericopeListCloudLoading, setPericopeListCloudLoading] =
+    React.useState(false);
   const [questListFetching, setQuestListFetching] = React.useState(false);
 
   // Search state
@@ -449,6 +451,7 @@ export default function ProjectDirectoryView() {
     projectCloudLoading ||
     questListCloudLoading ||
     chapterListCloudLoading ||
+    pericopeListCloudLoading ||
     booksCloudLoading;
 
   // Update global cloud loading state
@@ -1085,6 +1088,7 @@ export default function ProjectDirectoryView() {
             <FiaPericopeList
               projectId={currentProjectId!}
               book={selectedBook}
+              onCloudLoadingChange={setPericopeListCloudLoading}
             />
           </View>
         </View>
