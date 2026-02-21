@@ -369,14 +369,14 @@ function RecordAssetCardInternal({
               {/* <Text className="text-xs text-muted-foreground">
               {asset.created_at && new Date(asset.created_at).toLocaleString()}
             </Text> */}
-              {duration !== undefined && duration > 0 && (
-                <Text
-                  className="font-mono text-xs text-muted-foreground"
-                  style={{ letterSpacing: 0.5 }}
-                >
-                  {formatDuration(duration)}
-                </Text>
-              )}
+              <Text
+                className="font-mono text-xs text-muted-foreground"
+                style={{ letterSpacing: 0.5 }}
+              >
+                {duration !== undefined && duration > 0
+                  ? formatDuration(duration)
+                  : ' '}
+              </Text>
             </View>
           </View>
 
