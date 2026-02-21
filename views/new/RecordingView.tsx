@@ -133,6 +133,7 @@ interface AssetListRowProps {
   index: number;
   isSelected: boolean;
   isHighlighted: boolean;
+  isFlashing: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
   hideButtons: boolean;
@@ -153,6 +154,7 @@ const AssetListRow = React.memo(function AssetListRow({
   index,
   isSelected,
   isHighlighted,
+  isFlashing,
   isSelectionMode,
   isPlaying,
   hideButtons,
@@ -175,6 +177,7 @@ const AssetListRow = React.memo(function AssetListRow({
         index={index}
         isSelected={isSelected}
         isHighlighted={isHighlighted}
+        isFlashing={isFlashing}
         isSelectionMode={isSelectionMode}
         isPlaying={isPlaying}
         hideButtons={hideButtons}
@@ -479,6 +482,28 @@ const RecordingView = () => {
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
+
+  // Asset IDs that should flash (5s fade after merge/unmerge)
+  const [flashingAssetIds, setFlashingAssetIds] = React.useState<Set<string>>(
+    new Set()
+  );
+  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const triggerFlash = React.useCallback((ids: string[]) => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    setFlashingAssetIds(new Set(ids));
+    flashTimerRef.current = setTimeout(
+      () => setFlashingAssetIds(new Set()),
+      5500
+    );
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    []
+  );
 
   // Track segment counts for each asset (loaded lazily)
   const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
@@ -2365,6 +2390,8 @@ const RecordingView = () => {
           return next;
         });
 
+        triggerFlash([first.id]);
+
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'by-quest', currentQuestId],
           exact: false
@@ -2373,7 +2400,7 @@ const RecordingView = () => {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, currentQuestId]
+    [assets, currentUser, triggerFlash, queryClient, currentQuestId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2428,6 +2455,7 @@ const RecordingView = () => {
                 });
 
                 cancelSelection();
+                triggerFlash([targetAssetId]);
                 await queryClient.invalidateQueries({
                   queryKey: ['assets', 'by-quest', currentQuestId],
                   exact: false
@@ -2451,6 +2479,7 @@ const RecordingView = () => {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    triggerFlash,
     queryClient,
     currentQuestId
   ]);
@@ -2560,6 +2589,10 @@ const RecordingView = () => {
                 }
 
                 cancelSelection();
+                triggerFlash([
+                  originalAssetId,
+                  ...newAssets.map((a) => a.id)
+                ]);
                 await queryClient.invalidateQueries({
                   queryKey: ['assets', 'by-quest', currentQuestId],
                   exact: false
@@ -2588,6 +2621,7 @@ const RecordingView = () => {
     currentUser,
     addSessionAsset,
     cancelSelection,
+    triggerFlash,
     queryClient,
     currentQuestId
   ]);
@@ -2937,6 +2971,7 @@ const RecordingView = () => {
           index={index}
           isSelected={isInBatchSelection}
           isHighlighted={isHighlighted}
+          isFlashing={flashingAssetIds.has(item.id)}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
           hideButtons={isRecording || isVADActive}
@@ -2969,7 +3004,8 @@ const RecordingView = () => {
       isReplacing,
       stableHandleActionTypeChange,
       isRecording,
-      isVADActive
+      isVADActive,
+      flashingAssetIds
     ]
   );
 

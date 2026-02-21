@@ -37,10 +37,13 @@ import type { GestureResponderEvent } from 'react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   useAnimatedStyle,
-  useDerivedValue
+  useDerivedValue,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
@@ -53,6 +56,7 @@ interface AssetCardProps {
   index: number;
   isSelected: boolean; // Batch selection (for merge/delete operations)
   isHighlighted: boolean; // Visual highlight (recording insertion point)
+  isFlashing?: boolean; // Temporary 5s fade after merge/unmerge
   isSelectionMode: boolean;
   isPlaying: boolean;
   hideButtons?: boolean; // Hide action buttons
@@ -122,6 +126,7 @@ function RecordAssetCardInternal({
   index,
   isSelected,
   isHighlighted,
+  isFlashing = false,
   isSelectionMode,
   isPlaying,
   hideButtons,
@@ -241,6 +246,22 @@ function RecordAssetCardInternal({
     onLongPress?.();
   }, [onLongPress]);
 
+  // Flash animation (5s fade after merge/unmerge)
+  const flashOpacity = useSharedValue(0);
+  React.useEffect(() => {
+    if (isFlashing) {
+      flashOpacity.value = 1;
+      flashOpacity.value = withTiming(0, {
+        duration: 5000,
+        easing: Easing.out(Easing.quad)
+      });
+    }
+  }, [isFlashing, flashOpacity]);
+
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: flashOpacity.value
+  }));
+
   const { t } = useLocalization();
   return (
     <TouchableOpacity
@@ -248,7 +269,7 @@ function RecordAssetCardInternal({
       onLongPress={onLongPress ? handleCardLongPress : undefined}
       delayLongPress={500}
       activeOpacity={0.7}
-      disabled={isSelectionMode} // Disable card press in selection mode (use checkbox instead)
+      disabled={isSelectionMode}
     >
       <View
         className={cn(
@@ -262,6 +283,15 @@ function RecordAssetCardInternal({
               : 'border-border bg-card'
         )}
       >
+        {/* Flash overlay — fading border+bg after merge/unmerge */}
+        {isFlashing && (
+          <Animated.View
+            style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, flashStyle]}
+            className="rounded-lg border-2 border-primary bg-primary/10"
+            pointerEvents="none"
+          />
+        )}
+
         {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
         {isPlaying && (
           <View
@@ -397,6 +427,7 @@ export const RecordAssetCard = React.memo(
       prev.index === next.index &&
       prev.isSelected === next.isSelected &&
       prev.isHighlighted === next.isHighlighted &&
+      prev.isFlashing === next.isFlashing &&
       prev.isSelectionMode === next.isSelectionMode &&
       prev.isPlaying === next.isPlaying &&
       prev.hideButtons === next.hideButtons &&

@@ -224,6 +224,7 @@ interface DraggableAssetItemProps {
   isPublished: boolean;
   isPlaying: boolean;
   isSelected: boolean;
+  isFlashing: boolean;
   isSelectionMode: boolean;
   isAssetSelectedForRecording: boolean;
   hasAvailableVerses: boolean;
@@ -245,6 +246,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   isPublished,
   isPlaying,
   isSelected,
+  isFlashing,
   isSelectionMode,
   isAssetSelectedForRecording,
   hasAvailableVerses,
@@ -298,6 +300,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
         isHighlighted={isHighlighted && !isPublished}
+        isFlashing={isFlashing}
       />
       {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
         <RecordingPlaceIndicator />
@@ -478,6 +481,28 @@ export default function BibleAssetsView() {
   const { t } = useLocalization();
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
+  // Asset IDs that should flash (5s fade after merge/unmerge)
+  const [flashingAssetIds, setFlashingAssetIds] = React.useState<Set<string>>(
+    new Set()
+  );
+  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const triggerFlash = React.useCallback((ids: string[]) => {
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    setFlashingAssetIds(new Set(ids));
+    flashTimerRef.current = setTimeout(
+      () => setFlashingAssetIds(new Set()),
+      5500
+    );
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    []
+  );
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
@@ -1183,6 +1208,7 @@ export default function BibleAssetsView() {
 
                 cancelSelection();
                 setSelectedForRecording(null);
+                triggerFlash([targetAssetId]);
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
                 void refetch();
 
@@ -1206,6 +1232,7 @@ export default function BibleAssetsView() {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    triggerFlash,
     queryClient,
     t,
     refetch
@@ -1236,6 +1263,10 @@ export default function BibleAssetsView() {
 
                 cancelSelection();
                 setSelectedForRecording(null);
+                triggerFlash([
+                  selectedAsset.id,
+                  ...newAssets.map((a) => a.id)
+                ]);
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
                 void refetch();
 
@@ -1261,6 +1292,7 @@ export default function BibleAssetsView() {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    triggerFlash,
     queryClient,
     t,
     refetch
@@ -2495,6 +2527,7 @@ export default function BibleAssetsView() {
             selectedQuest?.metadata?.lastRecordingSessionId
           }
           isSelected={isSelected}
+          isFlashing={flashingAssetIds.has(asset.id)}
           isSelectionMode={!isPublished && isSelectionMode}
           isAssetSelectedForRecording={isAssetSelectedForRecording}
           hasAvailableVerses={hasAvailableVerses}
@@ -2538,7 +2571,8 @@ export default function BibleAssetsView() {
       handleSelectForRecording,
       handleSelectSeparatorForRecording,
       handleRenameAsset,
-      selectedQuest?.metadata?.lastRecordingSessionId
+      selectedQuest?.metadata?.lastRecordingSessionId,
+      flashingAssetIds
     ]
   );
 
