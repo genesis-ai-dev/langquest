@@ -1,13 +1,14 @@
+import { ToggleButton } from '@/components/ToggleButton';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
-import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestById } from '@/hooks/db/useQuests';
+import { useLocalization } from '@/hooks/useLocalization';
 import { concatenateAndShareAudioList } from '@/utils/localAudioConcat';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
+import { Download, Share2Icon } from 'lucide-react-native';
 import React from 'react';
 import {
     ActivityIndicator,
@@ -174,14 +175,15 @@ export function ExportQuestList({
                     {quest?.name || '-'}
                 </Text>
             </View>
-            <View className="flex-row items-center gap-3">
-              <Text className="text-sm font-medium">Download</Text>
-              <Switch
-                checked={shareEnable}
-                onCheckedChange={setShareEnable}
-                //className='border-primary-foreground'
+            <View>
+              <ToggleButton
+                value={shareEnable ? 'right' : 'left'}
+                onValueChange={(next) => setShareEnable(next === 'right')}
+                leftIcon={Download}
+                rightIcon={Share2Icon}
+                leftText="Download"
+                rightText="Share"
               />
-              <Text className="text-sm font-medium">Share</Text>
             </View>
         </View>
 
@@ -194,14 +196,14 @@ export function ExportQuestList({
                 checked={mergedFile}
                 onCheckedChange={(v) => setMergedFile(v === true)}
               />
-              <Text className="text-sm">Merged File</Text>
+              <Text className="text-sm">Merged Audio</Text>
             </View>
             <View className="flex-row items-center gap-2">
               <Checkbox
                 checked={includeCsvFile}
                 onCheckedChange={(v) => setIncludeCsvFile(v === true)}
               />
-              <Text className="text-sm">Include CSV File</Text>
+              <Text className="text-sm">Include Text</Text>
             </View>
           </View>
         </View>
