@@ -9,17 +9,12 @@ import {
   SpeedDialItem,
   SpeedDialItems,
   SpeedDialTrigger
-  SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import {
-  asset_content_link,
-  project,
-  quest as questTable
-} from '@/db/drizzleSchema';
+import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -91,19 +86,20 @@ import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import {
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
   renameAsset
 } from '@/database_services/assetService';
-import {
-  mergeLocalAssets,
-  unmergeLocalAsset
-} from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
@@ -123,7 +119,6 @@ import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
-import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useTrimModal } from './recording/hooks/useTrimModal';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';

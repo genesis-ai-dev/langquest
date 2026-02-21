@@ -104,7 +104,7 @@ export const RecordSelectionControls = React.memo(
                   <Text className="ml-2 text-xs">{t('merge')}</Text>
                 </View>
               </Button>
-            )}
+            ) : null}
             {showUnmerge && onUnmerge && (
               <Button
                 variant="default"
