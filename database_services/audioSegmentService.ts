@@ -53,7 +53,9 @@ export async function deleteLocalAssetRecordsInTx(
   });
 
   for (const currentAssetId of assetIds) {
-    await tx.delete(resolvedVote).where(eq(resolvedVote.asset_id, currentAssetId));
+    await tx
+      .delete(resolvedVote)
+      .where(eq(resolvedVote.asset_id, currentAssetId));
     await tx
       .delete(resolvedAssetTagLink)
       .where(eq(resolvedAssetTagLink.asset_id, currentAssetId));

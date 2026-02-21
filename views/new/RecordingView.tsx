@@ -2441,12 +2441,7 @@ const RecordingView = () => {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    afterMerge
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterMerge]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
     const selectedOrdered = assets.filter(
@@ -2574,13 +2569,7 @@ const RecordingView = () => {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    addSessionAsset,
-    afterUnmerge
-  ]);
+  }, [assets, selectedAssetIds, currentUser, addSessionAsset, afterUnmerge]);
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL

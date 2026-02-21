@@ -1203,14 +1203,7 @@ export default function BibleAssetsView() {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    afterMerge,
-    t,
-    refetch
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterMerge, t, refetch]);
 
   // Handle unmerge of a single selected asset
   const handleUnmergeSelected = React.useCallback(() => {
@@ -1259,14 +1252,7 @@ export default function BibleAssetsView() {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    afterUnmerge,
-    t,
-    refetch
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterUnmerge, t, refetch]);
 
   // ============================================================================
   // RENAME ASSET

@@ -44,10 +44,13 @@ export async function mergeLocalAssets(
     throw new Error('At least 2 unique asset IDs are required to merge');
   }
 
-  const [targetAssetId, ...sourceAssetIds] = orderedAssetIds;
+  const targetAssetId = orderedAssetIds[0]!;
+  const sourceAssetIds = orderedAssetIds.slice(1);
   const assetLocal = resolveTable('asset', { localOverride: true });
   const assetSynced = resolveTable('asset', { localOverride: false });
-  const contentLocal = resolveTable('asset_content_link', { localOverride: true });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
 
   const localAssets = await system.db
     .select({ id: assetLocal.id })
@@ -99,7 +102,7 @@ export async function mergeLocalAssets(
           audio: row.audio,
           download_profiles: row.download_profiles ?? [params.userId],
           order_index: nextOrder++,
-          metadata: row.metadata ?? null
+          _metadata: row._metadata ?? null
         });
         movedSegmentCount += 1;
       }
@@ -272,7 +275,7 @@ export async function unmergeLocalAsset(
         languoidId,
         audio: seg.audio ?? [],
         text: seg.text ?? newName,
-        contentMetadata: seg.metadata ?? null,
+        contentMetadata: seg._metadata ?? null,
         assetMetadata: localAsset.metadata ?? null,
         shiftExisting: true
       });

@@ -2,6 +2,7 @@
  * Asset service - Database operations for assets
  */
 
+import type { OpMetadata } from '@/db/powersync/opMetadata';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
@@ -430,7 +431,7 @@ export interface CreateLocalAssetParams {
   languoidId: string;
   audio: string[];
   text: string;
-  contentMetadata?: string | null;
+  contentMetadata?: OpMetadata | null;
   assetMetadata?: string | null;
   shiftExisting?: boolean;
 }
@@ -506,7 +507,7 @@ export async function createLocalAssetInTx(
     text: params.text,
     audio: params.audio,
     download_profiles: [params.userId],
-    metadata: params.contentMetadata ?? null
+    _metadata: params.contentMetadata ?? null
   });
 
   return newAssetId;
