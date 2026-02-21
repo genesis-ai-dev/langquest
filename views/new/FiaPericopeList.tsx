@@ -2,12 +2,21 @@
  * Displays FIA pericopes for a selected book within a project.
  * Modeled on BibleChapterList: shows download/state indicators, creates
  * pericope quests on-demand, and navigates to the recording view.
+ * When multiple versions exist for a pericope, shows a picker drawer.
  */
 
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +27,7 @@ import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
 import {
   useFiaPericopes,
+  type FiaPericopeGroup,
   type FiaPericopeQuest
 } from '@/hooks/useFiaPericopes';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
@@ -26,12 +36,24 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
+import {
+  BookOpenIcon,
+  HardDriveIcon,
+  PlusCircleIcon,
+  UserIcon
+} from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Image, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
@@ -47,12 +69,59 @@ function getFiaBookIcon(fiaBookId: string) {
   return null;
 }
 
+// --- Version card inside the picker drawer ---
+
+function VersionCard({
+  version,
+  isCurrentUser,
+  onPress
+}: {
+  version: FiaPericopeQuest;
+  isCurrentUser: boolean;
+  onPress: () => void;
+}) {
+  const displayName = version.creatorName || 'Unknown';
+  const initial = displayName.charAt(0).toUpperCase();
+  const isLocal = version.source === 'local';
+  const isSynced = version.source === 'synced';
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70"
+    >
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-primary">
+        <Text className="font-semibold text-primary-foreground">{initial}</Text>
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1.5">
+          <Text className="font-semibold">
+            {displayName}
+            {isCurrentUser ? ' (you)' : ''}
+          </Text>
+          {isLocal && (
+            <Icon as={HardDriveIcon} size={12} className="text-chart-2" />
+          )}
+          {isSynced && (
+            <Badge variant="secondary" className="px-1.5 py-0">
+              <Text className="text-xxs">published</Text>
+            </Badge>
+          )}
+        </View>
+        <Text className="text-sm text-muted-foreground">
+          {formatRelativeDate(version.created_at)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 // --- Pericope button (mirrors ChapterButton) ---
 
 function PericopeButton({
   pericope,
   index,
-  existingQuest,
+  group,
   isCreatingThis,
   onPress,
   disabled,
@@ -62,7 +131,7 @@ function PericopeButton({
 }: {
   pericope: FiaPericope;
   index: number;
-  existingQuest?: FiaPericopeQuest;
+  group?: FiaPericopeGroup;
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
@@ -71,10 +140,12 @@ function PericopeButton({
   downloadingQuestIds?: Set<string>;
 }) {
   const { currentUser } = useAuth();
+  const existingQuest = group?.primary;
   const exists = !!existingQuest;
   const hasLocalCopy = existingQuest?.hasLocalCopy ?? false;
   const hasSyncedCopy = existingQuest?.hasSyncedCopy ?? false;
   const isCloudQuest = existingQuest?.source === 'cloud';
+  const versionCount = group?.versions.length ?? 0;
 
   const isDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
   const isOptimisticallyDownloading = Boolean(
@@ -109,12 +180,14 @@ function PericopeButton({
         className={cn(
           'h-auto w-full flex-col gap-1 py-5',
           !exists && 'border-dashed',
-          needsDownload && 'opacity-50',
+          needsDownload && versionCount <= 1 && 'opacity-50',
           getBackgroundColor()
         )}
         onPress={onPress}
         disabled={
-          disabled || needsDownload || (!existingQuest && !canCreateNew)
+          disabled ||
+          (needsDownload && versionCount <= 1) ||
+          (!existingQuest && !canCreateNew)
         }
       >
         {isCreatingThis ? (
@@ -144,19 +217,44 @@ function PericopeButton({
                 {pericope.verseRange}
               </Text>
             </View>
-            <Text
-              className={cn(
-                'text-xxs',
-                exists ? 'text-card-foreground/70' : 'text-muted-foreground'
+            <View className="flex-row items-center gap-1">
+              <Text
+                className={cn(
+                  'text-xxs',
+                  exists ? 'text-card-foreground/70' : 'text-muted-foreground'
+                )}
+              >
+                p{index + 1}
+              </Text>
+              {versionCount > 1 && (
+                <View className="flex-row items-center gap-0.5">
+                  <Icon
+                    as={UserIcon}
+                    size={10}
+                    className={
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    }
+                  />
+                  <Text
+                    className={cn(
+                      'text-xxs',
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {versionCount}
+                  </Text>
+                </View>
               )}
-            >
-              p{index + 1}
-            </Text>
+            </View>
           </View>
         )}
       </Button>
 
-      {needsDownload && !disabled && (
+      {needsDownload && versionCount <= 1 && !disabled && (
         <TouchableOpacity
           onPress={handleDownloadToggle}
           className="absolute inset-0"
@@ -201,8 +299,7 @@ export function FiaPericopeList({
   const isMember = membership === 'member' || membership === 'owner';
   const canCreateNew = isMember;
 
-  // Existing pericope quests (local + cloud, with source tracking)
-  const { pericopes: existingPericopes, isLoadingCloud } = useFiaPericopes(
+  const { pericopes: pericopeGroups, isLoadingCloud } = useFiaPericopes(
     projectId,
     book.id
   );
@@ -210,6 +307,15 @@ export function FiaPericopeList({
   React.useEffect(() => {
     onCloudLoadingChange?.(isLoadingCloud);
   }, [isLoadingCloud, onCloudLoadingChange]);
+
+  // Version picker state
+  const [pickerPericopeId, setPickerPericopeId] = React.useState<string | null>(
+    null
+  );
+  const pickerGroup = pericopeGroups.find(
+    (g) => g.pericopeId === pickerPericopeId
+  );
+  const pickerPericope = book.pericopes.find((p) => p.id === pickerPericopeId);
 
   // Download state
   const [questIdToDownload, setQuestIdToDownload] = React.useState<
@@ -372,47 +478,59 @@ export function FiaPericopeList({
     setQuestIdToDownload(null);
   };
 
-  const handlePericopePress = async (pericope: FiaPericope) => {
-    if (!currentUser?.id || isCreating) return;
+  // Navigate to a specific quest version (with download check)
+  const navigateToVersion = async (version: FiaPericopeQuest) => {
+    if (!currentUser?.id) return;
 
-    const existing = existingPericopes.find(
-      (p) => p.pericopeId === pericope.id
-    );
-
-    if (existing) {
-      // Check download status from SQLite
-      const questRow = await system.db.query.quest.findFirst({
-        where: (fields, { eq }) => eq(fields.id, existing.id),
-        columns: { download_profiles: true, source: true }
-      });
-
-      const profiles = questRow?.download_profiles;
-      let isDownloaded = false;
-      if (profiles) {
-        const parsed =
-          typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-        isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
-      }
-      const isCloudQuest =
-        questRow?.source === 'cloud' || existing.source === 'cloud';
-
-      if (currentUser && isCloudQuest && !isDownloaded) {
-        handleDownloadClick(existing.id);
-        return;
-      }
-
+    // Local versions can always be opened directly
+    if (version.source === 'local') {
       goToQuest({
-        id: existing.id,
+        id: version.id,
         project_id: projectId,
-        name: existing.name,
+        name: version.name,
         projectData: project as Record<string, unknown>,
-        questData: existing as unknown as Record<string, unknown>
+        questData: version as unknown as Record<string, unknown>
       });
+      setPickerPericopeId(null);
       return;
     }
 
-    if (!canCreateNew) return;
+    const questRow = await system.db.query.quest.findFirst({
+      where: (fields, { eq }) => eq(fields.id, version.id),
+      columns: { download_profiles: true, source: true }
+    });
 
+    const profiles = questRow?.download_profiles;
+    let isDownloaded = false;
+    if (profiles) {
+      const parsed =
+        typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
+      isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
+    }
+    const isCloudQuest =
+      questRow?.source === 'cloud' || version.source === 'cloud';
+
+    if (isCloudQuest && !isDownloaded) {
+      setPickerPericopeId(null);
+      handleDownloadClick(version.id);
+      return;
+    }
+
+    goToQuest({
+      id: version.id,
+      project_id: projectId,
+      name: version.name,
+      projectData: project as Record<string, unknown>,
+      questData: version as unknown as Record<string, unknown>
+    });
+    setPickerPericopeId(null);
+  };
+
+  // Create a new version for a pericope (even if others exist)
+  const createNewVersion = async (pericope: FiaPericope) => {
+    if (!currentUser?.id || isCreating || !canCreateNew) return;
+
+    setPickerPericopeId(null);
     setCreatingPericopeId(pericope.id);
     try {
       const result = await createPericope({
@@ -437,18 +555,43 @@ export function FiaPericopeList({
     }
   };
 
+  const handlePericopePress = async (pericope: FiaPericope) => {
+    if (!currentUser?.id || isCreating) return;
+
+    const group = pericopeGroups.find((g) => g.pericopeId === pericope.id);
+
+    if (!group || group.versions.length === 0) {
+      // No existing versions — create new
+      if (!canCreateNew) return;
+      await createNewVersion(pericope);
+      return;
+    }
+
+    if (group.versions.length === 1) {
+      // Single version — navigate directly
+      await navigateToVersion(group.primary);
+      return;
+    }
+
+    // Multiple versions — open picker
+    setPickerPericopeId(pericope.id);
+  };
+
   const pericopeItems = book.pericopes.map((pericope, index) => {
-    const existingQuest = existingPericopes.find(
-      (p) => p.pericopeId === pericope.id
-    );
+    const group = pericopeGroups.find((g) => g.pericopeId === pericope.id);
     return {
       id: pericope.id,
       pericope,
       index,
-      existingQuest,
+      group,
       isCreatingThis: creatingPericopeId === pericope.id
     };
   });
+
+  // Check if the current user already has a version in the picker group
+  const userHasVersion = pickerGroup?.versions.some(
+    (v) => v.creator_id === currentUser?.id
+  );
 
   return (
     <View className="flex-1">
@@ -479,11 +622,11 @@ export function FiaPericopeList({
         columnWrapperStyle={{ gap: 8 }}
         recycleItems
         renderItem={({ item }) =>
-          (item.existingQuest || canCreateNew) && (
+          (item.group || canCreateNew) && (
             <PericopeButton
               pericope={item.pericope}
               index={item.index}
-              existingQuest={item.existingQuest}
+              group={item.group}
               isCreatingThis={item.isCreatingThis}
               onPress={() => handlePericopePress(item.pericope)}
               disabled={Boolean(isCreating)}
@@ -494,6 +637,55 @@ export function FiaPericopeList({
           )
         }
       />
+
+      {/* Version picker drawer */}
+      <Drawer
+        open={!!pickerPericopeId}
+        onOpenChange={(open) => {
+          if (!open) setPickerPericopeId(null);
+        }}
+        snapPoints={['50%']}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>
+              {pickerPericope?.verseRange ?? 'Pericope'} versions
+            </DrawerTitle>
+            <DrawerDescription>
+              {pickerGroup?.versions.length ?? 0} version
+              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {pickerGroup?.versions.map((version) => (
+            <VersionCard
+              key={version.id}
+              version={version}
+              isCurrentUser={version.creator_id === currentUser?.id}
+              onPress={() => navigateToVersion(version)}
+            />
+          ))}
+
+          {canCreateNew && !userHasVersion && pickerPericope && (
+            <Pressable
+              onPress={() => createNewVersion(pickerPericope)}
+              className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <Icon as={PlusCircleIcon} size={20} className="text-primary" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-primary">
+                  Create your own version
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  Start a new recording for this pericope
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        </DrawerContent>
+      </Drawer>
 
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}

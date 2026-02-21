@@ -69,7 +69,7 @@ export function useFiaBookCreation() {
           const { data: cloudBooks, error } =
             await system.supabaseConnector.client
               .from('quest')
-              .select('id, name, project_id')
+              .select('id, name, project_id, metadata')
               .eq('project_id', projectId)
               .is('parent_id', null)
               .not('metadata', 'is', null);
