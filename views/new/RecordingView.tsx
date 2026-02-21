@@ -8,11 +8,10 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
+import { mergeLocalAssets } from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -2339,47 +2338,10 @@ const RecordingView = () => {
         const second = assets[index + 1];
         if (!first || !second || !currentUser) return;
         if (first.source === 'cloud' || second.source === 'cloud') return;
-
-        const contentLocal = resolveTable('asset_content_link', {
-          localOverride: true
+        await mergeLocalAssets({
+          orderedAssetIds: [first.id, second.id],
+          userId: currentUser.id
         });
-        const secondContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-
-        // Get next available order_index for the target asset (local table)
-        let nextOrder = await getNextAclOrderIndex(first.id, {
-          localOverride: true
-        });
-
-        for (const c of secondContent) {
-          if (!c.audio) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-            text: c.text || '',
-            audio: c.audio,
-            download_profiles: [currentUser.id],
-            order_index: nextOrder++
-          });
-        }
-
-        await audioSegmentService.deleteAudioSegment(second.id);
-
-        // Normalize all content links on target to 1-based ordering
-        const allContent = await system.db
-          .select({ id: contentLocal.id })
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, first.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-        await updateContentLinkOrder(
-          first.id,
-          allContent.map((c) => c.id),
-          { localOverride: true }
-        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2433,78 +2395,32 @@ const RecordingView = () => {
               try {
                 if (!currentUser) return;
 
-                const target = selectedOrdered[0]!;
-                const rest = selectedOrdered.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
-                });
-
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get next available order_index for the target asset (local table)
-                  let nextOrder = await getNextAclOrderIndex(target.id, {
-                    localOverride: true
+                const orderedIds = selectedOrdered.map((a) => a.id);
+                const { targetAssetId, deletedSourceAssetIds } =
+                  await mergeLocalAssets({
+                    orderedAssetIds: orderedIds,
+                    userId: currentUser.id
                   });
 
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
-
                 // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(rest.map((a) => a.id));
+                const deletedIds = new Set(deletedSourceAssetIds);
                 setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
 
                 // Force re-load of segment count for the merged target asset
                 debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
+                  `🔄 Forcing segment count reload for merged asset: ${targetAssetId}`
                 );
-                loadedAssetIdsRef.current.delete(target.id);
+                loadedAssetIdsRef.current.delete(targetAssetId);
                 setAssetSegmentCounts((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  next.delete(targetAssetId);
                   return next;
                 });
                 setAssetDurations((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  next.delete(targetAssetId);
                   return next;
                 });
 

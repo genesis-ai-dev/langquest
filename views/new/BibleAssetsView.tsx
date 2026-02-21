@@ -88,10 +88,9 @@ import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
-  getNextOrderIndex,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
+import { mergeLocalAssets } from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -1174,61 +1173,10 @@ export default function BibleAssetsView() {
               try {
                 if (!currentUser) return;
 
-                const target = selectedAssets[0]!;
-                const rest = selectedAssets.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                const { targetAssetId } = await mergeLocalAssets({
+                  orderedAssetIds: selectedAssets.map((a) => a.id),
+                  userId: currentUser.id
                 });
-
-                for (const src of rest) {
-                  // Find all content links for the source asset, ordered by order_index
-                  const srcContent = await system.db
-                    .select()
-                    .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id))
-                    .orderBy(
-                      asc(asset_content_link.order_index),
-                      asc(asset_content_link.created_at)
-                    );
-
-                  // Get the next available order_index for the target asset (local table)
-                  let nextOrder = await getNextOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  // Insert them for the target asset with sequential order_index
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  // Delete the source asset
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
 
                 cancelSelection();
                 setSelectedForRecording(null);
@@ -1236,7 +1184,7 @@ export default function BibleAssetsView() {
                 void refetch();
 
                 console.log(
-                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${target.id.slice(0, 8)}`
+                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${targetAssetId.slice(0, 8)}`
                 );
               } catch (e) {
                 console.error('Failed to batch merge assets', e);
