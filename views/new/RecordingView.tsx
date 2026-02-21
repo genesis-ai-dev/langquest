@@ -238,7 +238,8 @@ const RecordingView = () => {
   const { t } = useLocalization();
 
   const recordingData = navigationState?.recordingData;
-  const bookChapterLabel = recordingData?.bookChapterLabel || t('recordingSession');
+  const bookChapterLabel =
+    recordingData?.bookChapterLabel || t('recordingSession');
   const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
   const _initialOrderIndex =
     recordingData?.initialOrderIndex ?? DEFAULT_ORDER_INDEX;

@@ -4139,7 +4139,7 @@ export const localizations = {
     tok_pisin: 'Redi long rekodim',
     indonesian: 'Siap untuk merekam',
     nepali: 'रेकर्ड गर्न तयार छ'
-  },  
+  },
   recordingSession: {
     english: 'Recording Session',
     spanish: 'Sesión de Grabación',
