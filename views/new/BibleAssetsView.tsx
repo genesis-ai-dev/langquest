@@ -90,7 +90,10 @@ import {
   batchUpdateAssetMetadata,
   renameAsset
 } from '@/database_services/assetService';
-import { mergeLocalAssets } from '@/database_services/assetMergeService';
+import {
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -1191,6 +1194,61 @@ export default function BibleAssetsView() {
                 RNAlert.alert(
                   t('error'),
                   'Failed to merge assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    cancelSelection,
+    queryClient,
+    t,
+    refetch
+  ]);
+
+  // Handle unmerge of a single selected asset
+  const handleUnmergeSelected = React.useCallback(() => {
+    const selectedAsset = assets.find(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (!selectedAsset || !currentUser) return;
+
+    RNAlert.alert(
+      'Unmerge Asset',
+      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: 'Unmerge',
+          isPreferred: true,
+          onPress: () => {
+            void (async () => {
+              try {
+                const { newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
+
+                cancelSelection();
+                setSelectedForRecording(null);
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+
+                console.log(
+                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to unmerge asset', e);
+                RNAlert.alert(
+                  t('error'),
+                  e instanceof Error
+                    ? e.message
+                    : 'Failed to unmerge asset. Please try again.'
                 );
               }
             })();
@@ -3921,6 +3979,8 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
+              showUnmerge={selectedAssetIds.size === 1}
+              onUnmerge={handleUnmergeSelected}
             />
           </View>
         ) : (

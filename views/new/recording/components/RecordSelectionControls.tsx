@@ -17,6 +17,7 @@ import {
   ListChecks,
   ListX,
   Merge,
+  Scissors,
   Trash2,
   X
 } from 'lucide-react-native';
@@ -34,6 +35,8 @@ interface RecordSelectionControlsProps {
   allowAssignVerse?: boolean;
   onAssignVerse?: () => void;
   showMerge?: boolean;
+  showUnmerge?: boolean;
+  onUnmerge?: () => void;
 }
 
 export const RecordSelectionControls = React.memo(
@@ -47,7 +50,9 @@ export const RecordSelectionControls = React.memo(
     onSelectAll,
     allowAssignVerse = false,
     onAssignVerse,
-    showMerge = true
+    showMerge = true,
+    showUnmerge = false,
+    onUnmerge
   }: RecordSelectionControlsProps) {
     const { t } = useLocalization();
     return (
@@ -82,6 +87,19 @@ export const RecordSelectionControls = React.memo(
                 <View className="flex-row items-center px-0">
                   <Icon as={Merge} />
                   <Text className="ml-2 text-xs">{t('merge')}</Text>
+                </View>
+              </Button>
+            )}
+            {showUnmerge && onUnmerge && (
+              <Button
+                variant="default"
+                size="default"
+                onPress={onUnmerge}
+                className="p-1"
+              >
+                <View className="flex-row items-center px-0">
+                  <Icon as={Scissors} />
+                  <Text className="ml-2 text-xs">Unmerge</Text>
                 </View>
               </Button>
             )}

@@ -11,7 +11,10 @@ import {
   normalizeOrderIndexForVerses,
   renameAsset
 } from '@/database_services/assetService';
-import { mergeLocalAssets } from '@/database_services/assetMergeService';
+import {
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -2505,6 +2508,90 @@ const RecordingView = () => {
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
+  // Handle unmerge of a single selected asset
+  const handleUnmergeSelected = React.useCallback(() => {
+    const selectedAsset = assets.find(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (!selectedAsset || !currentUser) return;
+
+    RNAlert.alert(
+      'Unmerge Asset',
+      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmerge',
+          isPreferred: true,
+          onPress: () => {
+            void (async () => {
+              try {
+                const { originalAssetId, newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
+
+                // Clear caches for the modified original asset
+                loadedAssetIdsRef.current.delete(originalAssetId);
+                setAssetSegmentCounts((prev) => {
+                  const next = new Map(prev);
+                  next.delete(originalAssetId);
+                  return next;
+                });
+                setAssetDurations((prev) => {
+                  const next = new Map(prev);
+                  next.delete(originalAssetId);
+                  return next;
+                });
+
+                // Add the new assets to the session list
+                for (const newAsset of newAssets) {
+                  addSessionAsset({
+                    id: newAsset.id,
+                    name: newAsset.name,
+                    order_index: newAsset.orderIndex
+                  });
+                  loadedAssetIdsRef.current.add(newAsset.id);
+                  setAssetSegmentCounts((prev) => {
+                    const next = new Map(prev);
+                    next.set(newAsset.id, 1);
+                    return next;
+                  });
+                }
+
+                cancelSelection();
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets', 'by-quest', currentQuestId],
+                  exact: false
+                });
+
+                debugLog(
+                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to unmerge asset', e);
+                RNAlert.alert(
+                  'Error',
+                  e instanceof Error
+                    ? e.message
+                    : 'Failed to unmerge asset. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    addSessionAsset,
+    cancelSelection,
+    queryClient,
+    currentQuestId
+  ]);
+
   // ============================================================================
   // SELECT ALL / DESELECT ALL
   // ============================================================================
@@ -3161,6 +3248,13 @@ const RecordingView = () => {
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
               showMerge={enableMerge}
+              showUnmerge={
+                selectedAssetIds.size === 1 &&
+                (assetSegmentCounts.get(
+                  Array.from(selectedAssetIds)[0] ?? ''
+                ) ?? 1) > 1
+              }
+              onUnmerge={handleUnmergeSelected}
             />
           </View>
         ) : (
