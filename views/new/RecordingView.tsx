@@ -8,10 +8,12 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getNextOrderIndex as getNextAclOrderIndex,
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
+import {
   normalizeOrderIndexForVerses,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
@@ -26,9 +28,9 @@ import {
   useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
-import { resolveTable } from '@/utils/dbUtils';
 import {
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
@@ -473,6 +475,7 @@ const RecordingView = () => {
     cancelSelection,
     selectMultiple
   } = useSelectionMode();
+  const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
@@ -1974,48 +1977,10 @@ const RecordingView = () => {
         const second = assets[index + 1];
         if (!first || !second || !currentUser) return;
         if (first.source === 'cloud' || second.source === 'cloud') return;
-
-        const contentLocal = resolveTable('asset_content_link', {
-          localOverride: true
+        await mergeLocalAssets({
+          orderedAssetIds: [first.id, second.id],
+          userId: currentUser.id
         });
-        const secondContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-
-        // Get next available order_index for the target asset (local table)
-        let nextOrder = await getNextAclOrderIndex(first.id, {
-          localOverride: true
-        });
-
-        for (const c of secondContent) {
-          if (!c.audio) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: first.id,
-            source_language_id: c.source_language_id,
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null,
-            text: c.text || '',
-            audio: c.audio,
-            download_profiles: [currentUser.id],
-            order_index: nextOrder++,
-            metadata: (c as { metadata?: string | null }).metadata ?? null
-          });
-        }
-
-        await audioSegmentService.deleteAudioSegment(second.id);
-
-        // Normalize all content links on target to 1-based ordering
-        const allContent = await system.db
-          .select({ id: contentLocal.id })
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, first.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-        await updateContentLinkOrder(
-          first.id,
-          allContent.map((c: { id: string }) => c.id),
-          { localOverride: true }
-        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2036,15 +2001,12 @@ const RecordingView = () => {
           return next;
         });
 
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
-          exact: false
-        });
+        afterMerge(first.id);
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, currentQuestId]
+    [assets, currentUser, afterMerge]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2069,86 +2031,36 @@ const RecordingView = () => {
               try {
                 if (!currentUser) return;
 
-                const target = selectedOrdered[0]!;
-                const rest = selectedOrdered.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
-                });
-
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get next available order_index for the target asset (local table)
-                  let nextOrder = await getNextAclOrderIndex(target.id, {
-                    localOverride: true
+                const orderedIds = selectedOrdered.map((a) => a.id);
+                const { targetAssetId, deletedSourceAssetIds } =
+                  await mergeLocalAssets({
+                    orderedAssetIds: orderedIds,
+                    userId: currentUser.id
                   });
 
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c: { id: string }) => c.id),
-                  { localOverride: true }
-                );
-
                 // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(rest.map((a) => a.id));
+                const deletedIds = new Set(deletedSourceAssetIds);
                 setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
 
                 // Force re-load of segment count for the merged target asset
                 debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
+                  `🔄 Forcing segment count reload for merged asset: ${targetAssetId}`
                 );
-                loadedAssetIdsRef.current.delete(target.id);
+                loadedAssetIdsRef.current.delete(targetAssetId);
                 setAssetSegmentCounts((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  next.delete(targetAssetId);
                   return next;
                 });
                 setAssetDurations((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  next.delete(targetAssetId);
                   return next;
                 });
 
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
+                afterMerge(targetAssetId);
 
                 debugLog('✅ Batch merge completed');
               } catch (e) {
@@ -2163,14 +2075,7 @@ const RecordingView = () => {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    cancelSelection,
-    queryClient,
-    currentQuestId
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterMerge]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
     const selectedOrdered = assets.filter(
@@ -2224,6 +2129,81 @@ const RecordingView = () => {
       ]
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
+
+  // Handle unmerge of a single selected asset
+  const handleUnmergeSelected = React.useCallback(() => {
+    const selectedAsset = assets.find(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (!selectedAsset || !currentUser) return;
+
+    RNAlert.alert(
+      'Unmerge Asset',
+      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmerge',
+          isPreferred: true,
+          onPress: () => {
+            void (async () => {
+              try {
+                const { originalAssetId, newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
+
+                // Clear caches for the modified original asset
+                loadedAssetIdsRef.current.delete(originalAssetId);
+                setAssetSegmentCounts((prev) => {
+                  const next = new Map(prev);
+                  next.delete(originalAssetId);
+                  return next;
+                });
+                setAssetDurations((prev) => {
+                  const next = new Map(prev);
+                  next.delete(originalAssetId);
+                  return next;
+                });
+
+                // Add the new assets to the session list
+                for (const newAsset of newAssets) {
+                  addSessionAsset({
+                    id: newAsset.id,
+                    name: newAsset.name,
+                    order_index: newAsset.orderIndex
+                  });
+                  loadedAssetIdsRef.current.add(newAsset.id);
+                  setAssetSegmentCounts((prev) => {
+                    const next = new Map(prev);
+                    next.set(newAsset.id, 1);
+                    return next;
+                  });
+                }
+
+                afterUnmerge(
+                  originalAssetId,
+                  newAssets.map((a) => a.id)
+                );
+
+                debugLog(
+                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to unmerge asset', e);
+                RNAlert.alert(
+                  'Error',
+                  e instanceof Error
+                    ? e.message
+                    : 'Failed to unmerge asset. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, currentUser, addSessionAsset, afterUnmerge]);
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL
@@ -2869,6 +2849,13 @@ const RecordingView = () => {
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
               showMerge={enableMerge}
+              showUnmerge={
+                selectedAssetIds.size === 1 &&
+                (assetSegmentCounts.get(
+                  Array.from(selectedAssetIds)[0] ?? ''
+                ) ?? 1) > 1
+              }
+              onUnmerge={handleUnmergeSelected}
             />
           </View>
         ) : (

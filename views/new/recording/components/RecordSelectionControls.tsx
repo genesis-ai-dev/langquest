@@ -12,7 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Bookmark, ListChecks, ListX, Merge, Scissors, Trash2, X } from 'lucide-react-native';
+import {
+  Bookmark,
+  ListChecks,
+  ListX,
+  Merge,
+  Scissors,
+  Trash2,
+  X
+} from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -28,6 +36,8 @@ interface RecordSelectionControlsProps {
   allowAssignVerse?: boolean;
   onAssignVerse?: () => void;
   showMerge?: boolean;
+  showUnmerge?: boolean;
+  onUnmerge?: () => void;
 }
 
 export const RecordSelectionControls = React.memo(
@@ -42,7 +52,9 @@ export const RecordSelectionControls = React.memo(
     onSelectAll,
     allowAssignVerse = false,
     onAssignVerse,
-    showMerge = true
+    showMerge = true,
+    showUnmerge = false,
+    onUnmerge
   }: RecordSelectionControlsProps) {
     const { t } = useLocalization();
     const shouldShowTrim = selectedCount === 1 && !!onTrim;
@@ -92,7 +104,20 @@ export const RecordSelectionControls = React.memo(
                   <Text className="ml-2 text-xs">{t('merge')}</Text>
                 </View>
               </Button>
-            ) : null}
+            )}
+            {showUnmerge && onUnmerge && (
+              <Button
+                variant="default"
+                size="default"
+                onPress={onUnmerge}
+                className="p-1"
+              >
+                <View className="flex-row items-center px-0">
+                  <Icon as={Scissors} />
+                  <Text className="ml-2 text-xs">Unmerge</Text>
+                </View>
+              </Button>
+            )}
             <Button
               variant="destructive"
               disabled={selectedCount < 1}

@@ -30,8 +30,15 @@ import {
   // Plus,
   SquareIcon
 } from 'lucide-react-native';
+import { useIsFlashing } from '@/hooks/useFlashHighlight';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 // import { TagModal } from '../../components/TagModal';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -91,6 +98,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   onRename,
   isHighlighted = false
 }) => {
+  const isFlashing = useIsFlashing(asset.id);
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
   const { currentUser } = useAuth();
@@ -285,6 +293,22 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     dragHandle
   );
 
+  // Flash animation (5s fade after merge/unmerge)
+  const flashOpacity = useSharedValue(0);
+  React.useEffect(() => {
+    if (isFlashing) {
+      flashOpacity.value = 1;
+      flashOpacity.value = withTiming(0, {
+        duration: 5000,
+        easing: Easing.out(Easing.quad)
+      });
+    }
+  }, [isFlashing, flashOpacity]);
+
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: flashOpacity.value
+  }));
+
   return (
     <Pressable
       onPress={handlePress}
@@ -301,6 +325,14 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
           'relative overflow-hidden p-3'
         )}
       >
+        {/* Flash overlay — fading border+bg after merge/unmerge */}
+        {isFlashing && (
+          <Animated.View
+            style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, flashStyle]}
+            className="rounded-lg border-2 border-primary bg-primary/10"
+            pointerEvents="none"
+          />
+        )}
         {/* Highlight indicator triangle */}
         {/* { isHighlighted && <View className="absolute -ml-[10px] top-0 left-0 border-r-[10px] border-l-[10px] border-t-[12px] border-l-transparent border-r-transparent border-t-primary"/> } */}
         {/* Highlight indicator border right */}

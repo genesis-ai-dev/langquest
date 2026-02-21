@@ -9,6 +9,7 @@ import {
   SpeedDialItem,
   SpeedDialItems,
   SpeedDialTrigger
+  SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,10 +94,12 @@ import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
-  getNextOrderIndex,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
+import {
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
@@ -120,6 +123,7 @@ import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useTrimModal } from './recording/hooks/useTrimModal';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
@@ -476,6 +480,7 @@ export default function BibleAssetsView() {
     toggleSelect,
     cancelSelection
   } = useSelectionMode();
+  const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -483,6 +488,7 @@ export default function BibleAssetsView() {
   const { t } = useLocalization();
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
@@ -1183,71 +1189,17 @@ export default function BibleAssetsView() {
               try {
                 if (!currentUser) return;
 
-                const target = selectedAssets[0]!;
-                const rest = selectedAssets.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                const { targetAssetId } = await mergeLocalAssets({
+                  orderedAssetIds: selectedAssets.map((a) => a.id),
+                  userId: currentUser.id
                 });
 
-                for (const src of rest) {
-                  // Find all content links for the source asset, ordered by order_index
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get the next available order_index for the target asset (local table)
-                  let nextOrder = await getNextOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  // Insert them for the target asset with sequential order_index
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++,
-                      metadata:
-                        (c as { metadata?: string | null }).metadata ?? null
-                    });
-                  }
-
-                  // Delete the source asset
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c: { id: string }) => c.id),
-                  { localOverride: true }
-                );
-
-                cancelSelection();
                 setSelectedForRecording(null);
-                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                afterMerge(targetAssetId);
                 void refetch();
 
                 console.log(
-                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${target.id.slice(0, 8)}`
+                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${targetAssetId.slice(0, 8)}`
                 );
               } catch (e) {
                 console.error('Failed to batch merge assets', e);
@@ -1261,15 +1213,56 @@ export default function BibleAssetsView() {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    cancelSelection,
-    queryClient,
-    t,
-    refetch
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterMerge, t, refetch]);
+
+  // Handle unmerge of a single selected asset
+  const handleUnmergeSelected = React.useCallback(() => {
+    const selectedAsset = assets.find(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (!selectedAsset || !currentUser) return;
+
+    RNAlert.alert(
+      'Unmerge Asset',
+      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: 'Unmerge',
+          isPreferred: true,
+          onPress: () => {
+            void (async () => {
+              try {
+                const { newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
+
+                setSelectedForRecording(null);
+                afterUnmerge(
+                  selectedAsset.id,
+                  newAssets.map((a) => a.id)
+                );
+                void refetch();
+
+                console.log(
+                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to unmerge asset', e);
+                RNAlert.alert(
+                  t('error'),
+                  e instanceof Error
+                    ? e.message
+                    : 'Failed to unmerge asset. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, currentUser, afterUnmerge, t, refetch]);
 
   // ============================================================================
   // RENAME ASSET
@@ -3441,6 +3434,8 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
+              showUnmerge={selectedAssetIds.size === 1}
+              onUnmerge={handleUnmergeSelected}
             />
           </View>
         ) : (

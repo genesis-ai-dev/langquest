@@ -2,9 +2,13 @@
  * Asset service - Database operations for assets
  */
 
+import type { OpMetadata } from '@/db/powersync/opMetadata';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
+
+type LocalDbTx = Parameters<Parameters<typeof system.db.transaction>[0]>[0];
 
 /**
  * Asset metadata structure for verse ranges
@@ -447,4 +451,99 @@ export async function getNextOrderIndex(
 
   const maxOrder = result[0]?.maxOrder;
   return (maxOrder ?? 0) + 1;
+}
+
+// ============================================================================
+// SHARED ASSET CREATION HELPER
+// ============================================================================
+
+export interface CreateLocalAssetParams {
+  name: string;
+  orderIndex: number;
+  questId: string;
+  projectId: string;
+  userId: string;
+  languoidId: string;
+  audio: string[];
+  text: string;
+  contentMetadata?: OpMetadata | null;
+  assetMetadata?: string | null;
+  shiftExisting?: boolean;
+}
+
+/**
+ * Create a local asset with its quest link and content link inside an existing
+ * transaction. Optionally shifts assets at/after the target order_index to make
+ * room (used by both recording and unmerge flows).
+ */
+export async function createLocalAssetInTx(
+  tx: LocalDbTx,
+  params: CreateLocalAssetParams
+): Promise<string> {
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+
+  const newAssetId = String(uuid.v4());
+
+  if (params.shiftExisting) {
+    const assetsToShift = await tx
+      .select({ id: assetLocal.id, order_index: assetLocal.order_index })
+      .from(assetLocal)
+      .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
+      .where(
+        and(
+          eq(linkLocal.quest_id, params.questId),
+          gte(assetLocal.order_index, params.orderIndex)
+        )
+      );
+
+    for (const asset of assetsToShift) {
+      if (typeof asset.order_index === 'number') {
+        await tx
+          .update(assetLocal)
+          .set({ order_index: asset.order_index + 1 })
+          .where(eq(assetLocal.id, asset.id));
+      }
+    }
+  }
+
+  const [newAsset] = await tx
+    .insert(assetLocal)
+    .values({
+      id: newAssetId,
+      name: params.name,
+      order_index: params.orderIndex,
+      source_language_id: params.languoidId,
+      project_id: params.projectId,
+      creator_id: params.userId,
+      download_profiles: [params.userId],
+      metadata: params.assetMetadata ?? null
+    })
+    .returning();
+
+  if (!newAsset) {
+    throw new Error('Failed to insert asset');
+  }
+
+  await tx.insert(linkLocal).values({
+    id: String(uuid.v4()),
+    quest_id: params.questId,
+    asset_id: newAssetId,
+    download_profiles: [params.userId]
+  });
+
+  await tx.insert(contentLocal).values({
+    asset_id: newAssetId,
+    source_language_id: params.languoidId,
+    languoid_id: params.languoidId,
+    text: params.text,
+    audio: params.audio,
+    download_profiles: [params.userId],
+    _metadata: params.contentMetadata ?? null
+  });
+
+  return newAssetId;
 }
