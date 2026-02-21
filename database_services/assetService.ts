@@ -14,10 +14,6 @@ export interface AssetMetadata {
     from: number;
     to: number;
   };
-  trim?: {
-    startMs: number;
-    endMs: number;
-  };
   recordingSessionId?: string;
 }
 

@@ -43,6 +43,8 @@ interface UseTrimModalReturn {
   handleOpenTrimModal: () => void;
   /** Close the trim modal and reset target */
   handleCloseTrimModal: () => void;
+  /** Confirm trim: persist the trimmed AssetAudio to the DB and close */
+  handleConfirmTrim: (trimmedAudio: AssetAudio) => void;
   /** The asset currently targeted for trimming (or null) */
   trimTargetAsset: AssetLike | null;
   /** Waveform amplitude data for the trim target (or undefined) */
@@ -56,6 +58,8 @@ interface UseTrimModalReturn {
    * completes).  Merges into the internal map.
    */
   setWaveformData: (assetId: string, data: number[]) => void;
+  /** Remove cached waveform for an asset so it is reloaded on next open */
+  clearWaveformData: (assetId: string) => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
@@ -184,6 +188,23 @@ export function useTrimModal({
     setTrimAssetAudio(null);
   }, []);
 
+  const handleConfirmTrim = React.useCallback(
+    (trimmedAudio: AssetAudio) => {
+      void (async () => {
+        try {
+          const { saveTrim } = await import('@/services/assetAudio');
+          await saveTrim(trimmedAudio);
+        } catch (error) {
+          console.error('Failed to save trim:', error);
+        }
+        setIsTrimModalOpen(false);
+        setTrimTargetAssetId(null);
+        setTrimAssetAudio(null);
+      })();
+    },
+    []
+  );
+
   // ── External setter (used by recording views after recording) ──────────
 
   const setWaveformData = React.useCallback(
@@ -197,14 +218,25 @@ export function useTrimModal({
     []
   );
 
+  const clearWaveformData = React.useCallback((assetId: string) => {
+    setInternalWaveformData((prev) => {
+      if (!prev.has(assetId)) return prev;
+      const next = new Map(prev);
+      next.delete(assetId);
+      return next;
+    });
+  }, []);
+
   return {
     isTrimModalOpen,
     handleOpenTrimModal,
     handleCloseTrimModal,
+    handleConfirmTrim,
     trimTargetAsset,
     trimWaveformData,
     trimAssetAudio,
     canTrimSelected,
-    setWaveformData
+    setWaveformData,
+    clearWaveformData
   };
 }

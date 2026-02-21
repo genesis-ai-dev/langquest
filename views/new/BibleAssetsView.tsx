@@ -1193,11 +1193,11 @@ export default function BibleAssetsView() {
                   // Find all content links for the source asset, ordered by order_index
                   const srcContent = await system.db
                     .select()
-                    .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id))
+                    .from(contentLocal)
+                    .where(eq(contentLocal.asset_id, src.id))
                     .orderBy(
-                      asc(asset_content_link.order_index),
-                      asc(asset_content_link.created_at)
+                      asc(contentLocal.order_index),
+                      asc(contentLocal.created_at)
                     );
 
                   // Get the next available order_index for the target asset (local table)
@@ -1216,7 +1216,9 @@ export default function BibleAssetsView() {
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id],
-                      order_index: nextOrder++
+                      order_index: nextOrder++,
+                      metadata:
+                        (c as { metadata?: string | null }).metadata ?? null
                     });
                   }
 
@@ -2809,6 +2811,7 @@ export default function BibleAssetsView() {
     isTrimModalOpen,
     handleOpenTrimModal,
     handleCloseTrimModal,
+    handleConfirmTrim,
     trimTargetAsset,
     trimWaveformData,
     trimAssetAudio,
@@ -3591,6 +3594,7 @@ export default function BibleAssetsView() {
           waveformData={trimWaveformData}
           assetAudio={trimAssetAudio}
           onClose={handleCloseTrimModal}
+          onConfirm={handleConfirmTrim}
         />
       )}
 

@@ -617,6 +617,7 @@ export function createAssetContentLinkTable<
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
+      metadata: text(),
       ...extraColumns
     },
     (table) => {

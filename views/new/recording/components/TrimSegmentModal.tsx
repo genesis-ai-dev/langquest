@@ -27,7 +27,7 @@ interface TrimSegmentModalProps {
   waveformData?: number[];
   assetAudio?: AssetAudio | null;
   onClose: () => void;
-  onConfirm?: () => void;
+  onConfirm?: (trimmedAudio: AssetAudio) => void;
 }
 
 export function TrimSegmentModal({
@@ -778,7 +778,16 @@ export function TrimSegmentModal({
               </Button>
               <Button
                 variant="default"
-                onPress={onConfirm ?? onClose}
+                onPress={() => {
+                  if (onConfirm) {
+                    const trimmed = buildTrimmedAssetAudio();
+                    if (trimmed) {
+                      onConfirm(trimmed);
+                      return;
+                    }
+                  }
+                  onClose();
+                }}
                 className="flex-1"
               >
                 <Text>{t('ok')}</Text>
