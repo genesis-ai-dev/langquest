@@ -30,6 +30,7 @@ import {
   // Plus,
   SquareIcon
 } from 'lucide-react-native';
+import { useIsFlashing } from '@/hooks/useFlashHighlight';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -64,7 +65,6 @@ export interface AssetCardItemProps {
   showDragHandle?: boolean; // Whether to show drag handle (not in selection mode, not published)
   isDragFixed?: boolean; // Whether this item has fixed drag order
   isHighlighted?: boolean;
-  isFlashing?: boolean; // Temporary 5s fade after merge/unmerge
   onDrag?: () => void; // Drag function from reorderable list
   // Selection mode props (batch operations like merge/delete)
   isSelectionMode?: boolean;
@@ -96,9 +96,9 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   isSelectedForRecording = false,
   onSelectForRecording,
   onRename,
-  isHighlighted = false,
-  isFlashing = false
+  isHighlighted = false
 }) => {
+  const isFlashing = useIsFlashing(asset.id);
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
   const { currentUser } = useAuth();
@@ -534,8 +534,7 @@ const arePropsEqual = (
     prevProps.isDragFixed !== nextProps.isDragFixed ||
     prevProps.isSelectionMode !== nextProps.isSelectionMode ||
     prevProps.isSelected !== nextProps.isSelected ||
-    prevProps.isSelectedForRecording !== nextProps.isSelectedForRecording ||
-    prevProps.isFlashing !== nextProps.isFlashing
+    prevProps.isSelectedForRecording !== nextProps.isSelectedForRecording
   ) {
     return false; // Props changed, need to re-render
   }

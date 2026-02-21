@@ -24,6 +24,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
+import { useIsFlashing } from '@/hooks/useFlashHighlight';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -56,7 +57,6 @@ interface AssetCardProps {
   index: number;
   isSelected: boolean; // Batch selection (for merge/delete operations)
   isHighlighted: boolean; // Visual highlight (recording insertion point)
-  isFlashing?: boolean; // Temporary 5s fade after merge/unmerge
   isSelectionMode: boolean;
   isPlaying: boolean;
   hideButtons?: boolean; // Hide action buttons
@@ -126,7 +126,6 @@ function RecordAssetCardInternal({
   index,
   isSelected,
   isHighlighted,
-  isFlashing = false,
   isSelectionMode,
   isPlaying,
   hideButtons,
@@ -139,6 +138,7 @@ function RecordAssetCardInternal({
   onRename,
   onActionTypeChange
 }: AssetCardProps) {
+  const isFlashing = useIsFlashing(asset.id);
   const audioContext = useAudio();
 
   // State for action button selection (always one selected, default is 'new')
@@ -427,7 +427,6 @@ export const RecordAssetCard = React.memo(
       prev.index === next.index &&
       prev.isSelected === next.isSelected &&
       prev.isHighlighted === next.isHighlighted &&
-      prev.isFlashing === next.isFlashing &&
       prev.isSelectionMode === next.isSelectionMode &&
       prev.isPlaying === next.isPlaying &&
       prev.hideButtons === next.hideButtons &&

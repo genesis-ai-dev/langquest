@@ -55,6 +55,7 @@ import { RecordSelectionControls } from './recording/components/RecordSelectionC
 import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
@@ -133,7 +134,6 @@ interface AssetListRowProps {
   index: number;
   isSelected: boolean;
   isHighlighted: boolean;
-  isFlashing: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
   hideButtons: boolean;
@@ -154,7 +154,6 @@ const AssetListRow = React.memo(function AssetListRow({
   index,
   isSelected,
   isHighlighted,
-  isFlashing,
   isSelectionMode,
   isPlaying,
   hideButtons,
@@ -177,7 +176,6 @@ const AssetListRow = React.memo(function AssetListRow({
         index={index}
         isSelected={isSelected}
         isHighlighted={isHighlighted}
-        isFlashing={isFlashing}
         isSelectionMode={isSelectionMode}
         isPlaying={isPlaying}
         hideButtons={hideButtons}
@@ -477,33 +475,12 @@ const RecordingView = () => {
     cancelSelection,
     selectMultiple
   } = useSelectionMode();
+  const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState<string>('');
-
-  // Asset IDs that should flash (5s fade after merge/unmerge)
-  const [flashingAssetIds, setFlashingAssetIds] = React.useState<Set<string>>(
-    new Set()
-  );
-  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const triggerFlash = React.useCallback((ids: string[]) => {
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    setFlashingAssetIds(new Set(ids));
-    flashTimerRef.current = setTimeout(
-      () => setFlashingAssetIds(new Set()),
-      5500
-    );
-  }, []);
-  React.useEffect(
-    () => () => {
-      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    },
-    []
-  );
 
   // Track segment counts for each asset (loaded lazily)
   const [assetSegmentCounts, setAssetSegmentCounts] = React.useState<
@@ -2390,17 +2367,12 @@ const RecordingView = () => {
           return next;
         });
 
-        triggerFlash([first.id]);
-
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
-          exact: false
-        });
+        afterMerge(first.id);
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, triggerFlash, queryClient, currentQuestId]
+    [assets, currentUser, afterMerge]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2454,12 +2426,7 @@ const RecordingView = () => {
                   return next;
                 });
 
-                cancelSelection();
-                triggerFlash([targetAssetId]);
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
+                afterMerge(targetAssetId);
 
                 debugLog('✅ Batch merge completed');
               } catch (e) {
@@ -2478,10 +2445,7 @@ const RecordingView = () => {
     assets,
     selectedAssetIds,
     currentUser,
-    cancelSelection,
-    triggerFlash,
-    queryClient,
-    currentQuestId
+    afterMerge
   ]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
@@ -2588,15 +2552,10 @@ const RecordingView = () => {
                   });
                 }
 
-                cancelSelection();
-                triggerFlash([
+                afterUnmerge(
                   originalAssetId,
-                  ...newAssets.map((a) => a.id)
-                ]);
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
+                  newAssets.map((a) => a.id)
+                );
 
                 debugLog(
                   `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
@@ -2620,10 +2579,7 @@ const RecordingView = () => {
     selectedAssetIds,
     currentUser,
     addSessionAsset,
-    cancelSelection,
-    triggerFlash,
-    queryClient,
-    currentQuestId
+    afterUnmerge
   ]);
 
   // ============================================================================
@@ -2971,7 +2927,6 @@ const RecordingView = () => {
           index={index}
           isSelected={isInBatchSelection}
           isHighlighted={isHighlighted}
-          isFlashing={flashingAssetIds.has(item.id)}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
           hideButtons={isRecording || isVADActive}
@@ -3004,8 +2959,7 @@ const RecordingView = () => {
       isReplacing,
       stableHandleActionTypeChange,
       isRecording,
-      isVADActive,
-      flashingAssetIds
+      isVADActive
     ]
   );
 
