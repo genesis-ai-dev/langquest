@@ -3,7 +3,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestById } from '@/hooks/db/useQuests';
+import { concatenateAndShareAudioList } from '@/utils/localAudioConcat';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import React from 'react';
 import {
@@ -34,6 +37,7 @@ export function ExportQuestList({
   currentProjectId,
   currentQuestId
 }: ExportQuestListProps) {
+  const { t } = useLocalization();
   const { quest } = useQuestById(currentQuestId);
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useAssetsByQuest(currentQuestId, '', true);
@@ -46,6 +50,7 @@ export function ExportQuestList({
   const [mergedFile, setMergedFile] = React.useState(true);
   const [includeCsvFile, setIncludeCsvFile] = React.useState(true);
   const [shareEnable, setShareEnable] = React.useState(false);
+  const [isConcatenating, setIsConcatenating] = React.useState(false);
 
   const assets = React.useMemo(() => {
     const allAssets = data.pages.flatMap((page) => page.data) as AssetItem[];
@@ -95,6 +100,13 @@ export function ExportQuestList({
       ),
     [assets, selectedAssetIds]
   );
+  const selectedAssetIdList = React.useMemo(
+    () =>
+      assets
+        .filter((asset) => selectedAssetIds.has(asset.id))
+        .map((asset) => asset.id),
+    [assets, selectedAssetIds]
+  );
 
   const handleToggleAll = React.useCallback(() => {
     setHasUserTouchedSelection(true);
@@ -122,6 +134,28 @@ export function ExportQuestList({
       return next;
     });
   }, []);
+
+  const handleExport = React.useCallback(async () => {
+    if (!shareEnable) {
+      return;
+    }
+
+    setIsConcatenating(true);
+    try {
+      await concatenateAndShareAudioList(
+        currentQuestId,
+        selectedAssetIdList,
+        quest?.name || undefined
+      );
+    } catch (error) {
+      RNAlert.alert(
+        t('error'),
+        error instanceof Error ? error.message : 'Failed to share audio'
+      );
+    } finally {
+      setIsConcatenating(false);
+    }
+  }, [currentQuestId, quest?.name, selectedAssetIdList, shareEnable, t]);
 
   return (
     <Modal
@@ -236,8 +270,15 @@ export function ExportQuestList({
 
         {/* ── Fixed footer ── */}
         <View className="border-t border-border px-6 pb-4 pt-4">
-          <Button>
-            <Text>{`${shareEnable ? 'Share' : 'Download'}`}</Text>
+          <Button
+            onPress={handleExport}
+            disabled={!shareEnable || isConcatenating || selectedCount === 0}
+          >
+            {isConcatenating ? (
+              <ActivityIndicator />
+            ) : (
+              <Text>{`${shareEnable ? 'Share' : 'Download'}`}</Text>
+            )}
           </Button>
           <Button onPress={onClose} variant="outline" className="mb-2">
             <Text>Cancel</Text>
