@@ -34,7 +34,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   BookmarkPlusIcon,
   BrushCleaning,
@@ -88,10 +88,12 @@ import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
-  getNextOrderIndex,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
+import {
+  mergeLocalAssets,
+  unmergeLocalAsset
+} from '@/database_services/assetMergeService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -116,6 +118,7 @@ import ReorderableList, {
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 // import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
@@ -469,6 +472,7 @@ export default function BibleAssetsView() {
     toggleSelect,
     cancelSelection
   } = useSelectionMode();
+  const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -476,6 +480,7 @@ export default function BibleAssetsView() {
   const { t } = useLocalization();
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
@@ -1118,6 +1123,7 @@ export default function BibleAssetsView() {
         {
           text: 'Delete',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
@@ -1167,74 +1173,23 @@ export default function BibleAssetsView() {
         {
           text: 'Merge',
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void (async () => {
               try {
                 if (!currentUser) return;
 
-                const target = selectedAssets[0]!;
-                const rest = selectedAssets.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                const { targetAssetId } = await mergeLocalAssets({
+                  orderedAssetIds: selectedAssets.map((a) => a.id),
+                  userId: currentUser.id
                 });
 
-                for (const src of rest) {
-                  // Find all content links for the source asset, ordered by order_index
-                  const srcContent = await system.db
-                    .select()
-                    .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id))
-                    .orderBy(
-                      asc(asset_content_link.order_index),
-                      asc(asset_content_link.created_at)
-                    );
-
-                  // Get the next available order_index for the target asset (local table)
-                  let nextOrder = await getNextOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  // Insert them for the target asset with sequential order_index
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  // Delete the source asset
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
-
-                cancelSelection();
                 setSelectedForRecording(null);
-                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                afterMerge(targetAssetId);
                 void refetch();
 
                 console.log(
-                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${target.id.slice(0, 8)}`
+                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${targetAssetId.slice(0, 8)}`
                 );
               } catch (e) {
                 console.error('Failed to batch merge assets', e);
@@ -1248,15 +1203,56 @@ export default function BibleAssetsView() {
         }
       ]
     );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    cancelSelection,
-    queryClient,
-    t,
-    refetch
-  ]);
+  }, [assets, selectedAssetIds, currentUser, afterMerge, t, refetch]);
+
+  // Handle unmerge of a single selected asset
+  const handleUnmergeSelected = React.useCallback(() => {
+    const selectedAsset = assets.find(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+    if (!selectedAsset || !currentUser) return;
+
+    RNAlert.alert(
+      'Unmerge Asset',
+      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: 'Unmerge',
+          isPreferred: true,
+          onPress: () => {
+            void (async () => {
+              try {
+                const { newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
+
+                setSelectedForRecording(null);
+                afterUnmerge(
+                  selectedAsset.id,
+                  newAssets.map((a) => a.id)
+                );
+                void refetch();
+
+                console.log(
+                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
+                );
+              } catch (e) {
+                console.error('Failed to unmerge asset', e);
+                RNAlert.alert(
+                  t('error'),
+                  e instanceof Error
+                    ? e.message
+                    : 'Failed to unmerge asset. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, currentUser, afterUnmerge, t, refetch]);
 
   // ============================================================================
   // RENAME ASSET
@@ -2900,7 +2896,7 @@ export default function BibleAssetsView() {
   // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
   const isPlayAllRunningRef = React.useRef(false);
   // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextCurrentRef = React.useRef(audioContext);
@@ -2950,8 +2946,8 @@ export default function BibleAssetsView() {
           // Stop current sound immediately
           if (currentPlayAllSoundRef.current) {
             try {
-              await currentPlayAllSoundRef.current.stopAsync();
-              await currentPlayAllSoundRef.current.unloadAsync();
+              currentPlayAllSoundRef.current.pause();
+              currentPlayAllSoundRef.current.release();
               currentPlayAllSoundRef.current = null;
             } catch (error) {
               console.error('Error stopping sound:', error);
@@ -3064,29 +3060,22 @@ export default function BibleAssetsView() {
 
             // Play this URI and wait for it to finish
             await new Promise<void>((resolve) => {
-              // Create and play the sound
-              Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-                .then(({ sound }) => {
-                  // Store reference for immediate cancellation
-                  currentPlayAllSoundRef.current = sound;
+              try {
+                const player = createAudioPlayer(uri);
+                currentPlayAllSoundRef.current = player;
+                player.play();
 
-                  // Set up listener for when sound finishes
-                  sound.setOnPlaybackStatusUpdate((status) => {
-                    if (!status.isLoaded) return;
-
-                    if (status.didJustFinish) {
-                      currentPlayAllSoundRef.current = null;
-                      void sound.unloadAsync().then(() => {
-                        resolve();
-                      });
-                    }
-                  });
-                })
-                .catch((error) => {
-                  console.error('Failed to play audio:', error);
+                player.addListener('playbackStatusUpdate', (status) => {
+                  if (!status.didJustFinish) return;
                   currentPlayAllSoundRef.current = null;
-                  resolve(); // Continue to next even on error
+                  player.release();
+                  resolve();
                 });
+              } catch (error) {
+                console.error('Failed to play audio:', error);
+                currentPlayAllSoundRef.current = null;
+                resolve(); // Continue to next even on error
+              }
             });
           }
         }
@@ -3123,8 +3112,8 @@ export default function BibleAssetsView() {
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
-          await currentPlayAllSoundRef.current.stopAsync();
-          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current.pause();
+          currentPlayAllSoundRef.current.release();
           currentPlayAllSoundRef.current = null;
         } catch (error) {
           console.error('Error stopping sound:', error);
@@ -3189,16 +3178,13 @@ export default function BibleAssetsView() {
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+          } catch {
+            // Ignore errors during cleanup
+          }
+          currentPlayAllSoundRef.current = null;
         }
       }
 
@@ -3399,9 +3385,13 @@ export default function BibleAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
+
+        RNAlert.alert(t('success'), result.message, [
+          { text: t('ok'), isPreferred: true }
+        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
-          { text: t('ok') }
+          { text: t('ok'), isPreferred: true }
         ]);
       }
     },
@@ -3410,7 +3400,7 @@ export default function BibleAssetsView() {
       RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
-        [{ text: t('ok') }]
+        [{ text: t('ok'), isPreferred: true }]
       );
     }
   });
@@ -3611,7 +3601,7 @@ export default function BibleAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <View className="flex flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
         <View className="flex flex-row items-center gap-2">
@@ -3787,6 +3777,7 @@ export default function BibleAssetsView() {
                         {
                           text: t('publish'),
                           style: 'default',
+                          isPreferred: true,
                           onPress: () => {
                             publishQuest();
                           }
@@ -3976,6 +3967,8 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
+              showUnmerge={selectedAssetIds.size === 1}
+              onUnmerge={handleUnmergeSelected}
             />
           </View>
         ) : (

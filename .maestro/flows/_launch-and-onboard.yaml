@@ -1,0 +1,16 @@
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible: Terms & Privacy
+- scrollUntilVisible:
+    element: I agree
+- tapOn:
+    text: I agree
+    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
+- assertVisible:
+    text: Every language. Every culture.
+    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
+- tapOn:
+    id: onboarding-close-button
+    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
