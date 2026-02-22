@@ -46,6 +46,10 @@ export function TrimSegmentModal({
   const barCount = 128;
   const waveformHeight = 64;
   const minSelectionWidthPx = 32;
+  const edgeHandleTouchWidth = 56;
+  const edgeHandleVerticalOverflow = 12;
+  const waveformPanEdgeGuardPx = 20;
+  const halfEdgeHandleTouchWidth = edgeHandleTouchWidth / 2;
   const [waveformContainerWidth, setWaveformContainerWidth] =
     React.useState(0);
   const [selectionStart, setSelectionStart] = React.useState(0.1);
@@ -660,7 +664,13 @@ export function TrimSegmentModal({
               setWaveformContainerWidth(event.nativeEvent.layout.width);
             }}
           >
-            <View style={{ width: waveformWidth, height: waveformHeight }}>
+            <View
+              style={{
+                width: waveformWidth,
+                height: waveformHeight,
+                overflow: 'visible'
+              }}
+            >
               {!hasWaveform ? (
                 <View
                   style={{
@@ -745,8 +755,8 @@ export function TrimSegmentModal({
                 style={{
                   position: 'absolute',
                   top: 0,
-                  left: 0,
-                  right: 0,
+                  left: waveformPanEdgeGuardPx,
+                  right: waveformPanEdgeGuardPx,
                   bottom: 0,
                   zIndex: 1
                 }}
@@ -756,25 +766,27 @@ export function TrimSegmentModal({
               <View
                 style={{
                   position: 'absolute',
-                  top: -8,
-                  left: Math.max(0, selectionStartPx - 16),
-                  width: 32,
-                  height: waveformHeight + 16,
+                  top: -edgeHandleVerticalOverflow,
+                  left: selectionStartPx - halfEdgeHandleTouchWidth,
+                  width: edgeHandleTouchWidth,
+                  height: waveformHeight + edgeHandleVerticalOverflow * 2,
                   backgroundColor: 'transparent',
                   zIndex: 2
                 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 {...leftPanHandlers}
               />
               <View
                 style={{
                   position: 'absolute',
-                  top: -8,
-                  left: Math.min(waveformWidth - 32, selectionEndPx - 16),
-                  width: 32,
-                  height: waveformHeight + 16,
+                  top: -edgeHandleVerticalOverflow,
+                  left: selectionEndPx - halfEdgeHandleTouchWidth,
+                  width: edgeHandleTouchWidth,
+                  height: waveformHeight + edgeHandleVerticalOverflow * 2,
                   backgroundColor: 'transparent',
                   zIndex: 2
                 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 {...rightPanHandlers}
               />
                 </>
