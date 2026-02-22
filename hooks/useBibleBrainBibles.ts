@@ -46,9 +46,7 @@ async function lookupSourceLanguoidId(
          AND active = 1
        LIMIT 1`
     );
-    const row = result.rows?._array?.[0] as
-      | { languoid_id: string }
-      | undefined;
+    const row = result.rows?._array?.[0] as { languoid_id: string } | undefined;
     if (row) return row.languoid_id;
   } catch {
     // No result
@@ -57,9 +55,7 @@ async function lookupSourceLanguoidId(
   return null;
 }
 
-async function lookupIso639_3(
-  languoidId: string
-): Promise<string | null> {
+async function lookupIso639_3(languoidId: string): Promise<string | null> {
   try {
     const localResult = await system.db.execute(
       `SELECT unique_identifier FROM languoid_source

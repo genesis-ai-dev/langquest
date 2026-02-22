@@ -39,12 +39,7 @@ import {
   UsersIcon
 } from 'lucide-react-native';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { ActivityIndicator, Image, TouchableOpacity, View } from 'react-native';
 
 // --- Step config ---
 
@@ -317,9 +312,7 @@ function FiaBlockRenderer({
         </>
       );
     }
-    return (
-      <FiaBlockRenderer block={content} mediaCtx={mediaCtx} index={0} />
-    );
+    return <FiaBlockRenderer block={content} mediaCtx={mediaCtx} index={0} />;
   };
 
   switch (block.type) {
@@ -441,10 +434,7 @@ function renderInlineContent(
   if (Array.isArray(content)) {
     return content.map((child, i) => {
       if (typeof child === 'string') return child;
-      if (
-        child.type === 'bring-attention' ||
-        child.type === 'strong'
-      ) {
+      if (child.type === 'bring-attention' || child.type === 'strong') {
         return (
           <Text key={i} className="font-bold">
             {typeof child.content === 'string'
@@ -468,10 +458,7 @@ function renderInlineContent(
     });
   }
   if (content && typeof content === 'object') {
-    if (
-      content.type === 'bring-attention' ||
-      content.type === 'strong'
-    ) {
+    if (content.type === 'bring-attention' || content.type === 'strong') {
       return (
         <Text className="font-bold">
           {typeof content.content === 'string'
@@ -746,7 +733,11 @@ export function FiaStepDrawer({
   };
 
   // Pause any drawer audio (FIA step or Bible) when drawer closes
-  const { pauseSound: pauseGlobal, isPlaying: isGlobalPlaying, currentAudioId: globalAudioId } = useAudio({ stopOnUnmount: false });
+  const {
+    pauseSound: pauseGlobal,
+    isPlaying: isGlobalPlaying,
+    currentAudioId: globalAudioId
+  } = useAudio({ stopOnUnmount: false });
   const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
     if (prevOpenRef.current && !open && isGlobalPlaying) {
@@ -775,7 +766,7 @@ export function FiaStepDrawer({
               <View className="flex-1 flex-col gap-0.5">
                 <DrawerTitle>
                   {activeTab === 'guide'
-                    ? (currentStep?.title || 'FIA Steps')
+                    ? currentStep?.title || 'FIA Steps'
                     : 'Bible'}
                 </DrawerTitle>
                 <DrawerDescription>{questName || ''}</DrawerDescription>
@@ -872,9 +863,7 @@ export function FiaStepDrawer({
               <View className="flex-row items-center justify-around border-b border-border py-2">
                 {STEP_CONFIG.map((cfg, idx) => {
                   const isActive = activeStep === cfg.id;
-                  const hasStep = data.steps.some(
-                    (s) => s.stepId === cfg.id
-                  );
+                  const hasStep = data.steps.some((s) => s.stepId === cfg.id);
                   const isDone = completedSteps.has(cfg.id);
                   return (
                     <TouchableOpacity
@@ -960,9 +949,7 @@ export function FiaStepDrawer({
                           className="flex-row items-center gap-2 rounded-xl bg-primary px-6 py-3"
                         >
                           <Text className="font-semibold text-primary-foreground">
-                            {isLastStep
-                              ? 'Complete'
-                              : 'Done \u2014 Next Step'}
+                            {isLastStep ? 'Complete' : 'Done \u2014 Next Step'}
                           </Text>
                         </TouchableOpacity>
                       )}

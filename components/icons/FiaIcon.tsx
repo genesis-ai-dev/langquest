@@ -10,7 +10,10 @@ import Svg, { Path } from 'react-native-svg';
  * Coordinates derived from the official FIA SVG, scaled to fill 24×24
  * with slight horizontal spacing added between each chevron pair.
  */
-const FiaIcon: LucideIcon = React.forwardRef<React.ComponentRef<typeof Svg>, LucideProps>(
+const FiaIcon: LucideIcon = React.forwardRef<
+  React.ComponentRef<typeof Svg>,
+  LucideProps
+>(
   (
     {
       color = 'currentColor',

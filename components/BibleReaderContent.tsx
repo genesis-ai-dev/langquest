@@ -22,12 +22,14 @@ import {
   SearchIcon,
   TypeIcon
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
@@ -407,21 +409,23 @@ export function BibleReaderContent({
   fiaBookId,
   verseRange
 }: BibleReaderContentProps) {
-  const { bibles, isLoading: biblesLoading, error: biblesError } =
-    useBibleBrainBibles(projectId);
+  const {
+    bibles,
+    isLoading: biblesLoading,
+    error: biblesError
+  } = useBibleBrainBibles(projectId);
   const [selectedBible, setSelectedBible] = useState<BibleBrainBible | null>(
     null
   );
 
   // Persistence
-  const savedTranslation = useLocalStore(
-    (s) => (projectId ? s.bibleTranslationByProject[projectId] : undefined)
+  const savedTranslation = useLocalStore((s) =>
+    projectId ? s.bibleTranslationByProject[projectId] : undefined
   );
-  const recentIds = useLocalStore(
-    (s) =>
-      projectId
-        ? (s.bibleRecentTranslations[projectId] ?? EMPTY_STRING_ARRAY)
-        : EMPTY_STRING_ARRAY
+  const recentIds = useLocalStore((s) =>
+    projectId
+      ? (s.bibleRecentTranslations[projectId] ?? EMPTY_STRING_ARRAY)
+      : EMPTY_STRING_ARRAY
   );
   const setBibleTranslation = useLocalStore((s) => s.setBibleTranslation);
   const bibleAudioPositions = useLocalStore((s) => s.bibleAudioPositions);
@@ -480,19 +484,17 @@ export function BibleReaderContent({
   const audioId = `bible-${selectedBible?.id}-${fiaBookId}-${verseRange}`;
 
   // --- Audio state (single call) ---
-  const {
-    isPlaying,
-    isPaused,
-    currentAudioId,
-    position
-  } = useAudio({ stopOnUnmount: false });
+  const { isPlaying, isPaused, currentAudioId, position } = useAudio({
+    stopOnUnmount: false
+  });
 
   const isThisAudioActive =
     (isPlaying || isPaused) && currentAudioId === audioId;
 
   // --- Verse highlighting ---
   const activeVerseKey = useMemo(() => {
-    if (!isThisAudioActive || !isPlaying || !content?.audio?.length) return null;
+    if (!isThisAudioActive || !isPlaying || !content?.audio?.length)
+      return null;
     return getActiveVerseKey(position, content.audio);
   }, [isThisAudioActive, isPlaying, position, content?.audio]);
 
