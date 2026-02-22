@@ -357,13 +357,16 @@ const RecordingView = () => {
     getItemId: (item) => item.id
   });
 
+  const enableFia = useLocalStore((state) => state.enableFia);
   const selectedQuestForFia = questDataForFia?.[0];
   const fiaMetaExtracted = React.useMemo(() => {
     if (!selectedQuestForFia?.metadata) return null;
     return extractFiaMetadata(selectedQuestForFia.metadata);
   }, [selectedQuestForFia?.metadata]);
 
-  const fiaPericopeId = fiaMetaExtracted?.pericopeId ?? null;
+  const fiaPericopeId = enableFia
+    ? (fiaMetaExtracted?.pericopeId ?? null)
+    : null;
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
   const fiaDrawerStateRef = React.useRef<FiaDrawerState>({ ...INITIAL_FIA_DRAWER_STATE });
 

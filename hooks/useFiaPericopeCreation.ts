@@ -53,13 +53,16 @@ export function useFiaPericopeCreation() {
       return await system.db.transaction(async (tx) => {
         const questName = `${bookTitle} ${verseRange}`;
 
-        // Check if pericope quest already exists via metadata
+        // Check if THIS USER already has a pericope quest for this pericopeId.
+        // Other users' versions are intentionally ignored so each user can
+        // create their own version of the same pericope.
         const existing = await tx.run(
           sql.raw(`
             SELECT id, name, project_id
             FROM quest
             WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
               AND json_extract(metadata, '$.fia.pericopeId') = '${pericopeId}'
+              AND creator_id = '${currentUser.id}'
             LIMIT 1
           `)
         );

@@ -712,13 +712,17 @@ export default function BibleAssetsView() {
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
 
+  const enableFia = useLocalStore((s) => s.enableFia);
+
   // Extract FIA metadata from quest (null for Bible quests)
   const fiaMetaExtracted = React.useMemo(() => {
     if (!selectedQuest?.metadata) return null;
     return extractFiaMetadata(selectedQuest.metadata);
   }, [selectedQuest?.metadata]);
 
-  const fiaPericopeId = fiaMetaExtracted?.pericopeId ?? null;
+  const fiaPericopeId = enableFia
+    ? (fiaMetaExtracted?.pericopeId ?? null)
+    : null;
 
   // Fetch all FIA steps (only for FIA pericope quests)
   const { data: fiaStepsData, isLoading: fiaStepsLoading } =

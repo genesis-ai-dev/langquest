@@ -246,12 +246,15 @@ const BibleRecordingView = ({
   });
 
   const selectedQuest = questData?.[0];
+  const enableFia = useLocalStore((state) => state.enableFia);
   const fiaMetaExtracted = React.useMemo(() => {
     if (!selectedQuest?.metadata) return null;
     return extractFiaMetadata(selectedQuest.metadata);
   }, [selectedQuest?.metadata]);
 
-  const fiaPericopeId = fiaMetaExtracted?.pericopeId ?? null;
+  const fiaPericopeId = enableFia
+    ? (fiaMetaExtracted?.pericopeId ?? null)
+    : null;
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
   const fiaDrawerStateRef = React.useRef<FiaDrawerState>({ ...INITIAL_FIA_DRAWER_STATE });
 

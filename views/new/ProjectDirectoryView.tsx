@@ -109,7 +109,7 @@ export default function ProjectDirectoryView() {
     currentBookId,
     currentProjectData
   } = useCurrentNavigation();
-  const { navigate, goBack } = useAppNavigation();
+  const { navigate, goBack, goToSettings } = useAppNavigation();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -414,6 +414,7 @@ export default function ProjectDirectoryView() {
   );
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+  const enableFia = useLocalStore((state) => state.enableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
@@ -1028,6 +1029,24 @@ export default function ProjectDirectoryView() {
 
     // FIA project routing
     if (template === 'fia') {
+      if (!enableFia) {
+        return (
+          <View className="flex-1 items-center justify-center gap-4 p-8">
+            <Icon as={SettingsIcon} size={40} className="text-muted-foreground" />
+            <Text variant="h4" className="text-center">
+              {t('fiaExperimentalTitle')}
+            </Text>
+            <Text className="text-center text-muted-foreground">
+              {t('fiaExperimentalDescription')}
+            </Text>
+            <Button variant="default" onPress={goToSettings}>
+              <Icon as={SettingsIcon} size={16} />
+              <Text>{t('openSettings')}</Text>
+            </Button>
+          </View>
+        );
+      }
+
       if (!currentBookId) {
         // Show FIA book list
         return (

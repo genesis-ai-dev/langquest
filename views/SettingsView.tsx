@@ -60,6 +60,7 @@ export default function SettingsView() {
     (state) => state.enableLanguoidLinkSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
+  const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -86,6 +87,7 @@ export default function SettingsView() {
     (state) => state.setEnableLanguoidLinkSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Settings are loaded from the centralized store
 
@@ -139,6 +141,10 @@ export default function SettingsView() {
 
   const handleMergeToggle = (value: boolean) => {
     setEnableMerge(value);
+  };
+
+  const handleFiaToggle = (value: boolean) => {
+    setEnableFia(value);
   };
 
   const handleClearCache = () => {
@@ -262,6 +268,14 @@ export default function SettingsView() {
     {
       title: t('experimentalFeatures'),
       items: [
+        {
+          id: 'fia',
+          title: t('enableFia'),
+          description: t('enableFiaDescription'),
+          type: 'toggle',
+          value: enableFia,
+          onPress: () => handleFiaToggle(!enableFia)
+        },
         {
           id: 'aiSuggestions',
           title: t('aiSuggestions'),

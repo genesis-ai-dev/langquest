@@ -149,6 +149,8 @@ export interface LocalState {
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
+  enableFia: boolean;
+  setEnableFia: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
@@ -335,6 +337,7 @@ export const useLocalStore = create<LocalState>()(
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
       enableMerge: false,
+      enableFia: false,
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
@@ -466,6 +469,7 @@ export const useLocalStore = create<LocalState>()(
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
+      setEnableFia: (enabled) => set({ enableFia: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) =>

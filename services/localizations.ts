@@ -7550,6 +7550,58 @@ export const localizations = {
       'Izinkan penggabungan beberapa aset audio menjadi satu aset. Gunakan dengan hati-hati — urutan segmen mungkin perlu penyesuaian manual setelah penggabungan.',
     nepali:
       'धेरै अडियो सम्पत्तिहरूलाई एकल सम्पत्तिमा मर्ज गर्न अनुमति दिनुहोस्। सावधानीपूर्वक प्रयोग गर्नुहोस् — मर्ज गरेपछि खण्ड क्रम म्यानुअल समायोजन आवश्यक पर्न सक्छ।'
+  },
+  enableFia: {
+    english: 'FIA Projects',
+    spanish: 'Proyectos FIA',
+    brazilian_portuguese: 'Projetos FIA',
+    tok_pisin: 'FIA Projek',
+    indonesian: 'Proyek FIA',
+    nepali: 'FIA परियोजनाहरू'
+  },
+  enableFiaDescription: {
+    english:
+      'Enable FIA project features. This is an experimental project type under active development.',
+    spanish:
+      'Habilitar las funciones de proyectos FIA. Este es un tipo de proyecto experimental en desarrollo activo.',
+    brazilian_portuguese:
+      'Ativar recursos de projetos FIA. Este é um tipo de projeto experimental em desenvolvimento ativo.',
+    tok_pisin:
+      'Openim ol FIA projek ficha. Dispela kain projek em i eksperimental na ol i wok long developim yet.',
+    indonesian:
+      'Aktifkan fitur proyek FIA. Ini adalah jenis proyek eksperimental yang sedang dalam pengembangan aktif.',
+    nepali:
+      'FIA परियोजना सुविधाहरू सक्षम गर्नुहोस्। यो सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो।'
+  },
+  fiaExperimentalTitle: {
+    english: 'FIA Projects are Experimental',
+    spanish: 'Los proyectos FIA son experimentales',
+    brazilian_portuguese: 'Projetos FIA são experimentais',
+    tok_pisin: 'FIA Projek em i eksperimental',
+    indonesian: 'Proyek FIA bersifat eksperimental',
+    nepali: 'FIA परियोजनाहरू प्रयोगात्मक छन्'
+  },
+  fiaExperimentalDescription: {
+    english:
+      'To use this project, enable FIA Projects in Settings under Experimental Features.',
+    spanish:
+      'Para usar este proyecto, habilite Proyectos FIA en Configuración bajo Características Experimentales.',
+    brazilian_portuguese:
+      'Para usar este projeto, ative Projetos FIA em Configurações nas Funcionalidades Experimentais.',
+    tok_pisin:
+      'Bilong usim dispela projek, openim FIA Projek long Settings aninit long Experimental Features.',
+    indonesian:
+      'Untuk menggunakan proyek ini, aktifkan Proyek FIA di Pengaturan pada Fitur Eksperimental.',
+    nepali:
+      'यो परियोजना प्रयोग गर्न, सेटिङ्समा प्रयोगात्मक सुविधाहरू अन्तर्गत FIA परियोजनाहरू सक्षम गर्नुहोस्।'
+  },
+  openSettings: {
+    english: 'Open Settings',
+    spanish: 'Abrir configuración',
+    brazilian_portuguese: 'Abrir configurações',
+    tok_pisin: 'Openim Settings',
+    indonesian: 'Buka Pengaturan',
+    nepali: 'सेटिङ्हरू खोल्नुहोस्'
   }
 } as const;
 

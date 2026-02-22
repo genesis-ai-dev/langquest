@@ -295,6 +295,7 @@ export default function NextGenProjectsView() {
     }
   }, [form, savedLanguage, currentUser?.id]);
 
+  const enableFia = useLocalStore((state) => state.enableFia);
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
@@ -1065,15 +1066,17 @@ export default function NextGenProjectsView() {
                           }
                         }}
                       >
-                        {templateOptions.map((option) => (
-                          <RadioGroupItem
-                            key={option}
-                            value={option}
-                            label={t(option)}
-                          >
-                            <Text className="capitalize">{t(option)}</Text>
-                          </RadioGroupItem>
-                        ))}
+                        {templateOptions
+                          .filter((o) => o !== 'fia' || enableFia)
+                          .map((option) => (
+                            <RadioGroupItem
+                              key={option}
+                              value={option}
+                              label={t(option)}
+                            >
+                              <Text className="capitalize">{t(option)}</Text>
+                            </RadioGroupItem>
+                          ))}
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />

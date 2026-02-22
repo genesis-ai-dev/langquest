@@ -8,7 +8,6 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -74,24 +73,49 @@ function getFiaBookIcon(fiaBookId: string) {
 function VersionCard({
   version,
   isCurrentUser,
-  onPress
+  onPress,
+  onDownloadClick,
+  isDownloading
 }: {
   version: FiaPericopeQuest;
   isCurrentUser: boolean;
   onPress: () => void;
+  onDownloadClick: (questId: string) => void;
+  isDownloading: boolean;
 }) {
   const displayName = version.creatorName || 'Unknown';
   const initial = displayName.charAt(0).toUpperCase();
   const isLocal = version.source === 'local';
-  const isSynced = version.source === 'synced';
+  const isCloud = version.source === 'cloud';
+  const isDownloaded = useQuestDownloadStatusLive(
+    isLocal ? null : version.id
+  );
+  const needsDownload = isCloud && !isDownloaded;
 
   return (
     <Pressable
-      onPress={onPress}
-      className="flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70"
+      onPress={needsDownload ? () => onDownloadClick(version.id) : onPress}
+      className={cn(
+        'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
+        needsDownload && 'opacity-60'
+      )}
     >
-      <View className="h-10 w-10 items-center justify-center rounded-full bg-primary">
-        <Text className="font-semibold text-primary-foreground">{initial}</Text>
+      <View
+        className={cn(
+          'h-10 w-10 items-center justify-center rounded-full',
+          isLocal ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
+        )}
+      >
+        <Text
+          className={cn(
+            'font-semibold',
+            isLocal || needsDownload
+              ? 'text-secondary-foreground'
+              : 'text-primary-foreground'
+          )}
+        >
+          {initial}
+        </Text>
       </View>
       <View className="flex-1">
         <View className="flex-row items-center gap-1.5">
@@ -99,18 +123,23 @@ function VersionCard({
             {displayName}
             {isCurrentUser ? ' (you)' : ''}
           </Text>
-          {isLocal && (
-            <Icon as={HardDriveIcon} size={12} className="text-chart-2" />
-          )}
-          {isSynced && (
-            <Badge variant="secondary" className="px-1.5 py-0">
-              <Text className="text-xxs">published</Text>
-            </Badge>
-          )}
         </View>
         <Text className="text-sm text-muted-foreground">
           {formatRelativeDate(version.created_at)}
         </Text>
+      </View>
+      <View className="items-center justify-center">
+        {isLocal && (
+          <Icon as={HardDriveIcon} size={18} className="text-chart-2" />
+        )}
+        {!isLocal && (
+          <DownloadIndicator
+            isFlaggedForDownload={isDownloaded}
+            isLoading={isDownloading}
+            onPress={() => onDownloadClick(version.id)}
+            size={18}
+          />
+        )}
       </View>
     </Pressable>
   );
@@ -568,9 +597,14 @@ export function FiaPericopeList({
     }
 
     if (group.versions.length === 1) {
-      // Single version — navigate directly
-      await navigateToVersion(group.primary);
-      return;
+      const onlyVersion = group.primary;
+      const isOwnVersion = onlyVersion.creator_id === currentUser.id;
+      if (isOwnVersion || !canCreateNew) {
+        await navigateToVersion(onlyVersion);
+        return;
+      }
+      // Someone else's version and user can create — show picker so they
+      // see the "Create your own" option
     }
 
     // Multiple versions — open picker
@@ -663,6 +697,8 @@ export function FiaPericopeList({
               version={version}
               isCurrentUser={version.creator_id === currentUser?.id}
               onPress={() => navigateToVersion(version)}
+              onDownloadClick={handleDownloadClick}
+              isDownloading={downloadingQuestIds.has(version.id)}
             />
           ))}
 
