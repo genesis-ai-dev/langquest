@@ -7,10 +7,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  mergeLocalAssets,
-  unmergeLocalAsset
-} from '@/database_services/assetMergeService';
+import { mergeLocalAssets } from '@/database_services/assetMergeService';
 import {
   normalizeOrderIndexForVerses,
   renameAsset
@@ -60,8 +57,8 @@ import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
 import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
+import { useSelectionActions } from './recording/hooks/useSelectionActions';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
-import { useTrimModal } from './recording/hooks/useTrimModal';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
 import { useHybridData } from './useHybridData';
@@ -335,7 +332,6 @@ const RecordingView = () => {
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
-  const enableMerge = useLocalStore((state) => state.enableMerge);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -477,7 +473,7 @@ const RecordingView = () => {
     cancelSelection,
     selectMultiple
   } = useSelectionMode();
-  const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
+  const { afterMerge } = useMergeUnmergeCleanup(cancelSelection);
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
@@ -691,19 +687,56 @@ const RecordingView = () => {
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
 
-  // Trim modal (shared hook – loads waveform from file on demand)
-  const {
-    isTrimModalOpen,
-    handleOpenTrimModal,
-    handleCloseTrimModal,
-    handleConfirmTrim,
-    trimTargetAsset,
-    trimWaveformData,
-    trimAssetAudio,
-    canTrimSelected
-  } = useTrimModal({
+  // Selection actions (shared hook – merge, delete, unmerge, trim, select all)
+  const { controlsProps, trimModal } = useSelectionActions({
     selectedAssetIds,
-    assets
+    assets,
+    isSelectionMode,
+    selectMultiple,
+    cancelSelection,
+    onAfterMerge: (targetAssetId) => {
+      const selected = assets.filter(
+        (a) => selectedAssetIds.has(a.id) && a.id !== targetAssetId
+      );
+      const deletedIds = new Set(selected.map((a) => a.id));
+      setSessionItems((prev) => prev.filter((a) => !deletedIds.has(a.id)));
+      loadedAssetIdsRef.current.delete(targetAssetId);
+      setAssetSegmentCounts((prev) => {
+        const next = new Map(prev);
+        next.delete(targetAssetId);
+        return next;
+      });
+      setAssetDurations((prev) => {
+        const next = new Map(prev);
+        next.delete(targetAssetId);
+        return next;
+      });
+    },
+    onAfterDelete: (deletedIds) => {
+      const deletedSet = new Set(deletedIds);
+      setSessionItems((prev) => prev.filter((a) => !deletedSet.has(a.id)));
+    },
+    onAfterUnmerge: (originalId, newIds) => {
+      loadedAssetIdsRef.current.delete(originalId);
+      setAssetSegmentCounts((prev) => {
+        const next = new Map(prev);
+        next.delete(originalId);
+        return next;
+      });
+      setAssetDurations((prev) => {
+        const next = new Map(prev);
+        next.delete(originalId);
+        return next;
+      });
+      for (const newId of newIds) {
+        loadedAssetIdsRef.current.add(newId);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          next.set(newId, 1);
+          return next;
+        });
+      }
+    }
   });
 
   // Check if we're at the end of the list (for add verse button behavior)
@@ -2026,228 +2059,6 @@ const RecordingView = () => {
     [assets, currentUser, afterMerge]
   );
 
-  const handleBatchMergeSelected = React.useCallback(() => {
-    const selectedOrdered = assets.filter(
-      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-    );
-    if (selectedOrdered.length < 2) return;
-
-    RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Merge',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                if (!currentUser) return;
-
-                const orderedIds = selectedOrdered.map((a) => a.id);
-                const { targetAssetId, deletedSourceAssetIds } =
-                  await mergeLocalAssets({
-                    orderedAssetIds: orderedIds,
-                    userId: currentUser.id
-                  });
-
-                // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(deletedSourceAssetIds);
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                // Force re-load of segment count for the merged target asset
-                debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${targetAssetId}`
-                );
-                loadedAssetIdsRef.current.delete(targetAssetId);
-                setAssetSegmentCounts((prev) => {
-                  const next = new Map(prev);
-                  next.delete(targetAssetId);
-                  return next;
-                });
-                setAssetDurations((prev) => {
-                  const next = new Map(prev);
-                  next.delete(targetAssetId);
-                  return next;
-                });
-
-                afterMerge(targetAssetId);
-
-                debugLog('✅ Batch merge completed');
-              } catch (e) {
-                console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
-              }
-            })();
-          }
-        }
-      ]
-    );
-  }, [assets, selectedAssetIds, currentUser, afterMerge]);
-
-  const handleBatchDeleteSelected = React.useCallback(() => {
-    const selectedOrdered = assets.filter(
-      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-    );
-    if (selectedOrdered.length < 1) return;
-
-    RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                for (const asset of selectedOrdered) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
-
-                // Remove deleted assets from session list
-                const deletedIds = new Set(selectedOrdered.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
-
-                debugLog(
-                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
-              }
-            })();
-          }
-        }
-      ]
-    );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
-
-  // Handle unmerge of a single selected asset
-  const handleUnmergeSelected = React.useCallback(() => {
-    const selectedAsset = assets.find(
-      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-    );
-    if (!selectedAsset || !currentUser) return;
-
-    RNAlert.alert(
-      'Unmerge Asset',
-      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unmerge',
-          isPreferred: true,
-          onPress: () => {
-            void (async () => {
-              try {
-                const { originalAssetId, newAssets } = await unmergeLocalAsset({
-                  assetId: selectedAsset.id,
-                  userId: currentUser.id
-                });
-
-                // Clear caches for the modified original asset
-                loadedAssetIdsRef.current.delete(originalAssetId);
-                setAssetSegmentCounts((prev) => {
-                  const next = new Map(prev);
-                  next.delete(originalAssetId);
-                  return next;
-                });
-                setAssetDurations((prev) => {
-                  const next = new Map(prev);
-                  next.delete(originalAssetId);
-                  return next;
-                });
-
-                // Add the new assets to the session list
-                for (const newAsset of newAssets) {
-                  addSessionAsset({
-                    id: newAsset.id,
-                    name: newAsset.name,
-                    order_index: newAsset.orderIndex
-                  });
-                  loadedAssetIdsRef.current.add(newAsset.id);
-                  setAssetSegmentCounts((prev) => {
-                    const next = new Map(prev);
-                    next.set(newAsset.id, 1);
-                    return next;
-                  });
-                }
-
-                afterUnmerge(
-                  originalAssetId,
-                  newAssets.map((a) => a.id)
-                );
-
-                debugLog(
-                  `✅ Unmerge completed: "${selectedAsset.name}" → 1 + ${newAssets.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to unmerge asset', e);
-                RNAlert.alert(
-                  'Error',
-                  e instanceof Error
-                    ? e.message
-                    : 'Failed to unmerge asset. Please try again.'
-                );
-              }
-            })();
-          }
-        }
-      ]
-    );
-  }, [assets, selectedAssetIds, currentUser, addSessionAsset, afterUnmerge]);
-
-  // ============================================================================
-  // SELECT ALL / DESELECT ALL
-  // ============================================================================
-
-  // Calculate if all local assets are selected
-  const allSelected = React.useMemo(() => {
-    if (!isSelectionMode || assets.length === 0) return false;
-    const selectableAssets = assets.filter((a) => a.source !== 'cloud');
-    if (selectableAssets.length === 0) return false;
-    return selectableAssets.every((a) => selectedAssetIds.has(a.id));
-  }, [isSelectionMode, assets, selectedAssetIds]);
-
-  // Handle select all / deselect all
-  const handleSelectAll = React.useCallback(() => {
-    if (allSelected) {
-      // Deselect all
-      selectMultiple([]);
-    } else {
-      // Select all local assets (exclude cloud assets)
-      const selectableIds = assets
-        .filter((a) => a.source !== 'cloud')
-        .map((a) => a.id);
-      selectMultiple(selectableIds);
-    }
-  }, [allSelected, assets, selectMultiple]);
-
   // ============================================================================
   // RENAME ASSET
   // ============================================================================
@@ -2860,24 +2671,7 @@ const RecordingView = () => {
             style={{ paddingBottom: insets.bottom }}
             onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
           >
-            <RecordSelectionControls
-              selectedCount={selectedAssetIds.size}
-              onCancel={cancelSelection}
-              onMerge={handleBatchMergeSelected}
-              onDelete={handleBatchDeleteSelected}
-              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
-              allowSelectAll={true}
-              allSelected={allSelected}
-              onSelectAll={handleSelectAll}
-              showMerge={enableMerge}
-              showUnmerge={
-                selectedAssetIds.size === 1 &&
-                (assetSegmentCounts.get(
-                  Array.from(selectedAssetIds)[0] ?? ''
-                ) ?? 1) > 1
-              }
-              onUnmerge={handleUnmergeSelected}
-            />
+            <RecordSelectionControls {...controlsProps} />
           </View>
         ) : (
           <RecordingControls
@@ -2941,14 +2735,14 @@ const RecordingView = () => {
       <RecordingHelpDialog />
 
       {/* Trim Segment Modal */}
-      {isTrimModalOpen && (
+      {trimModal.isOpen && (
         <TrimSegmentModal
-          isOpen={isTrimModalOpen}
-          segmentName={trimTargetAsset?.name ?? null}
-          waveformData={trimWaveformData}
-          assetAudio={trimAssetAudio}
-          onClose={handleCloseTrimModal}
-          onConfirm={handleConfirmTrim}
+          isOpen={trimModal.isOpen}
+          segmentName={trimModal.targetName}
+          waveformData={trimModal.waveformData}
+          assetAudio={trimModal.assetAudio}
+          onClose={trimModal.onClose}
+          onConfirm={trimModal.onConfirm}
         />
       )}
     </View>
