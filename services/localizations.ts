@@ -4132,6 +4132,22 @@ export const localizations = {
     indonesian: 'Tidak ada label dipilih',
     nepali: 'कुनै लेबल चयन गरिएको छैन'
   },
+  readyToRecord: {
+    english: 'Ready to record',
+    spanish: 'Listo para grabar',
+    brazilian_portuguese: 'Pronto para gravar',
+    tok_pisin: 'Redi long rekodim',
+    indonesian: 'Siap untuk merekam',
+    nepali: 'रेकर्ड गर्न तयार छ'
+  },
+  recordingSession: {
+    english: 'Recording Session',
+    spanish: 'Sesión de Grabación',
+    brazilian_portuguese: 'Sessão de Gravação',
+    tok_pisin: 'Rekoding Sesen',
+    indonesian: 'Sesi Perekaman',
+    nepali: 'रेकर्डिङ सत्र'
+  },
   startRecordingSession: {
     english: 'Start Recording Session',
     spanish: 'Iniciar Sesión de Grabación',
