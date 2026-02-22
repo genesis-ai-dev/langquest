@@ -12,7 +12,10 @@ import {
   renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { FiaStepDrawer, INITIAL_FIA_DRAWER_STATE } from '@/components/FiaStepDrawer';
+import {
+  FiaStepDrawer,
+  INITIAL_FIA_DRAWER_STATE
+} from '@/components/FiaStepDrawer';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   asset_content_link,
@@ -256,7 +259,9 @@ const BibleRecordingView = ({
     ? (fiaMetaExtracted?.pericopeId ?? null)
     : null;
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
-  const fiaDrawerStateRef = React.useRef<FiaDrawerState>({ ...INITIAL_FIA_DRAWER_STATE });
+  const fiaDrawerStateRef = React.useRef<FiaDrawerState>({
+    ...INITIAL_FIA_DRAWER_STATE
+  });
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);

@@ -422,9 +422,7 @@ export default function ProjectDirectoryView() {
 
   // FIA: Fetch source languoid, FIA books from API, and existing book quests
   const { sourceLanguoidId, isLoading: sourceLanguoidLoading } =
-    useProjectSourceLanguoid(
-      template === 'fia' ? currentProjectId || '' : ''
-    );
+    useProjectSourceLanguoid(template === 'fia' ? currentProjectId || '' : '');
   const {
     books: fiaBooks,
     isLoading: fiaBooksLoading,
@@ -1032,7 +1030,11 @@ export default function ProjectDirectoryView() {
       if (!enableFia) {
         return (
           <View className="flex-1 items-center justify-center gap-4 p-8">
-            <Icon as={SettingsIcon} size={40} className="text-muted-foreground" />
+            <Icon
+              as={SettingsIcon}
+              size={40}
+              className="text-muted-foreground"
+            />
             <Text variant="h4" className="text-center">
               {t('fiaExperimentalTitle')}
             </Text>

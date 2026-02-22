@@ -91,8 +91,14 @@ async function fetchLocalPericopes(
       if (dp) {
         try {
           parsedProfiles =
-            typeof dp === 'string' ? JSON.parse(dp) : Array.isArray(dp) ? dp : null;
-        } catch { /* ignore */ }
+            typeof dp === 'string'
+              ? JSON.parse(dp)
+              : Array.isArray(dp)
+                ? dp
+                : null;
+        } catch {
+          /* ignore */
+        }
       }
 
       let createdAt: string;
@@ -166,7 +172,9 @@ async function fetchCreatorNames(
     for (const p of profiles) {
       nameMap.set(p.id, p.username || p.email || 'Unknown');
     }
-  } catch { /* ignore — names are best-effort */ }
+  } catch {
+    /* ignore — names are best-effort */
+  }
 
   return nameMap;
 }

@@ -35,7 +35,7 @@ const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar', // FIA: mrk → Bible: mar (Mark)
   php: 'phi', // FIA: php → Bible: phi (Philippians)
   jol: 'joe', // FIA: jol → Bible: joe (Joel)
-  nam: 'nah', // FIA: nam → Bible: nah (Nahum)
+  nam: 'nah' // FIA: nam → Bible: nah (Nahum)
 };
 
 function getBibleBookId(fiaBookId: string): string {
@@ -148,7 +148,7 @@ export function FiaBookList({
         )}
         <View className="flex-col items-center gap-0.5">
           <Text
-            className="text-xs font-bold text-center"
+            className="text-center text-xs font-bold"
             style={{ letterSpacing: 0.5 }}
             numberOfLines={2}
           >

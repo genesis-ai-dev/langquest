@@ -87,9 +87,7 @@ function VersionCard({
   const initial = displayName.charAt(0).toUpperCase();
   const isLocal = version.source === 'local';
   const isCloud = version.source === 'cloud';
-  const isDownloaded = useQuestDownloadStatusLive(
-    isLocal ? null : version.id
-  );
+  const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
   const needsDownload = isCloud && !isDownloaded;
 
   return (

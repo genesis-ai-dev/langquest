@@ -18,30 +18,24 @@ export function useProjectSourceLanguoid(projectId: string) {
 
       // Try Supabase cloud first (most reliable right after project creation)
       try {
-        const { data: cloudData, error } =
-          await system.supabaseConnector.client
-            .from('project_language_link')
-            .select('languoid_id')
-            .eq('project_id', projectId)
-            .eq('language_type', 'source')
-            .eq('active', true)
-            .limit(1)
-            .maybeSingle();
+        const { data: cloudData, error } = await system.supabaseConnector.client
+          .from('project_language_link')
+          .select('languoid_id')
+          .eq('project_id', projectId)
+          .eq('language_type', 'source')
+          .eq('active', true)
+          .limit(1)
+          .maybeSingle();
 
         if (error) {
-          console.warn(
-            `[useProjectSourceLanguoid] Cloud query error:`,
-            error
-          );
+          console.warn(`[useProjectSourceLanguoid] Cloud query error:`, error);
         } else if (cloudData) {
           console.log(
             `[useProjectSourceLanguoid] Found source languoid in cloud: ${cloudData.languoid_id}`
           );
           return cloudData.languoid_id;
         } else {
-          console.log(
-            `[useProjectSourceLanguoid] No source languoid in cloud`
-          );
+          console.log(`[useProjectSourceLanguoid] No source languoid in cloud`);
         }
       } catch (cloudError) {
         console.warn(

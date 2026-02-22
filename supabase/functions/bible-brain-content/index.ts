@@ -8,7 +8,7 @@ const TEXT_TYPES = ['text_plain', 'text_format'];
 const AUDIO_TYPES = ['audio_drama', 'audio'];
 const TESTAMENT_SIZES: Record<string, string[]> = {
   OT: ['C', 'OT', 'OTP', 'OTNTP', 'NTPOTP', 'S'],
-  NT: ['C', 'NT', 'NTP', 'NTOTP', 'NTPOTP', 'S'],
+  NT: ['C', 'NT', 'NTP', 'NTOTP', 'NTPOTP', 'S']
 };
 
 // --- Types ---
@@ -54,7 +54,10 @@ function bbUrl(path: string, params: Record<string, string> = {}): string {
   return url.toString();
 }
 
-async function bbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+async function bbFetch<T>(
+  path: string,
+  params: Record<string, string> = {}
+): Promise<T> {
   const url = bbUrl(path, params);
   const res = await fetch(url);
   if (!res.ok) {
@@ -68,17 +71,45 @@ async function bbFetch<T>(path: string, params: Record<string, string> = {}): Pr
 
 function guessTestament(bookId: string): 'OT' | 'NT' {
   const ntBooks = new Set([
-    'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
-    'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
-    '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
+    'MAT',
+    'MRK',
+    'LUK',
+    'JHN',
+    'ACT',
+    'ROM',
+    '1CO',
+    '2CO',
+    'GAL',
+    'EPH',
+    'PHP',
+    'COL',
+    '1TH',
+    '2TH',
+    '1TI',
+    '2TI',
+    'TIT',
+    'PHM',
+    'HEB',
+    'JAS',
+    '1PE',
+    '2PE',
+    '1JN',
+    '2JN',
+    '3JN',
+    'JUD',
+    'REV'
   ]);
   return ntBooks.has(bookId.toUpperCase()) ? 'NT' : 'OT';
 }
 
 // deno-lint-ignore no-explicit-any
-function pickBestFileset(filesets: any[], types: string[], bookId?: string): string | null {
+function pickBestFileset(
+  filesets: any[],
+  types: string[],
+  bookId?: string
+): string | null {
   const validSizes = bookId
-    ? TESTAMENT_SIZES[guessTestament(bookId)] ?? []
+    ? (TESTAMENT_SIZES[guessTestament(bookId)] ?? [])
     : ['C', 'NT', 'OT', 'NTP', 'OTP', 'NTPOTP', 'OTNTP', 'S'];
 
   for (const t of types) {
@@ -104,7 +135,7 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
   // deno-lint-ignore no-explicit-any
   const data: any = await bbFetch('/bibles', {
     language_code: iso639_3,
-    limit: '50',
+    limit: '50'
   });
 
   // deno-lint-ignore no-explicit-any
@@ -120,7 +151,7 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
       hasText: textId !== null,
       hasAudio: audioId !== null,
       textFilesetId: textId,
-      audioFilesetId: audioId,
+      audioFilesetId: audioId
     };
   });
 
@@ -136,7 +167,15 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
 // --- Action: get-content ---
 
 async function handleGetContent(body: GetContentRequest): Promise<Response> {
-  const { textFilesetId, audioFilesetId, bookId, startChapter, startVerse, endChapter, endVerse } = body;
+  const {
+    textFilesetId,
+    audioFilesetId,
+    bookId,
+    startChapter,
+    startVerse,
+    endChapter,
+    endVerse
+  } = body;
   const book = bookId.toUpperCase();
 
   // Build chapter list
@@ -151,13 +190,17 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
   if (textFilesetId) {
     const textPromises = chapters.map(async (ch) => {
       const params: Record<string, string> = {};
-      if (ch === startChapter && startVerse > 1) params.verse_start = String(startVerse);
+      if (ch === startChapter && startVerse > 1)
+        params.verse_start = String(startVerse);
       if (ch === endChapter) params.verse_end = String(endVerse);
 
       try {
         // deno-lint-ignore no-explicit-any
-        const res: any = await bbFetch(`/bibles/filesets/${textFilesetId}/${book}/${ch}`, params);
-        return (res.data ?? res ?? []);
+        const res: any = await bbFetch(
+          `/bibles/filesets/${textFilesetId}/${book}/${ch}`,
+          params
+        );
+        return res.data ?? res ?? [];
       } catch {
         return [];
       }
@@ -166,19 +209,23 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
     const textResults = await Promise.all(textPromises);
     for (const result of textResults) {
       // deno-lint-ignore no-explicit-any
-      const filtered = (Array.isArray(result) ? result : []).filter((v: any) => {
-        const ch = v.chapter ?? v.chapter_start;
-        const vs = v.verse_start ?? v.verse_sequence;
-        if (ch === startChapter && vs < startVerse) return false;
-        if (ch === endChapter && vs > endVerse) return false;
-        return true;
-      });
+      const filtered = (Array.isArray(result) ? result : []).filter(
+        (v: any) => {
+          const ch = v.chapter ?? v.chapter_start;
+          const vs = v.verse_start ?? v.verse_sequence;
+          if (ch === startChapter && vs < startVerse) return false;
+          if (ch === endChapter && vs > endVerse) return false;
+          return true;
+        }
+      );
       // deno-lint-ignore no-explicit-any
-      verses = verses.concat(filtered.map((v: any) => ({
-        chapter: v.chapter ?? v.chapter_start,
-        verseStart: v.verse_start ?? v.verse_sequence,
-        verseText: v.verse_text ?? '',
-      })));
+      verses = verses.concat(
+        filtered.map((v: any) => ({
+          chapter: v.chapter ?? v.chapter_start,
+          verseStart: v.verse_start ?? v.verse_sequence,
+          verseText: v.verse_text ?? ''
+        }))
+      );
     }
   }
 
@@ -192,41 +239,47 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
   const audio: AudioChapter[] = [];
 
   if (audioFilesetId) {
-    const audioPromises = chapters.map(async (ch): Promise<AudioChapter | null> => {
-      try {
-        // deno-lint-ignore no-explicit-any
-        const res: any = await bbFetch(`/bibles/filesets/${audioFilesetId}/${book}/${ch}`);
-        const items = res.data ?? res ?? [];
-        if (!Array.isArray(items) || items.length === 0) return null;
-
-        const item = items[0];
-        const entry: AudioChapter = {
-          chapter: ch,
-          url: item.path,
-          duration: item.duration ?? 0,
-        };
-
-        // Try to get timestamps
+    const audioPromises = chapters.map(
+      async (ch): Promise<AudioChapter | null> => {
         try {
           // deno-lint-ignore no-explicit-any
-          const tsRes: any = await bbFetch(`/timestamps/${audioFilesetId}/${book}/${ch}`);
-          const tsData = tsRes.data ?? [];
-          if (Array.isArray(tsData) && tsData.length > 0) {
-            // deno-lint-ignore no-explicit-any
-            entry.timestamps = tsData.map((t: any) => ({
-              verseStart: parseInt(t.verse_start, 10),
-              timestamp: t.timestamp,
-            }));
-          }
-        } catch {
-          // Timestamps not available for this fileset
-        }
+          const res: any = await bbFetch(
+            `/bibles/filesets/${audioFilesetId}/${book}/${ch}`
+          );
+          const items = res.data ?? res ?? [];
+          if (!Array.isArray(items) || items.length === 0) return null;
 
-        return entry;
-      } catch {
-        return null;
+          const item = items[0];
+          const entry: AudioChapter = {
+            chapter: ch,
+            url: item.path,
+            duration: item.duration ?? 0
+          };
+
+          // Try to get timestamps
+          try {
+            // deno-lint-ignore no-explicit-any
+            const tsRes: any = await bbFetch(
+              `/timestamps/${audioFilesetId}/${book}/${ch}`
+            );
+            const tsData = tsRes.data ?? [];
+            if (Array.isArray(tsData) && tsData.length > 0) {
+              // deno-lint-ignore no-explicit-any
+              entry.timestamps = tsData.map((t: any) => ({
+                verseStart: parseInt(t.verse_start, 10),
+                timestamp: t.timestamp
+              }));
+            }
+          } catch {
+            // Timestamps not available for this fileset
+          }
+
+          return entry;
+        } catch {
+          return null;
+        }
       }
-    });
+    );
 
     const audioResults = await Promise.all(audioPromises);
     for (const result of audioResults) {
@@ -244,8 +297,8 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+      'Access-Control-Allow-Origin': '*'
+    }
   });
 }
 
@@ -261,8 +314,8 @@ Deno.serve(async (req) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'authorization, content-type',
-      },
+        'Access-Control-Allow-Headers': 'authorization, content-type'
+      }
     });
   }
 
@@ -288,15 +341,24 @@ Deno.serve(async (req) => {
 
     if (body.action === 'get-content') {
       if (!body.textFilesetId && !body.audioFilesetId) {
-        return errorResponse('At least one of textFilesetId or audioFilesetId is required', 400);
+        return errorResponse(
+          'At least one of textFilesetId or audioFilesetId is required',
+          400
+        );
       }
       if (!body.bookId || !body.startChapter || !body.endChapter) {
-        return errorResponse('Missing required fields: bookId, startChapter, endChapter', 400);
+        return errorResponse(
+          'Missing required fields: bookId, startChapter, endChapter',
+          400
+        );
       }
       return await handleGetContent(body);
     }
 
-    return errorResponse(`Unknown action: ${(body as { action?: string }).action}`, 400);
+    return errorResponse(
+      `Unknown action: ${(body as { action?: string }).action}`,
+      400
+    );
   } catch (error) {
     console.error('Error in bible-brain-content function:', error);
     return errorResponse(`Internal server error: ${error.message}`, 500);

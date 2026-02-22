@@ -167,7 +167,9 @@ function mapPericope(node: any): FiaPericope {
   return {
     id: p.id,
     sequence: p.sequence,
-    verseRange: p.verseRangeShort || `${p.startChapter}:${p.startVerse}-${p.endChapter}:${p.endVerse}`,
+    verseRange:
+      p.verseRangeShort ||
+      `${p.startChapter}:${p.startVerse}-${p.endChapter}:${p.endVerse}`,
     startChapter: p.startChapter,
     startVerse: p.startVerse,
     endChapter: p.endChapter,
@@ -255,8 +257,8 @@ Deno.serve(async (req) => {
 
       // Collect initial pericopes
       // deno-lint-ignore no-explicit-any
-      const pericopes: FiaPericope[] = bookNode.pericopeTranslations.edges.map((e: any) =>
-        mapPericope(e.node)
+      const pericopes: FiaPericope[] = bookNode.pericopeTranslations.edges.map(
+        (e: any) => mapPericope(e.node)
       );
 
       // Handle pagination if needed

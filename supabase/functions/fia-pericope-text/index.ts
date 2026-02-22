@@ -182,8 +182,8 @@ Deno.serve(async (req) => {
 
     // Find the translation matching the requested language
     // deno-lint-ignore no-explicit-any
-    const translationEdge = pericope.pericopeTranslations?.edges?.find((e: any) =>
-      e.node.language.id === body.fiaLanguageCode
+    const translationEdge = pericope.pericopeTranslations?.edges?.find(
+      (e: any) => e.node.language.id === body.fiaLanguageCode
     );
 
     if (!translationEdge) {
@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
     // Find step 1 (hear-and-heart) rendering
     const stepRenderings = translationEdge.node.stepRenderings?.edges || [];
     // deno-lint-ignore no-explicit-any
-    const step1 = stepRenderings.find((e: any) =>
-      e.node.step?.uniqueIdentifier === 'hear-and-heart'
+    const step1 = stepRenderings.find(
+      (e: any) => e.node.step?.uniqueIdentifier === 'hear-and-heart'
     );
 
     if (!step1) {

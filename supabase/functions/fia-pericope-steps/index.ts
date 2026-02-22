@@ -188,103 +188,117 @@ const STEP_ORDER = [
 
 // deno-lint-ignore no-explicit-any
 function findTranslation(edges: any[], lang: string) {
-  return edges.find((e: { node: { language: { id: string } } }) => e.node.language.id === lang)?.node;
+  return edges.find(
+    (e: { node: { language: { id: string } } }) => e.node.language.id === lang
+  )?.node;
 }
 
 // deno-lint-ignore no-explicit-any
 function shapeSteps(stepEdges: any[]): any[] {
-  return STEP_ORDER
-    .map((stepId) => {
-      // deno-lint-ignore no-explicit-any
-      const edge = stepEdges.find((e: any) => e.node.step?.uniqueIdentifier === stepId);
-      if (!edge) return null;
-      const n = edge.node;
+  return STEP_ORDER.map((stepId) => {
+    // deno-lint-ignore no-explicit-any
+    const edge = stepEdges.find(
+      (e: any) => e.node.step?.uniqueIdentifier === stepId
+    );
+    if (!edge) return null;
+    const n = edge.node;
 
-      let textJson = null;
-      if (n.textAsJson) {
-        try {
-          textJson = JSON.parse(n.textAsJson);
-        } catch {
-          // fall back to null
-        }
+    let textJson = null;
+    if (n.textAsJson) {
+      try {
+        textJson = JSON.parse(n.textAsJson);
+      } catch {
+        // fall back to null
       }
+    }
+
+    return {
+      stepId,
+      title: n.stepTranslation?.title || stepId,
+      textJson,
+      textPlain: n.textPlain || '',
+      audioUrl: n.audioUrlVbr4 || null
+    };
+  }).filter(Boolean);
+}
+
+// deno-lint-ignore no-explicit-any
+function shapeMediaItems(mediaEdges: any[], lang: string): any[] {
+  // deno-lint-ignore no-explicit-any
+  return mediaEdges
+    .map((me: any) => {
+      const node = me.node;
+      const trans = findTranslation(
+        node.mediaItemTranslations?.edges || [],
+        lang
+      );
+
+      // deno-lint-ignore no-explicit-any
+      const assets = (node.mediaAssets?.edges || [])
+        // deno-lint-ignore no-explicit-any
+        .filter((ae: any) => {
+          const attachment = ae.node.attachment;
+          // Exclude video assets
+          return !attachment?.url720p;
+        })
+        // deno-lint-ignore no-explicit-any
+        .map((ae: any) => {
+          const a = ae.node;
+          const aTrans = findTranslation(
+            a.mediaAssetTranslations?.edges || [],
+            lang
+          );
+          return {
+            type: a.assetType?.id || 'unknown',
+            imageUrl: a.attachment?.url500 || null,
+            title: aTrans?.title || '',
+            description: aTrans?.description || ''
+          };
+        });
 
       return {
-        stepId,
-        title: n.stepTranslation?.title || stepId,
-        textJson,
-        textPlain: n.textPlain || '',
-        audioUrl: n.audioUrlVbr4 || null
+        id: node.uniqueIdentifier || node.id,
+        title: trans?.title || '',
+        description: trans?.description || '',
+        assets
+      };
+    })
+    .filter((m: { assets: unknown[] }) => m.assets.length > 0);
+}
+
+// deno-lint-ignore no-explicit-any
+function shapeTerms(termEdges: any[], lang: string): any[] {
+  // deno-lint-ignore no-explicit-any
+  return termEdges
+    .map((te: any) => {
+      const node = te.node;
+      const trans = findTranslation(node.termTranslations?.edges || [], lang);
+      if (!trans) return null;
+      return {
+        id: node.uniqueIdentifier || node.id,
+        term: trans.translatedTerm || '',
+        hint: trans.descriptionHint || '',
+        definition: trans.textPlain || null
       };
     })
     .filter(Boolean);
 }
 
 // deno-lint-ignore no-explicit-any
-function shapeMediaItems(mediaEdges: any[], lang: string): any[] {
-  // deno-lint-ignore no-explicit-any
-  return mediaEdges.map((me: any) => {
-    const node = me.node;
-    const trans = findTranslation(node.mediaItemTranslations?.edges || [], lang);
-
-    // deno-lint-ignore no-explicit-any
-    const assets = (node.mediaAssets?.edges || [])
-      // deno-lint-ignore no-explicit-any
-      .filter((ae: any) => {
-        const attachment = ae.node.attachment;
-        // Exclude video assets
-        return !attachment?.url720p;
-      })
-      // deno-lint-ignore no-explicit-any
-      .map((ae: any) => {
-        const a = ae.node;
-        const aTrans = findTranslation(a.mediaAssetTranslations?.edges || [], lang);
-        return {
-          type: a.assetType?.id || 'unknown',
-          imageUrl: a.attachment?.url500 || null,
-          title: aTrans?.title || '',
-          description: aTrans?.description || ''
-        };
-      });
-
-    return {
-      id: node.uniqueIdentifier || node.id,
-      title: trans?.title || '',
-      description: trans?.description || '',
-      assets
-    };
-  }).filter((m: { assets: unknown[] }) => m.assets.length > 0);
-}
-
-// deno-lint-ignore no-explicit-any
-function shapeTerms(termEdges: any[], lang: string): any[] {
-  // deno-lint-ignore no-explicit-any
-  return termEdges.map((te: any) => {
-    const node = te.node;
-    const trans = findTranslation(node.termTranslations?.edges || [], lang);
-    if (!trans) return null;
-    return {
-      id: node.uniqueIdentifier || node.id,
-      term: trans.translatedTerm || '',
-      hint: trans.descriptionHint || '',
-      definition: trans.textPlain || null
-    };
-  }).filter(Boolean);
-}
-
-// deno-lint-ignore no-explicit-any
 function shapeMaps(mapEdges: any[], lang: string): any[] {
   // deno-lint-ignore no-explicit-any
-  return mapEdges.map((me: any) => {
-    const node = me.node;
-    const trans = findTranslation(node.mapTranslations?.edges || [], lang);
-    if (!trans?.imageUrl1500) return null;
-    return {
-      id: node.uniqueIdentifier || node.id,
-      title: trans.title || '',
-      imageUrl: trans.imageUrl1500
-    };
-  }).filter(Boolean);
+  return mapEdges
+    .map((me: any) => {
+      const node = me.node;
+      const trans = findTranslation(node.mapTranslations?.edges || [], lang);
+      if (!trans?.imageUrl1500) return null;
+      return {
+        id: node.uniqueIdentifier || node.id,
+        title: trans.title || '',
+        imageUrl: trans.imageUrl1500
+      };
+    })
+    .filter(Boolean);
 }
 
 // --- Main handler ---
@@ -320,18 +334,25 @@ Deno.serve(async (req) => {
     const body: FiaPericopeStepsRequest = await req.json();
     if (!body.pericopeId || !body.fiaLanguageCode) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: pericopeId, fiaLanguageCode' }),
+        JSON.stringify({
+          error: 'Missing required fields: pericopeId, fiaLanguageCode'
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const token = await getFiaToken(accessKey);
-    const result = await fiaGraphQL(token, PERICOPE_STEPS_QUERY, { id: body.pericopeId });
+    const result = await fiaGraphQL(token, PERICOPE_STEPS_QUERY, {
+      id: body.pericopeId
+    });
 
     if (result.errors?.length) {
       console.error('FIA GraphQL errors:', result.errors);
       return new Response(
-        JSON.stringify({ error: 'FIA API returned errors', details: result.errors.map((e) => e.message) }),
+        JSON.stringify({
+          error: 'FIA API returned errors',
+          details: result.errors.map((e) => e.message)
+        }),
         { status: 502, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -354,7 +375,9 @@ Deno.serve(async (req) => {
 
     if (!translationEdge) {
       return new Response(
-        JSON.stringify({ error: `No translation for language '${lang}' in pericope '${body.pericopeId}'` }),
+        JSON.stringify({
+          error: `No translation for language '${lang}' in pericope '${body.pericopeId}'`
+        }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -380,7 +403,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in fia-pericope-steps function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', message: error.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        message: error.message
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

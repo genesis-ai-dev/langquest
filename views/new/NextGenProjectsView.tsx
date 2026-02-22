@@ -150,11 +150,8 @@ export default function NextGenProjectsView() {
         // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
           // Create project (target_language_id is deprecated but still required by schema)
-          const {
-            target_languoid_id,
-            source_languoid_id,
-            ...projectValues
-          } = values;
+          const { target_languoid_id, source_languoid_id, ...projectValues } =
+            values;
           const [newProject] = await tx
             .insert(resolveTable('project', { localOverride: false }))
             .values({

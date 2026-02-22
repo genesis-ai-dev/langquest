@@ -67,10 +67,7 @@ export function useFiaPericopeCreation() {
           `)
         );
 
-        if (
-          existing.rows?._array &&
-          existing.rows._array.length > 0
-        ) {
+        if (existing.rows?._array && existing.rows._array.length > 0) {
           const found = existing.rows._array[0] as {
             id: string;
             name: string;

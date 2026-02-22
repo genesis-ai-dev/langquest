@@ -110,9 +110,7 @@ async function lookupSourceLanguoidId(
          AND active = 1
        LIMIT 1`
     );
-    const row = result.rows?._array?.[0] as
-      | { languoid_id: string }
-      | undefined;
+    const row = result.rows?._array?.[0] as { languoid_id: string } | undefined;
     if (row) return row.languoid_id;
   } catch {
     // No result
@@ -132,7 +130,6 @@ export function useFiaPericopeSteps(
     queryKey: ['fia-pericope-steps', projectId, pericopeId],
     queryFn: async (): Promise<FiaPericopeStepsResponse | null> => {
       if (!projectId || !pericopeId) return null;
-
 
       const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
       if (!sourceLanguoidId) {

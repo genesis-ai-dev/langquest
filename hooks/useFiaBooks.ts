@@ -44,21 +44,13 @@ async function lookupFiaLanguageCode(
        LIMIT 1`
     );
 
-    if (
-      localResult.rows?._array &&
-      localResult.rows._array.length > 0
-    ) {
+    if (localResult.rows?._array && localResult.rows._array.length > 0) {
       const code = (localResult.rows._array[0] as { value: string }).value;
-      console.log(
-        `[lookupFiaLanguageCode] Found locally: ${code}`
-      );
+      console.log(`[lookupFiaLanguageCode] Found locally: ${code}`);
       return code;
     }
   } catch (localError) {
-    console.warn(
-      `[lookupFiaLanguageCode] Local DB query failed:`,
-      localError
-    );
+    console.warn(`[lookupFiaLanguageCode] Local DB query failed:`, localError);
   }
 
   // Fallback to Supabase cloud (fia_language_code records may not sync locally)
