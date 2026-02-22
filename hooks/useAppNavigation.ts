@@ -313,7 +313,7 @@ export function useAppNavigation() {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({ label: state.projectName, onPress: undefined });
     } else if (
-      state.view === 'assets' &&
+      (state.view === 'assets' || state.view === 'bible-assets') &&
       state.projectName &&
       state.questName
     ) {
@@ -355,13 +355,32 @@ export function useAppNavigation() {
           })
       });
       crumbs.push({ label: state.assetName, onPress: undefined });
+    } else if (
+      state.view === 'recording' &&
+      state.projectName &&
+      state.questName
+    ) {
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
+      crumbs.push({
+        label: state.projectName,
+        onPress: () =>
+          goToProject({
+            id: state.projectId!,
+            name: state.projectName,
+            template: state.projectTemplate
+          })
+      });
+      crumbs.push({
+        label: state.questName,
+        onPress: goBack
+      });
     }
 
     // Always return at least one crumb to prevent empty array errors
     return crumbs.length > 0
       ? crumbs
       : [{ label: projectsLabel, onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest, t]);
+  }, [currentState, goToProjects, goToProject, goToQuest, goBack, t]);
 
   return {
     // Current state
