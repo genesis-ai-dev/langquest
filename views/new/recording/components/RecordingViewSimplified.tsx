@@ -127,6 +127,12 @@ const RecordingViewSimplified = ({
 
   const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
 
+  // Waveform data captured during recording, keyed by asset ID.
+  // Passed to useTrimModal so the trim modal can use it instead of loading from file.
+  const [recordingWaveformData] = React.useState(
+    () => new Map<string, number[]>()
+  );
+
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVADActive, setIsVADActive] = React.useState(false);
@@ -720,7 +726,7 @@ const RecordingViewSimplified = ({
               assetName: assetName // Pass the reserved name
             });
 
-            setTrimWaveformData(newAssetId, _waveformData);
+            recordingWaveformData.set(newAssetId, _waveformData);
             // Release the reserved name after successful save
             pendingAssetNamesRef.current.delete(assetName);
             debugLog(
@@ -1394,8 +1400,6 @@ const RecordingViewSimplified = ({
     );
   }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
 
-  // Trim modal (shared hook – waveform data is injected via setWaveformData
-  // after each recording completes)
   const {
     isTrimModalOpen,
     handleOpenTrimModal,
@@ -1404,11 +1408,11 @@ const RecordingViewSimplified = ({
     trimTargetAsset,
     trimWaveformData,
     trimAssetAudio,
-    canTrimSelected,
-    setWaveformData: setTrimWaveformData
+    canTrimSelected
   } = useTrimModal({
     selectedAssetIds,
-    assets
+    assets,
+    assetWaveformData: recordingWaveformData
   });
 
   // ============================================================================

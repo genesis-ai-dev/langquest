@@ -4,9 +4,11 @@
  * Used by RecordingViewSimplified, BibleRecordingView, and BibleAssetsView.
  *
  * Recording views already have waveform data captured during recording, so
- * the modal opens instantly.  BibleAssetsView does NOT have waveform data
- * up-front, so the hook falls back to Asset audio (resolveAssetAudio +
- * getAssetWaveform) to load URIs, durations, and waveform on the fly.
+ * the modal can use that instead of loading from file.  BibleAssetsView does
+ * NOT have waveform data up-front, so the hook loads it via getAssetWaveform.
+ *
+ * Waveforms are always freshly loaded on each modal open (no internal cache)
+ * to avoid stale data after trim, merge, or unmerge operations.
  *
  * Asset audio is imported dynamically when opening the modal to avoid
  * loading it during initial app startup (can cause blank screen).
@@ -30,8 +32,7 @@ interface UseTrimModalOptions {
   assets: AssetLike[];
   /**
    * Waveform data captured during recording (keyed by asset ID).
-   * If provided, the hook will look here first before attempting to
-   * load waveform via Asset audio (getAssetWaveform).
+   * If provided for the target asset, used instead of loading from file.
    */
   assetWaveformData?: Map<string, number[]>;
 }
@@ -53,13 +54,6 @@ interface UseTrimModalReturn {
   trimAssetAudio: AssetAudio | null;
   /** Whether trim is available for the current selection */
   canTrimSelected: boolean;
-  /**
-   * Setter to store waveform data externally (e.g. after a recording
-   * completes).  Merges into the internal map.
-   */
-  setWaveformData: (assetId: string, data: number[]) => void;
-  /** Remove cached waveform for an asset so it is reloaded on next open */
-  clearWaveformData: (assetId: string) => void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
@@ -69,34 +63,15 @@ export function useTrimModal({
   assets,
   assetWaveformData: externalWaveformData
 }: UseTrimModalOptions): UseTrimModalReturn {
-  // Internal waveform cache (used when loading from file)
-  const [internalWaveformData, setInternalWaveformData] = React.useState<
-    Map<string, number[]>
-  >(new Map());
-
   const [isTrimModalOpen, setIsTrimModalOpen] = React.useState(false);
   const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
     string | null
   >(null);
-  const [trimAssetAudio, setTrimAssetAudio] = React.useState<AssetAudio | null>(
-    null
-  );
-
-  // Merge external (recording-time) data with internally-loaded data.
-  // External takes priority since it's captured from real metering.
-  const mergedWaveformData = React.useMemo(() => {
-    if (!externalWaveformData || externalWaveformData.size === 0) {
-      return internalWaveformData;
-    }
-    if (internalWaveformData.size === 0) {
-      return externalWaveformData;
-    }
-    const merged = new Map(internalWaveformData);
-    for (const [key, value] of externalWaveformData) {
-      merged.set(key, value); // external wins
-    }
-    return merged;
-  }, [externalWaveformData, internalWaveformData]);
+  const [trimAssetAudio, setTrimAssetAudio] =
+    React.useState<AssetAudio | null>(null);
+  const [trimWaveform, setTrimWaveform] = React.useState<
+    number[] | undefined
+  >(undefined);
 
   // ── Derived values ─────────────────────────────────────────────────────
 
@@ -104,11 +79,6 @@ export function useTrimModal({
     if (!trimTargetAssetId) return null;
     return assets.find((a) => a.id === trimTargetAssetId) ?? null;
   }, [assets, trimTargetAssetId]);
-
-  const trimWaveformData = React.useMemo(() => {
-    if (!trimTargetAssetId) return undefined;
-    return mergedWaveformData.get(trimTargetAssetId);
-  }, [mergedWaveformData, trimTargetAssetId]);
 
   const canTrimSelected = React.useMemo(() => {
     if (selectedAssetIds.size !== 1) return false;
@@ -118,14 +88,10 @@ export function useTrimModal({
     const asset = assets.find((a) => a.id === selectedId);
     if (!asset) return false;
 
-    // If we already have waveform data, trim is available
-    if (mergedWaveformData.has(selectedId)) return true;
-
-    // If asset is local (not cloud), we can load via Asset audio
     if (asset.source !== 'cloud') return true;
 
     return false;
-  }, [selectedAssetIds, assets, mergedWaveformData]);
+  }, [selectedAssetIds, assets]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -160,17 +126,23 @@ export function useTrimModal({
           return;
         }
 
-        // Use existing waveform from recording if available; otherwise load
-        if (!mergedWaveformData.has(firstSelectedId)) {
+        // Use recording-time waveform if available; otherwise load fresh.
+        // Single-segment: ignoreTrim shows the full file.
+        // Multi-segment: ignoreExteriorTrims hides locked interior trims
+        // while exposing the adjustable exterior edges.
+        const isMerged = resolved.segments.length > 1;
+        const existing = !isMerged
+          ? externalWaveformData?.get(firstSelectedId)
+          : undefined;
+        if (existing && existing.length > 0) {
+          setTrimWaveform(existing);
+        } else {
           const waveform = await getAssetWaveform(firstSelectedId, {
-            ignoreTrim: true,
+            ignoreTrim: !isMerged,
+            ignoreExteriorTrims: isMerged,
             barCount: 128
           });
-          setInternalWaveformData((prev) => {
-            const next = new Map(prev);
-            next.set(firstSelectedId, waveform ?? []);
-            return next;
-          });
+          setTrimWaveform(waveform ?? []);
         }
 
         setTrimTargetAssetId(firstSelectedId);
@@ -180,12 +152,13 @@ export function useTrimModal({
         console.error('Failed to load audio for trimming:', error);
       }
     })();
-  }, [selectedAssetIds, mergedWaveformData, assets]);
+  }, [selectedAssetIds, externalWaveformData, assets]);
 
   const handleCloseTrimModal = React.useCallback(() => {
     setIsTrimModalOpen(false);
     setTrimTargetAssetId(null);
     setTrimAssetAudio(null);
+    setTrimWaveform(undefined);
   }, []);
 
   const handleConfirmTrim = React.useCallback(
@@ -200,32 +173,11 @@ export function useTrimModal({
         setIsTrimModalOpen(false);
         setTrimTargetAssetId(null);
         setTrimAssetAudio(null);
+        setTrimWaveform(undefined);
       })();
     },
     []
   );
-
-  // ── External setter (used by recording views after recording) ──────────
-
-  const setWaveformData = React.useCallback(
-    (assetId: string, data: number[]) => {
-      setInternalWaveformData((prev) => {
-        const next = new Map(prev);
-        next.set(assetId, data);
-        return next;
-      });
-    },
-    []
-  );
-
-  const clearWaveformData = React.useCallback((assetId: string) => {
-    setInternalWaveformData((prev) => {
-      if (!prev.has(assetId)) return prev;
-      const next = new Map(prev);
-      next.delete(assetId);
-      return next;
-    });
-  }, []);
 
   return {
     isTrimModalOpen,
@@ -233,10 +185,8 @@ export function useTrimModal({
     handleCloseTrimModal,
     handleConfirmTrim,
     trimTargetAsset,
-    trimWaveformData,
+    trimWaveformData: trimWaveform,
     trimAssetAudio,
-    canTrimSelected,
-    setWaveformData,
-    clearWaveformData
+    canTrimSelected
   };
 }

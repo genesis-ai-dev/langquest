@@ -102,6 +102,7 @@ export async function mergeLocalAssets(
           audio: row.audio,
           download_profiles: row.download_profiles ?? [params.userId],
           order_index: nextOrder++,
+          metadata: (row as { metadata?: string | null }).metadata ?? null,
           _metadata: row._metadata ?? null
         });
         movedSegmentCount += 1;
@@ -276,6 +277,7 @@ export async function unmergeLocalAsset(
         audio: seg.audio ?? [],
         text: seg.text ?? newName,
         contentMetadata: seg._metadata ?? null,
+        trimMetadata: (seg as { metadata?: string | null }).metadata ?? null,
         assetMetadata: localAsset.metadata ?? null,
         shiftExisting: true
       });

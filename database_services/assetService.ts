@@ -467,6 +467,7 @@ export interface CreateLocalAssetParams {
   audio: string[];
   text: string;
   contentMetadata?: OpMetadata | null;
+  trimMetadata?: string | null;
   assetMetadata?: string | null;
   shiftExisting?: boolean;
 }
@@ -542,6 +543,7 @@ export async function createLocalAssetInTx(
     text: params.text,
     audio: params.audio,
     download_profiles: [params.userId],
+    metadata: params.trimMetadata ?? null,
     _metadata: params.contentMetadata ?? null
   });
 

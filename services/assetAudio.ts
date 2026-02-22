@@ -24,8 +24,8 @@ import { system } from '@/db/powersync/system';
 import { extractWaveformFromFile } from '@/utils/audioWaveform';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
-import { createAudioPlayer } from 'expo-audio';
 import { eq } from 'drizzle-orm';
+import { createAudioPlayer } from 'expo-audio';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -329,31 +329,75 @@ export async function resolveAssetAudio(
 // ---------------------------------------------------------------------------
 
 /**
+ * Compute the visible duration of a segment for waveform purposes.
+ *
+ * - `ignoreTrim`: full untrimmed duration.
+ * - `ignoreExteriorTrims`: interior trims applied but the first segment's
+ *   start and last segment's end are shown in full (for trim modal on
+ *   merged assets).
+ * - default: effective (fully trimmed) duration.
+ */
+function visibleDuration(
+  seg: AssetAudioSegment,
+  index: number,
+  segCount: number,
+  mode: { ignoreTrim: boolean; ignoreExteriorTrims: boolean }
+): number {
+  if (mode.ignoreTrim) return seg.durationMs;
+  if (!seg.trim) return seg.durationMs;
+  if (mode.ignoreExteriorTrims) {
+    const isFirst = index === 0;
+    const isLast = index === segCount - 1;
+    const startMs = isFirst ? 0 : seg.trim.startMs;
+    const endMs = isLast ? seg.durationMs : seg.trim.endMs;
+    return Math.max(0, endMs - startMs);
+  }
+  return effectiveDuration(seg);
+}
+
+interface GetWaveformOptions {
+  barCount?: number;
+  /** Show the full untrimmed waveform, ignoring all trim points. */
+  ignoreTrim?: boolean;
+  /**
+   * Apply interior segment trims while leaving the first segment's start
+   * and last segment's end untrimmed. Used in the trim modal for merged
+   * assets so locked interior trims are hidden but adjustable exterior
+   * edges are visible. Ignored when `ignoreTrim` is true.
+   */
+  ignoreExteriorTrims?: boolean;
+}
+
+/**
  * Build a combined waveform for an asset's audio.
  *
  * By default, slices to the effective (trimmed) region of each segment.
- * Pass `ignoreTrim: true` to get the full waveform for the entire
- * underlying audio (used in the trim UI).
+ * Pass `ignoreTrim: true` for the full waveform (trim UI, single segment).
+ * Pass `ignoreExteriorTrims: true` for the trim modal on merged assets.
  */
 export async function getAssetWaveform(
   assetId: string,
-  options?: { barCount?: number; ignoreTrim?: boolean }
+  options?: GetWaveformOptions
 ): Promise<number[]> {
   const barCount = options?.barCount ?? 128;
   const ignoreTrim = options?.ignoreTrim ?? false;
+  const ignoreExteriorTrims =
+    !ignoreTrim && (options?.ignoreExteriorTrims ?? false);
+  const mode = { ignoreTrim, ignoreExteriorTrims };
 
   const audio = await resolveAssetAudio(assetId);
   if (!audio || audio.segments.length === 0) return [];
 
-  // Calculate the total duration we're representing
-  const totalDuration = ignoreTrim
-    ? audio.segments.reduce((sum, seg) => sum + seg.durationMs, 0)
-    : audio.totalDurationMs;
+  const segCount = audio.segments.length;
+  const totalDuration = audio.segments.reduce(
+    (sum, seg, i) => sum + visibleDuration(seg, i, segCount, mode),
+    0
+  );
 
   if (totalDuration <= 0) return [];
 
   // Single segment, no trim to worry about
-  if (audio.segments.length === 1 && (ignoreTrim || !audio.segments[0]!.trim)) {
+  if (segCount === 1 && (ignoreTrim || !audio.segments[0]!.trim)) {
     return extractWaveformFromFile(audio.segments[0]!.uri, barCount, {
       normalize: true
     });
@@ -364,12 +408,13 @@ export async function getAssetWaveform(
   let remainingBars = barCount;
   let remainingWeight = totalDuration;
 
-  for (let i = 0; i < audio.segments.length; i++) {
+  for (let i = 0; i < segCount; i++) {
     const seg = audio.segments[i]!;
-    const segDuration = ignoreTrim ? seg.durationMs : effectiveDuration(seg);
+    const segDuration = visibleDuration(seg, i, segCount, mode);
     if (segDuration <= 0) continue;
 
-    const isLast = i === audio.segments.length - 1;
+    const isFirst = i === 0;
+    const isLast = i === segCount - 1;
     let bars = isLast
       ? remainingBars
       : Math.max(
@@ -378,18 +423,27 @@ export async function getAssetWaveform(
         );
 
     // Ensure we leave at least 1 bar per remaining segment
-    const clipsLeft = audio.segments.length - i;
+    const clipsLeft = segCount - i;
     bars = Math.min(bars, Math.max(1, remainingBars - (clipsLeft - 1)));
 
-    // Extract waveform for this segment
-    const segWaveform = await extractWaveformFromFile(seg.uri, bars, {
+    // When slicing to a trim region, over-request bars from the full file
+    // so that after slicing we still get approximately `bars` bars.
+    const trimFrac =
+      !ignoreTrim && seg.trim && seg.durationMs > 0
+        ? segDuration / seg.durationMs
+        : 1;
+    const requestBars =
+      trimFrac < 1 ? Math.ceil(bars / trimFrac) : bars;
+
+    const segWaveform = await extractWaveformFromFile(seg.uri, requestBars, {
       normalize: false
     });
 
-    // If trimmed and not ignoring, slice the waveform to the trim region
     if (!ignoreTrim && seg.trim && seg.durationMs > 0) {
-      const startFrac = seg.trim.startMs / seg.durationMs;
-      const endFrac = seg.trim.endMs / seg.durationMs;
+      const startFrac =
+        ignoreExteriorTrims && isFirst ? 0 : seg.trim.startMs / seg.durationMs;
+      const endFrac =
+        ignoreExteriorTrims && isLast ? 1 : seg.trim.endMs / seg.durationMs;
       const startBar = Math.floor(startFrac * segWaveform.length);
       const endBar = Math.ceil(endFrac * segWaveform.length);
       merged.push(...segWaveform.slice(startBar, endBar));

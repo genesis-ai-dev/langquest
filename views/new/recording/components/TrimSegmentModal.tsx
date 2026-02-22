@@ -65,9 +65,29 @@ export function TrimSegmentModal({
     (state) => state.setTrimPlayPreview
   );
 
+  const isMerged = (assetAudio?.segments.length ?? 0) > 1;
+
+  // Visible range per segment: matches the waveform that was loaded.
+  // Single-segment: full file (ignoreTrim mode).
+  // Merged: interior trims applied, exterior edges exposed (ignoreExteriorTrims).
+  const visibleRanges = React.useMemo(() => {
+    if (!assetAudio) return [];
+    const segCount = assetAudio.segments.length;
+    return assetAudio.segments.map((seg, i) => {
+      if (!isMerged || !seg.trim) {
+        return { fileStartMs: 0, fileEndMs: seg.durationMs };
+      }
+      const isFirst = i === 0;
+      const isLast = i === segCount - 1;
+      const fileStartMs = isFirst ? 0 : seg.trim.startMs;
+      const fileEndMs = isLast ? seg.durationMs : seg.trim.endMs;
+      return { fileStartMs, fileEndMs };
+    });
+  }, [assetAudio, isMerged]);
+
   const clipDurations = React.useMemo(
-    () => assetAudio?.segments.map((s) => s.durationMs) ?? [],
-    [assetAudio]
+    () => visibleRanges.map((r) => r.fileEndMs - r.fileStartMs),
+    [visibleRanges]
   );
   const totalDuration = React.useMemo(
     () => clipDurations.reduce((sum, d) => sum + d, 0),
@@ -218,16 +238,41 @@ export function TrimSegmentModal({
   }, [clipDurations, totalDuration]);
 
   React.useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !assetAudio || totalDuration <= 0) {
       hasUserInteractedRef.current = false;
       return;
     }
-    const nextStart = trimBounds.minStartFraction;
-    const nextEnd = trimBounds.maxEndFraction;
+
+    const segments = assetAudio.segments;
+    const firstSeg = segments[0]!;
+    const lastSeg = segments[segments.length - 1]!;
+    const firstRange = visibleRanges[0];
+    const lastRange = visibleRanges[visibleRanges.length - 1];
+
+    // Position handles at existing trim points within the visible space.
+    // Falls back to full visible extent when no trim exists.
+    let nextStart = 0;
+    if (firstSeg.trim && firstRange) {
+      const posInVisible = firstSeg.trim.startMs - firstRange.fileStartMs;
+      nextStart = posInVisible / totalDuration;
+    }
+
+    let nextEnd = 1;
+    if (lastSeg.trim && lastRange) {
+      const accBefore = clipDurations
+        .slice(0, -1)
+        .reduce((s, d) => s + d, 0);
+      const posInLast = lastSeg.trim.endMs - lastRange.fileStartMs;
+      nextEnd = (accBefore + posInLast) / totalDuration;
+    }
+
+    nextStart = Math.max(0, Math.min(1, nextStart));
+    nextEnd = Math.max(nextStart + 0.01, Math.min(1, nextEnd));
+
     setSelectionStart(nextStart);
-    setSelectionEnd(nextEnd > nextStart ? nextEnd : 1);
+    setSelectionEnd(nextEnd);
     hasUserInteractedRef.current = false;
-  }, [isOpen, segmentName, waveformData, trimBounds]);
+  }, [isOpen, assetAudio, visibleRanges, clipDurations, totalDuration]);
 
   React.useEffect(() => {
     selectionStartRef.current = selectionStart;
@@ -241,7 +286,8 @@ export function TrimSegmentModal({
   // then delegate to useAssetAudio().play() which handles seek, endpoint
   // enforcement, and multi-clip sequencing via AudioContext.
   const buildTrimmedAssetAudio = React.useCallback((): AssetAudio | null => {
-    if (!assetAudio || totalDuration <= 0) return null;
+    if (!assetAudio || totalDuration <= 0 || visibleRanges.length === 0)
+      return null;
 
     const startTimeMs = selectionStart * totalDuration;
     const endTimeMs = selectionEnd * totalDuration;
@@ -249,19 +295,24 @@ export function TrimSegmentModal({
     let acc = 0;
     const trimmedSegments: AssetAudioSegment[] = [];
 
-    for (const seg of assetAudio.segments) {
-      const segStart = acc;
-      acc += seg.durationMs;
-      const segEnd = acc;
+    for (let i = 0; i < assetAudio.segments.length; i++) {
+      const seg = assetAudio.segments[i]!;
+      const range = visibleRanges[i]!;
+      const visDur = range.fileEndMs - range.fileStartMs;
+      const segVisStart = acc;
+      acc += visDur;
+      const segVisEnd = acc;
 
-      if (segEnd <= startTimeMs || segStart >= endTimeMs) continue;
+      if (segVisEnd <= startTimeMs || segVisStart >= endTimeMs) continue;
+
+      const fileStart =
+        range.fileStartMs + Math.max(0, startTimeMs - segVisStart);
+      const fileEnd =
+        range.fileStartMs + Math.min(visDur, endTimeMs - segVisStart);
 
       trimmedSegments.push({
         ...seg,
-        trim: {
-          startMs: Math.max(0, startTimeMs - segStart),
-          endMs: Math.min(seg.durationMs, endTimeMs - segStart)
-        }
+        trim: { startMs: fileStart, endMs: fileEnd }
       });
     }
 
@@ -272,7 +323,7 @@ export function TrimSegmentModal({
     );
 
     return { ...assetAudio, segments: trimmedSegments, totalDurationMs };
-  }, [assetAudio, selectionStart, selectionEnd, totalDuration]);
+  }, [assetAudio, selectionStart, selectionEnd, totalDuration, visibleRanges]);
 
   const playPreview = React.useCallback(async () => {
     if (!isOpenRef.current) return;
