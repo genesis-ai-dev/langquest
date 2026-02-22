@@ -18,7 +18,7 @@ export function useFiaLanguoids() {
     data: fiaLanguoids,
     isLoading: isFiaLanguoidsLoading,
     ...rest
-  } = useHybridData({
+  } = useHybridData<Languoid>({
     dataType: 'languoids-fia-available',
     queryKeyParams: ['fia-available'],
 

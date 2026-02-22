@@ -10,7 +10,6 @@ import { PortalHost } from '@rn-primitives/portal';
 import {
   BookOpenIcon,
   FolderIcon,
-  GraduationCapIcon,
   HelpCircle,
   MicIcon,
   UserPlusIcon,
@@ -263,24 +262,6 @@ export function SimpleOnboardingFlow({
                     </Text>
                   </Button>
 
-                  {/* FIA Project Button */}
-                  <Button
-                    variant="outline"
-                    className="min-h-48 flex-1 basis-[40%] flex-col gap-3 p-6"
-                    onPress={() => setStep('done')}
-                  >
-                    <Icon
-                      as={GraduationCapIcon}
-                      size={48}
-                      className="text-primary"
-                    />
-                    <Text variant="h4" className="text-center">
-                      {t('fia')}
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {t('fiaDescription')}
-                    </Text>
-                  </Button>
                 </View>
               </AnimatedStepContent>
             </View>

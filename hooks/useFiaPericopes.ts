@@ -55,7 +55,7 @@ function parseMetadata(raw: unknown): FiaMetadataShape | null {
     if (!raw) return null;
     if (typeof raw === 'string') {
       const parsed = JSON.parse(raw);
-      if (typeof parsed === 'string') return JSON.parse(parsed);
+      if (typeof parsed === 'string') return JSON.parse(parsed) as FiaMetadataShape;
       return parsed as FiaMetadataShape;
     }
     return raw as FiaMetadataShape;
@@ -92,9 +92,9 @@ async function fetchLocalPericopes(
         try {
           parsedProfiles =
             typeof dp === 'string'
-              ? JSON.parse(dp)
+              ? (JSON.parse(dp) as string[])
               : Array.isArray(dp)
-                ? dp
+                ? (dp as string[])
                 : null;
         } catch {
           /* ignore */

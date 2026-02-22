@@ -1,5 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { system } from '@/db/powersync/system';
+import {
+  lookupFiaLanguageCode,
+  lookupSourceLanguoidId
+} from '@/utils/languoidLookups';
 import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
@@ -50,73 +53,6 @@ export interface FiaPericopeStepsResponse {
   mediaItems: FiaMediaItem[];
   terms: FiaTerm[];
   maps: FiaMap[];
-}
-
-async function lookupFiaLanguageCode(
-  languoidId: string
-): Promise<string | null> {
-  try {
-    const localResult = await system.db.execute(
-      `SELECT value FROM languoid_property
-       WHERE languoid_id = '${languoidId}'
-         AND key = 'fia_language_code'
-         AND active = 1
-       LIMIT 1`
-    );
-
-    if (localResult.rows?._array && localResult.rows._array.length > 0) {
-      return (localResult.rows._array[0] as { value: string }).value;
-    }
-  } catch {
-    // Fall through to cloud
-  }
-
-  const { data, error } = await system.supabaseConnector.client
-    .from('languoid_property')
-    .select('value')
-    .eq('languoid_id', languoidId)
-    .eq('key', 'fia_language_code')
-    .eq('active', true)
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return data.value;
-}
-
-async function lookupSourceLanguoidId(
-  projectId: string
-): Promise<string | null> {
-  try {
-    const { data, error } = await system.supabaseConnector.client
-      .from('project_language_link')
-      .select('languoid_id')
-      .eq('project_id', projectId)
-      .eq('language_type', 'source')
-      .eq('active', true)
-      .limit(1)
-      .maybeSingle();
-
-    if (!error && data) return data.languoid_id;
-  } catch {
-    // Fall through to local
-  }
-
-  try {
-    const result = await system.db.execute(
-      `SELECT languoid_id FROM project_language_link
-       WHERE project_id = '${projectId}'
-         AND language_type = 'source'
-         AND active = 1
-       LIMIT 1`
-    );
-    const row = result.rows?._array?.[0] as { languoid_id: string } | undefined;
-    if (row) return row.languoid_id;
-  } catch {
-    // No result
-  }
-
-  return null;
 }
 
 export function useFiaPericopeSteps(

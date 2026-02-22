@@ -4,8 +4,8 @@
  * the fia-pericopes edge function.
  */
 
-import { system } from '@/db/powersync/system';
 import { useAuth } from '@/contexts/AuthContext';
+import { lookupFiaLanguageCode } from '@/utils/languoidLookups';
 import { useQuery } from '@tanstack/react-query';
 
 export interface FiaPericope {
@@ -26,58 +26,6 @@ export interface FiaBook {
 
 interface FiaPericopesResponse {
   books: FiaBook[];
-}
-
-/**
- * Fetch the fia_language_code for a languoid from languoid_property
- */
-async function lookupFiaLanguageCode(
-  languoidId: string
-): Promise<string | null> {
-  // Try local DB first (may not have the data if download_profiles is NULL)
-  try {
-    const localResult = await system.db.execute(
-      `SELECT value FROM languoid_property
-       WHERE languoid_id = '${languoidId}'
-         AND key = 'fia_language_code'
-         AND active = 1
-       LIMIT 1`
-    );
-
-    if (localResult.rows?._array && localResult.rows._array.length > 0) {
-      const code = (localResult.rows._array[0] as { value: string }).value;
-      console.log(`[lookupFiaLanguageCode] Found locally: ${code}`);
-      return code;
-    }
-  } catch (localError) {
-    console.warn(`[lookupFiaLanguageCode] Local DB query failed:`, localError);
-  }
-
-  // Fallback to Supabase cloud (fia_language_code records may not sync locally)
-  console.log(
-    `[lookupFiaLanguageCode] Not found locally, checking Supabase cloud for languoid ${languoidId}`
-  );
-  const { data, error } = await system.supabaseConnector.client
-    .from('languoid_property')
-    .select('value')
-    .eq('languoid_id', languoidId)
-    .eq('key', 'fia_language_code')
-    .eq('active', true)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error(`[lookupFiaLanguageCode] Cloud query error:`, error);
-    return null;
-  }
-  if (!data) {
-    console.warn(
-      `[lookupFiaLanguageCode] No fia_language_code found in cloud either`
-    );
-    return null;
-  }
-  console.log(`[lookupFiaLanguageCode] Found in cloud: ${data.value}`);
-  return data.value;
 }
 
 export function useFiaBooks(sourceLanguoidId: string | null) {
