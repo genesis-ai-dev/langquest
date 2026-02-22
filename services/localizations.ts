@@ -2331,21 +2331,13 @@ export const localizations = {
     english: 'selected',
     spanish: 'seleccionado(s)',
     brazilian_portuguese: 'selecionado(s)',
-    tok_pisin: 'selected',
+    tok_pisin: 'i makim',
     indonesian: 'terpilih',
     nepali: 'चयन गरिएको',
     hindi: 'चयनित',
     burmese: 'ရွေးချယ်ထားသည်',
     thai: 'ที่เลือก',
     mandarin: '已选择'
-  },
-  selected: {
-    english: 'selected',
-    spanish: 'seleccionado(s)',
-    brazilian_portuguese: 'selecionado(s)',
-    tok_pisin: 'selected',
-    indonesian: 'terpilih',
-    nepali: 'चयन गरिएको'
   },
   delete: {
     english: 'Delete',
@@ -2404,13 +2396,62 @@ export const localizations = {
     thai: 'รวม',
     mandarin: '合并'
   },
+  unmerge: {
+    english: 'Unmerge',
+    spanish: 'Separar',
+    brazilian_portuguese: 'Desagrupar',
+    tok_pisin: 'Serem',
+    indonesian: 'Pisahkan',
+    nepali: 'अनमर्ज गर्नुहोस्',
+    hindi: 'अलग करें',
+    burmese: 'ခွဲပါ',
+    thai: 'แยกรวม',
+    mandarin: '拆分合并'
+  },
+  unmergeAsset: {
+    english: 'Unmerge Asset',
+    spanish: 'Separar recurso',
+    brazilian_portuguese: 'Desagrupar recurso',
+    tok_pisin: 'Serem asset',
+    indonesian: 'Pisahkan aset',
+    nepali: 'एसेट अनमर्ज गर्नुहोस्',
+    hindi: 'एसेट को अलग करें',
+    burmese: 'ပိုင်ဆိုင်မှုကို ခွဲပါ',
+    thai: 'แยกสินทรัพย์ที่รวม',
+    mandarin: '拆分资产'
+  },
+  unmergeAssetConfirmation: {
+    english:
+      'Split "{name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.',
+    spanish:
+      '¿Separar "{name}" en recursos distintos? El primer segmento de audio permanece en este recurso; cada segmento adicional se convierte en un nuevo recurso.',
+    brazilian_portuguese:
+      'Dividir "{name}" em recursos separados? O primeiro segmento de áudio permanece neste recurso; cada segmento adicional se torna um novo recurso.',
+    tok_pisin:
+      'Yu laik serem "{name}" i go long ol narapela asset? Namba wan audio segment bai stap long dispela asset; olgeta narapela segment bai kamap nupela asset.',
+    indonesian:
+      'Pisahkan "{name}" menjadi aset terpisah? Segmen audio pertama tetap pada aset ini; setiap segmen tambahan menjadi aset baru.',
+    nepali:
+      '"{name}" लाई छुट्टाछुट्टै एसेटमा विभाजन गर्ने? पहिलो अडियो खण्ड यही एसेटमा रहन्छ; प्रत्येक थप खण्ड नयाँ एसेट बन्छ।',
+    hindi:
+      '"{name}" को अलग-अलग एसेट में विभाजन करें? पहला ऑडियो सेगमेंट इसी एसेट पर रहेगा; प्रत्येक अतिरिक्त सेगमेंट नया एसेट बन जाएगा।',
+    burmese:
+      '"{name}" ကို သီးခြားပိုင်ဆိုင်မှုများအဖြစ် ခွဲမလား? ပထမအသံအပိုင်းသည် ဤပိုင်ဆိုင်မှုတွင် ဆက်ရှိမည်ဖြစ်ပြီး၊ ထပ်တိုးအပိုင်းတိုင်းသည် ပိုင်ဆိုင်မှုအသစ်ဖြစ်လာမည်။',
+    thai: 'แยก "{name}" ออกเป็นสินทรัพย์แยกกันหรือไม่? ส่วนเสียงแรกจะอยู่กับสินทรัพย์นี้ และแต่ละส่วนเสียงที่เพิ่มมาจะกลายเป็นสินทรัพย์ใหม่',
+    mandarin:
+      '要将“{name}”拆分为独立资产吗？第一个音频片段将保留在此资产中，其余片段将各自成为新资产。'
+  },
   trim: {
     english: 'Trim',
     spanish: 'Recortar',
     brazilian_portuguese: 'Cortar',
     tok_pisin: 'Katim',
     indonesian: 'Pangkas',
-    nepali: 'ट्रिम गर्नुहोस्'
+    nepali: 'ट्रिम गर्नुहोस्',
+    hindi: 'ट्रिम करें',
+    burmese: 'တိချုံ့ပါ',
+    thai: 'ตัดช่วง',
+    mandarin: '裁剪'
   },
   trimSegment: {
     english: 'Trim Segment',
@@ -2418,15 +2459,23 @@ export const localizations = {
     brazilian_portuguese: 'Cortar segmento',
     tok_pisin: 'Katim segment',
     indonesian: 'Pangkas segmen',
-    nepali: 'खण्ड ट्रिम गर्नुहोस्'
+    nepali: 'खण्ड ट्रिम गर्नुहोस्',
+    hindi: 'सेगमेंट ट्रिम करें',
+    burmese: 'အစိတ်အပိုင်းကို တိချုံ့ပါ',
+    thai: 'ตัดช่วงเสียง',
+    mandarin: '裁剪片段'
   },
   autoTrim: {
     english: 'Auto-Trim',
     spanish: 'Recorte automático',
     brazilian_portuguese: 'Corte automático',
-    tok_pisin: 'Auto-trim',
+    tok_pisin: 'Katim em yet',
     indonesian: 'Pangkas otomatis',
-    nepali: 'स्वचालित ट्रिम'
+    nepali: 'स्वचालित ट्रिम',
+    hindi: 'ऑटो-ट्रिम',
+    burmese: 'အလိုအလျောက် တိချုံ့',
+    thai: 'ตัดอัตโนมัติ',
+    mandarin: '自动裁剪'
   },
   mergedAudio: {
     english: 'merged audio',
@@ -2434,7 +2483,11 @@ export const localizations = {
     brazilian_portuguese: 'áudio mesclado',
     tok_pisin: 'joinim audio',
     indonesian: 'audio gabungan',
-    nepali: 'मर्ज गरिएको अडियो'
+    nepali: 'मर्ज गरिएको अडियो',
+    hindi: 'मर्ज किया हुआ ऑडियो',
+    burmese: 'ပေါင်းစပ်ထားသော အသံ',
+    thai: 'เสียงที่รวมแล้ว',
+    mandarin: '已合并音频'
   },
   playPreview: {
     english: 'Play preview',
@@ -2442,7 +2495,11 @@ export const localizations = {
     brazilian_portuguese: 'Reproduzir prévia',
     tok_pisin: 'Pilaim preview',
     indonesian: 'Putar pratinjau',
-    nepali: 'पूर्वावलोकन बजाउनुहोस्'
+    nepali: 'पूर्वावलोकन बजाउनुहोस्',
+    hindi: 'पूर्वावलोकन चलाएं',
+    burmese: 'အစမ်းနားထောင်ရန် ဖွင့်ပါ',
+    thai: 'เล่นตัวอย่าง',
+    mandarin: '播放预览'
   },
   failedToMergeAssets: {
     english: 'Failed to merge assets. Please try again.',
@@ -2470,6 +2527,19 @@ export const localizations = {
     burmese: 'ပိုင်ဆိုင်မှုများကို ဖျက်၍မရပါ။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။',
     thai: 'ลบสินทรัพย์ไม่สำเร็จ กรุณาลองอีกครั้ง',
     mandarin: '删除资产失败。请重试。'
+  },
+  failedToUnmergeAsset: {
+    english: 'Failed to unmerge asset. Please try again.',
+    spanish: 'Error al separar el recurso. Por favor, inténtalo de nuevo.',
+    brazilian_portuguese:
+      'Falha ao desagrupar recurso. Por favor, tente novamente.',
+    tok_pisin: 'I no inap serem asset. Plis traim gen.',
+    indonesian: 'Gagal memisahkan aset. Silakan coba lagi.',
+    nepali: 'एसेट अनमर्ज गर्न असफल। कृपया पुन: प्रयास गर्नुहोस्।',
+    hindi: 'एसेट अलग करने में विफल। कृपया पुनः प्रयास करें।',
+    burmese: 'ပိုင်ဆိုင်မှုကို ခွဲ၍မရပါ။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။',
+    thai: 'แยกสินทรัพย์ไม่สำเร็จ กรุณาลองอีกครั้ง',
+    mandarin: '拆分资产失败。请重试。'
   },
   errorLoadingAssets: {
     english: 'Error loading assets',
@@ -6256,7 +6326,7 @@ export const localizations = {
     english: 'After',
     spanish: 'Después de',
     brazilian_portuguese: 'Depois de',
-    tok_pisin: 'Despela',
+    tok_pisin: 'Bihain',
     indonesian: 'Setelah',
     nepali: 'बादमा',
     hindi: 'बाद',
@@ -6264,19 +6334,11 @@ export const localizations = {
     thai: 'หลังจาก',
     mandarin: '之后'
   },
-  after: {
-    english: 'After',
-    spanish: 'Después de',
-    brazilian_portuguese: 'Depois de',
-    tok_pisin: 'Despela',
-    indonesian: 'Setelah',
-    nepali: 'बादमा'
-  },
   noLabelSelected: {
     english: 'No label selected',
     spanish: 'Sin etiqueta seleccionada',
     brazilian_portuguese: 'Nenhum rótulo selecionado',
-    tok_pisin: 'No label i stap',
+    tok_pisin: 'Nogat label i mak',
     indonesian: 'Tidak ada label dipilih',
     nepali: 'कुनै लेबल चयन गरिएको छैन',
     hindi: 'कोई लेबल चयनित नहीं',

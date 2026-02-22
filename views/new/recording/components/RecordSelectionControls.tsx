@@ -129,7 +129,7 @@ export const RecordSelectionControls = React.memo(
             >
               <View className="flex-row items-center px-0">
                 <Icon as={Split} />
-                <Text className="ml-2 text-xs">Unmerge</Text>
+                <Text className="ml-2 text-xs">{t('unmerge')}</Text>
               </View>
             </Button>
           )}

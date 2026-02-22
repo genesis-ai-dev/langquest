@@ -161,7 +161,9 @@ export function useSelectionActions({
 
     RNAlert.alert(
       t('mergeAssets') || 'Merge Assets',
-      `Are you sure you want to merge ${selected.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssetsConfirmation', {
+        count: selected.length
+      }),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -181,7 +183,7 @@ export function useSelectionActions({
                 console.error('Failed to merge assets', e);
                 RNAlert.alert(
                   t('error'),
-                  'Failed to merge assets. Please try again.'
+                  t('failedToMergeAssets')
                 );
               }
             })();
@@ -201,7 +203,9 @@ export function useSelectionActions({
 
     RNAlert.alert(
       t('deleteAssets') || 'Delete Assets',
-      `Are you sure you want to delete ${selected.length} asset${selected.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssetsConfirmation', {
+        count: selected.length
+      }),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -221,7 +225,7 @@ export function useSelectionActions({
                 console.error('Failed to delete assets', e);
                 RNAlert.alert(
                   t('error'),
-                  'Failed to delete assets. Please try again.'
+                  t('failedToDeleteAssets')
                 );
               }
             })();
@@ -241,7 +245,9 @@ export function useSelectionActions({
 
     RNAlert.alert(
       t('unmergeAsset') || 'Unmerge Asset',
-      `Split "${selectedAsset.name}" into separate assets? The first audio segment stays on this asset; each additional segment becomes a new asset.`,
+      t('unmergeAssetConfirmation', {
+        name: selectedAsset.name ?? t('asset')
+      }),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -269,7 +275,7 @@ export function useSelectionActions({
                   t('error'),
                   e instanceof Error
                     ? e.message
-                    : 'Failed to unmerge asset. Please try again.'
+                    : t('failedToUnmergeAsset')
                 );
               }
             })();
