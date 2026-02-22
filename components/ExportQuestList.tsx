@@ -5,7 +5,11 @@ import { Text } from '@/components/ui/text';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
-import { concatenateAndShareAudioList } from '@/utils/localAudioConcat';
+import {
+    buildExportArtifacts,
+    downloadExport,
+    shareExport
+} from '@/utils/exportUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { Download, Share2Icon } from 'lucide-react-native';
@@ -137,26 +141,47 @@ export function ExportQuestList({
   }, []);
 
   const handleExport = React.useCallback(async () => {
-    if (!shareEnable) {
-      return;
-    }
-
     setIsConcatenating(true);
+    console.log('shareEnable', shareEnable);
+    let cleanup: (() => Promise<void>) | undefined;
     try {
-      await concatenateAndShareAudioList(
-        currentQuestId,
-        selectedAssetIdList,
-        quest?.name || undefined
-      );
+      const artifacts = await buildExportArtifacts({
+        questId: currentQuestId,
+        assetIds: selectedAssetIdList,
+        questName: quest?.name || undefined,
+        mergedFile: shareEnable ? true : mergedFile,
+        includeCsvFile: shareEnable ? false : includeCsvFile,
+      });
+
+      cleanup = artifacts.cleanup;
+
+      if (shareEnable) {
+        await shareExport(artifacts, quest?.name || 'Quest Audio');
+      } else {
+        await downloadExport(artifacts, {
+          iosDialogTitle: quest?.name || 'Save export'
+        });
+      }
     } catch (error) {
       RNAlert.alert(
         t('error'),
-        error instanceof Error ? error.message : 'Failed to share audio'
+        error instanceof Error ? error.message : 'Failed to export audio'
       );
     } finally {
+      if (cleanup) {
+        await cleanup();
+      }
       setIsConcatenating(false);
     }
-  }, [currentQuestId, quest?.name, selectedAssetIdList, shareEnable, t]);
+  }, [
+    currentQuestId,
+    includeCsvFile,
+    mergedFile,
+    quest?.name,
+    selectedAssetIdList,
+    shareEnable,
+    t
+  ]);
 
   return (
     <Modal
@@ -274,7 +299,7 @@ export function ExportQuestList({
         <View className="border-t border-border px-6 pb-4 pt-4">
           <Button
             onPress={handleExport}
-            disabled={!shareEnable || isConcatenating || selectedCount === 0}
+            disabled={isConcatenating || selectedCount === 0}
           >
             {isConcatenating ? (
               <ActivityIndicator />

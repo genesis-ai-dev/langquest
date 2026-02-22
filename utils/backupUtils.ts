@@ -75,7 +75,7 @@ export function prepareBackupPaths(timestamp: string): {
 export type ProgressCallback = (progress: number, total: number) => void;
 
 // Helper function to escape CSV fields
-function escapeCsvField(field: string | null | undefined): string {
+export function escapeCsvField(field: string | null | undefined): string {
   if (field === null || field === undefined) return '';
   // Escape quotes and wrap in quotes if contains comma, quote, or newline
   const escaped = field.replace(/"/g, '""');

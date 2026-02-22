@@ -771,31 +771,45 @@ export async function concatenateAndShareQuestAudio(
   }
 }
 
+/** ONLY WORKS FOR LOCAL ASSETS **/
+export interface QuestAudioAssetItem {
+  assetId: string;
+  assetOrderIndex: number;
+  assetName: string | null;
+  metadata: unknown;
+  segmentOrder: number;
+  uri: string;
+  createdAt: string | null;
+}
 
-async function getQuestAudioUrisByAssetList(assetIds: string[]): Promise<string[]> {
+export interface ConcatenateAudioListResult {
+  outputPath: string;
+  audioItems: QuestAudioAssetItem[];
+}
+
+export async function getQuestAudioUrisByAssetList(
+  assetIds: string[]
+): Promise<QuestAudioAssetItem[]> {
   if (assetIds.length === 0) {
     return [];
   }
 
-  // Get content links from synced table first (preferred source)
-  const assetContentLinkSynced = resolveTable('asset_content_link', {
-    localOverride: false
-  });
-  const contentLinksSynced = await system.db
-    .select()
-    .from(assetContentLinkSynced)
-    .where(
-      and(
-        inArray(assetContentLinkSynced.asset_id, assetIds),
-        isNotNull(assetContentLinkSynced.audio)
-      )
-    );
-
-  // Also get content links from local table as fallback
+  // Local-only source (requested): no synced fallback.
   const assetContentLinkLocal = resolveTable('asset_content_link', {
     localOverride: true
   });
-  const contentLinksLocal = await system.db
+
+  const assetsInfo = await system.db
+    .select({
+      id: asset.id,
+      order_index: asset.order_index,
+      name: asset.name,
+      metadata: asset.metadata
+    })
+    .from(asset)
+    .where(inArray(asset.id, assetIds));
+
+  const contentLinks = await system.db
     .select()
     .from(assetContentLinkLocal)
     .where(
@@ -805,391 +819,86 @@ async function getQuestAudioUrisByAssetList(assetIds: string[]): Promise<string[
       )
     );
 
-  // Create a map of local content links by asset_id for quick lookup
-  // We'll use this to find fallback local URIs when synced attachment IDs don't resolve
-  const localLinksByAsset = new Map<string, typeof contentLinksLocal>();
-  for (const localLink of contentLinksLocal) {
-    const key = localLink.asset_id;
-    if (!localLinksByAsset.has(key)) {
-      localLinksByAsset.set(key, []);
-    }
-    localLinksByAsset.get(key)!.push(localLink);
+  const assetById = new Map(assetsInfo.map((a) => [a.id, a]));
+  const linksByAssetId = new Map<string, typeof contentLinks>();
+
+  for (const link of contentLinks) {
+    const list = linksByAssetId.get(link.asset_id) ?? [];
+    list.push(link);
+    linksByAssetId.set(link.asset_id, list);
   }
 
-  // Extract audio values and convert to local URIs
-  // Order by asset order_index and content order_index to maintain proper sequence
-  const audioUris: string[] = [];
+  const output: QuestAudioAssetItem[] = [];
+  const seenKeys = new Set<string>();
 
-  // Preserve the exact order received from the UI list of selected assets
-  const assetsWithOrder = assetIds.map((assetId, index) => ({
-    asset_id: assetId,
-    order_index: index
-  }));
+  for (const selectedAssetId of assetIds) {
+    const assetInfo = assetById.get(selectedAssetId);
+    const assetLinks = linksByAssetId.get(selectedAssetId) ?? [];
 
-  // Process assets in order
-  for (const assetLink of assetsWithOrder) {
-    if (!assetLink.asset_id) {
-      continue;
-    }
-
-    // Prefer synced content links, but fall back to local if needed
-    const syncedLinks = contentLinksSynced.filter(
-      (link) => link.asset_id === assetLink.asset_id
-    );
-    const localLinks = localLinksByAsset.get(assetLink.asset_id) || [];
-
-    // Merge synced and local links, preferring synced
-    // Sort by order_index to maintain segment order
-    const allLinks = [...syncedLinks, ...localLinks];
-    allLinks.sort((a, b) => {
-      const aOrder = a.order_index ?? 0;
-      const bOrder = b.order_index ?? 0;
+    assetLinks.sort((a, b) => {
+      const aOrder = a.order_index || 0;
+      const bOrder = b.order_index || 0;
       if (aOrder !== bOrder) return aOrder - bOrder;
-      // Fallback to created_at for duplicate order_index values
       const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
       const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
       return aTime - bTime;
     });
 
-    // Deduplicate by ID first (prefer synced over local)
-    const seenIds = new Set<string>();
-    const linksById = allLinks.filter((link) => {
-      if (seenIds.has(link.id)) {
-        return false;
-      }
-      seenIds.add(link.id);
-      return true;
-    });
-
-    // Also deduplicate by asset_id + created_at to catch cases where
-    // synced and local links have different IDs but represent the same content
-    const seenByContent = new Set<string>();
-    const uniqueLinks = linksById.filter((link) => {
-      const contentKey = `${link.asset_id}-${link.created_at || ''}`;
-      if (seenByContent.has(contentKey)) {
-        return false;
-      }
-      seenByContent.add(contentKey);
-      return true;
-    });
-
-    // Track which local links we've used as fallbacks to avoid duplicates
-    const usedLocalLinkIds = new Set<string>();
-
-    for (const contentLink of uniqueLinks) {
-      if (!contentLink.audio || contentLink.audio.length === 0) {
-        continue;
-      }
+    for (const contentLink of assetLinks) {
+      if (!contentLink.audio?.length) continue;
 
       for (const audioValue of contentLink.audio) {
-        if (!audioValue || typeof audioValue !== 'string') {
-          continue;
-        }
+        if (typeof audioValue !== 'string' || !audioValue) continue;
 
         let localUri: string | null = null;
-
-        // Handle direct local URIs (from recording view before publish)
         if (audioValue.startsWith('local/')) {
-          const constructedUri =
-            await getLocalAttachmentUriWithOPFS(audioValue);
-          // Check if file exists at constructed path
-          if (await fileExists(constructedUri)) {
-            localUri = constructedUri;
-          } else {
-            // File doesn't exist at expected path - try to find it in attachment queue
-            // This handles case where file was moved to attachment queue during publish
-            console.log(
-              `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-            );
-
-            if (system.permAttachmentQueue) {
-              // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-              const filename = audioValue.replace(/^local\//, '');
-              // Extract UUID part (without extension) for more flexible matching
-              const uuidPart = filename.split('.')[0];
-
-              // Search attachment queue by filename or UUID
-              let attachment = await system.powersync.getOptional<{
-                id: string;
-                filename: string | null;
-                local_uri: string | null;
-              }>(
-                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-              );
-
-              // If not found, try searching all attachments for this asset's content links
-              // The attachment might be referenced by a different ID
-              if (!attachment && contentLink.audio.length > 0) {
-                const allAttachmentIds = contentLink.audio.filter(
-                  (av): av is string =>
-                    typeof av === 'string' &&
-                    !av.startsWith('local/') &&
-                    !av.startsWith('file://')
-                );
-                if (allAttachmentIds.length > 0) {
-                  // Try to find any of these attachment IDs in the queue
-                  const placeholders = allAttachmentIds
-                    .map(() => '?')
-                    .join(',');
-                  attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                    allAttachmentIds
-                  );
-                }
-              }
-
-              if (attachment?.local_uri) {
-                const foundUri = system.permAttachmentQueue.getLocalUri(
-                  attachment.local_uri
-                );
-                // Verify the found file actually exists
-                if (await fileExists(foundUri)) {
-                  localUri = foundUri;
-                  console.log(
-                    `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                  );
-                } else {
-                  console.warn(
-                    `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                  );
-                }
-              } else {
-                // Still not found - try fallback to local table
-                const fallbackLocalLink =
-                  localLinks.find((link) => link.id === contentLink.id) ||
-                  localLinks.find(
-                    (link) =>
-                      link.asset_id === contentLink.asset_id &&
-                      link.created_at === contentLink.created_at
-                  );
-
-                if (fallbackLocalLink?.audio) {
-                  // Try other audio values from the same link
-                  for (const fallbackAudioValue of fallbackLocalLink.audio) {
-                    if (fallbackAudioValue.startsWith('file://')) {
-                      if (await fileExists(fallbackAudioValue)) {
-                        localUri = fallbackAudioValue;
-                        console.log(`✅ Found fallback file URI`);
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-            } else {
-              // No attachment queue - try fallback to local table
-              const fallbackLocalLink =
-                localLinks.find((link) => link.id === contentLink.id) ||
-                localLinks.find(
-                  (link) =>
-                    link.asset_id === contentLink.asset_id &&
-                    link.created_at === contentLink.created_at
-                );
-
-              if (fallbackLocalLink?.audio) {
-                // Try other audio values from the same link
-                for (const fallbackAudioValue of fallbackLocalLink.audio) {
-                  if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      localUri = fallbackAudioValue;
-                      console.log(`✅ Found fallback file URI`);
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
+          localUri = await getLocalAttachmentUriWithOPFS(audioValue);
         } else if (audioValue.startsWith('file://')) {
-          // Already a full file URI - verify it exists
-          if (await fileExists(audioValue)) {
-            localUri = audioValue;
-          } else {
-            console.warn(`File URI does not exist: ${audioValue}`);
-            // Try to find in attachment queue by extracting filename from path
-            if (system.permAttachmentQueue) {
-              const filename = audioValue.split('/').pop();
-              if (filename) {
-                const attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                  [filename, filename]
-                );
-
-                if (attachment?.local_uri) {
-                  localUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  console.log(`✅ Found attachment in queue for file URI`);
-                }
-              }
-            }
-          }
-        } else {
-          // It's an attachment ID - look it up in the attachment queue
-          if (!system.permAttachmentQueue) {
-            // No attachment queue - try to find fallback in local table
-            console.log(
-              `⚠️ No attachment queue available, checking local table fallback for attachment ${audioValue.slice(0, 8)}...`
-            );
-
-            // First try to find local link with same ID (most reliable match)
-            let fallbackLocalLink = localLinks.find(
-              (link) => link.id === contentLink.id
-            );
-
-            // If not found by ID, try to find by asset_id and created_at (same content link)
-            if (!fallbackLocalLink) {
-              fallbackLocalLink = localLinks.find(
-                (link) =>
-                  link.asset_id === contentLink.asset_id &&
-                  link.created_at === contentLink.created_at
-              );
-            }
-
-            // If still not found, use any unused local link for this asset (last resort)
-            if (!fallbackLocalLink && localLinks.length > 0) {
-              fallbackLocalLink = localLinks.find(
-                (link) => !usedLocalLinkIds.has(link.id)
-              );
-              if (fallbackLocalLink) {
-                usedLocalLinkIds.add(fallbackLocalLink.id);
-              }
-            } else if (fallbackLocalLink) {
-              usedLocalLinkIds.add(fallbackLocalLink.id);
-            }
-
-            if (fallbackLocalLink?.audio) {
-              // Find any local URI in the fallback link
-              for (const fallbackAudioValue of fallbackLocalLink.audio) {
-                if (fallbackAudioValue.startsWith('local/')) {
-                  localUri =
-                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                  console.log(
-                    `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                  );
-                  break;
-                } else if (fallbackAudioValue.startsWith('file://')) {
-                  localUri = fallbackAudioValue;
-                  console.log(
-                    `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                  );
-                  break;
-                }
-              }
-            }
-            continue;
-          }
-
+          localUri = audioValue;
+        } else if (system.permAttachmentQueue) {
           const attachment = await system.powersync.getOptional<{
             id: string;
             local_uri: string | null;
           }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
             audioValue
           ]);
-
           if (attachment?.local_uri) {
             localUri = system.permAttachmentQueue.getLocalUri(
               attachment.local_uri
             );
-          } else {
-            // Attachment ID not found in queue - try fallback to local table
-            // This handles the edge case where server records were removed but local records remain
-            console.log(
-              `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-            );
-
-            // First try to find local link with same ID (most reliable match)
-            let fallbackLocalLink = localLinks.find(
-              (link) => link.id === contentLink.id
-            );
-
-            // If not found by ID, try to find by asset_id and created_at (same content link)
-            if (!fallbackLocalLink) {
-              fallbackLocalLink = localLinks.find(
-                (link) =>
-                  link.asset_id === contentLink.asset_id &&
-                  link.created_at === contentLink.created_at
-              );
-            }
-
-            // If still not found, use any unused local link for this asset (last resort)
-            // This ensures we get some audio even if exact match fails
-            if (!fallbackLocalLink && localLinks.length > 0) {
-              // Find first unused local link
-              fallbackLocalLink = localLinks.find(
-                (link) => !usedLocalLinkIds.has(link.id)
-              );
-              if (fallbackLocalLink) {
-                usedLocalLinkIds.add(fallbackLocalLink.id);
-                console.log(
-                  `⚠️ Using local link ${fallbackLocalLink.id.slice(0, 8)} as fallback for asset ${contentLink.asset_id}`
-                );
-              }
-            } else if (fallbackLocalLink) {
-              // Mark this local link as used to avoid duplicates
-              usedLocalLinkIds.add(fallbackLocalLink.id);
-            }
-
-            if (fallbackLocalLink?.audio) {
-              // Find any local URI in the fallback link
-              for (const fallbackAudioValue of fallbackLocalLink.audio) {
-                if (fallbackAudioValue.startsWith('local/')) {
-                  localUri =
-                    await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                  console.log(
-                    `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                  );
-                  break;
-                } else if (fallbackAudioValue.startsWith('file://')) {
-                  localUri = fallbackAudioValue;
-                  console.log(
-                    `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                  );
-                  break;
-                }
-              }
-            }
           }
         }
 
-        // Verify file exists before adding
-        if (localUri && (await fileExists(localUri))) {
-          // Normalize URI for comparison to avoid duplicates
-          const normalizedUri = normalizeFileUri(localUri);
-          // Check if this URI is already in the array to prevent duplicates
-          if (
-            !audioUris.some((uri) => normalizeFileUri(uri) === normalizedUri)
-          ) {
-            audioUris.push(localUri);
-          } else {
-            console.log(
-              `Skipping duplicate audio URI: ${normalizedUri.slice(0, 50)}...`
-            );
-          }
-        } else if (localUri) {
-          console.warn(`Audio file not found: ${localUri}`);
+        if (!localUri || !(await fileExists(localUri))) {
+          continue;
         }
+
+        const normalizedUri = normalizeFileUri(localUri);
+        const dedupeKey = `${selectedAssetId}:${contentLink.order_index || 0}:${normalizedUri}`;
+        if (seenKeys.has(dedupeKey)) continue;
+        seenKeys.add(dedupeKey);
+
+        output.push({
+          assetId: selectedAssetId,
+          assetOrderIndex: assetInfo?.order_index ?? 0,
+          assetName: assetInfo?.name ?? null,
+          metadata: assetInfo?.metadata ?? null,
+          segmentOrder: contentLink.order_index || 0,
+          uri: localUri,
+          createdAt: contentLink.created_at
+        });
       }
     }
   }
 
-  return audioUris;
+  return output;
 }
 
-export async function concatenateAndShareAudioList(
+export async function concatenateAudioListToFile(
   questId: string,
   assetIds: string[],
   questName?: string
-): Promise<void> {
+): Promise<ConcatenateAudioListResult> {
   // Check if we're on web platform
   if (Platform.OS === 'web') {
     throw new Error(
@@ -1206,7 +915,8 @@ export async function concatenateAndShareAudioList(
 
   try {
     // Get audio URIs only for the selected assets
-    const audioUris = await getQuestAudioUrisByAssetList(assetIds);
+    const audioItems = await getQuestAudioUrisByAssetList(assetIds);
+    const audioUris = audioItems.map((item) => item.uri);
 
     if (audioUris.length === 0) {
       throw new Error('No audio files found for this quest');
@@ -1434,22 +1144,37 @@ export async function concatenateAndShareAudioList(
 
     console.log(`Audio concatenated successfully: ${outputPath}`);
 
-    // Check if sharing is available on this platform
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (!isAvailable) {
-      throw new Error('Sharing is not available on this device');
-    }
-
-    // Share the concatenated file using expo-sharing (works on both iOS and Android)
-    await Sharing.shareAsync(outputPath, {
-      mimeType: 'audio/mp4',
-      UTI: 'com.apple.m4a-audio', // iOS-specific type identifier for M4A
-      dialogTitle: questName || 'Quest Audio'
-    });
-
-    console.log('Audio share dialog opened successfully');
+    return {
+      outputPath,
+      audioItems
+    };
   } catch (error) {
-    console.error('Failed to concatenate and share audio:', error);
+    console.error('Failed to concatenate audio file:', error);
     throw error;
   }
+}
+
+export async function concatenateAndShareAudioList(
+  questId: string,
+  assetIds: string[],
+  questName?: string
+): Promise<void> {
+  const { outputPath } = await concatenateAudioListToFile(
+    questId,
+    assetIds,
+    questName
+  );
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (!isAvailable) {
+    throw new Error('Sharing is not available on this device');
+  }
+
+  await Sharing.shareAsync(outputPath, {
+    mimeType: 'audio/mp4',
+    UTI: 'com.apple.m4a-audio', // iOS-specific type identifier for M4A
+    dialogTitle: questName || 'Quest Audio'
+  });
+
+  console.log('Audio share dialog opened successfully');
 }
