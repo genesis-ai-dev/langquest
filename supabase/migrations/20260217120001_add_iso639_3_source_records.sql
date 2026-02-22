@@ -40,10 +40,4 @@ from (
     ('6f800df3-05d2-455b-9a88-a077d1f111cc'::uuid, 'tpi')
 ) as v(languoid_id, iso_code)
 join public.languoid l on l.id = v.languoid_id
-where not exists (
-  select 1
-  from public.languoid_source ls
-  where ls.languoid_id = v.languoid_id
-    and ls.name = 'iso639-3'
-    and ls.active = true
-);
+on conflict on constraint uq_languoid_source do nothing;
