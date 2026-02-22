@@ -1,14 +1,26 @@
--- Migration: Add missing iso639-3 languoid_source records
+-- Migration: Fix languoid_source unique constraint and add missing iso639-3 records
 --
--- Several languoids used by FIA projects are missing iso639-3 source records,
--- which are needed by the bible-brain-content edge function to look up
--- Bible Brain bibles for those languages.
+-- 1. Replace the unique constraint on (languoid_id, unique_identifier) with
+--    (languoid_id, name, unique_identifier). The old constraint incorrectly
+--    prevented different sources (e.g. wals and iso639-3) from sharing the
+--    same identifier code for the same languoid, even though those are
+--    independent source systems.
+--
+-- 2. Insert missing iso639-3 records for FIA languoids that need them for
+--    Bible Brain bible lookups.
 --
 -- Affected languoids: English, Hindi, Portuguese, Russian, Spanish, Tok Pisin
---
+
+-- Step 1: Replace the unique constraint to include source name
+alter table public.languoid_source
+  drop constraint if exists uq_languoid_source;
+
+alter table public.languoid_source
+  add constraint uq_languoid_source unique (languoid_id, name, unique_identifier);
+
+-- Step 2: Insert missing iso639-3 source records
 -- download_profiles are copied from the parent languoid record to maintain
 -- consistent sync visibility.
-
 insert into public.languoid_source (name, languoid_id, unique_identifier, active, download_profiles, created_at, last_updated)
 select
   'iso639-3',
