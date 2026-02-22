@@ -58,8 +58,10 @@ import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardS
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
+import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
 import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
+import { useTrimModal } from './recording/hooks/useTrimModal';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
 import { useHybridData } from './useHybridData';
@@ -688,6 +690,21 @@ const RecordingView = () => {
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
+
+  // Trim modal (shared hook – loads waveform from file on demand)
+  const {
+    isTrimModalOpen,
+    handleOpenTrimModal,
+    handleCloseTrimModal,
+    handleConfirmTrim,
+    trimTargetAsset,
+    trimWaveformData,
+    trimAssetAudio,
+    canTrimSelected
+  } = useTrimModal({
+    selectedAssetIds,
+    assets
+  });
 
   // Check if we're at the end of the list (for add verse button behavior)
   const isAtEndOfList = React.useMemo(
@@ -2839,12 +2856,16 @@ const RecordingView = () => {
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
         {isSelectionMode ? (
-          <View style={{ paddingBottom: insets.bottom }}>
+          <View
+            style={{ paddingBottom: insets.bottom }}
+            onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+          >
             <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
               allowSelectAll={true}
               allSelected={allSelected}
               onSelectAll={handleSelectAll}
@@ -2918,6 +2939,18 @@ const RecordingView = () => {
         energyShared={energyShared}
       />
       <RecordingHelpDialog />
+
+      {/* Trim Segment Modal */}
+      {isTrimModalOpen && (
+        <TrimSegmentModal
+          isOpen={isTrimModalOpen}
+          segmentName={trimTargetAsset?.name ?? null}
+          waveformData={trimWaveformData}
+          assetAudio={trimAssetAudio}
+          onClose={handleCloseTrimModal}
+          onConfirm={handleConfirmTrim}
+        />
+      )}
     </View>
   );
 };

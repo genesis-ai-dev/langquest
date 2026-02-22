@@ -14,7 +14,11 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { project, quest as questTable } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  project,
+  quest as questTable
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -473,9 +477,35 @@ export default function BibleAssetsView() {
     selectedAssetIds,
     enterSelection,
     toggleSelect,
-    cancelSelection
+    cancelSelection,
+    selectMultiple
   } = useSelectionMode();
   const { afterMerge, afterUnmerge } = useMergeUnmergeCleanup(cancelSelection);
+  const [selectedIsMerged, setSelectedIsMerged] = React.useState(false);
+
+  React.useEffect(() => {
+    if (selectedAssetIds.size !== 1) {
+      setSelectedIsMerged(false);
+      return;
+    }
+    const assetId = Array.from(selectedAssetIds)[0]!;
+    let cancelled = false;
+    system.db.query.asset_content_link
+      .findMany({
+        columns: { id: true },
+        where: eq(asset_content_link.asset_id, assetId)
+      })
+      .then((links) => {
+        if (!cancelled) setSelectedIsMerged(links.length > 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAssetIds]);
+
+  const [selectionControlsHeight, setSelectionControlsHeight] =
+    React.useState(0);
+
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
     300
@@ -1108,6 +1138,24 @@ export default function BibleAssetsView() {
       RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
     }
   }, [assets, currentQuestId, queryClient, t, refetch]);
+
+  const allSelected = React.useMemo(() => {
+    if (!isSelectionMode || assets.length === 0) return false;
+    const selectableAssets = assets.filter((a) => a.source !== 'cloud');
+    if (selectableAssets.length === 0) return false;
+    return selectableAssets.every((a) => selectedAssetIds.has(a.id));
+  }, [isSelectionMode, assets, selectedAssetIds]);
+
+  const handleSelectAll = React.useCallback(() => {
+    if (allSelected) {
+      selectMultiple([]);
+    } else {
+      const selectableIds = assets
+        .filter((a) => a.source !== 'cloud')
+        .map((a) => a.id);
+      selectMultiple(selectableIds);
+    }
+  }, [allSelected, assets, selectMultiple]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
     // Filter selected assets that are local (not cloud-only)
@@ -3325,6 +3373,11 @@ export default function BibleAssetsView() {
           onScroll={scrollHandler}
           ItemSeparatorComponent={ListItemSeparator}
           windowSize={10}
+          contentContainerStyle={
+            isSelectionMode
+              ? { paddingBottom: selectionControlsHeight }
+              : undefined
+          }
           ListFooterComponent={
             <>
               {/* Loading indicator for infinite scroll */}
@@ -3414,11 +3467,11 @@ export default function BibleAssetsView() {
         currentUser &&
         (isSelectionMode ? (
           <View
-            style={{
-              paddingBottom: insets.bottom,
-              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
-            }}
+            style={{ paddingBottom: insets.bottom }}
             className="absolute bottom-0 left-0 right-0 z-40"
+            onLayout={(e) =>
+              setSelectionControlsHeight(e.nativeEvent.layout.height)
+            }
           >
             <RecordSelectionControls
               selectedCount={selectedAssetIds.size}
@@ -3426,10 +3479,13 @@ export default function BibleAssetsView() {
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
               onTrim={canTrimSelected ? handleOpenTrimModal : undefined}
+              allowSelectAll={true}
+              allSelected={allSelected}
+              onSelectAll={handleSelectAll}
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
-              showUnmerge={selectedAssetIds.size === 1}
+              showUnmerge={selectedAssetIds.size === 1 && selectedIsMerged}
               onUnmerge={handleUnmergeSelected}
             />
           </View>
