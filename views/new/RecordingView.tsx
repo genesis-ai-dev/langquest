@@ -14,7 +14,17 @@ import {
   updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { asset_content_link, project_language_link } from '@/db/drizzleSchema';
+import {
+  FiaStepDrawer,
+  INITIAL_FIA_DRAWER_STATE
+} from '@/components/FiaStepDrawer';
+import type { FiaDrawerState } from '@/components/FiaStepDrawer';
+import {
+  asset_content_link,
+  project_language_link,
+  quest as questTable
+} from '@/db/drizzleSchema';
+import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
 import {
@@ -37,6 +47,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { Audio } from 'expo-av';
 import {
   ArrowLeft,
+  BookOpenIcon,
   ChevronLeft,
   Ellipsis,
   ListVideo,
@@ -44,7 +55,7 @@ import {
   Plus
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { InteractionManager, View } from 'react-native';
+import { InteractionManager, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
@@ -57,6 +68,25 @@ import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
 import { useHybridData } from './useHybridData';
+
+function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
+  try {
+    const parsed =
+      typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'fia' in parsed &&
+      parsed.fia &&
+      typeof parsed.fia === 'object'
+    ) {
+      return parsed.fia as FiaMetadata;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
 
 const DEBUG_MODE = false;
 function debugLog(...args: unknown[]) {
@@ -304,6 +334,48 @@ const RecordingView = () => {
   });
 
   const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
+
+  // Fetch quest metadata for FIA drawer support
+  type Quest = typeof questTable.$inferSelect;
+  const { data: questDataForFia } = useHybridData<Quest>({
+    dataType: 'current-quest',
+    queryKeyParams: [currentQuestId || ''],
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select()
+        .from(questTable)
+        .where(eq(questTable.id, currentQuestId!))
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!currentQuestId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('id', currentQuestId)
+        .overrideTypes<Quest[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableCloudQuery: !!currentQuestId,
+    enableOfflineQuery: !!currentQuestId,
+    getItemId: (item) => item.id
+  });
+
+  const enableFia = useLocalStore((state) => state.enableFia);
+  const selectedQuestForFia = questDataForFia?.[0];
+  const fiaMetaExtracted = React.useMemo(() => {
+    if (!selectedQuestForFia?.metadata) return null;
+    return extractFiaMetadata(selectedQuestForFia.metadata);
+  }, [selectedQuestForFia?.metadata]);
+
+  const fiaPericopeId = enableFia
+    ? (fiaMetaExtracted?.pericopeId ?? null)
+    : null;
+  const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+  const fiaDrawerStateRef = React.useRef<FiaDrawerState>({
+    ...INITIAL_FIA_DRAWER_STATE
+  });
 
   // Recording state
   const [isRecording, setIsRecording] = React.useState(false);
@@ -3179,9 +3251,22 @@ const RecordingView = () => {
               />
             </Button>
           )}
-          <Text className="text-base font-semibold text-muted-foreground">
-            {assets.length} {t('assets').toLowerCase()}
-          </Text>
+          {fiaPericopeId ? (
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              onPress={() => setShowFiaTextDrawer(true)}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Pressable>
+          ) : (
+            <Text className="text-base font-semibold text-muted-foreground">
+              {assets.length} {t('assets').toLowerCase()}
+            </Text>
+          )}
         </View>
       </View>
       <View
@@ -3300,6 +3385,18 @@ const RecordingView = () => {
         energyShared={energyShared}
       />
       <RecordingHelpDialog />
+
+      {/* FIA Pericope Steps Drawer (only for FIA projects) */}
+      <FiaStepDrawer
+        open={showFiaTextDrawer}
+        onOpenChange={setShowFiaTextDrawer}
+        projectId={currentProjectId}
+        pericopeId={fiaPericopeId ?? undefined}
+        questName={selectedQuestForFia?.name}
+        fiaBookId={fiaMetaExtracted?.bookId}
+        verseRange={fiaMetaExtracted?.verseRange}
+        persistedState={fiaDrawerStateRef}
+      />
     </View>
   );
 };

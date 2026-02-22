@@ -233,11 +233,11 @@ export function SimpleOnboardingFlow({
               </AnimatedStepContent>
 
               <AnimatedStepContent delay={200}>
-                <View className="w-full flex-row gap-4">
+                <View className="w-full flex-row flex-wrap gap-4">
                   {/* Bible Project Button */}
                   <Button
                     variant="outline"
-                    className="min-h-48 flex-1 flex-col gap-3 p-6"
+                    className="min-h-48 flex-1 basis-[40%] flex-col gap-3 p-6"
                     onPress={() => handleProjectTypeSelect('bible')}
                   >
                     <Icon
@@ -250,10 +250,10 @@ export function SimpleOnboardingFlow({
                     </Text>
                   </Button>
 
-                  {/* Other Project Button */}
+                  {/* Custom Project Button */}
                   <Button
                     variant="outline"
-                    className="min-h-48 flex-1 flex-col gap-3 p-6"
+                    className="min-h-48 flex-1 basis-[40%] flex-col gap-3 p-6"
                     onPress={() => handleProjectTypeSelect('other')}
                   >
                     <Icon as={FolderIcon} size={48} className="text-primary" />

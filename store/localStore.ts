@@ -149,6 +149,8 @@ export interface LocalState {
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
+  enableFia: boolean;
+  setEnableFia: (enabled: boolean) => void;
 
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
@@ -273,6 +275,35 @@ export interface LocalState {
 
   theme: Theme;
   setTheme: (theme: Theme) => void;
+
+  // Bible reader preferences
+  bibleTranslationByProject: Record<
+    string,
+    {
+      bibleId: string;
+      name: string;
+      vname: string | null;
+      textFilesetId: string | null;
+      audioFilesetId: string | null;
+      hasText: boolean;
+      hasAudio: boolean;
+    }
+  >;
+  setBibleTranslation: (
+    projectId: string,
+    bible: {
+      bibleId: string;
+      name: string;
+      vname: string | null;
+      textFilesetId: string | null;
+      audioFilesetId: string | null;
+      hasText: boolean;
+      hasAudio: boolean;
+    }
+  ) => void;
+  bibleRecentTranslations: Record<string, string[]>;
+  bibleAudioPositions: Record<string, number>;
+  setBibleAudioPosition: (key: string, positionMs: number) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -306,6 +337,7 @@ export const useLocalStore = create<LocalState>()(
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
       enableMerge: false,
+      enableFia: false,
 
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
@@ -437,6 +469,7 @@ export const useLocalStore = create<LocalState>()(
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
+      setEnableFia: (enabled) => set({ enableFia: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) =>
@@ -578,7 +611,37 @@ export const useLocalStore = create<LocalState>()(
             lastDownloadUpdate: null,
             lastUploadUpdate: null
           }
-        })
+        }),
+
+      // Bible reader preferences
+      bibleTranslationByProject: {},
+      setBibleTranslation: (projectId, bible) =>
+        set((state) => {
+          const recentIds = state.bibleRecentTranslations[projectId] ?? [];
+          const updated = [
+            bible.bibleId,
+            ...recentIds.filter((id) => id !== bible.bibleId)
+          ].slice(0, 10);
+          return {
+            bibleTranslationByProject: {
+              ...state.bibleTranslationByProject,
+              [projectId]: bible
+            },
+            bibleRecentTranslations: {
+              ...state.bibleRecentTranslations,
+              [projectId]: updated
+            }
+          };
+        }),
+      bibleRecentTranslations: {},
+      bibleAudioPositions: {},
+      setBibleAudioPosition: (key, positionMs) =>
+        set((state) => ({
+          bibleAudioPositions: {
+            ...state.bibleAudioPositions,
+            [key]: positionMs
+          }
+        }))
     }),
     {
       name: 'local-store',
