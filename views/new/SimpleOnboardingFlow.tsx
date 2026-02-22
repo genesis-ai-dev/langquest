@@ -261,7 +261,6 @@ export function SimpleOnboardingFlow({
                       {t('onboardingOther')}
                     </Text>
                   </Button>
-
                 </View>
               </AnimatedStepContent>
             </View>

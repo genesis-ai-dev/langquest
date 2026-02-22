@@ -179,8 +179,13 @@ export function useFiaBookQuests(projectId: string) {
             typeof q.metadata === 'string'
               ? JSON.parse(q.metadata)
               : q.metadata;
-          const parsed = (typeof meta === 'string' ? JSON.parse(meta) : meta) as Record<string, unknown> | null;
-          const fia = (parsed?.fia ?? null) as { bookId?: string; pericopeId?: string } | null;
+          const parsed = (
+            typeof meta === 'string' ? JSON.parse(meta) : meta
+          ) as Record<string, unknown> | null;
+          const fia = (parsed?.fia ?? null) as {
+            bookId?: string;
+            pericopeId?: string;
+          } | null;
           return fia?.bookId && !fia?.pericopeId;
         } catch {
           return false;

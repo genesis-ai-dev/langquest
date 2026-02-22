@@ -55,7 +55,8 @@ function parseMetadata(raw: unknown): FiaMetadataShape | null {
     if (!raw) return null;
     if (typeof raw === 'string') {
       const parsed = JSON.parse(raw);
-      if (typeof parsed === 'string') return JSON.parse(parsed) as FiaMetadataShape;
+      if (typeof parsed === 'string')
+        return JSON.parse(parsed) as FiaMetadataShape;
       return parsed as FiaMetadataShape;
     }
     return raw as FiaMetadataShape;
