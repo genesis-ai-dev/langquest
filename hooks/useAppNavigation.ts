@@ -36,6 +36,8 @@ export interface NavigationState {
     nextVerse?: number | null;
     limitVerse?: number | null;
     label?: string;
+    pericopeSequence?: { chapter: number; verse: number }[];
+    bookShortName?: string;
   };
 }
 

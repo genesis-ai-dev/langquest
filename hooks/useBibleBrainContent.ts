@@ -22,6 +22,7 @@ export interface BibleBrainContentResponse {
 }
 
 // --- Verse range parsing (matches BibleAssetsView.parseFiaVerseRange) ---
+// Sub-verse letters (a, b, c…) are stripped — "6a" becomes verse 6.
 
 function parseFiaVerseRange(verseRange: string): {
   startChapter: number;
@@ -29,7 +30,7 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  const match = verseRange.match(/^(\d+):(\d+)-(?:(\d+):)?(\d+)$/);
+  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);
