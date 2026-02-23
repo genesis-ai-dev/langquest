@@ -1,3 +1,4 @@
+import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
 import RecordingSelectionList from '@/components/RecordingSelectionList';
@@ -277,6 +278,17 @@ const RecordingView = () => {
   const nextVerse = recordingData?.nextVerse ?? null;
   const limitVerse = recordingData?.limitVerse ?? null;
   const recordingSessionId = recordingData?.recordingSession;
+  const pericopeSequence = recordingData?.pericopeSequence ?? null;
+  const bookShortName = recordingData?.bookShortName ?? null;
+
+  // For FIA pericopes: map a 1-based position to a display label like "Mrk 2:23"
+  const formatVersePosition = React.useCallback(
+    (position: number): string | null => {
+      if (!pericopeSequence || !bookShortName) return null;
+      return formatPericopeVerseLabel(bookShortName, pericopeSequence, position);
+    },
+    [pericopeSequence, bookShortName]
+  );
 
   const queryClient = useQueryClient();
   const { currentUser } = useAuth();
@@ -793,14 +805,39 @@ const RecordingView = () => {
   const highlightedAssetVerse = highlightedItemVerse;
 
   // Helper to format verse range as text
+  // For pericopes, uses the sequence to map position -> "Mrk 2:23"
   const formatVerseRange = React.useCallback(
     (verse: { from: number; to: number } | null | undefined) => {
       if (!verse?.from) return null;
+
+      // Pericope-aware: map position to chapter:verse label
+      if (pericopeSequence && bookShortName) {
+        if (verse.from === verse.to) {
+          return formatPericopeVerseLabel(
+            bookShortName,
+            pericopeSequence,
+            verse.from
+          );
+        }
+        const fromLabel = formatPericopeVerseLabel(
+          bookShortName,
+          pericopeSequence,
+          verse.from
+        );
+        const toLabel = formatPericopeVerseLabel(
+          bookShortName,
+          pericopeSequence,
+          verse.to
+        );
+        if (fromLabel && toLabel) return `${fromLabel}-${toLabel}`;
+        if (fromLabel) return fromLabel;
+      }
+
       const verseText =
         verse.from === verse.to ? `${verse.from}` : `${verse.from}-${verse.to}`;
       return `${bookChapterLabel}:${verseText}`;
     },
-    [bookChapterLabel]
+    [bookChapterLabel, pericopeSequence, bookShortName]
   );
 
   // Build verse pill text based on context:
@@ -3105,8 +3142,7 @@ const RecordingView = () => {
           >
             <Icon as={Plus} size={20} className="text-primary" />
             <Text className="font-semibold text-primary">
-              {/* {bookChapterLabel}:{verseToAdd} */}
-              {verseToAdd}
+              {formatVersePosition(verseToAdd) ?? `${bookChapterLabel}:${verseToAdd}`}
             </Text>
           </Button>
         </View>
@@ -3118,7 +3154,9 @@ const RecordingView = () => {
     verseToAdd,
     // isVADRecording,
     allowAddVerse,
-    handleAddNextVerse
+    handleAddNextVerse,
+    formatVersePosition,
+    bookChapterLabel
   ]);
 
   const boundaryComponent = useMemo(

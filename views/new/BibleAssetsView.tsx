@@ -86,7 +86,12 @@ import {
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
-import { BIBLE_BOOKS } from '@/constants/bibleStructure';
+import {
+  BIBLE_BOOKS,
+  buildPericopeSequence,
+  formatPericopeVerseLabel,
+  type ChapterVerse
+} from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
@@ -186,7 +191,8 @@ function getBibleBookIdFromFia(fiaBookId: string): string {
 }
 
 /**
- * Parse FIA verseRange string like "1:1-13" or "4:30-5:20"
+ * Parse FIA verseRange string like "1:1-13", "4:30-5:20", or "6:1-6a"
+ * Sub-verse letters (a, b, c…) are stripped — "6a" becomes verse 6.
  * Returns chapter, startVerse, endVerse for use in verse labeling
  */
 function parseFiaVerseRange(verseRange: string): {
@@ -195,8 +201,9 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  // Format: "startChapter:startVerse-endVerse" or "startChapter:startVerse-endChapter:endVerse"
-  const match = verseRange.match(/^(\d+):(\d+)-(?:(\d+):)?(\d+)$/);
+  const match = verseRange.match(
+    /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
+  );
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);
@@ -247,6 +254,7 @@ interface DraggableSeparatorProps {
   isSeparatorSelected: boolean;
   isDragFixed: boolean;
   bookChapterLabel: string;
+  formatVerse?: (position: number) => string | null;
   onPress?: () => void;
   onSelectForRecording?: () => void;
 }
@@ -258,6 +266,7 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
   isSeparatorSelected,
   isDragFixed,
   bookChapterLabel,
+  formatVerse,
   onPress,
   onSelectForRecording
 }: DraggableSeparatorProps) {
@@ -270,6 +279,7 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
         from={item.from}
         to={item.to}
         label={bookChapterLabel}
+        formatVerse={formatVerse}
         onPress={onPress}
         isSelectedForRecording={!isPublished && isSeparatorSelected}
         onSelectForRecording={onSelectForRecording}
@@ -736,15 +746,46 @@ export default function BibleAssetsView() {
       fiaPericopeId ?? undefined
     );
 
-  // Auto-open FIA steps drawer when data is loaded
+  // Auto-open FIA steps drawer on first load only (not when returning from recording)
+  const fiaDrawerAutoOpenedRef = React.useRef(false);
   React.useEffect(() => {
-    if (fiaPericopeId && fiaStepsData && !fiaStepsLoading) {
+    if (
+      fiaPericopeId &&
+      fiaStepsData &&
+      !fiaStepsLoading &&
+      !fiaDrawerAutoOpenedRef.current
+    ) {
+      fiaDrawerAutoOpenedRef.current = true;
       setShowFiaTextDrawer(true);
     }
   }, [fiaPericopeId, fiaStepsData, fiaStepsLoading]);
 
+  // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
+  const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
+    if (!fiaMetaExtracted?.verseRange || !fiaMetaExtracted.bookId) return null;
+    const parsed = parseFiaVerseRange(fiaMetaExtracted.verseRange);
+    if (!parsed) return null;
+    const bibleBookId = getBibleBookIdFromFia(fiaMetaExtracted.bookId);
+    return buildPericopeSequence(
+      bibleBookId,
+      parsed.startChapter,
+      parsed.startVerse,
+      parsed.endChapter,
+      parsed.endVerse
+    );
+  }, [fiaMetaExtracted]);
+
+  const pericopeBookShortName = React.useMemo<string | null>(() => {
+    if (!fiaMetaExtracted?.bookId) return null;
+    const bibleBookId = getBibleBookIdFromFia(fiaMetaExtracted.bookId);
+    return BIBLE_BOOKS.find((b) => b.id === bibleBookId)?.shortName ?? null;
+  }, [fiaMetaExtracted]);
+
   // Store book name and chapter number for VerseSeparator label
   const bookChapterLabelRef = React.useRef<string>('Verse');
+  const formatVersePositionRef = React.useRef<
+    ((position: number) => string | null) | undefined
+  >(undefined);
 
   // Calculate book chapter label (short name for separators)
   const bookChapterLabel = React.useMemo(() => {
@@ -753,7 +794,13 @@ export default function BibleAssetsView() {
     }
 
     if (selectedQuest.metadata) {
-      // Try FIA metadata first
+      // FIA pericope: use just the book short name — the chapter number is
+      // part of the per-verse label produced by the pericope sequence mapper.
+      if (pericopeSequence && pericopeBookShortName) {
+        return pericopeBookShortName;
+      }
+
+      // Try FIA metadata (non-pericope fallback)
       const fiaMeta = extractFiaMetadata(selectedQuest.metadata);
       if (fiaMeta?.verseRange && fiaMeta.bookId) {
         const bibleBookId = getBibleBookIdFromFia(fiaMeta.bookId);
@@ -765,7 +812,6 @@ export default function BibleAssetsView() {
           }
           return `${book.shortName} ${parsed.startChapter}-${parsed.endChapter}`;
         }
-        // Fallback: use the quest name (e.g., "Mark 1:1-13")
         return selectedQuest.name || 'Verse';
       }
 
@@ -800,9 +846,9 @@ export default function BibleAssetsView() {
     }
 
     return 'Verse';
-  }, [selectedQuest, currentBookId]);
+  }, [selectedQuest, currentBookId, pericopeSequence, pericopeBookShortName]);
 
-  // Update ref when label changes
+  // Update refs when label / formatter changes
   React.useEffect(() => {
     bookChapterLabelRef.current = bookChapterLabel;
   }, [bookChapterLabel]);
@@ -812,33 +858,12 @@ export default function BibleAssetsView() {
   const verseCount = React.useMemo(() => {
     if (!selectedQuest || !currentBookId) return 0;
 
-    if (selectedQuest.metadata) {
-      // Try FIA metadata first
-      const fiaMeta = extractFiaMetadata(selectedQuest.metadata);
-      if (fiaMeta?.verseRange) {
-        const parsed = parseFiaVerseRange(fiaMeta.verseRange);
-        if (parsed) {
-          if (parsed.startChapter === parsed.endChapter) {
-            // Single chapter pericope: verse count = endVerse
-            // (verses are numbered from 1 within the chapter)
-            return parsed.endVerse;
-          }
-          // Multi-chapter pericope: use endVerse of last chapter as upper bound
-          // The verse labeler will use numbers up to this value
-          const bibleBookId = getBibleBookIdFromFia(fiaMeta.bookId);
-          const book = BIBLE_BOOKS.find((b) => b.id === bibleBookId);
-          if (book) {
-            // Sum verses from startChapter to endChapter for the full range
-            let total = 0;
-            for (let ch = parsed.startChapter; ch <= parsed.endChapter; ch++) {
-              total += book.verses[ch - 1] ?? 0;
-            }
-            return total;
-          }
-          return parsed.endVerse;
-        }
-      }
+    // FIA pericopes: the sequence length IS the verse count
+    if (pericopeSequence && pericopeSequence.length > 0) {
+      return pericopeSequence.length;
+    }
 
+    if (selectedQuest.metadata) {
       // Try Bible metadata
       try {
         const metadata: unknown =
@@ -868,7 +893,26 @@ export default function BibleAssetsView() {
     }
 
     return 0;
-  }, [selectedQuest, currentBookId]);
+  }, [selectedQuest, currentBookId, pericopeSequence]);
+
+  // For FIA pericopes: map a 1-based position to a display label like "Mrk 2:23"
+  const formatVersePosition = React.useCallback(
+    (position: number): string | null => {
+      if (!pericopeSequence || !pericopeBookShortName) return null;
+      return formatPericopeVerseLabel(
+        pericopeBookShortName,
+        pericopeSequence,
+        position
+      );
+    },
+    [pericopeSequence, pericopeBookShortName]
+  );
+
+  React.useEffect(() => {
+    formatVersePositionRef.current = pericopeSequence
+      ? formatVersePosition
+      : undefined;
+  }, [pericopeSequence, formatVersePosition]);
 
   // Query project data to get privacy status if not passed
   const { data: queriedProjectData } = useHybridData({
@@ -2569,6 +2613,7 @@ export default function BibleAssetsView() {
             isSeparatorSelected={isSeparatorSelected}
             isDragFixed={fixedItemsIndexesRef.current.includes(index)}
             bookChapterLabel={bookChapterLabelRef.current}
+            formatVerse={formatVersePositionRef.current}
             onPress={
               !isPublished
                 ? () =>
@@ -3297,7 +3342,9 @@ export default function BibleAssetsView() {
         verse: selectedForRecording?.metadata?.verse,
         nextVerse: nextVerse,
         limitVerse: limitVerse,
-        label: selectedForRecording?.verseName
+        label: selectedForRecording?.verseName,
+        pericopeSequence: pericopeSequence ?? undefined,
+        bookShortName: pericopeBookShortName ?? undefined
       }
     });
   }, [
@@ -3312,7 +3359,9 @@ export default function BibleAssetsView() {
     selectedForRecording?.verseName,
     lastUnassignedOrderIndex,
     nextVerse,
-    limitVerse
+    limitVerse,
+    pericopeSequence,
+    pericopeBookShortName
   ]);
 
   // Cleanup effect: Stop audio when component unmounts
@@ -4155,7 +4204,7 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${bookChapterLabelRef.current}:${selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    ? `${formatVersePositionRef.current?.(selectedForRecording.metadata?.verse?.from ?? 0) ?? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
                     : selectedForRecording?.name
                       ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
                       : `${t('noLabelSelected')}`}

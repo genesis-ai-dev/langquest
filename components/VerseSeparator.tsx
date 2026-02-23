@@ -12,14 +12,14 @@ interface VerseSeparatorProps {
   from?: number;
   to?: number;
   label: string;
+  /** When provided, overrides default label formatting (used for pericope verse mapping). */
+  formatVerse?: (position: number) => string | null;
   className?: string;
   editable?: boolean;
   largeText?: boolean;
   onPress?: () => void;
-  // Selection for recording: clicking the separator text selects it for recording
   isSelectedForRecording?: boolean;
   onSelectForRecording?: () => void;
-  // Drag function from reorderable list (replaces dragHandleComponent)
   onDrag?: () => void;
   isDragFixed?: boolean;
 }
@@ -28,6 +28,7 @@ export function VerseSeparator({
   from,
   to,
   label,
+  formatVerse,
   className = '',
   editable = false,
   largeText = false,
@@ -40,18 +41,27 @@ export function VerseSeparator({
   const hasNumbers = from !== undefined || to !== undefined;
 
   const getText = () => {
-    // No numbers provided
     if (!hasNumbers) {
       return `No label assigned`;
     }
 
-    // Only one number or both are the same
+    // Pericope-aware formatting: map position to chapter:verse label
+    if (formatVerse) {
+      if (from === to || from === undefined || to === undefined) {
+        const value = from ?? to;
+        return formatVerse(value!) ?? `${label}:${value}`;
+      }
+      const fromLabel = formatVerse(from);
+      const toLabel = formatVerse(to);
+      if (fromLabel && toLabel) return `${fromLabel}-${toLabel}`;
+      if (fromLabel) return fromLabel;
+    }
+
     if (from === to || from === undefined || to === undefined) {
       const value = from ?? to;
       return `${label}:${value}`;
     }
 
-    // Range of numbers
     return `${label}:${from}-${to}`;
   };
 
