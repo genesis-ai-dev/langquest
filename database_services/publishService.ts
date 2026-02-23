@@ -57,7 +57,7 @@ interface ChapterData {
     private: boolean;
     visible: boolean;
     download_profiles: string[] | null;
-    template: 'unstructured' | 'bible' | null;
+    template: 'unstructured' | 'bible' | 'fia' | null;
     created_at: string;
     last_updated: string;
     active: boolean;

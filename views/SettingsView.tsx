@@ -53,7 +53,6 @@ export default function SettingsView() {
   );
   // const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
-  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
@@ -61,6 +60,7 @@ export default function SettingsView() {
     (state) => state.enableLanguoidLinkSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
+  const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -80,9 +80,6 @@ export default function SettingsView() {
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
   );
-  const setEnableVerseMarkers = useLocalStore(
-    (state) => state.setEnableVerseMarkers
-  );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
   );
@@ -90,6 +87,7 @@ export default function SettingsView() {
     (state) => state.setEnableLanguoidLinkSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Settings are loaded from the centralized store
 
@@ -133,10 +131,6 @@ export default function SettingsView() {
     console.log('Quest export:', value);
   };
 
-  const handleVerseMarkersToggle = (value: boolean) => {
-    setEnableVerseMarkers(value);
-  };
-
   const handleTranscriptionToggle = (value: boolean) => {
     setEnableTranscription(value);
   };
@@ -147,6 +141,10 @@ export default function SettingsView() {
 
   const handleMergeToggle = (value: boolean) => {
     setEnableMerge(value);
+  };
+
+  const handleFiaToggle = (value: boolean) => {
+    setEnableFia(value);
   };
 
   const handleClearCache = () => {
@@ -272,6 +270,14 @@ export default function SettingsView() {
       title: t('experimentalFeatures'),
       items: [
         {
+          id: 'fia',
+          title: t('enableFia'),
+          description: t('enableFiaDescription'),
+          type: 'toggle',
+          value: enableFia,
+          onPress: () => handleFiaToggle(!enableFia)
+        },
+        {
           id: 'aiSuggestions',
           title: t('aiSuggestions'),
           description: t('aiSuggestionsDescription'),
@@ -295,14 +301,6 @@ export default function SettingsView() {
           value: enableQuestExport,
           onPress: () => handleQuestExportToggle(!enableQuestExport),
           disabled: !isOnline
-        },
-        {
-          id: 'verseMarkers',
-          title: t('verseMarkers'),
-          description: t('verseMarkersDescription'),
-          type: 'toggle',
-          value: enableVerseMarkers,
-          onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
         },
         {
           id: 'transcription',

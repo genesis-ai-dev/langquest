@@ -170,8 +170,15 @@ export interface BibleMetadata {
 }
 
 /**
- * Tracking information for each recording session
+ * FIA-specific metadata for quests
+ * Used to identify FIA books and pericopes
  */
+export interface FiaMetadata {
+  bookId: string; // FIA book ID (e.g., 'mrk', 'mat')
+  pericopeId?: string; // FIA pericope ID (e.g., 'mrk-p1') - undefined for book-level quests
+  verseRange?: string; // e.g., '1:1-13' - only set for pericope-level quests
+}
+
 export interface RecordingSessionMetadata {
   id: string;
   created_at: string;
@@ -182,6 +189,7 @@ export interface RecordingSessionMetadata {
  */
 export interface QuestMetadata {
   bible?: BibleMetadata;
+  fia?: FiaMetadata;
   lastRecordingSessionId?: string;
   recordingSessions?: RecordingSessionMetadata[];
   // Add other metadata types here as needed
