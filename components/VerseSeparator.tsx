@@ -49,7 +49,7 @@ export function VerseSeparator({
     if (formatVerse) {
       if (from === to || from === undefined || to === undefined) {
         const value = from ?? to;
-        return formatVerse(value!) ?? `${label}:${value}`;
+        return formatVerse(value!) ?? `${value}`;
       }
       const fromLabel = formatVerse(from);
       const toLabel = formatVerse(to);
@@ -59,10 +59,10 @@ export function VerseSeparator({
 
     if (from === to || from === undefined || to === undefined) {
       const value = from ?? to;
-      return `${label}:${value}`;
+      return `Verse ${value}`;
     }
 
-    return `${label}:${from}-${to}`;
+    return `Verse ${from}-${to}`;
   };
 
   if (!hasNumbers) {

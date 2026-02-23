@@ -4207,7 +4207,7 @@ export default function BibleAssetsView() {
                 </Text>
                 <Text className="w-full text-left text-sm text-secondary">
                   {selectedForRecording?.verseName
-                    ? `${formatVersePositionRef.current?.(selectedForRecording.metadata?.verse?.from ?? 0) ?? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
+                    ? `${formatVersePositionRef.current?.(selectedForRecording.metadata?.verse?.from ?? 0) ?? selectedForRecording.verseName} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
                     : selectedForRecording?.name
                       ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
                       : `${t('noLabelSelected')}`}

@@ -833,9 +833,7 @@ const RecordingView = () => {
         if (fromLabel) return fromLabel;
       }
 
-      const verseText =
-        verse.from === verse.to ? `${verse.from}` : `${verse.from}-${verse.to}`;
-      return `${bookChapterLabel}:${verseText}`;
+      return verse.from === verse.to ? `${verse.from}` : `${verse.from}-${verse.to}`;
     },
     [bookChapterLabel, pericopeSequence, bookShortName]
   );
@@ -3142,7 +3140,7 @@ const RecordingView = () => {
           >
             <Icon as={Plus} size={20} className="text-primary" />
             <Text className="font-semibold text-primary">
-              {formatVersePosition(verseToAdd) ?? `${bookChapterLabel}:${verseToAdd}`}
+              {formatVersePosition(verseToAdd) ?? `${verseToAdd}`}
             </Text>
           </Button>
         </View>
