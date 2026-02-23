@@ -186,7 +186,7 @@ INSERT INTO public.region_alias (
     name
 )
 SELECT
-    gen_random_uuid()::text,
+    gen_random_uuid(),
     r.id,
     'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd',
     'Burma'
