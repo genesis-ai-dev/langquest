@@ -201,9 +201,7 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  const match = verseRange.match(
-    /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
-  );
+  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);

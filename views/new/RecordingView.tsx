@@ -285,7 +285,11 @@ const RecordingView = () => {
   const formatVersePosition = React.useCallback(
     (position: number): string | null => {
       if (!pericopeSequence || !bookShortName) return null;
-      return formatPericopeVerseLabel(bookShortName, pericopeSequence, position);
+      return formatPericopeVerseLabel(
+        bookShortName,
+        pericopeSequence,
+        position
+      );
     },
     [pericopeSequence, bookShortName]
   );
@@ -833,7 +837,9 @@ const RecordingView = () => {
         if (fromLabel) return fromLabel;
       }
 
-      return verse.from === verse.to ? `${verse.from}` : `${verse.from}-${verse.to}`;
+      return verse.from === verse.to
+        ? `${verse.from}`
+        : `${verse.from}-${verse.to}`;
     },
     [bookChapterLabel, pericopeSequence, bookShortName]
   );

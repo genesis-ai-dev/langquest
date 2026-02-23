@@ -46,12 +46,7 @@ import {
   UserIcon
 } from 'lucide-react-native';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  View
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',

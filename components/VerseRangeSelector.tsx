@@ -156,16 +156,18 @@ export function VerseRangeSelector({
           if (chapterSequence && idx > 0) {
             const prevEntry = chapterSequence[allNumbers[idx - 1]! - 1];
             const currEntry = chapterSequence[num - 1];
-            if (prevEntry && currEntry && prevEntry.chapter !== currEntry.chapter) {
+            if (
+              prevEntry &&
+              currEntry &&
+              prevEntry.chapter !== currEntry.chapter
+            ) {
               showChapterSep = true;
             }
           }
 
           return (
             <React.Fragment key={num}>
-              {showChapterSep && (
-                <View className="mx-1 h-10 w-px bg-border" />
-              )}
+              {showChapterSep && <View className="mx-1 h-10 w-px bg-border" />}
               <Pressable
                 onPress={() => handleNumberPress(num)}
                 disabled={!selectable}
