@@ -72,11 +72,10 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 [Expo environment setup guide for EAS builds](https://docs.expo.dev/get-started/set-up-your-environment/?mode=development-build&buildEnv=local)
 
 - Runs the app directly on your connected Android device/emulator
-- Enables real-time code updates (hot reload)
-- Requires USB connection or local network connection
-- Includes development tools and debugging features
-- Faster build times for testing changes
+- Quite faster build times on macbooks for testing changes
 - Requires local Android SDK setup
+
+> **Tip**: Before running `npm run android`, especially when pulling changes into your branch or checking out to `dev`, consider running `npx expo prebuild --clean` first to avoid any unnecessary issues. This ensures the native folders are regenerated from scratch, reflecting your current JS configuration accurately.
 
 ## Local Development Environment
 
