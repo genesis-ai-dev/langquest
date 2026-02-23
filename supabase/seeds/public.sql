@@ -122,7 +122,7 @@ INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", 
 	('b2b2b2b2-0017-4000-8000-000000000017', 'iso639-3', NULL, '80293000-c406-4390-8de1-67b7ac11ce14', 'fas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0018-4000-8000-000000000018', 'iso639-3', NULL, 'accfea8f-9b17-4bf7-96b2-56e81196267c', 'apd', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0019-4000-8000-000000000019', 'iso639-3', NULL, '0191cd2b-d151-4217-a7d4-19b2346c7b7e', 'bis', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL)
-ON CONFLICT (languoid_id, unique_identifier) DO NOTHING;
+ON CONFLICT (languoid_id, name, unique_identifier) DO NOTHING;
 
 
 --
