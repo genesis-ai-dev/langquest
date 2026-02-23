@@ -44,8 +44,7 @@ export function useAppNavigation() {
     navigationStack,
     setNavigationStack,
     addRecentQuest,
-    addRecentAsset,
-    enableVerseMarkers
+    addRecentAsset
   } = useLocalStore();
   const { t } = useLocalization();
 
@@ -184,10 +183,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
-      const assetView =
-        questData.projectData?.template === 'bible' && enableVerseMarkers
-          ? 'bible-assets'
-          : 'assets';
+      const usesVerseLabeling =
+        questData.projectData?.template === 'bible' ||
+        questData.projectData?.template === 'fia';
+      const assetView = usesVerseLabeling ? 'bible-assets' : 'assets';
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -224,7 +223,7 @@ export function useAppNavigation() {
         });
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
+    [currentState, navigate, addRecentQuest, goBackToView]
   );
 
   const goToAsset = useCallback(
@@ -313,7 +312,7 @@ export function useAppNavigation() {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({ label: state.projectName, onPress: undefined });
     } else if (
-      state.view === 'assets' &&
+      (state.view === 'assets' || state.view === 'bible-assets') &&
       state.projectName &&
       state.questName
     ) {
@@ -355,13 +354,32 @@ export function useAppNavigation() {
           })
       });
       crumbs.push({ label: state.assetName, onPress: undefined });
+    } else if (
+      state.view === 'recording' &&
+      state.projectName &&
+      state.questName
+    ) {
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
+      crumbs.push({
+        label: state.projectName,
+        onPress: () =>
+          goToProject({
+            id: state.projectId!,
+            name: state.projectName,
+            template: state.projectTemplate
+          })
+      });
+      crumbs.push({
+        label: state.questName,
+        onPress: goBack
+      });
     }
 
     // Always return at least one crumb to prevent empty array errors
     return crumbs.length > 0
       ? crumbs
       : [{ label: projectsLabel, onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest, t]);
+  }, [currentState, goToProjects, goToProject, goToQuest, goBack, t]);
 
   return {
     // Current state
