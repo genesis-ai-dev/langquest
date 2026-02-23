@@ -46,13 +46,7 @@ import {
   UserIcon
 } from 'lucide-react-native';
 import React from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
@@ -123,7 +117,9 @@ function VersionCard({
           </Text>
         </View>
         <Text className="text-sm text-muted-foreground">
-          {formatRelativeDate(version.created_at)}
+          {isCurrentUser && isLocal
+            ? `Draft - ${formatRelativeDate(version.created_at)}`
+            : formatRelativeDate(version.created_at)}
         </Text>
       </View>
       <View className="items-center justify-center">
@@ -207,15 +203,10 @@ function PericopeButton({
         className={cn(
           'h-auto w-full flex-col gap-1 py-5',
           !exists && 'border-dashed',
-          needsDownload && versionCount <= 1 && 'opacity-50',
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={
-          disabled ||
-          (needsDownload && versionCount <= 1) ||
-          (!existingQuest && !canCreateNew)
-        }
+        disabled={disabled || (!existingQuest && !canCreateNew)}
       >
         {isCreatingThis ? (
           <ActivityIndicator size="small" />
@@ -226,7 +217,7 @@ function PericopeButton({
                 <Icon as={HardDriveIcon} size={14} className="text-secondary" />
               )}
               {exists && (hasSyncedCopy || isCloudQuest) && (
-                <View pointerEvents={isDownloaded ? 'none' : 'auto'}>
+                <View pointerEvents="none">
                   <DownloadIndicator
                     isFlaggedForDownload={isDownloaded}
                     isLoading={Boolean(isOptimisticallyDownloading)}
@@ -281,13 +272,7 @@ function PericopeButton({
         )}
       </Button>
 
-      {needsDownload && versionCount <= 1 && !disabled && (
-        <TouchableOpacity
-          onPress={handleDownloadToggle}
-          className="absolute inset-0"
-          activeOpacity={0.7}
-        />
-      )}
+      {/* Download overlay removed — downloads are handled via the version picker drawer */}
     </View>
   );
 }
@@ -588,24 +573,29 @@ export function FiaPericopeList({
     const group = pericopeGroups.find((g) => g.pericopeId === pericope.id);
 
     if (!group || group.versions.length === 0) {
-      // No existing versions — create new
       if (!canCreateNew) return;
       await createNewVersion(pericope);
       return;
     }
 
-    if (group.versions.length === 1) {
-      const onlyVersion = group.primary;
-      const isOwnVersion = onlyVersion.creator_id === currentUser.id;
-      if (isOwnVersion || !canCreateNew) {
-        await navigateToVersion(onlyVersion);
-        return;
-      }
-      // Someone else's version and user can create — show picker so they
-      // see the "Create your own" option
+    const hasCloudContent = group.versions.some(
+      (v) => v.hasSyncedCopy || v.source === 'cloud'
+    );
+
+    if (hasCloudContent) {
+      setPickerPericopeId(pericope.id);
+      return;
     }
 
-    // Multiple versions — open picker
+    // Only local versions exist — navigate directly to the user's own
+    const ownVersion = group.versions.find(
+      (v) => v.creator_id === currentUser.id
+    );
+    if (ownVersion) {
+      await navigateToVersion(ownVersion);
+      return;
+    }
+
     setPickerPericopeId(pericope.id);
   };
 
@@ -620,8 +610,8 @@ export function FiaPericopeList({
     };
   });
 
-  // Check if the current user already has a version in the picker group
-  const userHasVersion = pickerGroup?.versions.some(
+  // Check if the current user already has any version in the picker group
+  const userVersion = pickerGroup?.versions.find(
     (v) => v.creator_id === currentUser?.id
   );
 
@@ -700,7 +690,7 @@ export function FiaPericopeList({
             />
           ))}
 
-          {canCreateNew && !userHasVersion && pickerPericope && (
+          {canCreateNew && !userVersion && pickerPericope && (
             <Pressable
               onPress={() => createNewVersion(pickerPericope)}
               className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
