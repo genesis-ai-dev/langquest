@@ -1,3 +1,5 @@
+import { projectService } from '@/database_services/projectService';
+import { escapeCsvField } from '@/utils/backupUtils';
 import {
     concatenateAudioListToFile,
     getQuestAudioUrisByAssetList
@@ -15,6 +17,7 @@ export interface ExportArtifact {
 
 export interface BuildExportArtifactsOptions {
   questId: string;
+  projectId: string;
   assetIds: string[];
   questName?: string;
   mergedFile?: boolean;
@@ -24,6 +27,13 @@ export interface BuildExportArtifactsOptions {
 export interface BuiltExportArtifacts {
   files: ExportArtifact[];
   cleanup: () => Promise<void>;
+}
+
+export interface ExportAssetsCSVItem {
+  assetName: string | null;
+  metadata: unknown;
+  segmentOrder: number;
+  newFileName?: string;
 }
 
 export interface AndroidDownloadResult {
@@ -136,8 +146,50 @@ function ensureUniqueFileNames(files: ExportArtifact[]): ExportArtifact[] {
   });
 }
 
+export async function generateExportAssetsCSVFile(
+  items: ExportAssetsCSVItem[],
+  fileNamePrefix = 'export-assets'
+): Promise<ExportArtifact> {
+  const header = ['Asset Name', 'Metadata', 'Segment Order', 'fileName'].join(
+    ','
+  );
+
+  const rows = items.map((item) => {
+    const metadataText =
+      item.metadata == null
+        ? ''
+        : typeof item.metadata === 'string'
+          ? item.metadata
+          : JSON.stringify(item.metadata);
+
+    return [
+      escapeCsvField(item.assetName ?? ''),
+      escapeCsvField(metadataText),
+      escapeCsvField(String(item.segmentOrder)),
+      escapeCsvField(item.newFileName ?? '')
+    ].join(',');
+  });
+
+  const csvContent = [header, ...rows].join('\n');
+  const dateTime = formatCurrentDateTime(new Date());
+  const safePrefix = sanitizeNamePart(fileNamePrefix || 'export-assets');
+  const csvName = `${safePrefix}-${dateTime}.csv`;
+  const csvUri = `${FileSystem.cacheDirectory}${csvName}`;
+
+  await FileSystem.writeAsStringAsync(csvUri, csvContent, {
+    encoding: FileSystem.EncodingType.UTF8
+  });
+
+  return {
+    uri: csvUri,
+    name: csvName,
+    mimeType: 'text/csv'
+  };
+}
+
 export async function buildExportArtifacts({
   questId,
+  projectId,
   assetIds,
   questName,
   mergedFile = true,
@@ -147,19 +199,21 @@ export async function buildExportArtifacts({
     throw new Error('No assets selected for export.');
   }
 
-  if (includeCsvFile) {
-    // CSV/text export can be added here in a follow-up iteration.
-    console.warn('[buildExportArtifacts] includeCsvFile is not implemented yet.');
-  }
+  const projectWithLanguoid =
+    await projectService.getProjectWithRelatedLanguoid(projectId);
+  const resolvedProjectName = projectWithLanguoid?.project.name || undefined;
+  const resolvedLanguoidName = projectWithLanguoid?.languoid?.name || undefined;
 
   let files: ExportArtifact[] = [];
   let cleanupTargets: string[] = [];
   const currentDateTime = formatCurrentDateTime(new Date());
   if (mergedFile) {
-    const { outputPath: audioUri } = await concatenateAudioListToFile(
+    const { outputPath: audioUri, audioItems } = await concatenateAudioListToFile(
       questId,
       assetIds,
-      questName
+      questName,
+      resolvedProjectName,
+      resolvedLanguoidName
     );
     const fileName = getFileNameFromUri(audioUri, 'quest-audio');
 
@@ -170,6 +224,11 @@ export async function buildExportArtifacts({
         mimeType: 'audio/mp4'
       }
     ];
+
+    if (includeCsvFile) {                 
+      const csvFile = await generateExportAssetsCSVFile(audioItems, `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`);
+      files.push(csvFile);
+    }   
     // Merged export generates a temporary artifact in cache.
     cleanupTargets = [audioUri];
   } else {
@@ -190,10 +249,18 @@ export async function buildExportArtifacts({
       const ext = extMatch?.[1] ?? '.m4a';
       const counter = String(index + 1).padStart(4, '0');
       const safeQuestName = sanitizeNamePart(questName || 'quest');
+      const safeProjectName = resolvedProjectName
+        ? sanitizeNamePart(resolvedProjectName)
+        : null;
+      const safeLanguoidName = resolvedLanguoidName
+        ? sanitizeNamePart(resolvedLanguoidName)
+        : null;
       const safeAssetName = sanitizeNamePart(item.assetName ?? `asset-${item.assetId}`);
       const verseSuffix = getVerseSuffix(item.metadata);
       const nameParts = [
         safeQuestName,
+        safeProjectName,
+        safeLanguoidName,
         counter,
         verseSuffix,
         safeAssetName,
@@ -208,7 +275,11 @@ export async function buildExportArtifacts({
         mimeType: getMimeTypeFromFileName(fileName)
       };
     });
-    console.log('files', audioItems);
+
+    if (includeCsvFile) {
+        const csvFile = await generateExportAssetsCSVFile(audioItems, `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`);
+        files.push(csvFile);
+    }
   }
 
 

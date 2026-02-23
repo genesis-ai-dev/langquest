@@ -142,11 +142,11 @@ export function ExportQuestList({
 
   const handleExport = React.useCallback(async () => {
     setIsConcatenating(true);
-    console.log('shareEnable', shareEnable);
     let cleanup: (() => Promise<void>) | undefined;
     try {
       const artifacts = await buildExportArtifacts({
         questId: currentQuestId,
+        projectId: currentProjectId,
         assetIds: selectedAssetIdList,
         questName: quest?.name || undefined,
         mergedFile: shareEnable ? true : mergedFile,

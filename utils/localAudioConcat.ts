@@ -779,6 +779,7 @@ export interface QuestAudioAssetItem {
   metadata: unknown;
   segmentOrder: number;
   uri: string;
+  newFileName?: string;
   createdAt: string | null;
 }
 
@@ -897,7 +898,9 @@ export async function getQuestAudioUrisByAssetList(
 export async function concatenateAudioListToFile(
   questId: string,
   assetIds: string[],
-  questName?: string
+  questName?: string,
+  projectName?: string,
+  languoidName?: string
 ): Promise<ConcatenateAudioListResult> {
   // Check if we're on web platform
   if (Platform.OS === 'web') {
@@ -905,6 +908,9 @@ export async function concatenateAudioListToFile(
       'Audio concatenation is not available on web. Please use a native device.'
     );
   }
+
+  console.log('projectName', projectName);
+  console.log('languoidName', languoidName);
 
   // Check if native module is available
   if (!concatAudioFiles || !convertToM4a) {
@@ -985,8 +991,8 @@ export async function concatenateAudioListToFile(
     }
 
     // Fetch project, languoid, and user names for filename
-    let projectName = '';
-    let languoidName = '';
+    let resolvedProjectName = projectName || '';
+    let resolvedLanguoidName = languoidName || '';
     let userName = '';
 
     // Get current user's username
@@ -1032,49 +1038,53 @@ export async function concatenateAudioListToFile(
         | undefined;
       const projectId = questRecord?.project_id;
       if (projectId) {
-        // Get project name
-        const projectData = await system.db
-          .select({ name: project.name })
-          .from(project)
-          .where(eq(project.id, projectId))
-          .limit(1);
-
-        const projectRecord = projectData[0] as
-          | { name: string | null }
-          | undefined;
-        if (projectRecord?.name) {
-          projectName = projectRecord.name;
-        }
-
-        // Get target languoid name
-        const languoidLink = await system.db
-          .select({ languoid_id: project_language_link.languoid_id })
-          .from(project_language_link)
-          .where(
-            and(
-              eq(project_language_link.project_id, projectId),
-              eq(project_language_link.language_type, 'target'),
-              isNotNull(project_language_link.languoid_id)
-            )
-          )
-          .limit(1);
-
-        const languoidLinkRecord = languoidLink[0] as
-          | { languoid_id: string | null }
-          | undefined;
-        const languoidId = languoidLinkRecord?.languoid_id;
-        if (languoidId) {
-          const languoidData = await system.db
-            .select({ name: languoid.name })
-            .from(languoid)
-            .where(eq(languoid.id, languoidId))
+        if (!resolvedProjectName) {
+          // Get project name only when not provided by caller
+          const projectData = await system.db
+            .select({ name: project.name })
+            .from(project)
+            .where(eq(project.id, projectId))
             .limit(1);
 
-          const languoidRecord = languoidData[0] as
+          const projectRecord = projectData[0] as
             | { name: string | null }
             | undefined;
-          if (languoidRecord?.name) {
-            languoidName = languoidRecord.name;
+          if (projectRecord?.name) {
+            resolvedProjectName = projectRecord.name;
+          }
+        }
+
+        if (!resolvedLanguoidName) {
+          // Get target languoid name only when not provided by caller
+          const languoidLink = await system.db
+            .select({ languoid_id: project_language_link.languoid_id })
+            .from(project_language_link)
+            .where(
+              and(
+                eq(project_language_link.project_id, projectId),
+                eq(project_language_link.language_type, 'target'),
+                isNotNull(project_language_link.languoid_id)
+              )
+            )
+            .limit(1);
+
+          const languoidLinkRecord = languoidLink[0] as
+            | { languoid_id: string | null }
+            | undefined;
+          const languoidId = languoidLinkRecord?.languoid_id;
+          if (languoidId) {
+            const languoidData = await system.db
+              .select({ name: languoid.name })
+              .from(languoid)
+              .where(eq(languoid.id, languoidId))
+              .limit(1);
+
+            const languoidRecord = languoidData[0] as
+              | { name: string | null }
+              | undefined;
+            if (languoidRecord?.name) {
+              resolvedLanguoidName = languoidRecord.name;
+            }
           }
         }
       }
@@ -1104,8 +1114,8 @@ export async function concatenateAudioListToFile(
     // Build filename parts: username-project-languoid-quest-date
     const parts: string[] = [];
     if (questName) parts.push(sanitize(questName));
-    if (projectName) parts.push(sanitize(projectName));
-    if (languoidName) parts.push(sanitize(languoidName));
+    if (resolvedProjectName) parts.push(sanitize(resolvedProjectName));
+    if (resolvedLanguoidName) parts.push(sanitize(resolvedLanguoidName));
     if (userName) parts.push(sanitize(userName));
     if (parts.length === 0) parts.push('quest');
 
