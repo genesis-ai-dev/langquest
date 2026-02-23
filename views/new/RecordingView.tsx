@@ -835,7 +835,8 @@ const RecordingView = () => {
           pericopeSequence,
           verse.to
         );
-        if (fromLabel && toLabel) return `${bookChapterLabel} ${fromLabel}-${toLabel}`;
+        if (fromLabel && toLabel)
+          return `${bookChapterLabel} ${fromLabel}-${toLabel}`;
         if (fromLabel) return `${bookChapterLabel} ${fromLabel}`;
       }
 
@@ -853,10 +854,22 @@ const RecordingView = () => {
 
       if (pericopeSequence && bookShortName) {
         if (verse.from === verse.to) {
-          return formatPericopeVerseLabel(bookShortName, pericopeSequence, verse.from);
+          return formatPericopeVerseLabel(
+            bookShortName,
+            pericopeSequence,
+            verse.from
+          );
         }
-        const fromLabel = formatPericopeVerseLabel(bookShortName, pericopeSequence, verse.from);
-        const toLabel = formatPericopeVerseLabel(bookShortName, pericopeSequence, verse.to);
+        const fromLabel = formatPericopeVerseLabel(
+          bookShortName,
+          pericopeSequence,
+          verse.from
+        );
+        const toLabel = formatPericopeVerseLabel(
+          bookShortName,
+          pericopeSequence,
+          verse.to
+        );
         if (fromLabel && toLabel) return `${fromLabel}-${toLabel}`;
         if (fromLabel) return fromLabel;
       }
@@ -885,12 +898,16 @@ const RecordingView = () => {
 
     // If there are assets, show the verse of the asset in the center
     if (highlightedAssetVerse) {
-      return formatVerseRangeShort(highlightedAssetVerse) ?? 'No Label Assigned';
+      return (
+        formatVerseRangeShort(highlightedAssetVerse) ?? 'No Label Assigned'
+      );
     }
 
     // No assets yet - show the initial verse from props
     if (persistedVerseRef.current) {
-      return formatVerseRangeShort(persistedVerseRef.current) ?? 'No Label Assigned';
+      return (
+        formatVerseRangeShort(persistedVerseRef.current) ?? 'No Label Assigned'
+      );
     }
 
     return 'No Label Assigned';
@@ -3170,7 +3187,8 @@ const RecordingView = () => {
           >
             <Icon as={Plus} size={20} className="text-primary" />
             <Text className="font-semibold text-primary">
-              {formatVerseRangeShort({ from: verseToAdd, to: verseToAdd }) ?? `${verseToAdd}`}
+              {formatVerseRangeShort({ from: verseToAdd, to: verseToAdd }) ??
+                `${verseToAdd}`}
             </Text>
           </Button>
         </View>

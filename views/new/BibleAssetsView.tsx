@@ -36,10 +36,10 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import {
+  ArrowLeftIcon,
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
-  ArrowLeftIcon,
   CheckCheck,
   ChevronRight,
   CloudUpload,
@@ -71,6 +71,11 @@ import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
+import type { FiaDrawerState } from '@/components/FiaStepDrawer';
+import {
+  FiaStepDrawer,
+  INITIAL_FIA_DRAWER_STATE
+} from '@/components/FiaStepDrawer';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
@@ -105,11 +110,6 @@ import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
-import {
-  FiaStepDrawer,
-  INITIAL_FIA_DRAWER_STATE
-} from '@/components/FiaStepDrawer';
-import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
