@@ -524,6 +524,9 @@ function buildFinalList(
   return deduped;
 }
 
+// Track quests where the user has dismissed the FIA drawer (persists across mounts within session)
+const fiaDrawerDismissedQuests = new Set<string>();
+
 export default function BibleAssetsView() {
   const {
     currentQuestId,
@@ -746,19 +749,19 @@ export default function BibleAssetsView() {
       fiaPericopeId ?? undefined
     );
 
-  // Auto-open FIA steps drawer on first load only (not when returning from recording)
-  const fiaDrawerAutoOpenedRef = React.useRef(false);
+  // Auto-open FIA steps drawer once per quest per session.
+  // Once the user closes it, don't reopen (even after navigating to recording and back).
   React.useEffect(() => {
     if (
       fiaPericopeId &&
+      currentQuestId &&
       fiaStepsData &&
       !fiaStepsLoading &&
-      !fiaDrawerAutoOpenedRef.current
+      !fiaDrawerDismissedQuests.has(currentQuestId)
     ) {
-      fiaDrawerAutoOpenedRef.current = true;
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, fiaStepsData, fiaStepsLoading]);
+  }, [fiaPericopeId, currentQuestId, fiaStepsData, fiaStepsLoading]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -4360,6 +4363,8 @@ export default function BibleAssetsView() {
                 from={verseSelectorState.from ?? 1}
                 to={verseSelectorState.to ?? verseCount}
                 ScrollViewComponent={GHScrollView}
+                formatLabel={formatVersePositionRef.current ?? undefined}
+                chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
                   addVerseSeparator(from, to);
                   // Clear recording selection when any label is added
@@ -4396,6 +4401,8 @@ export default function BibleAssetsView() {
                 availableVerses={getAvailableVerses()}
                 ScrollViewComponent={GHScrollView}
                 getMaxToForFrom={getMaxToForFrom}
+                formatLabel={formatVersePositionRef.current ?? undefined}
+                chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
                   addVerseSeparator(from, to);
                   // Clear recording selection when any label is added
@@ -4435,6 +4442,8 @@ export default function BibleAssetsView() {
                 }
                 ScrollViewComponent={GHScrollView}
                 getMaxToForFrom={getMaxToForFrom}
+                formatLabel={formatVersePositionRef.current ?? undefined}
+                chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
                   if (assetVerseSelectorState.assetId) {
                     addVerseSeparator(
@@ -4490,6 +4499,8 @@ export default function BibleAssetsView() {
                       selectedFrom
                     )
                   }
+                  formatLabel={formatVersePositionRef.current ?? undefined}
+                  chapterSequence={pericopeSequence ?? undefined}
                   onApply={async (from, to) => {
                     if (editSeparatorState.separatorKey) {
                       await updateVerseSeparator(
@@ -4521,7 +4532,12 @@ export default function BibleAssetsView() {
       {/* FIA Pericope Steps Drawer */}
       <FiaStepDrawer
         open={showFiaTextDrawer}
-        onOpenChange={setShowFiaTextDrawer}
+        onOpenChange={(open) => {
+          setShowFiaTextDrawer(open);
+          if (!open && currentQuestId) {
+            fiaDrawerDismissedQuests.add(currentQuestId);
+          }
+        }}
         projectId={currentProjectId}
         pericopeId={fiaPericopeId ?? undefined}
         questName={selectedQuest?.name}
