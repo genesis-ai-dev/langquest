@@ -363,7 +363,7 @@ export default function NextGenAssetsView() {
   const selectedAssetForRecording = React.useMemo(() => {
     const selectedAssetId = Array.from(selectedAssetIds)[0];
     return selectedAssetId
-      ? assets.find((asset) => asset.id === selectedAssetId) ?? null
+      ? (assets.find((asset) => asset.id === selectedAssetId) ?? null)
       : null;
   }, [selectedAssetIds, assets]);
 
@@ -497,7 +497,8 @@ export default function NextGenAssetsView() {
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
                       source_language_id: c.source_language_id,
-                      languoid_id: c.languoid_id ?? c.source_language_id ?? null,
+                      languoid_id:
+                        c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id]
@@ -512,7 +513,10 @@ export default function NextGenAssetsView() {
                 void refetch();
               } catch (e) {
                 console.error('Failed to batch merge assets', e);
-                RNAlert.alert(t('error'), 'Failed to merge assets. Please try again.');
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to merge assets. Please try again.'
+                );
               }
             })();
           }
@@ -1526,7 +1530,6 @@ export default function NextGenAssetsView() {
       </View>
     );
   }
-
 
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData

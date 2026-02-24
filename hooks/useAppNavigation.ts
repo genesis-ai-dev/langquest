@@ -36,6 +36,8 @@ export interface NavigationState {
     nextVerse?: number | null;
     limitVerse?: number | null;
     label?: string;
+    pericopeSequence?: { chapter: number; verse: number }[];
+    bookShortName?: string;
   };
 }
 
@@ -44,8 +46,7 @@ export function useAppNavigation() {
     navigationStack,
     setNavigationStack,
     addRecentQuest,
-    addRecentAsset,
-    enableVerseMarkers
+    addRecentAsset
   } = useLocalStore();
   const { t } = useLocalization();
 
@@ -184,10 +185,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
-      const assetView =
-        questData.projectData?.template === 'bible' && enableVerseMarkers
-          ? 'bible-assets'
-          : 'assets';
+      const usesVerseLabeling =
+        questData.projectData?.template === 'bible' ||
+        questData.projectData?.template === 'fia';
+      const assetView = usesVerseLabeling ? 'bible-assets' : 'assets';
       // Track recently visited
       addRecentQuest({
         id: questData.id,
@@ -224,7 +225,7 @@ export function useAppNavigation() {
         });
       }
     },
-    [currentState, navigate, addRecentQuest, goBackToView, enableVerseMarkers]
+    [currentState, navigate, addRecentQuest, goBackToView]
   );
 
   const goToAsset = useCallback(

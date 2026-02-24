@@ -49,6 +49,12 @@ import {
   useBibleBookCreation,
   useBibleBooks
 } from '@/hooks/useBibleBookCreation';
+import { useFiaBooks } from '@/hooks/useFiaBooks';
+import {
+  useFiaBookCreation,
+  useFiaBookQuests
+} from '@/hooks/useFiaBookCreation';
+import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
@@ -91,6 +97,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
+import { FiaBookList } from './FiaBookList';
+import { FiaPericopeList } from './FiaPericopeList';
 import { QuestListView } from './QuestListView';
 
 export default function ProjectDirectoryView() {
@@ -101,7 +109,7 @@ export default function ProjectDirectoryView() {
     currentBookId,
     currentProjectData
   } = useCurrentNavigation();
-  const { navigate, goBack } = useAppNavigation();
+  const { navigate, goBack, goToSettings } = useAppNavigation();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -112,6 +120,8 @@ export default function ProjectDirectoryView() {
   const [questListCloudLoading, setQuestListCloudLoading] =
     React.useState(false);
   const [chapterListCloudLoading, setChapterListCloudLoading] =
+    React.useState(false);
+  const [pericopeListCloudLoading, setPericopeListCloudLoading] =
     React.useState(false);
   const [questListFetching, setQuestListFetching] = React.useState(false);
 
@@ -404,16 +414,43 @@ export default function ProjectDirectoryView() {
   );
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
+  const enableFia = useLocalStore((state) => state.enableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
     useBibleBooks(template === 'bible' ? currentProjectId || '' : '');
+
+  // FIA: Fetch source languoid, FIA books from API, and existing book quests
+  const { sourceLanguoidId, isLoading: sourceLanguoidLoading } =
+    useProjectSourceLanguoid(template === 'fia' ? currentProjectId || '' : '');
+  const {
+    books: fiaBooks,
+    isLoading: fiaBooksLoading,
+    error: fiaError,
+    refetch: refetchFia
+  } = useFiaBooks(template === 'fia' ? sourceLanguoidId : null);
+  const fiaLoading = sourceLanguoidLoading || fiaBooksLoading;
+  const { books: existingFiaBookQuests = [] } = useFiaBookQuests(
+    template === 'fia' ? currentProjectId || '' : ''
+  );
+  const { findOrCreateBook: findOrCreateFiaBook } = useFiaBookCreation();
+
+  const existingFiaBookIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const bq of existingFiaBookQuests) {
+      const bookId = (bq.metadata as { fia?: { bookId?: string } })?.fia
+        ?.bookId;
+      if (bookId) ids.add(bookId);
+    }
+    return ids;
+  }, [existingFiaBookQuests]);
 
   // Aggregate all cloud loading states
   const isCloudLoading =
     projectCloudLoading ||
     questListCloudLoading ||
     chapterListCloudLoading ||
+    pericopeListCloudLoading ||
     booksCloudLoading;
 
   // Update global cloud loading state
@@ -473,6 +510,50 @@ export default function ProjectDirectoryView() {
       currentProjectTemplate,
       template,
       findOrCreateBook,
+      t
+    ]
+  );
+
+  // Handle FIA book selection
+  const handleFiaBookSelect = React.useCallback(
+    (bookId: string) => {
+      const bookExists = existingFiaBookIds.has(bookId);
+      if (bookExists || isMember) {
+        navigate({
+          view: 'quests',
+          projectId: currentProjectId,
+          projectName: currentProjectName,
+          projectTemplate: currentProjectTemplate,
+          bookId
+        });
+
+        // Find/create FIA book quest in background
+        if (isMember) {
+          const fiaBook = fiaBooks.find((b) => b.id === bookId);
+          if (fiaBook) {
+            findOrCreateFiaBook({
+              projectId: currentProjectId!,
+              bookId,
+              bookTitle: fiaBook.title,
+              pericopeCount: fiaBook.pericopes.length
+            }).catch((error: unknown) => {
+              console.error('Error finding/creating FIA book quest:', error);
+            });
+          }
+        }
+      } else {
+        RNAlert.alert(t('error'), t('membersOnlyCreate'));
+      }
+    },
+    [
+      existingFiaBookIds,
+      isMember,
+      navigate,
+      currentProjectId,
+      currentProjectName,
+      currentProjectTemplate,
+      fiaBooks,
+      findOrCreateFiaBook,
       t
     ]
   );
@@ -944,6 +1025,97 @@ export default function ProjectDirectoryView() {
       );
     }
 
+    // FIA project routing
+    if (template === 'fia') {
+      if (!enableFia) {
+        return (
+          <View className="flex-1 items-center justify-center gap-4 p-8">
+            <Icon
+              as={SettingsIcon}
+              size={40}
+              className="text-muted-foreground"
+            />
+            <Text variant="h4" className="text-center">
+              {t('fiaExperimentalTitle')}
+            </Text>
+            <Text className="text-center text-muted-foreground">
+              {t('fiaExperimentalDescription')}
+            </Text>
+            <Button variant="default" onPress={goToSettings}>
+              <Icon as={SettingsIcon} size={16} />
+              <Text>{t('openSettings')}</Text>
+            </Button>
+          </View>
+        );
+      }
+
+      if (!currentBookId) {
+        // Show FIA book list
+        return (
+          <View className="align-start flex-1">
+            <View className="flex-col items-center justify-between gap-3 p-4">
+              <View className="flex flex-row items-center gap-3">
+                <Icon as={BookOpenIcon} />
+                <Text variant="h4">{projectName}</Text>
+              </View>
+              {isPrivateProject && !isMember && currentUser && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => setShowPrivateAccessModal(true)}
+                >
+                  <Icon as={UserPlusIcon} size={16} />
+                  <Icon as={LockIcon} size={16} />
+                </Button>
+              )}
+            </View>
+            <FiaBookList
+              books={fiaBooks}
+              isLoading={fiaLoading}
+              error={fiaError}
+              existingBookIds={existingFiaBookIds}
+              canCreateNew={isMember}
+              onBookSelect={handleFiaBookSelect}
+              onRefresh={() => void refetchFia()}
+            />
+          </View>
+        );
+      }
+
+      // Show FIA pericope list for selected book
+      const selectedBook = fiaBooks.find((b) => b.id === currentBookId);
+      if (!selectedBook) {
+        // Book data may still be loading
+        return (
+          <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
+            <Button variant="ghost" size="sm" onPress={goBack}>
+              <Icon as={ArrowLeftIcon} />
+              <Text>Back</Text>
+            </Button>
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" />
+            </View>
+          </View>
+        );
+      }
+
+      return (
+        <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
+          <Button variant="ghost" size="sm" onPress={goBack}>
+            <Icon as={ArrowLeftIcon} />
+            <Text>Back</Text>
+          </Button>
+          <View className="w-full flex-1">
+            <FiaPericopeList
+              projectId={currentProjectId!}
+              book={selectedBook}
+              onCloudLoadingChange={setPericopeListCloudLoading}
+            />
+          </View>
+        </View>
+      );
+    }
+
     // Default unstructured project view
     return (
       <View className="flex-1 flex-col gap-4 p-4">
@@ -1072,11 +1244,11 @@ export default function ProjectDirectoryView() {
 
   return (
     <>
-      {template === 'bible' ? (
-        // Bible project - no Form/Drawer needed
+      {template === 'bible' || template === 'fia' ? (
+        // Bible/FIA project - no Form/Drawer needed (quests come from structured content)
         <View className="flex-1">{renderContent()}</View>
       ) : (
-        // Non-Bible project - needs Form/Drawer for quest creation
+        // Unstructured project - needs Form/Drawer for quest creation
         <Drawer
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
