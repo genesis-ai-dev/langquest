@@ -134,6 +134,8 @@ export const localizations = {
     english: 'Options',
     spanish: 'Opciones',
     brazilian_portuguese: 'Opções',
+    tok_pisin: 'Ol options',
+    indonesian: 'Opsi',
     nepali: 'विकल्पहरू',
     hindi: 'विकल्प',
     burmese: 'ရွေးချယ်စရာများ',
@@ -288,6 +290,10 @@ export const localizations = {
   },
   newQuest: {
     english: 'New Quest',
+    spanish: 'Nueva Misión',
+    brazilian_portuguese: 'Nova Missão',
+    tok_pisin: 'Nupela Quest',
+    indonesian: 'Quest Baru',
     nepali: 'नयाँ क्वेस्ट',
     hindi: 'नया क्वेस्ट',
     burmese: 'Quest အသစ်',
@@ -296,6 +302,10 @@ export const localizations = {
   },
   questName: {
     english: 'Quest Name',
+    spanish: 'Nombre de la Misión',
+    brazilian_portuguese: 'Nome da Missão',
+    tok_pisin: 'Nem bilong Quest',
+    indonesian: 'Nama Quest',
     nepali: 'क्वेस्टको नाम',
     hindi: 'क्वेस्ट का नाम',
     burmese: 'Quest အမည်',
@@ -1043,6 +1053,18 @@ export const localizations = {
     thai: 'ปฏิเสธคำเชิญไม่สำเร็จ กรุณาลองอีกครั้ง',
     mandarin: '拒绝邀请失败。请重试。'
   },
+  mustBeOnlineToAcceptInvite: {
+    english: 'You must be online to accept an invitation',
+    spanish: 'Debes estar en línea para aceptar una invitación',
+    brazilian_portuguese: 'Você precisa estar online para aceitar um convite',
+    tok_pisin: 'Yu mas stap long internet bilong accept invitation',
+    indonesian: 'Anda harus online untuk menerima undangan',
+    nepali: 'आमन्त्रण स्वीकार गर्न तपाईं अनलाइनमा हुनुपर्छ',
+    hindi: 'आमंत्रण स्वीकार करने के लिए आपको ऑनलाइन होना होगा',
+    burmese: 'ဖိတ်ခေါ်မှုကို လက်ခံရန် သင်သည် အင်တာနက်ရှိရမည်',
+    thai: 'คุณต้องออนไลน์เพื่อยอมรับคำเชิญ',
+    mandarin: '您必须在线才能接受邀请'
+  },
   failedToVote: {
     english: 'Failed to submit vote',
     spanish: 'Error al enviar el voto',
@@ -1332,6 +1354,8 @@ export const localizations = {
     english: 'Project',
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto',
+    tok_pisin: 'Projek',
+    indonesian: 'Proyek',
     nepali: 'प्रोजेक्ट',
     hindi: 'परियोजना',
     burmese: 'စီမံကိန်း',
@@ -1484,6 +1508,8 @@ export const localizations = {
     english: 'Quest',
     spanish: 'Misión',
     brazilian_portuguese: 'Missão',
+    tok_pisin: 'Quest',
+    indonesian: 'Misi',
     nepali: 'क्वेस्ट',
     hindi: 'क्वेस्ट',
     burmese: 'Quest',
@@ -1851,28 +1877,28 @@ export const localizations = {
     mandarin: '将圣经翻译成您的语言'
   },
   createOtherProject: {
-    english: 'Other Translation',
-    spanish: 'Otra Traducción',
-    brazilian_portuguese: 'Outra Tradução',
-    tok_pisin: 'Narapela Translation',
-    indonesian: 'Terjemahan Lain',
-    nepali: 'अन्य अनुवाद',
-    hindi: 'अन्य अनुवाद',
-    burmese: 'အခြား ဘာသာပြန်ဆိုချက်',
-    thai: 'การแปลอื่นๆ',
-    mandarin: '其他翻译'
+    english: 'Custom Translation',
+    spanish: 'Traducción Personalizada',
+    brazilian_portuguese: 'Tradução Personalizada',
+    tok_pisin: 'Custom Translation',
+    indonesian: 'Terjemahan Kustom',
+    nepali: 'अनुकूलन अनुवाद',
+    hindi: 'कस्टम अनुवाद',
+    burmese: 'စိတ်ကြိုက် ဘာသာပြန်ဆိုချက်',
+    thai: 'การแปลที่กำหนดเอง',
+    mandarin: '自定义翻译'
   },
   createGeneralTranslationProject: {
-    english: 'Create a general translation project',
-    spanish: 'Crear un proyecto de traducción general',
-    brazilian_portuguese: 'Criar um projeto de tradução geral',
-    tok_pisin: 'Mekim wanpela project long translate ol samting',
-    indonesian: 'Buat proyek terjemahan umum',
-    nepali: 'सामान्य अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्',
-    hindi: 'एक सामान्य अनुवाद परियोजना बनाएं',
-    burmese: 'အထွေထွေ ဘာသာပြန်ဆိုချက် စီမံကိန်း ဖန်တီးပါ',
-    thai: 'สร้างโครงการแปลทั่วไป',
-    mandarin: '创建通用翻译项目'
+    english: 'Create a custom translation project',
+    spanish: 'Crear un proyecto de traducción personalizado',
+    brazilian_portuguese: 'Criar um projeto de tradução personalizado',
+    tok_pisin: 'Mekim wanpela custom project long translate ol samting',
+    indonesian: 'Buat proyek terjemahan kustom',
+    nepali: 'अनुकूलन अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्',
+    hindi: 'एक कस्टम अनुवाद परियोजना बनाएं',
+    burmese: 'စိတ်ကြိုက် ဘာသာပြန်ဆိုချက် စီမံကိန်း ဖန်တီးပါ',
+    thai: 'สร้างโครงการแปลที่กำหนดเอง',
+    mandarin: '创建自定义翻译项目'
   },
   selectProject: {
     english: 'Select Project',
@@ -2189,6 +2215,8 @@ export const localizations = {
     english: 'Voting',
     spanish: 'Votación',
     brazilian_portuguese: 'Votação',
+    tok_pisin: 'Voting',
+    indonesian: 'Pemungutan Suara',
     nepali: 'मतदान',
     hindi: 'मतदान',
     burmese: 'မဲပေးခြင်း',
@@ -2259,6 +2287,8 @@ export const localizations = {
     english: 'Asset',
     spanish: 'Recurso',
     brazilian_portuguese: 'Recurso',
+    tok_pisin: 'Asset',
+    indonesian: 'Aset',
     nepali: 'एसेट',
     hindi: 'एसेट',
     burmese: 'ပိုင်ဆိုင်မှု',
@@ -2303,7 +2333,11 @@ export const localizations = {
     brazilian_portuguese: 'selecionado(s)',
     tok_pisin: 'selected',
     indonesian: 'terpilih',
-    nepali: 'चयन गरिएको'
+    nepali: 'चयन गरिएको',
+    hindi: 'चयनित',
+    burmese: 'ရွေးချယ်ထားသည်',
+    thai: 'ที่เลือก',
+    mandarin: '已选择'
   },
   delete: {
     english: 'Delete',
@@ -2746,6 +2780,8 @@ export const localizations = {
     english: 'Report Project',
     spanish: 'Reportar Proyecto',
     brazilian_portuguese: 'Reportar Projeto',
+    tok_pisin: 'Reportim Projek',
+    indonesian: 'Laporkan Proyek',
     nepali: 'प्रोजेक्ट रिपोर्ट गर्नुहोस्',
     hindi: 'परियोजना रिपोर्ट करें',
     burmese: 'စီမံကိန်းကို သတင်းပို့ပါ',
@@ -2756,6 +2792,8 @@ export const localizations = {
     english: 'Report Quest',
     spanish: 'Reportar Quest',
     brazilian_portuguese: 'Reportar Quest',
+    tok_pisin: 'Reportim Quest',
+    indonesian: 'Laporkan Misi',
     nepali: 'क्वेस्ट रिपोर्ट गर्नुहोस्',
     hindi: 'क्वेस्ट रिपोर्ट करें',
     burmese: 'Quest ကို သတင်းပို့ပါ',
@@ -2766,6 +2804,8 @@ export const localizations = {
     english: 'Report Asset',
     spanish: 'Reportar Recurso',
     brazilian_portuguese: 'Reportar Recurso',
+    tok_pisin: 'Reportim Asset',
+    indonesian: 'Laporkan Aset',
     nepali: 'एसेट रिपोर्ट गर्नुहोस्',
     hindi: 'एसेट रिपोर्ट करें',
     burmese: 'ပိုင်ဆိုင်မှုကို သတင်းပို့ပါ',
@@ -2788,6 +2828,8 @@ export const localizations = {
     english: 'Report',
     spanish: 'Reportar',
     brazilian_portuguese: 'Reportar',
+    tok_pisin: 'Reportim',
+    indonesian: 'Laporkan',
     nepali: 'रिपोर्ट गर्नुहोस्',
     hindi: 'रिपोर्ट करें',
     burmese: 'သတင်းပို့ပါ',
@@ -4706,6 +4748,9 @@ export const localizations = {
       '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
       '{sender} solicitou participar do projeto "{project}" como {role}',
+    tok_pisin: '{sender} i askim long joinim projek "{project}" olsem {role}',
+    indonesian:
+      '{sender} telah meminta untuk bergabung dengan proyek "{project}" sebagai {role}',
     nepali:
       '{sender} ले "{project}" प्रोजेक्टमा {role} को रूपमा सामेल हुन अनुरोध गर्नुभयो',
     hindi:
@@ -6165,7 +6210,11 @@ export const localizations = {
     brazilian_portuguese: 'Depois de',
     tok_pisin: 'Despela',
     indonesian: 'Setelah',
-    nepali: 'बादमा'
+    nepali: 'बादमा',
+    hindi: 'बाद',
+    burmese: 'ပြီးနောက်',
+    thai: 'หลังจาก',
+    mandarin: '之后'
   },
   noLabelSelected: {
     english: 'No label selected',
@@ -6178,6 +6227,22 @@ export const localizations = {
     burmese: 'အညွှန်းတံဆိပ် ရွေးချယ်ထားခြင်း မရှိပါ',
     thai: 'ไม่ได้เลือกป้ายกำกับ',
     mandarin: '未选择标签'
+  },
+  readyToRecord: {
+    english: 'Ready to record',
+    spanish: 'Listo para grabar',
+    brazilian_portuguese: 'Pronto para gravar',
+    tok_pisin: 'Redi long rekodim',
+    indonesian: 'Siap untuk merekam',
+    nepali: 'रेकर्ड गर्न तयार छ'
+  },
+  recordingSession: {
+    english: 'Recording Session',
+    spanish: 'Sesión de Grabación',
+    brazilian_portuguese: 'Sessão de Gravação',
+    tok_pisin: 'Rekoding Sesen',
+    indonesian: 'Sesi Perekaman',
+    nepali: 'रेकर्डिङ सत्र'
   },
   startRecordingSession: {
     english: 'Start Recording Session',
@@ -7491,16 +7556,88 @@ export const localizations = {
     mandarin: '圣经'
   },
   unstructured: {
-    english: 'Unstructured',
-    spanish: 'No estructurado',
-    brazilian_portuguese: 'Não estruturado',
-    tok_pisin: 'Unstructured',
-    indonesian: 'Tidak terstruktur',
-    nepali: 'संरचना नभएको',
-    hindi: 'असंरचित',
-    burmese: 'ဖွဲ့စည်းမှု မရှိသော',
-    thai: 'ไม่มีโครงสร้าง',
-    mandarin: '非结构化'
+    english: 'Custom',
+    spanish: 'Personalizado',
+    brazilian_portuguese: 'Personalizado',
+    tok_pisin: 'Custom',
+    indonesian: 'Kustom',
+    nepali: 'अनुकूलन',
+    hindi: 'कस्टम',
+    burmese: 'စိတ်ကြိုက်',
+    thai: 'ที่กำหนดเอง',
+    mandarin: '自定义'
+  },
+  fia: {
+    english: 'FIA',
+    spanish: 'FIA',
+    brazilian_portuguese: 'FIA',
+    tok_pisin: 'FIA',
+    indonesian: 'FIA',
+    nepali: 'FIA',
+    hindi: 'FIA',
+    burmese: 'FIA',
+    thai: 'FIA',
+    mandarin: 'FIA'
+  },
+  fiaDescription: {
+    english: 'Familiarize-Internalize-Articulate',
+    spanish: 'Familiarizar-Internalizar-Articular',
+    brazilian_portuguese: 'Familiarizar-Internalizar-Articular',
+    tok_pisin: 'Familiarize-Internalize-Articulate',
+    indonesian: 'Familiarisasi-Internalisasi-Artikulasi',
+    nepali: 'परिचित-आन्तरिकीकरण-अभिव्यक्त',
+    hindi: 'परिचित-आंतरिकीकरण-अभिव्यक्त',
+    burmese: 'ရင်းနှီးကျွမ်းဝင်ခြင်း-အတွင်းသို့ထည့်သွင်းခြင်း-ဖော်ပြခြင်း',
+    thai: 'ทำความคุ้นเคย-ทำให้เป็นส่วนตัว-แสดงออก',
+    mandarin: '熟悉-内化-表达'
+  },
+  fiaContentLanguage: {
+    english: 'FIA content language',
+    spanish: 'Idioma del contenido FIA',
+    brazilian_portuguese: 'Idioma do conteúdo FIA',
+    tok_pisin: 'FIA content language',
+    indonesian: 'Bahasa konten FIA',
+    nepali: 'FIA सामग्री भाषा',
+    hindi: 'FIA सामग्री भाषा',
+    burmese: 'FIA အကြောင်းအရာ ဘာသာစကား',
+    thai: 'ภาษาของเนื้อหา FIA',
+    mandarin: 'FIA内容语言'
+  },
+  fiaComingSoon: {
+    english: 'FIA project creation coming soon',
+    spanish: 'Creación de proyectos FIA próximamente',
+    brazilian_portuguese: 'Criação de projetos FIA em breve',
+    tok_pisin: 'FIA project creation i kam',
+    indonesian: 'Pembuatan proyek FIA segera hadir',
+    nepali: 'FIA प्रोजेक्ट सिर्जना चाँडै आउँदैछ',
+    hindi: 'FIA परियोजना निर्माण जल्द ही आ रहा है',
+    burmese: 'FIA စီမံကိန်း ဖန်တီးမှု မကြာမီ ရောက်ရှိလာမည်',
+    thai: 'การสร้างโครงการ FIA เร็วๆ นี้',
+    mandarin: 'FIA项目创建即将推出'
+  },
+  createFiaProject: {
+    english: 'FIA Project',
+    spanish: 'Proyecto FIA',
+    brazilian_portuguese: 'Projeto FIA',
+    tok_pisin: 'FIA Project',
+    indonesian: 'Proyek FIA',
+    nepali: 'FIA प्रोजेक्ट',
+    hindi: 'FIA परियोजना',
+    burmese: 'FIA စီမံကိန်း',
+    thai: 'โครงการ FIA',
+    mandarin: 'FIA项目'
+  },
+  createFiaProjectDescription: {
+    english: 'Translate FIA content into your language',
+    spanish: 'Traduce contenido FIA a tu idioma',
+    brazilian_portuguese: 'Traduza conteúdo FIA para o seu idioma',
+    tok_pisin: 'Translatem FIA content long tok ples bilong yu',
+    indonesian: 'Terjemahkan konten FIA ke bahasa Anda',
+    nepali: 'FIA सामग्री तपाईंको भाषामा अनुवाद गर्नुहोस्',
+    hindi: 'FIA सामग्री को अपनी भाषा में अनुवाद करें',
+    burmese: 'FIA အကြောင်းအရာကို သင်၏ ဘာသာစကားသို့ ဘာသာပြန်ဆိုပါ',
+    thai: 'แปลเนื้อหา FIA เป็นภาษาของคุณ',
+    mandarin: '将FIA内容翻译成您的语言'
   },
   audioTracks: {
     english: 'Audio tracks',
@@ -9156,7 +9293,14 @@ export const localizations = {
     indonesian:
       'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
     nepali:
-      'डाटाबेसमा blob URL भएको {count} बिग्रिएको संलग्नक फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
+      'डाटाबेसमा blob URL भएको {count} बिग्रिएको संलग्नक फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।',
+    hindi:
+      'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिला। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
+    thai: 'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    mandarin:
+      '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
   foundCorruptedAttachmentsPlural: {
     english:
@@ -9170,7 +9314,14 @@ export const localizations = {
     indonesian:
       'Ditemukan {count} lampiran rusak dengan URL blob di database. Ini menyebabkan kesalahan sinkronisasi dan harus dibersihkan.',
     nepali:
-      'डाटाबेसमा blob URL भएका {count} बिग्रिएका संलग्नकहरू फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।'
+      'डाटाबेसमा blob URL भएका {count} बिग्रिएका संलग्नकहरू फेला पारियो। यसले सिंक त्रुटिहरू निम्त्याइरहेको छ र सफा गर्नुपर्छ।',
+    hindi:
+      'डेटाबेस में blob URL के साथ {count} दूषित संलग्नक मिले। ये सिंक त्रुटियां पैदा कर रहे हैं और इन्हें साफ किया जाना चाहिए।',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် blob URL များပါရှိသော {count} ပျက်စီးနေသော ဖိုင်တွဲများကို တွေ့ရှိပါသည်။ ဤအရာများသည် ထပ်တူပြုခြင်း အမှားများကို ဖြစ်စေပြီး ရှင်းလင်းရမည်။',
+    thai: 'พบไฟล์แนบที่เสียหาย {count} ไฟล์พร้อม URL ของ blob ในฐานข้อมูล สิ่งเหล่านี้กำลังทำให้เกิดข้อผิดพลาดในการซิงค์และควรทำความสะอาด',
+    mandarin:
+      '在数据库中发现 {count} 个带有 blob URL 的损坏附件。这些正在导致同步错误，应该清理。'
   },
   cleanAll: {
     english: 'Clean All ({count})',
@@ -9178,7 +9329,11 @@ export const localizations = {
     brazilian_portuguese: 'Limpar Tudo ({count})',
     tok_pisin: 'Klinim Olgeta ({count})',
     indonesian: 'Bersihkan Semua ({count})',
-    nepali: 'सबै सफा गर्नुहोस् ({count})'
+    nepali: 'सबै सफा गर्नुहोस् ({count})',
+    hindi: 'सभी साफ करें ({count})',
+    burmese: 'အားလုံး ရှင်းလင်းပါ ({count})',
+    thai: 'ทำความสะอาดทั้งหมด ({count})',
+    mandarin: '清理全部 ({count})'
   },
   cleaning: {
     english: 'Cleaning...',
@@ -9234,7 +9389,11 @@ export const localizations = {
     brazilian_portuguese: 'Ativos Associados ({count})',
     tok_pisin: 'Ol Asset i go wantaim ({count})',
     indonesian: 'Aset Terkait ({count})',
-    nepali: 'सम्बद्ध एसेटहरू ({count})'
+    nepali: 'सम्बद्ध एसेटहरू ({count})',
+    hindi: 'संबद्ध एसेट ({count})',
+    burmese: 'ဆက်စပ်သော ပိုင်ဆိုင်မှုများ ({count})',
+    thai: 'สินทรัพย์ที่เกี่ยวข้อง ({count})',
+    mandarin: '关联资产 ({count})'
   },
   contentLinks: {
     english: 'Content Links ({count})',
@@ -9242,7 +9401,11 @@ export const localizations = {
     brazilian_portuguese: 'Links de Conteúdo ({count})',
     tok_pisin: 'Ol Link bilong Content ({count})',
     indonesian: 'Tautan Konten ({count})',
-    nepali: 'सामग्री लिंकहरू ({count})'
+    nepali: 'सामग्री लिंकहरू ({count})',
+    hindi: 'सामग्री लिंक ({count})',
+    burmese: 'အကြောင်းအရာ လင့်ခ်များ ({count})',
+    thai: 'ลิงก์เนื้อหา ({count})',
+    mandarin: '内容链接 ({count})'
   },
   cleanThis: {
     english: 'Clean This',
@@ -9318,7 +9481,11 @@ export const localizations = {
     brazilian_portuguese: 'Falha ao limpar anexo: {error}',
     tok_pisin: 'I no inap klinim fayl: {error}',
     indonesian: 'Gagal membersihkan lampiran: {error}',
-    nepali: 'संलग्नक सफा गर्न असफल: {error}'
+    nepali: 'संलग्नक सफा गर्न असफल: {error}',
+    hindi: 'संलग्नक साफ करने में विफल: {error}',
+    burmese: 'ဖိုင်တွဲကို ရှင်းလင်း၍မရပါ: {error}',
+    thai: 'ล้างไฟล์แนบไม่สำเร็จ: {error}',
+    mandarin: '清理附件失败: {error}'
   },
   cleanAllCorruptedAttachments: {
     english: 'Clean All Corrupted Attachments',
@@ -9344,7 +9511,13 @@ export const localizations = {
     indonesian:
       'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'यसले {count} बिग्रिएको संलग्नक सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
+      'यसले {count} बिग्रिएको संलग्नक सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।',
+    hindi:
+      'यह {count} दूषित संलग्नक को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
+    burmese:
+      'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
+    thai: 'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin: '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   cleanAllConfirmPlural: {
     english:
@@ -9358,7 +9531,13 @@ export const localizations = {
     indonesian:
       'Ini akan membersihkan {count} lampiran rusak. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'यसले {count} बिग्रिएका संलग्नकहरू सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।'
+      'यसले {count} बिग्रिएका संलग्नकहरू सफा गर्नेछ। यो कार्य पूर्ववत गर्न सकिँदैन।',
+    hindi:
+      'यह {count} दूषित संलग्नकों को साफ करेगा। इस कार्य को पूर्ववत नहीं किया जा सकता।',
+    burmese:
+      'ဤအရာသည် {count} ပျက်စီးနေသော ဖိုင်တွဲများကို ရှင်းလင်းပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်ခြင်း မပြုလုပ်နိုင်ပါ။',
+    thai: 'นี่จะทำความสะอาดไฟล์แนบที่เสียหาย {count} ไฟล์ การกระทำนี้ไม่สามารถยกเลิกได้',
+    mandarin: '这将清理 {count} 个损坏的附件。此操作无法撤消。'
   },
   partialSuccess: {
     english: 'Partial Success',
@@ -11156,6 +11335,82 @@ export const localizations = {
     thai: 'อนุญาตให้รวมสินทรัพย์เสียงหลายรายการเป็นสินทรัพย์เดียว ใช้ด้วยความระมัดระวัง — ลำดับของส่วนอาจต้องปรับด้วยตนเองหลังจากรวม',
     mandarin:
       '允许将多个音频资产合并为单个资产。请谨慎使用 — 合并后可能需要手动调整片段顺序。'
+  },
+  enableFia: {
+    english: 'FIA Projects',
+    spanish: 'Proyectos FIA',
+    brazilian_portuguese: 'Projetos FIA',
+    tok_pisin: 'FIA Projek',
+    indonesian: 'Proyek FIA',
+    nepali: 'FIA परियोजनाहरू',
+    hindi: 'FIA परियोजनाएं',
+    burmese: 'FIA စီမံကိန်းများ',
+    thai: 'โครงการ FIA',
+    mandarin: 'FIA项目'
+  },
+  enableFiaDescription: {
+    english:
+      'Enable FIA project features. This is an experimental project type under active development.',
+    spanish:
+      'Habilitar las funciones de proyectos FIA. Este es un tipo de proyecto experimental en desarrollo activo.',
+    brazilian_portuguese:
+      'Ativar recursos de projetos FIA. Este é um tipo de projeto experimental em desenvolvimento ativo.',
+    tok_pisin:
+      'Openim ol FIA projek ficha. Dispela kain projek em i eksperimental na ol i wok long developim yet.',
+    indonesian:
+      'Aktifkan fitur proyek FIA. Ini adalah jenis proyek eksperimental yang sedang dalam pengembangan aktif.',
+    nepali:
+      'FIA परियोजना सुविधाहरू सक्षम गर्नुहोस्। यो सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो।',
+    hindi:
+      'FIA परियोजना सुविधाएं सक्षम करें। यह सक्रिय विकास के तहत एक प्रयोगात्मक परियोजना प्रकार है।',
+    burmese:
+      'FIA စီမံကိန်း အင်္ဂါရပ်များကို ဖွင့်ပါ။ ဤသည် တက်ကြွစွာ ဖွံ့ဖြိုးတိုးတက်နေသော စမ်းသပ်မှု စီမံကိန်း အမျိုးအစားတစ်ခု ဖြစ်သည်။',
+    thai: 'เปิดใช้งานฟีเจอร์โครงการ FIA นี่เป็นประเภทโครงการทดลองที่อยู่ระหว่างการพัฒนาอย่างต่อเนื่อง',
+    mandarin: '启用FIA项目功能。这是一个正在积极开发中的实验性项目类型。'
+  },
+  fiaExperimentalTitle: {
+    english: 'FIA Projects are Experimental',
+    spanish: 'Los proyectos FIA son experimentales',
+    brazilian_portuguese: 'Projetos FIA são experimentais',
+    tok_pisin: 'FIA Projek em i eksperimental',
+    indonesian: 'Proyek FIA bersifat eksperimental',
+    nepali: 'FIA परियोजनाहरू प्रयोगात्मक छन्',
+    hindi: 'FIA परियोजनाएं प्रयोगात्मक हैं',
+    burmese: 'FIA စီမံကိန်းများသည် စမ်းသပ်မှု ဖြစ်သည်',
+    thai: 'โครงการ FIA เป็นการทดลอง',
+    mandarin: 'FIA项目是实验性的'
+  },
+  fiaExperimentalDescription: {
+    english:
+      'To use this project, enable FIA Projects in Settings under Experimental Features.',
+    spanish:
+      'Para usar este proyecto, habilite Proyectos FIA en Configuración bajo Características Experimentales.',
+    brazilian_portuguese:
+      'Para usar este projeto, ative Projetos FIA em Configurações nas Funcionalidades Experimentais.',
+    tok_pisin:
+      'Bilong usim dispela projek, openim FIA Projek long Settings aninit long Experimental Features.',
+    indonesian:
+      'Untuk menggunakan proyek ini, aktifkan Proyek FIA di Pengaturan pada Fitur Eksperimental.',
+    nepali:
+      'यो परियोजना प्रयोग गर्न, सेटिङ्समा प्रयोगात्मक सुविधाहरू अन्तर्गत FIA परियोजनाहरू सक्षम गर्नुहोस्।',
+    hindi:
+      'इस परियोजना का उपयोग करने के लिए, सेटिंग्स में प्रयोगात्मक सुविधाओं के तहत FIA परियोजनाएं सक्षम करें।',
+    burmese:
+      'ဤစီမံကိန်းကို အသုံးပြုရန်၊ ဆက်တင်များတွင် စမ်းသပ်မှု အင်္ဂါရပ်များအောက်ရှိ FIA စီမံကိန်းများကို ဖွင့်ပါ။',
+    thai: 'เพื่อใช้โครงการนี้ ให้เปิดใช้งานโครงการ FIA ในการตั้งค่าภายใต้ฟีเจอร์ทดลอง',
+    mandarin: '要使用此项目，请在设置中的实验功能下启用FIA项目。'
+  },
+  openSettings: {
+    english: 'Open Settings',
+    spanish: 'Abrir configuración',
+    brazilian_portuguese: 'Abrir configurações',
+    tok_pisin: 'Openim Settings',
+    indonesian: 'Buka Pengaturan',
+    nepali: 'सेटिङ्हरू खोल्नुहोस्',
+    hindi: 'सेटिंग्स खोलें',
+    burmese: 'ဆက်တင်များကို ဖွင့်ပါ',
+    thai: 'เปิดการตั้งค่า',
+    mandarin: '打开设置'
   }
 } as const;
 

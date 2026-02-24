@@ -85,8 +85,7 @@ export function useAppNavigation() {
     assetName?: string;
     bookId?: string;
   }>();
-  const { addRecentQuest, addRecentAsset, enableVerseMarkers } =
-    useLocalStore();
+  const { addRecentQuest, addRecentAsset } = useLocalStore();
   const { t } = useLocalization();
 
   const currentView = useMemo(() => segmentsToView(segments), [segments]);
@@ -159,9 +158,10 @@ export function useAppNavigation() {
       questData?: Record<string, unknown>;
       projectData?: Record<string, unknown>;
     }) => {
-      const isBible =
-        questData.projectData?.template === 'bible' && enableVerseMarkers;
-      const assetView = isBible ? 'bible-assets' : 'assets';
+      const usesVerseLabeling =
+        questData.projectData?.template === 'bible' ||
+        questData.projectData?.template === 'fia';
+      const assetView = usesVerseLabeling ? 'bible-assets' : 'assets';
 
       addRecentQuest({
         id: questData.id,
@@ -183,7 +183,7 @@ export function useAppNavigation() {
         bookId: currentBookId || ''
       };
 
-      if (isBible) {
+      if (usesVerseLabeling) {
         router.push(href('/(app)/bible-quest/[questId]', routeParams));
       } else {
         router.push(href('/(app)/quest/[questId]', routeParams));
@@ -196,8 +196,7 @@ export function useAppNavigation() {
       currentProjectTemplate,
       currentBookId,
       router,
-      addRecentQuest,
-      enableVerseMarkers
+      addRecentQuest
     ]
   );
 
@@ -379,6 +378,25 @@ export function useAppNavigation() {
           })
       });
       crumbs.push({ label: currentAssetName, onPress: undefined });
+    } else if (
+      currentView === 'recording' &&
+      currentProjectName &&
+      currentQuestName
+    ) {
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
+      crumbs.push({
+        label: currentProjectName,
+        onPress: () =>
+          goToProject({
+            id: currentProjectId!,
+            name: currentProjectName,
+            template: currentProjectTemplate
+          })
+      });
+      crumbs.push({
+        label: currentQuestName,
+        onPress: goBack
+      });
     }
 
     return crumbs.length > 0
@@ -395,6 +413,7 @@ export function useAppNavigation() {
     goToProjects,
     goToProject,
     goToQuest,
+    goBack,
     t
   ]);
 

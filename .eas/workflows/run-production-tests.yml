@@ -111,7 +111,7 @@ jobs:
     type: maestro
     environment: production
     image: latest
-    runs_on: macos-medium
+    runs_on: macos-large
     params:
       record_screen: true
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}

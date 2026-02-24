@@ -170,8 +170,15 @@ export interface BibleMetadata {
 }
 
 /**
- * Tracking information for each recording session
+ * FIA-specific metadata for quests
+ * Used to identify FIA books and pericopes
  */
+export interface FiaMetadata {
+  bookId: string; // FIA book ID (e.g., 'mrk', 'mat')
+  pericopeId?: string; // FIA pericope ID (e.g., 'mrk-p1') - undefined for book-level quests
+  verseRange?: string; // e.g., '1:1-13' - only set for pericope-level quests
+}
+
 export interface RecordingSessionMetadata {
   id: string;
   created_at: string;
@@ -182,6 +189,7 @@ export interface RecordingSessionMetadata {
  */
 export interface QuestMetadata {
   bible?: BibleMetadata;
+  fia?: FiaMetadata;
   lastRecordingSessionId?: string;
   recordingSessions?: RecordingSessionMetadata[];
   // Add other metadata types here as needed
@@ -1354,6 +1362,7 @@ export function createRegionAliasTable<
       label_languoid_id: text()
         .notNull()
         .references(() => languoid.id),
+      name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       creator_id: text().references(() => profile.id),
       ...extraColumns
@@ -1361,6 +1370,7 @@ export function createRegionAliasTable<
     (table) => [
       index('region_alias_subject_idx').on(table.subject_region_id),
       index('region_alias_label_idx').on(table.label_languoid_id),
+      index('region_alias_name_idx').on(table.name),
       ...normalizeParams(extraConfig, table)
     ]
   );

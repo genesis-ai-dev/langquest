@@ -11,7 +11,10 @@ interface AudioContextType {
   playSound: (uri: string, audioId?: string) => Promise<void>;
   playSoundSequence: (uris: string[], audioId?: string) => Promise<void>;
   stopCurrentSound: () => Promise<void>;
+  pauseSound: () => Promise<void>;
+  resumeSound: () => Promise<void>;
   isPlaying: boolean;
+  isPaused: boolean;
   currentAudioId: string | null;
   position: number; // Keep for backward compatibility
   duration: number; // Keep for backward compatibility
@@ -25,6 +28,7 @@ const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [currentAudioId, setCurrentAudioId] = useState<string | null>(null);
   const [position, setPositionState] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -135,23 +139,39 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       playerRef.current = null;
     }
 
-    // Always reset state, even if soundRef.current is null
-    // This fixes the issue where pause state gets stuck
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioId(null);
     setPositionState(0);
     setDuration(0);
 
-    // Reset SharedValues via refs to satisfy React Compiler
     positionSharedRef.current.value = 0;
     durationSharedRef.current.value = 0;
   };
 
-  const setPosition = async (newPosition: number) => {
+  const pauseSound = async () => {
     if (playerRef.current && isPlaying) {
-      playerRef.current.seekTo(newPosition / 1000); // ms to seconds
+      clearPositionInterval();
+      isTrackingPositionRef.current.value = false;
+      playerRef.current.pause();
+      setIsPlaying(false);
+      setIsPaused(true);
+    }
+  };
+
+  const resumeSound = async () => {
+    if (playerRef.current && isPaused) {
+      playerRef.current.play();
+      setIsPlaying(true);
+      setIsPaused(false);
+      startPositionTracking();
+    }
+  };
+
+  const setPosition = async (newPosition: number) => {
+    if (playerRef.current && (isPlaying || isPaused)) {
+      playerRef.current.seekTo(newPosition / 1000);
       setPositionState(newPosition);
-      // Update SharedValues via refs to satisfy React Compiler
       cumulativePositionSharedRef.current.value = newPosition;
       positionSharedRef.current.value = newPosition;
     }
@@ -175,6 +195,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       durationSharedRef.current.value = 0;
       isTrackingPositionRef.current.value = false;
       setIsPlaying(false);
+      setIsPaused(false);
       setCurrentAudioId(null);
       setPositionState(0);
       setDuration(0);
@@ -220,6 +241,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       playerRef.current = player;
       setIsPlaying(true);
+      setIsPaused(false);
 
       if (audioId) {
         setCurrentAudioId(audioId);
@@ -262,8 +284,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           if (sequenceQueue.current.length > 0) {
             void playNextInSequence();
           } else {
-            // No more sounds in sequence
             setIsPlaying(false);
+            setIsPaused(false);
             setCurrentAudioId(null);
             setPositionState(0);
             positionSharedRef.current.value = 0;
@@ -335,7 +357,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         playSound,
         playSoundSequence,
         stopCurrentSound,
+        pauseSound,
+        resumeSound,
         isPlaying,
+        isPaused,
         currentAudioId,
         position,
         duration,

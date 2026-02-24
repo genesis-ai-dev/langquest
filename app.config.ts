@@ -144,7 +144,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     },
     runtimeVersion: {
       policy: 'appVersion'
-    }
+    },
+    buildCacheProvider: 'eas'
   });
 
 const withUseThirdPartySQLitePod: ConfigPlugin = (expoConfig) => {

@@ -129,7 +129,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   }, []);
 
   const stopRecording = useCallback(async () => {
-    if (!recorder.isRecording) return;
+    // Allow stopping from both active-recording and paused states
+    if (!recorder.isRecording && !isRecordingPaused) return;
 
     try {
       await recorder.stop();
@@ -150,7 +151,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     } catch (error) {
       console.error('Failed to stop recording:', error);
     }
-  }, [recorder, recordingUri, onRecordingComplete]);
+  }, [recorder, recordingUri, onRecordingComplete, isRecordingPaused]);
 
   // Keep ref up to date for status listener
   stopRecordingRef.current = stopRecording;
@@ -173,19 +174,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         setPermissionGranted(granted);
         if (!granted) return;
       }
-      resetRecording?.();
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true
-      });
 
-      // Resume recording if it was paused
+      // Resume recording if it was paused — skip audio mode changes
+      // to avoid disrupting the in-progress recording session on Android
       if (isRecordingPaused) {
         recorder.record();
         setIsRecordingActive(true);
         setIsRecordingPaused(false);
         return;
       }
+
+      resetRecording?.();
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true
+      });
 
       console.log('recording');
 
