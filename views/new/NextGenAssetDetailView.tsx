@@ -346,6 +346,12 @@ export default function NextGenAssetDetailView() {
       })
     | undefined;
 
+  // For local (unpublished) content, the current user is always the creator.
+  // useUserPermissions may initially return false for private projects because its
+  // internal query for creator_id hasn't resolved yet (race condition on first mount).
+  const isLocalContent = activeAsset?.source === 'local';
+  const canTranslate = canTranslateFromPermissions || isLocalContent;
+
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);
 
