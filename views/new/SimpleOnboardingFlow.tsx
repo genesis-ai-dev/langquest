@@ -191,7 +191,7 @@ export function SimpleOnboardingFlow({
         {/* Content */}
         <KeyboardAwareScrollView
           className="flex-1"
-          contentContainerClassName="p-6"
+          contentContainerClassName="p-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
           bottomOffset={96}
           extraKeyboardSpace={20}
         >
@@ -532,7 +532,7 @@ export function SimpleOnboardingFlow({
 
         {/* Footer with Back button */}
         {step !== 'vision' && step !== 'create-project-simple' && (
-          <View className="border-t border-border px-6 py-4">
+          <View className="border-t border-border px-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
             <Button variant="ghost" onPress={handleBack}>
               <Text>{t('back')}</Text>
             </Button>
