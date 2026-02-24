@@ -329,12 +329,14 @@ export default function NextGenAssetDetailView() {
 
   const translationLanguageId = targetLanguoidLink[0]?.languoid_id || '';
 
-  const { hasAccess: canTranslate, membership: translateMembership } =
-    useUserPermissions(
-      currentProjectId || '',
-      'translate',
-      Boolean(projectData?.private)
-    );
+  const {
+    hasAccess: canTranslateFromPermissions,
+    membership: translateMembership
+  } = useUserPermissions(
+    currentProjectId || '',
+    'translate',
+    Boolean(projectData?.private)
+  );
 
   // Determine which asset to display
   const activeAsset = offlineAsset?.[0] as
