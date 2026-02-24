@@ -90,8 +90,14 @@ export function ExportButton({
 
   // Don't show export button if feature flag is disabled or user doesn't have permissions
   // Wait for membership to load if we don't have passed membership
-  if (!enableQuestExport) {
-    // return null;
+  // Feature is no longer experimental
+  // if (!enableQuestExport) {
+  //     return null;
+  // }
+
+  // Allow export only for local content  
+  if(isQuestPublished) {
+    return null;
   }
 
   // If membership is still loading and we don't have passed membership, don't show button yet
@@ -186,7 +192,6 @@ export function ExportButton({
         currentQuestId={questId}
       />
 
-      {/* Fluxo antigo mantido para preservar funções atuais. */}
       <ExportTypeSelector
         visible={showTypeSelector}
         onClose={() => setShowTypeSelector(false)}

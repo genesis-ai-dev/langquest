@@ -776,7 +776,9 @@ export interface QuestAudioAssetItem {
   assetId: string;
   assetOrderIndex: number;
   assetName: string | null;
+  text: string | null;
   metadata: unknown;
+  languoidName: string | null;
   segmentOrder: number;
   uri: string;
   newFileName?: string;
@@ -811,8 +813,16 @@ export async function getQuestAudioUrisByAssetList(
     .where(inArray(asset.id, assetIds));
 
   const contentLinks = await system.db
-    .select()
+    .select({
+      asset_id: assetContentLinkLocal.asset_id,
+      audio: assetContentLinkLocal.audio,
+      order_index: assetContentLinkLocal.order_index,
+      created_at: assetContentLinkLocal.created_at,
+      text: assetContentLinkLocal.text,
+      languoid_name: languoid.name
+    })
     .from(assetContentLinkLocal)
+    .leftJoin(languoid, eq(assetContentLinkLocal.languoid_id, languoid.id))
     .where(
       and(
         inArray(assetContentLinkLocal.asset_id, assetIds),
@@ -883,7 +893,9 @@ export async function getQuestAudioUrisByAssetList(
           assetId: selectedAssetId,
           assetOrderIndex: assetInfo?.order_index ?? 0,
           assetName: assetInfo?.name ?? null,
+          text: contentLink.text ?? null,
           metadata: assetInfo?.metadata ?? null,
+          languoidName: contentLink.languoid_name ?? null,
           segmentOrder: contentLink.order_index || 0,
           uri: localUri,
           createdAt: contentLink.created_at

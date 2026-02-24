@@ -77,9 +77,9 @@ export default function SettingsView() {
     (state) => state.setEnableAiSuggestions
   );
   // const setEnablePlayAll = useLocalStore((state) => state.setEnablePlayAll);
-  const setEnableQuestExport = useLocalStore(
-    (state) => state.setEnableQuestExport
-  );
+  // const setEnableQuestExport = useLocalStore(
+  //   (state) => state.setEnableQuestExport
+  // );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
   );
@@ -126,10 +126,10 @@ export default function SettingsView() {
   // const handlePlayAllToggle = (value: boolean) => {
   //   setEnablePlayAll(value);
   // };
-  const handleQuestExportToggle = (value: boolean) => {
-    setEnableQuestExport(value);
-    console.log('Quest export:', value);
-  };
+  // const handleQuestExportToggle = (value: boolean) => {
+  //   setEnableQuestExport(value);
+  //   console.log('Quest export:', value);
+  // };
 
   const handleTranscriptionToggle = (value: boolean) => {
     setEnableTranscription(value);
@@ -292,15 +292,15 @@ export default function SettingsView() {
         //   value: enablePlayAll,
         //   onPress: () => handlePlayAllToggle(!enablePlayAll)
         // },
-        {
-          id: 'questExport',
-          title: t('questExport'),
-          description: t('questExportDescription'),
-          type: 'toggle',
-          value: enableQuestExport,
-          onPress: () => handleQuestExportToggle(!enableQuestExport),
-          disabled: !isOnline
-        },
+        // {
+        //   id: 'questExport',
+        //   title: t('questExport'),
+        //   description: t('questExportDescription'),
+        //   type: 'toggle',
+        //   value: enableQuestExport,
+        //   onPress: () => handleQuestExportToggle(!enableQuestExport),
+        //   disabled: !isOnline
+        // },
         {
           id: 'transcription',
           title: t('transcription'),

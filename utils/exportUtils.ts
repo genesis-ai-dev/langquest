@@ -33,6 +33,8 @@ export interface ExportAssetsCSVItem {
   assetName: string | null;
   metadata: unknown;
   segmentOrder: number;
+  text?: string | null;
+  languoidName?: string | null;
   newFileName?: string;
 }
 
@@ -146,26 +148,59 @@ function ensureUniqueFileNames(files: ExportArtifact[]): ExportArtifact[] {
   });
 }
 
+function getMetadataVerseForCsv(metadata: unknown): string {
+  const parsed = parseMetadata(metadata);
+  const verse = parsed?.verse as
+    | { from?: string | number; to?: string | number }
+    | string
+    | number
+    | null
+    | undefined;
+
+  if (!verse) return '';
+
+  if (typeof verse === 'string' || typeof verse === 'number') {
+    return `${verse}`;
+  }
+
+  const from = verse.from;
+  const to = verse.to;
+  if (from != null && to != null) {
+    return `v${from}-${to}`;
+  }
+  if (from != null) {
+    return `v${from}`;
+  }
+  if (to != null) {
+    return `v${to}`;
+  }
+
+  return '';
+}
+
 export async function generateExportAssetsCSVFile(
   items: ExportAssetsCSVItem[],
   fileNamePrefix = 'export-assets'
 ): Promise<ExportArtifact> {
-  const header = ['Asset Name', 'Metadata', 'Segment Order', 'fileName'].join(
-    ','
-  );
+  const header = [
+    'Asset Name',
+    'Metadata',
+    'Segment Order',
+    'Text',
+    'Languoid Name',
+    'fileName'
+  ].join(',');
 
   const rows = items.map((item) => {
-    const metadataText =
-      item.metadata == null
-        ? ''
-        : typeof item.metadata === 'string'
-          ? item.metadata
-          : JSON.stringify(item.metadata);
+    console.log('item', item.metadata);
+    const metadataText = getMetadataVerseForCsv(item.metadata);
 
     return [
       escapeCsvField(item.assetName ?? ''),
       escapeCsvField(metadataText),
       escapeCsvField(String(item.segmentOrder)),
+      escapeCsvField(item.text ?? ''),
+      escapeCsvField(item.languoidName ?? ''),
       escapeCsvField(item.newFileName ?? '')
     ].join(',');
   });

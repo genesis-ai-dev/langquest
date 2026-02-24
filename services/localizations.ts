@@ -7166,6 +7166,14 @@ export const localizations = {
     indonesian: 'Ekspor siap!',
     nepali: 'निर्यात तयार छ!'
   },
+  contentShared: {
+    english: 'Content shared successfully',
+    spanish: 'Contenido compartido con éxito',
+    brazilian_portuguese: 'Conteúdo compartilhado com sucesso',
+    tok_pisin: 'Konten i bin share gut',
+    indonesian: 'Konten berhasil dibagikan',
+    nepali: 'सामग्री सफलतापूर्वक साझा भयो'
+  },
   share: {
     english: 'Share',
     spanish: 'Compartir',

@@ -162,6 +162,13 @@ export function ExportQuestList({
           iosDialogTitle: quest?.name || 'Save export'
         });
       }
+
+      RNAlert.alert(
+        t('success'),
+        shareEnable
+          ? t('contentShared') || 'Content shared successfully'
+          : t('downloaded') || 'Files downloaded successfully'
+      );
     } catch (error) {
       RNAlert.alert(
         t('error'),

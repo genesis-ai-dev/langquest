@@ -3398,101 +3398,6 @@ export default function BibleAssetsView() {
     };
   }, []);
 
-  // OLD handlePlayAllAssets function - commented out (replaced by handlePlayAll)
-  // const handlePlayAllAssets = React.useCallback(async () => {
-  //   try {
-  //     const isPlayingAll =
-  //       audioContext.isPlaying &&
-  //       audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
-  //
-  //     if (isPlayingAll) {
-  //       await audioContext.stopCurrentSound();
-  //       setCurrentlyPlayingAssetId(null);
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //     } else {
-  //       if (assets.length === 0) {
-  //         console.warn('⚠️ No assets to play');
-  //         return;
-  //       }
-  //
-  //       // Collect all URIs from all assets in order, tracking which asset each URI belongs to
-  //       const allUris: string[] = [];
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //
-  //       // Build time ranges for each asset
-  //       let cumulativeTime = 0;
-  //       for (const asset of assets) {
-  //         const uris = await getAssetAudioUris(asset.id);
-  //         if (uris.length > 0) {
-  //           const assetStartTime = cumulativeTime;
-  //           assetOrderRef.current.push(asset.id);
-  //
-  //           // Add all URIs for this asset
-  //           for (const uri of uris) {
-  //             allUris.push(uri);
-  //             uriOrderRef.current.push(uri);
-  //             assetUriMapRef.current.set(uri, asset.id);
-  //
-  //             // Load duration for this URI
-  //             try {
-  //               const { sound } = await Audio.Sound.createAsync({ uri });
-  //               const status = await sound.getStatusAsync();
-  //               await sound.unloadAsync();
-  //               if (status.isLoaded) {
-  //                 const duration = status.durationMillis ?? 0;
-  //                 segmentDurationsRef.current.push(duration);
-  //                 cumulativeTime += duration;
-  //               } else {
-  //                 segmentDurationsRef.current.push(0);
-  //               }
-  //             } catch {
-  //               segmentDurationsRef.current.push(0);
-  //             }
-  //           }
-  //
-  //           // Store the time range for this asset
-  //           assetTimeRangesRef.current.push({
-  //             assetId: asset.id,
-  //             startMs: assetStartTime,
-  //             endMs: cumulativeTime
-  //           });
-  //
-  //           console.log(
-  //             `📊 Asset ${asset.id.slice(0, 8)}: ${Math.round(assetStartTime)}ms - ${Math.round(cumulativeTime)}ms (${uris.length} segments)`
-  //           );
-  //         }
-  //       }
-  //
-  //       if (allUris.length === 0) {
-  //         console.error('❌ No audio URIs found for any assets');
-  //         return;
-  //       }
-  //
-  //       console.log(
-  //         `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets (total: ${Math.round(cumulativeTime)}ms)`
-  //       );
-  //
-  //       // Start playing (AudioContext will handle sequence playback)
-  //       await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Failed to play all assets:', error);
-  //     setCurrentlyPlayingAssetId(null);
-  //     assetUriMapRef.current.clear();
-  //     assetOrderRef.current = [];
-  //     uriOrderRef.current = [];
-  //     segmentDurationsRef.current = [];
-  //   }
-  // }, [audioContext, getAssetAudioUris, assets]);
-
   // Handle play individual asset
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
@@ -3802,97 +3707,14 @@ export default function BibleAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
-      <Button variant="ghost" size="sm" className="self-start" onPress={goBack}>
-        <Icon as={ArrowLeftIcon} />
-        <Text>Back</Text>
-      </Button>
       <View className="flex flex-row items-center justify-between">
-        {/* Left side: Quest name + action buttons */}
+        <Button variant="ghost" size="sm" className="self-start" onPress={goBack}>
+          <Icon as={ArrowLeftIcon} />
+          <Text>Back</Text>
+        </Button>
         <View className="flex flex-row items-center gap-2">
-          <View className="flex flex-col">
-            {selectedQuest?.name && (
-              <Text className="text-xl font-semibold">
-                {selectedQuest.name.length > 25
-                  ? `${selectedQuest.name.slice(0, 25)}...`
-                  : selectedQuest.name}
-              </Text>
-            )}
-            <Text className="text-lg font-medium text-muted-foreground">
-              {t('assets')}
-            </Text>
-          </View>
 
-          {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={isRefreshing}
-            onPress={async () => {
-              setIsRefreshing(true);
-              console.log('🔄 Manually refreshing assets queries...');
-              await queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-              void refetch();
-              console.log('🔄 Assets queries invalidated');
-              // Stop animation after a brief delay
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 500);
-            }}
-          >
-            <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-            </Animated.View>
-          </Button>
-          {assets.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={() => handlePlayAll(selectedForRecording)}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
-                size={20}
-                className="text-primary"
-              />
-            </Button>
-          )}
-          {!isPublished && currentUser && (
-            <Button
-              variant="ghost"
-              size="icon"
-              // className="border-[1.5px] border-primary"
-              onPress={() => {
-                setNewLabelSelectorState({
-                  isOpen: true
-                });
-              }}
-              disabled={
-                !isOnline ||
-                verseCount === 0 ||
-                getAvailableVerses().length === 0
-              }
-            >
-              <Icon as={BookmarkPlusIcon} className="text-primary" />
-            </Button>
-          )}
-          {fiaPericopeId && (
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
-              onPress={() => setShowFiaTextDrawer(true)}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
-                className="text-primary-foreground"
-              />
-            </Pressable>
-          )}
-        </View>
 
-        {/* Right side: Publish/Export buttons (isolated) */}
         <View className="flex flex-row items-center gap-2">
           {/* OLD handlePlayAllAssets button - commented out (replaced by Library icon button) */}
           {/* {assets.length > 0 && (
@@ -4023,6 +3845,213 @@ export default function BibleAssetsView() {
             )
           )}
         </View>
+
+
+
+
+
+
+
+        </View>
+      </View>
+      <View className="flex flex-row items-center justify-between">
+        {/* Left side: Quest name + action buttons */}
+        <View className="flex flex-row items-center gap-2">
+          <View className="flex flex-col">
+            {selectedQuest?.name && (
+              <Text className="text-xl font-semibold">
+                {selectedQuest.name.length > 25
+                  ? `${selectedQuest.name.slice(0, 25)}...`
+                  : selectedQuest.name}
+              </Text>
+            )}
+            <Text className="text-lg font-medium text-muted-foreground">
+              {t('assets')}
+            </Text>
+          </View>
+
+          {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={isRefreshing}
+            onPress={async () => {
+              setIsRefreshing(true);
+              console.log('🔄 Manually refreshing assets queries...');
+              await queryClient.invalidateQueries({
+                queryKey: ['assets']
+              });
+              void refetch();
+              console.log('🔄 Assets queries invalidated');
+              // Stop animation after a brief delay
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 500);
+            }}
+          >
+            <Animated.View style={spinStyle}>
+              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+            </Animated.View>
+          </Button>
+          {assets.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => handlePlayAll(selectedForRecording)}
+              className="h-10 w-10"
+            >
+              <Icon
+                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                size={20}
+                className="text-primary"
+              />
+            </Button>
+          )}
+          {!isPublished && currentUser && (
+            <Button
+              variant="ghost"
+              size="icon"
+              // className="border-[1.5px] border-primary"
+              onPress={() => {
+                setNewLabelSelectorState({
+                  isOpen: true
+                });
+              }}
+              disabled={
+                !isOnline ||
+                verseCount === 0 ||
+                getAvailableVerses().length === 0
+              }
+            >
+              <Icon as={BookmarkPlusIcon} className="text-primary" />
+            </Button>
+          )}
+          {fiaPericopeId && (
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              onPress={() => setShowFiaTextDrawer(true)}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Right side: Publish/Export buttons (isolated) */}
+        {/* <View className="flex flex-row items-center gap-2">
+          {isPublished ? (
+            // Show cloud badge and export button if user is creator, member, or owner
+            canSeePublishedBadge ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 py-0"
+                  onPress={() => {
+                    RNAlert.alert(t('questSyncedToCloud'));
+                  }}
+                >
+                  <View className="flex-row items-center gap-0.5">
+                    <Icon as={CloudUpload} size={18} />
+                    <Icon as={CheckCheck} size={14} />
+                  </View>
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
+              </>
+            ) : (
+              // Show membership request button for non-members viewing published quest
+              isPrivateProject && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => setShowPrivateAccessModal(true)}
+                >
+                  <Icon as={UserPlusIcon} size={16} />
+                  <Icon as={LockIcon} size={16} />
+                </Button>
+              )
+            )
+          ) : (
+            // Only show publish/export buttons for authenticated users
+            currentUser && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={isPublishing || !isOnline || !isMember}
+                  onPress={() => {
+                    if (!isOnline) {
+                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
+                      return;
+                    }
+
+                    if (!isMember) {
+                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
+                      return;
+                    }
+
+                    if (!currentQuestId) {
+                      console.error('No current quest id');
+                      return;
+                    }
+
+                    // Use quest name if available, otherwise generic message
+                    const questName = selectedQuest?.name || 'this chapter';
+
+                    RNAlert.alert(
+                      t('publishChapter'),
+                      t('publishChapterMessage').replace(
+                        '{questName}',
+                        questName
+                      ),
+                      [
+                        {
+                          text: t('cancel'),
+                          style: 'cancel'
+                        },
+                        {
+                          text: t('publish'),
+                          style: 'default',
+                          onPress: () => {
+                            publishQuest();
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  {isPublishing ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={getThemeColor('primary')}
+                    />
+                  ) : (
+                    <Icon as={CloudUpload} />
+                  )}
+                </Button>
+                {currentQuestId && currentProjectId && (
+                  <ExportButton
+                    questId={currentQuestId}
+                    projectId={currentProjectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
+              </>
+            )
+          )}
+        </View> */}
       </View>
 
       <Input
