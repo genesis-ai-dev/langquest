@@ -4,7 +4,9 @@
  * Views use useCurrentNavigation() for read-only context and useAppNavigation() for navigation actions.
  */
 
+import { getLocalizedBookName } from '@/constants/bibleBookNames';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { SupportedLanguage } from '@/services/localizations';
 import type { RecordingData } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import type { Href } from 'expo-router';
@@ -86,7 +88,7 @@ export function useAppNavigation() {
     bookId?: string;
   }>();
   const { addRecentQuest, addRecentAsset } = useLocalStore();
-  const { t } = useLocalization();
+  const { t, currentLanguage } = useLocalization();
 
   const currentView = useMemo(() => segmentsToView(segments), [segments]);
 
@@ -100,6 +102,20 @@ export function useAppNavigation() {
   const currentQuestName = (params.questName as string) || undefined;
   const currentAssetName = (params.assetName as string) || undefined;
   const currentBookId = (params.bookId as string) || undefined;
+
+  const currentBookName = useMemo(() => {
+    if (!currentBookId) return undefined;
+    if (
+      currentProjectTemplate === 'bible' ||
+      currentProjectTemplate === 'fia'
+    ) {
+      return getLocalizedBookName(
+        currentBookId,
+        currentLanguage as SupportedLanguage
+      ).name;
+    }
+    return undefined;
+  }, [currentBookId, currentProjectTemplate, currentLanguage]);
 
   // Navigation functions using expo-router
   const goBack = useCallback(() => {
@@ -135,12 +151,12 @@ export function useAppNavigation() {
         projectTemplate: projectData.template || ''
       });
 
-      // If deeper, dismiss back to projects then push
       if (
         currentProjectId === projectData.id &&
         (currentView === 'assets' ||
           currentView === 'asset-detail' ||
-          currentView === 'bible-assets')
+          currentView === 'bible-assets' ||
+          currentView === 'recording')
       ) {
         router.dismissTo(routeHref);
       } else {
@@ -275,11 +291,10 @@ export function useAppNavigation() {
     router.push(href('/(app)/download-status'));
   }, [router]);
 
-  // Generic navigate function for backward compatibility (recording, etc.)
+  // Generic navigate function for backward compatibility (recording, book selection, etc.)
   const navigate = useCallback(
     (newState: Partial<NavigationState>) => {
       if (newState.view === 'recording') {
-        // Store recording data in Zustand before navigating
         useLocalStore
           .getState()
           .setCurrentRecordingData(newState.recordingData || null);
@@ -293,15 +308,58 @@ export function useAppNavigation() {
             bookId: newState.bookId || currentBookId || ''
           })
         );
+      } else if (newState.view === 'projects') {
+        router.dismissTo(href('/(app)/'));
+      } else if (newState.view === 'quests') {
+        router.push(
+          href('/(app)/project/[projectId]', {
+            projectId: newState.projectId || currentProjectId || '',
+            projectName: newState.projectName || currentProjectName || '',
+            projectTemplate:
+              newState.projectTemplate || currentProjectTemplate || '',
+            bookId: newState.bookId || ''
+          })
+        );
+      } else if (newState.view === 'assets') {
+        router.push(
+          href('/(app)/quest/[questId]', {
+            questId: newState.questId || currentQuestId || '',
+            projectId: newState.projectId || currentProjectId || '',
+            projectName: newState.projectName || currentProjectName || '',
+            projectTemplate:
+              newState.projectTemplate || currentProjectTemplate || '',
+            questName: newState.questName || currentQuestName || '',
+            bookId: newState.bookId || currentBookId || ''
+          })
+        );
+      } else if (newState.view === 'bible-assets') {
+        router.push(
+          href('/(app)/bible-quest/[questId]', {
+            questId: newState.questId || currentQuestId || '',
+            projectId: newState.projectId || currentProjectId || '',
+            projectName: newState.projectName || currentProjectName || '',
+            projectTemplate:
+              newState.projectTemplate || currentProjectTemplate || '',
+            questName: newState.questName || currentQuestName || '',
+            bookId: newState.bookId || currentBookId || ''
+          })
+        );
+      } else if (newState.view === 'asset-detail') {
+        router.push(
+          href('/(app)/asset/[assetId]', {
+            assetId: newState.assetId || '',
+            assetName: newState.assetName || '',
+            projectId: newState.projectId || currentProjectId || '',
+            questId: newState.questId || currentQuestId || '',
+            projectName: newState.projectName || currentProjectName || '',
+            projectTemplate:
+              newState.projectTemplate || currentProjectTemplate || '',
+            questName: newState.questName || currentQuestName || '',
+            bookId: newState.bookId || currentBookId || ''
+          })
+        );
       } else if (newState.view) {
-        // Fallback for any other view navigation
-        const viewToRoute: Record<string, string> = {
-          projects: '/(app)/',
-          quests: '/(app)/project/',
-          assets: '/(app)/quest/',
-          'bible-assets': '/(app)/bible-quest/',
-          'asset-detail': '/(app)/asset/',
-          recording: '/(app)/recording',
+        const simpleRoutes: Record<string, string> = {
           profile: '/(app)/profile',
           notifications: '/(app)/notifications',
           settings: '/(app)/settings',
@@ -309,7 +367,7 @@ export function useAppNavigation() {
           'account-deletion': '/(app)/account-deletion',
           'download-status': '/(app)/download-status'
         };
-        const route = viewToRoute[newState.view];
+        const route = simpleRoutes[newState.view];
         if (route) {
           router.push(href(route));
         }
@@ -326,96 +384,118 @@ export function useAppNavigation() {
     ]
   );
 
-  // Breadcrumb navigation
+  // Breadcrumbs derived from current view + route params.
+  // Uses goToProjects (dismissTo root) for the home crumb.
+  // When a bible/fia book is in the path the stack has an extra
+  // project/[id]+bookId entry, so dismiss counts shift accordingly.
   const breadcrumbs = useMemo(() => {
     const crumbs: { label: string; onPress?: () => void }[] = [];
     const projectsLabel = t('projects');
+    const inProject =
+      currentView === 'quests' ||
+      currentView === 'assets' ||
+      currentView === 'bible-assets' ||
+      currentView === 'asset-detail' ||
+      currentView === 'recording';
+    const inQuest =
+      currentView === 'assets' ||
+      currentView === 'bible-assets' ||
+      currentView === 'asset-detail' ||
+      currentView === 'recording';
+    const hasBook = !!currentBookId && !!currentBookName;
+    const isOnChapterList = currentView === 'quests' && hasBook;
 
-    if (currentView === 'projects') {
-      crumbs.push({ label: projectsLabel, onPress: goToProjects });
-    } else if (currentView === 'quests' && currentProjectName) {
-      crumbs.push({ label: projectsLabel, onPress: goToProjects });
-      crumbs.push({ label: currentProjectName, onPress: undefined });
-    } else if (
-      (currentView === 'assets' || currentView === 'bible-assets') &&
-      currentProjectName &&
-      currentQuestName
-    ) {
-      crumbs.push({ label: projectsLabel, onPress: goToProjects });
-      crumbs.push({
-        label: currentProjectName,
-        onPress: () =>
+    // ── Projects crumb ──
+    crumbs.push({
+      label: projectsLabel,
+      onPress: inProject ? goToProjects : undefined
+    });
+
+    // ── Project crumb ──
+    if (inProject && currentProjectName) {
+      let projectOnPress: (() => void) | undefined;
+
+      if (isOnChapterList) {
+        // Chapter list → book list is 1 screen back
+        projectOnPress = goBack;
+      } else if (hasBook && inQuest) {
+        // Bible path: book list is deeper in the stack due to extra book entry
+        // Stack: index, project(books), project+bookId(chapters), quest, [asset/recording]
+        const screensToBookList: Record<string, number> = {
+          assets: 2,
+          'bible-assets': 2,
+          'asset-detail': 3,
+          recording: 3
+        };
+        const n = screensToBookList[currentView];
+        projectOnPress = n ? () => router.dismiss(n) : undefined;
+      } else if (inQuest && currentProjectId) {
+        // Non-bible: dismissTo the project route
+        projectOnPress = () =>
           goToProject({
-            id: currentProjectId!,
+            id: currentProjectId,
             name: currentProjectName,
             template: currentProjectTemplate
-          })
-      });
-      crumbs.push({ label: currentQuestName, onPress: undefined });
-    } else if (
-      currentView === 'asset-detail' &&
-      currentProjectName &&
-      currentQuestName &&
-      currentAssetName
-    ) {
-      crumbs.push({ label: projectsLabel, onPress: goToProjects });
-      crumbs.push({
-        label: currentProjectName,
-        onPress: () =>
-          goToProject({
-            id: currentProjectId!,
-            name: currentProjectName,
-            template: currentProjectTemplate
-          })
-      });
+          });
+      }
+
+      crumbs.push({ label: currentProjectName, onPress: projectOnPress });
+    }
+
+    // ── Book crumb (bible/fia only) ──
+    if (hasBook && (inQuest || isOnChapterList)) {
+      let bookOnPress: (() => void) | undefined;
+
+      if (currentView === 'assets' || currentView === 'bible-assets') {
+        // Chapter list is 1 screen back
+        bookOnPress = goBack;
+      } else if (
+        currentView === 'asset-detail' ||
+        currentView === 'recording'
+      ) {
+        // Chapter list is 2 screens back
+        bookOnPress = () => router.dismiss(2);
+      }
+      // On chapter list itself: not pressable (undefined)
+
+      crumbs.push({ label: currentBookName, onPress: bookOnPress });
+    }
+
+    // ── Quest crumb ──
+    if (inQuest && currentQuestName) {
       crumbs.push({
         label: currentQuestName,
-        onPress: () =>
-          goToQuest({
-            id: currentQuestId!,
-            project_id: currentProjectId!,
-            name: currentQuestName
-          })
-      });
-      crumbs.push({ label: currentAssetName, onPress: undefined });
-    } else if (
-      currentView === 'recording' &&
-      currentProjectName &&
-      currentQuestName
-    ) {
-      crumbs.push({ label: projectsLabel, onPress: goToProjects });
-      crumbs.push({
-        label: currentProjectName,
-        onPress: () =>
-          goToProject({
-            id: currentProjectId!,
-            name: currentProjectName,
-            template: currentProjectTemplate
-          })
-      });
-      crumbs.push({
-        label: currentQuestName,
-        onPress: goBack
+        onPress:
+          currentView === 'asset-detail' || currentView === 'recording'
+            ? goBack
+            : undefined
       });
     }
 
-    return crumbs.length > 0
-      ? crumbs
-      : [{ label: projectsLabel, onPress: goToProjects }];
+    // ── Asset crumb ──
+    if (currentView === 'asset-detail' && currentAssetName) {
+      crumbs.push({ label: currentAssetName });
+    }
+
+    return crumbs;
   }, [
     currentView,
     currentProjectId,
     currentProjectName,
     currentProjectTemplate,
-    currentQuestId,
+    currentBookId,
+    currentBookName,
     currentQuestName,
     currentAssetName,
     goToProjects,
     goToProject,
-    goToQuest,
     goBack,
+    router,
     t
   ]);
+
+  // Make canGoBack reactive by recalculating when segments change
+  const canGoBack = useMemo(() => router.canGoBack(), [segments, router]);
 
   return {
     // Current state (read from route params)
@@ -426,6 +506,7 @@ export function useAppNavigation() {
     currentProjectName,
     currentProjectTemplate,
     currentBookId,
+    currentBookName,
     currentQuestName,
     currentAssetName,
 
@@ -452,7 +533,7 @@ export function useAppNavigation() {
 
     // Utilities
     breadcrumbs,
-    canGoBack: router.canGoBack()
+    canGoBack
   };
 }
 
@@ -469,6 +550,7 @@ export function useCurrentNavigation() {
     currentProjectName,
     currentProjectTemplate,
     currentBookId,
+    currentBookName,
     currentQuestName,
     currentAssetName,
     currentProjectData,
@@ -518,6 +600,7 @@ export function useCurrentNavigation() {
     currentAsset,
     currentProjectTemplate,
     currentBookId,
+    currentBookName,
     currentQuestName,
     currentAssetName,
     currentProjectName,

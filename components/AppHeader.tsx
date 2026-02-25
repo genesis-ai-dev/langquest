@@ -1,15 +1,18 @@
 import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
+import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter, useSegments } from 'expo-router';
 import {
   AlertTriangle,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CloudOff,
   HelpCircleIcon,
@@ -18,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -26,7 +30,8 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
-import { Button } from './ui/button';
+import { Button, OpacityPressable } from './ui/button';
+import { Text } from './ui/text';
 
 export default function AppHeader({
   drawerToggleCallback,
@@ -37,11 +42,24 @@ export default function AppHeader({
   isCloudLoading?: boolean;
   onOnboardingPress?: () => void;
 }) {
-  const {
-    breadcrumbs,
-    canGoBack: _canGoBack,
-    goBack: _goBack
-  } = useAppNavigation();
+  const router = useRouter();
+  const segments = useSegments();
+  const { goBack, breadcrumbs, currentView } = useAppNavigation();
+
+  // Get background HSL from generated-tokens.ts (format: "240 100% 98.04%")
+  const backgroundHsl = useThemeToken('background');
+
+  // Convert HSL format to hsla() with opacity
+  // Input: "240 100% 98.04%" -> Output: "hsla(240, 100%, 98.04%, opacity)"
+  const createHsla = (opacity: number): string => {
+    return `hsla(${backgroundHsl.replace(/\s+/g, ', ')}, ${opacity})`;
+  };
+
+  // Create opacity gradient from 0% to 100%
+  const opacityGradientColors: [string, string] = [
+    createHsla(0), // 0% opacity
+    createHsla(1) // 100% opacity
+  ];
 
   // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { t } = useLocalization();
@@ -163,11 +181,80 @@ export default function AppHeader({
       />
 
       <View className="flex-row items-center">
+        {/* Back Button */}
+
+        <View className="flex-1 flex-row gap-2 overflow-hidden">
+          {router.canGoBack() && currentView !== 'projects' && (
+            <Button variant="ghost" size="icon" onPress={goBack}>
+              <Icon as={ChevronLeftIcon} className="size-6" />
+            </Button>
+          )}
+          <View className="relative h-11 flex-1">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="flex-col justify-center"
+            >
+              <Text
+                className={cn(
+                  'max-w-[250px] text-ellipsis font-semibold text-foreground',
+                  breadcrumbs.length === 1 && 'text-lg'
+                )}
+                numberOfLines={1}
+                // ellipsizeMode="tail"
+              >
+                {breadcrumbs.at(breadcrumbs.length - 1)?.label}
+              </Text>
+              {breadcrumbs.length > 1 && (
+                <View className="flex-row items-center">
+                  {breadcrumbs.slice(0, -1).map((crumb, index) => (
+                    <View key={index} className="flex-row items-center">
+                      {index > 0 && (
+                        <View
+                          className="flex items-center justify-center"
+                          style={{ height: 20, width: 20 }}
+                        >
+                          <Icon
+                            as={ChevronRightIcon}
+                            className="size-4 text-muted-foreground"
+                          />
+                        </View>
+                      )}
+                      <OpacityPressable onPress={crumb.onPress} hitSlop={5}>
+                        <Text className="text-sm leading-5 text-muted-foreground">
+                          {crumb.label}
+                        </Text>
+                      </OpacityPressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            {/* Opacity fade overlay fixed at the right edge, overtop the ScrollView */}
+            {breadcrumbs.length > 1 && (
+              <LinearGradient
+                colors={opacityGradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 40,
+                  zIndex: 10,
+                  elevation: 10
+                }}
+              />
+            )}
+          </View>
+        </View>
         {/* Breadcrumbs */}
-        <View className="flex-1 flex-row items-center overflow-hidden">
+        {/* <View className="flex-1 flex-row items-center overflow-hidden">
           {Array.isArray(breadcrumbs) && breadcrumbs.length > 0
-            ? breadcrumbs.map((crumb, index) => {
-                const isLast = index === breadcrumbs.length - 1;
+            ? breadcrumbs.slice(-3).map((crumb, index, slicedBreadcrumbs) => {
+                const isLast = index === slicedBreadcrumbs.length - 1;
                 const isFirst = index === 0;
 
                 return (
@@ -227,7 +314,7 @@ export default function AppHeader({
                 );
               })
             : null}
-        </View>
+        </View> */}
 
         {/* Help/Onboarding Button */}
         {onOnboardingPress && (
@@ -251,11 +338,10 @@ export default function AppHeader({
             variant="ghost"
             size="icon"
             onPress={drawerToggleCallback}
-            className="relative size-8"
-            hitSlop={10}
+            className="relative"
             testID="app-drawer-menu-button"
           >
-            <Icon as={MenuIcon} className="size-6" />
+            <Icon as={MenuIcon} className="size-6 text-foreground" />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (

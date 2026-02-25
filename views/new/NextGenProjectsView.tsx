@@ -784,7 +784,7 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+        <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
           <View className="flex flex-col gap-4">
             {/* Tabs */}
             <Tabs
