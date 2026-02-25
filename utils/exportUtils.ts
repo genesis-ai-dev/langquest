@@ -1,4 +1,7 @@
+import type { ChapterVerse } from '@/constants/bibleStructure';
+import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { projectService } from '@/database_services/projectService';
+import { questService } from '@/database_services/questService';
 import { escapeCsvField } from '@/utils/backupUtils';
 import {
     concatenateAudioListToFile,
@@ -8,6 +11,7 @@ import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
+import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 
 export interface ExportArtifact {
   uri: string;
@@ -125,6 +129,44 @@ function getVerseSuffix(metadata: unknown): string | null {
   return `v${fromText}-${toText}`;
 }
 
+function getFIAVerseSuffix(
+  metadata: unknown,
+  fiaSequence: ChapterVerse[] | null
+): string | null {
+  const parsed = parseMetadata(metadata);
+  const verse = parsed?.verse as { from?: unknown; to?: unknown } | undefined;
+  if (!verse) return null;
+
+  const from = parseVersePosition(verse.from);
+  const to = parseVersePosition(verse.to);
+  if (from == null && to == null) return null;
+
+  if (!fiaSequence || fiaSequence.length === 0) {
+    return getVerseSuffix(metadata);
+  }
+
+  const fromLabel =
+    from != null ? formatPericopeVerseLabel('', fiaSequence, from) : null;
+  const toLabel = to != null ? formatPericopeVerseLabel('', fiaSequence, to) : null;
+
+  if (fromLabel && toLabel) {
+    const fromText = sanitizeNamePart(fromLabel);
+    const toText = sanitizeNamePart(toLabel);
+    if (!fromText || !toText) return null;
+    return fromText === toText ? `v${fromText}` : `v${fromText}-${toText}`;
+  }
+  if (fromLabel) {
+    const fromText = sanitizeNamePart(fromLabel);
+    return fromText ? `v${fromText}` : null;
+  }
+  if (toLabel) {
+    const toText = sanitizeNamePart(toLabel);
+    return toText ? `v${toText}` : null;
+  }
+
+  return getVerseSuffix(metadata);
+}
+
 function ensureUniqueFileNames(files: ExportArtifact[]): ExportArtifact[] {
   const counterByName = new Map<string, number>();
 
@@ -178,9 +220,52 @@ function getMetadataVerseForCsv(metadata: unknown): string {
   return '';
 }
 
+function parseVersePosition(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getMetadataVerseForFiaCsv(
+  assetMetadata: unknown,
+  fiaSequence: ChapterVerse[] | null
+): string {
+  const assetParsed = parseMetadata(assetMetadata);
+  const verse = assetParsed?.verse as { from?: unknown; to?: unknown } | undefined;
+  if (!verse) return '';
+
+  const from = parseVersePosition(verse.from);
+  const to = parseVersePosition(verse.to);
+  if (from == null && to == null) return '';
+
+  if (!fiaSequence || fiaSequence.length === 0) {
+    return getMetadataVerseForCsv(assetMetadata);
+  }
+
+  const fromLabel =
+    from != null ? formatPericopeVerseLabel('', fiaSequence, from) : null;
+  const toLabel =
+    to != null ? formatPericopeVerseLabel('', fiaSequence, to) : null;
+
+  if (fromLabel && toLabel) {
+    return fromLabel === toLabel ? fromLabel : `${fromLabel}-${toLabel}`;
+  }
+  if (fromLabel) return fromLabel;
+  if (toLabel) return toLabel;
+
+  return getMetadataVerseForCsv(assetMetadata);
+}
+
 export async function generateExportAssetsCSVFile(
   items: ExportAssetsCSVItem[],
-  fileNamePrefix = 'export-assets'
+  fileNamePrefix = 'export-assets',
+  projectTemplate?: string | null,
+  fiaSequence?: ChapterVerse[] | null
 ): Promise<ExportArtifact> {
   const header = [
     'Asset Name',
@@ -191,10 +276,14 @@ export async function generateExportAssetsCSVFile(
     'fileName'
   ].join(',');
 
-  const rows = items.map((item) => {
-    console.log('item', item.metadata);
-    const metadataText = getMetadataVerseForCsv(item.metadata);
 
+  const rows = items.map((item) => {
+    const metadataText =
+      projectTemplate === 'fia' && fiaSequence
+        ? getMetadataVerseForFiaCsv(item.metadata, fiaSequence)
+        : projectTemplate === 'bible'
+          ? getMetadataVerseForCsv(item.metadata)
+          : '';
     return [
       escapeCsvField(item.assetName ?? ''),
       escapeCsvField(metadataText),
@@ -242,6 +331,15 @@ export async function buildExportArtifacts({
   let files: ExportArtifact[] = [];
   let cleanupTargets: string[] = [];
   const currentDateTime = formatCurrentDateTime(new Date());
+  
+  let fiaSequence: ChapterVerse[] | null = null;
+  if (projectWithLanguoid?.project.template === 'fia' && questId) {
+    const quest = (await questService.getQuestById(questId)) as
+      | { metadata?: unknown }
+      | undefined;
+    fiaSequence = getFiaSequenceFromQuestMetadata(quest?.metadata);
+  }
+
   if (mergedFile) {
     const { outputPath: audioUri, audioItems } = await concatenateAudioListToFile(
       questId,
@@ -261,7 +359,12 @@ export async function buildExportArtifacts({
     ];
 
     if (includeCsvFile) {                 
-      const csvFile = await generateExportAssetsCSVFile(audioItems, `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`);
+      const csvFile = await generateExportAssetsCSVFile(
+        audioItems,
+        `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`,
+        projectWithLanguoid?.project.template,
+        fiaSequence
+      );
       files.push(csvFile);
     }   
     // Merged export generates a temporary artifact in cache.
@@ -291,7 +394,10 @@ export async function buildExportArtifacts({
         ? sanitizeNamePart(resolvedLanguoidName)
         : null;
       const safeAssetName = sanitizeNamePart(item.assetName ?? `asset-${item.assetId}`);
-      const verseSuffix = getVerseSuffix(item.metadata);
+      const verseSuffix =
+        projectWithLanguoid?.project.template === 'fia'
+          ? getFIAVerseSuffix(item.metadata, fiaSequence)
+          : getVerseSuffix(item.metadata);
       const nameParts = [
         safeQuestName,
         safeProjectName,
@@ -312,7 +418,12 @@ export async function buildExportArtifacts({
     });
 
     if (includeCsvFile) {
-        const csvFile = await generateExportAssetsCSVFile(audioItems, `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`);
+        const csvFile = await generateExportAssetsCSVFile(
+          audioItems,
+          `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`,
+          projectWithLanguoid?.project.template,
+          fiaSequence
+        );
         files.push(csvFile);
     }
   }

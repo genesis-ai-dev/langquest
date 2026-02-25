@@ -3705,6 +3705,7 @@ export default function BibleAssetsView() {
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
   const projectName = currentProjectData?.name || '';
 
+
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       <View className="flex flex-row items-center justify-between">
@@ -3716,25 +3717,6 @@ export default function BibleAssetsView() {
 
 
         <View className="flex flex-row items-center gap-2">
-          {/* OLD handlePlayAllAssets button - commented out (replaced by Library icon button) */}
-          {/* {assets.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={handlePlayAllAssets}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={
-                  audioContext.isPlaying &&
-                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                    ? PauseIcon
-                    : PlayIcon
-                }
-                size={20}
-              />
-            </Button>
-          )} */}
           {isPublished ? (
             // Show cloud badge and export button if user is creator, member, or owner
             canSeePublishedBadge ? (
@@ -3845,13 +3827,6 @@ export default function BibleAssetsView() {
             )
           )}
         </View>
-
-
-
-
-
-
-
         </View>
       </View>
       <View className="flex flex-row items-center justify-between">
