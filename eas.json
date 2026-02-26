@@ -12,8 +12,8 @@
       "environment": "development",
       "developmentClient": true,
       "ios": {
-        "simulator": true,
-        "distribution": "store"
+        // "simulator": true,
+        "distribution": "internal"
       }
     },
     "preview": {
