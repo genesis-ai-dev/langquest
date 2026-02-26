@@ -45,7 +45,10 @@ interface AudioContextType {
   ) => Promise<void>;
   stopCurrentSound: () => Promise<void>;
   waitForPlaybackEnd: (audioId: string) => Promise<void>;
+  pauseSound: () => Promise<void>;
+  resumeSound: () => Promise<void>;
   isPlaying: boolean;
+  isPaused: boolean;
   currentAudioId: string | null;
   position: number; // Keep for backward compatibility
   duration: number; // Keep for backward compatibility
@@ -69,6 +72,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const REACT_STATE_THROTTLE_MS = 100;
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [currentAudioId, setCurrentAudioId] = useState<string | null>(null);
   const [position, setPositionState] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -321,6 +325,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     await unloadPreloadedSegment();
 
     setIsPlayingState(false);
+    setIsPaused(false);
     setCurrentAudioIdState(null);
     setPositionState(0);
     setDuration(0);
@@ -330,8 +335,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     resolvePlaybackWaiters(finishingAudioId);
   };
 
-  const setPosition = async (newPosition: number) => {
+  const pauseSound = async () => {
     if (soundRef.current && isPlaying) {
+      soundRef.current.pause();
+      setIsPlayingState(false);
+      setIsPaused(true);
+    }
+  };
+
+  const resumeSound = async () => {
+    if (soundRef.current && isPaused) {
+      soundRef.current.play();
+      setIsPlayingState(true);
+      setIsPaused(false);
+    }
+  };
+
+  const setPosition = async (newPosition: number) => {
+    if (soundRef.current && (isPlaying || isPaused)) {
       await soundRef.current.seekTo(newPosition / 1000);
       setPositionState(newPosition);
       cumulativePositionSharedRef.current.value = newPosition;
@@ -362,6 +383,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       positionSharedRef.current.value = 0;
       durationSharedRef.current.value = 0;
       setIsPlayingState(false);
+      setIsPaused(false);
       resolvePlaybackWaiters(currentAudioIdRef.current);
       setCurrentAudioIdState(null);
       setPositionState(0);
@@ -412,6 +434,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       soundRef.current = sound;
+      setIsPaused(false);
 
       if (audioId) {
         setCurrentAudioIdState(audioId);
@@ -711,7 +734,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         playSoundSequence,
         stopCurrentSound,
         waitForPlaybackEnd,
+        pauseSound,
+        resumeSound,
         isPlaying,
+        isPaused,
         currentAudioId,
         position,
         duration,

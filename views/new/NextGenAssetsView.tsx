@@ -14,7 +14,11 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import { project, quest as questTable } from '@/db/drizzleSchema';
+import {
+  asset_content_link,
+  project,
+  quest as questTable
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import {
@@ -33,6 +37,7 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
+  ChevronRight,
   CloudUpload,
   FlagIcon,
   InfoIcon,
@@ -40,7 +45,6 @@ import {
   LockIcon,
   MicIcon,
   PauseIcon,
-  PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -48,7 +52,7 @@ import {
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -67,6 +71,9 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { renameAsset } from '@/database_services/assetService';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -80,8 +87,9 @@ import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
-import { AssetListItem } from './AssetListItem';
-import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
+import { AssetCardItem } from './AssetCardItem';
+import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
+import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 
 type Asset = typeof asset.$inferSelect;
@@ -91,6 +99,8 @@ type AssetQuestLink = Asset & {
   tag_ids?: string[] | undefined;
 };
 
+const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
+
 export default function NextGenAssetsView() {
   const {
     currentQuestId,
@@ -98,15 +108,20 @@ export default function NextGenAssetsView() {
     currentProjectData,
     currentQuestData
   } = useCurrentNavigation();
-  const { goBack } = useAppNavigation();
+  const { goBack, navigate } = useAppNavigation();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
-  // Selection mode for visual highlight (playAll start point)
-  const { selectedAssetIds, enterSelection, cancelSelection } =
-    useSelectionMode();
+  // Selection mode for batch operations and playAll start point
+  const {
+    isSelectionMode,
+    selectedAssetIds,
+    enterSelection,
+    toggleSelect,
+    cancelSelection
+  } = useSelectionMode();
 
   const [debouncedSearchQuery, searchQuery, setSearchQuery] = useDebouncedState(
     '',
@@ -117,6 +132,9 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
+  const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
+  const [renameAssetName, setRenameAssetName] = React.useState('');
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
   const [isOffloading, setIsOffloading] = React.useState(false);
@@ -137,6 +155,12 @@ export default function NextGenAssetsView() {
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
+  // Ref to allow stable onPlay callback in renderItem before handler declaration
+  const handlePlayAssetRef = React.useRef<
+    (assetId: string) => void | Promise<void>
+  >((_assetId: string) => {
+    // No-op: replaced by handlePlayAsset
+  });
 
   const currentPlayingAssetIdRef = React.useRef<string | null>(null);
 
@@ -207,18 +231,36 @@ export default function NextGenAssetsView() {
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
   const isPublished = selectedQuest?.source === 'synced';
 
-  // Handle single selection (for playAll start point) - always single selection
+  // Handle selection behavior:
+  // - Published: single selection for playAll start point
+  // - Unpublished: multi-selection for batch operations
   const handleToggleSelect = React.useCallback(
     (assetId: string) => {
-      // Single selection: if already selected, deselect. Otherwise, select only this one.
+      if (isPublished) {
+        if (selectedAssetIds.has(assetId)) {
+          cancelSelection();
+        } else {
+          cancelSelection();
+          toggleSelect(assetId);
+        }
+      } else {
+        toggleSelect(assetId);
+      }
+    },
+    [isPublished, selectedAssetIds, cancelSelection, toggleSelect]
+  );
+
+  const handleSelectForRecording = React.useCallback(
+    (assetId: string) => {
       if (selectedAssetIds.has(assetId)) {
         cancelSelection();
       } else {
-        // Select only this one (enterSelection clears previous and sets new)
-        enterSelection(assetId);
+        // Keep simple single-selection without entering selection mode
+        cancelSelection();
+        toggleSelect(assetId);
       }
     },
-    [selectedAssetIds, cancelSelection, enterSelection]
+    [selectedAssetIds, cancelSelection, toggleSelect]
   );
 
   // Query project data to get privacy status if not passed
@@ -256,8 +298,6 @@ export default function NextGenAssetsView() {
       }
     : queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
-
-  const [showRecording, setShowRecording] = React.useState(false);
 
   const { membership } = useUserPermissions(
     currentProjectId || '',
@@ -320,6 +360,13 @@ export default function NextGenAssetsView() {
     return Array.from(assetMap.values());
   }, [data.pages]);
 
+  const selectedAssetForRecording = React.useMemo(() => {
+    const selectedAssetId = Array.from(selectedAssetIds)[0];
+    return selectedAssetId
+      ? (assets.find((asset) => asset.id === selectedAssetId) ?? null)
+      : null;
+  }, [selectedAssetIds, assets]);
+
   const assetIds = React.useMemo(() => {
     return assets.map((asset) => asset.id).filter((id): id is string => !!id);
   }, [assets]);
@@ -359,6 +406,157 @@ export default function NextGenAssetsView() {
     });
   }, [queryClient]);
 
+  const handleRenameAsset = React.useCallback(
+    (assetId: string, currentName: string | null) => {
+      setRenameAssetId(assetId);
+      setRenameAssetName(currentName ?? '');
+      setShowRenameDrawer(true);
+    },
+    []
+  );
+
+  const handleBatchDeleteSelected = React.useCallback(() => {
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 1) return;
+
+    RNAlert.alert(
+      'Delete Assets',
+      `Are you sure you want to delete ${selectedAssets.length} asset${selectedAssets.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                for (const asset of selectedAssets) {
+                  await audioSegmentService.deleteAudioSegment(asset.id);
+                }
+
+                cancelSelection();
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+              } catch (e) {
+                console.error('Failed to batch delete assets', e);
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to delete assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, t, refetch]);
+
+  const handleBatchMergeSelected = React.useCallback(() => {
+    const selectedAssets = assets.filter(
+      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
+    );
+
+    if (selectedAssets.length < 2) return;
+
+    RNAlert.alert(
+      'Merge Assets',
+      `Are you sure you want to merge ${selectedAssets.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel'
+        },
+        {
+          text: 'Merge',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                if (!currentUser) return;
+
+                const target = selectedAssets[0]!;
+                const rest = selectedAssets.slice(1);
+                const contentLocal = resolveTable('asset_content_link', {
+                  localOverride: true
+                });
+
+                for (const src of rest) {
+                  const srcContent = await system.db
+                    .select()
+                    .from(asset_content_link)
+                    .where(eq(asset_content_link.asset_id, src.id));
+
+                  for (const c of srcContent) {
+                    if (!c.audio) continue;
+                    await system.db.insert(contentLocal).values({
+                      asset_id: target.id,
+                      source_language_id: c.source_language_id,
+                      languoid_id:
+                        c.languoid_id ?? c.source_language_id ?? null,
+                      text: c.text || '',
+                      audio: c.audio,
+                      download_profiles: [currentUser.id]
+                    });
+                  }
+
+                  await audioSegmentService.deleteAudioSegment(src.id);
+                }
+
+                cancelSelection();
+                void queryClient.invalidateQueries({ queryKey: ['assets'] });
+                void refetch();
+              } catch (e) {
+                console.error('Failed to batch merge assets', e);
+                RNAlert.alert(
+                  t('error'),
+                  'Failed to merge assets. Please try again.'
+                );
+              }
+            })();
+          }
+        }
+      ]
+    );
+  }, [
+    assets,
+    selectedAssetIds,
+    currentUser,
+    cancelSelection,
+    queryClient,
+    t,
+    refetch
+  ]);
+
+  const handleSaveRename = React.useCallback(
+    async (newName: string) => {
+      if (!renameAssetId) return;
+
+      try {
+        await renameAsset(renameAssetId, newName);
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+      } catch (error) {
+        console.error('❌ Failed to rename asset:', error);
+        if (error instanceof Error) {
+          console.warn('⚠️ Rename blocked:', error.message);
+          RNAlert.alert(t('error'), error.message);
+        }
+      }
+    },
+    [renameAssetId, queryClient, refetch, t]
+  );
+
+  const stableOnPlay = React.useCallback(
+    (assetId: string) => handlePlayAssetRef.current(assetId),
+    []
+  );
+
   const renderItem = React.useCallback(
     ({
       item,
@@ -367,8 +565,8 @@ export default function NextGenAssetsView() {
       item: AssetQuestLink & { source?: HybridDataSource };
       isPublished: boolean;
     }) => {
-      // Check if this asset is currently playing in PlayAll mode
-      const isPlaying = isPlayAllRunning && currentlyPlayingAssetId === item.id;
+      // Highlight/pause should work for both play-all and individual play
+      const isPlaying = currentlyPlayingAssetId === item.id;
 
       // Debug logging for highlighting
       if (isPlaying && __DEV__) {
@@ -377,18 +575,31 @@ export default function NextGenAssetsView() {
 
       const isSelected = selectedAssetIds.has(item.id);
 
+      // Highlight assets from the last recording session
+      const assetMeta = item.metadata as { recordingSessionId?: string } | null;
+      const isHighlighted =
+        !!assetMeta?.recordingSessionId &&
+        assetMeta.recordingSessionId ===
+          selectedQuest?.metadata?.lastRecordingSessionId;
+
       return (
         <>
-          <AssetListItem
+          <AssetCardItem
             key={item.id}
             asset={item}
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={currentQuestId || ''}
             isCurrentlyPlaying={isPlaying}
+            isHighlighted={isHighlighted && !isPublished}
+            onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
+            onRename={!isPublished ? handleRenameAsset : undefined}
+            isSelectionMode={!isPublished && isSelectionMode}
             isPublished={isPublished}
             isSelected={isSelected}
             onToggleSelect={handleToggleSelect}
+            onSelectForRecording={handleSelectForRecording}
+            onEnterSelection={!isPublished ? enterSelection : undefined}
           />
         </>
       );
@@ -396,11 +607,16 @@ export default function NextGenAssetsView() {
     [
       currentQuestId,
       safeAttachmentStates,
-      isPlayAllRunning,
       currentlyPlayingAssetId,
+      stableOnPlay,
       handleAssetUpdate,
+      handleRenameAsset,
+      isSelectionMode,
       selectedAssetIds,
-      handleToggleSelect
+      handleToggleSelect,
+      handleSelectForRecording,
+      enterSelection,
+      selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
 
@@ -974,6 +1190,60 @@ export default function NextGenAssetsView() {
     }
   }, [assets, getAssetAudioUris, selectedAssetIds]);
 
+  // Handle play individual asset (same behavior as BibleAssetsView)
+  const handlePlayAsset = React.useCallback(
+    async (assetId: string) => {
+      try {
+        const isThisAssetPlaying =
+          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+
+        if (isThisAssetPlaying) {
+          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
+          await audioContext.stopCurrentSound();
+          setCurrentlyPlayingAssetId(null);
+        } else {
+          console.log('▶️ Playing asset:', assetId.slice(0, 8));
+          const uris = await getAssetAudioUris(assetId);
+
+          if (uris.length === 0) {
+            console.warn('⚠️ No audio URIs found for asset:', assetId);
+            return;
+          }
+
+          // Visual feedback immediately
+          setCurrentlyPlayingAssetId(assetId);
+
+          if (uris.length === 1 && uris[0]) {
+            await audioContext.playSound(uris[0], assetId);
+          } else if (uris.length > 1) {
+            await audioContext.playSoundSequence(uris, assetId);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to play audio:', error);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [audioContext, getAssetAudioUris]
+  );
+
+  // Update ref so renderItem can use stable callback
+  handlePlayAssetRef.current = handlePlayAsset;
+
+  // Keep card highlight/pause in sync for individual playback.
+  // PlayAll manages currentlyPlayingAssetId directly, so skip while it's active.
+  React.useEffect(() => {
+    if (isPlayAllRunningRef.current) {
+      return;
+    }
+
+    if (audioContext.isPlaying && audioContext.currentAudioId) {
+      setCurrentlyPlayingAssetId(audioContext.currentAudioId);
+    } else if (!audioContext.isPlaying && !audioContext.currentAudioId) {
+      setCurrentlyPlayingAssetId(null);
+    }
+  }, [audioContext.isPlaying, audioContext.currentAudioId]);
+
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
@@ -1166,9 +1436,47 @@ export default function NextGenAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    // Now show recording
-    setShowRecording(true);
-  }, [audioContext]);
+    if (!currentQuestId) {
+      console.error('Cannot start recording without quest ID');
+      return;
+    }
+
+    // Create recording session and navigate to RecordingView
+    const recordingSessionId =
+      await createQuestRecordingSession(currentQuestId);
+    const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
+      if (typeof asset.order_index !== 'number') {
+        return maxOrder;
+      }
+      if (maxOrder === null || asset.order_index > maxOrder) {
+        return asset.order_index;
+      }
+      return maxOrder;
+    }, null);
+    const initialOrderIndex =
+      typeof selectedAssetForRecording?.order_index === 'number'
+        ? selectedAssetForRecording.order_index
+        : typeof lastOrderIndex === 'number'
+          ? (Math.floor(lastOrderIndex / 1000) + 1) * 1000
+          : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
+
+    navigate({
+      view: 'recording',
+      questId: currentQuestId,
+      projectId: currentProjectId,
+      recordingData: {
+        initialOrderIndex: initialOrderIndex,
+        recordingSession: recordingSessionId
+      }
+    });
+  }, [
+    audioContext,
+    navigate,
+    currentQuestId,
+    currentProjectId,
+    assets,
+    selectedAssetForRecording
+  ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
   // This prevents memory leaks when navigating away from the assets view
@@ -1214,21 +1522,6 @@ export default function NextGenAssetsView() {
       <View className="flex-1 items-center justify-center p-6">
         <Text>{t('noQuestSelected')}</Text>
       </View>
-    );
-  }
-
-  // Recording mode UI
-  if (showRecording) {
-    // Pass existing assets as initial data for instant rendering
-    return (
-      <RecordingViewSimplified
-        onBack={() => {
-          setShowRecording(false);
-          // Refetch to show newly recorded assets
-          void refetch();
-        }}
-        initialAssets={assets}
-      />
     );
   }
 
@@ -1381,14 +1674,14 @@ export default function NextGenAssetsView() {
                     <Icon as={CloudUpload} />
                   )}
                 </Button>
-                <Button
+                {/* <Button
                   variant="outline"
                   size="icon"
                   className="border-[1.5px] border-primary"
                   onPress={() => void handleGoToRecording()}
                 >
                   <Icon as={PencilIcon} className="text-primary" />
-                </Button>
+                </Button> */}
                 {currentQuestId && currentProjectId && (
                   <ExportButton
                     questId={currentQuestId}
@@ -1506,80 +1799,122 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished && currentUser && (
+      {/* Hide SpeedDial in selection mode */}
+      {!isSelectionMode && (
         <View
           style={{
-            paddingBottom: insets.bottom,
-            paddingRight: 75 // Leave space for SpeedDial on the right (24 margin + ~56 width + padding)
+            bottom: insets.bottom + 24,
+            ...(isPublished ? { right: 24 } : { left: 24 })
           }}
+          className="absolute z-50"
         >
-          <Button
-            variant="destructive"
-            size="lg"
-            className="w-full"
-            onPress={() => void handleGoToRecording()}
-          >
-            <Icon
-              as={MicIcon}
-              size={24}
-              className="text-destructive-foreground"
-            />
-            <Text className="ml-2 text-lg font-semibold text-destructive-foreground">
-              {t('doRecord')}
-            </Text>
-          </Button>
+          <SpeedDial>
+            <SpeedDialItems>
+              {/* For anonymous users, only show info button */}
+              {currentUser ? (
+                <>
+                  {allowSettings && isOwner ? (
+                    <SpeedDialItem
+                      icon={SettingsIcon}
+                      variant="outline"
+                      onPress={() => setShowSettingsModal(true)}
+                    />
+                  ) : !hasReported ? (
+                    <SpeedDialItem
+                      icon={FlagIcon}
+                      variant="outline"
+                      onPress={() => setShowReportModal(true)}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {/* Info button always visible */}
+              <SpeedDialItem
+                icon={InfoIcon}
+                variant="outline"
+                onPress={() => {
+                  console.log('📋 [Info] Opening details modal', {
+                    selectedQuest: selectedQuest?.id,
+                    isDownloaded: isQuestDownloaded,
+                    storageBytes: verificationState.estimatedStorageBytes
+                  });
+                  setShowDetailsModal(true);
+                  // Start verification to get storage estimate if quest is downloaded
+                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                    verificationState.startVerification();
+                  }
+                }}
+              />
+            </SpeedDialItems>
+            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
+          </SpeedDial>
         </View>
       )}
 
-      <View
-        style={{
-          bottom: insets.bottom + 24,
-          right: 24
-        }}
-        className="absolute z-[100]"
-      >
-        <SpeedDial>
-          <SpeedDialItems>
-            {/* For anonymous users, only show info button */}
-            {currentUser ? (
-              <>
-                {allowSettings && isOwner ? (
-                  <SpeedDialItem
-                    icon={SettingsIcon}
-                    variant="outline"
-                    onPress={() => setShowSettingsModal(true)}
-                  />
-                ) : !hasReported ? (
-                  <SpeedDialItem
-                    icon={FlagIcon}
-                    variant="outline"
-                    onPress={() => setShowReportModal(true)}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            {/* Info button always visible */}
-            <SpeedDialItem
-              icon={InfoIcon}
-              variant="outline"
-              onPress={() => {
-                console.log('📋 [Info] Opening details modal', {
-                  selectedQuest: selectedQuest?.id,
-                  isDownloaded: isQuestDownloaded,
-                  storageBytes: verificationState.estimatedStorageBytes
-                });
-                setShowDetailsModal(true);
-                // Start verification to get storage estimate if quest is downloaded
-                if (isQuestDownloaded && !verificationState.isVerifying) {
-                  verificationState.startVerification();
-                }
-              }}
+      {/* Sticky Record Button Footer - only show for authenticated users */}
+      {!isPublished &&
+        currentUser &&
+        (isSelectionMode ? (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50
+            }}
+            className="absolute bottom-0 left-0 right-0 z-40"
+          >
+            <RecordSelectionControls
+              selectedCount={selectedAssetIds.size}
+              onCancel={cancelSelection}
+              onMerge={handleBatchMergeSelected}
+              onDelete={handleBatchDeleteSelected}
             />
-          </SpeedDialItems>
-          <SpeedDialTrigger />
-        </SpeedDial>
-      </View>
+          </View>
+        ) : (
+          <View
+            style={{
+              paddingBottom: insets.bottom,
+              paddingRight: isSelectionMode ? 0 : 50
+            }}
+            className="px-2"
+          >
+            <Pressable
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              onPress={() => void handleGoToRecording()}
+            >
+              <Icon as={MicIcon} size={24} className="text-secondary" />
+              <View className="ml-2 flex-col items-start justify-start gap-0">
+                <Text className="text-center text-base font-semibold text-secondary">
+                  {t('startRecordingSession')}
+                </Text>
+                <Text className="w-full text-left text-sm text-secondary">
+                  {selectedAssetForRecording?.name
+                    ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
+                        0,
+                        30
+                      )
+                    : selectedQuest?.name
+                      ? selectedQuest.name.slice(0, 30)
+                      : t('doRecord')}
+                </Text>
+              </View>
+              <Icon as={ChevronRight} size={24} className="text-secondary" />
+            </Pressable>
+          </View>
+        ))}
+
+      {showRenameDrawer && (
+        <RenameAssetDrawer
+          isOpen={showRenameDrawer}
+          currentName={renameAssetName}
+          onOpenChange={(open) => {
+            setShowRenameDrawer(open);
+            if (!open) {
+              setRenameAssetId(null);
+            }
+          }}
+          onSave={handleSaveRename}
+        />
+      )}
 
       {allowSettings && isOwner && (
         <QuestSettingsModal

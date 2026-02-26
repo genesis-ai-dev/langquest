@@ -1,4 +1,3 @@
-import { QuestionModal } from '@/components/QuestionModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -6,7 +5,6 @@ import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
 import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useLocalStore } from '@/store/localStore';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
@@ -44,28 +42,6 @@ export function BibleBookList({
   const buttonWidth = 110;
   const gap = 12;
   const padding = 16;
-  const verseMarkersFeaturePrompted = useLocalStore(
-    (state) => state.verseMarkersFeaturePrompted
-  );
-  const setVerseMarkersFeaturePrompted = useLocalStore(
-    (state) => state.setVerseMarkersFeaturePrompted
-  );
-  const setEnableVerseMarkers = useLocalStore(
-    (state) => state.setEnableVerseMarkers
-  );
-  // Verse markers are now on by default — no longer prompt
-  const showPromptModal = false;
-
-  const handleYes = () => {
-    setVerseMarkersFeaturePrompted(true);
-    setEnableVerseMarkers(true);
-  };
-
-  const handleNo = () => {
-    setVerseMarkersFeaturePrompted(true);
-    setEnableVerseMarkers(false);
-  };
-
   const availableWidth = screenWidth - padding * 2;
   const buttonsPerRow = Math.max(
     2,
@@ -138,13 +114,6 @@ export function BibleBookList({
 
   return (
     <View className="mb-safe flex-1 gap-6">
-      <QuestionModal
-        visible={showPromptModal}
-        title={t('enableVerseLabelsQuestion')}
-        description={t('enableVerseLabelsDescription')}
-        onYes={handleYes}
-        onNo={handleNo}
-      />
       <LegendList
         data={allBooks}
         keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}
