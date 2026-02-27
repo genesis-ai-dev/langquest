@@ -65,7 +65,7 @@ export async function saveRecording(
       languoidId: targetLanguoidId,
       audio: [audioUri],
       text: assetName,
-      assetMetadata: metadata ? JSON.stringify(metadata) : null,
+      assetMetadata: metadata ?? null,
       shiftExisting: true
     });
   });

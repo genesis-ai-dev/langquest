@@ -46,7 +46,7 @@ export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type AssetContent = InferSelectModel<typeof asset_content_link>;
 export type Vote = InferSelectModel<typeof vote>;
 
-type AssetRowWithTagIds = AssetQuestLink & {
+type AssetRowWithTagIds = Omit<AssetQuestLink, 'tag_ids' | 'metadata'> & {
   tag_ids?: unknown;
   metadata?: unknown;
 };

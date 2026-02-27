@@ -28,7 +28,7 @@ import React from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { View } from 'react-native';
 
-interface RecordSelectionControlsProps extends SelectionControlsProps {
+interface RecordSelectionControlsProps extends Partial<SelectionControlsProps> {
   enableAssignVerse?: boolean;
   onAssignVerse?: () => void;
   onLayout?: (height: number) => void;
@@ -36,11 +36,11 @@ interface RecordSelectionControlsProps extends SelectionControlsProps {
 
 export const RecordSelectionControls = React.memo(
   function RecordSelectionControls({
-    selectedCount,
-    allSelected,
-    enableMerge,
-    showUnmerge,
-    canTrim,
+    selectedCount = 0,
+    allSelected = false,
+    enableMerge = false,
+    showUnmerge = false,
+    canTrim = false,
     onCancel,
     onMerge,
     onDelete,
@@ -67,7 +67,11 @@ export const RecordSelectionControls = React.memo(
       >
         {/* Top row: select all, count, cancel */}
         <View className="flex-row items-center">
-          <Button variant="default" onPress={onSelectAll} size="default">
+          <Button
+            variant="default"
+            onPress={onSelectAll ?? (() => undefined)}
+            size="default"
+          >
             <Icon as={allSelected ? ListX : ListChecks} />
           </Button>
           <Text
@@ -79,7 +83,7 @@ export const RecordSelectionControls = React.memo(
           </Text>
           <Button
             variant="ghost"
-            onPress={onCancel}
+            onPress={onCancel ?? (() => undefined)}
             size="icon"
             className="mr-1"
           >
@@ -98,7 +102,7 @@ export const RecordSelectionControls = React.memo(
             <Button
               variant="default"
               size="default"
-              onPress={onTrim}
+              onPress={onTrim ?? (() => undefined)}
               className="p-1"
             >
               <View className="flex-row items-center px-0">
@@ -111,7 +115,7 @@ export const RecordSelectionControls = React.memo(
             <Button
               variant="default"
               size="default"
-              onPress={onMerge}
+              onPress={onMerge ?? (() => undefined)}
               className="p-1"
             >
               <View className="flex-row items-center px-0">
@@ -124,7 +128,7 @@ export const RecordSelectionControls = React.memo(
             <Button
               variant="default"
               size="default"
-              onPress={onUnmerge}
+              onPress={onUnmerge ?? (() => undefined)}
               className="p-1"
             >
               <View className="flex-row items-center px-0">
@@ -137,7 +141,7 @@ export const RecordSelectionControls = React.memo(
           <Button
             variant="destructive"
             disabled={selectedCount < 1}
-            onPress={onDelete}
+            onPress={onDelete ?? (() => undefined)}
             size="default"
           >
             <Icon as={Trash2} />

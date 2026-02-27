@@ -189,10 +189,9 @@ export async function updateAssetMetadata(
     }
 
     // Safe to update - it's local only
-    const metadataStr = metadata ? JSON.stringify(metadata) : null;
     await system.db
       .update(assetLocalTable)
-      .set({ metadata: metadataStr })
+      .set({ metadata: metadata })
       .where(eq(assetLocalTable.id, assetId));
 
     console.log(`✅ Asset ${assetId.slice(0, 8)} metadata updated`);
@@ -279,13 +278,14 @@ export async function batchUpdateAssetMetadata(
 
     // Update each local asset
     for (const update of localUpdates) {
-      const setPayload: { metadata?: string | null; order_index?: number } = {};
+      const setPayload: {
+        metadata?: AssetMetadata | null;
+        order_index?: number;
+      } = {};
 
       // Only include metadata if explicitly provided
       if (update.metadata !== undefined) {
-        setPayload.metadata = update.metadata
-          ? JSON.stringify(update.metadata)
-          : null;
+        setPayload.metadata = update.metadata ?? null;
       }
 
       // Only include order_index if explicitly provided
@@ -468,7 +468,7 @@ export interface CreateLocalAssetParams {
   text: string;
   contentMetadata?: OpMetadata | null;
   trimMetadata?: string | null;
-  assetMetadata?: string | null;
+  assetMetadata?: AssetMetadata | null;
   shiftExisting?: boolean;
 }
 
