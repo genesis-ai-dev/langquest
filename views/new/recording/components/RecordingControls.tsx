@@ -17,7 +17,10 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useLocalization } from '@/hooks/useLocalization';
-import { Audio } from 'expo-av';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync
+} from 'expo-audio';
 import {
   CircleHelp,
   MicOffIcon,
@@ -100,7 +103,7 @@ export const RecordingControls = React.memo(
 
       const checkPermission = async () => {
         try {
-          const permission = await Audio.getPermissionsAsync();
+          const permission = await getRecordingPermissionsAsync();
           if (!cancelled) {
             const wasGranted = permission.granted;
             setHasPermission(wasGranted);
@@ -125,7 +128,7 @@ export const RecordingControls = React.memo(
     // Request permission handler
     const handleRequestPermission = async () => {
       try {
-        const permission = await Audio.requestPermissionsAsync();
+        const permission = await requestRecordingPermissionsAsync();
         const wasGranted = permission.granted;
         const wasPreviouslyDenied = previousPermissionRef.current === false;
 

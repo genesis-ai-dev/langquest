@@ -20,7 +20,7 @@ interface CustomDropdownProps {
   search?: boolean;
   searchPlaceholder?: string;
   containerStyle?: object;
-  renderLeftIcon?: (visible?: boolean) => React.ReactElement | null | undefined;
+  renderLeftIcon?: (visible?: boolean) => React.ReactElement | null;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({

@@ -329,12 +329,14 @@ export default function NextGenAssetDetailView() {
 
   const translationLanguageId = targetLanguoidLink[0]?.languoid_id || '';
 
-  const { hasAccess: canTranslate, membership: translateMembership } =
-    useUserPermissions(
-      currentProjectId || '',
-      'translate',
-      Boolean(projectData?.private)
-    );
+  const {
+    hasAccess: canTranslateFromPermissions,
+    membership: translateMembership
+  } = useUserPermissions(
+    currentProjectId || '',
+    'translate',
+    Boolean(projectData?.private)
+  );
 
   // Determine which asset to display
   const activeAsset = offlineAsset?.[0] as
@@ -343,6 +345,12 @@ export default function NextGenAssetDetailView() {
         images?: string[];
       })
     | undefined;
+
+  // For local (unpublished) content, the current user is always the creator.
+  // useUserPermissions may initially return false for private projects because its
+  // internal query for creator_id hasn't resolved yet (race condition on first mount).
+  const isLocalContent = activeAsset?.source === 'local';
+  const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);

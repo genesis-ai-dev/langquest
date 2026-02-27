@@ -1,6 +1,7 @@
+import { Button } from '@/components/ui/button';
 import { colors } from '@/styles/theme';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 interface Option {
   label: string;
@@ -29,7 +30,8 @@ export default function RadioSelect({
       {options.map((option) => {
         const selected = value === option.value;
         return (
-          <TouchableOpacity
+          <Button
+            variant="plain"
             key={option.value}
             style={styles.option}
             onPress={() => onChange(option.value)}
@@ -44,7 +46,7 @@ export default function RadioSelect({
             <Text style={[styles.label, { color: textColor }]}>
               {option.label}
             </Text>
-          </TouchableOpacity>
+          </Button>
         );
       })}
     </View>

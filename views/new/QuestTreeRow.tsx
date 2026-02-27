@@ -73,6 +73,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('downloadNow'),
+          isPreferred: true,
           onPress: () => {
             if (onDownloadClick) {
               onDownloadClick(quest.id);

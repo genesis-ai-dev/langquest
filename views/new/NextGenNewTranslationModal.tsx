@@ -585,7 +585,7 @@ export default function NextGenNewTranslationModal({
       RNAlert.alert(
         'No Source Text',
         'There is no source text to translate. Please select an asset with content.',
-        [{ text: 'OK' }]
+        [{ text: 'OK', isPreferred: true }]
       );
       return;
     }
@@ -594,7 +594,7 @@ export default function NextGenNewTranslationModal({
       RNAlert.alert(
         'Offline',
         'AI translation requires an internet connection. Please check your network and try again.',
-        [{ text: 'OK' }]
+        [{ text: 'OK', isPreferred: true }]
       );
       return;
     }
@@ -603,7 +603,7 @@ export default function NextGenNewTranslationModal({
       RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
-        [{ text: 'OK' }]
+        [{ text: 'OK', isPreferred: true }]
       );
       return;
     }

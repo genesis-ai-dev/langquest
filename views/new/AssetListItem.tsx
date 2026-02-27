@@ -28,6 +28,7 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
+import { Button } from '@/components/ui/button';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -240,16 +241,24 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                   isFlaggedForDownload={isDownloaded}
                   isLoading={isDownloading}
                   onPress={handleDownloadToggle}
-                  size={16}
+                  size={20}
                   iconColor="text-primary/50"
                 />
-                <Pressable onPress={handleOpenAsset}>
+                <Button
+                  variant="plain"
+                  size="auto"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleOpenAsset();
+                  }}
+                  hitSlop={2}
+                >
                   <Icon
                     as={SquareArrowOutUpRightIcon}
-                    size={16}
+                    size={20}
                     className="text-primary"
                   />
-                </Pressable>
+                </Button>
               </View>
             </View>
             {SHOW_DEV_ELEMENTS && (

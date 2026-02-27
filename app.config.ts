@@ -53,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.0.15',
+    version: '2.1.0',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),
@@ -76,7 +76,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       }
     },
     android: {
-      edgeToEdgeEnabled: true,
       adaptiveIcon: {
         foregroundImage: './assets/icons/adaptive-icon.png',
         monochromeImage: './assets/icons/adaptive-icon-mono.png',
@@ -111,6 +110,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-router',
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
+      'expo-asset',
+      'expo-audio',
       [
         'expo-splash-screen',
         {
@@ -143,7 +144,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     },
     runtimeVersion: {
       policy: 'appVersion'
-    }
+    },
+    buildCacheProvider: 'eas'
   });
 
 const withUseThirdPartySQLitePod: ConfigPlugin = (expoConfig) => {

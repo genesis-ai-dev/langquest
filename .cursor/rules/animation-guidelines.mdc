@@ -61,23 +61,28 @@ The goal is to make complex products accessible to newcomers without sacrificing
 A system of components housed within trays that expand, contract, and adapt in response to user actions:
 
 **Tray Initiation Rules:**
+
 - Trays are initiated by the user (tapping buttons, icons, or opening notifications)
 - They can appear standalone on top of any content, or emerge from within other components like buttons
 
 **Height Variation Rule:**
+
 - Each subsequent tray varies in height to make progression unmistakably clear
 - This constraint may require rewriting content or tweaking designs to make transitions apparent
 
 **Single Focus Rule:**
+
 - Each tray is dedicated to a singular piece of content (like educational text) or a primary action (like completing a checklist)
 - Every tray has a title capturing its function and an icon for dismissal/navigation
 
 **Context Preservation:**
+
 - Unlike full screen transitions that displace users, trays overlay content directly onto the current interface
 - Users aren't veering off course—they're diving deeper into their current context
 - Contextual continuity keeps flows feeling integrated rather than disjointed
 
 **When to Use Trays vs Full Screens:**
+
 - Use trays for transient actions that don't need permanent display
 - Especially helpful for confirmation steps and warnings that appear at the right time
 - Trays can serve as starting points for elaborate flows that transition to full screen
@@ -118,6 +123,7 @@ While speed is important, applying motion thoughtfully can enhance clarity and f
 **If a component is visible and will persist in the next phase, it should remain consistent.** Components should "travel" between screens rather than disappear and reappear.
 
 Examples:
+
 - Wallet cards move seamlessly between screens
 - Empty states keep unchanged text constant when only a portion needs updating
 - The same element animates into its new position rather than fading out/in
@@ -125,6 +131,7 @@ Examples:
 ### Connected State Transitions
 
 Create interactions where:
+
 - Trays morph into full screen views
 - Buttons glide across trays
 - Buttons morph into trays and back again
@@ -142,6 +149,7 @@ For actions where understanding is crucial (like sending money):
 ### The Cost of Removing Fluidity
 
 Without fluid animations:
+
 - The sense of connection is lost
 - Contextual continuity disappears
 - Actions feel like "digital whiplash"
@@ -162,6 +170,7 @@ Delight is about creating moments that resonate on a personal level—making sof
 ### The Foundation of Delight
 
 Before adding delightful moments:
+
 - Achieve consistent polish everywhere first
 - Users notice when parts of an app are less polished
 - Every part of the app deserves the same holistic design approach
@@ -173,11 +182,11 @@ Before adding delightful moments:
 
 The potential for delight increases as feature usage frequency decreases:
 
-| Feature Frequency | Delight Strategy |
-|------------------|------------------|
+| Feature Frequency          | Delight Strategy                                             |
+| -------------------------- | ------------------------------------------------------------ |
 | Daily use (sending tokens) | Focus on small, efficient touches that don't become tiresome |
-| Occasional use (settings) | Add satisfying interactions that reward exploration |
-| Rare use (wallet setup) | Create memorable, celebration-worthy moments |
+| Occasional use (settings)  | Add satisfying interactions that reward exploration          |
+| Rare use (wallet setup)    | Create memorable, celebration-worthy moments                 |
 
 **Why this works:** The "specialness of a moment" generally decreases with repeated encounters. Rare features benefit most from delightful surprises.
 
@@ -188,6 +197,7 @@ The potential for delight increases as feature usage frequency decreases:
 - The discovery process itself creates delight
 
 **Examples:**
+
 - QR code screen: Tapping triggers a gentle ripple effect
 - Swiping across QR code reveals a sequin-like transformation
 - Entering an amount exceeding balance triggers a playful easter egg
@@ -197,31 +207,35 @@ The potential for delight increases as feature usage frequency decreases:
 Match delight intensity to feature frequency:
 
 **High-frequency features (daily use):**
+
 - Commas visually shift place-to-place when inputting numbers
 - Small, efficient touches that don't become annoying
 
 **Medium-frequency features:**
+
 - Drag-and-drop with attractive stacking animations
 - Satisfying rather than tedious interactions
 
 **Low-frequency features (rare use):**
+
 - Wallet setup: Interactive animation marking the significant occasion
 - Backup completion: Confetti fills the screen as reward
 - Trash items: Visually tumble into a skeuomorphic trash can with sound effects
 
 ### Specific Delight Patterns
 
-| Feature | Delightful Touch |
-|---------|------------------|
-| First-time browser | Animated arrow guides toward creating a new tab |
-| Reordering items | Smooth drag-and-drop with stacking animations |
-| Stealth mode | Gentle shimmer effect signals hidden-but-updating values |
-| Price charts | Arrow flips direction alongside changing numbers |
-| Security tasks | Confetti rewards completion of essential tasks |
+| Feature            | Delightful Touch                                         |
+| ------------------ | -------------------------------------------------------- |
+| First-time browser | Animated arrow guides toward creating a new tab          |
+| Reordering items   | Smooth drag-and-drop with stacking animations            |
+| Stealth mode       | Gentle shimmer effect signals hidden-but-updating values |
+| Price charts       | Arrow flips direction alongside changing numbers         |
+| Security tasks     | Confetti rewards completion of essential tasks           |
 
 ### The Purpose of Delight
 
 Delightful moments are not just entertainment—they:
+
 - Value and reward the user's time and emotional investment
 - Transform mundane interactions into memorable ones
 - Create a familiar, friendly companion rather than just a tool
@@ -245,21 +259,7 @@ Delightful moments are not just entertainment—they:
 - **Consider Ease-In-Out:** Appropriate for elements that move and scale but stay on the screen.
 - **Avoid Linear:** Linear animations feel unnatural and lack energy; avoid them in 99% of cases.
 
-Use the following custom easing curves for a polished feel:
-
-```css
-/* Standard ease-out - good default for most animations */
---ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-
-/* Smooth ease-in-out for symmetrical animations */
---ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-
-/* Snappy ease for quick feedback */
---ease-snappy: cubic-bezier(0.2, 0, 0, 1);
-
-/* Spring-like bounce */
---ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-```
+Use these Custom easing curves for a polished feel exported from `@constants/animations.ts` - import `easeOut`, `easeInOut`, `easeSnappy`, or `easeSpring` for use with React Native Reanimated animations.
 
 ### Button Press Feedback
 
@@ -426,19 +426,16 @@ For interactive elements, spring physics feel more natural than duration-based a
 
 ### Accessibility
 
-- **Respect User Preferences:** Use media queries like `prefers-reduced-motion` to disable or reduce animations for users who prefer it.
+- **Respect User Preferences:** Use React Native Reanimated's reduced motion functionality to respect system accessibility settings. All animations should respect the user's reduced motion preferences by default.
 
-```css
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
+React Native Reanimated provides:
+
+- `ReduceMotion` enum (`System`, `Always`, `Never`) for configuring animation behavior
+- `reduceMotion` option in animation functions (`withTiming`, `withSpring`, `withDelay`, etc.)
+- `.reduceMotion()` method on layout animations (entering/exiting animations)
+- `useReducedMotion()` hook for conditional animation logic
+
+**Reference:** See the [React Native Reanimated Accessibility Guide](https://docs.swmansion.com/react-native-reanimated/docs/guides/accessibility/) for complete documentation, examples, and implementation details.
 
 ---
 
@@ -463,6 +460,7 @@ For interactive elements, spring physics feel more natural than duration-based a
 ### Delight Audit
 
 When implementing a feature, ask:
+
 1. How frequently will users encounter this?
 2. What's the appropriate intensity of delight?
 3. Is there an opportunity for surprise/discovery?
@@ -499,6 +497,7 @@ When implementing a feature, ask:
 ## Trade-offs and Commitment
 
 Creating this level of experience requires:
+
 - Conscious trade-offs in development speed
 - Obsessive attention to detail
 - Deep understanding of app navigation architecture
