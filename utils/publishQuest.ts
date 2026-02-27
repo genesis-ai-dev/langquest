@@ -450,9 +450,28 @@ export async function publishQuest(
       // 5. Insert quests (parents first, then target + children)
       const questColumns = getTableColumns(quest_synced);
 
+      // Only publish parents that don't already exist on the server.
+      // After a successful upload, there's a timing window before PowerSync
+      // syncs the server version back to quest_synced. Re-inserting during
+      // that window would re-queue the parent for upload, and the PUT's
+      // ON CONFLICT DO UPDATE path would fail the owner-only UPDATE RLS.
       if (parentQuestIds.length > 0) {
-        const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(parentQuestIds)}) AND source = 'local'`;
-        await tx.run(sql.raw(parentQuestQuery));
+        const { data: existingRemoteParents } =
+          await system.supabaseConnector.client
+            .from('quest')
+            .select('id')
+            .in('id', parentQuestIds);
+        const remoteParentIds = new Set(
+          (existingRemoteParents ?? []).map((r) => r.id as string)
+        );
+        const newParentIds = parentQuestIds.filter(
+          (id) => !remoteParentIds.has(id)
+        );
+
+        if (newParentIds.length > 0) {
+          const parentQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(newParentIds)}) AND source = 'local'`;
+          await tx.run(sql.raw(parentQuestQuery));
+        }
       }
 
       const nestedQuestQuery = `INSERT OR IGNORE INTO quest_synced(${questColumns}) SELECT ${questColumns} FROM quest_local WHERE id IN (${toColumns(nestedQuestsIds)}) AND source = 'local'`;

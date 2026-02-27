@@ -14,6 +14,7 @@ import { useLanguagesByRegion } from '@/hooks/useLanguagesByRegion';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useProjectsByLanguage } from '@/hooks/useProjectsByLanguage';
 import { useRegions } from '@/hooks/useRegions';
+import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -24,6 +25,7 @@ import {
   BookOpenIcon,
   ChurchIcon,
   GlobeIcon,
+  GraduationCapIcon,
   LanguagesIcon,
   PlusIcon,
   XIcon
@@ -59,12 +61,13 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const { goToProject } = useAppNavigation();
+  const enableFia = useLocalStore((s) => s.enableFia);
   const queryClient = useQueryClient();
   const _insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<Step>('region');
   const [projectType, setProjectType] = useState<
-    'bible' | 'unstructured' | null
+    'bible' | 'unstructured' | 'fia' | null
   >(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(
@@ -310,9 +313,16 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     setStep('create-project');
   };
 
-  const handleProjectTypeSelect = async (type: 'bible' | 'unstructured') => {
+  const handleProjectTypeSelect = async (
+    type: 'bible' | 'unstructured' | 'fia'
+  ) => {
     if (!selectedLanguageId) return;
     setProjectType(type);
+    if (type === 'fia') {
+      // FIA requires source language selection via the full create drawer
+      handleClose();
+      return;
+    }
     try {
       await createProject(selectedLanguageId);
     } catch (error) {
@@ -652,7 +662,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                   </Pressable>
                 </Card>
 
-                {/* Other Translation Project Card */}
+                {/* Custom Translation Project Card */}
                 <Card className="w-full">
                   <Pressable
                     onPress={() => handleProjectTypeSelect('unstructured')}
@@ -687,6 +697,43 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     </View>
                   </Pressable>
                 </Card>
+
+                {/* FIA Project Card (experimental) */}
+                {enableFia && (
+                  <Card className="w-full">
+                    <Pressable
+                      onPress={() => handleProjectTypeSelect('fia')}
+                      accessibilityRole="button"
+                    >
+                      <View className="flex-row items-center p-6">
+                        <View className="mr-6 h-16 w-16 items-center justify-center rounded-lg bg-muted">
+                          <Icon
+                            as={GraduationCapIcon}
+                            size={32}
+                            className="text-primary"
+                          />
+                        </View>
+                        <View className="flex-1 flex-col items-start">
+                          <Text
+                            variant="h4"
+                            className="mb-1"
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {t('createFiaProject')}
+                          </Text>
+                          <Text
+                            className="text-sm text-muted-foreground"
+                            numberOfLines={2}
+                            ellipsizeMode="tail"
+                          >
+                            {t('createFiaProjectDescription')}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </Card>
+                )}
               </View>
             </View>
           )}

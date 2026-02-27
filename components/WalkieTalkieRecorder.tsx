@@ -95,8 +95,8 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // When true, ignores new press events to prevent conflicting actions
   const isBusyRef = useRef(false);
 
-  // Track all recorded samples for final waveform data
-  const [recordedSamples, setRecordedSamples] = useState<number[]>([]);
+  // Track all recorded samples for final waveform data without re-renders
+  const recordedSamplesRef = useRef<number[]>([]);
 
   // Reanimated shared values for smooth UI-thread animations
   // scaleAnim removed - no scale animations
@@ -176,7 +176,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   // Append a live sample for recording playback
   const appendLiveSample = (amplitude01: number) => {
     const clampedAmplitude = Math.max(0.01, Math.min(1, amplitude01));
-    setRecordedSamples((prev) => [...prev, clampedAmplitude]);
+    recordedSamplesRef.current.push(clampedAmplitude);
     // Update SharedValue for waveform visualization during walkie-talkie recording
     // Note: SharedValues are designed to be mutated - this is intentional and correct
     if (energyShared) {
@@ -261,7 +261,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         setRecording(null);
       }
 
-      setRecordedSamples([]);
+      recordedSamplesRef.current = [];
 
       // Permission check removed - parent RecordingControls ensures canRecord=true
       // before this component is even rendered/interactive
@@ -296,6 +296,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       const result = await Audio.Recording.createAsync(options);
       const activeRecording = result.recording;
       activeRecording.setProgressUpdateInterval(9);
+      // activeRecording.setProgressUpdateInterval(30);
 
       // Check if we were cancelled during async setup (user released early)
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -373,7 +374,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       if (uri) {
         if (recordingDuration >= MIN_RECORDING_DURATION) {
-          const waveformData = [...recordedSamples];
+          const waveformData = [...recordedSamplesRef.current];
           onRecordingComplete(uri, recordingDuration, waveformData);
         } else {
           onRecordingDiscarded?.();
@@ -382,14 +383,14 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
       setRecording(null);
       setRecordingDuration(0);
-      setRecordedSamples([]);
+      recordedSamplesRef.current = [];
 
       onRecordingStop();
     } catch (error) {
       console.error('Failed to stop recording:', error);
       setRecording(null);
       setRecordingDuration(0);
-      setRecordedSamples([]);
+      recordedSamplesRef.current = [];
       onRecordingStop();
     }
   };
