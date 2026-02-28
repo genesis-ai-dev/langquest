@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguageCombobox } from '@/components/language-combobox';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
+import { getLanguoidById } from '@/hooks/db/useLanguoids';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -87,7 +88,9 @@ export default function ProfileView() {
 
   const formSchema = z
     .object({
-      selectedLanguoidId: z.uuid(t('selectLanguage')),
+      selectedLanguoidId: z
+        .union([z.uuid(t('selectLanguage')), z.literal('')])
+        .optional(),
       currentPassword: z.string().trim().optional(),
       newPassword: z.string().trim().optional(),
       confirmPassword: z.string().trim().optional(),
@@ -105,7 +108,7 @@ export default function ProfileView() {
         if (data.newPassword.length < 6) {
           ctx.addIssue({
             code: 'custom',
-            message: 'passwordMustBeAtLeast6Characters',
+            message: 'passwordMinLength',
             path: ['newPassword']
           });
         }
@@ -154,9 +157,23 @@ export default function ProfileView() {
     mutationFn: async (data: z.infer<typeof formSchema>) => {
       if (!currentUser) return;
 
+      // Validate languoid exists if provided
+      let validLanguoidId: string | undefined = undefined;
+      if (data.selectedLanguoidId && data.selectedLanguoidId.trim() !== '') {
+        const languoid = await getLanguoidById(data.selectedLanguoidId);
+        if (languoid) {
+          validLanguoidId = data.selectedLanguoidId;
+        } else {
+          console.warn(
+            `Languoid ${data.selectedLanguoidId} not found, skipping languoid update`
+          );
+          // Don't update languoid if it doesn't exist - this prevents FK constraint violation
+        }
+      }
+
       const updatedUser = await profileService.updateProfile({
         id: currentUser.id,
-        ui_languoid_id: data.selectedLanguoidId,
+        ...(validLanguoidId ? { ui_languoid_id: validLanguoidId } : {}),
         ...(isOnline && data.newPassword
           ? { password: data.newPassword.trim() }
           : {}),
@@ -178,7 +195,41 @@ export default function ProfileView() {
     },
     onError: (error) => {
       console.error('Error updating profile:', error);
-      RNAlert.alert(t('error'), t('failedUpdateProfile'));
+
+      // Extract error message from various error formats
+      let errorMessage = t('failedUpdateProfile');
+
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        // Check for specific password error
+        if (
+          errorMsg.includes('password') &&
+          errorMsg.includes('different') &&
+          errorMsg.includes('old')
+        ) {
+          errorMessage = t('passwordMustBeDifferent');
+        } else {
+          // For other errors, try to use the error message if it's meaningful
+          errorMessage = error.message || errorMessage;
+        }
+      } else {
+        // Handle non-Error objects that might have a message property
+        const errorObj = error as { message?: string } | null | undefined;
+        if (errorObj?.message) {
+          const errorMsg = errorObj.message.toLowerCase();
+          if (
+            errorMsg.includes('password') &&
+            errorMsg.includes('different') &&
+            errorMsg.includes('old')
+          ) {
+            errorMessage = t('passwordMustBeDifferent');
+          } else {
+            errorMessage = errorObj.message;
+          }
+        }
+      }
+
+      RNAlert.alert(t('error'), errorMessage);
     }
   });
 
@@ -471,9 +522,10 @@ export default function ProfileView() {
           name="selectedLanguoidId"
           render={({ field }) => (
             <FormItem>
-              <LanguageSelect
-                {...field}
+              <LanguageCombobox
+                value={field.value}
                 uiReadyOnly
+                toggleUILocalization
                 onChange={(languoid) => field.onChange(languoid.id)}
               />
               <FormMessage />
