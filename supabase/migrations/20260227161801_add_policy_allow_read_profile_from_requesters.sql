@@ -1,7 +1,7 @@
 -- ============================================================================
 -- RLS POLICY
 -- ============================================================================
-
+-- 
 -- Drop policy if it exists to ensure idempotency
 drop policy if exists "project members can read requesting user profile"
   on public.profile;
