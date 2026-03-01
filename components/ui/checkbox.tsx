@@ -11,12 +11,14 @@ function Checkbox({
   checkedClassName,
   indicatorClassName,
   iconClassName,
+  testID = 'checkbox',
   ...props
 }: CheckboxPrimitive.RootProps &
   React.RefAttributes<CheckboxPrimitive.RootRef> & {
     checkedClassName?: string;
     indicatorClassName?: string;
     iconClassName?: string;
+    testID?: string;
   }) {
   return (
     <CheckboxPrimitive.Root
@@ -31,6 +33,7 @@ function Checkbox({
         className
       )}
       hitSlop={DEFAULT_HIT_SLOP}
+      testID={testID}
       {...props}
     >
       <CheckboxPrimitive.Indicator

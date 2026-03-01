@@ -259,6 +259,7 @@ export default function AppHeader({
             onPress={drawerToggleCallback}
             className="relative size-8"
             hitSlop={10}
+            testID="app-drawer-menu-button"
           >
             <Icon as={MenuIcon} className="size-6" />
 

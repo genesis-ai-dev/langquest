@@ -62,6 +62,7 @@ export default function ResetPasswordView() {
       RNAlert.alert(t('success'), t('passwordResetSuccess'), [
         {
           text: t('ok'),
+          isPreferred: true,
           // Sign out and let auth context handle navigation to sign in
           // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
           // at next page.

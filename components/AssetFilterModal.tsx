@@ -11,7 +11,17 @@ import {
   sharedStyles,
   spacing
 } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/icon';
+import {
+  ChevronUp,
+  ChevronDown,
+  CheckCircle2,
+  Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Trash2
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -88,10 +98,10 @@ const CategorySection: React.FC<{
     <View>
       <TouchableOpacity style={styles.heading} onPress={onToggle}>
         <Text style={styles.headingText}>{category}</Text>
-        <Ionicons
-          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+        <Icon
+          as={isExpanded ? ChevronUp : ChevronDown}
           size={24}
-          color={colors.text}
+          className="text-foreground"
         />
       </TouchableOpacity>
 
@@ -106,11 +116,7 @@ const CategorySection: React.FC<{
               <Text style={styles.optionText}>{option.label}</Text>
               <View style={sharedStyles.checkboxContainer}>
                 {selectedOptions.includes(option.id) ? (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={24}
-                    color={colors.primary}
-                  />
+                  <Icon as={CheckCircle2} size={24} className="text-primary" />
                 ) : (
                   <View style={styles.emptyCheckbox} />
                 )}
@@ -242,11 +248,13 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                 onPress={() => setActiveTab('filter')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
-                    name="filter"
+                  <Icon
+                    as={Filter}
                     size={24}
-                    color={
-                      activeTab === 'filter' ? colors.primary : colors.text
+                    className={
+                      activeTab === 'filter'
+                        ? 'text-primary'
+                        : 'text-foreground'
                     }
                   />
                   {getActiveFiltersCount() > 0 && (
@@ -263,10 +271,12 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                 onPress={() => setActiveTab('sort')}
               >
                 <View style={styles.tabIconContainer}>
-                  <Ionicons
-                    name="swap-vertical"
+                  <Icon
+                    as={ArrowUpDown}
                     size={24}
-                    color={activeTab === 'sort' ? colors.primary : colors.text}
+                    className={
+                      activeTab === 'sort' ? 'text-primary' : 'text-foreground'
+                    }
                   />
                   {getActiveSortingCount() > 0 && (
                     <View style={sharedStyles.badge}>
@@ -333,14 +343,14 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                         )
                       }
                     >
-                      <Ionicons
-                        name={
+                      <Icon
+                        as={
                           sortingOptions[index]?.order === 'asc'
-                            ? 'arrow-up'
-                            : 'arrow-down'
+                            ? ArrowUp
+                            : ArrowDown
                         }
                         size={24}
-                        color={colors.text}
+                        className="text-foreground"
                       />
                     </TouchableOpacity>
                     {sortingOptions[index]?.field && (
@@ -348,10 +358,10 @@ export const AssetFilterModal: React.FC<AssetFilterModalProps> = ({
                         style={styles.removeButton}
                         onPress={() => handleSortingChange(index, null)}
                       >
-                        <Ionicons
-                          name="trash-outline"
+                        <Icon
+                          as={Trash2}
                           size={24}
-                          color={colors.error}
+                          className="text-destructive"
                         />
                       </TouchableOpacity>
                     )}

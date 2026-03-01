@@ -2,17 +2,13 @@
  * Recording Service - Database operations for audio recording
  *
  * MODEL LAYER - Handles all database writes for recording
- * Responsibilities:
- * - Insert new assets with proper order_index
- * - Shift existing assets when inserting in middle
- * - Create quest_asset_link and asset_content_link
- * - Maintain data integrity
+ * Delegates to createLocalAssetInTx for the actual insert logic.
  */
 
+import { createLocalAssetInTx } from '@/database_services/assetService';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq, gte } from 'drizzle-orm';
-import uuid from 'react-native-uuid';
+import { eq } from 'drizzle-orm';
 
 // Asset metadata interface (verse information)
 export interface AssetMetadata {
@@ -26,20 +22,18 @@ export interface AssetMetadata {
 export interface SaveRecordingParams {
   questId: string;
   projectId: string;
-  targetLanguoidId: string; // Changed from targetLanguageId to targetLanguoidId
+  targetLanguoidId: string;
   userId: string;
   orderIndex: number;
   audioUri: string;
-  assetName: string; // Pre-determined asset name (reserved to prevent duplicates)
-  metadata?: AssetMetadata | null; // Optional verse metadata
+  assetName: string;
+  metadata?: AssetMetadata | null;
 }
 
 /**
- * Save a new recording to the database
- * - Shifts existing assets if needed
- * - Creates asset, quest link, and content link
- * - Returns the new asset ID
- * - Asset name should be pre-determined and reserved by caller to prevent duplicates
+ * Save a new recording to the database.
+ * Shifts existing assets if needed, creates asset + quest link + content link.
+ * Returns the new asset ID.
  */
 export async function saveRecording(
   params: SaveRecordingParams
@@ -55,81 +49,24 @@ export async function saveRecording(
     metadata
   } = params;
 
-  const newAssetId = String(uuid.v4());
-
   console.log(
     `💾 Saving recording | name: ${assetName} | order_index: ${orderIndex}`
   );
 
+  let newAssetId: string = '';
+
   await system.db.transaction(async (tx) => {
-    const assetLocal = resolveTable('asset', { localOverride: true });
-    const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
-    const contentLocal = resolveTable('asset_content_link', {
-      localOverride: true
-    });
-
-    // 1. Shift existing assets at or after target order_index
-    const assetsToShift = await tx
-      .select({
-        id: assetLocal.id,
-        order_index: assetLocal.order_index
-      })
-      .from(assetLocal)
-      .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
-      .where(
-        and(
-          eq(linkLocal.quest_id, questId),
-          gte(assetLocal.order_index, orderIndex)
-        )
-      );
-
-    if (assetsToShift.length > 0) {
-      console.log(`  📊 Shifting ${assetsToShift.length} existing assets`);
-      for (const asset of assetsToShift) {
-        if (typeof asset.order_index === 'number') {
-          await tx
-            .update(assetLocal)
-            .set({ order_index: asset.order_index + 1 })
-            .where(eq(assetLocal.id, asset.id));
-        }
-      }
-    }
-
-    // 2. Insert new asset (source_language_id is deprecated, kept for backward compatibility)
-    const [newAsset] = await tx
-      .insert(assetLocal)
-      .values({
-        id: newAssetId,
-        name: assetName,
-        order_index: orderIndex,
-        source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
-        project_id: projectId,
-        creator_id: userId,
-        download_profiles: [userId],
-        metadata: metadata ? JSON.stringify(metadata) : null
-      })
-      .returning();
-
-    if (!newAsset) {
-      throw new Error('Failed to insert asset');
-    }
-
-    // 3. Link to quest
-    await tx.insert(linkLocal).values({
-      id: String(uuid.v4()),
-      quest_id: questId,
-      asset_id: newAssetId,
-      download_profiles: [userId]
-    });
-
-    // 4. Add audio content with languoid_id
-    await tx.insert(contentLocal).values({
-      asset_id: newAssetId,
-      source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
-      languoid_id: targetLanguoidId, // New languoid reference
-      text: assetName,
+    newAssetId = await createLocalAssetInTx(tx, {
+      name: assetName,
+      orderIndex,
+      questId,
+      projectId,
+      userId,
+      languoidId: targetLanguoidId,
       audio: [audioUri],
-      download_profiles: [userId]
+      text: assetName,
+      assetMetadata: metadata ?? null,
+      shiftExisting: true
     });
   });
 
