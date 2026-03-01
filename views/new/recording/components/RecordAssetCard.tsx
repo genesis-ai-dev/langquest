@@ -63,6 +63,7 @@ interface AssetCardProps {
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
+  fileType?: 'WAV' | 'M4A'; // Primary audio format label
   // Custom progress for play-all mode (0-100 percentage)
   // If provided, this overrides the default global progress calculation
   customProgress?: SharedValue<number>;
@@ -131,6 +132,7 @@ function RecordAssetCardInternal({
   hideButtons,
   duration,
   segmentCount,
+  fileType,
   customProgress,
   onPress,
   onLongPress,
@@ -383,6 +385,16 @@ function RecordAssetCardInternal({
             </View>
           </View>
 
+          {fileType && (
+            <View
+              className={cn('rounded px-2 py-0.5', themeColors.segmentBadge)}
+            >
+              <Text className="text-xs font-semibold text-primary">
+                {fileType}
+              </Text>
+            </View>
+          )}
+
           {/* Selection checkbox - only show for local assets in selection mode */}
           {isLocal &&
             (isSelectionMode ? (
@@ -436,6 +448,7 @@ export const RecordAssetCard = React.memo(
       // prev.progress removed - uses SharedValues now!
       prev.duration === next.duration &&
       prev.segmentCount === next.segmentCount &&
+      prev.fileType === next.fileType &&
       prev.canMergeDown === next.canMergeDown &&
       // Compare customProgress SharedValue reference (needed when it changes from undefined to SharedValue)
       prev.customProgress === next.customProgress &&

@@ -36,6 +36,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
 import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
+import { convertWavUriToM4a } from '@/utils/audioConversion';
 import {
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
@@ -1681,7 +1682,6 @@ const RecordingView = () => {
                 return next;
               });
             }
-
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
             const verseToTrack = verseToUse?.from ?? 999;
@@ -1773,7 +1773,13 @@ const RecordingView = () => {
       }
 
       debugLog('📼 VAD: Segment complete');
-      void handleRecordingComplete(uri, 0, []);
+      void (async () => {
+        const convertedUri = await convertWavUriToM4a(uri);
+        if (convertedUri !== uri) {
+          debugLog('🎛️ VAD: Converted segment to M4A before save');
+        }
+        await handleRecordingComplete(convertedUri, 0, []);
+      })();
     },
     [handleRecordingComplete]
   );
