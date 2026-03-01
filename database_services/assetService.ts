@@ -21,6 +21,8 @@ export interface AssetMetadata {
   recordingSessionId?: string;
 }
 
+type DbJsonRecord = Record<string, unknown>;
+
 /**
  * Update an asset's name - ONLY for local-only assets
  * @param assetId - The ID of the asset to rename
@@ -191,7 +193,7 @@ export async function updateAssetMetadata(
     // Safe to update - it's local only
     await system.db
       .update(assetLocalTable)
-      .set({ metadata: metadata })
+      .set({ metadata: (metadata ?? null) as DbJsonRecord | null })
       .where(eq(assetLocalTable.id, assetId));
 
     console.log(`✅ Asset ${assetId.slice(0, 8)} metadata updated`);
@@ -279,13 +281,13 @@ export async function batchUpdateAssetMetadata(
     // Update each local asset
     for (const update of localUpdates) {
       const setPayload: {
-        metadata?: AssetMetadata | null;
+        metadata?: DbJsonRecord | null;
         order_index?: number;
       } = {};
 
       // Only include metadata if explicitly provided
       if (update.metadata !== undefined) {
-        setPayload.metadata = update.metadata ?? null;
+        setPayload.metadata = (update.metadata ?? null) as DbJsonRecord | null;
       }
 
       // Only include order_index if explicitly provided
@@ -521,7 +523,7 @@ export async function createLocalAssetInTx(
       project_id: params.projectId,
       creator_id: params.userId,
       download_profiles: [params.userId],
-      metadata: params.assetMetadata ?? null
+      metadata: (params.assetMetadata ?? null) as DbJsonRecord | null
     })
     .returning();
 

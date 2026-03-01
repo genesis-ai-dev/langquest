@@ -67,11 +67,12 @@ export function useTrimModal({
   const [trimTargetAssetId, setTrimTargetAssetId] = React.useState<
     string | null
   >(null);
-  const [trimAssetAudio, setTrimAssetAudio] =
-    React.useState<AssetAudio | null>(null);
-  const [trimWaveform, setTrimWaveform] = React.useState<
-    number[] | undefined
-  >(undefined);
+  const [trimAssetAudio, setTrimAssetAudio] = React.useState<AssetAudio | null>(
+    null
+  );
+  const [trimWaveform, setTrimWaveform] = React.useState<number[] | undefined>(
+    undefined
+  );
 
   // ── Derived values ─────────────────────────────────────────────────────
 
@@ -116,9 +117,8 @@ export function useTrimModal({
 
     void (async () => {
       try {
-        const { resolveAssetAudio, getAssetWaveform } = await import(
-          '@/services/assetAudio'
-        );
+        const { resolveAssetAudio, getAssetWaveform } =
+          await import('@/services/assetAudio');
 
         const resolved = await resolveAssetAudio(firstSelectedId);
         if (!resolved || resolved.segments.length === 0) {
@@ -161,23 +161,20 @@ export function useTrimModal({
     setTrimWaveform(undefined);
   }, []);
 
-  const handleConfirmTrim = React.useCallback(
-    (trimmedAudio: AssetAudio) => {
-      void (async () => {
-        try {
-          const { saveTrim } = await import('@/services/assetAudio');
-          await saveTrim(trimmedAudio);
-        } catch (error) {
-          console.error('Failed to save trim:', error);
-        }
-        setIsTrimModalOpen(false);
-        setTrimTargetAssetId(null);
-        setTrimAssetAudio(null);
-        setTrimWaveform(undefined);
-      })();
-    },
-    []
-  );
+  const handleConfirmTrim = React.useCallback((trimmedAudio: AssetAudio) => {
+    void (async () => {
+      try {
+        const { saveTrim } = await import('@/services/assetAudio');
+        await saveTrim(trimmedAudio);
+      } catch (error) {
+        console.error('Failed to save trim:', error);
+      }
+      setIsTrimModalOpen(false);
+      setTrimTargetAssetId(null);
+      setTrimAssetAudio(null);
+      setTrimWaveform(undefined);
+    })();
+  }, []);
 
   return {
     isTrimModalOpen,

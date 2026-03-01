@@ -432,8 +432,7 @@ export async function getAssetWaveform(
       !ignoreTrim && seg.trim && seg.durationMs > 0
         ? segDuration / seg.durationMs
         : 1;
-    const requestBars =
-      trimFrac < 1 ? Math.ceil(bars / trimFrac) : bars;
+    const requestBars = trimFrac < 1 ? Math.ceil(bars / trimFrac) : bars;
 
     const segWaveform = await extractWaveformFromFile(seg.uri, requestBars, {
       normalize: false

@@ -1294,7 +1294,6 @@ export default function BibleAssetsView() {
     }
   }, [assets, currentQuestId, queryClient, t, refetch]);
 
-
   // ============================================================================
   // RENAME ASSET
   // ============================================================================

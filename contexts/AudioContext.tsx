@@ -461,8 +461,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         isFirstSegment = currentSequenceIndex.current === 0;
         isLastSegment =
-          currentSequenceIndex.current ===
-          sequenceSegments.current.length - 1;
+          currentSequenceIndex.current === sequenceSegments.current.length - 1;
 
         if (isFirstSegment && !isLastSegment) {
           // Multi-segment: compute padded wall-clock for initial animation
@@ -478,10 +477,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             0,
             sound.currentTime * 1000 - segStartMs
           );
-          const playedTotalAtStart =
-            cumulativeBefore + playedInSegmentAtStart;
-          const remainingTotal =
-            totalSequenceDuration() - playedTotalAtStart;
+          const playedTotalAtStart = cumulativeBefore + playedInSegmentAtStart;
+          const remainingTotal = totalSequenceDuration() - playedTotalAtStart;
           lastSegmentRemainingMsAtStart = Math.max(0, remainingTotal);
         }
       }
