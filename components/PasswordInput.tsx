@@ -1,7 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 interface PasswordInputProps {
   value: string;
@@ -30,20 +32,20 @@ export const PasswordInput = ({
         style={[styles.input, { color: style?.color }]}
         placeholderTextColor={placeholderTextColor}
       />
-      <TouchableOpacity
+      <Button
+        variant="plain"
         onPress={() => {
           setShowPassword(!showPassword);
         }}
-        activeOpacity={1}
         style={styles.icon}
       >
-        <Ionicons
-          name={showPassword ? 'eye-off' : 'eye'}
+        <Icon
+          as={showPassword ? EyeOff : Eye}
           size={24}
-          color={placeholderTextColor}
+          className="text-muted-foreground"
           style={{ opacity: 0.7 }}
         />
-      </TouchableOpacity>
+      </Button>
     </View>
   );
 };

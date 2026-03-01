@@ -8,8 +8,7 @@ import {
 import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import type { System } from '@/db/powersync/system'; // Import System type
 import { eq, inArray, isNotNull } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import { Directory, File } from 'expo-file-system';
 import { Platform } from 'react-native';
 import {
   getDocumentDirectory,
@@ -26,24 +25,28 @@ export async function requestBackupDirectory() {
   }
 
   try {
-    // Always request new permissions from the user
+    // Always request new permissions from the user via the new Directory picker
     console.log('Requesting directory permissions from user...');
-    const permissions =
-      await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    const directory = await Directory.pickDirectoryAsync();
 
-    if (permissions.granted && permissions.directoryUri) {
-      console.log('Directory permission granted:', permissions.directoryUri);
+    if (directory?.uri) {
+      console.log('Directory permission granted:', directory.uri);
       // We DO NOT save this to AsyncStorage anymore.
       // The user will be prompted each time.
-      return permissions.directoryUri;
+      return directory.uri;
     } else {
       console.log('Directory permission denied or URI missing.');
       return null; // Permission denied or URI missing
     }
   } catch (dirError) {
+    // User cancelled or permission denied
+    const errorMessage =
+      dirError instanceof Error ? dirError.message : String(dirError);
+    if (errorMessage.includes('cancel') || errorMessage.includes('denied')) {
+      console.log('Directory picker cancelled by user.');
+      return null;
+    }
     console.error('Error during directory permission request:', dirError);
-    // Optionally, inform the user with an Alert here
-    // RNAlert.alert('Error', 'Failed to get directory permissions.');
     throw dirError; // Re-throw to be handled by the caller (e.g., backup/restore function)
   }
 }
@@ -64,7 +67,7 @@ export function prepareBackupPaths(timestamp: string): {
     publishedDirName: `${mainBackupDirName}/published`,
     unpublishedDirName: `${mainBackupDirName}/unpublished`,
     csvFileName: `${mainBackupDirName}/asset_content_export.csv`,
-    dbSourceUri: (FileSystem.documentDirectory ?? '') + 'sqlite.db'
+    dbSourceUri: `${getDocumentDirectory() ?? ''}/sqlite.db`
   };
 }
 
@@ -111,60 +114,40 @@ function createCsvRow(
 
 // Helper to get all existing files across all backup directories recursively
 // This prevents duplicates across multiple backup runs
-async function getAllExistingFiles(
-  baseDirectoryUri: string
-): Promise<Set<string>> {
+function getAllExistingFiles(baseDirectoryUri: string): Set<string> {
   const existingFiles = new Set<string>();
   try {
-    // Read all entries in the base directory
-    const entries =
-      await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
+    // Read all entries in the base directory using new Directory API
+    const baseDir = new Directory(baseDirectoryUri);
+    const entries = baseDir.list();
 
-    for (const entryUri of entries) {
+    for (const entry of entries) {
       try {
-        const encoded = entryUri.split('/').pop()!;
-        const decodedSegment = decodeURIComponent(encoded);
-        const entryName = decodedSegment.includes('/')
-          ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
-          : decodedSegment;
+        const entryName = entry.name;
 
         // Check if it's a backup directory (starts with "backup_")
-        if (entryName.startsWith('backup_')) {
+        if (entry instanceof Directory && entryName.startsWith('backup_')) {
           // Check published and unpublished subdirectories
-          const publishedPath = `${baseDirectoryUri}/${entryName}/published`;
-          const unpublishedPath = `${baseDirectoryUri}/${entryName}/unpublished`;
-
-          try {
-            const publishedFiles =
-              await StorageAccessFramework.readDirectoryAsync(publishedPath);
-            for (const fileUri of publishedFiles) {
-              const fileEncoded = fileUri.split('/').pop()!;
-              const fileDecoded = decodeURIComponent(fileEncoded);
-              const fileName = fileDecoded.includes('/')
-                ? fileDecoded.substring(fileDecoded.lastIndexOf('/') + 1)
-                : fileDecoded;
-              existingFiles.add(fileName);
+          const collectFiles = (subDirName: string) => {
+            try {
+              const subDir = new Directory(entry.uri, subDirName);
+              if (subDir.exists) {
+                const files = subDir.list();
+                for (const file of files) {
+                  if (file instanceof File) {
+                    existingFiles.add(file.name);
+                  }
+                }
+              }
+            } catch {
+              // Directory might not exist, ignore
             }
-          } catch {
-            // Directory might not exist, ignore
-          }
+          };
 
-          try {
-            const unpublishedFiles =
-              await StorageAccessFramework.readDirectoryAsync(unpublishedPath);
-            for (const fileUri of unpublishedFiles) {
-              const fileEncoded = fileUri.split('/').pop()!;
-              const fileDecoded = decodeURIComponent(fileEncoded);
-              const fileName = fileDecoded.includes('/')
-                ? fileDecoded.substring(fileDecoded.lastIndexOf('/') + 1)
-                : fileDecoded;
-              existingFiles.add(fileName);
-            }
-          } catch {
-            // Directory might not exist, ignore
-          }
+          collectFiles('published');
+          collectFiles('unpublished');
         }
-      } catch (error) {
+      } catch {
         // Skip entries that can't be read
         continue;
       }
@@ -205,7 +188,7 @@ export async function backupUnsyncedAudio(
     );
 
     // Get all existing files across all backup directories to avoid duplicates
-    const allExistingFiles = await getAllExistingFiles(baseDirectoryUri);
+    const allExistingFiles = getAllExistingFiles(baseDirectoryUri);
 
     // Query all asset_content_link records with audio
     // Include source asset information to show translation relationships
@@ -357,14 +340,12 @@ export async function backupUnsyncedAudio(
           sourceUri = await getLocalAttachmentUriWithOPFS(audioId);
         } else {
           // Synced file: directly in shared_attachments
-          sourceUri = `${getDocumentDirectory()}${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${cleanAudioId}`;
+          sourceUri = `${getDocumentDirectory()}/${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${cleanAudioId}`;
         }
 
         try {
-          const fileInfo = await FileSystem.getInfoAsync(sourceUri, {
-            size: true
-          });
-          if (!fileInfo.exists) {
+          const sourceFile = new File(sourceUri);
+          if (!sourceFile.exists) {
             console.warn(
               `[backupUnsyncedAudio] Source file not found: ${sourceUri}`
             );
@@ -396,27 +377,13 @@ export async function backupUnsyncedAudio(
           // Use proper mime type
           const mimeType = extension === 'm4a' ? 'audio/mp4' : 'audio/aac';
 
-          // Create file in target folder
-          const backupFileUri = await StorageAccessFramework.createFileAsync(
-            targetFolder,
-            backupFileName,
-            mimeType
-          );
+          // Create file in target folder using new Directory API
+          const targetDir = new Directory(targetFolder);
+          const backupFile = targetDir.createFile(backupFileName, mimeType);
 
-          // Read and write file
-          const fileContentBase64 = await FileSystem.readAsStringAsync(
-            sourceUri,
-            {
-              encoding: FileSystem.EncodingType.Base64
-            }
-          );
-          await FileSystem.writeAsStringAsync(
-            backupFileUri,
-            fileContentBase64,
-            {
-              encoding: FileSystem.EncodingType.Base64
-            }
-          );
+          // Read source as base64 and write to backup file
+          const fileContentBase64 = await sourceFile.base64();
+          backupFile.write(fileContentBase64, { encoding: 'base64' });
 
           // Track in existing files set to prevent duplicates
           allExistingFiles.add(backupFileName);
@@ -442,31 +409,26 @@ export async function backupUnsyncedAudio(
       // Check if CSV already exists by looking for any CSV file in backup directories
       const existingCsvRows = new Set<string>();
       try {
-        const entries =
-          await StorageAccessFramework.readDirectoryAsync(baseDirectoryUri);
-        for (const entryUri of entries) {
+        const baseDir = new Directory(baseDirectoryUri);
+        const entries = baseDir.list();
+        for (const entry of entries) {
           try {
-            const encoded = entryUri.split('/').pop()!;
-            const decodedSegment = decodeURIComponent(encoded);
-            const entryName = decodedSegment.includes('/')
-              ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
-              : decodedSegment;
+            const entryName = entry.name;
 
             // Check if it's a backup directory
-            if (entryName.startsWith('backup_')) {
+            if (entry instanceof Directory && entryName.startsWith('backup_')) {
               // Look for CSV file inside this backup directory
-              const csvFileName = `${entryName}/asset_content_export.csv`;
               try {
-                const csvPath = `${baseDirectoryUri}/${csvFileName}`;
-                const csvContent = await FileSystem.readAsStringAsync(csvPath, {
-                  encoding: FileSystem.EncodingType.UTF8
-                });
-                // Parse CSV and collect all data rows (skip header)
-                const lines = csvContent.split('\n');
-                for (let i = 1; i < lines.length; i++) {
-                  const line = lines[i]?.trim();
-                  if (line) {
-                    existingCsvRows.add(line);
+                const csvFile = new File(entry.uri, 'asset_content_export.csv');
+                if (csvFile.exists) {
+                  const csvContent = await csvFile.text();
+                  // Parse CSV and collect all data rows (skip header)
+                  const lines = csvContent.split('\n');
+                  for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i]?.trim();
+                    if (line) {
+                      existingCsvRows.add(line);
+                    }
                   }
                 }
               } catch {
@@ -489,14 +451,9 @@ export async function backupUnsyncedAudio(
       });
 
       const csvContent = newRows.join('\n');
-      const csvUri = await StorageAccessFramework.createFileAsync(
-        baseDirectoryUri,
-        paths.csvFileName,
-        'text/csv'
-      );
-      await FileSystem.writeAsStringAsync(csvUri, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8
-      });
+      const csvBaseDir = new Directory(baseDirectoryUri);
+      const csvFile = csvBaseDir.createFile(paths.csvFileName, 'text/csv');
+      csvFile.write(csvContent);
       console.log(
         `[backupUnsyncedAudio] CSV exported with ${newRows.length} rows (${newRows.length - 1} new data rows)`
       );
@@ -510,19 +467,15 @@ export async function backupUnsyncedAudio(
     // Backup database if it exists
     try {
       const dbSourceUri = paths.dbSourceUri;
-      const dbInfo = await FileSystem.getInfoAsync(dbSourceUri);
-      if (dbInfo.exists) {
-        const dbBackupUri = await StorageAccessFramework.createFileAsync(
-          baseDirectoryUri,
+      const dbSourceFile = new File(dbSourceUri);
+      if (dbSourceFile.exists) {
+        const dbBackupDir = new Directory(baseDirectoryUri);
+        const dbBackupFile = dbBackupDir.createFile(
           paths.dbFullPathName,
           'application/x-sqlite3'
         );
-        const dbContent = await FileSystem.readAsStringAsync(dbSourceUri, {
-          encoding: FileSystem.EncodingType.Base64
-        });
-        await FileSystem.writeAsStringAsync(dbBackupUri, dbContent, {
-          encoding: FileSystem.EncodingType.Base64
-        });
+        const dbContent = await dbSourceFile.base64();
+        dbBackupFile.write(dbContent, { encoding: 'base64' });
         console.log('[backupUnsyncedAudio] Database backed up successfully');
       }
     } catch (error) {

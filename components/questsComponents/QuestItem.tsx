@@ -1,9 +1,9 @@
 import { QuestCard } from '@/components/QuestCard';
+import { Button } from '@/components/ui/button';
 import type { Project } from '@/database_services/projectService';
 import type { Quest } from '@/database_services/questService';
 import type { Tag } from '@/database_services/tagService';
 import React, { useCallback } from 'react';
-import { TouchableOpacity } from 'react-native';
 
 // Memoized quest item component for better performance
 
@@ -24,9 +24,9 @@ export const QuestItem = React.memo(
     if (!project) return null;
 
     return (
-      <TouchableOpacity onPress={handlePress}>
+      <Button variant="plain" onPress={handlePress}>
         <QuestCard quest={quest} project={project} />
-      </TouchableOpacity>
+      </Button>
     );
   }
 );

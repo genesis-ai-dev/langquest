@@ -13,15 +13,15 @@ import { Text } from '@/components/ui/text';
 import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { mergeLocalAssets } from '@/database_services/assetMergeService';
 import {
-  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
-  renameAsset,
-  updateContentLinkOrder
+  renameAsset
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import {
   asset_content_link,
+  project as projectTable,
   project_language_link,
   quest as questTable
 } from '@/db/drizzleSchema';
@@ -33,10 +33,11 @@ import {
   useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useMergeUnmergeCleanup } from '@/hooks/useMergeUnmergeCleanup';
+import { useAssetAudio } from '@/services/assetAudio';
 import { useLocalStore } from '@/store/localStore';
-import { resolveTable } from '@/utils/dbUtils';
+import { convertWavUriToM4a } from '@/utils/audioConversion';
 import {
-  fileExists,
   getLocalAttachmentUriWithOPFS,
   saveAudioLocally
 } from '@/utils/fileUtils';
@@ -45,7 +46,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import {
   ArrowLeft,
   BookOpenIcon,
@@ -64,7 +65,9 @@ import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardS
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RecordingControls } from './recording/components/RecordingControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
+import { TrimSegmentModal } from './recording/components/TrimSegmentModal';
 import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
+import { useSelectionActions } from './recording/hooks/useSelectionActions';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
@@ -258,7 +261,6 @@ const RecordingView = () => {
   const { goBack } = useAppNavigation();
   const navigation = useCurrentNavigation();
   const { currentQuestId, currentProjectId } = navigation;
-
   // Get recording-specific data from navigation state
   const navigationState = useLocalStore((state) => {
     const stack = state.navigationStack;
@@ -304,7 +306,7 @@ const RecordingView = () => {
     queryFn: async () => {
       if (!currentProjectId) return null;
       const result = await system.db.query.project.findFirst({
-        where: (fields, { eq }) => eq(fields.id, currentProjectId)
+        where: eq(projectTable.id, currentProjectId)
       });
       return (result as Project) ?? null;
     },
@@ -313,6 +315,7 @@ const RecordingView = () => {
   });
 
   const audioContext = useAudio();
+  const assetAudio = useAssetAudio();
   const insets = useSafeAreaInsets();
 
   // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
@@ -418,7 +421,6 @@ const RecordingView = () => {
   );
   const vadDisplayMode = useLocalStore((state) => state.vadDisplayMode);
   const setVadDisplayMode = useLocalStore((state) => state.setVadDisplayMode);
-  const enableMerge = useLocalStore((state) => state.enableMerge);
   const [showVADSettings, setShowVADSettings] = React.useState(false);
   const [autoCalibrateOnOpen, setAutoCalibrateOnOpen] = React.useState(false);
 
@@ -502,9 +504,6 @@ const RecordingView = () => {
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
   // Ref to track if handlePlayAll is running (for cancellation)
   const isPlayAllRunningRef = React.useRef(false);
-  // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
-
   // Track setTimeout IDs for cleanup
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
@@ -563,6 +562,7 @@ const RecordingView = () => {
     cancelSelection,
     selectMultiple
   } = useSelectionMode();
+  const { afterMerge } = useMergeUnmergeCleanup(cancelSelection);
 
   // Rename drawer state
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
@@ -583,8 +583,8 @@ const RecordingView = () => {
   // When user exits and returns, the list starts with just the initial verse pill
   // Assets are still saved to database, but we don't load existing ones
   const [sessionItems, setSessionItems] = React.useState<ListItem[]>(() => {
-    // Initialize with the initial verse pill
     if (!_verse) return [];
+
     const initialVerse = _verse;
     const initialPill: VersePillItem = {
       type: 'pill',
@@ -775,6 +775,58 @@ const RecordingView = () => {
 
     return result;
   }, [rawAssets, assetSegmentCounts, assetDurations]);
+
+  // Selection actions (shared hook – merge, delete, unmerge, trim, select all)
+  const { controlsProps, trimModal } = useSelectionActions({
+    selectedAssetIds,
+    assets,
+    isSelectionMode,
+    selectMultiple,
+    cancelSelection,
+    onAfterMerge: (targetAssetId) => {
+      const selected = assets.filter(
+        (a) => selectedAssetIds.has(a.id) && a.id !== targetAssetId
+      );
+      const deletedIds = new Set(selected.map((a) => a.id));
+      setSessionItems((prev) => prev.filter((a) => !deletedIds.has(a.id)));
+      loadedAssetIdsRef.current.delete(targetAssetId);
+      setAssetSegmentCounts((prev) => {
+        const next = new Map(prev);
+        next.delete(targetAssetId);
+        return next;
+      });
+      setAssetDurations((prev) => {
+        const next = new Map(prev);
+        next.delete(targetAssetId);
+        return next;
+      });
+    },
+    onAfterDelete: (deletedIds) => {
+      const deletedSet = new Set(deletedIds);
+      setSessionItems((prev) => prev.filter((a) => !deletedSet.has(a.id)));
+    },
+    onAfterUnmerge: (originalId, newIds) => {
+      loadedAssetIdsRef.current.delete(originalId);
+      setAssetSegmentCounts((prev) => {
+        const next = new Map(prev);
+        next.delete(originalId);
+        return next;
+      });
+      setAssetDurations((prev) => {
+        const next = new Map(prev);
+        next.delete(originalId);
+        return next;
+      });
+      for (const newId of newIds) {
+        loadedAssetIdsRef.current.add(newId);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          next.set(newId, 1);
+          return next;
+        });
+      }
+    }
+  });
 
   // Check if we're at the end of the list (for add verse button behavior)
   const isAtEndOfList = React.useMemo(
@@ -1139,344 +1191,97 @@ const RecordingView = () => {
   // AUDIO PLAYBACK
   // ============================================================================
 
-  // Fetch audio URIs for an asset
-  // Includes fallback logic for local-only files when server records are removed
-  const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
+  const stopPlayAll = React.useCallback(async () => {
+    isPlayAllRunningRef.current = false;
+    setIsPlayAllRunning(false);
+    setCurrentlyPlayingAssetId(null);
+    await assetAudio.stop();
+  }, [assetAudio]);
 
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
+  const activateAssetForPlayAll = React.useCallback(
+    async (assetId: string, wheelIndex: number) => {
+      setCurrentlyPlayingAssetId(assetId);
+      await Promise.resolve();
 
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
-        );
-
-        if (uniqueLinks.length === 0) {
-          debugLog('No content links found for asset:', assetId);
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            debugLog(
-              `  📎 Content link has ${audioArray.length} audio file(s):`,
-              audioArray
-            );
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
-
-        if (audioValues.length === 0) {
-          debugLog('No audio values found in content links');
-          return [];
-        }
-
-        // Process each audio value - can be either a local URI or an attachment ID
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          // Check if this is already a local URI (starts with 'local/' or 'file://')
-          if (audioValue.startsWith('local/')) {
-            // It's a direct local URI from saveAudioLocally()
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              uris.push(constructedUri);
-              debugLog(
-                '✅ Using direct local URI:',
-                constructedUri.slice(0, 80)
-              );
-            } else {
-              // File doesn't exist at expected path - try to find it in attachment queue
-              debugLog(
-                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-              );
-
-              if (system.permAttachmentQueue) {
-                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-                const filename = audioValue.replace(/^local\//, '');
-                // Extract UUID part (without extension) for more flexible matching
-                const uuidPart = filename.split('.')[0];
-
-                // Search attachment queue by filename or UUID
-                let attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-                );
-
-                // If not found, try searching all attachments for this asset's content links
-                if (!attachment && uniqueLinks.length > 0) {
-                  const allAttachmentIds = uniqueLinks
-                    .flatMap((link) => link.audio ?? [])
-                    .filter(
-                      (av): av is string =>
-                        typeof av === 'string' &&
-                        !av.startsWith('local/') &&
-                        !av.startsWith('file://')
-                    );
-                  if (allAttachmentIds.length > 0) {
-                    const placeholders = allAttachmentIds
-                      .map(() => '?')
-                      .join(',');
-                    attachment = await system.powersync.getOptional<{
-                      id: string;
-                      filename: string | null;
-                      local_uri: string | null;
-                    }>(
-                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                      allAttachmentIds
-                    );
-                  }
-                }
-
-                if (attachment?.local_uri) {
-                  const foundUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  // Verify the found file actually exists
-                  if (await fileExists(foundUri)) {
-                    uris.push(foundUri);
-                    debugLog(
-                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                    );
-                  } else {
-                    debugLog(
-                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                    );
-                  }
-                } else {
-                  // Try fallback to local table for alternative audio values
-                  const fallbackLink = contentLinksLocal.find(
-                    (link) => link.asset_id === assetId
-                  );
-                  if (fallbackLink?.audio) {
-                    for (const fallbackAudioValue of fallbackLink.audio) {
-                      if (fallbackAudioValue.startsWith('file://')) {
-                        if (await fileExists(fallbackAudioValue)) {
-                          uris.push(fallbackAudioValue);
-                          debugLog(`✅ Found fallback file URI`);
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI - verify it exists
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-              debugLog('✅ Using full file URI:', audioValue.slice(0, 80));
-            } else {
-              debugLog(`⚠️ File URI does not exist: ${audioValue}`);
-              // Try to find in attachment queue by extracting filename from path
-              if (system.permAttachmentQueue) {
-                const filename = audioValue.split('/').pop();
-                if (filename) {
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                    [filename, filename]
-                  );
-
-                  if (attachment?.local_uri) {
-                    const foundUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
-                    );
-                    if (await fileExists(foundUri)) {
-                      uris.push(foundUri);
-                      debugLog(`✅ Found attachment in queue for file URI`);
-                    }
-                  }
-                }
-              }
-            }
-          } else {
-            // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) {
-              // No attachment queue - try fallback to local table
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      break;
-                    }
-                  }
-                }
-              }
-              continue;
-            }
-
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-                debugLog('✅ Found attachment URI:', localUri.slice(0, 60));
-              }
-            } else {
-              // Attachment ID not found in queue - try fallback to local table
-              debugLog(
-                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-              );
-
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      debugLog(
-                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      debugLog(
-                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  }
-                }
-              } else {
-                debugLog(`⚠️ Audio ${audioValue} not downloaded yet`);
-              }
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
+      if (listRef.current) {
+        listRef.current.scrollToIndex(wheelIndex - 1, true);
       }
     },
     []
+  );
+
+  const runPlayAll = React.useCallback(
+    async (startIndex: number) => {
+      const isPlayAllActive = () => isPlayAllRunningRef.current;
+      if (startIndex >= sessionItems.length) {
+        console.warn('⚠️ No items to play from current position');
+        return;
+      }
+
+      isPlayAllRunningRef.current = true;
+      setIsPlayAllRunning(true);
+
+      try {
+        let wheelIndex = startIndex;
+        while (wheelIndex < sessionItems.length) {
+          if (!isPlayAllActive()) break;
+
+          const item = sessionItems[wheelIndex];
+          if (!item || isPill(item)) {
+            wheelIndex += 1;
+            continue;
+          }
+
+          const assetId = item.id;
+          await activateAssetForPlayAll(assetId, wheelIndex);
+          if (!isPlayAllActive()) break;
+
+          await assetAudio.play(assetId);
+          await assetAudio.waitForPlaybackEnd(assetId);
+          if (!isPlayAllActive()) break;
+
+          wheelIndex += 1;
+        }
+      } finally {
+        isPlayAllRunningRef.current = false;
+        setIsPlayAllRunning(false);
+        setCurrentlyPlayingAssetId(null);
+      }
+    },
+    [sessionItems, activateAssetForPlayAll, assetAudio]
   );
 
   // Handle asset playback
   const handlePlayAsset = React.useCallback(
     async (assetId: string) => {
       try {
+        if (isPlayAllRunningRef.current) {
+          await stopPlayAll();
+          return;
+        }
+
         const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+          assetAudio.isPlaying && assetAudio.currentAudioId === assetId;
 
         if (isThisAssetPlaying) {
           debugLog('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
+          await assetAudio.stop();
         } else {
           debugLog('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
-
-          if (uris.length === 0) {
-            console.error('❌ No audio URIs found for asset:', assetId);
-            return;
-          }
-
-          if (uris.length === 1 && uris[0]) {
-            debugLog('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            debugLog(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
-          }
+          await assetAudio.play(assetId);
         }
       } catch (error) {
         console.error('❌ Failed to play audio:', error);
       }
     },
-    [audioContext, getAssetAudioUris]
+    [assetAudio, stopPlayAll]
   );
 
-  // Handle play all assets - optimized version with direct control
+  // Handle play all assets - event-driven via AssetAudio
   const handlePlayAll = React.useCallback(async () => {
     try {
-      // Check if already playing - toggle to stop
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
-            currentPlayAllSoundRef.current = null;
-          } catch (error) {
-            console.error('Error stopping sound:', error);
-          }
-        }
-
-        setCurrentlyPlayingAssetId(null);
-        // Reset SharedValues when stopping
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
+        await stopPlayAll();
         debugLog('⏸️ Stopped play all');
         return;
       }
@@ -1486,143 +1291,18 @@ const RecordingView = () => {
         return;
       }
 
-      // Mark as running
-      isPlayAllRunningRef.current = true;
-      setIsPlayAllRunning(true);
-
       // If no item is selected (at end of list), start from the beginning
       // Otherwise, start from the selected item
       const startIndex =
         insertionIndex >= sessionItems.length ? 0 : insertionIndex;
 
-      debugLog(
-        `🎵 Starting play all from position ${startIndex} (insertionIndex: ${insertionIndex})`
-      );
-
-      let assetsPlayed = 0;
-
-      // Iterate directly through sessionItems starting from startIndex
-      for (
-        let wheelIndex = startIndex;
-        wheelIndex < sessionItems.length;
-        wheelIndex++
-      ) {
-        // Check if cancelled
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (!isPlayAllRunningRef.current) {
-          debugLog('⏸️ Play all cancelled');
-          setCurrentlyPlayingAssetId(null);
-          // Reset SharedValues when cancelled
-          audioContext.positionShared.value = 0;
-          audioContext.durationShared.value = 0;
-          return;
-        }
-
-        const item = sessionItems[wheelIndex];
-
-        // Skip if no item or if it's a pill
-        if (!item || isPill(item)) {
-          debugLog(`⏭️ Position ${wheelIndex}: skipping pill`);
-          continue;
-        }
-
-        // It's an asset - play it
-        const asset = item;
-
-        // Get URIs for this asset
-        const uris = await getAssetAudioUris(asset.id);
-        if (uris.length === 0) {
-          debugLog(
-            `⚠️ Position ${wheelIndex}: no URIs for asset ${asset.name}`
-          );
-          continue;
-        }
-
-        // HIGHLIGHT THIS ASSET
-        setCurrentlyPlayingAssetId(asset.id);
-
-        // Scroll to this position in the list
-        if (listRef.current) {
-          listRef.current.scrollToIndex(wheelIndex - 1, true);
-        }
-
-        assetsPlayed++;
-        debugLog(
-          `▶️ Position ${wheelIndex}: Playing asset ${asset.name} (${uris.length} segments)`
-        );
-
-        // Play all URIs for this asset sequentially
-        for (const uri of uris) {
-          // Check if cancelled
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (!isPlayAllRunningRef.current) {
-            setCurrentlyPlayingAssetId(null);
-            // Reset SharedValues when cancelled
-            audioContext.positionShared.value = 0;
-            audioContext.durationShared.value = 0;
-            return;
-          }
-
-          // Play this URI and wait for it to finish
-          await new Promise<void>((resolve) => {
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                currentPlayAllSoundRef.current = sound;
-
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  // Update SharedValues for progress bar animation (60fps on UI thread)
-                  if (status.isPlaying) {
-                    audioContext.positionShared.value = status.positionMillis;
-                    audioContext.durationShared.value =
-                      status.durationMillis ?? 0;
-                  }
-
-                  if (status.didJustFinish) {
-                    // Reset SharedValues when segment finishes
-                    audioContext.positionShared.value = 0;
-                    audioContext.durationShared.value = 0;
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
-                currentPlayAllSoundRef.current = null;
-                resolve();
-              });
-          });
-        }
-      }
-
-      if (assetsPlayed === 0) {
-        console.warn('⚠️ No assets found to play from current position');
-      }
-
-      // Done playing all
+      await runPlayAll(startIndex);
       debugLog('✅ Finished playing all assets');
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues when finished
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
-      setCurrentlyPlayingAssetId(null);
-      // Reset SharedValues on error
-      audioContext.positionShared.value = 0;
-      audioContext.durationShared.value = 0;
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
+      await stopPlayAll();
     }
-  }, [audioContext, getAssetAudioUris, insertionIndex, sessionItems]);
+  }, [insertionIndex, runPlayAll, sessionItems.length, stopPlayAll]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -2002,7 +1682,6 @@ const RecordingView = () => {
                 return next;
               });
             }
-
             // Track which verse was recorded (for order_index normalization on return)
             // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
             const verseToTrack = verseToUse?.from ?? 999;
@@ -2094,7 +1773,13 @@ const RecordingView = () => {
       }
 
       debugLog('📼 VAD: Segment complete');
-      void handleRecordingComplete(uri, 0, []);
+      void (async () => {
+        const convertedUri = await convertWavUriToM4a(uri);
+        if (convertedUri !== uri) {
+          debugLog('🎛️ VAD: Converted segment to M4A before save');
+        }
+        await handleRecordingComplete(convertedUri, 0, []);
+      })();
     },
     [handleRecordingComplete]
   );
@@ -2294,8 +1979,10 @@ const RecordingView = () => {
               // AUDIO FILES: Extract all audio file references from all segments
               // This flattens the audio arrays from all content_link rows
               const audioValues = contentLinks
-                .flatMap((link) => link.audio ?? [])
-                .filter((value): value is string => !!value);
+                .flatMap((link: { audio: string[] | null }) => link.audio ?? [])
+                .filter(
+                  (value: string | null | undefined): value is string => !!value
+                );
 
               // DEBUG: Log audio values found
               debugLog(
@@ -2334,15 +2021,30 @@ const RecordingView = () => {
 
                   if (audioUri) {
                     // Load audio file to get duration
-                    const { sound } = await Audio.Sound.createAsync({
-                      uri: audioUri
+                    const player = createAudioPlayer(audioUri);
+                    // Wait for player to load
+                    await new Promise<void>((resolve) => {
+                      if (player.isLoaded) {
+                        resolve();
+                        return;
+                      }
+                      const check = setInterval(() => {
+                        if (player.isLoaded) {
+                          clearInterval(check);
+                          resolve();
+                        }
+                      }, 10);
+                      // Safety timeout
+                      setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                      }, 5000);
                     });
-                    const status = await sound.getStatusAsync();
-                    await sound.unloadAsync();
 
-                    if (status.isLoaded && status.durationMillis) {
-                      totalDuration += status.durationMillis;
+                    if (player.isLoaded && player.duration) {
+                      totalDuration += player.duration * 1000;
                     }
+                    player.release();
                   }
                 } catch (err) {
                   // Skip this segment if we can't load it
@@ -2484,47 +2186,10 @@ const RecordingView = () => {
         const second = assets[index + 1];
         if (!first || !second || !currentUser) return;
         if (first.source === 'cloud' || second.source === 'cloud') return;
-
-        const contentLocal = resolveTable('asset_content_link', {
-          localOverride: true
+        await mergeLocalAssets({
+          orderedAssetIds: [first.id, second.id],
+          userId: currentUser.id
         });
-        const secondContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-
-        // Get next available order_index for the target asset (local table)
-        let nextOrder = await getNextAclOrderIndex(first.id, {
-          localOverride: true
-        });
-
-        for (const c of secondContent) {
-          if (!c.audio) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-            text: c.text || '',
-            audio: c.audio,
-            download_profiles: [currentUser.id],
-            order_index: nextOrder++
-          });
-        }
-
-        await audioSegmentService.deleteAudioSegment(second.id);
-
-        // Normalize all content links on target to 1-based ordering
-        const allContent = await system.db
-          .select({ id: contentLocal.id })
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, first.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-        await updateContentLinkOrder(
-          first.id,
-          allContent.map((c) => c.id),
-          { localOverride: true }
-        );
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
@@ -2545,220 +2210,13 @@ const RecordingView = () => {
           return next;
         });
 
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
-          exact: false
-        });
+        afterMerge(first.id);
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, currentQuestId]
+    [assets, currentUser, afterMerge]
   );
-
-  const handleBatchMergeSelected = React.useCallback(() => {
-    const selectedOrdered = assets.filter(
-      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-    );
-    if (selectedOrdered.length < 2) return;
-
-    RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Merge',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                if (!currentUser) return;
-
-                const target = selectedOrdered[0]!;
-                const rest = selectedOrdered.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
-                });
-
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get next available order_index for the target asset (local table)
-                  let nextOrder = await getNextAclOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
-
-                // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(rest.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                // Force re-load of segment count for the merged target asset
-                debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
-                );
-                loadedAssetIdsRef.current.delete(target.id);
-                setAssetSegmentCounts((prev) => {
-                  const next = new Map(prev);
-                  next.delete(target.id);
-                  return next;
-                });
-                setAssetDurations((prev) => {
-                  const next = new Map(prev);
-                  next.delete(target.id);
-                  return next;
-                });
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
-
-                debugLog('✅ Batch merge completed');
-              } catch (e) {
-                console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
-              }
-            })();
-          }
-        }
-      ]
-    );
-  }, [
-    assets,
-    selectedAssetIds,
-    currentUser,
-    cancelSelection,
-    queryClient,
-    currentQuestId
-  ]);
-
-  const handleBatchDeleteSelected = React.useCallback(() => {
-    const selectedOrdered = assets.filter(
-      (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
-    );
-    if (selectedOrdered.length < 1) return;
-
-    RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                for (const asset of selectedOrdered) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
-
-                // Remove deleted assets from session list
-                const deletedIds = new Set(selectedOrdered.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
-                  exact: false
-                });
-
-                debugLog(
-                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
-              }
-            })();
-          }
-        }
-      ]
-    );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
-
-  // ============================================================================
-  // SELECT ALL / DESELECT ALL
-  // ============================================================================
-
-  // Calculate if all local assets are selected
-  const allSelected = React.useMemo(() => {
-    if (!isSelectionMode || assets.length === 0) return false;
-    const selectableAssets = assets.filter((a) => a.source !== 'cloud');
-    if (selectableAssets.length === 0) return false;
-    return selectableAssets.every((a) => selectedAssetIds.has(a.id));
-  }, [isSelectionMode, assets, selectedAssetIds]);
-
-  // Handle select all / deselect all
-  const handleSelectAll = React.useCallback(() => {
-    if (allSelected) {
-      // Deselect all
-      selectMultiple([]);
-    } else {
-      // Select all local assets (exclude cloud assets)
-      const selectableIds = assets
-        .filter((a) => a.source !== 'cloud')
-        .map((a) => a.id);
-      selectMultiple(selectableIds);
-    }
-  }, [allSelected, assets, selectMultiple]);
 
   // ============================================================================
   // RENAME ASSET
@@ -2829,20 +2287,6 @@ const RecordingView = () => {
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
         isPlayAllRunningRef.current = false;
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
-        }
       }
 
       // Clear all refs to free memory
@@ -3396,17 +2840,11 @@ const RecordingView = () => {
       {/* Bottom controls - absolutely positioned */}
       <View className="absolute bottom-0 left-0 right-0 z-40">
         {isSelectionMode ? (
-          <View style={{ paddingBottom: insets.bottom }}>
-            <RecordSelectionControls
-              selectedCount={selectedAssetIds.size}
-              onCancel={cancelSelection}
-              onMerge={handleBatchMergeSelected}
-              onDelete={handleBatchDeleteSelected}
-              allowSelectAll={true}
-              allSelected={allSelected}
-              onSelectAll={handleSelectAll}
-              showMerge={enableMerge}
-            />
+          <View
+            style={{ paddingBottom: insets.bottom }}
+            onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+          >
+            <RecordSelectionControls {...controlsProps} />
           </View>
         ) : (
           <RecordingControls
@@ -3469,6 +2907,17 @@ const RecordingView = () => {
       />
       <RecordingHelpDialog />
 
+      {/* Trim Segment Modal */}
+      {trimModal.isOpen && (
+        <TrimSegmentModal
+          isOpen={trimModal.isOpen}
+          segmentName={trimModal.targetName}
+          waveformData={trimModal.waveformData}
+          assetAudio={trimModal.assetAudio}
+          onClose={trimModal.onClose}
+          onConfirm={trimModal.onConfirm}
+        />
+      )}
       {/* FIA Pericope Steps Drawer (only for FIA projects) */}
       <FiaStepDrawer
         open={showFiaTextDrawer}

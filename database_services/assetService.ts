@@ -2,9 +2,13 @@
  * Asset service - Database operations for assets
  */
 
+import type { OpMetadata } from '@/db/powersync/opMetadata';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
+
+type LocalDbTx = Parameters<Parameters<typeof system.db.transaction>[0]>[0];
 
 /**
  * Asset metadata structure for verse ranges
@@ -16,6 +20,8 @@ export interface AssetMetadata {
   };
   recordingSessionId?: string;
 }
+
+type DbJsonRecord = Record<string, unknown>;
 
 /**
  * Update an asset's name - ONLY for local-only assets
@@ -185,10 +191,9 @@ export async function updateAssetMetadata(
     }
 
     // Safe to update - it's local only
-    const metadataStr = metadata ? JSON.stringify(metadata) : null;
     await system.db
       .update(assetLocalTable)
-      .set({ metadata: metadataStr })
+      .set({ metadata: (metadata ?? null) as DbJsonRecord | null })
       .where(eq(assetLocalTable.id, assetId));
 
     console.log(`✅ Asset ${assetId.slice(0, 8)} metadata updated`);
@@ -196,6 +201,41 @@ export async function updateAssetMetadata(
     console.error('Failed to update asset metadata:', error);
     throw error;
   }
+}
+
+/**
+ * Get asset metadata with a safe default.
+ */
+export function getAssetMetadata(asset: {
+  metadata?: AssetMetadata | null;
+}): AssetMetadata {
+  return (asset.metadata ?? {}) as AssetMetadata;
+}
+
+/**
+ * Set a single metadata key without overwriting other metadata fields.
+ * Reads current metadata, merges, then writes back.
+ */
+export async function setAssetMetadataKey(
+  assetId: string,
+  key: keyof AssetMetadata,
+  value: AssetMetadata[keyof AssetMetadata]
+): Promise<void> {
+  const assetLocalTable = resolveTable('asset', { localOverride: true });
+  const localAsset = await system.db
+    .select({ metadata: assetLocalTable.metadata })
+    .from(assetLocalTable)
+    .where(eq(assetLocalTable.id, assetId))
+    .limit(1);
+
+  if (!localAsset || localAsset.length === 0) {
+    throw new Error('Asset not found in local table - cannot update metadata');
+  }
+
+  const currentMetadata = (localAsset[0]!.metadata ?? {}) as AssetMetadata;
+  const nextMetadata = { ...currentMetadata, [key]: value } as AssetMetadata;
+
+  await updateAssetMetadata(assetId, nextMetadata);
 }
 
 /**
@@ -240,13 +280,14 @@ export async function batchUpdateAssetMetadata(
 
     // Update each local asset
     for (const update of localUpdates) {
-      const setPayload: { metadata?: string | null; order_index?: number } = {};
+      const setPayload: {
+        metadata?: DbJsonRecord | null;
+        order_index?: number;
+      } = {};
 
       // Only include metadata if explicitly provided
       if (update.metadata !== undefined) {
-        setPayload.metadata = update.metadata
-          ? JSON.stringify(update.metadata)
-          : null;
+        setPayload.metadata = (update.metadata ?? null) as DbJsonRecord | null;
       }
 
       // Only include order_index if explicitly provided
@@ -412,4 +453,101 @@ export async function getNextOrderIndex(
 
   const maxOrder = result[0]?.maxOrder;
   return (maxOrder ?? 0) + 1;
+}
+
+// ============================================================================
+// SHARED ASSET CREATION HELPER
+// ============================================================================
+
+export interface CreateLocalAssetParams {
+  name: string;
+  orderIndex: number;
+  questId: string;
+  projectId: string;
+  userId: string;
+  languoidId: string;
+  audio: string[];
+  text: string;
+  contentMetadata?: OpMetadata | null;
+  trimMetadata?: string | null;
+  assetMetadata?: AssetMetadata | null;
+  shiftExisting?: boolean;
+}
+
+/**
+ * Create a local asset with its quest link and content link inside an existing
+ * transaction. Optionally shifts assets at/after the target order_index to make
+ * room (used by both recording and unmerge flows).
+ */
+export async function createLocalAssetInTx(
+  tx: LocalDbTx,
+  params: CreateLocalAssetParams
+): Promise<string> {
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+
+  const newAssetId = String(uuid.v4());
+
+  if (params.shiftExisting) {
+    const assetsToShift = await tx
+      .select({ id: assetLocal.id, order_index: assetLocal.order_index })
+      .from(assetLocal)
+      .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
+      .where(
+        and(
+          eq(linkLocal.quest_id, params.questId),
+          gte(assetLocal.order_index, params.orderIndex)
+        )
+      );
+
+    for (const asset of assetsToShift) {
+      if (typeof asset.order_index === 'number') {
+        await tx
+          .update(assetLocal)
+          .set({ order_index: asset.order_index + 1 })
+          .where(eq(assetLocal.id, asset.id));
+      }
+    }
+  }
+
+  const [newAsset] = await tx
+    .insert(assetLocal)
+    .values({
+      id: newAssetId,
+      name: params.name,
+      order_index: params.orderIndex,
+      source_language_id: params.languoidId,
+      project_id: params.projectId,
+      creator_id: params.userId,
+      download_profiles: [params.userId],
+      metadata: (params.assetMetadata ?? null) as DbJsonRecord | null
+    })
+    .returning();
+
+  if (!newAsset) {
+    throw new Error('Failed to insert asset');
+  }
+
+  await tx.insert(linkLocal).values({
+    id: String(uuid.v4()),
+    quest_id: params.questId,
+    asset_id: newAssetId,
+    download_profiles: [params.userId]
+  });
+
+  await tx.insert(contentLocal).values({
+    asset_id: newAssetId,
+    source_language_id: params.languoidId,
+    languoid_id: params.languoidId,
+    text: params.text,
+    audio: params.audio,
+    download_profiles: [params.userId],
+    metadata: params.trimMetadata ?? null,
+    _metadata: params.contentMetadata ?? null
+  });
+
+  return newAssetId;
 }
