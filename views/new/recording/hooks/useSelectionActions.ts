@@ -181,10 +181,7 @@ export function useSelectionActions({
                 afterMerge(targetAssetId);
               } catch (e) {
                 console.error('Failed to merge assets', e);
-                RNAlert.alert(
-                  t('error'),
-                  t('failedToMergeAssets')
-                );
+                RNAlert.alert(t('error'), t('failedToMergeAssets'));
               }
             })();
           }
@@ -223,10 +220,7 @@ export function useSelectionActions({
                 cancelSelection();
               } catch (e) {
                 console.error('Failed to delete assets', e);
-                RNAlert.alert(
-                  t('error'),
-                  t('failedToDeleteAssets')
-                );
+                RNAlert.alert(t('error'), t('failedToDeleteAssets'));
               }
             })();
           }
@@ -256,11 +250,10 @@ export function useSelectionActions({
           onPress: () => {
             void (async () => {
               try {
-                const { originalAssetId, newAssets } =
-                  await unmergeLocalAsset({
-                    assetId: selectedAsset.id,
-                    userId: currentUser.id
-                  });
+                const { originalAssetId, newAssets } = await unmergeLocalAsset({
+                  assetId: selectedAsset.id,
+                  userId: currentUser.id
+                });
                 onAfterUnmerge?.(
                   originalAssetId,
                   newAssets.map((a) => a.id)
@@ -273,9 +266,7 @@ export function useSelectionActions({
                 console.error('Failed to unmerge asset', e);
                 RNAlert.alert(
                   t('error'),
-                  e instanceof Error
-                    ? e.message
-                    : t('failedToUnmergeAsset')
+                  e instanceof Error ? e.message : t('failedToUnmergeAsset')
                 );
               }
             })();

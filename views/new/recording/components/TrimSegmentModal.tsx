@@ -12,11 +12,11 @@ import { useThemeColor, useThemeToken } from '@/utils/styleUtils';
 import { Sparkles } from 'lucide-react-native';
 import React from 'react';
 import {
-    Modal,
-    PanResponder,
-    Pressable,
-    View,
-    useWindowDimensions
+  Modal,
+  PanResponder,
+  Pressable,
+  View,
+  useWindowDimensions
 } from 'react-native';
 
 const TRIM_EDGE_BUFFER_MS = 200;
@@ -50,8 +50,7 @@ export function TrimSegmentModal({
   const edgeHandleVerticalOverflow = 12;
   const waveformPanEdgeGuardPx = 20;
   const halfEdgeHandleTouchWidth = edgeHandleTouchWidth / 2;
-  const [waveformContainerWidth, setWaveformContainerWidth] =
-    React.useState(0);
+  const [waveformContainerWidth, setWaveformContainerWidth] = React.useState(0);
   const [selectionStart, setSelectionStart] = React.useState(0.1);
   const [selectionEnd, setSelectionEnd] = React.useState(0.9);
   const selectionStartRef = React.useRef(selectionStart);
@@ -65,9 +64,7 @@ export function TrimSegmentModal({
   const isOpenRef = React.useRef(isOpen);
   isOpenRef.current = isOpen;
   const trimPlayPreview = useLocalStore((state) => state.trimPlayPreview);
-  const setTrimPlayPreview = useLocalStore(
-    (state) => state.setTrimPlayPreview
-  );
+  const setTrimPlayPreview = useLocalStore((state) => state.setTrimPlayPreview);
 
   const isMerged = (assetAudio?.segments.length ?? 0) > 1;
 
@@ -216,7 +213,8 @@ export function TrimSegmentModal({
     }
 
     const firstClipDuration = clipDurations[0] ?? totalDuration;
-    const lastClipDuration = clipDurations[clipDurations.length - 1] ?? totalDuration;
+    const lastClipDuration =
+      clipDurations[clipDurations.length - 1] ?? totalDuration;
 
     const minStartFraction = 0;
     const maxEndFraction = 1;
@@ -229,7 +227,8 @@ export function TrimSegmentModal({
 
     const rawMinEnd =
       totalDuration > 0
-        ? (totalDuration - lastClipDuration + TRIM_EDGE_BUFFER_MS) / totalDuration
+        ? (totalDuration - lastClipDuration + TRIM_EDGE_BUFFER_MS) /
+          totalDuration
         : 0;
     const minEndFraction = Math.max(0, Math.min(1, rawMinEnd));
 
@@ -263,9 +262,7 @@ export function TrimSegmentModal({
 
     let nextEnd = 1;
     if (lastSeg.trim && lastRange) {
-      const accBefore = clipDurations
-        .slice(0, -1)
-        .reduce((s, d) => s + d, 0);
+      const accBefore = clipDurations.slice(0, -1).reduce((s, d) => s + d, 0);
       const posInLast = lastSeg.trim.endMs - lastRange.fileStartMs;
       nextEnd = (accBefore + posInLast) / totalDuration;
     }
@@ -504,12 +501,8 @@ export function TrimSegmentModal({
         const locationX = event.nativeEvent.locationX;
         const clampedX = clamp(locationX, 0, waveformWidth);
         const fraction = clampedX / waveformWidth;
-        const distanceToStart = Math.abs(
-          fraction - selectionStartRef.current
-        );
-        const distanceToEnd = Math.abs(
-          fraction - selectionEndRef.current
-        );
+        const distanceToStart = Math.abs(fraction - selectionStartRef.current);
+        const distanceToEnd = Math.abs(fraction - selectionEndRef.current);
 
         if (distanceToStart <= distanceToEnd) {
           const nextStart = clamp(
@@ -652,9 +645,7 @@ export function TrimSegmentModal({
           {segmentName ? (
             <Text className="mt-2 text-sm text-muted-foreground">
               {segmentName}
-              {audioUris.length > 1
-                ? ` (${t('mergedAudio')})`
-                : ''}
+              {audioUris.length > 1 ? ` (${t('mergedAudio')})` : ''}
             </Text>
           ) : null}
 
@@ -685,110 +676,112 @@ export function TrimSegmentModal({
               ) : (
                 <>
                   <View pointerEvents="none">
-                <WaveformVisualizer
-                  waveformData={resampledWaveform}
-                  width={waveformWidth}
-                  height={waveformHeight}
-                  barCount={barCount}
-                  color={baseBarColor}
-                  backgroundColor={backgroundColor}
-                  borderWidth={0}
-                />
-              </View>
+                    <WaveformVisualizer
+                      waveformData={resampledWaveform}
+                      width={waveformWidth}
+                      height={waveformHeight}
+                      barCount={barCount}
+                      color={baseBarColor}
+                      backgroundColor={backgroundColor}
+                      borderWidth={0}
+                    />
+                  </View>
 
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: selectionStartPx,
-                  width: selectionWidthPx,
-                  height: waveformHeight,
-                  overflow: 'hidden'
-                }}
-                pointerEvents="none"
-              >
-                <View style={{ position: 'absolute', left: -selectionStartPx }}>
-                  <WaveformVisualizer
-                    waveformData={resampledWaveform}
-                    width={waveformWidth}
-                    height={waveformHeight}
-                    barCount={barCount}
-                  color={overlayBarColor}
-                    backgroundColor={cardColor}
-                    borderWidth={0}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: selectionStartPx,
+                      width: selectionWidthPx,
+                      height: waveformHeight,
+                      overflow: 'hidden'
+                    }}
+                    pointerEvents="none"
+                  >
+                    <View
+                      style={{ position: 'absolute', left: -selectionStartPx }}
+                    >
+                      <WaveformVisualizer
+                        waveformData={resampledWaveform}
+                        width={waveformWidth}
+                        height={waveformHeight}
+                        barCount={barCount}
+                        color={overlayBarColor}
+                        backgroundColor={cardColor}
+                        borderWidth={0}
+                      />
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: selectionStartPx,
+                      width: selectionWidthPx,
+                      height: waveformHeight,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: primaryColor
+                    }}
+                    pointerEvents="none"
                   />
-                </View>
-              </View>
 
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: selectionStartPx,
-                  width: selectionWidthPx,
-                  height: waveformHeight,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: primaryColor
-                }}
-                pointerEvents="none"
-              />
+                  {clipBoundaryPositions.map((left, index) => (
+                    <View
+                      key={`clip-divider-${index}`}
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left,
+                        height: waveformHeight,
+                        borderLeftWidth: 1,
+                        borderLeftColor: primaryColor,
+                        borderStyle: 'dashed',
+                        opacity: 0.7
+                      }}
+                    />
+                  ))}
 
-              {clipBoundaryPositions.map((left, index) => (
-                <View
-                  key={`clip-divider-${index}`}
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left,
-                    height: waveformHeight,
-                    borderLeftWidth: 1,
-                    borderLeftColor: primaryColor,
-                    borderStyle: 'dashed',
-                    opacity: 0.7
-                  }}
-                />
-              ))}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: waveformPanEdgeGuardPx,
+                      right: waveformPanEdgeGuardPx,
+                      bottom: 0,
+                      zIndex: 1
+                    }}
+                    {...waveformPanHandlers}
+                  />
 
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: waveformPanEdgeGuardPx,
-                  right: waveformPanEdgeGuardPx,
-                  bottom: 0,
-                  zIndex: 1
-                }}
-                {...waveformPanHandlers}
-              />
-
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -edgeHandleVerticalOverflow,
-                  left: selectionStartPx - halfEdgeHandleTouchWidth,
-                  width: edgeHandleTouchWidth,
-                  height: waveformHeight + edgeHandleVerticalOverflow * 2,
-                  backgroundColor: 'transparent',
-                  zIndex: 2
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                {...leftPanHandlers}
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -edgeHandleVerticalOverflow,
-                  left: selectionEndPx - halfEdgeHandleTouchWidth,
-                  width: edgeHandleTouchWidth,
-                  height: waveformHeight + edgeHandleVerticalOverflow * 2,
-                  backgroundColor: 'transparent',
-                  zIndex: 2
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                {...rightPanHandlers}
-              />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -edgeHandleVerticalOverflow,
+                      left: selectionStartPx - halfEdgeHandleTouchWidth,
+                      width: edgeHandleTouchWidth,
+                      height: waveformHeight + edgeHandleVerticalOverflow * 2,
+                      backgroundColor: 'transparent',
+                      zIndex: 2
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    {...leftPanHandlers}
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -edgeHandleVerticalOverflow,
+                      left: selectionEndPx - halfEdgeHandleTouchWidth,
+                      width: edgeHandleTouchWidth,
+                      height: waveformHeight + edgeHandleVerticalOverflow * 2,
+                      backgroundColor: 'transparent',
+                      zIndex: 2
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    {...rightPanHandlers}
+                  />
                 </>
               )}
             </View>
@@ -807,22 +800,18 @@ export function TrimSegmentModal({
                     setTrimPlayPreview(Boolean(checked))
                   }
                 />
-                <Text className="text-muted-foreground text-sm">
+                <Text className="text-sm text-muted-foreground">
                   {t('playPreview')}
                 </Text>
               </Pressable>
               <Button
                 variant="outline"
                 onPress={handleAutoTrim}
-                className="w-full min-h-[48px] items-center justify-center"
+                className="min-h-[48px] w-full items-center justify-center"
               >
                 <View className="flex-row flex-wrap items-center justify-center gap-2">
-                  <Icon
-                    as={Sparkles}
-                    size={18}
-                    className="text-primary"
-                  />
-                  <Text className="text-primary text-sm flex-wrap">
+                  <Icon as={Sparkles} size={18} className="text-primary" />
+                  <Text className="flex-wrap text-sm text-primary">
                     {t('autoTrim')}
                   </Text>
                 </View>
@@ -832,11 +821,7 @@ export function TrimSegmentModal({
 
           <View className="mt-6">
             <View className="flex-row gap-3">
-              <Button
-                variant="outline"
-                onPress={onClose}
-                className="flex-1"
-              >
+              <Button variant="outline" onPress={onClose} className="flex-1">
                 <Text>{t('cancel')}</Text>
               </Button>
               <Button
