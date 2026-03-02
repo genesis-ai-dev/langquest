@@ -49,13 +49,13 @@ import {
   useBibleBookCreation,
   useBibleBooks
 } from '@/hooks/useBibleBookCreation';
-import { useFiaBooks } from '@/hooks/useFiaBooks';
 import {
   useFiaBookCreation,
   useFiaBookQuests
 } from '@/hooks/useFiaBookCreation';
-import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
+import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -69,7 +69,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeftIcon,
   BookOpenIcon,
   ChurchIcon,
   FlagIcon,
@@ -1010,10 +1009,6 @@ export default function ProjectDirectoryView() {
       // Show chapter list
       return (
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-          <Button variant="ghost" size="sm" onPress={goBack}>
-            <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
-          </Button>
           <View className="w-full flex-1">
             <BibleChapterList
               projectId={currentProjectId!}
@@ -1088,10 +1083,6 @@ export default function ProjectDirectoryView() {
         // Book data may still be loading
         return (
           <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-            <Button variant="ghost" size="sm" onPress={goBack}>
-              <Icon as={ArrowLeftIcon} />
-              <Text>Back</Text>
-            </Button>
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" />
             </View>
@@ -1101,10 +1092,6 @@ export default function ProjectDirectoryView() {
 
       return (
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-          <Button variant="ghost" size="sm" onPress={goBack}>
-            <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
-          </Button>
           <View className="w-full flex-1">
             <FiaPericopeList
               projectId={currentProjectId!}
