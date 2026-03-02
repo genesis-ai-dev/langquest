@@ -16,6 +16,7 @@ export type AppView =
   | 'profile'
   | 'notifications'
   | 'settings'
+  | 'about'
   | 'corrupted-attachments'
   | 'account-deletion'
   | 'download-status';

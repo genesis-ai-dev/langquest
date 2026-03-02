@@ -283,6 +283,10 @@ export function useAppNavigation() {
     navigate({ view: 'settings' });
   }, [navigate]);
 
+  const goToAbout = useCallback(() => {
+    navigate({ view: 'about' });
+  }, [navigate]);
+
   const goToCorruptedAttachments = useCallback(() => {
     navigate({ view: 'corrupted-attachments' });
   }, [navigate]);
@@ -310,6 +314,13 @@ export function useAppNavigation() {
 
     if (state.view === 'projects') {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
+    } else if (state.view === 'settings') {
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
+      crumbs.push({ label: t('settings'), onPress: undefined });
+    } else if (state.view === 'about') {
+      crumbs.push({ label: projectsLabel, onPress: goToProjects });
+      crumbs.push({ label: t('settings'), onPress: goToSettings });
+      crumbs.push({ label: 'About', onPress: undefined });
     } else if (state.view === 'quests' && state.projectName) {
       crumbs.push({ label: projectsLabel, onPress: goToProjects });
       crumbs.push({ label: state.projectName, onPress: undefined });
@@ -381,7 +392,15 @@ export function useAppNavigation() {
     return crumbs.length > 0
       ? crumbs
       : [{ label: projectsLabel, onPress: goToProjects }];
-  }, [currentState, goToProjects, goToProject, goToQuest, goBack, t]);
+  }, [
+    currentState,
+    goToProjects,
+    goToProject,
+    goToQuest,
+    goBack,
+    goToSettings,
+    t
+  ]);
 
   return {
     // Current state
@@ -412,6 +431,7 @@ export function useAppNavigation() {
     goToProfile,
     goToNotifications,
     goToSettings,
+    goToAbout,
     goToCorruptedAttachments,
     goToAccountDeletion,
     goToDownloadStatus,

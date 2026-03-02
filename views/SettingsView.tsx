@@ -37,7 +37,7 @@ interface SettingsItem {
 
 export default function SettingsView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects, goToAbout } = useAppNavigation();
   const isOnline = useNetworkStatus();
 
   // Centralized settings store (select individual slices to avoid broad subscriptions)
@@ -238,6 +238,12 @@ export default function SettingsView() {
     {
       title: t('support'),
       items: [
+        {
+          id: 'about',
+          title: 'About',
+          type: 'link',
+          onPress: goToAbout
+        },
         {
           id: 'help',
           title: t('helpCenter'),

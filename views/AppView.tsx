@@ -19,6 +19,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 const NotificationsView = React.lazy(() => import('@/views/NotificationsView'));
 const ProfileView = React.lazy(() => import('@/views/ProfileView'));
 const SettingsView = React.lazy(() => import('@/views/SettingsView'));
+const AboutView = React.lazy(() => import('@/views/AboutView'));
 const CorruptedAttachmentsView = React.lazy(
   () => import('@/views/CorruptedAttachmentsView')
 );
@@ -153,6 +154,7 @@ function AppViewContent() {
       const blockedViews: (typeof currentView)[] = [
         'profile',
         'settings',
+        'about',
         'notifications',
         'corrupted-attachments',
         'account-deletion'
@@ -224,6 +226,8 @@ function AppViewContent() {
         return <NotificationsView />;
       case 'settings':
         return <SettingsView />;
+      case 'about':
+        return <AboutView />;
       case 'corrupted-attachments':
         return <CorruptedAttachmentsView />;
       case 'account-deletion':
