@@ -87,13 +87,8 @@ export function useUserRestrictions(
   const { db, supabaseConnector } = system;
   const { currentUser } = useAuth();
 
-  if (!currentUser)
-    return {
-      data: { blockedContent: [], blockedUsers: [] },
-      isRestrictionsLoading: false,
-      hasError: false
-    };
-
+  // Always call hooks - use enabled flag to disable when no currentUser
+  // This ensures hooks are called in the same order every render
   const {
     data: blockedContent,
     isLoading: isBlockedContentLoading,
@@ -102,10 +97,10 @@ export function useUserRestrictions(
     // refetch: refetchBlockedContent
   } = useHybridData<{ content_id: string }>({
     dataType: 'blocked_content',
-    queryKeyParams: ['blocked_content', contentType, currentUser.id],
+    queryKeyParams: ['blocked_content', contentType, currentUser?.id || ''],
 
     // PowerSync query for votes
-    offlineQuery: includeBlockedContent
+    offlineQuery: includeBlockedContent && currentUser
       ? toCompilableQuery(
           db
             .select({ content_id: blocked_content.content_id })
@@ -120,7 +115,7 @@ export function useUserRestrictions(
       : 'SELECT content_id FROM blocked_content WHERE 1=0',
     // Cloud query for votes
     cloudQueryFn: async () => {
-      if (!includeBlockedContent) return [];
+      if (!includeBlockedContent || !currentUser) return [];
       const { data, error } = await supabaseConnector.client
         .from('blocked_content')
         .select('content_id')
@@ -131,8 +126,10 @@ export function useUserRestrictions(
       return data as { content_id: string }[];
     },
 
-    // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
+    // Disable cloud query when user explicitly wants offline data or no currentUser
+    enableCloudQuery: !useOfflineData && !!currentUser,
+    enableOfflineQuery: !!currentUser,
+    enabled: !!currentUser
   });
 
   const {
@@ -143,10 +140,10 @@ export function useUserRestrictions(
     // refetch: refetchBlockedUsers
   } = useHybridData<{ blocked_id: string }>({
     dataType: 'blocked_users',
-    queryKeyParams: ['blocked_users', currentUser.id],
+    queryKeyParams: ['blocked_users', currentUser?.id || ''],
 
     // PowerSync query for votes
-    offlineQuery: includeBlockedUsers
+    offlineQuery: includeBlockedUsers && currentUser
       ? toCompilableQuery(
           db
             .select({ blocked_id: blocked_users.blocked_id })
@@ -156,7 +153,7 @@ export function useUserRestrictions(
       : 'SELECT blocked_id FROM blocked_users WHERE 1=0',
     // Cloud query for votes
     cloudQueryFn: async () => {
-      if (!includeBlockedUsers) return [];
+      if (!includeBlockedUsers || !currentUser) return [];
       const { data, error } = await supabaseConnector.client
         .from('blocked_users')
         .select('blocked_id')
@@ -166,14 +163,25 @@ export function useUserRestrictions(
       return data as { blocked_id: string }[];
     },
 
-    // Disable cloud query when user explicitly wants offline data
-    enableCloudQuery: !useOfflineData
+    // Disable cloud query when user explicitly wants offline data or no currentUser
+    enableCloudQuery: !useOfflineData && !!currentUser,
+    enableOfflineQuery: !!currentUser,
+    enabled: !!currentUser
   });
 
   // const refetch = () => {
   //   void refetchBlockedContent();
   //   void refetchBlockedUsers();
   // };
+
+  // Return early result if no currentUser (after hooks are called)
+  if (!currentUser) {
+    return {
+      data: { blockedContentIds: [], blockedUserIds: [] },
+      isRestrictionsLoading: false,
+      hasError: false
+    };
+  }
 
   return {
     data: {
