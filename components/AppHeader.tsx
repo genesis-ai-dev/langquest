@@ -173,7 +173,7 @@ export default function AppHeader({
   }));
 
   return (
-    <View className="relative bg-transparent p-4">
+    <View className="relative bg-transparent">
       {/* Cloud Loading Bar */}
       <Animated.View
         style={loadingBarStyle}

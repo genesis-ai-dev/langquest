@@ -127,11 +127,13 @@ function AppContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader
-        drawerToggleCallback={drawerToggleCallback}
-        isCloudLoading={isCloudLoading}
-        onOnboardingPress={isProjectsView ? handleOnboardingPress : undefined}
-      />
+      <View className="p-4">
+        <AppHeader
+          drawerToggleCallback={drawerToggleCallback}
+          isCloudLoading={isCloudLoading}
+          onOnboardingPress={isProjectsView ? handleOnboardingPress : undefined}
+        />
+      </View>
 
       <Stack
         screenOptions={{
