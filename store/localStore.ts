@@ -1,6 +1,7 @@
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colorScheme } from 'nativewind';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -580,7 +581,6 @@ export const useLocalStore = create<LocalState>()(
     {
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // skipHydration: true,
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
@@ -630,3 +630,23 @@ export const useLocalStore = create<LocalState>()(
     }
   )
 );
+
+/**
+ * Returns true once the persisted store has finished rehydrating from AsyncStorage.
+ * Use this to gate UI that depends on persisted values (e.g. terms acceptance)
+ * to avoid flash-of-wrong-state on app restart.
+ */
+export function useHasHydrated() {
+  const [hydrated, setHydrated] = useState(
+    useLocalStore.persist.hasHydrated()
+  );
+
+  useEffect(() => {
+    const unsub = useLocalStore.persist.onFinishHydration(() =>
+      setHydrated(true)
+    );
+    return unsub;
+  }, []);
+
+  return hydrated;
+}

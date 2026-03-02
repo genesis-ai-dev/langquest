@@ -5,9 +5,8 @@ import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { ArrowLeftIcon, XIcon } from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { Linking, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
@@ -35,19 +34,8 @@ function Terms() {
 
   const canAcceptTerms = !dateTermsAccepted;
 
-  const [languagesLoaded, setLanguagesLoaded] = useState(false);
-  const onLayoutView = useCallback(() => {
-    if (languagesLoaded) {
-      void SplashScreen.hideAsync();
-    }
-  }, [languagesLoaded]);
-
   return (
-    <View
-      // className="my-safe flex-col items-center gap-4 p-4"
-      className="flex flex-1 flex-col gap-4 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+1rem)]"
-      onLayout={onLayoutView}
-    >
+    <View className="flex flex-1 flex-col gap-4 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+1rem)]">
       <View className="w-full flex-row items-center justify-between gap-2 bg-background">
         {router.canGoBack() && dateTermsAccepted && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
@@ -66,7 +54,7 @@ function Terms() {
 
       {/* Language Selector */}
       <View className="w-full gap-2.5">
-        <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} uiReadyOnly />
+        <LanguageSelect uiReadyOnly />
       </View>
 
       <ScrollView contentContainerClassName="flex flex-col gap-4 w-full">

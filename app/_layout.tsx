@@ -26,6 +26,7 @@ import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -37,7 +38,7 @@ import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { initializePostHogWithStore } from '@/services/posthog';
-import { useLocalStore } from '@/store/localStore';
+import { useLocalStore, useHasHydrated } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -51,6 +52,8 @@ configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
   strict: false
 });
+
+SplashScreen.preventAutoHideAsync();
 
 LogBox.ignoreAllLogs(true);
 
@@ -80,6 +83,36 @@ function RootNavigator() {
   } = useAuth();
   const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
   const authView = useLocalStore((s) => s.authView);
+  const hasHydrated = useHasHydrated();
+
+  const termsAccepted = !!dateTermsAccepted;
+  const authModalVisible = !!authView;
+
+  const needsMigration =
+    termsAccepted && isAuthenticated && !!migrationNeeded;
+  const needsUpgrade =
+    termsAccepted && isAuthenticated && !!appUpgradeNeeded;
+  const needsPasswordReset =
+    termsAccepted && isAuthenticated && sessionType === 'password-reset';
+
+  const systemReady = isAuthenticated ? isSystemReady : true;
+
+  const appReady =
+    termsAccepted &&
+    !needsMigration &&
+    !needsUpgrade &&
+    !needsPasswordReset &&
+    (!isLoading || authModalVisible) &&
+    (systemReady || authModalVisible);
+
+  const isBlockingState = needsMigration || needsUpgrade || needsPasswordReset;
+
+  // Ready to show content when hydrated AND we can make a definitive routing decision:
+  // - terms not yet accepted → show terms page
+  // - app fully ready → show app
+  // - blocking state (migration/upgrade/reset) → show that screen
+  const showContent =
+    hasHydrated && (!termsAccepted || appReady || isBlockingState);
 
   useDrizzleStudio();
 
@@ -92,30 +125,15 @@ function RootNavigator() {
     };
   }, []);
 
-  const termsAccepted = !!dateTermsAccepted;
+  useEffect(() => {
+    if (showContent) {
+      void SplashScreen.hideAsync();
+    }
+  }, [showContent]);
 
-  // Auth-modal visible keeps the app mounted (prevents visual restart during login)
-  const authModalVisible = !!authView;
-
-  // Blocking states (only for authenticated users)
-  const needsMigration =
-    termsAccepted && isAuthenticated && !!migrationNeeded;
-  const needsUpgrade =
-    termsAccepted && isAuthenticated && !!appUpgradeNeeded;
-  const needsPasswordReset =
-    termsAccepted && isAuthenticated && sessionType === 'password-reset';
-
-  // System ready: anonymous users are always ready, authenticated users wait
-  const systemReady = isAuthenticated ? isSystemReady : true;
-
-  // App is accessible when there are no blocking states
-  const appReady =
-    termsAccepted &&
-    !needsMigration &&
-    !needsUpgrade &&
-    !needsPasswordReset &&
-    (!isLoading || authModalVisible) &&
-    (systemReady || authModalVisible);
+  if (!showContent) {
+    return null;
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
