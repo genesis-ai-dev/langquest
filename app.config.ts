@@ -58,6 +58,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     icon: iconLight,
     scheme: getScheme(appVariant),
     userInterfaceStyle: 'automatic',
+    buildCacheProvider: 'eas',
     ios: {
       icon: {
         light: iconLight,
@@ -148,9 +149,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     },
     runtimeVersion: {
       policy: 'appVersion'
-    },
-    buildCacheProvider: 'eas'
-  });
+    }
+  } as ExpoConfig);
 
 const withUseThirdPartySQLitePod: ConfigPlugin = (expoConfig) => {
   return withPodfileProperties(expoConfig, (config) => {
