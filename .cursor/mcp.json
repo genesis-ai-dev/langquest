@@ -36,6 +36,10 @@
     "shadcn": {
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
+    },
+    "expo-mcp": {
+      "url": "https://mcp.expo.dev/mcp",
+      "headers": {}
     }
   }
 }
