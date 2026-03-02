@@ -106,12 +106,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       favicon: iconLight
     },
     plugins: [
+      'expo-build-properties',
       'expo-font',
       'expo-router',
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
       'expo-asset',
       'expo-audio',
+      'expo-image',
       [
         'expo-splash-screen',
         {
@@ -125,6 +127,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         }
       ],
       'expo-dev-client',
+      'expo-sharing',
+      'expo-sqlite',
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
     ],
     experiments: {
