@@ -5,7 +5,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useLocalStore } from '@/store/localStore';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -45,7 +44,7 @@ export function ExportButton({
   const [isConcatenating, setIsConcatenating] = useState(false);
 
   // Check feature flag
-  const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  // const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
 
   // Fetch quest publish status
   const { isPublished: isQuestPublished } = useQuestPublishStatus(questId);
@@ -61,7 +60,7 @@ export function ExportButton({
   React.useEffect(() => {
     if (__DEV__) {
       console.log('[ExportButton] Debug:', {
-        enableQuestExport,
+        //enableQuestExport,
         membership,
         passedMembership,
         fetchedMembership,
@@ -75,7 +74,7 @@ export function ExportButton({
       });
     }
   }, [
-    enableQuestExport,
+    //enableQuestExport,
     membership,
     passedMembership,
     fetchedMembership,
