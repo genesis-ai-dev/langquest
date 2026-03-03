@@ -1,4 +1,8 @@
-import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
+import type { FiaDrawerState } from '@/components/FiaStepDrawer';
+import {
+  FiaStepDrawer,
+  INITIAL_FIA_DRAWER_STATE
+} from '@/components/FiaStepDrawer';
 import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
 import RecordingSelectionList from '@/components/RecordingSelectionList';
@@ -6,6 +10,7 @@ import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -15,11 +20,6 @@ import {
   updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import {
-  FiaStepDrawer,
-  INITIAL_FIA_DRAWER_STATE
-} from '@/components/FiaStepDrawer';
-import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   asset_content_link,
   project_language_link,
@@ -533,11 +533,11 @@ const RecordingView = () => {
   const PILL_HEIGHT_INSERTION = 122;
 
   // Dynamic verse tracking for automatic progression
-  // Initialize with _verse.from if available, otherwise null (user must click "Add verse" button)
-  // This ensures the correct verse is used when starting recording
+  // Always starts as null so the first "Add verse" uses persisted nextVerse,
+  // even when an initial verse exists in recordingData.
   const [currentDynamicVerse, setCurrentDynamicVerse] = React.useState<
     number | null
-  >(_verse?.from ?? null);
+  >(null);
 
   // Persist initial props in refs - these should NOT change during the recording session
   // even when invalidateQueries causes re-renders. We capture them once on mount.
