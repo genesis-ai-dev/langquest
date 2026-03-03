@@ -17,8 +17,10 @@
     "export:analyze": "npx expo-atlas .expo/atlas.jsonl",
     "generate-env": "npx tsx ./scripts/generate-env.ts",
     "reset-project": "node ./scripts/reset-project.js",
-    "clean-rebuild:android": "git clean -xdf node_modules package-lock.json && npm i && npx expo prebuild --platform android --clean",
-    "clean-rebuild:ios": "git clean -xdf node_modules package-lock.json && npm i && npx expo prebuild --platform ios --clean",
+    "clean-install": "git clean -xdf node_modules package-lock.json && npm i",
+    "clean-rebuild:android": "npm run clean-install && npx expo prebuild --platform android --clean",
+    "clean-rebuild:ios": "npm run clean-install && npx expo prebuild --platform ios --clean",
+    "clean-rebuild": "npm run clean-install && npx expo prebuild --clean",
     "android": "expo run:android --variant debugOptimized --device",
     "android:multi": "expo start --dev-client",
     "android:device": "expo run:android --device --no-bundler",
@@ -69,13 +71,12 @@
     "@journeyapps/wa-sqlite": "^1.4.1",
     "@legendapp/list": "^2.0.12",
     "@op-engineering/op-sqlite": "^15.2.5",
-    "@powersync/attachments": "^2.4.0",
-    "@powersync/drizzle-driver": "^0.7.2",
-    "@powersync/op-sqlite": "^0.8.0",
-    "@powersync/react-native": "^1.25.1",
-    "@powersync/tanstack-react-query": "^0.1.6",
-    "@powersync/web": "^1.27.1",
-    "@quidone/react-native-wheel-picker": "^1.6.1",
+    "@powersync/attachments": "^2.4.3",
+    "@powersync/drizzle-driver": "^0.7.3",
+    "@powersync/op-sqlite": "^0.9.1",
+    "@powersync/react-native": "^1.30.2",
+    "@powersync/tanstack-react-query": "^0.2.0",
+    "@powersync/web": "^1.34.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "@react-native-community/slider": "5.1.2",
@@ -224,7 +225,11 @@
     "react-dom": "19.2.0",
     "@types/react": "~19.2.2",
     "jest-snapshot-prettier": "npm:prettier@^3.6.2",
-    "@powersync/common": "1.47.0"
+    "minimatch": "^9.0.7",
+    "esbuild": "^0.25.0",
+    "sharp-cli": {
+      "glob": "^13.0.0"
+    }
   },
   "private": true
 }
