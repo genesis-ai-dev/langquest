@@ -112,6 +112,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
       [
+        'expo-build-properties',
+        {
+          ios: {
+            deploymentTarget: '15.1'
+          }
+        }
+      ],
+      [
         'expo-splash-screen',
         {
           image: iconLight,
