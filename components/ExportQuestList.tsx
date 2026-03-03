@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+
 interface ExportQuestListProps {
   isOpen: boolean;
   onClose: () => void;
@@ -158,12 +159,20 @@ export function ExportQuestList({
 
       cleanup = artifacts.cleanup;
 
+      let exportResult: 'completed' | 'cancelled' = 'completed';
       if (shareEnable) {
-        await shareExport(artifacts, quest?.name || 'Quest Audio');
+        exportResult = await shareExport(artifacts, quest?.name || 'Quest Audio');
       } else {
-        await downloadExport(artifacts, {
+        const result = await downloadExport(artifacts, {
           iosDialogTitle: quest?.name || 'Save export'
         });
+        if (result === 'cancelled') {
+          exportResult = result;
+        }
+      }
+
+      if (exportResult === 'cancelled') {
+        return;
       }
 
       RNAlert.alert(
@@ -212,14 +221,16 @@ export function ExportQuestList({
                 </Text>
             </View>
             <View>
-              <ToggleButton
-                value={shareEnable ? 'right' : 'left'}
-                onValueChange={(next) => setShareEnable(next === 'right')}
-                leftIcon={Download}
-                rightIcon={Share2Icon}
-                leftText="Download"
-                rightText="Share"
-              />
+              {Platform.OS === 'android' && (
+                <ToggleButton
+                    value={shareEnable ? 'right' : 'left'}
+                    onValueChange={(next) => setShareEnable(next === 'right')}
+                    leftIcon={Download}
+                    rightIcon={Share2Icon}
+                    leftText="Download"
+                    rightText="Share"
+                />
+              )}
             </View>
         </View>
 
@@ -247,7 +258,7 @@ export function ExportQuestList({
                   checked={zipFile}
                   onCheckedChange={(v) => setZipFile(v === true)}
                 />
-                <Text className="text-sm">Zip file</Text>
+                <Text className="text-sm">Single Zip File</Text>
               </View>
             )}
           </View>
@@ -324,7 +335,7 @@ export function ExportQuestList({
             {isConcatenating ? (
               <ActivityIndicator />
             ) : (
-              <Text>{`${shareEnable ? 'Share' : 'Download'}`}</Text>
+              <Text>{`${shareEnable || Platform.OS === 'ios' ? 'Share' : 'Download'}`}</Text>
             )}
           </Button>
           <Button onPress={onClose} variant="outline" className="mb-2">

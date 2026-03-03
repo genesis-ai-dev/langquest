@@ -10,7 +10,7 @@ import {
 import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
+import { Platform, Share as NativeShare } from 'react-native';
 import { zip as zipArchive } from 'react-native-zip-archive';
 import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 
@@ -52,6 +52,8 @@ export interface AndroidDownloadResult {
     name: string;
   }[];
 }
+
+export type ExportActionResult = 'completed' | 'cancelled';
 
 function getFileNameFromUri(uri: string, fallbackPrefix = 'export'): string {
   const rawName = uri.split('/').pop();
@@ -540,7 +542,7 @@ export async function buildExportArtifacts({
 export async function shareExport(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   dialogTitle = 'Share export'
-): Promise<void> {
+): Promise<ExportActionResult> {
   if (artifacts.files.length > 1) {
     throw new Error(
       'Sharing multiple files is not supported yet. Use Download for multiple files.'
@@ -552,16 +554,53 @@ export async function shareExport(
     throw new Error('No files available to share.');
   }
 
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (!isAvailable) {
-    throw new Error('Sharing is not available on this device.');
-}
+  const sourceUri = normalizeFileSystemUri(firstFile.uri);
+  const currentFileName = getFileNameFromUri(sourceUri, 'export');
+  const targetFileName = firstFile.name || currentFileName;
 
-  await Sharing.shareAsync(firstFile.uri, {
-    mimeType: firstFile.mimeType,
-    UTI: firstFile.mimeType === 'audio/mp4' ? 'com.apple.m4a-audio' : undefined,
-    dialogTitle
-  });
+  let shareUri = sourceUri;
+  let tempShareUri: string | null = null;
+
+  // iOS share sheet uses the source URI filename. If needed, create a temp copy
+  // with the intended export name so users see the expected filename.
+  if (Platform.OS === 'ios' && currentFileName !== targetFileName) {
+    tempShareUri = `${FileSystem.cacheDirectory}share-${Date.now()}-${targetFileName}`;
+    await FileSystem.copyAsync({
+      from: sourceUri,
+      to: tempShareUri,
+    });
+    shareUri = tempShareUri;
+  }
+
+  try {
+    if (Platform.OS === 'ios') {
+      const result = await NativeShare.share({
+        url: shareUri,
+        title: dialogTitle
+      });
+      return result.action === NativeShare.dismissedAction
+        ? 'cancelled'
+        : 'completed';
+    }
+
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Sharing is not available on this device.');
+    }
+
+    await Sharing.shareAsync(shareUri, {
+      mimeType: firstFile.mimeType,
+      UTI: firstFile.mimeType === 'audio/mp4' ? 'com.apple.m4a-audio' : undefined,
+      dialogTitle
+    });
+    return 'completed';
+  } finally {
+    if (tempShareUri) {
+      await FileSystem.deleteAsync(tempShareUri, { idempotent: true }).catch(
+        () => undefined
+      );
+    }
+  }
 }
 
 export async function downloadExportAndroid(
@@ -615,20 +654,20 @@ export async function downloadExportAndroid(
 export async function downloadExportIOS(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   dialogTitle = 'Save export'
-): Promise<void> {
+): Promise<ExportActionResult> {
   if (Platform.OS !== 'ios') {
     throw new Error('downloadExportIOS can only be called on iOS.');
   }
 
   // iOS does not allow unrestricted writes to arbitrary folders from app code.
   // We rely on the native share sheet so users can choose "Save to Files".
-  await shareExport(artifacts, dialogTitle);
+  return shareExport(artifacts, dialogTitle);
 }
 
 export async function downloadExport(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   options?: { androidDirectoryUri?: string; iosDialogTitle?: string }
-): Promise<AndroidDownloadResult | void> {
+): Promise<AndroidDownloadResult | ExportActionResult> {
   if (Platform.OS === 'android') {
     return downloadExportAndroid(artifacts, options?.androidDirectoryUri);
   }
