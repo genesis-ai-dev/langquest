@@ -17,6 +17,7 @@ import React from 'react';
 import {
     ActivityIndicator,
     Modal,
+    Platform,
     Pressable,
     SafeAreaView,
     View
@@ -54,6 +55,7 @@ export function ExportQuestList({
     React.useState(false);
   const [mergedFile, setMergedFile] = React.useState(true);
   const [includeCsvFile, setIncludeCsvFile] = React.useState(true);
+  const [zipFile, setZipFile] = React.useState(false);
   const [shareEnable, setShareEnable] = React.useState(false);
   const [isConcatenating, setIsConcatenating] = React.useState(false);
 
@@ -151,6 +153,7 @@ export function ExportQuestList({
         questName: quest?.name || undefined,
         mergedFile: shareEnable ? true : mergedFile,
         includeCsvFile: shareEnable ? false : includeCsvFile,
+        zipFile: shareEnable ? false : zipFile,
       });
 
       cleanup = artifacts.cleanup;
@@ -184,6 +187,7 @@ export function ExportQuestList({
     currentQuestId,
     includeCsvFile,
     mergedFile,
+    zipFile,
     quest?.name,
     selectedAssetIdList,
     shareEnable,
@@ -237,6 +241,15 @@ export function ExportQuestList({
               />
               <Text className="text-sm">Include Text</Text>
             </View>
+            {Platform.OS === 'android' && (
+              <View className="flex-row items-center gap-2">
+                <Checkbox
+                  checked={zipFile}
+                  onCheckedChange={(v) => setZipFile(v === true)}
+                />
+                <Text className="text-sm">Zip file</Text>
+              </View>
+            )}
           </View>
         </View>
         )}

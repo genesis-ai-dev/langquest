@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system';
 import { StorageAccessFramework } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
+import { zip as zipArchive } from 'react-native-zip-archive';
 import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 
 export interface ExportArtifact {
@@ -26,6 +27,7 @@ export interface BuildExportArtifactsOptions {
   questName?: string;
   mergedFile?: boolean;
   includeCsvFile?: boolean;
+  zipFile?: boolean;
 }
 
 export interface BuiltExportArtifacts {
@@ -66,6 +68,17 @@ function getMimeTypeFromFileName(fileName: string): string {
   if (lower.endsWith('.mp3')) return 'audio/mpeg';
   if (lower.endsWith('.aac')) return 'audio/aac';
   return 'application/octet-stream';
+}
+
+function normalizeFileSystemUri(uri: string): string {
+  if (!uri) return uri;
+  if (uri.startsWith('file://') || uri.startsWith('content://')) {
+    return uri;
+  }
+  if (uri.startsWith('/')) {
+    return `file://${uri}`;
+  }
+  return uri;
 }
 
 function sanitizeNamePart(input: string): string {
@@ -188,6 +201,64 @@ function ensureUniqueFileNames(files: ExportArtifact[]): ExportArtifact[] {
       name: `${baseName} (${currentCount + 1})${ext}`
     };
   });
+}
+
+async function compressFiles(options: {
+  files: ExportArtifact[];
+  currentDateTime: string;
+  questName?: string;
+  resolvedProjectName?: string;
+  resolvedLanguoidName?: string;
+}): Promise<{ files: ExportArtifact[]; cleanupTargets: string[] }> {
+  const {
+    files,
+    currentDateTime,
+    questName,
+    resolvedProjectName,
+    resolvedLanguoidName
+  } = options;
+
+  const zipNameBase = sanitizeNamePart(
+    `${questName || 'quest'}-${resolvedProjectName || 'project'}-${
+      resolvedLanguoidName || 'export'
+    }`
+  );
+  const zipFileName = `${zipNameBase || 'export'}-${currentDateTime}.zip`;
+  const stagingDir = `${FileSystem.cacheDirectory}export-zip-staging-${Date.now()}/`;
+  const zipOutputPath = `${FileSystem.cacheDirectory}${zipFileName}`;
+
+  await FileSystem.makeDirectoryAsync(stagingDir, { intermediates: true });
+
+  try {
+    await Promise.all(
+      files.map(async (file) => {
+        await FileSystem.copyAsync({
+          from: file.uri,
+          to: `${stagingDir}${file.name}`
+        });
+      })
+    );
+
+    const zipUri = normalizeFileSystemUri(
+      await zipArchive(stagingDir, zipOutputPath)
+    );
+
+    return {
+      files: [
+        {
+          uri: zipUri,
+          name: zipFileName,
+          mimeType: 'application/zip'
+        }
+      ],
+      cleanupTargets: [zipUri, stagingDir]
+    };
+  } catch (error) {
+    await FileSystem.deleteAsync(stagingDir, { idempotent: true }).catch(
+      () => undefined
+    );
+    throw error;
+  }
 }
 
 function getMetadataVerseForCsv(metadata: unknown): string {
@@ -317,7 +388,8 @@ export async function buildExportArtifacts({
   assetIds,
   questName,
   mergedFile = true,
-  includeCsvFile = false
+  includeCsvFile = false,
+  zipFile = false
 }: BuildExportArtifactsOptions): Promise<BuiltExportArtifacts> {
   if (!assetIds.length) {
     throw new Error('No assets selected for export.');
@@ -431,13 +503,31 @@ export async function buildExportArtifacts({
 
   files = ensureUniqueFileNames(files);
 
+  if (files.length > 1 && Platform.OS !== 'android') {
+    zipFile = true;
+  }
+
+  if (zipFile) {
+    const compressed = await compressFiles({
+      files,
+      currentDateTime,
+      questName,
+      resolvedProjectName,
+      resolvedLanguoidName
+    });
+    files = compressed.files;
+    cleanupTargets = [...cleanupTargets, ...compressed.cleanupTargets];
+  }
+
   return {
     files,
     cleanup: async () => {
       await Promise.all(
         cleanupTargets.map(async (uri) => {
           try {
-            await FileSystem.deleteAsync(uri, { idempotent: true });
+            await FileSystem.deleteAsync(normalizeFileSystemUri(uri), {
+              idempotent: true
+            });
           } catch (error) {
             console.warn(`[exportUtils] Failed to cleanup ${uri}:`, error);
           }
@@ -465,7 +555,7 @@ export async function shareExport(
   const isAvailable = await Sharing.isAvailableAsync();
   if (!isAvailable) {
     throw new Error('Sharing is not available on this device.');
-  }
+}
 
   await Sharing.shareAsync(firstFile.uri, {
     mimeType: firstFile.mimeType,
