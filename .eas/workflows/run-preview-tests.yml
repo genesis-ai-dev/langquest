@@ -121,7 +121,7 @@ jobs:
     hooks:
       after_checkout:
         - run: |
-            DEVICE_ID=$(xcrun simctl list devices | grep 'iPhone 16e' | awk -F '[()]' '{print $2}') && \
+            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
             echo "Booted device ID: $DEVICE_ID" && \
             # Source - https://stackoverflow.com/a/76105538
             # Posted by Jonathan.
