@@ -1,3 +1,4 @@
+import { AuthContext } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import type { CompilableQuery } from '@powersync/react-native';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -8,7 +9,7 @@ import {
   useInfiniteQuery,
   useQueryClient
 } from '@tanstack/react-query';
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { getNetworkStatus, useNetworkStatus } from './useNetworkStatus';
 
 /**
@@ -75,6 +76,9 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     ...restOptions
   } = options;
   const isOnline = useNetworkStatus();
+  const authContext = useContext(AuthContext);
+  const hasValidSession = authContext?.hasValidSession ?? false;
+  const shouldFetchCloud = isOnline && hasValidSession;
 
   // Filter out undefined/null values from the query key
   const cleanQueryKey = queryKey.filter(
@@ -125,11 +129,10 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     ...restOptions
   });
 
-  // Query cloud data (only when online)
   const cloudQuery = useQuery({
     queryKey: cloudQueryKey,
     queryFn: onlineFn,
-    enabled: isOnline,
+    enabled: shouldFetchCloud,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -199,14 +202,15 @@ export function useHybridQuery<T extends Record<string, unknown>>(
 
   return {
     data: finalData,
-    isLoading: localQuery.isLoading || (isOnline && cloudQuery.isLoading),
+    isLoading: localQuery.isLoading,
+    isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
     error: localQuery.error || cloudQuery.error,
     isError: localQuery.isError || cloudQuery.isError,
     isFetching: localQuery.isFetching || cloudQuery.isFetching,
     isSuccess: localQuery.isSuccess,
     refetch: () => {
       void localQuery.refetch();
-      if (isOnline) void cloudQuery.refetch();
+      if (shouldFetchCloud) void cloudQuery.refetch();
     },
     // Include other query result properties
     dataUpdatedAt: Math.max(
@@ -220,8 +224,7 @@ export function useHybridQuery<T extends Record<string, unknown>>(
     failureCount: localQuery.failureCount + cloudQuery.failureCount,
     failureReason: localQuery.failureReason || cloudQuery.failureReason,
     fetchStatus: localQuery.fetchStatus,
-    isInitialLoading:
-      localQuery.isInitialLoading || (isOnline && cloudQuery.isInitialLoading),
+    isInitialLoading: localQuery.isInitialLoading,
     isLoadingError: localQuery.isLoadingError || cloudQuery.isLoadingError,
     isPaused: localQuery.isPaused || cloudQuery.isPaused,
     isPlaceholderData:

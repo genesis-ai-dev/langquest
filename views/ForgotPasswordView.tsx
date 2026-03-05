@@ -31,10 +31,12 @@ const { supabaseConnector } = system;
 
 export default function ForgotPasswordView({
   onNavigate,
-  sharedAuthInfo
+  sharedAuthInfo,
+  lockEmail
 }: {
   onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
   sharedAuthInfo?: SharedAuthInfo;
+  lockEmail?: string;
 }) {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
@@ -77,7 +79,7 @@ export default function ForgotPasswordView({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: sharedAuthInfo?.email || ''
+      email: lockEmail || sharedAuthInfo?.email || ''
     }
   });
 
@@ -114,6 +116,7 @@ export default function ForgotPasswordView({
                     returnKeyType="done"
                     onSubmitEditing={handleFormSubmit}
                     mask
+                    editable={!lockEmail}
                   />
                 </FormControl>
                 <FormMessage />

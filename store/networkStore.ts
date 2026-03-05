@@ -11,12 +11,12 @@ export const useNetworkStore = create<NetworkState>((set) => ({
   initializeNetworkListener: () => {
     // Initial check
     void NetInfo.fetch().then((state) => {
-      set({ isConnected: state.isConnected ?? false });
+      set({ isConnected: state.isInternetReachable ?? false });
     });
 
     // Subscribe to network state updates
     const unsubscribe = NetInfo.addEventListener((state) => {
-      set({ isConnected: state.isConnected ?? false });
+      set({ isConnected: state.isInternetReachable ?? false });
     });
 
     // Return the unsubscribe function

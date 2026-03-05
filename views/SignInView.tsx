@@ -37,13 +37,17 @@ const { supabaseConnector } = system;
 
 export default function SignInView({
   onNavigate,
-  sharedAuthInfo
+  sharedAuthInfo,
+  lockEmail,
+  isReauthMode
 }: {
   onNavigate: (
     view: 'register' | 'forgot-password',
     sharedAuthInfo?: SharedAuthInfo
   ) => void;
   sharedAuthInfo?: SharedAuthInfo;
+  lockEmail?: string;
+  isReauthMode?: boolean;
 }) {
   const { t } = useLocalization();
   const router = useRouter();
@@ -92,7 +96,7 @@ export default function SignInView({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: sharedAuthInfo?.email
+      email: lockEmail || sharedAuthInfo?.email
     }
   });
 
@@ -130,6 +134,7 @@ export default function SignInView({
                     prefix={MailIcon}
                     prefixStyling={false}
                     placeholder={t('enterYourEmail')}
+                    editable={!lockEmail}
                   />
                 </FormControl>
                 <FormMessage />
@@ -180,20 +185,22 @@ export default function SignInView({
             <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
               <Text>{t('signIn')}</Text>
             </FormSubmit>
-            <Button
-              onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('register', { email: form.watch('email') })
-                )
-              }
-              variant="outline"
-              className="border-border bg-input"
-              disabled={isPending}
-            >
-              <Text>
-                {t('newUser')} {t('register')}
-              </Text>
-            </Button>
+            {!isReauthMode && (
+              <Button
+                onPress={() =>
+                  safeNavigate(() =>
+                    onNavigate('register', { email: form.watch('email') })
+                  )
+                }
+                variant="outline"
+                className="border-border bg-input"
+                disabled={isPending}
+              >
+                <Text>
+                  {t('newUser')} {t('register')}
+                </Text>
+              </Button>
+            )}
           </View>
         </KeyboardAwareScrollView>
       </View>

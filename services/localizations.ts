@@ -7618,6 +7618,15 @@ export const localizations = {
     tok_pisin: 'Openim Settings',
     indonesian: 'Buka Pengaturan',
     nepali: 'सेटिङ्हरू खोल्नुहोस्'
+  },
+  sessionExpiredSignIn: {
+    english: 'Your session has expired. Sign in to sync your data.',
+    spanish: 'Tu sesión ha expirado. Inicia sesión para sincronizar tus datos.',
+    brazilian_portuguese:
+      'Sua sessão expirou. Faça login para sincronizar seus dados.',
+    tok_pisin: 'Session bilong yu i pinis. Sainim in long sync data bilong yu.',
+    indonesian: 'Sesi Anda telah berakhir. Masuk untuk menyinkronkan data Anda.',
+    nepali: 'तपाईंको सत्र समाप्त भयो। तपाईंको डाटा सिंक गर्न साइन इन गर्नुहोस्।'
   }
 } as const;
 

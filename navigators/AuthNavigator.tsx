@@ -16,9 +16,13 @@ export interface SharedAuthInfo {
 }
 
 export function AuthNavigator({
-  initialView = 'sign-in'
+  initialView = 'sign-in',
+  lockEmail,
+  isReauthMode
 }: {
   initialView?: AuthView;
+  lockEmail?: string;
+  isReauthMode?: boolean;
 }) {
   const [currentView, setCurrentView] = useState<AuthView>(initialView);
   const [sharedAuthInfo, setSharedAuthInfo] = useState<SharedAuthInfo>({});
@@ -84,6 +88,8 @@ export function AuthNavigator({
           key="sign-in"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}
+          lockEmail={lockEmail}
+          isReauthMode={isReauthMode}
         />
       );
     case 'register':
@@ -100,6 +106,7 @@ export function AuthNavigator({
           key="forgot"
           onNavigate={handleNavigation}
           sharedAuthInfo={sharedAuthInfo}
+          lockEmail={lockEmail}
         />
       );
     case 'reset-password':

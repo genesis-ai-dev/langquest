@@ -10,12 +10,16 @@ interface AuthModalProps {
   visible: boolean;
   initialView?: AuthView;
   onClose: () => void;
+  lockEmail?: string;
+  isReauthMode?: boolean;
 }
 
 export function AuthModal({
   visible,
   initialView = 'sign-in',
-  onClose
+  onClose,
+  lockEmail,
+  isReauthMode
 }: AuthModalProps) {
   const backgroundColor = useThemeColor('background');
 
@@ -37,7 +41,12 @@ export function AuthModal({
             <Icon as={XIcon} size={24} className="text-foreground" />
           </Pressable>
         </View>
-        <AuthNavigator key={initialView} initialView={initialView} />
+        <AuthNavigator
+          key={initialView}
+          initialView={initialView}
+          lockEmail={lockEmail}
+          isReauthMode={isReauthMode}
+        />
       </View>
     </Modal>
   );

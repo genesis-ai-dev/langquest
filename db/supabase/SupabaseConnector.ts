@@ -32,6 +32,10 @@ import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
+import {
+  clearBackupSession,
+  ResilientSessionStorage
+} from './ResilientSessionStorage';
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -74,8 +78,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
       AppConfig.supabaseAnonKey,
       {
         auth: {
-          storage: AsyncStorage,
+          storage: ResilientSessionStorage,
           detectSessionInUrl: false // Important for React Native
+        },
+        global: {
+          fetch: (url: RequestInfo | URL, options?: RequestInit) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10_000);
+            return fetch(url, { ...options, signal: controller.signal }).finally(
+              () => clearTimeout(timeout)
+            );
+          }
         }
       }
     );
@@ -265,12 +278,20 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     await this.client.auth.signOut();
     const supabaseAuthKey = await getSupabaseAuthKey();
     if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
+    await clearBackupSession();
     await Updates.reloadAsync();
   }
 
   async fetchCredentials() {
-    // Use stored session if available, otherwise fetch fresh
     let session = this.currentSession;
+
+    // If cached session exists but access token is expired, force a fresh fetch
+    if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
+      console.log(
+        '[SupabaseConnector] Cached session expired, forcing fresh fetch'
+      );
+      session = null;
+    }
 
     if (!session) {
       console.log('[SupabaseConnector] No stored session, fetching fresh...');
@@ -664,26 +685,10 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   }
 
   updateSession(session: Session | null) {
-    // Safety net: Refuse to clear session in production
-    // End users should never be signed out - they stay authenticated forever
-    // This prevents offline-induced session clearing from Supabase
-    if (!session && this.currentSession) {
-      if (__DEV__) {
-        console.log('[SupabaseConnector] Clearing session (dev mode allowed)');
-        this.currentSession = null;
-      } else {
-        console.log(
-          '[SupabaseConnector] Refusing to clear session in production - users stay authenticated'
-        );
-        // Keep existing session - don't clear
-        return;
-      }
-    } else {
-      console.log(
-        '[SupabaseConnector] Updating session:',
-        session ? 'Session present' : 'No existing session to clear'
-      );
-      this.currentSession = session;
-    }
+    console.log(
+      '[SupabaseConnector] Updating session:',
+      session ? 'Session present' : 'Clearing session'
+    );
+    this.currentSession = session;
   }
 }

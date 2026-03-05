@@ -137,6 +137,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
+  const hasValidSession = authContext?.hasValidSession ?? false;
   // Use reactive isSystemReady from AuthContext - this updates when PowerSync initializes
   // Previously used a non-reactive useMemo with empty deps which never updated after mount
   const isPowerSyncReady = authContext?.isSystemReady ?? false;
@@ -185,12 +186,8 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     return powerSyncQueryResult.refetch();
   }, [isAuthenticated, powerSyncQueryResult]);
 
-  // Determine when to fetch cloud data
-  // If lazy loading, wait for offline query to finish first
-  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  // IMPORTANT: For anonymous users, don't wait for offline loading since offline is disabled
-  // Always enable cloud query immediately for anonymous users
-  const shouldFetchCloud = enableCloudQuery !== false && isOnline && enabled;
+  const shouldFetchCloud =
+    enableCloudQuery !== false && isOnline && enabled && hasValidSession;
   const cloudEnabled =
     lazyLoadCloud && isAuthenticated && isPowerSyncReady
       ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
@@ -270,11 +267,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    // For anonymous users, only cloud loading matters (offline is disabled)
-    // For authenticated users, show loading if either is loading
-    isLoading: shouldEnableOfflineQuery
-      ? isOfflineLoading || isCloudLoading
-      : isCloudLoading,
+    isLoading: shouldEnableOfflineQuery ? isOfflineLoading : false,
     isError: !!offlineError || !!cloudError,
     offlineError,
     cloudError,
@@ -422,8 +415,9 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
   // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
-  // Always respect isOnline - even if enableCloudQuery is true, don't fetch when offline
-  const shouldFetchCloud = enableCloudQuery !== false && isOnline;
+  const hasValidSession = authContext?.hasValidSession ?? false;
+  const shouldFetchCloud =
+    enableCloudQuery !== false && isOnline && hasValidSession;
 
   // Disable offline queries for anonymous users (cloud-only browsing)
   const shouldEnableOfflineQuery = isAuthenticated;
@@ -577,11 +571,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    // For anonymous users, only cloud loading matters (offline is disabled)
-    // For authenticated users, show loading if either is loading
-    isLoading: shouldEnableOfflineQuery
-      ? offlineQuery.isLoading || cloudQuery.isLoading
-      : cloudQuery.isLoading,
+    isLoading: shouldEnableOfflineQuery ? offlineQuery.isLoading : false,
     isOfflineLoading: offlineQuery.isLoading,
     isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
     isFetching: offlineQuery.isFetching || cloudQuery.isFetching,
@@ -593,12 +583,10 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isError || cloudQuery.isError
         ? 'error'
         : shouldEnableOfflineQuery
-          ? offlineQuery.isLoading || cloudQuery.isLoading
+          ? offlineQuery.isLoading
             ? 'pending'
             : 'success'
-          : cloudQuery.isLoading
-            ? 'pending'
-            : 'success'
+          : 'success'
   };
 }
 
@@ -749,6 +737,7 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
   // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
+  const hasValidSession = authContext?.hasValidSession ?? false;
   // Use reactive isSystemReady from AuthContext
   const isPowerSyncReady = authContext?.isSystemReady ?? false;
 
@@ -824,7 +813,10 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
   const effectiveEnableCloudQuery =
     enableCloudQuery ?? (cloudQueryFn ? undefined : false);
   const shouldFetchCloud =
-    effectiveEnableCloudQuery !== false && isOnline && enabled;
+    effectiveEnableCloudQuery !== false &&
+    isOnline &&
+    enabled &&
+    hasValidSession;
   const cloudEnabled = lazyLoadCloud
     ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
     : shouldFetchCloud && !!cloudQueryFn;
@@ -940,9 +932,7 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
     isPlaceholderData,
     isOfflineLoading: isAuthenticated ? isOfflineLoading : false,
     isCloudLoading,
-    isLoading: shouldEnableOfflineQuery
-      ? isOfflineLoading && isCloudLoading
-      : isCloudLoading,
+    isLoading: shouldEnableOfflineQuery ? isOfflineLoading : false,
     // Use OR because if one query is disabled, we still want to know if the other is fetching
     isFetching:
       (isAuthenticated ? isOfflineFetching : false) || isCloudFetching,

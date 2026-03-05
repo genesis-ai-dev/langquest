@@ -1,9 +1,15 @@
 import { system } from '@/db/powersync/system';
+import {
+  clearBackupSession,
+  getBackupSession
+} from '@/db/supabase/ResilientSessionStorage';
 import { useLocalStore } from '@/store/localStore';
+import { useNetworkStore } from '@/store/networkStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
+  AuthApiError,
   AuthError,
   AuthResponse,
   Session,
@@ -11,6 +17,7 @@ import type {
 } from '@supabase/supabase-js';
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -23,6 +30,11 @@ interface AuthContextType {
   // Auth state
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasValidSession: boolean;
+  sessionLost: boolean;
+  lostSessionEmail: string | null;
+  sessionLostBannerDismissed: boolean;
+  dismissSessionLostBanner: () => void;
   sessionType: SessionType;
   session: Session | null;
   currentUser: User | null;
@@ -71,14 +83,17 @@ export function useAuth() {
     return {
       isLoading: false,
       isAuthenticated: false,
+      hasValidSession: false,
+      sessionLost: false,
+      lostSessionEmail: null,
+      sessionLostBannerDismissed: false,
+      dismissSessionLostBanner: () => {},
       sessionType: null,
       session: null,
       currentUser: currentUserFromStore || null,
-      isSystemReady: true, // Allow queries to work for anonymous browsing
+      isSystemReady: true,
       migrationNeeded: false,
-      setMigrationNeeded: () => {
-        // No-op fallback for components outside AuthProvider
-      },
+      setMigrationNeeded: () => {},
       appUpgradeNeeded: false,
       upgradeError: null,
       signIn: async () => {
@@ -136,6 +151,125 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     serverVersion: string;
     reason: string;
   } | null>(null);
+  const [sessionLost, setSessionLost] = useState(false);
+  const [lostSessionEmail, setLostSessionEmail] = useState<string | null>(null);
+  const [sessionLostBannerDismissed, setSessionLostBannerDismissed] =
+    useState(false);
+  const retryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopRetryTimer = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearInterval(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+
+  const clearSessionLostState = useCallback(() => {
+    setSessionLost(false);
+    setLostSessionEmail(null);
+    setSessionLostBannerDismissed(false);
+    stopRetryTimer();
+  }, [stopRetryTimer]);
+
+  /**
+   * Returns true if the error is transient (network/timeout/502-504) and
+   * worth retrying, false if it's a definitive auth rejection (400/401).
+   */
+  const isTransientAuthError = useCallback((error: unknown): boolean => {
+    if (!error) return false;
+    const name = (error as { name?: string }).name;
+    if (name === 'AuthRetryableFetchError') return true;
+    if (name === 'AuthApiError') {
+      const status = (error as AuthApiError).status;
+      return status >= 502 && status <= 504;
+    }
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      return (
+        msg.includes('network') ||
+        msg.includes('timeout') ||
+        msg.includes('abort') ||
+        msg.includes('fetch')
+      );
+    }
+    return false;
+  }, []);
+
+  /**
+   * Attempt to restore a session from the backup refresh token.
+   * Returns 'success', 'transient-error', or 'definitive-error'.
+   */
+  const attemptBackupRecovery = useCallback(async (): Promise<
+    'success' | 'transient-error' | 'definitive-error'
+  > => {
+    try {
+      const backupRaw = await getBackupSession();
+      if (!backupRaw) return 'definitive-error';
+
+      const backupData = JSON.parse(backupRaw) as {
+        refresh_token?: string;
+        access_token?: string;
+      };
+      if (!backupData.refresh_token || !backupData.access_token) {
+        return 'definitive-error';
+      }
+
+      const { error } =
+        await system.supabaseConnector.client.auth.setSession({
+          refresh_token: backupData.refresh_token,
+          access_token: backupData.access_token
+        });
+
+      if (!error) {
+        console.log('[AuthContext] Backup session recovery succeeded');
+        return 'success';
+      }
+
+      if (isTransientAuthError(error)) {
+        console.warn(
+          '[AuthContext] Backup recovery transient error:',
+          error.message
+        );
+        return 'transient-error';
+      }
+
+      console.warn(
+        '[AuthContext] Backup recovery definitive error:',
+        error.message
+      );
+      return 'definitive-error';
+    } catch (error) {
+      if (isTransientAuthError(error)) return 'transient-error';
+      console.error('[AuthContext] Backup recovery unexpected error:', error);
+      return 'definitive-error';
+    }
+  }, [isTransientAuthError]);
+
+  const startRetryTimer = useCallback(() => {
+    stopRetryTimer();
+    const RETRY_INTERVAL_MS = 10_000;
+
+    retryTimerRef.current = setInterval(() => {
+      const isConnected = useNetworkStore.getState().isConnected;
+      if (!isConnected) return;
+
+      void (async () => {
+        const result = await attemptBackupRecovery();
+        if (result === 'success') {
+          // setSession/clearSessionLostState will be handled by the
+          // SIGNED_IN or TOKEN_REFRESHED event fired by setSession()
+          stopRetryTimer();
+        } else if (result === 'definitive-error') {
+          await clearBackupSession();
+          stopRetryTimer();
+        }
+        // transient-error: keep retrying
+      })();
+    }, RETRY_INTERVAL_MS);
+  }, [stopRetryTimer, attemptBackupRecovery]);
+
+  // Cleanup retry timer on unmount
+  useEffect(() => stopRetryTimer, [stopRetryTimer]);
 
   // Initialize system when we have an authenticated session
   const initializeSystem = async () => {
@@ -423,11 +557,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'SIGNED_IN': {
-            // Update session for sign in events
             setSession(session);
             system.supabaseConnector.updateSession(session);
 
             console.log('[AuthContext] User signed in');
+            if (sessionLost) clearSessionLostState();
+
             const detectedSessionType = getSessionType(session);
             console.log(
               '[AuthContext] Detected session type:',
@@ -435,7 +570,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             setSessionType(detectedSessionType);
 
-            // Always initialize system when signed in
             console.log(
               '[AuthContext] Starting system initialization from SIGNED_IN event'
             );
@@ -457,32 +591,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Don't initialize system for password reset
             break;
 
-          case 'SIGNED_OUT':
-            // Only process sign out in dev mode - production users never sign out
-            // This prevents offline-induced SIGNED_OUT events from clearing the session
-            if (__DEV__) {
-              console.log('[AuthContext] User signed out (dev mode)');
-              setSession(null);
-              system.supabaseConnector.updateSession(null);
-              setSessionType(null);
-              await cleanupSystem();
-              // Clear authView from localStore to prevent showing auth modal after sign out
-              useLocalStore.getState().setAuthView(null);
-              // Set system ready for anonymous browsing after sign out
-              setIsSystemReady(true);
+          case 'SIGNED_OUT': {
+            console.log(
+              '[AuthContext] SIGNED_OUT received — attempting backup recovery'
+            );
+
+            // Capture the email before clearing session state
+            const previousEmail =
+              session?.user?.email ??
+              useLocalStore.getState().currentUser?.email ??
+              null;
+
+            const result = await attemptBackupRecovery();
+
+            if (result === 'success') {
+              // setSession() inside setSession triggers SIGNED_IN / TOKEN_REFRESHED,
+              // which will update our session state. Nothing more to do.
+              console.log('[AuthContext] Recovery from backup succeeded');
+              break;
+            }
+
+            // Recovery failed — enter session-lost mode
+            setSession(null);
+            system.supabaseConnector.updateSession(null);
+            setSessionType(null);
+            setSessionLost(true);
+            setLostSessionEmail(previousEmail);
+            setSessionLostBannerDismissed(false);
+            // Keep system ready so local data remains accessible
+            setIsSystemReady(true);
+
+            if (result === 'transient-error') {
+              startRetryTimer();
             } else {
-              console.log(
-                '[AuthContext] SIGNED_OUT event ignored in production - users stay authenticated'
-              );
+              await clearBackupSession();
             }
             break;
+          }
 
           case 'TOKEN_REFRESHED':
-            // Only update session if we have a valid new session
             if (session) {
               setSession(session);
               system.supabaseConnector.updateSession(session);
               console.log('[AuthContext] Token refreshed successfully');
+              if (sessionLost) clearSessionLostState();
             } else {
               console.log(
                 '[AuthContext] TOKEN_REFRESHED with null session - ignoring'
@@ -558,9 +710,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const isAuthenticated = !!session;
+
   const value: AuthContextType = {
     isLoading,
-    isAuthenticated: !!session,
+    isAuthenticated,
+    hasValidSession: isAuthenticated && !sessionLost,
+    sessionLost,
+    lostSessionEmail,
+    sessionLostBannerDismissed,
+    dismissSessionLostBanner: () => setSessionLostBannerDismissed(true),
     sessionType,
     session,
     currentUser: session?.user || null,

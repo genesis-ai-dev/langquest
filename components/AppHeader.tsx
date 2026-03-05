@@ -1,5 +1,6 @@
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -83,6 +84,7 @@ export default function AppHeader({
       isConnecting ||
       hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
+  const { sessionLost, sessionLostBannerDismissed } = useAuth();
 
   // Debounce sync status to prevent flickering and allow animations to complete
   const [isSyncing, setIsSyncing] = useState(rawIsSyncing);
@@ -282,12 +284,16 @@ export default function AppHeader({
               </Animated.View>
             ) : null}
 
-            {/* Notification Badge - Top Right Corner */}
-            {notificationCount > 0 && (
+            {/* Session-lost or notification badge - Top Right Corner */}
+            {sessionLost && sessionLostBannerDismissed ? (
+              <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-amber-500 shadow-sm">
+                <View className="h-1.5 w-1.5 rounded-full bg-white" />
+              </View>
+            ) : notificationCount > 0 ? (
               <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-red-500 shadow-sm">
                 <View className="h-1.5 w-1.5 rounded-full bg-white" />
               </View>
-            )}
+            ) : null}
           </Button>
         </View>
       </View>

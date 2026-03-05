@@ -53,6 +53,7 @@ import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import { AuthModal } from '@/components/AuthModal';
 import LoadingView from '@/components/LoadingView';
+import { SessionLostBanner } from '@/components/SessionLostBanner';
 import {
   CloudLoadingProvider,
   useCloudLoading
@@ -66,7 +67,7 @@ import { useLocalStore } from '@/store/localStore';
 
 function AppViewContent() {
   const { currentView, canGoBack, goBack, goToProjects } = useAppNavigation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, sessionLost, lostSessionEmail } = useAuth();
   const authView = useLocalStore((state) => state.authView);
   const setAuthView = useLocalStore((state) => state.setAuthView);
   const setTriggerOnboarding = useLocalStore(
@@ -249,8 +250,7 @@ function AppViewContent() {
           }
         />
 
-        {/* Debug Controls (DEV only) - uncomment to test OTA updates */}
-        {/* <OTAUpdateDebugControls /> */}
+        <SessionLostBanner />
 
         {/* Current View */}
         <Suspense fallback={<LoadingView />}>
@@ -263,12 +263,14 @@ function AppViewContent() {
             setDrawerIsVisible={setDrawerIsVisible}
           />
 
-          {/* Auth Modal for anonymous users */}
-          {!isAuthenticated && (
+          {/* Auth Modal for anonymous users or session-lost re-auth */}
+          {(!isAuthenticated || sessionLost) && (
             <AuthModal
               visible={!!authView}
               initialView={authView || 'sign-in'}
               onClose={() => setAuthView(null)}
+              lockEmail={sessionLost ? (lostSessionEmail ?? undefined) : undefined}
+              isReauthMode={sessionLost}
             />
           )}
 
