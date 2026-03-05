@@ -22,11 +22,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 
 // Maximum file size in bytes (50MB)
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 interface ButtonConfig {
   icon: LucideIcon;
-  onPress: (() => Promise<void>) | undefined;
+  onPress: (() => void | Promise<void>) | undefined;
   disabled?: boolean;
 }
 type RecordingQuality = 'HIGH_QUALITY' | 'LOW_QUALITY';
@@ -36,17 +36,22 @@ interface AudioRecorderProps {
   resetRecording?: () => void;
 }
 
+// Fixed m4a container overhead (headers, metadata, atoms) — observed ~50-55KB across recordings
+const CONTAINER_OVERHEAD = 56 * 1024;
+
 function calculateMaxDuration(options: RecordingOptions) {
-  // expo-audio has bitRate at the top level
   const bitRate = options.bitRate ?? 128000; // bits per second
 
-  // Convert bit rate to bytes per second
-  const bytesPerSecond = bitRate / 8;
+  // iOS AAC VBR encodes below the target bit rate.
+  // Use 90% of target to stay above observed actual rates (~84% for LOW, ~72% for HIGH),
+  // ensuring we predict more audio data than actually produced → shorter duration → under limit.
+  const estimatedBitRate = bitRate * 0.9;
 
-  // Calculate maximum duration in seconds
-  const maxDurationSeconds = MAX_FILE_SIZE / bytesPerSecond;
+  const availableBytes = MAX_FILE_SIZE - CONTAINER_OVERHEAD;
+  const bytesPerSecond = estimatedBitRate / 8;
+  const maxDurationSeconds = availableBytes / bytesPerSecond;
 
-  return maxDurationSeconds * 1000; // Convert to milliseconds
+  return maxDurationSeconds * 1000;
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
@@ -61,7 +66,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showWarning, setShowWarning] = useState(false);
+
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(
     null
   );
@@ -70,9 +75,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   // Refs for playback
   const playerRef = useRef<AudioPlayer | null>(null);
   const playerListenerRef = useRef<{ remove: () => void } | null>(null);
-  const positionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null
-  );
 
   // Ref for stopRecording to avoid stale closure in status listener
   const stopRecordingRef = useRef<(() => Promise<void>) | undefined>(undefined);
@@ -88,8 +90,19 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     );
   }, []);
 
-  // Create recorder (no status listener -- use useAudioRecorderState for duration/metering)
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
+    if (status.hasError) {
+      console.error('Recording error:', status.error);
+      setIsRecordingActive(false);
+      setIsRecordingPaused(false);
+    }
+    if (status.mediaServicesDidReset) {
+      console.warn('Media services reset — recorder invalidated');
+      setIsRecordingActive(false);
+      setIsRecordingPaused(false);
+      setRecordingDuration(0);
+    }
+  });
 
   // Poll recording state for duration tracking
   const recorderState = useAudioRecorderState(recorder, 100);
@@ -100,23 +113,14 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       const duration = recorderState.durationMillis || 0;
       setRecordingDuration(duration);
 
-      // Check if we're approaching the limit
-      if (duration >= warningThreshold && !showWarning) {
-        setShowWarning(true);
-      }
-
       // Stop recording if we've reached the maximum duration
       if (duration >= maxDuration) {
         void stopRecordingRef.current?.();
       }
     }
-  }, [recorderState, warningThreshold, showWarning, maxDuration]);
+  }, [recorderState, maxDuration]);
 
   const cleanupPlayer = useCallback(() => {
-    if (positionIntervalRef.current) {
-      clearInterval(positionIntervalRef.current);
-      positionIntervalRef.current = null;
-    }
     if (playerListenerRef.current) {
       playerListenerRef.current.remove();
       playerListenerRef.current = null;
@@ -184,72 +188,68 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         return;
       }
 
+      if (playerRef.current) {
+        console.log('Pausing playback');
+        pausePlayback();
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Sleep for 1 second
+      }
+      cleanupPlayer();
+      setIsPlaying(false);
+      setPlaybackPosition(0);
+      setRecordingDuration(0);
       resetRecording?.();
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true
       });
 
-      console.log('recording');
-
-      // Prepare and start a new recording with the selected quality
       await recorder.prepareToRecordAsync(RecordingPresets[quality]);
-      recorder.record();
+      recorder.record({ forDuration: maxDuration / 1000 });
 
       setIsRecordingActive(true);
       setIsRecordingPaused(false);
-      setShowWarning(false);
     } catch (error) {
       console.error('Failed to start recording:', error);
     }
   };
 
-  const pauseRecording = async () => {
+  const pauseRecording = () => {
     if (!recorder.isRecording) return;
     recorder.pause();
     setIsRecordingActive(false);
     setIsRecordingPaused(true);
   };
 
-  const playRecording = async () => {
+  const playRecordingAudio = async () => {
     if (!recordingUri) return;
 
     try {
       if (playerRef.current) {
-        // If player exists, just replay it
-        if (playbackPosition === 0) playerRef.current.seekTo(0);
         playerRef.current.play();
       } else {
-        // Create a new player
         await setAudioModeAsync({
           allowsRecording: false,
           playsInSilentMode: true
         });
 
-        const player = createAudioPlayer(recordingUri);
+        const player = createAudioPlayer(recordingUri, {
+          updateInterval: 100
+        });
         playerRef.current = player;
-        player.play();
 
-        // Listen for playback end
         playerListenerRef.current = player.addListener(
           'playbackStatusUpdate',
           (status) => {
-            if (!status.didJustFinish) return;
-            setIsPlaying(false);
-            setPlaybackPosition(0);
-            if (positionIntervalRef.current) {
-              clearInterval(positionIntervalRef.current);
-              positionIntervalRef.current = null;
+            setPlaybackPosition(status.currentTime * 1000);
+            if (status.didJustFinish) {
+              setIsPlaying(false);
+              setPlaybackPosition(0);
+              player.seekTo(0);
             }
           }
         );
 
-        // Track position
-        positionIntervalRef.current = setInterval(() => {
-          if (playerRef.current?.isLoaded) {
-            setPlaybackPosition(playerRef.current.currentTime * 1000);
-          }
-        }, 100);
+        player.play();
       }
 
       setIsPlaying(true);
@@ -258,7 +258,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   };
 
-  const pausePlayback = async () => {
+  const pausePlayback = () => {
     if (!playerRef.current) return;
 
     try {
@@ -281,17 +281,28 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const getDurationDisplay = (): string => {
+  const getDurationDisplay = () => {
     const playbackTime = formatTime(playbackPosition);
-    const totalTime = formatTime(recordingDuration);
+    const activeDuration =
+      isRecordingActive && recorderState.durationMillis
+        ? recorderState.durationMillis
+        : recordingDuration;
+    const flooredDurationMs = Math.floor(activeDuration / 1000) * 1000;
+    const totalTime = formatTime(flooredDurationMs);
     const remainingTime = formatTime(
-      Math.max(0, maxDuration - recordingDuration)
+      Math.max(0, maxDuration - flooredDurationMs)
     );
-    return `${playbackTime}/${totalTime}\n${remainingTime} ${t('remaining')}`;
+    return {
+      topLine: `${playbackTime}/${totalTime}`,
+      bottomLine: `${remainingTime} ${t('remaining')}`,
+      isWarning: flooredDurationMs >= warningThreshold
+    };
   };
 
+  const isRecordingInProgress = isRecordingActive || isRecordingPaused;
+
   const getButtonConfig = (): [ButtonConfig, ButtonConfig] => {
-    if (isRecordingActive || isRecordingPaused) {
+    if (isRecordingInProgress) {
       return [
         {
           icon: isRecordingPaused ? Mic : Pause,
@@ -312,7 +323,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         },
         {
           icon: isPlaying ? Pause : Play,
-          onPress: isPlaying ? pausePlayback : playRecording
+          onPress: isPlaying ? pausePlayback : playRecordingAudio
         }
       ];
     }
@@ -332,15 +343,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
   const buttons = getButtonConfig();
 
+  const durationDisplay = getDurationDisplay();
+
   return (
     <View className="items-center p-4">
-      {showWarning && (
-        <Text className="text-sm text-destructive">
-          Recording will stop in {formatTime(maxDuration - warningThreshold)}
-        </Text>
-      )}
-      <Text className="mb-2 text-center text-foreground">
-        {getDurationDisplay()}
+      <Text className="text-center text-foreground">
+        {durationDisplay.topLine}
+      </Text>
+      <Text
+        className={`mb-2 text-center ${durationDisplay.isWarning ? 'text-destructive' : 'text-foreground'}`}
+      >
+        {durationDisplay.bottomLine}
       </Text>
       <View className="w-full flex-row justify-around">
         {buttons.map((button, index) => (
@@ -363,6 +376,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       {Platform.OS === 'ios' && (
         <Pressable
           className="mt-4 flex-row items-center gap-2"
+          disabled={isRecordingInProgress}
           onPress={() => {
             const newQuality =
               quality === 'HIGH_QUALITY' ? 'LOW_QUALITY' : 'HIGH_QUALITY';
@@ -371,6 +385,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         >
           <Checkbox
             checked={quality === 'LOW_QUALITY'}
+            disabled={isRecordingInProgress}
             onCheckedChange={(checked) => {
               setQuality(checked ? 'LOW_QUALITY' : 'HIGH_QUALITY');
             }}
