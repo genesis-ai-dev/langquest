@@ -96,7 +96,7 @@ export function LocalizationProvider({
 }) {
   const authContext = useContext(AuthContext);
   const currentUser = authContext?.currentUser ?? null;
-  const currentLanguage = useLocalStore((state) => state.uiLanguage);
+  const currentLanguoid = useLocalStore((state) => state.uiLanguoid);
 
   const uiLanguoidId =
     currentUser?.user_metadata.ui_languoid_id ??
@@ -130,21 +130,16 @@ export function LocalizationProvider({
 
   const profileLanguoid = data[0];
 
-  // Resolve the active language
+  // Get language with priority:
+  // 1. Authenticated user's profile languoid name
+  // 2. UI languoid from store (for non-authenticated users or users without profile languoid)
+  // 3. Default to English
   let resolvedLanguageName: string | null | undefined = null;
 
   if (profileLanguoid?.name) {
     resolvedLanguageName = profileLanguoid.name;
-  } else if (currentLanguage) {
-    const langAny = currentLanguage as any;
-    if (langAny.name && typeof langAny.name === 'string') {
-      resolvedLanguageName = langAny.name;
-    } else if (
-      langAny.english_name &&
-      typeof langAny.english_name === 'string'
-    ) {
-      resolvedLanguageName = langAny.english_name;
-    }
+  } else if (currentLanguoid?.name) {
+    resolvedLanguageName = currentLanguoid.name;
   }
 
   const userLanguage = mapLanguoidNameToSupportedLanguage(
@@ -201,23 +196,15 @@ export function useLocalization(languageOverride?: string | null) {
   const ctx = useContext(LocalizationContext);
 
   // Fallback when rendered outside the provider (e.g. pre-auth screens)
-  const fallbackLanguage = useLocalStore((state) => state.uiLanguage);
+  const fallbackLanguoid = useLocalStore((state) => state.uiLanguoid);
 
   if (!ctx) {
     // Outside provider – use static English fallback with no DB query
     let resolvedLang: SupportedLanguage = 'english';
     if (languageOverride) {
       resolvedLang = mapLanguoidNameToSupportedLanguage(languageOverride);
-    } else if (fallbackLanguage) {
-      const langAny = fallbackLanguage as any;
-      if (langAny.name && typeof langAny.name === 'string') {
-        resolvedLang = mapLanguoidNameToSupportedLanguage(langAny.name);
-      } else if (
-        langAny.english_name &&
-        typeof langAny.english_name === 'string'
-      ) {
-        resolvedLang = mapLanguoidNameToSupportedLanguage(langAny.english_name);
-      }
+    } else if (fallbackLanguoid?.name) {
+      resolvedLang = mapLanguoidNameToSupportedLanguage(fallbackLanguoid.name);
     }
 
     const t = (

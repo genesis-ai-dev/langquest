@@ -9,7 +9,6 @@ import {
   createBlockedContentTable,
   createBlockedUsersTable,
   createInviteTable,
-  createLanguageTable,
   createLanguoidAliasTable,
   createLanguoidLinkSuggestionTable,
   createLanguoidPropertyTable,
@@ -46,12 +45,6 @@ export { APP_SCHEMA_VERSION };
 export const profile = createProfileTable('merged');
 
 export const userRelations = relations(profile, ({ many, one }) => ({
-  created_languages: many(language, { relationName: 'creator' }),
-  ui_language: one(language, {
-    fields: [profile.ui_language_id],
-    references: [language.id],
-    relationName: 'uiLanguage'
-  }),
   ui_languoid: one(languoid, {
     fields: [profile.ui_languoid_id],
     references: [languoid.id],
@@ -60,19 +53,6 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   sent_invites: many(invite, { relationName: 'invite_sender' }),
   received_invites: many(invite, { relationName: 'invite_receiver' }),
   sent_requests: many(request, { relationName: 'request_sender' })
-}));
-
-export const language = createLanguageTable('merged', { profile });
-
-export const languageRelations = relations(language, ({ one, many }) => ({
-  creator: one(profile, {
-    fields: [language.creator_id],
-    references: [profile.id],
-    relationName: 'creator'
-  }),
-  uiUsers: many(profile, { relationName: 'uiLanguage' }),
-  sourceLanguageProjects: many(project, { relationName: 'sourceLanguage' }),
-  targetLanguageProjects: many(project, { relationName: 'targetLanguage' })
 }));
 
 // Languoid tables
@@ -264,14 +244,9 @@ export const languoid_regionRelations = relations(
   })
 );
 
-export const project = createProjectTable('merged', { language, profile });
+export const project = createProjectTable('merged', { profile });
 
-export const projectRelations = relations(project, ({ one, many }) => ({
-  target_language: one(language, {
-    fields: [project.target_language_id],
-    references: [language.id],
-    relationName: 'targetLanguage'
-  }),
+export const projectRelations = relations(project, ({ many }) => ({
   quests: many(quest),
   profile_project_links: many(profile_project_link),
   source_languages: many(project_language_link),
@@ -324,16 +299,11 @@ export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
 }));
 
 export const asset = createAssetTable('merged', {
-  language,
   project,
   profile
 });
 
 export const assetRelations = relations(asset, ({ one, many }) => ({
-  source_language: one(language, {
-    fields: [asset.source_language_id],
-    references: [language.id]
-  }),
   project: one(project, {
     fields: [asset.project_id],
     references: [project.id]
@@ -387,8 +357,7 @@ export const quest_asset_linkRelations = relations(
 
 // Project-language link with explicit type separation (source/target)
 export const project_language_link = createProjectLanguageLinkTable('merged', {
-  project,
-  language
+  project
 });
 
 export const project_language_linkRelations = relations(
@@ -397,10 +366,6 @@ export const project_language_linkRelations = relations(
     project: one(project, {
       fields: [project_language_link.project_id],
       references: [project.id]
-    }),
-    language: one(language, {
-      fields: [project_language_link.language_id],
-      references: [language.id]
     }),
     languoid: one(languoid, {
       fields: [project_language_link.languoid_id],
@@ -465,8 +430,7 @@ export const voteRelations = relations(vote, ({ one }) => ({
 }));
 
 export const asset_content_link = createAssetContentLinkTable('merged', {
-  asset,
-  language
+  asset
 });
 
 export const asset_content_linkRelations = relations(
@@ -475,10 +439,6 @@ export const asset_content_linkRelations = relations(
     asset: one(asset, {
       fields: [asset_content_link.asset_id],
       references: [asset.id]
-    }),
-    source_language: one(language, {
-      fields: [asset_content_link.source_language_id],
-      references: [language.id]
     }),
     languoid: one(languoid, {
       fields: [asset_content_link.languoid_id],

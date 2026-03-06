@@ -1,4 +1,5 @@
-import type { language, profile } from '@/db/drizzleSchema';
+import type { languoid, profile } from '@/db/drizzleSchema';
+import type { Languoid } from '@/hooks/db/useLanguoids';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colorScheme } from 'nativewind';
 import { create } from 'zustand';
@@ -54,7 +55,7 @@ export interface NavigationStackItem {
   };
 }
 
-export type Language = typeof language.$inferSelect;
+export type Language = typeof languoid.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
 // AsyncStorage keys for user preferences
@@ -113,8 +114,8 @@ export interface LocalState {
   setSystemReady: (ready: boolean) => void;
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
-  uiLanguage: Language | null;
-  savedLanguage: Language | null;
+  uiLanguoid: Languoid | null; // Current UI languoid preference
+  savedLanguoid: Languoid | null; // Saved languoid preference for forms
   dateTermsAccepted: Date | null;
   analyticsOptOut: boolean;
   projectSourceFilter: string;
@@ -253,8 +254,8 @@ export interface LocalState {
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
   acceptTerms: () => void;
-  setUILanguage: (lang: Language) => void;
-  setSavedLanguage: (lang: Language) => void;
+  setUILanguoid: (languoid: Languoid | null) => void;
+  setSavedLanguoid: (languoid: Languoid | null) => void;
 
   // Navigation context setters
   setCurrentContext: (
@@ -316,8 +317,8 @@ export const useLocalStore = create<LocalState>()(
 
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
-      uiLanguage: null,
-      savedLanguage: null,
+      uiLanguoid: null,
+      savedLanguoid: null,
       dateTermsAccepted: null,
       analyticsOptOut: false,
       theme: 'system',
@@ -443,8 +444,8 @@ export const useLocalStore = create<LocalState>()(
           colorScheme.set(theme);
         }
       },
-      setUILanguage: (lang) => set({ uiLanguage: lang }),
-      setSavedLanguage: (lang) => set({ savedLanguage: lang }),
+      setUILanguoid: (languoid) => set({ uiLanguoid: languoid }),
+      setSavedLanguoid: (languoid) => set({ savedLanguoid: languoid }),
       acceptTerms: () => set({ dateTermsAccepted: new Date() }),
       projectSourceFilter: 'All',
       projectTargetFilter: 'All',

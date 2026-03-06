@@ -1,4 +1,4 @@
-import { languoid } from '@/db/drizzleSchema';
+import type { languoid } from '@/db/drizzleSchema';
 import {
   useLanguoidEndonyms,
   useUIReadyLanguoids
@@ -20,19 +20,19 @@ import { CustomDropdown } from './CustomDropdown';
 
 type Languoid = typeof languoid.$inferSelect;
 
-interface LanguageSelectProps {
-  setLanguagesLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
+interface LanguoidSelectProps {
+  setLanguoidsLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
   value?: string;
   onChange?: (languoid: Languoid) => void;
   label?: boolean;
   containerStyle?: object;
 }
 
-const LanguageSelect: React.FC<LanguageSelectProps> = memo(
-  ({ value, onChange, setLanguagesLoaded }) => {
-    const [showLanguages, setShowLanguages] = useState(false);
-    const setLanguage = useLocalStore((state) => state.setUILanguage);
-    const savedLanguage = useLocalStore((state) => state.uiLanguage);
+const LanguoidSelect: React.FC<LanguoidSelectProps> = memo(
+  ({ value, onChange, setLanguoidsLoaded }) => {
+    const [showLanguoids, setShowLanguoids] = useState(false);
+    const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+    const savedLanguoid = useLocalStore((state) => state.uiLanguoid);
     const { t } = useLocalization();
 
     // Use useUIReadyLanguoids hook
@@ -44,26 +44,22 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
 
     useEffect(() => {
       if (languoids.length > 0) {
-        setLanguagesLoaded?.(true);
+        setLanguoidsLoaded?.(true);
       }
-    }, [languoids, setLanguagesLoaded]);
+    }, [languoids, setLanguoidsLoaded]);
 
-    const defaultLanguage = languoids.find((l) => l.name === 'English');
+    const defaultLanguoid = languoids.find((l) => l.name === 'English');
 
-    // Find selected language - handle both Languoid and old Language types
-    const selectedLanguage = useMemo(() => {
+    // Find selected languoid
+    const selectedLanguoid = useMemo(() => {
       if (value) {
         return languoids.find((l) => l.id === value);
       }
-      if (savedLanguage) {
-        // Check if it's a Languoid (has 'name' property) or old Language (has 'english_name')
-        const langAny = savedLanguage as any;
-        if (langAny.id && typeof langAny.id === 'string') {
-          return languoids.find((l) => l.id === langAny.id);
-        }
+      if (savedLanguoid?.id) {
+        return languoids.find((l) => l.id === savedLanguoid.id);
       }
-      return defaultLanguage;
-    }, [value, savedLanguage, languoids, defaultLanguage]);
+      return defaultLanguoid;
+    }, [value, savedLanguoid, languoids, defaultLanguoid]);
 
     const handleSelect = useCallback(
       (displayName: string) => {
@@ -74,18 +70,16 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
           return display === displayName;
         });
         if (lang) {
-          // TODO: Update store to support Languoid type
-          // For now, use type assertion to handle transition
-          setLanguage(lang as any);
+          setUILanguoid(lang);
           onChange?.(lang);
         }
       },
-      [languoids, endonymMap, setLanguage, onChange]
+      [languoids, endonymMap, setUILanguoid, onChange]
     );
 
     const handleToggle = useCallback(() => {
-      setShowLanguages(!showLanguages);
-    }, [showLanguages]);
+      setShowLanguoids(!showLanguoids);
+    }, [showLanguoids]);
 
     const renderLeftIcon = useCallback(
       () => (
@@ -111,10 +105,10 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
 
     // Get selected display name
     const selectedDisplayName = useMemo(() => {
-      if (!selectedLanguage) return '';
-      const endonym = endonymMap.get(selectedLanguage.id);
-      return endonym ?? selectedLanguage.name ?? '';
-    }, [selectedLanguage, endonymMap]);
+      if (!selectedLanguoid) return '';
+      const endonym = endonymMap.get(selectedLanguoid.id);
+      return endonym ?? selectedLanguoid.name ?? '';
+    }, [selectedLanguoid, endonymMap]);
 
     return (
       <CustomDropdown
@@ -122,7 +116,7 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
         value={selectedDisplayName}
         options={displayOptions}
         onSelect={handleSelect}
-        isOpen={showLanguages}
+        isOpen={showLanguoids}
         onToggle={handleToggle}
         search={true}
         searchPlaceholder={t('search')}
@@ -132,6 +126,6 @@ const LanguageSelect: React.FC<LanguageSelectProps> = memo(
   }
 );
 
-LanguageSelect.displayName = 'LanguageSelect';
+LanguoidSelect.displayName = 'LanguoidSelect';
 
-export { LanguageSelect };
+export { LanguoidSelect };

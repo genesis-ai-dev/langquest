@@ -1804,6 +1804,13 @@ export const localizations = {
     thai: 'ชื่อภาษาอังกฤษ',
     mandarin: '英文名称'
   },
+  name: {
+    english: 'Name',
+    spanish: 'Nombre',
+    brazilian_portuguese: 'Nome',
+    tok_pisin: 'Name',
+    indonesian: 'Nama'
+  },
   iso6393Code: {
     english: 'ISO 639-3 Code',
     spanish: 'Código ISO 639-3',

@@ -329,7 +329,7 @@ async function getExamplesFromAssets(
       and(
         isNotNull(asset.source_asset_id),
         inArray(asset.source_asset_id, assetIds), // Only translations of these assets
-        eq(asset.source_language_id, targetLanguageId), // Filter by target language
+        eq(asset_content_link.languoid_id, targetLanguageId), // Filter by target languoid
         eq(asset.active, true),
         isNotNull(asset_content_link.text)
       )

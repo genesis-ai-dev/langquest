@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguoidSelect } from '@/components/languoid-select';
 import { Button, OpacityPressable } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -35,12 +35,12 @@ function Terms() {
 
   const canAcceptTerms = !dateTermsAccepted;
 
-  const [languagesLoaded, setLanguagesLoaded] = useState(false);
+  const [languoidsLoaded, setLanguoidsLoaded] = useState(false);
   const onLayoutView = useCallback(() => {
-    if (languagesLoaded) {
+    if (languoidsLoaded) {
       void SplashScreen.hideAsync();
     }
-  }, [languagesLoaded]);
+  }, [languoidsLoaded]);
 
   return (
     <View
@@ -66,7 +66,7 @@ function Terms() {
 
       {/* Language Selector */}
       <View className="w-full gap-2.5">
-        <LanguageSelect setLanguagesLoaded={setLanguagesLoaded} uiReadyOnly />
+        <LanguoidSelect setLanguoidsLoaded={setLanguoidsLoaded} uiReadyOnly />
       </View>
 
       <ScrollView contentContainerClassName="flex flex-col gap-4 w-full">

@@ -22,7 +22,7 @@ export class AudioSegmentService {
   async saveAudioSegment(
     segment: AudioSegmentData,
     questId: string,
-    sourceLanguageId: string,
+    languoidId: string,
     creatorId: string,
     projectId: string
   ): Promise<{ assetId: string; audioUri: string }> {
@@ -46,7 +46,6 @@ export class AudioSegmentService {
           .values({
             name: segment.name,
             id: segment.id,
-            source_language_id: sourceLanguageId,
             creator_id: creatorId,
             project_id: projectId,
             download_profiles: [creatorId]
@@ -73,7 +72,7 @@ export class AudioSegmentService {
           .insert(resolveTable('asset_content_link', { localOverride: true }))
           .values({
             asset_id: newAsset.id,
-            source_language_id: sourceLanguageId,
+            languoid_id: languoidId,
             text: segment.name,
             // Link to the local file path (localUri already includes 'local/' prefix from saveAudioLocally)
             audio: [localUri],
@@ -96,7 +95,7 @@ export class AudioSegmentService {
   async saveAudioSegments(
     segments: AudioSegmentData[],
     questId: string,
-    sourceLanguageId: string,
+    languoidId: string,
     creatorId: string,
     projectId: string
   ): Promise<{ assetIds: string[]; audioUris: string[] }> {
@@ -105,7 +104,7 @@ export class AudioSegmentService {
         this.saveAudioSegment(
           segment,
           questId,
-          sourceLanguageId,
+          languoidId,
           creatorId,
           projectId
         )

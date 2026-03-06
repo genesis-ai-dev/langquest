@@ -18,8 +18,8 @@ const TEST_USER = {
   username: 'AITestUser'
 };
 
-const ENGLISH_LANGUAGE_ID = 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd';
-const SPANISH_LANGUAGE_ID = '7c37870b-7d52-4589-934f-576f03781263';
+const ENGLISH_LANGUOID_ID = 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd';
+const SPANISH_LANGUOID_ID = '7c37870b-7d52-4589-934f-576f03781263';
 
 async function createTestUser() {
   console.log('🔧 Creating test user...');
@@ -31,7 +31,7 @@ async function createTestUser() {
       email_confirm: true,
       user_metadata: {
         username: TEST_USER.username,
-        ui_language_id: ENGLISH_LANGUAGE_ID,
+        ui_languoid_id: ENGLISH_LANGUOID_ID,
         terms_accepted: true,
         terms_accepted_at: new Date().toISOString()
       }
@@ -68,11 +68,11 @@ async function createProfile(userId: string) {
   console.log('🔧 Creating profile...');
 
   const sql = `
-    INSERT INTO public.profile (id, username, ui_language_id, active, terms_accepted, terms_accepted_at, created_at, last_updated)
+    INSERT INTO public.profile (id, username, ui_languoid_id, active, terms_accepted, terms_accepted_at, created_at, last_updated)
     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
     ON CONFLICT (id) DO UPDATE SET
       username = EXCLUDED.username,
-      ui_language_id = EXCLUDED.ui_language_id,
+      ui_languoid_id = EXCLUDED.ui_languoid_id,
       active = EXCLUDED.active,
       last_updated = NOW();
   `;
@@ -89,7 +89,7 @@ async function createProfile(userId: string) {
       params: [
         userId,
         TEST_USER.username,
-        ENGLISH_LANGUAGE_ID,
+        ENGLISH_LANGUOID_ID,
         true,
         true,
         new Date().toISOString()
@@ -100,11 +100,11 @@ async function createProfile(userId: string) {
   if (!response.ok) {
     console.log('⚠️  SQL RPC failed, trying direct SQL via postgrest...');
     const directSql = `
-      INSERT INTO public.profile (id, username, ui_language_id, active, terms_accepted, terms_accepted_at, created_at, last_updated)
-      VALUES ('${userId}', '${TEST_USER.username}', '${ENGLISH_LANGUAGE_ID}', true, true, '${new Date().toISOString()}', NOW(), NOW())
+      INSERT INTO public.profile (id, username, ui_languoid_id, active, terms_accepted, terms_accepted_at, created_at, last_updated)
+      VALUES ('${userId}', '${TEST_USER.username}', '${ENGLISH_LANGUOID_ID}', true, true, '${new Date().toISOString()}', NOW(), NOW())
       ON CONFLICT (id) DO UPDATE SET
         username = EXCLUDED.username,
-        ui_language_id = EXCLUDED.ui_language_id,
+        ui_languoid_id = EXCLUDED.ui_languoid_id,
         active = EXCLUDED.active,
         last_updated = NOW();
     `;
@@ -154,7 +154,6 @@ async function createProject(userId: string) {
     id: projectId,
     name: 'AI Translation Test Project',
     description: 'Project for testing AI translation functionality',
-    target_language_id: SPANISH_LANGUAGE_ID,
     creator_id: userId,
     active: true
   };
@@ -179,15 +178,27 @@ async function createProject(userId: string) {
     );
   if (linkError) throw linkError;
 
-  const { error: langLinkError } = await supabase
+  // Create source language link
+  const { error: sourceLangLinkError } = await supabase
     .from('project_language_link')
     .upsert({
       project_id: projectId,
-      language_id: ENGLISH_LANGUAGE_ID,
+      languoid_id: ENGLISH_LANGUOID_ID,
       language_type: 'source',
       active: true
     });
-  if (langLinkError) throw langLinkError;
+  if (sourceLangLinkError) throw sourceLangLinkError;
+
+  // Create target language link
+  const { error: targetLangLinkError } = await supabase
+    .from('project_language_link')
+    .upsert({
+      project_id: projectId,
+      languoid_id: SPANISH_LANGUOID_ID,
+      language_type: 'target',
+      active: true
+    });
+  if (targetLangLinkError) throw targetLangLinkError;
 
   console.log('✅ Project created:', projectId);
   return projectId;
@@ -227,7 +238,7 @@ async function createQuests(projectId: string, userId: string) {
 }
 
 async function createAssetsWithContent(
-  quests: Array<{ id: string }>,
+  quests: { id: string }[],
   projectId: string,
   userId: string
 ) {
@@ -260,7 +271,6 @@ async function createAssetsWithContent(
       assets.push({
         id: assetId,
         name: `Asset ${i + 1}-${j + 1}`,
-        source_language_id: ENGLISH_LANGUAGE_ID,
         project_id: projectId,
         creator_id: userId,
         active: true,
@@ -273,7 +283,7 @@ async function createAssetsWithContent(
       assetContentLinks.push({
         id: randomUUID(),
         asset_id: assetId,
-        source_language_id: ENGLISH_LANGUAGE_ID,
+        languoid_id: ENGLISH_LANGUOID_ID,
         text: text,
         active: true,
         created_at: now,

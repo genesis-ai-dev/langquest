@@ -1,4 +1,4 @@
-import { language as languageTable } from '@/db/drizzleSchema';
+import { languoid as languoidTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { SupportedLanguage } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
@@ -7,8 +7,6 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { User } from '@supabase/supabase-js';
 import { eq } from 'drizzle-orm';
 
-type Language = typeof languageTable.$inferSelect;
-
 export class TranslationUtils {
   static currentLanguage: SupportedLanguage = 'english';
 
@@ -16,33 +14,33 @@ export class TranslationUtils {
     try {
       if (!currentUser) return;
 
-      // Get UI language from user metadata or profile
-      const uiLanguageId = currentUser.user_metadata.ui_language_id;
-      if (!uiLanguageId) return;
+      // Get UI language from user metadata - use ui_languoid_id
+      const uiLanguoidId = currentUser.user_metadata.ui_languoid_id;
+      if (!uiLanguoidId) return;
 
-      // Use hybridFetch directly
-      const languages = await hybridFetch<Language>({
+      // Use hybridFetch directly to get languoid
+      const languoids = await hybridFetch<typeof languoidTable.$inferSelect>({
         offlineQuery: toCompilableQuery(
-          system.db.query.language.findMany({
-            where: eq(languageTable.id, uiLanguageId),
+          system.db.query.languoid.findMany({
+            where: eq(languoidTable.id, uiLanguoidId),
             limit: 1
           })
         ),
         cloudQueryFn: async () => {
           const { data, error } = await system.supabaseConnector.client
-            .from('language')
+            .from('languoid')
             .select('*')
-            .eq('id', uiLanguageId)
-            .overrideTypes<Language[]>();
+            .eq('id', uiLanguoidId)
+            .overrideTypes<(typeof languoidTable.$inferSelect)[]>();
           if (error) throw error;
           return data;
         }
       });
 
-      const language = languages[0];
-      if (language?.english_name) {
+      const languoidData = languoids[0];
+      if (languoidData?.name) {
         this.currentLanguage =
-          language.english_name.toLowerCase() as SupportedLanguage;
+          languoidData.name.toLowerCase() as SupportedLanguage;
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);

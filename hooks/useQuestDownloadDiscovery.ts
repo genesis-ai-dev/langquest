@@ -18,7 +18,6 @@ interface DiscoveredIds {
   questTagLinkIds: string[];
   assetTagLinkIds: string[];
   tagIds: string[];
-  languageIds: string[];
   languoidIds: string[];
   languoidAliasIds: string[];
   languoidSourceIds: string[];
@@ -42,7 +41,7 @@ export interface DiscoveryState {
     questTagLinks: ReturnType<typeof useSharedValue<CategoryProgress>>;
     assetTagLinks: ReturnType<typeof useSharedValue<CategoryProgress>>;
     tags: ReturnType<typeof useSharedValue<CategoryProgress>>;
-    languages: ReturnType<typeof useSharedValue<CategoryProgress>>;
+    languoids: ReturnType<typeof useSharedValue<CategoryProgress>>;
   };
   totalRecordsShared: ReturnType<typeof useSharedValue<number>>;
   discoveredIds: DiscoveredIds;
@@ -74,7 +73,6 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     questTagLinkIds: [],
     assetTagLinkIds: [],
     tagIds: [],
-    languageIds: [],
     languoidIds: [],
     languoidAliasIds: [],
     languoidSourceIds: [],
@@ -102,7 +100,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
   const assetTagLinksProgress =
     useSharedValue<CategoryProgress>(initialProgress);
   const tagsProgress = useSharedValue<CategoryProgress>(initialProgress);
-  const languagesProgress = useSharedValue<CategoryProgress>(initialProgress);
+  const languoidsProgress = useSharedValue<CategoryProgress>(initialProgress);
   const totalRecordsShared = useSharedValue<number>(0);
 
   const updateTotal = useCallback(() => {
@@ -117,7 +115,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinksProgress.value.count +
       assetTagLinksProgress.value.count +
       tagsProgress.value.count +
-      languagesProgress.value.count;
+      languoidsProgress.value.count;
   }, [
     questProgress,
     projectProgress,
@@ -128,7 +126,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     questTagLinksProgress,
     assetTagLinksProgress,
     tagsProgress,
-    languagesProgress,
+    languoidsProgress,
     totalRecordsShared
   ]);
 
@@ -149,7 +147,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     questTagLinksProgress.value = { ...initialProgress, isLoading: true };
     assetTagLinksProgress.value = { ...initialProgress, isLoading: true };
     tagsProgress.value = { ...initialProgress, isLoading: true };
-    languagesProgress.value = { ...initialProgress, isLoading: true };
+    languoidsProgress.value = { ...initialProgress, isLoading: true };
     totalRecordsShared.value = 0;
 
     // Create abort controller for cancellation
@@ -166,7 +164,6 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinkIds: [],
       assetTagLinkIds: [],
       tagIds: [],
-      languageIds: [],
       languoidIds: [],
       languoidAliasIds: [],
       languoidSourceIds: [],
@@ -348,7 +345,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 if (signal.aborted) return null;
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset')
-                  .select('id, source_language_id')
+                  .select('id')
                   .in('id', assetIds)
                   .eq('active', true);
 
@@ -382,7 +379,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 if (signal.aborted) return null;
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset_content_link')
-                  .select('id, source_language_id')
+                  .select('id, languoid_id')
                   .in('asset_id', assetIds)
                   .eq('active', true);
 
@@ -466,49 +463,44 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
           return;
         }
 
-        // Collect language IDs from assets, translations, and project
-        const languageIds = new Set<string>();
+        // Collect languoid IDs from asset content links and project
+        const languoidIds = new Set<string>();
         if (questResult?.project_id) {
-          // Get project languages
+          // Get project languoids from project_language_link
           try {
-            const { data: projectData, error } =
+            const { data: projectLanguageLinks, error } =
               await system.supabaseConnector.client
-                .from('project')
-                .select('source_language_id, target_language_id')
-                .eq('id', questResult.project_id)
-                .single();
+                .from('project_language_link')
+                .select('languoid_id')
+                .eq('project_id', questResult.project_id)
+                .not('languoid_id', 'is', null);
 
-            if (!error && projectData) {
-              if (projectData.source_language_id)
-                languageIds.add(projectData.source_language_id);
-              if (projectData.target_language_id)
-                languageIds.add(projectData.target_language_id);
+            if (!error && projectLanguageLinks) {
+              projectLanguageLinks.forEach((link) => {
+                if (link.languoid_id) languoidIds.add(link.languoid_id);
+              });
             }
           } catch (error) {
             console.error(
-              '🔍 [Discovery] Error fetching project languages:',
+              '🔍 [Discovery] Error fetching project languoids:',
               error
             );
           }
         }
 
-        assetsResult?.forEach((asset) => {
-          if (asset.source_language_id)
-            languageIds.add(asset.source_language_id);
-        });
         assetContentLinksResult?.forEach((link) => {
-          if (link.source_language_id) languageIds.add(link.source_language_id);
+          if (link.languoid_id) languoidIds.add(link.languoid_id);
         });
 
-        ids.languageIds = Array.from(languageIds);
-        languagesProgress.value = {
-          count: ids.languageIds.length,
+        ids.languoidIds = Array.from(languoidIds);
+        languoidsProgress.value = {
+          count: ids.languoidIds.length,
           isLoading: false,
           hasError: false
         };
 
-        // Discover languoid IDs from project_language_link and asset_content_link
-        const languoidIds = new Set<string>();
+        // Discover languoid IDs from project_language_link and asset_content_link (for all projects)
+        const allLanguoidIds = new Set<string>();
         try {
           if (signal.aborted) return;
 
@@ -524,7 +516,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
 
             if (!pllError && projectLanguageLinks) {
               projectLanguageLinks.forEach((link) => {
-                if (link.languoid_id) languoidIds.add(link.languoid_id);
+                if (link.languoid_id) allLanguoidIds.add(link.languoid_id);
               });
             }
           }
@@ -541,12 +533,12 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
 
             if (!aclError && assetContentLinks) {
               assetContentLinks.forEach((link) => {
-                if (link.languoid_id) languoidIds.add(link.languoid_id);
+                if (link.languoid_id) allLanguoidIds.add(link.languoid_id);
               });
             }
           }
 
-          ids.languoidIds = Array.from(languoidIds);
+          ids.languoidIds = Array.from(allLanguoidIds);
 
           // If we found languoids, discover related records
           if (ids.languoidIds.length > 0) {
@@ -747,7 +739,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
           hasError: false
         };
         tagsProgress.value = { count: 0, isLoading: false, hasError: false };
-        languagesProgress.value = {
+        languoidsProgress.value = {
           count: 0,
           isLoading: false,
           hasError: false
@@ -778,7 +770,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     questTagLinksProgress,
     assetTagLinksProgress,
     tagsProgress,
-    languagesProgress,
+    languoidsProgress,
     totalRecordsShared,
     updateTotal
   ]);
@@ -813,7 +805,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinks: questTagLinksProgress,
       assetTagLinks: assetTagLinksProgress,
       tags: tagsProgress,
-      languages: languagesProgress
+      languoids: languoidsProgress
     },
     totalRecordsShared,
     discoveredIds,

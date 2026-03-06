@@ -129,7 +129,7 @@ export function QuestDownloadDiscoveryDrawer({
     questTagLinks: { count: 0, isLoading: false, hasError: false },
     assetTagLinks: { count: 0, isLoading: false, hasError: false },
     tags: { count: 0, isLoading: false, hasError: false },
-    languages: { count: 0, isLoading: false, hasError: false }
+    languoids: { count: 0, isLoading: false, hasError: false }
   });
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -145,7 +145,7 @@ export function QuestDownloadDiscoveryDrawer({
       questTagLinks: progressSharedValues.questTagLinks.value,
       assetTagLinks: progressSharedValues.assetTagLinks.value,
       tags: progressSharedValues.tags.value,
-      languages: progressSharedValues.languages.value,
+      languoids: progressSharedValues.languoids.value,
       total: totalRecordsShared.value
     }),
     (result, prev) => {
@@ -161,7 +161,7 @@ export function QuestDownloadDiscoveryDrawer({
           questTagLinks: result.questTagLinks,
           assetTagLinks: result.assetTagLinks,
           tags: result.tags,
-          languages: result.languages
+          languoids: result.languoids
         });
         runOnJS(setTotalRecords)(result.total);
       }
@@ -228,7 +228,7 @@ export function QuestDownloadDiscoveryDrawer({
             <CategoryRow
               label="Languages"
               icon={DatabaseIcon}
-              {...progress.languages}
+              {...progress.languoids}
             />
           </View>
         </View>

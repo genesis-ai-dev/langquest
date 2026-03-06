@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import type { asset_content_link, language } from '@/db/drizzleSchema';
+import type { asset_content_link, languoid } from '@/db/drizzleSchema';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getThemeColor } from '@/utils/styleUtils';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
@@ -7,7 +7,7 @@ import MiniAudioPlayer from './MiniAudioPlayer';
 
 interface SourceContentProps {
   content: typeof asset_content_link.$inferSelect;
-  sourceLanguage: typeof language.$inferSelect | null;
+  sourceLanguoid: typeof languoid.$inferSelect | null;
   audioSegments?: string[] | null;
   isLoading?: boolean;
   onTranscribe?: (uri: string) => void;
@@ -16,7 +16,7 @@ interface SourceContentProps {
 
 export const SourceContent: React.FC<SourceContentProps> = ({
   content,
-  sourceLanguage,
+  sourceLanguoid,
   audioSegments,
   isLoading = false,
   onTranscribe,
@@ -27,9 +27,9 @@ export const SourceContent: React.FC<SourceContentProps> = ({
   return (
     <View className="flex h-[200px] flex-col items-center gap-2 rounded bg-muted p-3">
       {/* Language name header */}
-      {sourceLanguage && (
+      {sourceLanguoid && (
         <Text className="text-sm font-semibold text-muted-foreground">
-          {sourceLanguage?.native_name || sourceLanguage?.english_name}
+          {sourceLanguoid.name}
         </Text>
       )}
 

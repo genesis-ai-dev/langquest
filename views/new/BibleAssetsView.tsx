@@ -1384,11 +1384,16 @@ export default function BibleAssetsView() {
                   // Insert them for the target asset with sequential order_index
                   for (const c of srcContent) {
                     if (!c.audio) continue;
+                    // languoid_id is required, skip if missing
+                    if (!c.languoid_id) {
+                      console.warn(
+                        `⚠️  Skipping content for asset ${target.id}: missing languoid_id`
+                      );
+                      continue;
+                    }
                     await system.db.insert(contentLocal).values({
                       asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
+                      languoid_id: c.languoid_id,
                       text: c.text || '',
                       audio: c.audio,
                       download_profiles: [currentUser.id],

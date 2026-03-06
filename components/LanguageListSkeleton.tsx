@@ -2,8 +2,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import React from 'react';
 import { View } from 'react-native';
 
-// Loading skeleton for language list
-export function LanguageListSkeleton() {
+// Loading skeleton for languoid list
+export function LanguoidListSkeleton() {
   return (
     <View className="flex-1 gap-3">
       {Array.from({ length: 6 }, (_, i) => (

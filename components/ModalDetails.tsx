@@ -1,8 +1,5 @@
-import type { language, project, quest } from '@/db/drizzleSchema';
-import {
-  language as languageTable,
-  project_language_link
-} from '@/db/drizzleSchema';
+import type { project, quest } from '@/db/drizzleSchema';
+import { languoid, project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
@@ -27,7 +24,6 @@ import { Text } from './ui/text';
 
 type Project = typeof project.$inferSelect;
 type Quest = typeof quest.$inferSelect;
-type Language = typeof language.$inferSelect;
 
 interface ModalDetailsProps {
   isVisible: boolean;
@@ -59,26 +55,26 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
-  // Fetch project source languages from project_language_link and single target from project
-  // let sourceLanguages: Pick<Language, 'id' | 'native_name' | 'english_name'>[] =
-  //   [];
-  const { data: sourceLanguages, isLoading: isSourceLangLoading } =
-    useHybridData({
-      dataType: 'project-source-languages',
+  // Fetch project source languoids from project_languoid_link
+  const { data: sourceLanguoids = [], isLoading: isSourceLangLoading } =
+    useHybridData<
+      Pick<typeof languoid.$inferSelect, 'id' | 'name'>,
+      typeof languoid.$inferSelect
+    >({
+      dataType: 'project-source-languoids',
       queryKeyParams: [content.id],
       offlineQuery:
         contentType === 'project' && content.id
           ? toCompilableQuery(
               system.db
                 .select({
-                  id: languageTable.id,
-                  native_name: languageTable.native_name,
-                  english_name: languageTable.english_name
+                  id: languoid.id,
+                  name: languoid.name
                 })
                 .from(project_language_link)
                 .innerJoin(
-                  languageTable,
-                  eq(project_language_link.language_id, languageTable.id)
+                  languoid,
+                  eq(project_language_link.languoid_id, languoid.id)
                 )
                 .where(
                   and(
@@ -92,55 +88,74 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
         if (contentType !== 'project' || !content.id) return [];
         const { data, error } = await system.supabaseConnector.client
           .from('project_language_link')
-          .select('language:language_id(id, native_name, english_name)')
+          .select('languoid:languoid_id(id, name)')
           .eq('project_id', content.id)
           .eq('language_type', 'source')
-          .overrideTypes<{ language: Language }[]>();
+          .not('languoid_id', 'is', null)
+          .overrideTypes<{ languoid: typeof languoid.$inferSelect }[]>();
         if (error) throw error;
-        return data.map((row) => row.language);
-      }
-      // transformCloudData: (lang) => ({
-      //   id: lang.id,
-      //   native_name: lang.native_name,
-      //   english_name: lang.english_name
-      // })
-    });
-
-  const targetLanguageId =
-    contentType === 'project' ? (content as Project).target_language_id : null;
-
-  const { data: targetLangArr = [], isLoading: isTargetLangLoading } =
-    useHybridData({
-      dataType: 'project-target-language',
-      queryKeyParams: [targetLanguageId ?? ''],
-      offlineQuery: targetLanguageId
-        ? toCompilableQuery(
-            system.db.query.language.findMany({
-              columns: { id: true, native_name: true, english_name: true },
-              where: eq(languageTable.id, targetLanguageId)
-            })
-          )
-        : 'SELECT * FROM language WHERE 1 = 0',
-      cloudQueryFn: async () => {
-        if (!targetLanguageId) return [];
-        const { data, error } = await system.supabaseConnector.client
-          .from('language')
-          .select('id, native_name, english_name')
-          .eq('id', targetLanguageId)
-          .overrideTypes<
-            Pick<Language, 'id' | 'native_name' | 'english_name'>[]
-          >();
-        if (error) throw error;
-        return data;
+        return data.map((row) => row.languoid).filter(Boolean);
       },
-      enableCloudQuery: contentType === 'project' && !!targetLanguageId,
-      enableOfflineQuery: contentType === 'project' && !!targetLanguageId
+      transformCloudData: (lang) => ({
+        id: lang.id,
+        name: lang.name
+      }),
+      enableCloudQuery: contentType === 'project' && !!content.id,
+      enableOfflineQuery: contentType === 'project' && !!content.id
     });
 
-  const targetLanguage =
-    targetLangArr.length > 0 && targetLangArr[0] !== undefined
-      ? targetLangArr[0]
-      : null;
+  // Fetch target languoid from project_languoid_link
+  const { data: targetLanguoidArr = [], isLoading: isTargetLangLoading } =
+    useHybridData<
+      Pick<typeof languoid.$inferSelect, 'id' | 'name'>,
+      typeof languoid.$inferSelect
+    >({
+      dataType: 'project-target-languoid',
+      queryKeyParams: [content.id],
+      offlineQuery:
+        contentType === 'project' && content.id
+          ? toCompilableQuery(
+              system.db
+                .select({
+                  id: languoid.id,
+                  name: languoid.name
+                })
+                .from(project_language_link)
+                .innerJoin(
+                  languoid,
+                  eq(project_language_link.languoid_id, languoid.id)
+                )
+                .where(
+                  and(
+                    eq(project_language_link.project_id, content.id),
+                    eq(project_language_link.language_type, 'target')
+                  )
+                )
+                .limit(1)
+            )
+          : 'SELECT * FROM project_language_link WHERE 1 = 0',
+      cloudQueryFn: async () => {
+        if (contentType !== 'project' || !content.id) return [];
+        const { data, error } = await system.supabaseConnector.client
+          .from('project_language_link')
+          .select('languoid:languoid_id(id, name)')
+          .eq('project_id', content.id)
+          .eq('language_type', 'target')
+          .not('languoid_id', 'is', null)
+          .limit(1)
+          .overrideTypes<{ languoid: typeof languoid.$inferSelect }[]>();
+        if (error) throw error;
+        return data.map((row) => row.languoid).filter(Boolean);
+      },
+      transformCloudData: (lang) => ({
+        id: lang.id,
+        name: lang.name
+      }),
+      enableCloudQuery: contentType === 'project' && !!content.id,
+      enableOfflineQuery: contentType === 'project' && !!content.id
+    });
+
+  const targetLanguoid = targetLanguoidArr[0];
 
   // Debug logging
   React.useEffect(() => {
@@ -189,14 +204,13 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                 <Text className="text-muted-foreground">{t('loading')}</Text>
               ) : (
                 <Text className="flex-1">
-                  {sourceLanguages.length
-                    ? sourceLanguages
-                        .map((l) => l.native_name || l.english_name)
+                  {sourceLanguoids.length
+                    ? sourceLanguoids
+                        .map((l) => l.name)
                         .filter(Boolean)
                         .join(', ')
                     : '—'}{' '}
-                  →{' '}
-                  {targetLanguage?.native_name || targetLanguage?.english_name}
+                  → {targetLanguoid?.name || '—'}
                 </Text>
               )}
             </View>

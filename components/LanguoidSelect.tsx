@@ -1,0 +1,130 @@
+import type { languoid } from '@/db/drizzleSchema';
+import {
+  useLanguoidEndonyms,
+  useUIReadyLanguoids
+} from '@/hooks/db/useLanguoids';
+import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
+import { colors, spacing } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  memo,
+  default as React,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import { CustomDropdown } from './CustomDropdown';
+
+type Languoid = typeof languoid.$inferSelect;
+
+interface LanguoidSelectProps {
+  setLanguoidsLoaded?: React.Dispatch<React.SetStateAction<boolean>>;
+  value?: string;
+  onChange?: (languoid: Languoid) => void;
+  label?: boolean;
+  containerStyle?: object;
+}
+
+const LanguoidSelect: React.FC<LanguoidSelectProps> = memo(
+  ({ value, onChange, setLanguoidsLoaded }) => {
+    const [showLanguoids, setShowLanguoids] = useState(false);
+    const setUILanguoid = useLocalStore((state) => state.setUILanguoid);
+    const savedLanguoid = useLocalStore((state) => state.uiLanguoid);
+    const { t } = useLocalization();
+
+    // Use useUIReadyLanguoids hook
+    const { languoids } = useUIReadyLanguoids();
+
+    // Fetch endonyms for all languoids
+    const languoidIds = useMemo(() => languoids.map((l) => l.id), [languoids]);
+    const { endonymMap } = useLanguoidEndonyms(languoidIds);
+
+    useEffect(() => {
+      if (languoids.length > 0) {
+        setLanguoidsLoaded?.(true);
+      }
+    }, [languoids, setLanguoidsLoaded]);
+
+    const defaultLanguoid = languoids.find((l) => l.name === 'English');
+
+    // Find selected languoid
+    const selectedLanguoid = useMemo(() => {
+      if (value) {
+        return languoids.find((l) => l.id === value);
+      }
+      if (savedLanguoid?.id) {
+        return languoids.find((l) => l.id === savedLanguoid.id);
+      }
+      return defaultLanguoid;
+    }, [value, savedLanguoid, languoids, defaultLanguoid]);
+
+    const handleSelect = useCallback(
+      (displayName: string) => {
+        // Find languoid by matching endonym or name
+        const lang = languoids.find((l) => {
+          const endonym = endonymMap.get(l.id);
+          const display = endonym ?? l.name ?? '';
+          return display === displayName;
+        });
+        if (lang) {
+          setUILanguoid(lang);
+          onChange?.(lang);
+        }
+      },
+      [languoids, endonymMap, setUILanguoid, onChange]
+    );
+
+    const handleToggle = useCallback(() => {
+      setShowLanguoids(!showLanguoids);
+    }, [showLanguoids]);
+
+    const renderLeftIcon = useCallback(
+      () => (
+        <Ionicons
+          name="language"
+          size={20}
+          color={colors.text}
+          style={{ marginRight: spacing.medium }}
+        />
+      ),
+      []
+    );
+
+    // Get display names (endonyms preferred, fallback to name)
+    const displayOptions = useMemo(() => {
+      return languoids
+        .filter((l) => l.name)
+        .map((l) => {
+          const endonym = endonymMap.get(l.id);
+          return endonym ?? l.name ?? '';
+        });
+    }, [languoids, endonymMap]);
+
+    // Get selected display name
+    const selectedDisplayName = useMemo(() => {
+      if (!selectedLanguoid) return '';
+      const endonym = endonymMap.get(selectedLanguoid.id);
+      return endonym ?? selectedLanguoid.name ?? '';
+    }, [selectedLanguoid, endonymMap]);
+
+    return (
+      <CustomDropdown
+        renderLeftIcon={renderLeftIcon}
+        value={selectedDisplayName}
+        options={displayOptions}
+        onSelect={handleSelect}
+        isOpen={showLanguoids}
+        onToggle={handleToggle}
+        search={true}
+        searchPlaceholder={t('search')}
+        fullWidth={true}
+      />
+    );
+  }
+);
+
+LanguoidSelect.displayName = 'LanguoidSelect';
+
+export { LanguoidSelect };

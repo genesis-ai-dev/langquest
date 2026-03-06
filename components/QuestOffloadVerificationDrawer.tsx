@@ -180,7 +180,7 @@ export function QuestOffloadVerificationDrawer({
       hasError: false
     },
     tags: { count: 0, verified: 0, isVerifying: false, hasError: false },
-    languages: { count: 0, verified: 0, isVerifying: false, hasError: false },
+    languoids: { count: 0, verified: 0, isVerifying: false, hasError: false },
     attachments: { count: 0, verified: 0, isVerifying: false, hasError: false }
   });
   const [totalRecords, setTotalRecords] = useState(0);
@@ -197,7 +197,7 @@ export function QuestOffloadVerificationDrawer({
       questTagLinks: progressSharedValues.questTagLinks.value,
       assetTagLinks: progressSharedValues.assetTagLinks.value,
       tags: progressSharedValues.tags.value,
-      languages: progressSharedValues.languages.value,
+      languoids: progressSharedValues.languoids.value,
       attachments: progressSharedValues.attachments.value,
       total: totalRecordsShared.value
     }),
@@ -214,7 +214,7 @@ export function QuestOffloadVerificationDrawer({
           questTagLinks: result.questTagLinks,
           assetTagLinks: result.assetTagLinks,
           tags: result.tags,
-          languages: result.languages,
+          languoids: result.languoids,
           attachments: result.attachments
         });
         runOnJS(setTotalRecords)(result.total);
@@ -344,7 +344,7 @@ export function QuestOffloadVerificationDrawer({
                 <CategoryRow
                   label="Languages"
                   icon={LanguagesIcon}
-                  {...progress.languages}
+                  {...progress.languoids}
                 />
                 <CategoryRow
                   label="Attachments"

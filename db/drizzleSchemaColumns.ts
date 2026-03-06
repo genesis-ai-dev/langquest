@@ -28,7 +28,6 @@ import {
 } from './constants';
 import type {
   asset_local,
-  language_local,
   profile_local,
   project_local,
   quest_local,
@@ -36,7 +35,6 @@ import type {
 } from './drizzleSchemaLocal';
 import type {
   asset_synced,
-  language_synced,
   profile_synced,
   project_synced,
   quest_synced,
@@ -212,10 +210,8 @@ export function createProjectTable<
 >(
   source: T,
   {
-    language,
     profile
   }: {
-    language: typeof language_synced | typeof language_local;
     profile: typeof profile_synced | typeof profile_local;
   },
   columns?: TColumnsMap,
@@ -237,15 +233,12 @@ export function createProjectTable<
       versification_template: text({
         enum: versificationTemplateOptions
       }),
-      source_language_id: text(), // FK to language dropped - migrating to languoid
-      target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
       ...extraColumns
     },
     (table) => [
       index('name_idx').on(table.name),
-      index('target_language_id_idx').on(table.target_language_id),
       ...normalizeParams(extraConfig, table)
     ]
   );
@@ -272,42 +265,9 @@ export function createProfileTable<
       username: text(),
       password: text(),
       avatar: text(),
-      ui_language_id: text(),
-      ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
+      ui_languoid_id: text(), // Reference to languoid table
       terms_accepted: int({ mode: 'boolean' }),
       terms_accepted_at: text(),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
-
-  return table;
-}
-
-export function createLanguageTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'language', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'language',
-    {
-      ...getTableColumns(source),
-      // Enforce the existence of either native_name or english_name in the app
-      native_name: text(), // Enforce uniqueness across chains in the app
-      english_name: text(), // Enforce uniqueness across chains in the app
-      iso639_3: text(), // Enforce uniqueness across chains in the app
-      locale: text(),
-      ui_ready: int({ mode: 'boolean' }).notNull(),
-      download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
       ...extraColumns
     },
     (table) => [...normalizeParams(extraConfig, table)]
@@ -348,11 +308,9 @@ export function createAssetTable<
 >(
   source: T,
   {
-    language,
     project,
     profile
   }: {
-    language: typeof language_synced | typeof language_local;
     project: typeof project_synced | typeof project_local;
     profile: typeof profile_synced | typeof profile_local;
   },
@@ -370,7 +328,6 @@ export function createAssetTable<
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      source_language_id: text(), // FK to language dropped - migrating to languoid
       project_id: text().references(() => project.id),
       source_asset_id: text().references((): AnySQLiteColumn => table.id),
       content_type: text({ enum: contentTypeOptions }).default('source'),
@@ -382,7 +339,6 @@ export function createAssetTable<
     (table) => {
       return [
         index('name_idx').on(table.name),
-        index('source_language_id_idx').on(table.source_language_id),
         index('asset_source_asset_id_idx').on(table.source_asset_id),
         index('asset_project_id_idx').on(table.project_id),
         ...normalizeParams(extraConfig, table)
@@ -600,11 +556,9 @@ export function createAssetContentLinkTable<
 >(
   source: T,
   {
-    asset,
-    language
+    asset
   }: {
     asset: typeof asset_synced | typeof asset_local;
-    language: typeof language_synced | typeof language_local;
   },
   columns?: TColumnsMap,
   extraConfig?: (
@@ -622,18 +576,13 @@ export function createAssetContentLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
-      source_language_id: text(), // FK to language dropped - migrating to languoid
-      languoid_id: text(), // Reference to languoid table
-      order_index: int().notNull().default(0),
+      languoid_id: text().notNull(), // Reference to languoid table - canonical language reference
       ...extraColumns
     },
     (table) => {
       return [
         index('asset_id_idx').on(table.asset_id),
-        index('asset_content_link_source_language_id_idx').on(
-          table.source_language_id
-        ),
-        index('idx_acl_asset_order').on(table.asset_id, table.order_index),
+        index('asset_content_link_languoid_id_idx').on(table.languoid_id),
         ...normalizeParams(extraConfig, table)
       ];
     }
@@ -648,11 +597,9 @@ export function createProjectLanguageLinkTable<
 >(
   source: T,
   {
-    project,
-    language
+    project
   }: {
     project: typeof project_synced | typeof project_local;
-    language: typeof language_synced | typeof language_local;
   },
   columns?: TColumnsMap,
   extraConfig?: (
@@ -673,7 +620,6 @@ export function createProjectLanguageLinkTable<
       project_id: text()
         .notNull()
         .references(() => project.id),
-      language_id: text(), // Nullable - kept for backward compatibility
       languoid_id: text().notNull(), // Part of new PK - canonical language reference
       ...extraColumns
     },
@@ -683,7 +629,6 @@ export function createProjectLanguageLinkTable<
       }),
       index('pll_project_id_idx').on(table.project_id),
       index('pll_language_type_idx').on(table.language_type),
-      index('pll_language_id_idx').on(table.language_id), // For backward compatibility
       ...normalizeParams(extraConfig, table)
     ]
   );
