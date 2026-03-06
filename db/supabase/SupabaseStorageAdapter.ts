@@ -80,13 +80,14 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     return data;
   }
 
-  writeFile(
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async writeFile(
     fileURI: string,
     base64Data: string,
     options?: {
       encoding?: 'utf8' | 'base64';
     }
-  ): Promise<void> {
+  ) {
     return writeFile(fileURI, base64Data, options);
   }
 
@@ -94,7 +95,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     fileURI: string,
     options?: { encoding?: 'utf8' | 'base64'; mediaType?: string }
   ): Promise<ArrayBuffer> {
-    const exists = await fileExists(fileURI);
+    const exists = fileExists(fileURI);
 
     if (!exists) {
       console.error('[STORAGE] File does not exist for upload:', fileURI);
@@ -110,11 +111,9 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     }
   }
 
-  async deleteFile(
-    uri: string,
-    options?: { filename?: string }
-  ): Promise<void> {
-    await deleteIfExists(uri);
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async deleteFile(uri: string, options?: { filename?: string }) {
+    deleteIfExists(uri);
 
     const { filename } = options ?? {};
     if (!filename) {
@@ -136,20 +135,23 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     // console.debug('Deleted file from storage', data);
   }
 
-  fileExists(fileURI: string): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async fileExists(fileURI: string): Promise<boolean> {
     return fileExists(fileURI);
   }
 
-  makeDir(uri: string): Promise<void> {
-    return ensureDir(uri);
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async makeDir(uri: string): Promise<void> {
+    ensureDir(uri);
   }
 
-  copyFile(sourceUri: string, targetUri: string) {
-    return copyFile(sourceUri, targetUri);
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async copyFile(sourceUri: string, targetUri: string): Promise<void> {
+    copyFile(sourceUri, targetUri);
   }
 
   getUserStorageDirectory(): string {
-    return getDocumentDirectory() ?? '';
+    return getDocumentDirectory();
   }
 
   stringToArrayBuffer(str: string) {
