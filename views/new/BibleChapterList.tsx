@@ -12,6 +12,7 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
@@ -20,13 +21,13 @@ import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 interface BibleChapterListProps {
   projectId: string;
@@ -74,6 +75,7 @@ function ChapterButton({
   downloadingQuestIds?: Set<string>;
 }) {
   const { currentUser } = useAuth();
+  const { isDarkColorScheme } = useColorScheme();
   const exists = !!existingChapter;
   const hasLocalCopy = existingChapter?.hasLocalCopy ?? false;
   const hasSyncedCopy = existingChapter?.hasSyncedCopy ?? false;
@@ -97,19 +99,21 @@ function ChapterButton({
   };
 
   // Use semantic Tailwind colors for status, matching conventions:
-  // - Published: success/green (chart-3)
+  // - Published: primary (purple) with primary-foreground text
   // - Local only: info/blue (chart-2)
   // - Not created: muted
   // - Foreground should always be readable (primary-foreground for filled, foreground for outline)
   const getBackgroundColor = () => {
-    if (hasSyncedCopy) return 'bg-chart-3'; // Published (Success, Green)
+    if (hasSyncedCopy) return 'bg-primary'; // Published (Primary, Purple)
     if (hasLocalCopy) return 'bg-chart-2'; // Local-only (Info, Blue)
     if (exists) return 'bg-card'; // Exists but not local or synced
     return 'bg-muted'; // Not yet created (empty slot)
   };
 
   const getTextColor = () => {
-    if (hasSyncedCopy || hasLocalCopy) return 'text-secondary';
+    // For downloaded chapters with primary button variant, use primary-foreground (white)
+    if (hasSyncedCopy && exists) return 'text-primary-foreground';
+    if (hasLocalCopy) return 'text-secondary';
     if (exists) return 'text-foreground';
     return 'text-muted-foreground';
   };
@@ -121,12 +125,15 @@ function ChapterButton({
         className={cn(
           'w-full flex-col gap-1 py-3',
           !exists && 'border-dashed',
-          needsDownload && 'opacity-50',
           getBackgroundColor()
         )}
-        onPress={onPress}
+        onPress={
+          needsDownload && !isDarkColorScheme ? handleDownloadToggle : onPress
+        }
         disabled={
-          disabled || needsDownload || (!existingChapter && !canCreateNew)
+          disabled ||
+          (needsDownload && isDarkColorScheme) ||
+          (!existingChapter && !canCreateNew)
         }
       >
         {isCreatingThis ? (
@@ -145,9 +152,11 @@ function ChapterButton({
                     onPress={handleDownloadToggle}
                     size={16}
                     iconColor={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary'
-                        : 'text-foreground'
+                      hasSyncedCopy && exists
+                        ? 'text-primary-foreground'
+                        : hasLocalCopy
+                          ? 'text-secondary'
+                          : 'text-foreground'
                     }
                   />
                 </View>
@@ -168,8 +177,8 @@ function ChapterButton({
         )}
       </Button>
 
-      {/* Overlay to make entire button pressable for download when needed */}
-      {needsDownload && !disabled && (
+      {/* Overlay to make entire button pressable for download when needed (dark theme only) */}
+      {needsDownload && !disabled && isDarkColorScheme && (
         <TouchableOpacity
           onPress={handleDownloadToggle}
           className="absolute inset-0"
@@ -544,6 +553,7 @@ export function BibleChapterList({
       },
       {
         text: t('confirm'),
+        isPreferred: true,
         onPress: () => {
           void (async () => {
             setCreatingChapter(chapterNum);

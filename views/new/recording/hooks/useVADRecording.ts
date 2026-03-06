@@ -70,6 +70,8 @@ export function useVADRecording({
   // Stable refs for callbacks
   const onSegmentStartRef = React.useRef(onSegmentStart);
   const onSegmentCompleteRef = React.useRef(onSegmentComplete);
+  const isVADActiveRef = React.useRef(isVADActive);
+  const isManualRecordingRef = React.useRef(isManualRecording);
 
   // Track segment start time to detect stuck recordings
   const segmentStartTimeRef = React.useRef<number | null>(null);
@@ -86,6 +88,11 @@ export function useVADRecording({
     onSegmentStartRef.current = onSegmentStart;
     onSegmentCompleteRef.current = onSegmentComplete;
   }, [onSegmentStart, onSegmentComplete]);
+
+  React.useEffect(() => {
+    isVADActiveRef.current = isVADActive;
+    isManualRecordingRef.current = isManualRecording;
+  }, [isVADActive, isManualRecording]);
 
   // Use ref directly - no re-renders on energy changes!
   const currentEnergy = energyRef.current;
@@ -257,6 +264,13 @@ export function useVADRecording({
           return;
         }
 
+        // Ignore native segment events that are not from active VAD mode.
+        // Manual press/hold now also uses startSegment/stopSegment, and those
+        // events must not flow through the VAD save pipeline.
+        if (!isVADActiveRef.current || isManualRecordingRef.current) {
+          return;
+        }
+
         console.log('🎬 Native VAD: Segment starting');
 
         // CRITICAL: Update SharedValue FIRST for instant UI response (< 5ms)
@@ -304,6 +318,11 @@ export function useVADRecording({
           console.log(
             `⚠️ Native VAD: Stale onSegmentComplete listener (gen ${myGeneration} vs current ${listenerGeneration}), skipping`
           );
+          return;
+        }
+
+        // Ignore native segment events that are not from active VAD mode.
+        if (!isVADActiveRef.current || isManualRecordingRef.current) {
           return;
         }
 

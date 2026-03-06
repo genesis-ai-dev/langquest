@@ -12,7 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
-import { ListChecks, ListX, Merge, Trash2, X } from 'lucide-react-native';
+import {
+  Bookmark,
+  ListChecks,
+  ListX,
+  Merge,
+  Scissors,
+  Trash2,
+  X
+} from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -21,6 +29,8 @@ interface SelectionControlsProps {
   onCancel: () => void;
   onMerge: () => void;
   onDelete: () => void;
+  onTrim?: () => void;
+  onAssignVerse?: () => void;
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
@@ -32,12 +42,16 @@ export const SelectionControls = React.memo(function SelectionControls({
   onCancel,
   onMerge,
   onDelete,
+  onTrim,
+  onAssignVerse,
   allowSelectAll = false,
   allSelected = false,
   onSelectAll,
   showMerge = true
 }: SelectionControlsProps) {
   const { t } = useLocalization();
+  const shouldShowTrim = selectedCount === 1 && !!onTrim;
+  const shouldShowMerge = selectedCount >= 2;
   return (
     <View className="mb-3 flex-row items-center justify-between rounded-lg border border-border bg-card p-3">
       <Text className="text-sm text-muted-foreground">({selectedCount})</Text>
@@ -48,18 +62,30 @@ export const SelectionControls = React.memo(function SelectionControls({
               <Icon as={allSelected ? ListX : ListChecks} />
             </Button>
           )}
-          {showMerge && (
+          {onAssignVerse && (
             <Button
               variant="default"
-              disabled={selectedCount < 2}
-              onPress={onMerge}
+              disabled={selectedCount < 1}
+              onPress={onAssignVerse}
             >
+              <Icon as={Bookmark} />
+            </Button>
+          )}
+          {shouldShowTrim ? (
+            <Button variant="default" onPress={onTrim}>
+              <View className="flex-row items-center">
+                <Icon as={Scissors} />
+                <Text className="ml-2 text-sm">{t('trim')}</Text>
+              </View>
+            </Button>
+          ) : shouldShowMerge ? (
+            <Button variant="default" onPress={onMerge}>
               <View className="flex-row items-center">
                 <Icon as={Merge} />
                 <Text className="ml-2 text-sm">{t('merge')}</Text>
               </View>
             </Button>
-          )}
+          ) : null}
           <Button
             variant="destructive"
             disabled={selectedCount < 1}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "create-agent-skills": {
+      "source": "glittercowboy/taches-cc-resources",
+      "sourceType": "github",
+      "computedHash": "d1c5f3261a5c1066ae94b8cf35f64aba43ee52f4e23c209b4eadfc5982019d60"
+    },
+    "refero-design": {
+      "source": "referodesign/refero_skill",
+      "sourceType": "github",
+      "computedHash": "e65c46ee932c4d4a718f743b1c845b4e6b981ec71239e7ca2119ed7bea3a690a"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "9c87c315aed143ee3b34bec8117100f5035e0df09e6b23e1ecc772cff434c9ad"
+    }
+  }
+}

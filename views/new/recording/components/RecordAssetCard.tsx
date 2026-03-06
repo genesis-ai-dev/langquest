@@ -24,6 +24,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
+import { useIsFlashing } from '@/hooks/useFlashHighlight';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -37,10 +38,13 @@ import type { GestureResponderEvent } from 'react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   useAnimatedStyle,
-  useDerivedValue
+  useDerivedValue,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 import type { HybridDataSource } from '../../useHybridData';
 
@@ -59,6 +63,7 @@ interface AssetCardProps {
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
   segmentCount?: number; // Number of audio segments in this asset
+  fileType?: 'WAV' | 'M4A'; // Primary audio format label
   // Custom progress for play-all mode (0-100 percentage)
   // If provided, this overrides the default global progress calculation
   customProgress?: SharedValue<number>;
@@ -127,6 +132,7 @@ function RecordAssetCardInternal({
   hideButtons,
   duration,
   segmentCount,
+  fileType,
   customProgress,
   onPress,
   onLongPress,
@@ -134,6 +140,7 @@ function RecordAssetCardInternal({
   onRename,
   onActionTypeChange
 }: AssetCardProps) {
+  const isFlashing = useIsFlashing(asset.id);
   const audioContext = useAudio();
 
   // State for action button selection (always one selected, default is 'new')
@@ -201,14 +208,17 @@ function RecordAssetCardInternal({
   const progressBarStyle = useAnimatedStyle(() => {
     'worklet';
     const progress = animatedProgress.value;
-    const width = interpolate(
+    const widthPercent = interpolate(
       progress,
       [0, 95, 100],
       [0, 97, 100],
       Extrapolation.CLAMP
     );
+    const scaleX = widthPercent / 100;
     return {
-      width: `${width}%`
+      width: '100%',
+      transform: [{ scaleX }],
+      transformOrigin: 'left center'
     };
   });
 
@@ -241,6 +251,22 @@ function RecordAssetCardInternal({
     onLongPress?.();
   }, [onLongPress]);
 
+  // Flash animation (5s fade after merge/unmerge)
+  const flashOpacity = useSharedValue(0);
+  React.useEffect(() => {
+    if (isFlashing) {
+      flashOpacity.value = 1;
+      flashOpacity.value = withTiming(0, {
+        duration: 5000,
+        easing: Easing.out(Easing.quad)
+      });
+    }
+  }, [isFlashing, flashOpacity]);
+
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: flashOpacity.value
+  }));
+
   const { t } = useLocalization();
   return (
     <TouchableOpacity
@@ -248,7 +274,7 @@ function RecordAssetCardInternal({
       onLongPress={onLongPress ? handleCardLongPress : undefined}
       delayLongPress={500}
       activeOpacity={0.7}
-      disabled={isSelectionMode} // Disable card press in selection mode (use checkbox instead)
+      disabled={isSelectionMode}
     >
       <View
         className={cn(
@@ -262,6 +288,15 @@ function RecordAssetCardInternal({
               : 'border-border bg-card'
         )}
       >
+        {/* Flash overlay — fading border+bg after merge/unmerge */}
+        {isFlashing && (
+          <Animated.View
+            style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, flashStyle]}
+            className="rounded-lg border-2 border-primary bg-primary/10"
+            pointerEvents="none"
+          />
+        )}
+
         {/* Progress bar overlay - positioned absolutely behind content (Reanimated on native thread) */}
         {isPlaying && (
           <View
@@ -339,16 +374,26 @@ function RecordAssetCardInternal({
               {/* <Text className="text-xs text-muted-foreground">
               {asset.created_at && new Date(asset.created_at).toLocaleString()}
             </Text> */}
-              {duration !== undefined && duration > 0 && (
-                <Text
-                  className="font-mono text-xs text-muted-foreground"
-                  style={{ letterSpacing: 0.5 }}
-                >
-                  {formatDuration(duration)}
-                </Text>
-              )}
+              <Text
+                className="font-mono text-xs text-muted-foreground"
+                style={{ letterSpacing: 0.5 }}
+              >
+                {duration !== undefined && duration > 0
+                  ? formatDuration(duration)
+                  : ' '}
+              </Text>
             </View>
           </View>
+
+          {fileType && (
+            <View
+              className={cn('rounded px-2 py-0.5', themeColors.segmentBadge)}
+            >
+              <Text className="text-xs font-semibold text-primary">
+                {fileType}
+              </Text>
+            </View>
+          )}
 
           {/* Selection checkbox - only show for local assets in selection mode */}
           {isLocal &&
@@ -403,6 +448,7 @@ export const RecordAssetCard = React.memo(
       // prev.progress removed - uses SharedValues now!
       prev.duration === next.duration &&
       prev.segmentCount === next.segmentCount &&
+      prev.fileType === next.fileType &&
       prev.canMergeDown === next.canMergeDown &&
       // Compare customProgress SharedValue reference (needed when it changes from undefined to SharedValue)
       prev.customProgress === next.customProgress &&

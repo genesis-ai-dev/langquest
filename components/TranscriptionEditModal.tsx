@@ -13,11 +13,11 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface TranscriptionEditModalProps {
   visible: boolean;
@@ -132,7 +132,12 @@ export default function TranscriptionEditModal({
         'You have unsaved changes. Are you sure you want to close?',
         [
           { text: t('cancel') || 'Cancel', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: onClose }
+          {
+            text: 'Discard',
+            style: 'destructive',
+            isPreferred: true,
+            onPress: onClose
+          }
         ]
       );
     } else {

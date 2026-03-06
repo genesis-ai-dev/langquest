@@ -16,6 +16,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
@@ -29,9 +30,17 @@ import {
   // Plus,
   SquareIcon
 } from 'lucide-react-native';
+import { useIsFlashing } from '@/hooks/useFlashHighlight';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 // import { TagModal } from '../../components/TagModal';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
@@ -89,6 +98,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   onRename,
   isHighlighted = false
 }) => {
+  const isFlashing = useIsFlashing(asset.id);
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
   const { currentUser } = useAuth();
@@ -283,17 +293,46 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     dragHandle
   );
 
+  // Flash animation (5s fade after merge/unmerge)
+  const flashOpacity = useSharedValue(0);
+  React.useEffect(() => {
+    if (isFlashing) {
+      flashOpacity.value = 1;
+      flashOpacity.value = withTiming(0, {
+        duration: 5000,
+        easing: Easing.out(Easing.quad)
+      });
+    }
+  }, [isFlashing, flashOpacity]);
+
+  const flashStyle = useAnimatedStyle(() => ({
+    opacity: flashOpacity.value
+  }));
+
   return (
-    <Pressable onPress={handlePress} onLongPress={handleLongPress}>
+    <Pressable
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      delayLongPress={300}
+    >
       <Card
-        className={`${
-          !allowEditing ? 'opacity-50' : ''
-        } ${invisible ? 'opacity-30' : ''} ${
-          isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
-        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} ${
-          isSelectedForRecording ? 'border-2 border-primary bg-primary/15' : ''
-        } relative overflow-hidden p-3`}
+        className={cn(
+          !allowEditing && 'opacity-50',
+          invisible && 'opacity-30',
+          isCurrentlyPlaying && 'border-2 border-primary bg-primary/5',
+          isSelected && 'border-2 border-primary bg-primary/10',
+          isSelectedForRecording && 'border-2 border-primary bg-primary/15',
+          'relative overflow-hidden p-3'
+        )}
       >
+        {/* Flash overlay — fading border+bg after merge/unmerge */}
+        {isFlashing && (
+          <Animated.View
+            style={[StyleSheet.absoluteFillObject, { zIndex: 0 }, flashStyle]}
+            className="rounded-lg border-2 border-primary bg-primary/10"
+            pointerEvents="none"
+          />
+        )}
         {/* Highlight indicator triangle */}
         {/* { isHighlighted && <View className="absolute -ml-[10px] top-0 left-0 border-r-[10px] border-l-[10px] border-t-[12px] border-l-transparent border-r-transparent border-t-primary"/> } */}
         {/* Highlight indicator border right */}
@@ -398,7 +437,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 </Pressable>
               </View> */}
               {/* Actions: Edit name + Open details (hidden in selection mode) */}
-              <View className="flex flex-row items-center gap-2">
+              <View className="flex flex-row items-center gap-2 px-2">
                 {/* Highlight indicator badge */}
                 {isHighlighted && (
                   <View className="rounded-lg bg-primary/50 px-2">
@@ -417,8 +456,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                       e.stopPropagation();
                       onRename(asset.id, asset.name);
                     }}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                    hitSlop={8}
+                    className="flex size-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                    hitSlop={6}
                   >
                     <Icon
                       as={PencilLineIcon}
@@ -431,26 +470,27 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                     isFlaggedForDownload={isDownloaded}
                     isLoading={isDownloading}
                     onPress={handleDownloadToggle}
-                    size={16}
+                    size={20}
                     iconColor="text-primary/50"
                   />
                 )}
 
                 {!isSelectionMode && (
-                  <Pressable
+                  <Button
+                    variant="plain"
+                    size="auto"
                     onPress={(e) => {
                       e.stopPropagation();
                       handleOpenAsset();
                     }}
-                    className="mr-2"
-                    hitSlop={8}
+                    hitSlop={2}
                   >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
-                      size={16}
+                      size={20}
                       className="text-primary"
                     />
-                  </Pressable>
+                  </Button>
                 )}
               </View>
             </View>

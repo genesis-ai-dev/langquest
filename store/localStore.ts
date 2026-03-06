@@ -154,6 +154,10 @@ export interface LocalState {
   enableFia: boolean;
   setEnableFia: (enabled: boolean) => void;
 
+  // Trim modal settings
+  trimPlayPreview: boolean;
+  setTrimPlayPreview: (enabled: boolean) => void;
+
   // VAD (Voice Activity Detection) settings
   // vadThreshold: VAD_THRESHOLD_MIN to VAD_THRESHOLD_MAX (lower = more sensitive, picks up quiet speech)
   // vadSilenceDuration: VAD_SILENCE_DURATION_MIN to VAD_SILENCE_DURATION_MAX (how long to wait before stopping recording)
@@ -341,6 +345,9 @@ export const useLocalStore = create<LocalState>()(
       enableMerge: false,
       enableFia: false,
 
+      // Trim modal settings (defaults)
+      trimPlayPreview: true,
+
       // VAD settings (defaults)
       vadThreshold: VAD_THRESHOLD_DEFAULT,
       vadSilenceDuration: VAD_SILENCE_DURATION_DEFAULT,
@@ -437,7 +444,11 @@ export const useLocalStore = create<LocalState>()(
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
       setTheme: (theme) => {
         set({ theme });
-        colorScheme.set(theme);
+        // Only set colorScheme if NativeWind is initialized and theme is not 'system'
+        // 'system' theme should use the OS color scheme, not be set explicitly
+        if (colorScheme && theme !== 'system') {
+          colorScheme.set(theme);
+        }
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
@@ -472,6 +483,8 @@ export const useLocalStore = create<LocalState>()(
         set({ enableLanguoidLinkSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
+
+      setTrimPlayPreview: (enabled) => set({ trimPlayPreview: enabled }),
 
       // VAD settings setters
       setVadThreshold: (threshold) =>
@@ -652,7 +665,7 @@ export const useLocalStore = create<LocalState>()(
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
-          colorScheme.set(state.theme);
+          state.setTheme(state.theme);
           // Validate and clamp VAD threshold if invalid
           if (
             typeof state.vadThreshold !== 'number' ||
@@ -698,8 +711,8 @@ export const useLocalStore = create<LocalState>()(
                 'currentUser', // I don't think we're getting this from the local store any more
                 'currentProjectId',
                 'currentQuestId',
-                'currentAssetId',
-                'navigationStack'
+                'currentAssetId'
+                //'navigationStack' //commented out so the app can remember the last view on reload
               ].includes(key)
           )
         )
