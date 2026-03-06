@@ -1,3 +1,6 @@
+/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
+/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
+/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 // import { Badge } from '@/components/ui/badge';
 import {
@@ -16,6 +19,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
@@ -32,6 +36,8 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle
@@ -54,6 +60,7 @@ export interface BibleAssetListItemProps {
   // Drag & Drop props
   showDragHandle?: boolean; // Whether to show drag handle (not in selection mode, not published)
   isDragFixed?: boolean; // Whether this item has fixed drag order
+  isHighlighted?: boolean;
   onDrag?: () => void; // Drag function from reorderable list
   // Selection mode props (batch operations like merge/delete)
   isSelectionMode?: boolean;
@@ -84,7 +91,8 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   onEnterSelection,
   isSelectedForRecording = false,
   onSelectForRecording,
-  onRename
+  onRename,
+  isHighlighted = false
 }) => {
   const { goToAsset, currentProjectData, currentQuestData } =
     useAppNavigation();
@@ -283,14 +291,35 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   return (
     <Pressable onPress={handlePress} onLongPress={handleLongPress}>
       <Card
-        className={`${
-          !allowEditing ? 'opacity-50' : ''
-        } ${invisible ? 'opacity-30' : ''} ${
-          isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
-        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} ${
-          isSelectedForRecording ? 'border-2 border-primary bg-primary/15' : ''
-        } p-3`}
+        className={cn(
+          !allowEditing && 'opacity-50',
+          invisible && 'opacity-30',
+          isCurrentlyPlaying && 'border-2 border-primary bg-primary/5',
+          isSelected && 'border-2 border-primary bg-primary/10',
+          isSelectedForRecording && 'border-2 border-primary bg-primary/15',
+          'relative overflow-hidden p-3'
+        )}
       >
+        {/* Highlight indicator triangle */}
+        {/* { isHighlighted && <View className="absolute -ml-[10px] top-0 left-0 border-r-[10px] border-l-[10px] border-t-[12px] border-l-transparent border-r-transparent border-t-primary"/> } */}
+        {/* Highlight indicator border right */}
+        {/* { isHighlighted && <View className="absolute top-0 right-0 bg-primary/50 w-10 rounded-l-lg -mt-2 h-4"></View> } */}
+        {/* Highlight indicator border right asterisk */}
+        {/* { isHighlighted && <View className="absolute top-0 left-0 bg-primary w-6 rounded-lg -ml-2 h-5 -mt-2">
+          <Icon
+                        as={Asterisk}
+                        size={12}
+                        className="text-primary-foreground top-2 left-2.5"
+                      />
+        </View> } */}
+        {/* Highlight indicator border left dot */}
+        {/* { isHighlighted && <View className="absolute top-2 left-2 bg-primary w-1.5 rounded-lg h-1.5"> </View> } */}
+        {/* Highlight indicator background */}
+        {/* { isHighlighted && <View className="absolute top-0 left-0 bottom-0 right-0 bg-primary/5"> </View> } */}
+        {/* Highlight indicator border top line */}
+        {/* { isHighlighted && <View className="absolute top-0 left-2 right-2 bg-primary/40 h-0.5"> </View> } */}
+        {/* Highlight indicator badge */}
+
         <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
             <View className="flex flex-row items-center justify-between gap-1.5">
@@ -374,40 +403,63 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
                   )}
                 </Pressable>
               </View> */}
-              {/* Show pencil button for local assets when not published, otherwise show download indicator */}
-              {!isPublished && onRename && asset.source === 'local' ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onRename(asset.id, asset.name);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                  hitSlop={8}
-                >
-                  <Icon
-                    as={PencilLineIcon}
-                    size={12}
-                    className="text-primary"
-                  />
-                </Pressable>
-              ) : (
-                <>
+              {/* Actions: Edit name + Open details (hidden in selection mode) */}
+              <View className="flex flex-row items-center gap-2">
+                {/* Highlight indicator badge */}
+                {isHighlighted && (
+                  <View className="rounded-lg bg-primary/50 px-2">
+                    <Text className="text-[10px] font-semibold text-secondary-foreground">
+                      NEW
+                    </Text>
+                  </View>
+                )}
+
+                {!isSelectionMode &&
+                !isPublished &&
+                onRename &&
+                asset.source === 'local' ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onRename(asset.id, asset.name);
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                    hitSlop={8}
+                  >
+                    <Icon
+                      as={PencilLineIcon}
+                      size={12}
+                      className="text-primary"
+                    />
+                  </Pressable>
+                ) : (
                   <DownloadIndicator
                     isFlaggedForDownload={isDownloaded}
                     isLoading={isDownloading}
                     onPress={handleDownloadToggle}
-                    size={16}
+                    size={20}
                     iconColor="text-primary/50"
                   />
-                  <Pressable onPress={handleOpenAsset} className="mr-2">
+                )}
+
+                {!isSelectionMode && (
+                  <Button
+                    variant="plain"
+                    size="auto"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenAsset();
+                    }}
+                    hitSlop={2}
+                  >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
-                      size={16}
+                      size={20}
                       className="text-primary"
                     />
-                  </Pressable>
-                </>
-              )}
+                  </Button>
+                )}
+              </View>
             </View>
             {SHOW_DEV_ELEMENTS && (
               <CardDescription>

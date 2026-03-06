@@ -23,7 +23,7 @@ import { Text } from '@/components/ui/text';
 import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getThemeColor } from '@/utils/styleUtils';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { Pause, Play, ScissorsIcon, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -73,7 +73,11 @@ export function VerseSegmentModal({
         const results = await system.db
           .select()
           .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, assetId));
+          .where(eq(asset_content_link.asset_id, assetId))
+          .orderBy(
+            asc(asset_content_link.order_index),
+            asc(asset_content_link.created_at)
+          );
 
         setSegments(results as Segment[]);
       } catch (error) {

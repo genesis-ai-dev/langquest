@@ -17,12 +17,18 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
   const queryClient = useQueryClient();
   const [isDownloaded, setIsDownloaded] = React.useState(false);
   const prevDownloadedRef = React.useRef(false);
+  // Track whether initial check has completed - only invalidate on WATCH updates,
+  // not on the initial check. The initial check just establishes the baseline state.
+  // This prevents a cascade of broad query invalidations every time a component
+  // mounts that uses this hook (which was causing progressive slowdown in RecordingView).
+  const initialCheckDoneRef = React.useRef(false);
 
   React.useEffect(() => {
     // Early return - no watch created if no questId or user
     if (!questId || !currentUser?.id) {
       setIsDownloaded(false);
       prevDownloadedRef.current = false;
+      initialCheckDoneRef.current = false;
       return;
     }
 
@@ -30,8 +36,9 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
     const abortController = new AbortController();
     let isMounted = true;
 
-    // Reset ref when questId changes
+    // Reset refs when questId changes
     prevDownloadedRef.current = false;
+    initialCheckDoneRef.current = false;
 
     // Helper to check if we should proceed (defensive check for async operations)
     const shouldProceed = () => !abortController.signal.aborted && isMounted;
@@ -58,33 +65,22 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
           // Double-check before state update (defensive - state can change during async)
           if (!shouldProceed()) return;
 
-          // Invalidate assets queries when quest becomes downloaded (initial check)
-          const wasDownloaded = prevDownloadedRef.current;
-          if (!wasDownloaded && downloaded) {
-            console.log(
-              `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
-            );
-            // Invalidate all asset queries for this quest (handles all search variations)
-            void queryClient.invalidateQueries({
-              queryKey: ['assets', 'by-quest', questId],
-              exact: false
-            });
-            // Also invalidate general assets queries
-            void queryClient.invalidateQueries({
-              queryKey: ['assets']
-            });
-          }
-
+          // Only set the baseline - don't invalidate on initial check.
+          // Initial check establishes prevDownloadedRef so subsequent WATCH
+          // updates can detect actual transitions (not-downloaded → downloaded).
           prevDownloadedRef.current = downloaded;
+          initialCheckDoneRef.current = true;
           setIsDownloaded(downloaded);
         } else {
           if (!shouldProceed()) return;
+          initialCheckDoneRef.current = true;
           setIsDownloaded(false);
         }
       } catch (error) {
         // Only log/update if component still mounted
         if (!shouldProceed()) return;
         console.error('Error checking download status:', error);
+        initialCheckDoneRef.current = true;
         setIsDownloaded(false);
       }
     };
@@ -127,22 +123,23 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
                 // Double-check before state update (defensive programming)
                 if (!shouldProceed()) return;
 
-                // Invalidate assets queries when quest becomes downloaded
-                // This ensures assets list refreshes when navigating into newly downloaded quest
-                const wasDownloaded = prevDownloadedRef.current;
-                if (!wasDownloaded && downloaded) {
-                  console.log(
-                    `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
-                  );
-                  // Invalidate all asset queries for this quest (handles all search variations)
-                  void queryClient.invalidateQueries({
-                    queryKey: ['assets', 'by-quest', questId],
-                    exact: false
-                  });
-                  // Also invalidate general assets queries
-                  void queryClient.invalidateQueries({
-                    queryKey: ['assets']
-                  });
+                // Only invalidate on ACTUAL transitions detected by the watch,
+                // not on the initial establishment of state. The watch fires
+                // when the quest table changes in PowerSync. We only want to
+                // invalidate when the download status actually transitions
+                // from not-downloaded to downloaded.
+                if (initialCheckDoneRef.current) {
+                  const wasDownloaded = prevDownloadedRef.current;
+                  if (!wasDownloaded && downloaded) {
+                    console.log(
+                      `🔄 [Quest Download] Quest ${questId.slice(0, 8)}... became downloaded - invalidating assets queries`
+                    );
+                    // Invalidate asset queries scoped to this quest only
+                    void queryClient.invalidateQueries({
+                      queryKey: ['assets', 'by-quest', questId],
+                      exact: false
+                    });
+                  }
                 }
 
                 prevDownloadedRef.current = downloaded;

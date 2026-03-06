@@ -22,8 +22,7 @@ const textareaVariants = cva(
 );
 
 interface TextareaProps
-  extends TextInputProps,
-    VariantProps<typeof textareaVariants> {
+  extends TextInputProps, VariantProps<typeof textareaVariants> {
   drawerInput?: boolean;
 }
 

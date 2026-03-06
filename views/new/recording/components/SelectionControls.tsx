@@ -24,6 +24,7 @@ interface SelectionControlsProps {
   allowSelectAll?: boolean;
   allSelected?: boolean;
   onSelectAll?: () => void;
+  showMerge?: boolean;
 }
 
 export const SelectionControls = React.memo(function SelectionControls({
@@ -33,7 +34,8 @@ export const SelectionControls = React.memo(function SelectionControls({
   onDelete,
   allowSelectAll = false,
   allSelected = false,
-  onSelectAll
+  onSelectAll,
+  showMerge = true
 }: SelectionControlsProps) {
   const { t } = useLocalization();
   return (
@@ -46,16 +48,18 @@ export const SelectionControls = React.memo(function SelectionControls({
               <Icon as={allSelected ? ListX : ListChecks} />
             </Button>
           )}
-          <Button
-            variant="default"
-            disabled={selectedCount < 2}
-            onPress={onMerge}
-          >
-            <View className="flex-row items-center">
-              <Icon as={Merge} />
-              <Text className="ml-2 text-sm">{t('merge')}</Text>
-            </View>
-          </Button>
+          {showMerge && (
+            <Button
+              variant="default"
+              disabled={selectedCount < 2}
+              onPress={onMerge}
+            >
+              <View className="flex-row items-center">
+                <Icon as={Merge} />
+                <Text className="ml-2 text-sm">{t('merge')}</Text>
+              </View>
+            </Button>
+          )}
           <Button
             variant="destructive"
             disabled={selectedCount < 1}

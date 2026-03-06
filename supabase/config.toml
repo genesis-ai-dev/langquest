@@ -326,6 +326,26 @@ entrypoint = "./functions/sqltr/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/sqltr/*.html" ]
 
+[functions.bible-brain-content]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/bible-brain-content/index.ts"
+
+[functions.fia-pericopes]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fia-pericopes/index.ts"
+
+[functions.fia-pericope-steps]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fia-pericope-steps/index.ts"
+
+[functions.fia-pericope-text]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fia-pericope-text/index.ts"
+
 [functions.predict-translation]
 enabled = true
 verify_jwt = true

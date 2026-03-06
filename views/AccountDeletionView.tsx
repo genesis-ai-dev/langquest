@@ -123,6 +123,7 @@ export default function AccountDeletionView() {
         {
           text: t('deleteAccount'),
           style: 'destructive',
+          isPreferred: true,
           onPress: () => {
             void deleteAccount();
           }

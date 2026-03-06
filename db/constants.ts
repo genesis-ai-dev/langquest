@@ -16,7 +16,7 @@ export const statusOptions = [
   'expired'
 ] as const;
 
-export const templateOptions = ['unstructured', 'bible'] as const;
+export const templateOptions = ['unstructured', 'bible', 'fia'] as const;
 export const versificationTemplateOptions = ['protestant'] as const;
 
 export const sourceOptions = ['local', 'synced', 'cloud'] as const;

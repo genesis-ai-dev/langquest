@@ -67,6 +67,7 @@ interface AssetCardProps {
   canMergeDown?: boolean;
   showVerseLabel?: boolean; // Whether to show the verse label on the card
   bookChapterLabel?: string; // Book name and chapter (e.g., "Gen 1") for Bible verse format
+  formatVerse?: (position: number) => string | null;
 }
 
 // Format duration in milliseconds to MM:SS
@@ -108,7 +109,8 @@ function AssetCardInternal({
   onPlay,
   onRename,
   showVerseLabel = true,
-  bookChapterLabel
+  bookChapterLabel,
+  formatVerse
 }: AssetCardProps) {
   const audioContext = useAudio();
 
@@ -227,13 +229,6 @@ function AssetCardInternal({
 
   // Extract verse range from metadata if available
   const verseRange = React.useMemo(() => {
-    console.log('🔍 LabeledAssetCard - Checking metadata:', {
-      assetId: asset.id,
-      assetName: asset.name,
-      metadata: asset.metadata,
-      metadataType: typeof asset.metadata
-    });
-
     if (!asset.metadata) {
       return null;
     }
@@ -276,11 +271,23 @@ function AssetCardInternal({
     }
 
     const { from, to } = verseRange;
+
+    // Pericope-aware formatting: map position to full chapter:verse label
+    if (formatVerse) {
+      if (from === to) {
+        return formatVerse(from) ?? `${bookChapterLabel}:${from}`;
+      }
+      const fromLabel = formatVerse(from);
+      const toLabel = formatVerse(to);
+      if (fromLabel && toLabel) return `${fromLabel}-${toLabel}`;
+      if (fromLabel) return fromLabel;
+    }
+
     if (from === to) {
       return `${bookChapterLabel}:${from}`;
     }
     return `${bookChapterLabel}:${from}-${to}`;
-  }, [verseRange, bookChapterLabel]);
+  }, [verseRange, bookChapterLabel, formatVerse]);
 
   return (
     <View className="relative">

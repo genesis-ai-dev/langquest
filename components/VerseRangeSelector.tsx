@@ -19,6 +19,10 @@ interface VerseRangeSelectorProps {
   ScrollViewComponent?: React.ComponentType<any>;
   // Optional function to limit the maximum "to" value based on selected "from"
   getMaxToForFrom?: (selectedFrom: number) => number;
+  /** Map a position number to a display label (e.g., "2:23"). Also used for chapter separators. */
+  formatLabel?: (position: number) => string | null;
+  /** Pericope verse sequence for detecting chapter boundaries between bubbles. */
+  chapterSequence?: { chapter: number; verse: number }[];
 }
 
 export function VerseRangeSelector({
@@ -31,7 +35,9 @@ export function VerseRangeSelector({
   onCancel,
   className = '',
   ScrollViewComponent = ScrollView,
-  getMaxToForFrom
+  getMaxToForFrom,
+  formatLabel,
+  chapterSequence
 }: VerseRangeSelectorProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<number | undefined>(
     initialFrom
@@ -137,37 +143,57 @@ export function VerseRangeSelector({
         className="mb-4"
         contentContainerClassName="gap-2 px-1"
       >
-        {allNumbers.map((num) => {
+        {allNumbers.map((num, idx) => {
           const isSelectedFrom = num === selectedFrom;
           const isSelectedTo = num === selectedTo;
           const isSelected = isSelectedFrom || isSelectedTo;
           const selectable = isNumberSelectable(num);
+          const label = formatLabel?.(num) ?? String(num);
+          const usePill = !!formatLabel;
+
+          // Detect chapter boundary for separator
+          let showChapterSep = false;
+          if (chapterSequence && idx > 0) {
+            const prevEntry = chapterSequence[allNumbers[idx - 1]! - 1];
+            const currEntry = chapterSequence[num - 1];
+            if (
+              prevEntry &&
+              currEntry &&
+              prevEntry.chapter !== currEntry.chapter
+            ) {
+              showChapterSep = true;
+            }
+          }
 
           return (
-            <Pressable
-              key={num}
-              onPress={() => handleNumberPress(num)}
-              disabled={!selectable}
-              className={`h-10 w-10 items-center justify-center rounded-full ${
-                isSelected
-                  ? 'bg-primary'
-                  : selectable
-                    ? 'border border-primary/30 bg-primary/5'
-                    : 'bg-muted/30'
-              } ${selectable ? 'active:scale-95' : ''}`}
-            >
-              <Text
-                className={`text-sm font-medium ${
+            <React.Fragment key={num}>
+              {showChapterSep && <View className="mx-1 h-10 w-px bg-border" />}
+              <Pressable
+                onPress={() => handleNumberPress(num)}
+                disabled={!selectable}
+                className={`h-10 items-center justify-center ${
+                  usePill ? 'rounded-lg px-2.5' : 'w-10 rounded-full'
+                } ${
                   isSelected
-                    ? 'text-primary-foreground'
+                    ? 'bg-primary'
                     : selectable
-                      ? 'text-primary'
-                      : 'text-muted-foreground/40'
-                }`}
+                      ? 'border border-primary/30 bg-primary/5'
+                      : 'bg-muted/30'
+                } ${selectable ? 'active:scale-95' : ''}`}
               >
-                {num}
-              </Text>
-            </Pressable>
+                <Text
+                  className={`font-medium ${usePill ? 'text-xs' : 'text-sm'} ${
+                    isSelected
+                      ? 'text-primary-foreground'
+                      : selectable
+                        ? 'text-primary'
+                        : 'text-muted-foreground/40'
+                  }`}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            </React.Fragment>
           );
         })}
       </ScrollViewComponent>
@@ -177,7 +203,7 @@ export function VerseRangeSelector({
         {/* From input */}
         <Pressable
           onPress={selectedFrom !== undefined ? handleClearFrom : undefined}
-          className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
+          className={`h-12 min-w-20 flex-row items-center justify-center rounded-lg border px-3 ${
             selectedFrom !== undefined
               ? 'border-primary bg-primary/10'
               : 'border-dashed border-muted-foreground/30 bg-muted/30'
@@ -186,7 +212,7 @@ export function VerseRangeSelector({
           {selectedFrom !== undefined ? (
             <>
               <Text className="text-lg font-semibold text-primary">
-                {selectedFrom}
+                {formatLabel?.(selectedFrom) ?? selectedFrom}
               </Text>
               <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
             </>
@@ -201,7 +227,7 @@ export function VerseRangeSelector({
         <Pressable
           onPress={selectedTo !== undefined ? handleClearTo : undefined}
           disabled={selectedFrom === undefined}
-          className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
+          className={`h-12 min-w-20 flex-row items-center justify-center rounded-lg border px-3 ${
             selectedTo !== undefined
               ? 'border-primary bg-primary/10'
               : selectedFrom !== undefined
@@ -212,7 +238,7 @@ export function VerseRangeSelector({
           {selectedTo !== undefined ? (
             <>
               <Text className="text-lg font-semibold text-primary">
-                {selectedTo}
+                {formatLabel?.(selectedTo) ?? selectedTo}
               </Text>
               <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
             </>

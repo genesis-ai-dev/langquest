@@ -1,4 +1,7 @@
-import { Audio } from 'expo-av';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync
+} from 'expo-audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSharedValue } from 'react-native-reanimated';
@@ -74,6 +77,11 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     return () => {
       energySubscription.remove();
       errorSubscription.remove();
+      // Belt-and-suspenders: removeAllListeners to clean up any leaked native
+      // listeners from previous mount cycles (see useVADRecording comment about
+      // React.lazy + Suspense causing stale listeners)
+      MicrophoneEnergyModule.removeAllListeners('onEnergyResult');
+      MicrophoneEnergyModule.removeAllListeners('onError');
     };
   }, [energyShared]);
 
@@ -84,8 +92,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
-      // Use expo-av for all permission handling
-      const status = await Audio.requestPermissionsAsync();
+      const status = await requestRecordingPermissionsAsync();
       return status.granted;
     } catch (error) {
       setState((prev) => ({
@@ -104,8 +111,7 @@ export function useMicrophoneEnergy(): UseMicrophoneEnergy {
     }
 
     try {
-      // Check permissions first using expo-av
-      const permission = await Audio.getPermissionsAsync();
+      const permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
         const granted = await requestPermissions();
         if (!granted) throw new Error('Microphone permissions required');

@@ -28,7 +28,6 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { Ionicons } from '@expo/vector-icons';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -582,11 +581,7 @@ export default function NextGenTranslationModal({
                     </Button>
                   )}
                   <Pressable onPress={handleClose} className="p-2">
-                    <Ionicons
-                      name="close"
-                      size={24}
-                      color={getThemeColor('foreground')}
-                    />
+                    <Icon as={XIcon} size={24} className="text-foreground" />
                   </Pressable>
                 </View>
               </View>
@@ -644,7 +639,7 @@ export default function NextGenTranslationModal({
                       <Button
                         variant="default"
                         onPress={handleSubmitTranscription}
-                        disabled={!editedText.trim() || isCreatingTranscription}
+                        disabled={!editedText.trim()}
                         loading={isCreatingTranscription}
                       >
                         <Text>{t('submitTranscription')}</Text>

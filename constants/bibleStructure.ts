@@ -722,3 +722,57 @@ export function bibleToVersificationTemplate(): TemplatedProject[] {
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Pericope verse sequence utilities
+// ---------------------------------------------------------------------------
+
+export interface ChapterVerse {
+  chapter: number;
+  verse: number;
+}
+
+/**
+ * Build an ordered list of every {chapter, verse} in a pericope range.
+ * Uses BIBLE_BOOKS verse-per-chapter data to handle chapter boundaries.
+ *
+ * Example: buildPericopeSequence('mrk', 2, 23, 3, 6)
+ *  => [{2,23},{2,24},...,{2,28},{3,1},...,{3,6}]
+ */
+export function buildPericopeSequence(
+  bookId: string,
+  startChapter: number,
+  startVerse: number,
+  endChapter: number,
+  endVerse: number
+): ChapterVerse[] {
+  const book = BIBLE_BOOKS.find((b) => b.id === bookId);
+  if (!book) return [];
+
+  const sequence: ChapterVerse[] = [];
+  for (let ch = startChapter; ch <= endChapter; ch++) {
+    const maxVerse = book.verses[ch - 1] ?? 0;
+    const from = ch === startChapter ? startVerse : 1;
+    const to = ch === endChapter ? endVerse : maxVerse;
+    for (let v = from; v <= to; v++) {
+      sequence.push({ chapter: ch, verse: v });
+    }
+  }
+  return sequence;
+}
+
+/**
+ * Map a 1-based position in a pericope sequence to a display label.
+ * Returns chapter:verse only (no book name) since pericopes never span books.
+ *
+ * Example: formatPericopeVerseLabel('Mrk', sequence, 7) => "3:1"
+ */
+export function formatPericopeVerseLabel(
+  _bookShortName: string,
+  sequence: ChapterVerse[],
+  position: number
+): string | null {
+  const entry = sequence[position - 1];
+  if (!entry) return null;
+  return `${entry.chapter}:${entry.verse}`;
+}

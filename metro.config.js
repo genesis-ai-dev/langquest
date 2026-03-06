@@ -3,12 +3,6 @@ const { withNativeWind } = require('nativewind/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 
-// Define __DEV__ for build scripts (Expo Updates build script context)
-// In Node.js context, __DEV__ might not be defined, so we check NODE_ENV
-if (typeof __DEV__ === 'undefined') {
-  global.__DEV__ = process.env.NODE_ENV !== 'production';
-}
-
 const config = getDefaultConfig(__dirname);
 
 // DO NOT PUSH MJS TO ASSET EXTS SEPERATELY - DUPLICATE EXTENSIONS BREAK THE ENTIRE APP
@@ -32,23 +26,6 @@ config.resolver = {
 config.resolver.unstable_enablePackageExports = true;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // Replace useDrizzleStudio with no-op version in production builds
-  // This allows the hook to be called unconditionally in code while ensuring
-  // it does nothing in production (since hooks can't be conditionally called)
-  if (
-    !__DEV__ &&
-    (moduleName === '@/hooks/useDrizzleStudio' ||
-      moduleName.includes('/hooks/useDrizzleStudio') ||
-      (moduleName.includes('useDrizzleStudio') &&
-        !moduleName.includes('useDrizzleStudio.noop')))
-  ) {
-    return context.resolveRequest(
-      context,
-      '@/hooks/useDrizzleStudio.noop',
-      platform
-    );
-  }
-
   if (platform === 'web') {
     if (
       [

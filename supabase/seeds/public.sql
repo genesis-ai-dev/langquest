@@ -23,29 +23,29 @@ SET row_security = off;
 --
 
 INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", "password", "email", "ui_language_id", "ui_languoid_id", "active", "terms_accepted", "terms_accepted_at") VALUES
-	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'dodira5836@rykone.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'common.wallaby.kwyn@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'comprehensive.flea.umwb@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'retail.caterpillar.vnih@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'influential.lemur.lrji@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'scornful.viper.uyca@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'extreme.nightingale.bihh@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'international.badger.wpqb@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, 'important.roundworm.vimq@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, 'full.capybara.nlul@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, 'mixed.giraffe.dngf@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, 'overall.flea.cfvf@letterguard.net', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', true, false, NULL),
-	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'reluctant.walrus.sjzn@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'ryderwishart@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'delicate.goose.wjuk@letterguard.net', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
+	('7c8863d2-fcba-4f72-9d48-2e15949dbb0d', '2025-01-30 04:16:03.397675+00', '2025-01-30 04:16:03.397675+00', 'Dodira', NULL, 'dodira5836@rykone.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('72a0344c-c687-42a2-9e03-64b287105ec1', '2025-01-31 23:35:12.788215+00', '2025-01-31 23:35:12.788215+00', 'Wallaby', NULL, 'common.wallaby.kwyn@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('44a2a0c1-4bb1-4c4d-9121-5b0da6676142', '2025-02-01 03:43:50.964698+00', '2025-02-01 03:43:50.964698+00', 'Flea', NULL, 'comprehensive.flea.umwb@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('557ef72c-4e78-44c1-bb44-e75e8e4743ea', '2025-02-03 19:02:05.290686+00', '2025-02-03 19:02:05.290686+00', 'Caterpillar', NULL, 'retail.caterpillar.vnih@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('c2115199-ee01-4006-8af9-35774d770146', '2025-02-03 21:20:39.038605+00', '2025-02-03 21:20:39.038605+00', 'Lemur', NULL, 'influential.lemur.lrji@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('23f77011-86f0-41fa-99ba-34d62c058143', '2025-02-07 00:06:13.841558+00', '2025-02-07 00:06:13.841558+00', 'Viper', NULL, 'scornful.viper.uyca@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('77acb538-4e38-4d72-935c-47d554a687ab', '2025-02-07 04:54:38.554155+00', '2025-02-07 04:54:38.554155+00', 'Nightingale', NULL, 'extreme.nightingale.bihh@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('a42f180f-c949-4a2d-a1cf-27cea1799f21', '2025-02-07 23:48:40.924084+00', '2025-02-07 23:48:40.924084+00', 'Badger', NULL, 'international.badger.wpqb@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('c6930ab1-b6bd-42d1-b086-a81a79aa27d7', '2025-02-11 23:58:30.254704+00', '2025-02-11 23:58:30.254704+00', 'Worm', NULL, 'important.roundworm.vimq@letterguard.net', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', true, false, NULL),
+	('528d0cb1-6622-40c6-b3bf-98540969c67e', '2025-02-12 06:22:56.357054+00', '2025-02-12 06:22:56.357054+00', 'Capybara', NULL, 'full.capybara.nlul@letterguard.net', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', true, false, NULL),
+	('f326de7c-fb02-4da0-adf0-4c8c65fa4d03', '2025-02-12 06:55:36.019876+00', '2025-02-12 06:55:36.019876+00', 'Giraffe', NULL, 'mixed.giraffe.dngf@letterguard.net', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', true, false, NULL),
+	('a7fa1539-ec76-443c-a851-c30197397d54', '2025-02-12 18:36:26.56749+00', '2025-02-12 18:36:26.56749+00', 'Flea', NULL, 'overall.flea.cfvf@letterguard.net', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', true, false, NULL),
+	('0c4e1afd-88ad-475f-b72d-681721f8d560', '2025-02-12 23:35:52.011919+00', '2025-02-12 23:35:52.011919+00', 'Walrus', NULL, 'reluctant.walrus.sjzn@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('8f3a6249-9269-435d-9bf7-f60ae81ee27a', '2025-02-14 19:13:01.89991+00', '2025-02-14 19:13:01.89991+00', 'ryder', NULL, 'ryderwishart@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('d6c72afa-6fa4-49ec-be21-e3c642c02576', '2025-02-15 04:48:16.854153+00', '2025-02-15 04:48:16.854153+00', 'Goose', NULL, 'delicate.goose.wjuk@letterguard.net', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
 	('fd56eb4e-0b54-4715-863c-f865aee0b16d', '2024-12-28 21:40:32.521063+00', '2024-12-28 21:40:32.521063+00', 'Caleb', NULL, 'caleb@caleb.com', NULL, NULL, true, false, NULL),
-	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'milhouse@milhouse.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'ryder@ryder.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'rrsrsrandallktan@hotmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, '422eanboi@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'ryderwishart+langquest10032025@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, false, NULL),
-	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'realdinozoid@gmail.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL),
-	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'ben.scholtens@me.com', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', true, true, NULL);
+	('7fd7be49-fa89-4b78-a93d-e728fe810110', '2024-12-28 23:31:36.246915+00', '2024-12-28 23:31:36.246915+00', 'Milhouse', NULL, 'milhouse@milhouse.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('135167eb-7a93-4d90-8b00-85508facac71', '2025-01-08 17:42:10.974563+00', '2025-01-08 17:42:10.974563+00', 'Ryder', NULL, 'ryder@ryder.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('d5a37d36-6376-4e34-9005-22ce17ec2c36', '2025-01-08 20:33:05.900419+00', '2025-01-08 20:33:05.900419+00', 'randallt', NULL, 'rrsrsrandallktan@hotmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, '422eanboi@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'ryderwishart+langquest10032025@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
+	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'realdinozoid@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, NULL),
+	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'ben.scholtens@me.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, NULL);
 
 
 --
@@ -53,8 +53,8 @@ INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", 
 --
 
 INSERT INTO "public"."language" ("id", "created_at", "last_updated", "native_name", "english_name", "iso639_3", "ui_ready", "creator_id", "active", "locale") VALUES
-	('bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'English', 'English', 'eng', true, NULL, true, 'en'),
-	('7c37870b-7d52-4589-934f-576f03781263', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Español', 'Spanish', 'spa', true, NULL, true, 'es'),
+	('fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'English', 'English', 'eng', true, NULL, true, 'en'),
+	('b032faf4-aebf-4848-984d-053eccc54f1f', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Español', 'Spanish', 'spa', true, NULL, true, 'es'),
 	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Tu''un Savi', 'Mixteco de Penasco', 'mil', false, NULL, true, NULL),
 	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Diidxazá', 'Zapoteco de Santiago', 'zas', false, NULL, true, NULL),
 	('2f1e3d4c-5b6a-7890-1234-567890abcdef', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Nuntajɨ̃yi', 'Popoluca', 'poi', false, NULL, true, NULL),
@@ -66,16 +66,24 @@ INSERT INTO "public"."language" ("id", "created_at", "last_updated", "native_nam
 --
 
 INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', NULL, 'English', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('7c37870b-7d52-4589-934f-576f03781263', NULL, 'Spanish', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', NULL, 'English', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b032faf4-aebf-4848-984d-053eccc54f1f', NULL, 'Spanish', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('9e3f8bd9-c2e5-4f5a-b98d-123456789012', NULL, 'Mixteco de Penasco', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('4a8b7c6d-5e4f-3a2b-1c9d-987654321098', NULL, 'Zapoteco de Santiago', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('2f1e3d4c-5b6a-7890-1234-567890abcdef', NULL, 'Popoluca', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('ceae62bf-d109-4eb9-95e3-3fd0d2ba0ab2', NULL, 'Universal', 'language', false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('7a735df4-4f4e-4a03-b60e-eb7911152cf4', NULL, 'Nepali', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', NULL, 'Brazilian Portuguese', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', NULL, 'Tok Pisin', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', NULL, 'Indonesian', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('6f800df3-05d2-455b-9a88-a077d1f111cc', NULL, 'Tok Pisin', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('57f410a6-a182-4126-b7ce-45e1280d0cfc', NULL, 'Indonesian', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('d4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', NULL, 'Hindi', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', NULL, 'Burmese', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', NULL, 'Thai', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', NULL, 'Mandarin', 'language', true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL)
+ON CONFLICT (id) DO UPDATE SET
+	name = EXCLUDED.name,
+	ui_ready = EXCLUDED.ui_ready,
+	active = EXCLUDED.active;
 
 
 --
@@ -83,15 +91,19 @@ INSERT INTO "public"."languoid" ("id", "parent_id", "name", "level", "ui_ready",
 --
 
 INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_languoid_id", "name", "alias_type", "source_names", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('a1a1a1a1-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'English', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('a1a1a1a1-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'Español', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0001-4000-8000-000000000001', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'English', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0002-4000-8000-000000000002', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'Español', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Tu''un Savi', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'Diidxazá', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'Nuntajɨ̃yi', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0006-4000-8000-000000000006', '7a735df4-4f4e-4a03-b60e-eb7911152cf4', '7a735df4-4f4e-4a03-b60e-eb7911152cf4', 'नेपाली', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('a1a1a1a1-0007-4000-8000-000000000007', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'Português Brasileiro', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('a1a1a1a1-0008-4000-8000-000000000008', 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'Tok Pisin', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('a1a1a1a1-0009-4000-8000-000000000009', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'Bahasa Indonesia', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('a1a1a1a1-0008-4000-8000-000000000008', '6f800df3-05d2-455b-9a88-a077d1f111cc', '6f800df3-05d2-455b-9a88-a077d1f111cc', 'Tok Pisin', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0009-4000-8000-000000000009', '57f410a6-a182-4126-b7ce-45e1280d0cfc', '57f410a6-a182-4126-b7ce-45e1280d0cfc', 'Bahasa Indonesia', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0010-4000-8000-000000000010', 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'हिन्दी', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0011-4000-8000-000000000011', 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'မြန်မာ', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0012-4000-8000-000000000012', 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'ไทย', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('a1a1a1a1-0013-4000-8000-000000000013', 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', '普通话', 'endonym', ARRAY['lexvo'], true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
 
 
 --
@@ -99,15 +111,30 @@ INSERT INTO "public"."languoid_alias" ("id", "subject_languoid_id", "label_langu
 --
 
 INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", "unique_identifier", "url", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('b2b2b2b2-0001-4000-8000-000000000001', 'iso639-3', NULL, 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'eng', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('b2b2b2b2-0002-4000-8000-000000000002', 'iso639-3', NULL, '7c37870b-7d52-4589-934f-576f03781263', 'spa', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0001-4000-8000-000000000001', 'iso639-3', NULL, 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'eng', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0002-4000-8000-000000000002', 'iso639-3', NULL, 'b032faf4-aebf-4848-984d-053eccc54f1f', 'spa', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0003-4000-8000-000000000003', 'iso639-3', NULL, '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'mil', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0004-4000-8000-000000000004', 'iso639-3', NULL, '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'zas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0005-4000-8000-000000000005', 'iso639-3', NULL, '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'poi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0006-4000-8000-000000000006', 'iso639-3', NULL, '7a735df4-4f4e-4a03-b60e-eb7911152cf4', 'npi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('b2b2b2b2-0007-4000-8000-000000000007', 'iso639-3', NULL, 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', 'por', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('b2b2b2b2-0008-4000-8000-000000000008', 'iso639-3', NULL, 'b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e', 'tpi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('b2b2b2b2-0009-4000-8000-000000000009', 'iso639-3', NULL, 'c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f', 'ind', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('b2b2b2b2-0008-4000-8000-000000000008', 'iso639-3', NULL, '6f800df3-05d2-455b-9a88-a077d1f111cc', 'tpi', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0009-4000-8000-000000000009', 'iso639-3', NULL, '57f410a6-a182-4126-b7ce-45e1280d0cfc', 'ind', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0010-4000-8000-000000000010', 'iso639-3', NULL, 'a1cb9ca9-8f6d-400b-a071-544a32ea1d82', 'por', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0011-4000-8000-000000000011', 'iso639-3', NULL, '155f40c3-cb64-4fdd-aaf7-a55acb42c755', 'fra', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0012-4000-8000-000000000012', 'iso639-3', NULL, '2e229bf3-06b7-40ce-b735-1499257c7fef', 'rus', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0013-4000-8000-000000000013', 'iso639-3', NULL, 'db0ae9dd-35f5-4f04-8f2e-e014c7fb0110', 'swh', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0014-4000-8000-000000000014', 'iso639-3', NULL, '3502e2a1-3cfd-45f7-8167-a9a67d42c76a', 'hin', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0015-4000-8000-000000000015', 'iso639-3', NULL, '8cde1960-ad33-41a5-bfdd-bcd92b00e4f3', 'arb', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0016-4000-8000-000000000016', 'iso639-3', NULL, '0d75d06f-2692-4127-b810-67dd64fa6eee', 'cmn', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0017-4000-8000-000000000017', 'iso639-3', NULL, '80293000-c406-4390-8de1-67b7ac11ce14', 'fas', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0018-4000-8000-000000000018', 'iso639-3', NULL, 'accfea8f-9b17-4bf7-96b2-56e81196267c', 'apd', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0019-4000-8000-000000000019', 'iso639-3', NULL, '0191cd2b-d151-4217-a7d4-19b2346c7b7e', 'bis', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0020-4000-8000-000000000020', 'iso639-3', NULL, 'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a', 'hin', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0021-4000-8000-000000000021', 'iso639-3', NULL, 'e5f6a7b8-c9d0-4e5f-1a2b-3c4d5e6f7a8b', 'mya', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0022-4000-8000-000000000022', 'iso639-3', NULL, 'f6a7b8c9-d0e1-4f5a-2b3c-4d5e6f7a8b9c', 'tha', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('b2b2b2b2-0023-4000-8000-000000000023', 'iso639-3', NULL, 'a7b8c9d0-e1f2-4a5b-3c4d-5e6f7a8b9c0d', 'cmn', NULL, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL)
+ON CONFLICT (languoid_id, name, unique_identifier) DO NOTHING;
 
 
 --
@@ -115,11 +142,26 @@ INSERT INTO "public"."languoid_source" ("id", "name", "version", "languoid_id", 
 --
 
 INSERT INTO "public"."languoid_property" ("id", "languoid_id", "key", "value", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('c3c3c3c3-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('c3c3c3c3-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'macroareas', 'Eurasia', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0001-4000-8000-000000000001', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0002-4000-8000-000000000002', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'macroareas', 'Eurasia', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('c3c3c3c3-0003-4000-8000-000000000003', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('c3c3c3c3-0004-4000-8000-000000000004', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('c3c3c3c3-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
+	('c3c3c3c3-0005-4000-8000-000000000005', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'macroareas', 'North America', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0010-4000-8000-000000000010', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fia_language_code', 'eng', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0011-4000-8000-000000000011', 'a1cb9ca9-8f6d-400b-a071-544a32ea1d82', 'fia_language_code', 'por', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0012-4000-8000-000000000012', '155f40c3-cb64-4fdd-aaf7-a55acb42c755', 'fia_language_code', 'fra', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0013-4000-8000-000000000013', '57f410a6-a182-4126-b7ce-45e1280d0cfc', 'fia_language_code', 'ind', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0014-4000-8000-000000000014', '2e229bf3-06b7-40ce-b735-1499257c7fef', 'fia_language_code', 'rus', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0015-4000-8000-000000000015', 'db0ae9dd-35f5-4f04-8f2e-e014c7fb0110', 'fia_language_code', 'swa', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0016-4000-8000-000000000016', '3502e2a1-3cfd-45f7-8167-a9a67d42c76a', 'fia_language_code', 'hin', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0017-4000-8000-000000000017', '8cde1960-ad33-41a5-bfdd-bcd92b00e4f3', 'fia_language_code', 'arb', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0018-4000-8000-000000000018', '0d75d06f-2692-4127-b810-67dd64fa6eee', 'fia_language_code', 'cmn', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0019-4000-8000-000000000019', '6f800df3-05d2-455b-9a88-a077d1f111cc', 'fia_language_code', 'tpi', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0020-4000-8000-000000000020', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'fia_language_code', 'spa', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0021-4000-8000-000000000021', '80293000-c406-4390-8de1-67b7ac11ce14', 'fia_language_code', 'fas', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0022-4000-8000-000000000022', 'accfea8f-9b17-4bf7-96b2-56e81196267c', 'fia_language_code', 'apd', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('c3c3c3c3-0023-4000-8000-000000000023', '0191cd2b-d151-4217-a7d4-19b2346c7b7e', 'fia_language_code', 'bis', true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL)
+ON CONFLICT (languoid_id, key) DO NOTHING;
 
 
 --
@@ -148,9 +190,9 @@ INSERT INTO "public"."region_source" ("id", "name", "version", "region_id", "uni
 --
 
 INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "majority", "official", "native", "active", "download_profiles", "created_at", "last_updated", "creator_id") VALUES
-	('f6f6f6f6-0001-4000-8000-000000000001', 'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd', 'd4d4d4d4-0003-4000-8000-000000000003', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('f6f6f6f6-0002-4000-8000-000000000002', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0001-4000-8000-000000000001', true, true, false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
-	('f6f6f6f6-0003-4000-8000-000000000003', '7c37870b-7d52-4589-934f-576f03781263', 'd4d4d4d4-0004-4000-8000-000000000004', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0001-4000-8000-000000000001', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'd4d4d4d4-0003-4000-8000-000000000003', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0002-4000-8000-000000000002', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'd4d4d4d4-0001-4000-8000-000000000001', true, true, false, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
+	('f6f6f6f6-0003-4000-8000-000000000003', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'd4d4d4d4-0004-4000-8000-000000000004', true, true, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('f6f6f6f6-0004-4000-8000-000000000004', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('f6f6f6f6-0005-4000-8000-000000000005', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'd4d4d4d4-0002-4000-8000-000000000002', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL),
 	('f6f6f6f6-0006-4000-8000-000000000006', '2f1e3d4c-5b6a-7890-1234-567890abcdef', 'd4d4d4d4-0001-4000-8000-000000000001', false, false, true, true, NULL, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', NULL);
@@ -161,26 +203,26 @@ INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "major
 --
 
 INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "images", "active") VALUES
-	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', NULL, true),
-	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', '7c37870b-7d52-4589-934f-576f03781263', ARRAY['images/87aae958-21af-42c9-a42b-89ad96c9ab4b.jpg', 'images/b74d0e60-3fd7-4a17-ab14-5cdcbe79b789.jpg'], true);
+	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
+	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', ARRAY['images/87aae958-21af-42c9-a42b-89ad96c9ab4b.jpg', 'images/b74d0e60-3fd7-4a17-ab14-5cdcbe79b789.jpg'], true);
 
 
 --
@@ -311,9 +353,9 @@ INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "des
 
 -- Add source language via project_language_link (replaces the removed source_language_id column)
 INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
-	('bace07b1-41de-4535-9c68-aa81683d9370', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('bace07b1-41de-4535-9c68-aa81683d9370', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
 	('bace07b1-41de-4535-9c68-aa81683d9370', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'target', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
-	('b819ba73-2274-468d-b18d-330b1ecf49b1', '7c37870b-7d52-4589-934f-576f03781263', '7c37870b-7d52-4589-934f-576f03781263', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'b032faf4-aebf-4848-984d-053eccc54f1f', 'source', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00'),
 	('b819ba73-2274-468d-b18d-330b1ecf49b1', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', '4a8b7c6d-5e4f-3a2b-1c9d-987654321098', 'target', true, '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00');
 
 

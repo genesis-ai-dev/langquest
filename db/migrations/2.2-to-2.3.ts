@@ -1,196 +1,95 @@
-/**
- * Migration: 2.2 → 2.3
- *
- * PURPOSE: Migrate Language preferences to Languoid format in Zustand persisted state
- *
- * This migration handles the Zustand store persisted in AsyncStorage, migrating
- * from the old Language format to the new Languoid format. This directly modifies
- * AsyncStorage JSON to avoid initializing useLocalStore during migration.
- *
- * Changes:
- * - Migrate uiLanguage to uiLanguoid
- * - Migrate savedLanguage to savedLanguoid
- * - Look up languoids from both synced and local tables
- */
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Migration } from './index';
 import { getRawTableName, rawTableExists } from './utils';
 
+/**
+ * Migration: 2.2 → 2.3
+ *
+ * Purpose: Add order_index column to asset_content_link_local table to persist
+ * segment ordering within assets. Without this, segment order relies on
+ * created_at timestamps which are lost during merge operations.
+ *
+ * Notes:
+ * - Column is defined in the Drizzle schema; PowerSync handles schema sync for synced tables.
+ * - Backfills existing rows using created_at ordering within each asset_id.
+ * - New content links default to order_index 0 (unset). Backfill uses 1-based indexing.
+ * - Uses JSON-first approach: updates raw PowerSync JSON data directly.
+ */
 export const migration_2_2_to_2_3: Migration = {
   fromVersion: '2.2',
   toVersion: '2.3',
-  description: 'Migrate languoid preferences from Language to Languoid format',
+  description: 'Add order_index to asset_content_link for segment ordering',
 
   async migrate(db, onProgress) {
     console.log(
-      '[Migration 2.2→2.3] Migrating languoid preferences from Language to Languoid format...'
+      '[Migration 2.2→2.3] Starting order_index backfill for asset_content_link_local...'
     );
 
-    if (onProgress) onProgress(1, 1, 'Migrating languoid preferences');
+    // Preflight: Verify raw table exists
+    const aclLocalRawExists = await rawTableExists(
+      db,
+      'asset_content_link_local'
+    );
 
-    try {
-      const storeKey = 'local-store';
-      const storedData = await AsyncStorage.getItem(storeKey);
-      if (!storedData) {
-        console.log(
-          '[Migration 2.2→2.3] No Zustand store data found, skipping'
-        );
-        return;
-      }
-
-      const parsed = JSON.parse(storedData) as {
-        state?: {
-          uiLanguage?: unknown;
-          uiLanguoid?: unknown;
-          savedLanguage?: unknown;
-          savedLanguoid?: unknown;
-          [key: string]: unknown;
-        };
-        version?: number;
-        [key: string]: unknown;
-      };
-      // Zustand persist stores data as { state: {...}, version: number }
-      const state = (parsed.state || parsed) as {
-        uiLanguage?: unknown;
-        uiLanguoid?: unknown;
-        savedLanguage?: unknown;
-        savedLanguoid?: unknown;
-        [key: string]: unknown;
-      };
-
-      // Helper to migrate a Language object to Languoid
-      const migrateLanguoidToLanguoid = async (lang: unknown) => {
-        if (!lang || typeof lang !== 'object') return null;
-
-        const langObj = lang as {
-          id?: string;
-          name?: string;
-          english_name?: string;
-        };
-
-        // If it already has 'name' property and no 'english_name', it's already a Languoid
-        if (
-          'name' in langObj &&
-          typeof langObj.name === 'string' &&
-          !('english_name' in langObj)
-        ) {
-          return langObj;
-        }
-
-        // Old format: try to find languoid by ID
-        if (!langObj.id) {
-          return null;
-        }
-
-        try {
-          // Query raw PowerSync tables directly (same pattern as rest of migration)
-          // Check both synced and local languoid tables
-          const languoidSyncedExists = await rawTableExists(
-            db,
-            'languoid',
-            'synced'
-          );
-          const languoidLocalExists = await rawTableExists(
-            db,
-            'languoid',
-            'local'
-          );
-
-          // Try synced table first
-          if (languoidSyncedExists) {
-            const languoidSyncedTable = getRawTableName('languoid', 'synced');
-            const results = (await db.getAll(
-              `SELECT data FROM ${languoidSyncedTable} WHERE id = ?`,
-              [langObj.id]
-            )) as { data?: string }[];
-            if (results.length > 0 && results[0]?.data) {
-              const languoid = JSON.parse(results[0].data);
-              console.log(
-                `[Migration 2.2→2.3] Migrated languoid ${langObj.id} to languoid ${(languoid as { id?: string }).id} (synced)`
-              );
-              return languoid;
-            }
-          }
-
-          // Try local table
-          if (languoidLocalExists) {
-            const languoidLocalTable = getRawTableName('languoid', 'local');
-            const results = (await db.getAll(
-              `SELECT data FROM ${languoidLocalTable} WHERE id = ?`,
-              [langObj.id]
-            )) as { data?: string }[];
-            if (results.length > 0 && results[0]?.data) {
-              const languoid = JSON.parse(results[0].data);
-              console.log(
-                `[Migration 2.2→2.3] Migrated languoid ${langObj.id} to languoid ${(languoid as { id?: string }).id} (local)`
-              );
-              return languoid;
-            }
-          }
-        } catch (error) {
-          console.warn(
-            `[Migration 2.2→2.3] Error finding languoid by ID ${langObj.id}:`,
-            error
-          );
-        }
-
-        // If we can't find a match, return null to clear it
-        console.warn(
-          `[Migration 2.2→2.3] Could not migrate languoid ${langObj.id}, clearing`
-        );
-        return null;
-      };
-
-      let needsUpdate = false;
-
-      // Migrate uiLanguage to uiLanguoid
-      if (state.uiLanguage) {
-        const migrated = await migrateLanguoidToLanguoid(state.uiLanguage);
-        if (migrated) {
-          delete state.uiLanguage;
-          state.uiLanguoid = migrated;
-          needsUpdate = true;
-          console.log('[Migration 2.2→2.3] Migrated uiLanguage to uiLanguoid');
-        } else {
-          delete state.uiLanguage;
-          state.uiLanguoid = null;
-          needsUpdate = true;
-        }
-      }
-
-      // Migrate savedLanguage to savedLanguoid
-      if (state.savedLanguage) {
-        const migrated = await migrateLanguoidToLanguoid(state.savedLanguage);
-        if (migrated) {
-          state.savedLanguage = migrated;
-          state.savedLanguoid = migrated;
-          needsUpdate = true;
-          console.log(
-            '[Migration 2.2→2.3] Migrated savedLanguage to savedLanguoid'
-          );
-        } else {
-          state.savedLanguage = null;
-          state.savedLanguoid = null;
-          needsUpdate = true;
-        }
-      }
-
-      // Save back to AsyncStorage if we made changes
-      if (needsUpdate) {
-        // Preserve Zustand's structure: { state: {...}, version: number }
-        const updated = parsed.state ? { ...parsed, state } : state;
-        await AsyncStorage.setItem(storeKey, JSON.stringify(updated));
-        console.log('[Migration 2.2→2.3] ✓ Migrated languoid preferences');
-      }
-    } catch (error) {
-      console.warn(
-        '[Migration 2.2→2.3] Could not migrate Zustand languoid preferences:',
-        error
+    if (!aclLocalRawExists) {
+      console.log(
+        '[Migration 2.2→2.3] No raw asset_content_link_local table found, skipping migration'
       );
-      // Continue migration - this is not critical
+      return;
     }
 
+    if (onProgress)
+      onProgress(
+        1,
+        2,
+        'Setting default order_index for all local content links'
+      );
+
+    // Step 1: Set default order_index = 0 for all rows that don't have it
+    const aclLocalTable = getRawTableName('asset_content_link_local');
+    await db.execute(`
+      UPDATE ${aclLocalTable}
+      SET data = json_set(
+        data,
+        '$.order_index',
+        0
+      )
+      WHERE json_extract(data, '$.order_index') IS NULL
+    `);
+
+    console.log(
+      '[Migration 2.2→2.3] ✓ Default order_index set to 0 for all rows'
+    );
+
+    if (onProgress)
+      onProgress(2, 2, 'Backfilling order_index based on created_at ordering');
+
+    // Step 2: Backfill sequential order_index (1-based) within each asset_id
+    // Uses 1-based indexing so every valid position differs from the column
+    // default (0). This ensures PowerSync always includes order_index in CRUD
+    // patches when reordering, since 0→0 would be a no-op.
+    await db.execute(`
+      WITH ranked AS (
+        SELECT
+          id,
+          ROW_NUMBER() OVER (
+            PARTITION BY json_extract(data, '$.asset_id')
+            ORDER BY json_extract(data, '$.created_at') ASC
+          ) AS rn
+        FROM ${aclLocalTable}
+      )
+      UPDATE ${aclLocalTable}
+      SET data = json_set(
+        data,
+        '$.order_index',
+        ranked.rn
+      )
+      FROM ranked
+      WHERE ${aclLocalTable}.id = ranked.id
+    `);
+
+    console.log(
+      '[Migration 2.2→2.3] ✓ order_index backfilled based on created_at ordering'
+    );
     console.log('[Migration 2.2→2.3] ✓ Migration complete');
   }
 };

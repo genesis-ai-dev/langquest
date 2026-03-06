@@ -37,6 +37,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
@@ -67,6 +68,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
+import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import { resolveTable } from '@/utils/dbUtils';
 import { ensureLanguoidDownloadProfile } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -92,19 +94,31 @@ export default function NextGenProjectsView() {
   // Create modal state
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
-  const formSchema = z.object({
-    name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
-    // this is the TARGET languoid we're translating to
-    target_languoid_id: z.string().min(1, t('selectLanguage')),
-    description: z
-      .string()
-      .max(196, t('descriptionTooLong', { max: 196 }))
-      .trim()
-      .optional(),
-    private: z.boolean(),
-    visible: z.boolean(),
-    template: z.enum(templateOptions)
-  });
+  const formSchema = z
+    .object({
+      name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
+      // this is the TARGET languoid we're translating to
+      target_languoid_id: z.string().min(1, t('selectLanguage')),
+      // FIA content language (source) - required when template is 'fia'
+      source_languoid_id: z.string().optional(),
+      description: z
+        .string()
+        .max(196, t('descriptionTooLong', { max: 196 }))
+        .trim()
+        .optional(),
+      private: z.boolean(),
+      visible: z.boolean(),
+      template: z.enum(templateOptions)
+    })
+    .refine(
+      (data) =>
+        data.template !== 'fia' ||
+        (data.source_languoid_id && data.source_languoid_id.length > 0),
+      {
+        message: t('selectLanguage'),
+        path: ['source_languoid_id']
+      }
+    );
 
   type FormData = z.infer<typeof formSchema>;
 
@@ -123,10 +137,19 @@ export default function NextGenProjectsView() {
           currentUser.id
         );
 
+        // Also ensure source languoid syncs for FIA projects
+        if (values.source_languoid_id) {
+          await ensureLanguoidDownloadProfile(
+            values.source_languoid_id,
+            currentUser.id
+          );
+        }
+
         // Insert into synced tables (project is published immediately for invites)
         await db.transaction(async (tx) => {
-          // Create project
-          const { target_languoid_id, ...projectValues } = values;
+          // Create project (target_language_id is deprecated but still required by schema)
+          const { target_languoid_id, source_languoid_id, ...projectValues } =
+            values;
           const [newProject] = await tx
             .insert(resolveTable('project', { localOverride: false }))
             .values({
@@ -166,6 +189,18 @@ export default function NextGenProjectsView() {
             active: true,
             download_profiles: [currentUser.id]
           });
+
+          // For FIA projects, also create source language link
+          if (source_languoid_id) {
+            await tx.insert(projectLanguageLinkSynced).values({
+              project_id: newProject.id,
+              language_id: null,
+              languoid_id: source_languoid_id,
+              language_type: 'source',
+              active: true,
+              download_profiles: [currentUser.id]
+            });
+          }
         });
       },
       onSuccess: () => {
@@ -205,12 +240,18 @@ export default function NextGenProjectsView() {
     disabled: !currentUser?.id
   });
 
+  const watchedTemplate = form.watch('template');
+  const isFiaTemplate = watchedTemplate === 'fia';
+
+  const { fiaDropdownData } = useFiaLanguoids();
+
   useEffect(() => {
     if (savedLanguoid?.id && !form.getValues('target_languoid_id')) {
       form.setValue('target_languoid_id', savedLanguoid.id);
     }
   }, [form, savedLanguoid]);
 
+  const enableFia = useLocalStore((state) => state.enableFia);
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
@@ -702,7 +743,7 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-6">
+        <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
           <View className="flex flex-col gap-4">
             {/* Tabs */}
             <Tabs
@@ -972,23 +1013,90 @@ export default function NextGenProjectsView() {
                     <FormControl>
                       <RadioGroup
                         value={field.value}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Clear source_languoid_id when switching away from FIA
+                          if (value !== 'fia') {
+                            form.setValue('source_languoid_id', undefined);
+                          }
+                        }}
                       >
-                        {templateOptions.map((option) => (
-                          <RadioGroupItem
-                            key={option}
-                            value={option}
-                            label={t(option)}
-                          >
-                            <Text className="capitalize">{t(option)}</Text>
-                          </RadioGroupItem>
-                        ))}
+                        {templateOptions
+                          .filter((o) => o !== 'fia' || enableFia)
+                          .map((option) => (
+                            <RadioGroupItem
+                              key={option}
+                              value={option}
+                              label={t(option)}
+                            >
+                              <Text className="capitalize">{t(option)}</Text>
+                            </RadioGroupItem>
+                          ))}
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {isFiaTemplate && (
+                <FormField
+                  control={form.control}
+                  name="source_languoid_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('fiaContentLanguage')}</FormLabel>
+                      <FormControl>
+                        <Dropdown
+                          style={{
+                            height: 48,
+                            borderWidth: 1,
+                            borderRadius: 8,
+                            paddingHorizontal: 12,
+                            backgroundColor: getThemeColor('card'),
+                            borderColor: getThemeColor('border')
+                          }}
+                          placeholderStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('muted-foreground')
+                          }}
+                          selectedTextStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('foreground')
+                          }}
+                          containerStyle={{
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            borderWidth: 1,
+                            marginTop: 8,
+                            backgroundColor: getThemeColor('card'),
+                            borderColor: getThemeColor('border')
+                          }}
+                          itemTextStyle={{
+                            fontSize: 14,
+                            color: getThemeColor('foreground')
+                          }}
+                          itemContainerStyle={{
+                            borderRadius: 8,
+                            overflow: 'hidden'
+                          }}
+                          activeColor={getThemeColor('primary')}
+                          dropdownPosition="auto"
+                          data={fiaDropdownData}
+                          maxHeight={300}
+                          labelField="label"
+                          valueField="value"
+                          placeholder={t('fiaContentLanguage')}
+                          value={field.value}
+                          onChange={(item) => field.onChange(item.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
                 name="private"

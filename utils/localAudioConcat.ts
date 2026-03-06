@@ -15,7 +15,7 @@ import {
   normalizeFileUri
 } from '@/utils/fileUtils';
 import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
@@ -108,7 +108,7 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
       )
     );
 
-  // Create a map of local content links by asset_id and created_at for quick lookup
+  // Create a map of local content links by asset_id for quick lookup
   // We'll use this to find fallback local URIs when synced attachment IDs don't resolve
   const localLinksByAsset = new Map<string, typeof contentLinksLocal>();
   for (const localLink of contentLinksLocal) {
@@ -120,7 +120,7 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
   }
 
   // Extract audio values and convert to local URIs
-  // Order by asset order_index and content created_at to maintain proper sequence
+  // Order by asset order_index and content order_index to maintain proper sequence
   const audioUris: string[] = [];
 
   // Get assets with order_index to maintain proper sequence
@@ -154,9 +154,13 @@ async function getQuestAudioUris(questId: string): Promise<string[]> {
     const localLinks = localLinksByAsset.get(assetLink.asset_id) || [];
 
     // Merge synced and local links, preferring synced
-    // Sort by created_at to maintain order
+    // Sort by order_index to maintain segment order
     const allLinks = [...syncedLinks, ...localLinks];
     allLinks.sort((a, b) => {
+      const aOrder = a.order_index ?? 0;
+      const bOrder = b.order_index ?? 0;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      // Fallback to created_at for duplicate order_index values
       const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
       const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
       return aTime - bTime;
@@ -551,7 +555,8 @@ export async function concatenateAndShareQuestAudio(
 
       if (isWav) {
         // Convert .wav to .m4a
-        const tempM4aPath = `${FileSystem.cacheDirectory}temp_${Date.now()}_${i}.m4a`;
+        const cacheUri = Paths.cache.uri;
+        const tempM4aPath = `${cacheUri}/temp_${Date.now()}_${i}.m4a`;
         const tempM4aNativePath = getNativePath(tempM4aPath);
         tempFiles.push(tempM4aPath);
         console.log(`Converting ${nativePath} to ${tempM4aNativePath}...`);
@@ -713,7 +718,8 @@ export async function concatenateAndShareQuestAudio(
     if (parts.length === 0) parts.push('quest');
 
     const outputFileName = `${parts.join('-')}-${dateStr}.m4a`;
-    const outputPath = `${FileSystem.cacheDirectory}${outputFileName}`;
+    const cacheDir = Paths.cache.uri;
+    const outputPath = `${cacheDir}/${outputFileName}`;
     const outputNativePath = getNativePath(outputPath);
 
     // Convert audio URIs to the format expected by concatAudioFiles
@@ -739,7 +745,10 @@ export async function concatenateAndShareQuestAudio(
     // Clean up temporary converted files
     for (const tempFile of tempFiles) {
       try {
-        await FileSystem.deleteAsync(tempFile, { idempotent: true });
+        const file = new File(tempFile);
+        if (file.exists) {
+          file.delete();
+        }
       } catch (error) {
         console.warn(`Failed to delete temp file ${tempFile}:`, error);
       }

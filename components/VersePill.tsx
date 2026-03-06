@@ -1,23 +1,33 @@
+import { cn } from '@/utils/styleUtils';
 import React from 'react';
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { Text } from './ui/text';
 
 interface VersePillProps {
   text: string;
   className?: string;
   largeText?: boolean;
+  isHighlighted?: boolean;
+  onPress?: () => void;
 }
 
 const VersePillComponent = ({
   text,
   className = '',
-  largeText = false
+  largeText = false,
+  isHighlighted = false,
+  onPress
 }: VersePillProps) => {
-  return (
+  const content = (
     <View
       className={`w-full flex-row items-center justify-center py-1 ${className}`}
     >
-      <View className="flex flex-row items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1">
+      <View
+        className={cn(
+          'flex flex-row items-center gap-1.5 rounded-full border-2 bg-primary/10 px-3 py-1',
+          isHighlighted ? 'border-primary' : 'border-transparent'
+        )}
+      >
         <Text
           className={`${
             largeText ? 'text-lg' : 'text-md'
@@ -28,11 +38,21 @@ const VersePillComponent = ({
       </View>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 };
 
 /**
  * Memoized VersePill component
- * Only re-renders when text, className, or largeText changes
+ * Only re-renders when props change
  *
  * Performance: Prevents unnecessary re-renders when assets list changes
  * but verse pills remain the same (common scenario in BibleRecordingView)
@@ -45,7 +65,9 @@ export const VersePill = React.memo(
     return (
       prevProps.text === nextProps.text &&
       prevProps.className === nextProps.className &&
-      prevProps.largeText === nextProps.largeText
+      prevProps.largeText === nextProps.largeText &&
+      prevProps.isHighlighted === nextProps.isHighlighted &&
+      prevProps.onPress === nextProps.onPress
     );
   }
 );

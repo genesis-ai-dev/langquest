@@ -1,7 +1,6 @@
 ---
 description: Guidelines for handling forms with react-hook-form, Zod validation, and TanStack Query mutations
-globs:
-  - '**/*.tsx'
+alwaysApply: false
 ---
 
 # Form Handling
@@ -21,11 +20,11 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,      // optional
+  FormLabel, // optional
   FormMessage,
   FormSubmit,
   transformInputProps,
-  transformSwitchProps  // for Switch components
+  transformSwitchProps // for Switch components
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,7 +73,7 @@ const defaultValues = {
 const form = useForm<FormData>({
   defaultValues,
   resolver: zodResolver(formSchema),
-  disabled: !currentUser?.id  // optional: disable when not authenticated
+  disabled: !currentUser?.id // optional: disable when not authenticated
 });
 ```
 
@@ -190,7 +189,7 @@ const handleFormSubmit = form.handleSubmit((data) => submitForm(data));
           {...transformInputProps(field)}
           placeholder={t('description')}
           size="sm"
-          drawerInput  // when inside a drawer
+          drawerInput // when inside a drawer
         />
       </FormControl>
       <FormMessage />
@@ -234,7 +233,7 @@ Use the `mask` prop on inputs containing sensitive/PII data to prevent PostHog f
 // ✅ Mask sensitive fields
 <Input
   {...transformInputProps(field)}
-  mask                          // Prevents analytics capture
+  mask // Prevents analytics capture
   autoCapitalize="none"
   keyboardType="email-address"
   prefix={MailIcon}
@@ -243,6 +242,7 @@ Use the `mask` prop on inputs containing sensitive/PII data to prevent PostHog f
 ```
 
 **Fields that should use `mask`:**
+
 - Email addresses
 - Usernames
 - Any PII (personally identifiable information)
@@ -301,7 +301,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
   >
     {/* Form fields */}
   </KeyboardAwareScrollView>
-</Form>
+</Form>;
 ```
 
 ## Input Field Navigation
@@ -311,7 +311,7 @@ Use `type="next"` for sequential field navigation:
 ```tsx
 <Input
   {...transformInputProps(field)}
-  type="next"           // Focus next field on submit
+  type="next" // Focus next field on submit
   submitBehavior="submit"
 />
 ```
@@ -336,7 +336,7 @@ const formSchema = z
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: t('passwordsNoMatch'),
-    path: ['confirmPassword']  // Attach error to specific field
+    path: ['confirmPassword'] // Attach error to specific field
   });
 ```
 
@@ -381,16 +381,16 @@ const { mutateAsync: createItem, isPending } = useMutation({
   onMutate: async (values) => {
     // Cancel in-flight queries
     await queryClient.cancelQueries({ queryKey: ['items'] });
-    
+
     // Snapshot for rollback
     const previous = queryClient.getQueryData(['items']);
-    
+
     // Optimistically update cache
     queryClient.setQueryData(['items'], (old) => [
       ...(old || []),
       { ...values, id: `temp-${Date.now()}` }
     ]);
-    
+
     return { previous };
   },
   onSuccess: () => {
@@ -466,13 +466,15 @@ const { mutateAsync: submit } = useMutation({
   disabled={!isOnline || isPending}
 >
   <Text>{t('submit')}</Text>
-</Button>
+</Button>;
 
-{!isOnline && (
-  <Alert icon={WifiOffIcon} variant="destructive">
-    <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
-  </Alert>
-)}
+{
+  !isOnline && (
+    <Alert icon={WifiOffIcon} variant="destructive">
+      <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
+    </Alert>
+  );
+}
 ```
 
 ## Error Handling
@@ -484,12 +486,9 @@ onError: (error) => {
   RNAlert.alert(
     t('error'),
     error instanceof Error ? error.message : t('genericError'),
-    [
-      { text: t('ok') },
-      { text: t('retry'), onPress: () => handleFormSubmit() }
-    ]
+    [{ text: t('ok') }, { text: t('retry'), onPress: () => handleFormSubmit() }]
   );
-}
+};
 ```
 
 ### Inline Validation Errors
@@ -498,16 +497,16 @@ onError: (error) => {
 
 ## Common Patterns Summary
 
-| Pattern | Usage |
-|---------|-------|
-| `transformInputProps(field)` | Spread on `Input`, `Textarea` components |
-| `transformSwitchProps(field)` | Spread on `Switch` components |
-| `form.handleSubmit(fn)` | Wraps submission function with validation |
-| `isPending` | Loading state from mutation |
-| `form.reset()` | Clear form or restore defaults |
-| `drawerInput` prop | Use on inputs inside drawers for proper keyboard handling |
-| `type="next"` | Chain keyboard focus between fields |
-| `mask` prop | Prevent analytics capture for PII fields (email, username) |
+| Pattern                       | Usage                                                      |
+| ----------------------------- | ---------------------------------------------------------- |
+| `transformInputProps(field)`  | Spread on `Input`, `Textarea` components                   |
+| `transformSwitchProps(field)` | Spread on `Switch` components                              |
+| `form.handleSubmit(fn)`       | Wraps submission function with validation                  |
+| `isPending`                   | Loading state from mutation                                |
+| `form.reset()`                | Clear form or restore defaults                             |
+| `drawerInput` prop            | Use on inputs inside drawers for proper keyboard handling  |
+| `type="next"`                 | Chain keyboard focus between fields                        |
+| `mask` prop                   | Prevent analytics capture for PII fields (email, username) |
 
 ## Additional Patterns
 
@@ -534,7 +533,7 @@ Use `mode: 'onChange'` for real-time validation as user types:
 const form = useForm<FormData>({
   defaultValues,
   resolver: zodResolver(formSchema),
-  mode: 'onChange'  // Validates on every change
+  mode: 'onChange' // Validates on every change
 });
 ```
 
@@ -588,8 +587,8 @@ For password reset/creation, use proper autocomplete hints:
 ```tsx
 <Input
   {...transformInputProps(field)}
-  textContentType="newPassword"    // iOS
-  autoComplete="new-password"      // Android
+  textContentType="newPassword" // iOS
+  autoComplete="new-password" // Android
   secureTextEntry
 />
 ```
@@ -603,14 +602,14 @@ import { Keyboard } from 'react-native';
 
 onSuccess: () => {
   Keyboard.dismiss();
-  
+
   RNAlert.alert(t('success'), t('message'), [
     {
       text: t('ok'),
       onPress: () => safeNavigate(() => navigateAway())
     }
   ]);
-}
+};
 ```
 
 ### Drawer with Custom Snap Points
@@ -635,5 +634,5 @@ import { DrawerScrollView } from '@/components/ui/drawer';
 
 <DrawerScrollView className="pb-safe flex-1 flex-col gap-4 px-4">
   {/* Form fields */}
-</DrawerScrollView>
+</DrawerScrollView>;
 ```

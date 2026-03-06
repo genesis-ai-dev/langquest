@@ -53,13 +53,14 @@ export default function SettingsView() {
   );
   // const enablePlayAll = useLocalStore((state) => state.enablePlayAll);
   const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
-  const enableVerseMarkers = useLocalStore((state) => state.enableVerseMarkers);
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
   const enableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.enableLanguoidLinkSuggestions
   );
+  const enableMerge = useLocalStore((state) => state.enableMerge);
+  const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
     (state) => state.setShowHiddenContent
@@ -79,15 +80,14 @@ export default function SettingsView() {
   const setEnableQuestExport = useLocalStore(
     (state) => state.setEnableQuestExport
   );
-  const setEnableVerseMarkers = useLocalStore(
-    (state) => state.setEnableVerseMarkers
-  );
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
   );
   const setEnableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.setEnableLanguoidLinkSuggestions
   );
+  const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Settings are loaded from the centralized store
 
@@ -131,10 +131,6 @@ export default function SettingsView() {
     console.log('Quest export:', value);
   };
 
-  const handleVerseMarkersToggle = (value: boolean) => {
-    setEnableVerseMarkers(value);
-  };
-
   const handleTranscriptionToggle = (value: boolean) => {
     setEnableTranscription(value);
   };
@@ -143,12 +139,21 @@ export default function SettingsView() {
     setEnableLanguoidLinkSuggestions(value);
   };
 
+  const handleMergeToggle = (value: boolean) => {
+    setEnableMerge(value);
+  };
+
+  const handleFiaToggle = (value: boolean) => {
+    setEnableFia(value);
+  };
+
   const handleClearCache = () => {
     RNAlert.alert(t('clearCache'), t('clearCacheConfirmation'), [
       { text: t('cancel'), style: 'cancel' },
       {
         text: t('clear'),
         style: 'destructive',
+        isPreferred: true,
         onPress: () => {
           // TODO: Implement cache clearing logic
           RNAlert.alert(t('success'), t('cacheClearedSuccess'));
@@ -265,6 +270,14 @@ export default function SettingsView() {
       title: t('experimentalFeatures'),
       items: [
         {
+          id: 'fia',
+          title: t('enableFia'),
+          description: t('enableFiaDescription'),
+          type: 'toggle',
+          value: enableFia,
+          onPress: () => handleFiaToggle(!enableFia)
+        },
+        {
           id: 'aiSuggestions',
           title: t('aiSuggestions'),
           description: t('aiSuggestionsDescription'),
@@ -290,14 +303,6 @@ export default function SettingsView() {
           disabled: !isOnline
         },
         {
-          id: 'verseMarkers',
-          title: t('verseMarkers'),
-          description: t('verseMarkersDescription'),
-          type: 'toggle',
-          value: enableVerseMarkers,
-          onPress: () => handleVerseMarkersToggle(!enableVerseMarkers)
-        },
-        {
           id: 'transcription',
           title: t('transcription'),
           description: t('transcriptionDescription'),
@@ -314,6 +319,14 @@ export default function SettingsView() {
           onPress: () =>
             handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
           disabled: !isOnline
+        },
+        {
+          id: 'merge',
+          title: t('enableMerge'),
+          description: t('enableMergeDescription'),
+          type: 'toggle',
+          value: enableMerge,
+          onPress: () => handleMergeToggle(!enableMerge)
         }
       ]
     },

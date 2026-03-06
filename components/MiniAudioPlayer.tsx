@@ -1,17 +1,12 @@
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
-import { colors, spacing } from '@/styles/theme';
-import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
-import { SparklesIcon } from 'lucide-react-native';
+import { spacing } from '@/styles/theme';
+import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { Play, Pause, SparklesIcon } from 'lucide-react-native';
 import React from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 interface MiniAudioPlayerProps {
   id: string;
@@ -35,6 +30,7 @@ export default function MiniAudioPlayer({
     isPlaying,
     currentAudioId
   } = useAudio();
+  const primaryColor = useThemeColor('primary');
 
   const handlePlayPause = async () => {
     if (isPlaying && currentAudioId === id) {
@@ -60,17 +56,22 @@ export default function MiniAudioPlayer({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={handlePlayPause} style={styles.playButton}>
-        <Ionicons
-          name={isThisAudioPlaying ? 'pause' : 'play'}
+      <Button
+        variant="plain"
+        onPress={handlePlayPause}
+        style={[styles.playButton, { backgroundColor: primaryColor }]}
+      >
+        <Icon
+          as={isThisAudioPlaying ? Pause : Play}
           size={24}
-          color={colors.text}
+          className="text-primary-foreground"
         />
-      </TouchableOpacity>
+      </Button>
       {onTranscribe && (
-        <TouchableOpacity
+        <Button
+          variant="plain"
           onPress={handleTranscribe}
-          style={styles.transcribePill}
+          style={[styles.transcribePill, { backgroundColor: primaryColor }]}
           disabled={isTranscribing}
         >
           {isTranscribing ? (
@@ -80,11 +81,15 @@ export default function MiniAudioPlayer({
             />
           ) : (
             <View style={styles.pillContent}>
-              <Icon as={SparklesIcon} size={18} className="text-black" />
-              <Text className="text-s">Aa</Text>
+              <Icon
+                as={SparklesIcon}
+                size={18}
+                className="text-primary-foreground"
+              />
+              <Text className="text-s text-primary-foreground">Aa</Text>
             </View>
           )}
-        </TouchableOpacity>
+        </Button>
       )}
     </View>
   );
@@ -102,14 +107,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center'
   },
   transcribePill: {
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12

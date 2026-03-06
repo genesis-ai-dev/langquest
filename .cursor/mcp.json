@@ -2,16 +2,28 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"],
-      "alwaysAllow": ["resolve-library-id", "get-library-docs"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "alwaysAllow": [
+        "resolve-library-id",
+        "get-library-docs"
+      ]
     },
-    "shadcn": {
+    "local-db": {
       "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "args": [
+        "tsx",
+        "scripts/mcp-server.ts"
+      ]
     },
     "lucide-icons": {
       "command": "npx",
-      "args": ["lucide-icons-mcp", "--stdio"],
+      "args": [
+        "lucide-icons-mcp",
+        "--stdio"
+      ],
       "alwaysAllow": [
         "search_icons",
         "search_categories",
@@ -27,11 +39,20 @@
     },
     "maestro": {
       "command": "maestro",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ]
     },
     "powersync": {
       "name": "PowerSync",
       "url": "https://powersync.mintlify.app/mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
     }
   }
 }
