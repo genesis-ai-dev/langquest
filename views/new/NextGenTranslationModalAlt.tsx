@@ -645,7 +645,7 @@ export default function NextGenTranslationModal({
                       <Button
                         variant="default"
                         onPress={handleSubmitTranscription}
-                        disabled={!editedText.trim() || isCreatingTranscription}
+                        disabled={!editedText.trim()}
                         loading={isCreatingTranscription}
                       >
                         <Text>{t('submitTranscription')}</Text>

@@ -360,12 +360,13 @@ export default function NextGenNewTranslationModal({
     }
   };
 
-  // Get source language ID from asset content or prop
+  // Extract primitive values from assetContent for stable query keys
+  // React Compiler will handle memoization automatically
+  const firstContent = assetContent?.[0];
   const sourceLanguageId =
-    assetContent?.[0]?.source_language_id || sourceLanguage?.id || null;
-
-  // Get languoid ID from asset content (for transcriptions - this is the source languoid)
-  const sourceLanguoidId = assetContent?.[0]?.languoid_id || null;
+    firstContent?.source_language_id || sourceLanguage?.id || null;
+  const sourceLanguoidId = firstContent?.languoid_id || null;
+  const contentPreview = firstContent?.text || '';
 
   // Query language names (source language is optional, target is required)
   // Only query when modal is visible to avoid unnecessary queries
@@ -382,23 +383,22 @@ export default function NextGenNewTranslationModal({
   );
 
   // Get orthography examples for transcription localization
+  // Use primitive string value directly for stable query key
   const { data: orthographyExamples = [] } = useOrthographyExamples(
     currentProjectId,
     sourceLanguoidId || ''
   );
 
-  // Get first content text as preview
-  const contentPreview = assetContent?.[0]?.text || '';
-
   // Get nearby translations for examples (only when modal is visible to avoid unnecessary queries)
   // Note: useNearbyTranslations now automatically selects only the highest-rated translation per asset
   // and limits to 30 examples maximum (hardcoded)
   // Pass sourceText for contextual relevance ranking
+  // Using primitive string value directly ensures stable query key
   const { data: nearbyExamples = [], isLoading: isLoadingExamples } =
     useNearbyTranslations(
       visible ? currentQuestId || undefined : undefined,
       visible ? translationLanguageId : '',
-      visible ? contentPreview : null
+      visible ? contentPreview || null : null
     );
 
   // Translation prediction hook
