@@ -1,3 +1,4 @@
+import { reportPublishErrorToUploadInbox } from '@/database_services/errorReporterService';
 import {
   asset,
   asset_content_link,
@@ -50,6 +51,22 @@ export interface PublishQuestResult {
   pendingAttachments?: number;
   errors: string[];
   warnings: string[];
+}
+
+function classifyPublishErrorStage(error: unknown): 'move_file' | 'save_record' {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error);
+
+  if (
+    message.includes('move') ||
+    message.includes('/..') ||
+    message.includes('not writable') ||
+    message.includes('file does not exist')
+  ) {
+    return 'move_file';
+  }
+
+  return 'save_record';
 }
 
 // ============================================================================
@@ -256,7 +273,7 @@ export async function publishQuest(
       const {
         data: { session }
       } = await system.supabaseConnector.client.auth.getSession();
-      const userId = session?.user?.id;
+      const userId = session?.user.id;
 
       if (userId) {
         const { data: linkData, error } = await system.supabaseConnector.client
@@ -270,7 +287,7 @@ export async function publishQuest(
 
         if (error) {
           warnings.push('Could not verify project membership in cloud');
-        } else if (!linkData || linkData.length === 0) {
+        } else if (linkData.length === 0) {
           return {
             success: false,
             status: 'error',
@@ -515,21 +532,19 @@ export async function publishQuest(
 
       const localAudioFilesForAssets =
         nestedAssetIds.length > 0
-          ? await Promise.all(
-              (
-                await tx.query.asset_content_link.findMany({
-                  columns: { audio: true },
-                  where: and(
-                    inArray(asset_content_link.asset_id, nestedAssetIds),
-                    isNotNull(asset_content_link.audio),
-                    eq(asset_content_link.source, 'local')
-                  )
-                })
-              )
-                .flatMap((link) => link.audio)
-                .filter(Boolean)
-                .map(getLocalAttachmentUri)
+          ? (
+              await tx.query.asset_content_link.findMany({
+                columns: { audio: true },
+                where: and(
+                  inArray(asset_content_link.asset_id, nestedAssetIds),
+                  isNotNull(asset_content_link.audio),
+                  eq(asset_content_link.source, 'local')
+                )
+              })
             )
+              .flatMap((link) => link.audio)
+              .filter(Boolean)
+              .map(getLocalAttachmentUri)
           : [];
 
       const aclColumnsPrefixed = assetContentLinkColumns
@@ -585,13 +600,39 @@ export async function publishQuest(
       // Queue audio attachments for upload
       const audioUploadResults = await Promise.allSettled(
         localAudioFilesForAssets.map(async (audio) => {
-          const record = await system.permAttachmentQueue?.saveAudio(audio, tx);
-          if (!record?.size) {
-            return Promise.reject(
-              new Error(`Could not find size for audio attachment: ${audio}`)
-            );
+          try {
+            if (!system.permAttachmentQueue) {
+              throw new Error('Attachment queue not initialized');
+            }
+
+            const record = await system.permAttachmentQueue.saveAudio(audio, tx);
+            if (!record.size) {
+              throw new Error(
+                `Could not find size for audio attachment: ${audio}`
+              );
+            }
+            return audio;
+          } catch (error) {
+            const stage = classifyPublishErrorStage(error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+
+            await reportPublishErrorToUploadInbox({
+              stage,
+              errorCode: stage === 'move_file' ? 'PUBLISH_MOVE_FILE_ERROR' : null,
+              message: errorMessage,
+              questId,
+              projectId,
+              attachmentId: audio.split('/').pop() ?? null,
+              uri: audio,
+              metadata: {
+                phase: 'queue_audio_attachments',
+                nestedAssetCount: nestedAssetIds.length
+              }
+            });
+
+            throw error;
           }
-          return audio;
         })
       );
 
@@ -627,6 +668,17 @@ export async function publishQuest(
       warnings
     };
   } catch (error) {
+    await reportPublishErrorToUploadInbox({
+      stage: 'upload_file',
+      errorCode: 'PUBLISH_QUEST_ERROR',
+      message: error instanceof Error ? error.message : String(error),
+      questId,
+      projectId,
+      metadata: {
+        phase: 'publish_quest_catch'
+      }
+    });
+
     console.error('Failed to publish quest:', error);
     return {
       success: false,
