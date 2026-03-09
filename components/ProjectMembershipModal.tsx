@@ -1014,7 +1014,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      snapPoints={['70%']}
+      snapPoints={['75%']}
       enableDynamicSizing={false}
     >
       <DrawerContent asChild>
