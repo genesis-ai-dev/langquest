@@ -283,7 +283,6 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
       );
 
       recordedSamplesRef.current = [];
-      lastProcessedDurationRef.current = 0;
 
       // Permission check removed - parent RecordingControls ensures canRecord=true
       // before this component is even rendered/interactive
