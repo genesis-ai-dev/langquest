@@ -260,7 +260,6 @@ When placing forms inside `Drawer` components:
     setIsOpen(open);
     if (!open) form.reset(defaultValues);  // Reset on close
   }}
-  dismissible={!isPending}  // Prevent dismissal while submitting
 >
   <DrawerContent className="pb-safe">
     <Form {...form}>
@@ -275,7 +274,7 @@ When placing forms inside `Drawer` components:
         <FormSubmit onPress={handleFormSubmit}>
           <Text>{t('create')}</Text>
         </FormSubmit>
-        <DrawerClose disabled={isPending}>
+        <DrawerClose>
           <Text>{t('cancel')}</Text>
         </DrawerClose>
       </DrawerFooter>
@@ -283,6 +282,8 @@ When placing forms inside `Drawer` components:
   </DrawerContent>
 </Drawer>
 ```
+
+**Important:** Drawers should always be dismissible, even during form submission. Never disable the cancel button or prevent dismissal during `isPending` states. This prevents users from getting stuck in loading states. The mutation will continue in the background if the drawer is closed during submission.
 
 ## Keyboard Handling
 

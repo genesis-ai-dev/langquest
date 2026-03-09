@@ -1,9 +1,9 @@
 # Workflow: Build a Form
 
 <required_reading>
-**Read these reference files NOW:**
-1. references/form-patterns.md
-2. references/project-conventions.md
+**Read these NOW:**
+1. The cursor rule `/.cursor/rules/form-handling.mdc` — for react-hook-form + Zod + TanStack Query patterns, field rendering, drawer forms, keyboard handling, validation, and advanced patterns
+2. references/project-conventions.md — for project-specific styling, icons, theming, and React 19/Compiler rules
 </required_reading>
 
 <process>
