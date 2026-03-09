@@ -54,6 +54,8 @@ All domain knowledge in `references/`:
 
 **Forms:** form-patterns.md — react-hook-form + Zod structure, field rendering, drawer forms, keyboard handling, validation patterns, optimistic updates, analytics masking
 
+**UX Patterns:** ux-patterns.md — Input/selection heuristics, feedback/loading strategies, button/action rules, modal/drawer dismiss, OTP handling, inline vs toast feedback
+
 **Conventions:** project-conventions.md — Styling rules, icons, React 19, theming, worklet threading, React Compiler
 </reference_index>
 
