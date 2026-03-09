@@ -242,6 +242,7 @@ const DrawerContent = React.forwardRef<
           appearsOnIndex={0}
           disappearsOnIndex={-1}
           opacity={0.5}
+          pressBehavior={dismissible === false ? 'none' : 'close'}
           animatedIndex={animatedIndex}
           animatedPosition={animatedPosition}
           style={{ marginBottom: bottom, marginTop: top }}
