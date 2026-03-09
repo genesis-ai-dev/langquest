@@ -112,7 +112,7 @@ jobs:
     type: maestro
     environment: preview
     image: latest
-    runs_on: macos-large
+    runs_on: macos-medium
     params:
       record_screen: true
       device_identifier: 'iPhone 16e'
