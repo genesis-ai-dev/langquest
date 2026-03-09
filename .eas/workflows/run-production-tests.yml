@@ -23,6 +23,7 @@ on:
       - '!deno.json'
       - '!.cursor/**'
       - '!.vscode/**'
+      - '!.agents/**'
 
 jobs:
   fingerprint:
