@@ -85,7 +85,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 ### Prerequisites
 
 - Download [Docker Desktop](https://www.docker.com/get-started) (docker compose version 4.24.0 or greater required)
-- Install `psql` in terminal
+- Install [psql](https://www.tigerdata.com/blog/how-to-install-psql-on-mac-ubuntu-debian-windows)
 
 ### Running Local Services
 

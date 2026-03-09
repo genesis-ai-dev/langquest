@@ -44,17 +44,22 @@ What would you like to do?
 </routing>
 
 <reference_index>
-All domain knowledge in `references/`:
-
-**Architecture:** component-architecture.md — Composition patterns, accessibility, existing component libraries, props API, data attributes
+Domain knowledge in `references/`:
 
 **Animation Design:** animation-principles.md — UX philosophy, purpose of motion, progressive disclosure, tray system, fluidity, delight-impact curve, transition checklist
 
 **Animation Code:** animation-technical.md — Easing, timing, springs, clip-path, performance, reduced motion, good vs great comparison
 
-**Forms:** form-patterns.md — react-hook-form + Zod structure, field rendering, drawer forms, keyboard handling, validation patterns, optimistic updates, analytics masking
+**UX Patterns:** ux-patterns.md — Input/selection heuristics, feedback/loading strategies, button/action rules, modal/drawer dismiss, OTP handling, inline vs toast feedback
 
 **Conventions:** project-conventions.md — Styling rules, icons, React 19, theming, worklet threading, React Compiler
+
+**Cross-references (other skills/rules — not in this folder):**
+- Component architecture → `building-components` skill (composition, accessibility, data attributes, taxonomy)
+- Form patterns → `.cursor/rules/form-handling.mdc` (react-hook-form + Zod + TanStack Query)
+- Composition patterns → `vercel-composition-patterns` skill (compound components, state management, explicit variants)
+- React Native best practices → `vercel-react-native-skills` skill (lists, animations, navigation, UI patterns)
+- React performance → `vercel-react-best-practices` skill (re-render optimization, memoization, derived state, rendering performance)
 </reference_index>
 
 <workflows_index>

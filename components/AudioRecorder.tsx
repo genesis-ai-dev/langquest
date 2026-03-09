@@ -188,11 +188,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         return;
       }
 
-      if (playerRef.current) {
-        console.log('Pausing playback');
+      // Prevents iOS from glitching when starting recording and audio is already playing
+      if (playerRef.current && Platform.OS === 'ios') {
         pausePlayback();
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Sleep for 1 second
       }
+
       cleanupPlayer();
       setIsPlaying(false);
       setPlaybackPosition(0);

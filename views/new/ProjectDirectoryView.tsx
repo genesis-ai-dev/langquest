@@ -49,13 +49,13 @@ import {
   useBibleBookCreation,
   useBibleBooks
 } from '@/hooks/useBibleBookCreation';
-import { useFiaBooks } from '@/hooks/useFiaBooks';
 import {
   useFiaBookCreation,
   useFiaBookQuests
 } from '@/hooks/useFiaBookCreation';
-import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
+import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -1252,7 +1252,6 @@ export default function ProjectDirectoryView() {
         <Drawer
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
-          dismissible={!isCreatingQuest}
           snapPoints={[450, 700]}
         >
           {renderContent()}
@@ -1306,7 +1305,7 @@ export default function ProjectDirectoryView() {
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>
-                <DrawerClose disabled={isCreatingQuest}>
+                <DrawerClose>
                   <Text>{t('cancel')}</Text>
                 </DrawerClose>
               </DrawerFooter>

@@ -41,14 +41,12 @@ scheduleOnRN(updateState, newValue);
 </worklet_threading>
 
 <react_compiler>
-While React Compiler can auto-memoize, understand its limitations:
+Project-specific React Compiler considerations:
 
 - **Mutation hooks:** Extract `mutate` from `useMutation()` return—the returned object isn't memoized, but `mutate` is.
-- **Dynamic lists:** Always use stable, unique keys (not indices). Extract list items into separate components for complex JSX.
-- **Children props:** Harder for compiler to optimize. Prefer composition patterns when performance matters.
-- **Manual memoization:** Don't assume compiler handles everything. `React.memo`, `useMemo`, `useCallback` may still be needed for critical paths.
-- **Composition over memoization:** Prefer moving state down, splitting contexts, extracting components over manual memoization.
 - **No ESLint disable comments:** These prevent React Compiler from analyzing code. Fix the underlying problem instead.
+
+For general re-render optimization and memoization patterns, see the `vercel-react-best-practices` skill.
 
 **Reanimated shared values (compiler-compliant):**
 

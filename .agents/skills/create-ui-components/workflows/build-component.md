@@ -1,9 +1,9 @@
 # Workflow: Build a New Component
 
 <required_reading>
-**Read these reference files NOW:**
-1. references/component-architecture.md
-2. references/project-conventions.md
+**Read these NOW:**
+1. The `building-components` skill (`/.agents/skills/building-components/SKILL.md`) — for composition patterns, accessibility, data attributes, and component taxonomy
+2. references/project-conventions.md — for project-specific styling, icons, theming, and React 19/Compiler rules
 </required_reading>
 
 <process>
