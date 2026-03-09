@@ -20,14 +20,14 @@ cleanup() {
 trap cleanup EXIT
 
 echo "🚀 Starting Supabase..."
-npm run supabase start
+npm run sb start
 
 echo ""
 bash scripts/seed-vault.sh
 
 echo ""
 echo "⚡ Starting Edge Functions (background)..."
-npm run supabase:serve-functions &
+npm run sb:serve-functions &
 FUNCTIONS_PID=$!
 
 echo ""

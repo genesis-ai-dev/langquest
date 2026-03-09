@@ -1,17 +1,13 @@
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { Play, Pause, FileText } from 'lucide-react-native';
+import { setAudioModeAsync } from 'expo-audio';
 import React, { useEffect } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Carousel from './Carousel';
 
 interface AudioFile {
@@ -50,10 +46,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   useEffect(() => {
     const setupAudioMode = async () => {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true
       });
     };
 
@@ -87,18 +83,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return (
       <View style={[styles.audioItem, mini && styles.miniAudioItem]}>
         <View style={styles.controlsRow}>
-          <TouchableOpacity
+          <Button
+            variant="plain"
             style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
             onPress={() => handlePlayPause(item.uri, item.id)}
           >
-            <Ionicons
-              name={isThisAudioPlaying ? 'pause' : 'play'}
+            <Icon
+              as={isThisAudioPlaying ? Pause : Play}
               size={mini ? 24 : 48}
-              color={colors.text}
+              className="text-foreground"
             />
-          </TouchableOpacity>
+          </Button>
           {onTranscribe && (
-            <TouchableOpacity
+            <Button
+              variant="plain"
               style={[
                 styles.transcribeButton,
                 mini && styles.miniTranscribeButton
@@ -112,13 +110,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   color={colors.background}
                 />
               ) : (
-                <Ionicons
-                  name="text-outline"
+                <Icon
+                  as={FileText}
                   size={mini ? 18 : 28}
-                  color={colors.background}
+                  className="text-background"
                 />
               )}
-            </TouchableOpacity>
+            </Button>
           )}
         </View>
         {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}

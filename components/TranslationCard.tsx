@@ -9,8 +9,9 @@ import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
-import { TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
 import AudioPlayer from './AudioPlayer';
+import { Button } from './ui/button';
 
 interface TranslationCardProps {
   asset: WithSource<AssetWithVoteCount>;
@@ -46,7 +47,12 @@ export const TranslationCard = ({
   };
 
   return (
-    <TouchableOpacity activeOpacity={0.7} onPress={handleCardPress}>
+    <Button
+      variant="plain"
+      size="auto"
+      onPress={handleCardPress}
+      className="w-full flex-col items-stretch"
+    >
       <Card
         className={cn(
           'transition-opacity',
@@ -138,6 +144,6 @@ export const TranslationCard = ({
           </View>
         </CardHeader>
       </Card>
-    </TouchableOpacity>
+    </Button>
   );
 };
