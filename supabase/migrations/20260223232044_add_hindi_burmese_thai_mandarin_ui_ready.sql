@@ -176,7 +176,7 @@ CREATE INDEX IF NOT EXISTS idx_region_alias_name ON public.region_alias(name);
 -- ============================================================================
 -- Add "Burma" as a region alias for the Myanmar region
 -- Myanmar already exists as a region; Burma is a common English alternative.
--- English languoid ID: bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd
+-- English languoid ID: ef794a88-228e-485e-b904-57c402fa1ed8
 -- ============================================================================
 
 INSERT INTO public.region_alias (
@@ -188,7 +188,7 @@ INSERT INTO public.region_alias (
 SELECT
     gen_random_uuid(),
     r.id,
-    'bd6027e5-b122-43b9-ba0a-4f5d5a25f1dd',
+    'ef794a88-228e-485e-b904-57c402fa1ed8',
     'Burma'
 FROM public.region r
 WHERE r.name = 'Myanmar'
