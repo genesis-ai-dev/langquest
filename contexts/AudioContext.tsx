@@ -87,6 +87,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const lastReactStateUpdateMs = useRef(0);
   const currentAudioIdRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
+  const isPausedRef = useRef(false);
   const isAdvancingSegmentRef = useRef(false);
   const useSequenceLevelProgressRef = useRef(false);
   const hasRetimedLastSegmentRef = useRef(false);
@@ -127,6 +128,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const setIsPlayingState = (playing: boolean) => {
     isPlayingRef.current = playing;
     setIsPlaying(playing);
+  };
+
+  const setIsPausedState = (paused: boolean) => {
+    isPausedRef.current = paused;
+    setIsPaused(paused);
   };
 
   // expo-audio players load asynchronously; wait until duration/position are usable.
@@ -325,7 +331,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     await unloadPreloadedSegment();
 
     setIsPlayingState(false);
-    setIsPaused(false);
+    setIsPausedState(false);
     setCurrentAudioIdState(null);
     setPositionState(0);
     setDuration(0);
@@ -337,9 +343,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const pauseSound = async () => {
     if (soundRef.current && isPlaying) {
+      setIsPausedState(true);
       soundRef.current.pause();
       setIsPlayingState(false);
-      setIsPaused(true);
     }
   };
 
@@ -347,7 +353,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (soundRef.current && isPaused) {
       soundRef.current.play();
       setIsPlayingState(true);
-      setIsPaused(false);
+      setIsPausedState(false);
     }
   };
 
@@ -383,7 +389,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       positionSharedRef.current.value = 0;
       durationSharedRef.current.value = 0;
       setIsPlayingState(false);
-      setIsPaused(false);
+      setIsPausedState(false);
       resolvePlaybackWaiters(currentAudioIdRef.current);
       setCurrentAudioIdState(null);
       setPositionState(0);
@@ -434,7 +440,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       soundRef.current = sound;
-      setIsPaused(false);
+      setIsPausedState(false);
 
       if (audioId) {
         setCurrentAudioIdState(audioId);
@@ -593,7 +599,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           // expo-audio doesn't fire didJustFinish reliably on all platforms.
           // Fallback: treat playing→false (after having started) as completion,
           // since the listener is always removed before any manual pause/stop.
-          if (status.didJustFinish || (hasStartedPlaying && !status.playing)) {
+          if (
+            status.didJustFinish ||
+            (hasStartedPlaying && !status.playing && !isPausedRef.current)
+          ) {
             if (isAdvancingSegmentRef.current) return;
             isAdvancingSegmentRef.current = true;
             clearStatusListener();
