@@ -42,7 +42,6 @@ import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
-import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import {
   Drawer,
   DrawerClose,
@@ -68,6 +67,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
+import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   ensureLanguoidDownloadProfile,
@@ -784,7 +784,7 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-6">
+        <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
           <View className="flex flex-col gap-4">
             {/* Tabs */}
             <Tabs

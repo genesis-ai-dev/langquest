@@ -17,7 +17,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../button';
 import { Text } from '../text';
@@ -29,9 +29,8 @@ import {
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetScrollViewProps } from '@gorhom/bottom-sheet/src/components/bottomSheetScrollable/types';
 import { memo } from 'react';
-import type { KeyboardAwareScrollViewProps } from 'react-native-keyboard-controller';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Reanimated from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 interface DrawerContextValue extends DrawerProps {
   ref: React.RefObject<BSModalType | null> | null;
@@ -71,20 +70,19 @@ function Drawer({
   // Use a separate effect to handle presenting/dismissing to ensure ref is ready
   React.useEffect(() => {
     if (isOpen) {
-      // Wait for ref to be available and allow layout to stabilize
-      // This prevents positioning issues when views are still loading/rendering
       const presentModal = () => {
         if (ref.current) {
-          // Present immediately - no delay needed with fullscreen snapPoints
           ref.current.present();
         } else {
-          // Retry after a short delay if ref isn't ready yet
           setTimeout(presentModal, 50);
         }
       };
       presentModal();
     } else if (ref.current) {
-      ref.current.dismiss();
+      // Use close() instead of dismiss() to avoid double-dismiss bug in
+      // @gorhom/bottom-sheet v5 (#2492). enableDismissOnClose handles the
+      // actual dismiss when the close animation completes.
+      ref.current.close();
     }
   }, [isOpen]);
 
@@ -234,12 +232,17 @@ const DrawerContent = React.forwardRef<
   return (
     <BottomSheetModal
       ref={context?.ref}
+      accessible={Platform.select({
+        // setting it to false on Android seems to cause issues with TalkBack instead
+        ios: false
+      })}
       onChange={handleSheetChanges}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
           appearsOnIndex={0}
           disappearsOnIndex={-1}
           opacity={0.5}
+          pressBehavior={dismissible === false ? 'none' : 'close'}
           animatedIndex={animatedIndex}
           animatedPosition={animatedPosition}
           style={{ marginBottom: bottom, marginTop: top }}
@@ -269,7 +272,7 @@ const DrawerContent = React.forwardRef<
       // keyboardBlurBehavior="restore"
       gestureEventsHandlersHook={gestureEventsHandlersHook}
       enablePanDownToClose={dismissible !== false}
-      enableDismissOnClose={dismissible !== false}
+      enableDismissOnClose
       // android_keyboardInputMode=""
       {...modalProps}
     >
@@ -349,10 +352,9 @@ function DrawerDescription({
   );
 }
 
-const AnimatedScrollView =
-  Reanimated.createAnimatedComponent<KeyboardAwareScrollViewProps>(
-    KeyboardAwareScrollView
-  );
+const AnimatedScrollView = Animated.createAnimatedComponent(
+  KeyboardAwareScrollView
+);
 const BottomSheetScrollViewComponent = createBottomSheetScrollableComponent<
   BottomSheetScrollViewMethods,
   BottomSheetScrollViewProps

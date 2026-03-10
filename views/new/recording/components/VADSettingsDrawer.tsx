@@ -901,6 +901,7 @@ function VADSettingsDrawerInternal({
           <DrawerScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
           >
             <DrawerHeader className="flex-row items-start justify-between">
               <View className="flex-1">
