@@ -71,7 +71,11 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { renameAsset } from '@/database_services/assetService';
+import {
+  getNextOrderIndex,
+  renameAsset,
+  updateContentLinkOrder
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -86,7 +90,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -490,7 +494,15 @@ export default function NextGenAssetsView() {
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
+
+                  let nextOrder = await getNextOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -501,12 +513,27 @@ export default function NextGenAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 cancelSelection();
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
