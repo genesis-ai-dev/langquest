@@ -3,24 +3,24 @@ import { LogBox, Platform } from 'react-native';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
 import { system } from '@/db/powersync/system';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useExpoDb } from '@/hooks/useExpoDb';
 import { LocalizationProvider } from '@/hooks/useLocalization';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { handleAuthDeepLink } from '@/utils/deepLinkHandler';
-import { PowerSyncContext } from '@powersync/react';
-import { PreAuthMigrationCheck } from '@/components/PreAuthMigrationCheck';
-import { UpdateBanner } from '@/components/UpdateBanner';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { useExpoDb } from '@/hooks/useExpoDb';
 import {
   NotoSans_400Regular,
   NotoSans_500Medium,
   NotoSans_600SemiBold,
   NotoSans_700Bold
 } from '@expo-google-fonts/noto-sans';
+import { PowerSyncContext } from '@powersync/react';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
@@ -32,14 +32,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { cssTokens } from '@/generated-tokens';
+import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
+import { initializePostHogWithStore } from '@/services/posthog';
+import { useHasHydrated, useLocalStore } from '@/store/localStore';
+import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { initializePostHogWithStore } from '@/services/posthog';
-import { useLocalStore, useHasHydrated } from '@/store/localStore';
-import { initializeNetwork } from '@/store/networkStore';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -76,36 +76,27 @@ function RootNavigator() {
   const {
     isLoading,
     isAuthenticated,
-    sessionType,
     isSystemReady,
     migrationNeeded,
     appUpgradeNeeded
   } = useAuth();
   const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
-  const authView = useLocalStore((s) => s.authView);
   const hasHydrated = useHasHydrated();
 
   const termsAccepted = !!dateTermsAccepted;
-  const authModalVisible = !!authView;
 
-  const needsMigration =
-    termsAccepted && isAuthenticated && !!migrationNeeded;
-  const needsUpgrade =
-    termsAccepted && isAuthenticated && !!appUpgradeNeeded;
-  const needsPasswordReset =
-    termsAccepted && isAuthenticated && sessionType === 'password-reset';
-
+  const needsMigration = termsAccepted && isAuthenticated && !!migrationNeeded;
+  const needsUpgrade = termsAccepted && isAuthenticated && !!appUpgradeNeeded;
   const systemReady = isAuthenticated ? isSystemReady : true;
 
   const appReady =
     termsAccepted &&
     !needsMigration &&
     !needsUpgrade &&
-    !needsPasswordReset &&
-    (!isLoading || authModalVisible) &&
-    (systemReady || authModalVisible);
+    !isLoading &&
+    systemReady;
 
-  const isBlockingState = needsMigration || needsUpgrade || needsPasswordReset;
+  const isBlockingState = needsMigration || needsUpgrade;
 
   // Ready to show content when hydrated AND we can make a definitive routing decision:
   // - terms not yet accepted → show terms page
@@ -137,27 +128,18 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen
-        name="terms"
-        options={{ presentation: 'modal' }}
-      />
-
+      <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
       <Stack.Protected guard={appReady}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
-
-      <Stack.Protected guard={needsPasswordReset}>
-        <Stack.Screen name="reset-password" />
-      </Stack.Protected>
-
+      <Stack.Screen name="reset-password" />a
       <Stack.Protected guard={needsMigration}>
         <Stack.Screen name="migration" />
       </Stack.Protected>
-
       <Stack.Protected guard={needsUpgrade}>
         <Stack.Screen name="upgrade" />
       </Stack.Protected>
-
       <Stack.Screen name="+not-found" />
     </Stack>
   );
