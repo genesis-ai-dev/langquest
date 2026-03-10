@@ -1,5 +1,11 @@
 import NotificationsView from '@/views/NotificationsView';
+import { Stack } from 'expo-router';
 
 export default function NotificationsRoute() {
-  return <NotificationsView />;
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Notifications' }} />
+      <NotificationsView />
+    </>
+  );
 }

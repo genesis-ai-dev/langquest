@@ -454,7 +454,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             console.log('[AuthContext] Password recovery session');
             setSessionType('password-reset');
-            // Don't initialize system for password reset
+
+            // Initialize system so the app is functional and expo-router
+            // can navigate to the /reset-password route via deep link
+            await initializeSystem();
+            setIsLoading(false);
             break;
 
           case 'SIGNED_OUT':
@@ -466,8 +470,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               system.supabaseConnector.updateSession(null);
               setSessionType(null);
               await cleanupSystem();
-              // Clear authView from localStore to prevent showing auth modal after sign out
-              useLocalStore.getState().setAuthView(null);
               // Set system ready for anonymous browsing after sign out
               setIsSystemReady(true);
             } else {

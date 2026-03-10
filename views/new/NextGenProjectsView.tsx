@@ -12,6 +12,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import { useRouter } from 'expo-router';
 import {
   useHybridData,
   useSimpleHybridInfiniteData
@@ -88,7 +89,7 @@ export default function NextGenProjectsView() {
   const { db } = system;
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
@@ -828,7 +829,7 @@ export default function NextGenProjectsView() {
                   <Button
                     variant="default"
                     size="lg"
-                    onPress={() => setAuthView('sign-in')}
+                    onPress={() => router.push('/(auth)/sign-in')}
                     className="w-full"
                   >
                     <Text className="font-semibold">
@@ -838,7 +839,7 @@ export default function NextGenProjectsView() {
                   <Button
                     variant="outline"
                     size="lg"
-                    onPress={() => setAuthView('register')}
+                    onPress={() => router.push('/(auth)/register')}
                     className="w-full"
                   >
                     <Text>{t('createAccount') || 'Create Account'}</Text>

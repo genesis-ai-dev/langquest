@@ -68,6 +68,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       supportsTablet: true,
       requireFullScreen: true,
       bundleIdentifier: getBundleIdentifier(appVariant),
+      associatedDomains: [
+        `applinks:${siteHost}`,
+        `applinks:preview.${siteHost}`
+      ],
       config: {
         usesNonExemptEncryption: false
       },
@@ -91,7 +95,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
             {
               scheme: 'https',
               host: siteHost,
-              pathPrefix: '/app'
+              pathPattern: '/.*/reset-password'
+            },
+            {
+              scheme: 'https',
+              host: siteHost,
+              pathPattern: '/.*/registration-confirmation'
             },
             {
               scheme: getScheme(appVariant),

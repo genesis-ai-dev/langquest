@@ -9,7 +9,6 @@ import { BackHandler, View } from 'react-native';
 import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
-import { AuthModal } from '@/components/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   CloudLoadingProvider,
@@ -34,8 +33,6 @@ const SimpleOnboardingFlow = React.lazy(() =>
 function AppContent() {
   const { isAuthenticated, currentUser } = useAuth();
   const { profile } = useProfileByUserId(currentUser?.id || '');
-  const authView = useLocalStore((s) => s.authView);
-  const setAuthView = useLocalStore((s) => s.setAuthView);
   const setTriggerOnboarding = useLocalStore(
     (s) => s.setTriggerOnboarding
   );
@@ -88,22 +85,10 @@ function AppContent() {
     []
   );
 
-  // Close auth modal when user becomes authenticated
-  useEffect(() => {
-    if (isAuthenticated && authView) {
-      setAuthView(null);
-    }
-  }, [isAuthenticated, authView, setAuthView]);
-
   // Reset drawer when auth state changes
   useEffect(() => {
     setDrawerIsVisible(false);
   }, [isAuthenticated]);
-
-  // Close drawer when auth modal opens or closes
-  useEffect(() => {
-    setDrawerIsVisible(false);
-  }, [authView]);
 
   // Hardware back button closes drawer first, then lets expo-router handle back
   useEffect(() => {
@@ -165,14 +150,6 @@ function AppContent() {
           drawerIsVisible={drawerIsVisible}
           setDrawerIsVisible={setDrawerIsVisible}
         />
-
-        {!isAuthenticated && (
-          <AuthModal
-            visible={!!authView}
-            initialView={authView || 'sign-in'}
-            onClose={() => setAuthView(null)}
-          />
-        )}
 
         <SimpleOnboardingFlow
           visible={onboardingIsOpen}

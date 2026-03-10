@@ -13,6 +13,7 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
+import { Stack } from 'expo-router';
 import type { asset } from '@/db/drizzleSchema';
 import {
   asset_content_link,
@@ -1532,6 +1533,7 @@ export default function NextGenAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+      {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>

@@ -98,6 +98,7 @@ import { BibleBookList } from './BibleBookList';
 import { BibleChapterList } from './BibleChapterList';
 import { FiaBookList } from './FiaBookList';
 import { FiaPericopeList } from './FiaPericopeList';
+import { Stack } from 'expo-router';
 import { QuestListView } from './QuestListView';
 
 export default function ProjectDirectoryView() {
@@ -1231,6 +1232,7 @@ export default function ProjectDirectoryView() {
 
   return (
     <>
+      {projectName && <Stack.Screen options={{ title: projectName }} />}
       {template === 'bible' || template === 'fia' ? (
         // Bible/FIA project - no Form/Drawer needed (quests come from structured content)
         <View className="flex-1">{renderContent()}</View>

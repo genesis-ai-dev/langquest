@@ -22,8 +22,8 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
+import { useRouter } from 'expo-router';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -173,7 +173,7 @@ export default function NextGenTranslationModal({
   const { currentQuestId } = useAppNavigation();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -665,7 +665,7 @@ export default function NextGenTranslationModal({
                           <Button
                             onPress={() => {
                               onOpenChange(false);
-                              setAuthView('sign-in');
+                              router.push('/(auth)/sign-in');
                             }}
                             className="mt-4"
                           >

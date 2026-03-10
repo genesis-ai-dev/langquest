@@ -18,6 +18,7 @@ import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import { useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {
@@ -76,7 +77,7 @@ export default function AppDrawer({
     [notificationResult.totalCount]
   );
 
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -256,8 +257,8 @@ export default function AppDrawer({
   // );
   const handleSignIn = useCallback(() => {
     setDrawerIsVisible(false);
-    setAuthView('sign-in');
-  }, [setDrawerIsVisible, setAuthView]);
+    router.push('/(auth)/sign-in');
+  }, [setDrawerIsVisible, router]);
   const handleSignOut = useCallback(() => {
     closeDrawerAndExecute(() => {
       void signOut();

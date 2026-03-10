@@ -1,5 +1,11 @@
 import NextGenAssetsView from '@/views/new/NextGenAssetsView';
+import { Stack } from 'expo-router';
 
 export default function QuestRoute() {
-  return <NextGenAssetsView />;
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Quest' }} />
+      <NextGenAssetsView />
+    </>
+  );
 }

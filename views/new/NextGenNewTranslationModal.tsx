@@ -38,6 +38,7 @@ import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
+import { useRouter } from 'expo-router';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import {
   deleteIfExists,
@@ -109,7 +110,7 @@ export default function NextGenNewTranslationModal({
     useAppNavigation();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated, isSystemReady } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
@@ -435,13 +436,13 @@ export default function NextGenNewTranslationModal({
       );
       if (!isAuthenticated) {
         RNAlert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
-        setAuthView('sign-in');
+        router.push('/(auth)/sign-in');
       } else {
         RNAlert.alert(t('error'), t('membersOnly'));
       }
       onClose();
     }
-  }, [visible, canTranslate, isAuthenticated, onClose, t, setAuthView]);
+  }, [visible, canTranslate, isAuthenticated, onClose, t, router]);
 
   const { mutateAsync: createTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {

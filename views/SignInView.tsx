@@ -15,31 +15,21 @@ import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
-import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function SignInView({
-  onNavigate,
-  sharedAuthInfo
-}: {
-  onNavigate: (
-    view: 'register' | 'forgot-password',
-    sharedAuthInfo?: SharedAuthInfo
-  ) => void;
-  sharedAuthInfo?: SharedAuthInfo;
-}) {
+export default function SignInView() {
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
   const { t } = useLocalization();
   const router = useRouter();
   const isOnline = useNetworkStatus();
@@ -75,9 +65,10 @@ export default function SignInView({
           {
             text: t('newUser'),
             onPress: () =>
-              safeNavigate(() =>
-                onNavigate('register', { email: form.getValues('email') })
-              )
+              router.navigate({
+                pathname: '/(auth)/register',
+                params: { email }
+              })
           }
         ]
       );
@@ -87,9 +78,11 @@ export default function SignInView({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: sharedAuthInfo?.email
+      email: initialEmail
     }
   });
+
+  const email = useWatch({ control: form.control, name: 'email' });
 
   const handleFormSubmit = form.handleSubmit((data) => login(data));
 
@@ -157,9 +150,10 @@ export default function SignInView({
           <Button
             variant="plain"
             onPress={() =>
-              safeNavigate(() =>
-                onNavigate('forgot-password', { email: form.watch('email') })
-              )
+              router.navigate({
+                pathname: '/(auth)/forgot-password',
+                params: { email }
+              })
             }
             size="auto"
             className="self-start"
@@ -174,9 +168,10 @@ export default function SignInView({
             </FormSubmit>
             <Button
               onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('register', { email: form.watch('email') })
-                )
+                router.navigate({
+                  pathname: '/(auth)/register',
+                  params: { email }
+                })
               }
               variant="outline"
               className="border-border bg-input"

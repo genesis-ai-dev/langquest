@@ -32,6 +32,7 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { Stack, useRouter } from 'expo-router';
 import {
   fileExists,
   getLocalAttachmentUriWithOPFS,
@@ -172,7 +173,7 @@ function useNextGenOfflineAsset(assetId: string) {
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const {
     currentAssetId,
     currentProjectId,
@@ -822,6 +823,7 @@ export default function NextGenAssetDetailView() {
 
   return (
     <View className="mb-safe flex-1 px-4">
+      {activeAsset?.name && <Stack.Screen options={{ title: activeAsset.name }} />}
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">
@@ -1188,7 +1190,7 @@ export default function NextGenAssetDetailView() {
       !isAuthenticated ? (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
-          onPress={() => setAuthView('sign-in')}
+          onPress={() => router.push('/(auth)/sign-in')}
         >
           <Icon as={LockIcon} size={24} />
           <Text className="font-bold text-secondary">

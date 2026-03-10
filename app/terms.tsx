@@ -4,7 +4,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { ArrowLeftIcon, XIcon } from 'lucide-react-native';
 import React, { useCallback } from 'react';
 import { Linking, View } from 'react-native';
@@ -35,7 +35,9 @@ function Terms() {
   const canAcceptTerms = !dateTermsAccepted;
 
   return (
-    <View className="flex flex-1 flex-col gap-4 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <>
+      <Stack.Screen options={{ title: 'Terms' }} />
+      <View className="flex flex-1 flex-col gap-4 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+1rem)]">
       <View className="w-full flex-row items-center justify-between gap-2 bg-background">
         {router.canGoBack() && dateTermsAccepted && (
           <Button size="icon" variant="ghost" onPress={handleClosePress}>
@@ -109,6 +111,7 @@ function Terms() {
         </View>
       )}
     </View>
+    </>
   );
 }
 

@@ -46,6 +46,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { Stack } from 'expo-router';
 import {
   ArrowLeft,
   BookOpenIcon,
@@ -3273,6 +3274,7 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {bookChapterLabelFull && <Stack.Screen options={{ title: bookChapterLabelFull }} />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (
         <FullScreenVADOverlay

@@ -17,17 +17,16 @@ import { system } from '@/db/powersync/system';
 import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
-import { safeNavigate } from '@/utils/sharedUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Linking, Pressable, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
@@ -59,13 +58,9 @@ function AgreeToTermsText({ className }: { className?: string }) {
   );
 }
 
-export default function RegisterView({
-  onNavigate,
-  sharedAuthInfo
-}: {
-  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
-  sharedAuthInfo?: SharedAuthInfo;
-}) {
+export default function RegisterView() {
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
+  const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
@@ -130,9 +125,10 @@ export default function RegisterView({
       if (error) throw error;
     },
     onSuccess: () => {
-      safeNavigate(() =>
-        onNavigate('sign-in', { email: form.getValues('email') })
-      );
+      router.dismissTo({
+        pathname: '/(auth)/sign-in',
+        params: { email }
+      });
     },
     onError: (error) => {
       RNAlert.alert(
@@ -148,7 +144,7 @@ export default function RegisterView({
     resolver: zodResolver(formSchema),
     mode: 'onChange', // Validate as user types so isValid updates in real-time
     defaultValues: {
-      email: sharedAuthInfo?.email || '',
+      email: initialEmail || '',
       password: '',
       confirmPassword: '',
       username: '',
@@ -157,12 +153,14 @@ export default function RegisterView({
   });
 
   useEffect(() => {
-    if (sharedAuthInfo?.email) {
+    if (initialEmail) {
       form.reset({
-        email: sharedAuthInfo.email
+        email: initialEmail
       });
     }
-  }, [form, sharedAuthInfo?.email]);
+  }, [form, initialEmail]);
+
+  const email = useWatch({ control: form.control, name: 'email' });
 
   const handleFormSubmit = form.handleSubmit((data) => register(data));
 
@@ -312,9 +310,10 @@ export default function RegisterView({
             </FormSubmit>
             <Button
               onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('sign-in', { email: form.watch('email') })
-                )
+                router.dismissTo({
+                  pathname: '/(auth)/sign-in',
+                  params: { email }
+                })
               }
               variant="outline"
               className="border-border bg-input"

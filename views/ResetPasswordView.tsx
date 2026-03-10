@@ -15,7 +15,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -66,7 +65,7 @@ export default function ResetPasswordView() {
           // Sign out and let auth context handle navigation to sign in
           // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
           // at next page.
-          onPress: () => safeNavigate(() => void signOut())
+          onPress: () => void signOut()
         }
       ]);
 
@@ -157,10 +156,8 @@ export default function ResetPasswordView() {
             <Button
               onPress={() => {
                 // Sign out to clear password reset session, then navigate back
-                safeNavigate(() => {
-                  void signOut().then(() => {
-                    router.push('/');
-                  });
+                void signOut().then(() => {
+                  router.push('/');
                 });
               }}
               variant="link"

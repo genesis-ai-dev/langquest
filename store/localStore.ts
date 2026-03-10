@@ -141,17 +141,6 @@ export interface LocalState {
   vadMinSegmentLength: number;
   setVadMinSegmentLength: (duration: number) => void;
 
-  // Authentication view state
-  authView:
-    | 'sign-in'
-    | 'register'
-    | 'forgot-password'
-    | 'reset-password'
-    | null;
-  setAuthView: (
-    view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
-  ) => void;
-
   // Recording data (stored in Zustand because complex objects can't go in route params)
   currentRecordingData: RecordingData | null;
   setCurrentRecordingData: (data: RecordingData | null) => void;
@@ -304,10 +293,6 @@ export const useLocalStore = create<LocalState>()(
       vadMaxOnsetDuration: VAD_MAX_ONSET_DURATION_DEFAULT,
       vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
       vadMinSegmentLength: VAD_MIN_SEGMENT_LENGTH_DEFAULT,
-
-      // Authentication view state
-      authView: null,
-      setAuthView: (view) => set({ authView: view }),
 
       // Recording data (stored in Zustand because complex objects can't go in route params)
       currentRecordingData: null,
@@ -637,9 +622,7 @@ export const useLocalStore = create<LocalState>()(
  * to avoid flash-of-wrong-state on app restart.
  */
 export function useHasHydrated() {
-  const [hydrated, setHydrated] = useState(
-    useLocalStore.persist.hasHydrated()
-  );
+  const [hydrated, setHydrated] = useState(useLocalStore.persist.hasHydrated());
 
   useEffect(() => {
     const unsub = useLocalStore.persist.onFinishHydration(() =>

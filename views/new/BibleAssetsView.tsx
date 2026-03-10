@@ -13,6 +13,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { Stack } from 'expo-router';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
 import {
@@ -3798,6 +3799,7 @@ export default function BibleAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+      {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
       <View className="flex flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
         <View className="flex flex-row items-center gap-2">

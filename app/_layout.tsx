@@ -76,36 +76,29 @@ function RootNavigator() {
   const {
     isLoading,
     isAuthenticated,
-    sessionType,
     isSystemReady,
     migrationNeeded,
     appUpgradeNeeded
   } = useAuth();
   const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
-  const authView = useLocalStore((s) => s.authView);
   const hasHydrated = useHasHydrated();
 
   const termsAccepted = !!dateTermsAccepted;
-  const authModalVisible = !!authView;
 
   const needsMigration =
     termsAccepted && isAuthenticated && !!migrationNeeded;
   const needsUpgrade =
     termsAccepted && isAuthenticated && !!appUpgradeNeeded;
-  const needsPasswordReset =
-    termsAccepted && isAuthenticated && sessionType === 'password-reset';
-
   const systemReady = isAuthenticated ? isSystemReady : true;
 
   const appReady =
     termsAccepted &&
     !needsMigration &&
     !needsUpgrade &&
-    !needsPasswordReset &&
-    (!isLoading || authModalVisible) &&
-    (systemReady || authModalVisible);
+    !isLoading &&
+    systemReady;
 
-  const isBlockingState = needsMigration || needsUpgrade || needsPasswordReset;
+  const isBlockingState = needsMigration || needsUpgrade;
 
   // Ready to show content when hydrated AND we can make a definitive routing decision:
   // - terms not yet accepted → show terms page
@@ -142,13 +135,13 @@ function RootNavigator() {
         options={{ presentation: 'modal' }}
       />
 
+      <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
+
       <Stack.Protected guard={appReady}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
 
-      <Stack.Protected guard={needsPasswordReset}>
-        <Stack.Screen name="reset-password" />
-      </Stack.Protected>
+      <Stack.Screen name="reset-password" />
 
       <Stack.Protected guard={needsMigration}>
         <Stack.Screen name="migration" />
