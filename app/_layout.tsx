@@ -143,12 +143,12 @@ export default function RootLayout() {
 
   return (
     <PowerSyncContext.Provider value={system.powersync}>
-      <PostHogProvider>
-        <PreAuthMigrationCheck>
-          <AuthProvider>
-            <QueryProvider>
-              <LocalizationProvider>
-                <AudioProvider>
+      <AudioProvider>
+        <PostHogProvider>
+          <PreAuthMigrationCheck>
+            <AuthProvider>
+              <QueryProvider>
+                <LocalizationProvider>
                   <SafeAreaProvider>
                     <GestureHandlerRootView style={{ flex: 1 }}>
                       <KeyboardProvider>
@@ -164,12 +164,12 @@ export default function RootLayout() {
                       </KeyboardProvider>
                     </GestureHandlerRootView>
                   </SafeAreaProvider>
-                </AudioProvider>
-              </LocalizationProvider>
-            </QueryProvider>
-          </AuthProvider>
-        </PreAuthMigrationCheck>
-      </PostHogProvider>
+                </LocalizationProvider>
+              </QueryProvider>
+            </AuthProvider>
+          </PreAuthMigrationCheck>
+        </PostHogProvider>
+      </AudioProvider>
     </PowerSyncContext.Provider>
   );
 }

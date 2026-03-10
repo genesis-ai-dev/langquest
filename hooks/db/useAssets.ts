@@ -46,6 +46,52 @@ export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
 export type AssetContent = InferSelectModel<typeof asset_content_link>;
 export type Vote = InferSelectModel<typeof vote>;
 
+type AssetRowWithTagIds = Omit<AssetQuestLink, 'tag_ids' | 'metadata'> & {
+  tag_ids?: unknown;
+  metadata?: unknown;
+};
+
+function normalizeTagIds(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v)).filter(Boolean);
+  }
+  if (typeof value !== 'string') return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((v) => String(v)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeMetadataValue(value: unknown): unknown {
+  if (value == null) return value;
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function normalizeAssetQuestLinkRow(row: AssetRowWithTagIds): AssetQuestLink {
+  return {
+    ...row,
+    tag_ids: normalizeTagIds(row.tag_ids),
+    metadata: normalizeMetadataValue(row.metadata)
+  } as AssetQuestLink;
+}
+
 /**
  * Returns a single asset by ID using hybrid fetch
  */
@@ -1103,31 +1149,9 @@ export function useAssetsByQuest(
           .offset(offset);
 
         // Convert tag_ids from JSON string to array for consistency with cloud query
-        const processedAssets = assets.map((asset) => {
-          let tagIds: string[] = [];
-          try {
-            if (asset.tag_ids) {
-              const parsed = JSON.parse(String(asset.tag_ids));
-              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
-            }
-            if (asset.metadata) {
-              const parsed = JSON.parse(String(asset.metadata));
-              asset.metadata = parsed as string | null;
-            }
-          } catch (error) {
-            console.warn(
-              '[useAssetsByQuest] Failed to parse tag_ids:',
-              asset.tag_ids,
-              error
-            );
-            tagIds = [];
-          }
-
-          return {
-            ...asset,
-            tag_ids: tagIds
-          } as AssetQuestLink;
-        });
+        const processedAssets = assets.map((asset) =>
+          normalizeAssetQuestLinkRow(asset as AssetRowWithTagIds)
+        );
 
         return processedAssets;
       } catch (error) {
@@ -1286,31 +1310,9 @@ export function useLocalAssetsByQuest(
         // No .limit() or .offset() - fetch everything
 
         // Process tag_ids and metadata
-        const processedAssets = assets.map((asset) => {
-          let tagIds: string[] = [];
-          try {
-            if (asset.tag_ids) {
-              const parsed = JSON.parse(String(asset.tag_ids));
-              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
-            }
-            if (asset.metadata) {
-              const parsed = JSON.parse(String(asset.metadata));
-              asset.metadata = parsed as string | null;
-            }
-          } catch (error) {
-            console.warn(
-              '[useLocalAssetsByQuest] Failed to parse tag_ids:',
-              asset.tag_ids,
-              error
-            );
-            tagIds = [];
-          }
-
-          return {
-            ...asset,
-            tag_ids: tagIds
-          } as AssetQuestLink;
-        });
+        const processedAssets = assets.map((asset) =>
+          normalizeAssetQuestLinkRow(asset as AssetRowWithTagIds)
+        );
 
         return processedAssets;
       } catch (error) {
@@ -1425,31 +1427,9 @@ function _useLocalAssetsByQuestInfinite(
           .offset(offset);
 
         // Convert tag_ids from JSON string to array for consistency with cloud query
-        const processedAssets = assets.map((asset) => {
-          let tagIds: string[] = [];
-          try {
-            if (asset.tag_ids) {
-              const parsed = JSON.parse(String(asset.tag_ids));
-              tagIds = Array.isArray(parsed) ? (parsed as string[]) : [];
-            }
-            if (asset.metadata) {
-              const parsed = JSON.parse(String(asset.metadata));
-              asset.metadata = parsed as string | null;
-            }
-          } catch (error) {
-            console.warn(
-              '[useAssetsByQuest] Failed to parse tag_ids:',
-              asset.tag_ids,
-              error
-            );
-            tagIds = [];
-          }
-
-          return {
-            ...asset,
-            tag_ids: tagIds
-          } as AssetQuestLink;
-        });
+        const processedAssets = assets.map((asset) =>
+          normalizeAssetQuestLinkRow(asset as AssetRowWithTagIds)
+        );
 
         return processedAssets;
       } catch (error) {

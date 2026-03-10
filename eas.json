@@ -10,26 +10,25 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "developmentClient": true,
+      "developmentClient": true
+    },
+    "development-simulator": {
+      "extends": "development",
+      "withoutCredentials": true,
       "ios": {
-        "simulator": true,
-        "distribution": "store"
+        "simulator": true
       }
     },
     "preview": {
       "autoIncrement": true,
       "channel": "preview",
       "environment": "preview",
-      "distribution": "internal",
-      "ios": {
-        "distribution": "store"
-      }
+      "distribution": "internal"
     },
     "preview-simulator": {
       "extends": "preview",
       "ios": {
-        "simulator": true,
-        "distribution": "internal"
+        "simulator": true
       }
     },
     "production": {

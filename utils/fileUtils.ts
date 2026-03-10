@@ -319,7 +319,6 @@ export async function saveAudioLocally(uri: string) {
   let fileExistsNow = false;
 
   console.log(`🔍 Checking if file exists: ${cleanSourceUri}`);
-
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     fileExistsNow = fileExists(cleanSourceUri);
     if (fileExistsNow) {

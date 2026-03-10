@@ -376,7 +376,7 @@ export function createAssetTable<
       content_type: text({ enum: contentTypeOptions }).default('source'),
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
-      metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
+      metadata: text({ mode: 'json' }).$type<Record<string, unknown>>(), // JSON metadata for asset-specific data (e.g., verse range)
       ...extraColumns
     },
     (table) => {
@@ -625,6 +625,7 @@ export function createAssetContentLinkTable<
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
+      metadata: text(),
       ...extraColumns
     },
     (table) => {

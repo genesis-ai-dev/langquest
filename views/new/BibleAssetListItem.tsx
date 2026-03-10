@@ -289,7 +289,11 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   );
 
   return (
-    <Pressable onPress={handlePress} onLongPress={handleLongPress}>
+    <Pressable
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      delayLongPress={300}
+    >
       <Card
         className={cn(
           !allowEditing && 'opacity-50',

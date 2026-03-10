@@ -24,7 +24,7 @@ import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getThemeColor } from '@/utils/styleUtils';
 import { asc, eq } from 'drizzle-orm';
-import { Pause, Play, ScissorsIcon, Trash2 } from 'lucide-react-native';
+import { Pause, Play, Split, Trash2 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -210,7 +210,7 @@ export function VerseSegmentModal({
         <DrawerFooter className="flex-row gap-2">
           {isMerged && onUnmerge && (
             <Button variant="outline" onPress={onUnmerge} className="flex-1">
-              <Icon as={ScissorsIcon} size={16} className="mr-2" />
+              <Icon as={Split} size={16} className="mr-2" />
               <Text>Unmerge (Mock)</Text>
             </Button>
           )}
