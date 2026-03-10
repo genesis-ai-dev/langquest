@@ -260,6 +260,7 @@ export default function ProfileView() {
                       {
                         text: t('confirm'),
                         style: 'destructive',
+                        isPreferred: true,
                         onPress: () => {
                           void seedDatabase();
                         }
@@ -283,6 +284,7 @@ export default function ProfileView() {
                       {
                         text: t('confirm'),
                         style: 'destructive',
+                        isPreferred: true,
                         onPress: () => {
                           void deleteDatabase();
                         }
@@ -307,6 +309,7 @@ export default function ProfileView() {
                     {
                       text: t('confirm'),
                       style: 'destructive',
+                      isPreferred: true,
                       onPress: () => {
                         void deleteAttachments();
                       }
@@ -330,6 +333,7 @@ export default function ProfileView() {
                       { text: t('cancel'), style: 'cancel' },
                       {
                         text: t('confirm'),
+                        isPreferred: true,
                         onPress: () => {
                           void clearDegradedModeState();
                         }

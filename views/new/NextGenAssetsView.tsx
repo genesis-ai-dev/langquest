@@ -33,7 +33,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
@@ -71,7 +71,11 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { renameAsset } from '@/database_services/assetService';
+import {
+  getNextOrderIndex,
+  renameAsset,
+  updateContentLinkOrder
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -86,7 +90,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -151,7 +155,7 @@ export default function NextGenAssetsView() {
   // New PlayAll state (starts from selected asset)
   const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
   const isPlayAllRunningRef = React.useRef(false);
-  const currentPlayAllSoundRef = React.useRef<Audio.Sound | null>(null);
+  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
@@ -490,7 +494,15 @@ export default function NextGenAssetsView() {
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
+
+                  let nextOrder = await getNextOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -501,12 +513,27 @@ export default function NextGenAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 cancelSelection();
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -1049,8 +1076,8 @@ export default function NextGenAssetsView() {
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
           try {
-            await currentPlayAllSoundRef.current.stopAsync();
-            await currentPlayAllSoundRef.current.unloadAsync();
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
             currentPlayAllSoundRef.current = null;
           } catch (error) {
             console.error('Error stopping sound:', error);
@@ -1154,29 +1181,22 @@ export default function NextGenAssetsView() {
 
           // Play this URI and wait for it to finish
           await new Promise<void>((resolve) => {
-            // Create and play the sound
-            Audio.Sound.createAsync({ uri }, { shouldPlay: true })
-              .then(({ sound }) => {
-                // Store reference for immediate cancellation
-                currentPlayAllSoundRef.current = sound;
+            try {
+              const player = createAudioPlayer(uri);
+              currentPlayAllSoundRef.current = player;
+              player.play();
 
-                // Set up listener for when sound finishes
-                sound.setOnPlaybackStatusUpdate((status) => {
-                  if (!status.isLoaded) return;
-
-                  if (status.didJustFinish) {
-                    currentPlayAllSoundRef.current = null;
-                    void sound.unloadAsync().then(() => {
-                      resolve();
-                    });
-                  }
-                });
-              })
-              .catch((error) => {
-                console.error('Failed to play audio:', error);
+              player.addListener('playbackStatusUpdate', (status) => {
+                if (!status.didJustFinish) return;
                 currentPlayAllSoundRef.current = null;
-                resolve(); // Continue to next even on error
+                player.release();
+                resolve();
               });
+            } catch (error) {
+              console.error('Failed to play audio:', error);
+              currentPlayAllSoundRef.current = null;
+              resolve(); // Continue to next even on error
+            }
           });
         }
       }
@@ -1305,9 +1325,13 @@ export default function NextGenAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
+
+        RNAlert.alert(t('success'), result.message, [
+          { text: t('ok'), isPreferred: true }
+        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
-          { text: t('ok') }
+          { text: t('ok'), isPreferred: true }
         ]);
       }
     },
@@ -1316,7 +1340,7 @@ export default function NextGenAssetsView() {
       RNAlert.alert(
         t('error'),
         error instanceof Error ? error.message : t('failedCreateTranslation'),
-        [{ text: t('ok') }]
+        [{ text: t('ok'), isPreferred: true }]
       );
     }
   });
@@ -1422,8 +1446,8 @@ export default function NextGenAssetsView() {
       // Stop current sound immediately
       if (currentPlayAllSoundRef.current) {
         try {
-          await currentPlayAllSoundRef.current.stopAsync();
-          await currentPlayAllSoundRef.current.unloadAsync();
+          currentPlayAllSoundRef.current.pause();
+          currentPlayAllSoundRef.current.release();
           currentPlayAllSoundRef.current = null;
         } catch (error) {
           console.error('Error stopping sound:', error);
@@ -1499,16 +1523,13 @@ export default function NextGenAssetsView() {
 
         // Stop current sound immediately
         if (currentPlayAllSoundRef.current) {
-          void currentPlayAllSoundRef.current
-            .stopAsync()
-            .then(() => {
-              void currentPlayAllSoundRef.current?.unloadAsync();
-              currentPlayAllSoundRef.current = null;
-            })
-            .catch(() => {
-              // Ignore errors during cleanup
-              currentPlayAllSoundRef.current = null;
-            });
+          try {
+            currentPlayAllSoundRef.current.pause();
+            currentPlayAllSoundRef.current.release();
+          } catch {
+            // Ignore errors during cleanup
+          }
+          currentPlayAllSoundRef.current = null;
         }
       }
 
@@ -1536,7 +1557,7 @@ export default function NextGenAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
@@ -1662,6 +1683,7 @@ export default function NextGenAssetsView() {
                         {
                           text: t('publish'),
                           style: 'default',
+                          isPreferred: true,
                           onPress: () => {
                             publishQuest();
                           }
@@ -1844,8 +1866,12 @@ export default function NextGenAssetsView() {
                     storageBytes: verificationState.estimatedStorageBytes
                   });
                   setShowDetailsModal(true);
-                  // Start verification to get storage estimate if quest is downloaded
-                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                  // Start verification to get storage estimate if quest is downloaded and exists in cloud
+                  if (
+                    isQuestDownloaded &&
+                    !verificationState.isVerifying &&
+                    selectedQuest?.source !== 'local'
+                  ) {
                     verificationState.startVerification();
                   }
                 }}

@@ -1,12 +1,21 @@
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
+// You can explore Lucide icons at https://lucide.dev/
 
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { IconProps } from '@expo/vector-icons/build/createIconSet';
-import type { ComponentProps } from 'react';
+import { Icon } from '@/components/ui/icon';
+import type { LucideIcon, LucideProps } from 'lucide-react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 export function TabBarIcon({
+  as,
   style,
   ...rest
-}: IconProps<ComponentProps<typeof Ionicons>['name']>) {
-  return <Ionicons size={28} style={[{ marginBottom: -3 }, style]} {...rest} />;
+}: { as: LucideIcon; style?: StyleProp<ViewStyle> } & LucideProps) {
+  return (
+    <Icon
+      as={as}
+      size={28}
+      className="text-foreground"
+      style={[{ marginBottom: -3 }, style]}
+      {...rest}
+    />
+  );
 }
