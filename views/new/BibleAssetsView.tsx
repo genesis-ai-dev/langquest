@@ -52,7 +52,8 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  Wrench
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
@@ -80,6 +81,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { RecoveryPublishedQuestDrawer } from '@/components/RecoveryPublishedQuestDrawer';
 import {
   Drawer,
   DrawerContent,
@@ -91,11 +93,11 @@ import {
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
+import type { ChapterVerse } from '@/constants/bibleStructure';
 import {
   BIBLE_BOOKS,
   buildPericopeSequence,
-  formatPericopeVerseLabel,
-  type ChapterVerse
+  formatPericopeVerseLabel
 } from '@/constants/bibleStructure';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
@@ -201,7 +203,7 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
+  const match = /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/.exec(verseRange);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);
@@ -557,6 +559,7 @@ export default function BibleAssetsView() {
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
+  const [showRecoveryDrawer, setShowRecoveryDrawer] = React.useState(false);
   const [verseSelectorState, setVerseSelectorState] = React.useState<{
     isOpen: boolean;
     key: string | null;
@@ -973,6 +976,9 @@ export default function BibleAssetsView() {
   const isMember = membership === 'member' || membership === 'owner';
   // Check if user is creator
   const isCreator = currentUser?.id === projectPrivacyData?.creator_id;
+  const enableRecoveryTools = useLocalStore((s) => s.enableRecoveryTools);
+  const canUseRecoveryTool =
+    enableRecoveryTools && selectedQuest?.creator_id === currentUser?.id;
   // User can see published badge if they are creator, member, or owner
   const canSeePublishedBadge = isCreator || isMember;
 
@@ -3917,6 +3923,17 @@ export default function BibleAssetsView() {
             // Show cloud badge and export button if user is creator, member, or owner
             canSeePublishedBadge ? (
               <>
+                {currentQuestId && currentUser?.id && canUseRecoveryTool && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onPress={() => setShowRecoveryDrawer(true)}
+                    disabled={isPublishing}
+                  >
+                    <Icon as={Wrench} size={18} />
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="h-10 px-4 py-0"
@@ -4275,6 +4292,18 @@ export default function BibleAssetsView() {
           isOffloading={isOffloading}
         />
       )}
+
+      {showRecoveryDrawer &&
+        currentQuestId &&
+        currentUser?.id &&
+        canUseRecoveryTool && (
+          <RecoveryPublishedQuestDrawer
+            isOpen={showRecoveryDrawer}
+            onOpenChange={setShowRecoveryDrawer}
+            questId={currentQuestId}
+            profileId={currentUser.id}
+          />
+        )}
 
       {/* Rename Asset Drawer */}
       {showRenameDrawer && (

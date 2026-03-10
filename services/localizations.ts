@@ -7567,6 +7567,36 @@ export const localizations = {
     nepali:
       'धेरै अडियो सम्पत्तिहरूलाई एकल सम्पत्तिमा मर्ज गर्न अनुमति दिनुहोस्। सावधानीपूर्वक प्रयोग गर्नुहोस् — मर्ज गरेपछि खण्ड क्रम म्यानुअल समायोजन आवश्यक पर्न सक्छ।'
   },
+  recovery: {
+    english: 'Recovery',
+    spanish: 'Recuperación',
+    brazilian_portuguese: 'Recuperação',
+    tok_pisin: 'Rikaveri',
+    indonesian: 'Pemulihan',
+    nepali: 'रिकभरी'
+  },
+  enableRecoveryTools: {
+    english: 'Enable recovery tools',
+    spanish: 'Habilitar herramientas de recuperación',
+    brazilian_portuguese: 'Ativar ferramentas de recuperação',
+    tok_pisin: 'Openim ol rikaveri tul',
+    indonesian: 'Aktifkan alat pemulihan',
+    nepali: 'रिकभरी उपकरणहरू सक्षम गर्नुहोस्'
+  },
+  enableRecoveryToolsDescription: {
+    english:
+      'Allow access to recovery tools that help restore data when audio sync issues occur.',
+    spanish:
+      'Permite el acceso a herramientas de recuperación que ayudan a restaurar datos cuando ocurren problemas de sincronización de audio.',
+    brazilian_portuguese:
+      'Permite acesso a ferramentas de recuperação que ajudam a restaurar dados quando ocorrem falhas na sincronização de áudio.',
+    tok_pisin:
+      'Larim akses long ol rikaveri tul bilong stretim data taim audio sync i gat hevi.',
+    indonesian:
+      'Izinkan akses ke alat pemulihan yang membantu memulihkan data saat terjadi masalah sinkronisasi audio.',
+    nepali:
+      'अडियो सिंक समस्याहरू हुँदा डेटा पुनर्स्थापना गर्न मद्दत गर्ने रिकभरी उपकरणहरूमा पहुँच अनुमति दिनुहोस्।'
+  },
   enableFia: {
     english: 'FIA Projects',
     spanish: 'Proyectos FIA',

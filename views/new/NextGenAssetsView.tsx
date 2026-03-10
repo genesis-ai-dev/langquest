@@ -49,7 +49,8 @@ import {
   SearchIcon,
   SettingsIcon,
   ShieldOffIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  Wrench
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
@@ -71,6 +72,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { RecoveryPublishedQuestDrawer } from '@/components/RecoveryPublishedQuestDrawer';
 import { renameAsset } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
@@ -132,6 +134,7 @@ export default function NextGenAssetsView() {
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
+  const [showRecoveryDrawer, setShowRecoveryDrawer] = React.useState(false);
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState('');
@@ -309,6 +312,9 @@ export default function NextGenAssetsView() {
   const isMember = membership === 'member' || membership === 'owner';
   // Check if user is creator
   const isCreator = currentUser?.id === projectPrivacyData?.creator_id;
+  const enableRecoveryTools = useLocalStore((s) => s.enableRecoveryTools);
+  const canUseRecoveryTool =
+    enableRecoveryTools && selectedQuest?.creator_id === currentUser?.id;
   // User can see published badge if they are creator, member, or owner
   const canSeePublishedBadge = isCreator || isMember;
 
@@ -1586,6 +1592,17 @@ export default function NextGenAssetsView() {
             // Only show cloud-check icon if user is creator, member, or owner
             canSeePublishedBadge ? (
               <>
+                {currentQuestId && currentUser?.id && canUseRecoveryTool && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onPress={() => setShowRecoveryDrawer(true)}
+                    disabled={isPublishing}
+                  >
+                    <Icon as={Wrench} size={18} />
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="h-10 px-4 py-0"
@@ -1965,6 +1982,18 @@ export default function NextGenAssetsView() {
         verificationState={verificationState}
         isOffloading={isOffloading}
       />
+
+      {showRecoveryDrawer &&
+        currentQuestId &&
+        currentUser?.id &&
+        canUseRecoveryTool && (
+          <RecoveryPublishedQuestDrawer
+            isOpen={showRecoveryDrawer}
+            onOpenChange={setShowRecoveryDrawer}
+            questId={currentQuestId}
+            profileId={currentUser.id}
+          />
+        )}
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && (

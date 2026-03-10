@@ -60,6 +60,9 @@ export default function SettingsView() {
     (state) => state.enableLanguoidLinkSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
+  const enableRecoveryTools = useLocalStore(
+    (state) => state.enableRecoveryTools
+  );
   const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
@@ -87,6 +90,9 @@ export default function SettingsView() {
     (state) => state.setEnableLanguoidLinkSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
+  const setEnableRecoveryTools = useLocalStore(
+    (state) => state.setEnableRecoveryTools
+  );
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Settings are loaded from the centralized store
@@ -141,6 +147,10 @@ export default function SettingsView() {
 
   const handleMergeToggle = (value: boolean) => {
     setEnableMerge(value);
+  };
+
+  const handleRecoveryToolsToggle = (value: boolean) => {
+    setEnableRecoveryTools(value);
   };
 
   const handleFiaToggle = (value: boolean) => {
@@ -326,6 +336,14 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableMerge,
           onPress: () => handleMergeToggle(!enableMerge)
+        },
+        {
+          id: 'recoveryTools',
+          title: t('enableRecoveryTools'),
+          description: t('enableRecoveryToolsDescription'),
+          type: 'toggle',
+          value: enableRecoveryTools,
+          onPress: () => handleRecoveryToolsToggle(!enableRecoveryTools)
         }
       ]
     },

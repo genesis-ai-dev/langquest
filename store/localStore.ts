@@ -151,6 +151,8 @@ export interface LocalState {
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
+  enableRecoveryTools: boolean;
+  setEnableRecoveryTools: (enabled: boolean) => void;
   enableFia: boolean;
   setEnableFia: (enabled: boolean) => void;
 
@@ -339,6 +341,7 @@ export const useLocalStore = create<LocalState>()(
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
       enableMerge: false,
+      enableRecoveryTools: false,
       enableFia: false,
 
       // VAD settings (defaults)
@@ -471,6 +474,8 @@ export const useLocalStore = create<LocalState>()(
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
+      setEnableRecoveryTools: (enabled) =>
+        set({ enableRecoveryTools: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
       // VAD settings setters
