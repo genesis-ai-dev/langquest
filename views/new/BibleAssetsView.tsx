@@ -106,14 +106,12 @@ import {
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
-import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { resolveTable } from '@/utils/dbUtils';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
@@ -3125,7 +3123,7 @@ export default function BibleAssetsView() {
   const projectName = currentProjectData?.name || '';
 
   return (
-    <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
+    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       <Button variant="ghost" size="sm" className="self-start" onPress={goBack}>
         <Icon as={ArrowLeftIcon} />
         <Text>Back</Text>
@@ -3464,8 +3462,12 @@ export default function BibleAssetsView() {
                     storageBytes: verificationState.estimatedStorageBytes
                   });
                   setShowDetailsModal(true);
-                  // Start verification to get storage estimate if quest is downloaded
-                  if (isQuestDownloaded && !verificationState.isVerifying) {
+                  // Start verification to get storage estimate if quest is downloaded and exists in cloud
+                  if (
+                    isQuestDownloaded &&
+                    !verificationState.isVerifying &&
+                    selectedQuest?.source !== 'local'
+                  ) {
                     verificationState.startVerification();
                   }
                 }}

@@ -56,7 +56,6 @@ testing/client-migrations/*.sh
 !testing/client-migrations/replace-device-db.sh
 !testing/client-migrations/restart-device-app.sh
 # exclude analysis files
-*.md
-# include readme and docs only
-!docs/**/*.md
+testing/client-migrations/*.md
+# include readme only
 !testing/client-migrations/README.md

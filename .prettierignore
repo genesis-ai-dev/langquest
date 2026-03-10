@@ -5,3 +5,4 @@ generated-tokens.ts
 generated-local-tables.ts
 .github/workflows/**
 **/*.icon/**
+.agents/**

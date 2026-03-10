@@ -1882,7 +1882,11 @@ export const localizations = {
     brazilian_portuguese: 'Tradução Personalizada',
     tok_pisin: 'Custom Translation',
     indonesian: 'Terjemahan Kustom',
-    nepali: 'अनुकूलन अनुवाद'
+    nepali: 'अनुकूलन अनुवाद',
+    hindi: 'कस्टम अनुवाद',
+    burmese: 'စိတ်ကြိုက် ဘာသာပြန်ဆိုချက်',
+    thai: 'การแปลที่กำหนดเอง',
+    mandarin: '自定义翻译'
   },
   createGeneralTranslationProject: {
     english: 'Create a custom translation project',
@@ -1890,7 +1894,11 @@ export const localizations = {
     brazilian_portuguese: 'Criar um projeto de tradução personalizado',
     tok_pisin: 'Mekim wanpela custom project long translate ol samting',
     indonesian: 'Buat proyek terjemahan kustom',
-    nepali: 'अनुकूलन अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्'
+    nepali: 'अनुकूलन अनुवाद प्रोजेक्ट सिर्जना गर्नुहोस्',
+    hindi: 'एक कस्टम अनुवाद परियोजना बनाएं',
+    burmese: 'စိတ်ကြိုက် ဘာသာပြန်ဆိုချက် စီမံကိန်း ဖန်တီးပါ',
+    thai: 'สร้างโครงการแปลที่กำหนดเอง',
+    mandarin: '创建自定义翻译项目'
   },
   selectProject: {
     english: 'Select Project',
@@ -7671,7 +7679,11 @@ export const localizations = {
     brazilian_portuguese: 'Personalizado',
     tok_pisin: 'Custom',
     indonesian: 'Kustom',
-    nepali: 'अनुकूलन'
+    nepali: 'अनुकूलन',
+    hindi: 'कस्टम',
+    burmese: 'စိတ်ကြိုက်',
+    thai: 'ที่กำหนดเอง',
+    mandarin: '自定义'
   },
   fia: {
     english: 'FIA',
@@ -7679,7 +7691,11 @@ export const localizations = {
     brazilian_portuguese: 'FIA',
     tok_pisin: 'FIA',
     indonesian: 'FIA',
-    nepali: 'FIA'
+    nepali: 'FIA',
+    hindi: 'FIA',
+    burmese: 'FIA',
+    thai: 'FIA',
+    mandarin: 'FIA'
   },
   fiaDescription: {
     english: 'Familiarize-Internalize-Articulate',
@@ -7687,7 +7703,11 @@ export const localizations = {
     brazilian_portuguese: 'Familiarizar-Internalizar-Articular',
     tok_pisin: 'Familiarize-Internalize-Articulate',
     indonesian: 'Familiarisasi-Internalisasi-Artikulasi',
-    nepali: 'परिचित-आन्तरिकीकरण-अभिव्यक्त'
+    nepali: 'परिचित-आन्तरिकीकरण-अभिव्यक्त',
+    hindi: 'परिचित-आंतरिकीकरण-अभिव्यक्त',
+    burmese: 'ရင်းနှီးကျွမ်းဝင်ခြင်း-အတွင်းသို့ထည့်သွင်းခြင်း-ဖော်ပြခြင်း',
+    thai: 'ทำความคุ้นเคย-ทำให้เป็นส่วนตัว-แสดงออก',
+    mandarin: '熟悉-内化-表达'
   },
   fiaContentLanguage: {
     english: 'FIA content language',
@@ -7695,7 +7715,11 @@ export const localizations = {
     brazilian_portuguese: 'Idioma do conteúdo FIA',
     tok_pisin: 'FIA content language',
     indonesian: 'Bahasa konten FIA',
-    nepali: 'FIA सामग्री भाषा'
+    nepali: 'FIA सामग्री भाषा',
+    hindi: 'FIA सामग्री भाषा',
+    burmese: 'FIA အကြောင်းအရာ ဘာသာစကား',
+    thai: 'ภาษาของเนื้อหา FIA',
+    mandarin: 'FIA内容语言'
   },
   fiaComingSoon: {
     english: 'FIA project creation coming soon',
@@ -7703,7 +7727,11 @@ export const localizations = {
     brazilian_portuguese: 'Criação de projetos FIA em breve',
     tok_pisin: 'FIA project creation i kam',
     indonesian: 'Pembuatan proyek FIA segera hadir',
-    nepali: 'FIA प्रोजेक्ट सिर्जना चाँडै आउँदैछ'
+    nepali: 'FIA प्रोजेक्ट सिर्जना चाँडै आउँदैछ',
+    hindi: 'FIA परियोजना निर्माण जल्द ही आ रहा है',
+    burmese: 'FIA စီမံကိန်း ဖန်တီးမှု မကြာမီ ရောက်ရှိလာမည်',
+    thai: 'การสร้างโครงการ FIA เร็วๆ นี้',
+    mandarin: 'FIA项目创建即将推出'
   },
   createFiaProject: {
     english: 'FIA Project',
@@ -7711,7 +7739,11 @@ export const localizations = {
     brazilian_portuguese: 'Projeto FIA',
     tok_pisin: 'FIA Project',
     indonesian: 'Proyek FIA',
-    nepali: 'FIA प्रोजेक्ट'
+    nepali: 'FIA प्रोजेक्ट',
+    hindi: 'FIA परियोजना',
+    burmese: 'FIA စီမံကိန်း',
+    thai: 'โครงการ FIA',
+    mandarin: 'FIA项目'
   },
   createFiaProjectDescription: {
     english: 'Translate FIA content into your language',
@@ -7719,7 +7751,11 @@ export const localizations = {
     brazilian_portuguese: 'Traduza conteúdo FIA para o seu idioma',
     tok_pisin: 'Translatem FIA content long tok ples bilong yu',
     indonesian: 'Terjemahkan konten FIA ke bahasa Anda',
-    nepali: 'FIA सामग्री तपाईंको भाषामा अनुवाद गर्नुहोस्'
+    nepali: 'FIA सामग्री तपाईंको भाषामा अनुवाद गर्नुहोस्',
+    hindi: 'FIA सामग्री को अपनी भाषा में अनुवाद करें',
+    burmese: 'FIA အကြောင်းအရာကို သင်၏ ဘာသာစကားသို့ ဘာသာပြန်ဆိုပါ',
+    thai: 'แปลเนื้อหา FIA เป็นภาษาของคุณ',
+    mandarin: '将FIA内容翻译成您的语言'
   },
   audioTracks: {
     english: 'Audio tracks',
@@ -11424,7 +11460,11 @@ export const localizations = {
     brazilian_portuguese: 'Projetos FIA',
     tok_pisin: 'FIA Projek',
     indonesian: 'Proyek FIA',
-    nepali: 'FIA परियोजनाहरू'
+    nepali: 'FIA परियोजनाहरू',
+    hindi: 'FIA परियोजनाएं',
+    burmese: 'FIA စီမံကိန်းများ',
+    thai: 'โครงการ FIA',
+    mandarin: 'FIA项目'
   },
   enableFiaDescription: {
     english:
@@ -11438,7 +11478,13 @@ export const localizations = {
     indonesian:
       'Aktifkan fitur proyek FIA. Ini adalah jenis proyek eksperimental yang sedang dalam pengembangan aktif.',
     nepali:
-      'FIA परियोजना सुविधाहरू सक्षम गर्नुहोस्। यो सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो।'
+      'FIA परियोजना सुविधाहरू सक्षम गर्नुहोस्। यो सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो।',
+    hindi:
+      'FIA परियोजना सुविधाएं सक्षम करें। यह सक्रिय विकास के तहत एक प्रयोगात्मक परियोजना प्रकार है।',
+    burmese:
+      'FIA စီမံကိန်း အင်္ဂါရပ်များကို ဖွင့်ပါ။ ဤသည် တက်ကြွစွာ ဖွံ့ဖြိုးတိုးတက်နေသော စမ်းသပ်မှု စီမံကိန်း အမျိုးအစားတစ်ခု ဖြစ်သည်။',
+    thai: 'เปิดใช้งานฟีเจอร์โครงการ FIA นี่เป็นประเภทโครงการทดลองที่อยู่ระหว่างการพัฒนาอย่างต่อเนื่อง',
+    mandarin: '启用FIA项目功能。这是一个正在积极开发中的实验性项目类型。'
   },
   fiaExperimentalTitle: {
     english: 'FIA Projects are Experimental',
@@ -11446,7 +11492,11 @@ export const localizations = {
     brazilian_portuguese: 'Projetos FIA são experimentais',
     tok_pisin: 'FIA Projek em i eksperimental',
     indonesian: 'Proyek FIA bersifat eksperimental',
-    nepali: 'FIA परियोजनाहरू प्रयोगात्मक छन्'
+    nepali: 'FIA परियोजनाहरू प्रयोगात्मक छन्',
+    hindi: 'FIA परियोजनाएं प्रयोगात्मक हैं',
+    burmese: 'FIA စီမံကိန်းများသည် စမ်းသပ်မှု ဖြစ်သည်',
+    thai: 'โครงการ FIA เป็นการทดลอง',
+    mandarin: 'FIA项目是实验性的'
   },
   fiaExperimentalDescription: {
     english:
@@ -11460,7 +11510,13 @@ export const localizations = {
     indonesian:
       'Untuk menggunakan proyek ini, aktifkan Proyek FIA di Pengaturan pada Fitur Eksperimental.',
     nepali:
-      'यो परियोजना प्रयोग गर्न, सेटिङ्समा प्रयोगात्मक सुविधाहरू अन्तर्गत FIA परियोजनाहरू सक्षम गर्नुहोस्।'
+      'यो परियोजना प्रयोग गर्न, सेटिङ्समा प्रयोगात्मक सुविधाहरू अन्तर्गत FIA परियोजनाहरू सक्षम गर्नुहोस्।',
+    hindi:
+      'इस परियोजना का उपयोग करने के लिए, सेटिंग्स में प्रयोगात्मक सुविधाओं के तहत FIA परियोजनाएं सक्षम करें।',
+    burmese:
+      'ဤစီမံကိန်းကို အသုံးပြုရန်၊ ဆက်တင်များတွင် စမ်းသပ်မှု အင်္ဂါရပ်များအောက်ရှိ FIA စီမံကိန်းများကို ဖွင့်ပါ။',
+    thai: 'เพื่อใช้โครงการนี้ ให้เปิดใช้งานโครงการ FIA ในการตั้งค่าภายใต้ฟีเจอร์ทดลอง',
+    mandarin: '要使用此项目，请在设置中的实验功能下启用FIA项目。'
   },
   openSettings: {
     english: 'Open Settings',
@@ -11468,7 +11524,11 @@ export const localizations = {
     brazilian_portuguese: 'Abrir configurações',
     tok_pisin: 'Openim Settings',
     indonesian: 'Buka Pengaturan',
-    nepali: 'सेटिङ्हरू खोल्नुहोस्'
+    nepali: 'सेटिङ्हरू खोल्नुहोस्',
+    hindi: 'सेटिंग्स खोलें',
+    burmese: 'ဆက်တင်များကို ဖွင့်ပါ',
+    thai: 'เปิดการตั้งค่า',
+    mandarin: '打开设置'
   }
 } as const;
 

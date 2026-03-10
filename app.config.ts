@@ -53,11 +53,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.1.0',
+    version: '2.2.0',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),
     userInterfaceStyle: 'automatic',
+    buildCacheProvider: 'eas',
     ios: {
       icon: {
         light: iconLight,
@@ -106,12 +107,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       favicon: iconLight
     },
     plugins: [
+      'expo-build-properties',
       'expo-font',
       'expo-router',
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
       'expo-asset',
       'expo-audio',
+      'expo-image',
       [
         'expo-splash-screen',
         {
@@ -125,6 +128,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         }
       ],
       'expo-dev-client',
+      'expo-sharing',
+      'expo-sqlite',
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
     ],
     experiments: {
@@ -145,7 +150,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     runtimeVersion: {
       policy: 'appVersion'
     }
-  });
+  } as ExpoConfig);
 
 const withUseThirdPartySQLitePod: ConfigPlugin = (expoConfig) => {
   return withPodfileProperties(expoConfig, (config) => {
