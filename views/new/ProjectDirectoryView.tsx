@@ -1239,7 +1239,6 @@ export default function ProjectDirectoryView() {
         <Drawer
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
-          dismissible={!isCreatingQuest}
           snapPoints={[450, 700]}
         >
           {renderContent()}
@@ -1293,7 +1292,7 @@ export default function ProjectDirectoryView() {
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>
-                <DrawerClose disabled={isCreatingQuest}>
+                <DrawerClose>
                   <Text>{t('cancel')}</Text>
                 </DrawerClose>
               </DrawerFooter>

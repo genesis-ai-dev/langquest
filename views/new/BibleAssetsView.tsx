@@ -36,7 +36,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import {
-  ArrowLeftIcon,
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,

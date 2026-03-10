@@ -42,7 +42,6 @@ import { ProjectListItem } from './ProjectListItem';
 
 // New imports for bottom sheet + form
 import { LanguageCombobox } from '@/components/language-combobox';
-import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import {
   Drawer,
   DrawerClose,
@@ -68,6 +67,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { templateOptions } from '@/db/constants';
+import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   ensureLanguoidDownloadProfile,

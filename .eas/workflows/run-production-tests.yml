@@ -23,6 +23,7 @@ on:
       - '!deno.json'
       - '!.cursor/**'
       - '!.vscode/**'
+      - '!.agents/**'
 
 jobs:
   fingerprint:
@@ -116,3 +117,14 @@ jobs:
       record_screen: true
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
       flow_path: ['.maestro/flows/register.yaml', '.maestro/flows/sign-in.yaml']
+    hooks:
+      after_checkout:
+        - run: |
+            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
+            echo "Booted device ID: $DEVICE_ID" && \
+            # Source - https://stackoverflow.com/a/76105538
+            # Posted by Jonathan.
+            # Retrieved 2026-03-04, License - CC BY-SA 4.0
+            plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Containers/Shared/SystemGroup/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/UserSettings.plist && \
+            plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/EffectiveUserSettings.plist && \
+            plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist
