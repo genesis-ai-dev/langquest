@@ -2,11 +2,15 @@
 
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaRecorder
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.*
+import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
@@ -58,6 +62,9 @@ class MicrophoneEnergyModule : Module() {
     AsyncFunction("disableVAD") { promise: Promise -> disableVAD(); promise.resolve(null) }
     AsyncFunction("startSegment") { options: Map<String, Any?>?, promise: Promise -> startSegment(options, promise) }
     AsyncFunction("stopSegment") { promise: Promise -> stopSegment(promise) }
+    AsyncFunction("extractWaveform") { uri: String, barCount: Int, normalize: Boolean?, promise: Promise ->
+      extractWaveform(uri, barCount, normalize ?: true, promise)
+    }
   }
 
   private fun startEnergyDetection(promise: Promise) {
@@ -307,5 +314,259 @@ class MicrophoneEnergyModule : Module() {
       promise.reject("STOP_SEGMENT_ERROR", "Failed to stop segment", e)
       segmentFile = null; segmentBuffers.clear()
     }
+  }
+
+  private fun extractWaveform(uri: String, barCount: Int, normalize: Boolean, promise: Promise) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val amplitudes = extractWaveformNative(uri, barCount, normalize)
+        withContext(Dispatchers.Main) { promise.resolve(amplitudes.toList()) }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+          promise.reject("WAVEFORM_ERROR", "Failed to extract waveform: ${e.message}", e)
+        }
+      }
+    }
+  }
+
+  private fun extractWaveformNative(uri: String, barCount: Int, normalize: Boolean): DoubleArray {
+    val extractor = MediaExtractor()
+    val path = if (uri.startsWith("file://")) uri.removePrefix("file://") else uri
+    extractor.setDataSource(path)
+
+    var audioTrackIndex = -1
+    for (i in 0 until extractor.trackCount) {
+      val format = extractor.getTrackFormat(i)
+      val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+      if (mime.startsWith("audio/")) { audioTrackIndex = i; break }
+    }
+    if (audioTrackIndex < 0) throw Exception("No audio track found")
+
+    extractor.selectTrack(audioTrackIndex)
+    val format = extractor.getTrackFormat(audioTrackIndex)
+    val mime = format.getString(MediaFormat.KEY_MIME) ?: throw Exception("Missing MIME type")
+    var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+    var channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+    val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
+    var totalSamples = if (durationUs > 0) (durationUs * sampleRate / 1_000_000L) else -1L
+
+    val sumSquares = DoubleArray(barCount)
+    val counts = IntArray(barCount)
+    val collectedSamples = if (totalSamples <= 0) ArrayList<Short>() else null
+
+    val codec = MediaCodec.createDecoderByType(mime)
+    codec.configure(format, null, null, 0)
+    codec.start()
+
+    val bufferInfo = MediaCodec.BufferInfo()
+    var inputDone = false
+    var outputDone = false
+    var sampleIndex = 0L
+    var pcmEncoding = AudioFormat.ENCODING_PCM_16BIT
+
+    while (!outputDone) {
+      if (!inputDone) {
+        val inputIndex = codec.dequeueInputBuffer(10_000)
+        if (inputIndex >= 0) {
+          val inputBuffer = codec.getInputBuffer(inputIndex)
+          if (inputBuffer != null) {
+            val sampleSize = extractor.readSampleData(inputBuffer, 0)
+            if (sampleSize < 0) {
+              codec.queueInputBuffer(
+                inputIndex,
+                0,
+                0,
+                0,
+                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+              )
+              inputDone = true
+            } else {
+              val presentationTimeUs = extractor.sampleTime
+              codec.queueInputBuffer(inputIndex, 0, sampleSize, presentationTimeUs, 0)
+              extractor.advance()
+            }
+          }
+        }
+      }
+
+      val outputIndex = codec.dequeueOutputBuffer(bufferInfo, 10_000)
+      when (outputIndex) {
+        MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+          val outputFormat = codec.outputFormat
+          if (outputFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+            sampleRate = outputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+          }
+          if (outputFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+            channelCount = outputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+          }
+          if (outputFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+            pcmEncoding = outputFormat.getInteger(MediaFormat.KEY_PCM_ENCODING)
+          }
+          if (durationUs > 0) {
+            totalSamples = (durationUs * sampleRate / 1_000_000L)
+          }
+        }
+        MediaCodec.INFO_TRY_AGAIN_LATER -> {}
+        else -> {
+          if (outputIndex >= 0) {
+            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+              outputDone = true
+            }
+
+            val outputBuffer = codec.getOutputBuffer(outputIndex)
+            if (outputBuffer != null && bufferInfo.size > 0) {
+              outputBuffer.position(bufferInfo.offset)
+              outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+              outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
+
+              if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
+                val floatBuffer = outputBuffer.asFloatBuffer()
+                val samples = FloatArray(floatBuffer.remaining())
+                floatBuffer.get(samples)
+                sampleIndex = processPcmSamples(
+                  samples,
+                  channelCount,
+                  barCount,
+                  totalSamples,
+                  sumSquares,
+                  counts,
+                  collectedSamples,
+                  sampleIndex
+                )
+              } else {
+                val shortBuffer = outputBuffer.asShortBuffer()
+                val samples = ShortArray(shortBuffer.remaining())
+                shortBuffer.get(samples)
+                sampleIndex = processPcmSamples(
+                  samples,
+                  channelCount,
+                  barCount,
+                  totalSamples,
+                  sumSquares,
+                  counts,
+                  collectedSamples,
+                  sampleIndex
+                )
+              }
+            }
+
+            codec.releaseOutputBuffer(outputIndex, false)
+          }
+        }
+      }
+    }
+
+    codec.stop()
+    codec.release()
+    extractor.release()
+
+    val amplitudes = DoubleArray(barCount)
+    if (collectedSamples != null) {
+      val totalFrames = collectedSamples.size
+      for (bar in 0 until barCount) {
+        val startFrame = (bar * totalFrames) / barCount
+        val endFrame = ((bar + 1) * totalFrames) / barCount
+        val frameCount = endFrame - startFrame
+        if (frameCount <= 0) continue
+        var sum = 0.0
+        for (f in startFrame until endFrame) {
+          val sample = collectedSamples[f].toDouble() / 32768.0
+          sum += sample * sample
+        }
+        amplitudes[bar] = kotlin.math.sqrt(sum / frameCount.toDouble())
+      }
+    } else {
+      for (bar in 0 until barCount) {
+        val count = counts[bar]
+        amplitudes[bar] = if (count > 0) kotlin.math.sqrt(sumSquares[bar] / count.toDouble()) else 0.0
+      }
+    }
+
+    if (normalize) {
+      val maxAmp = amplitudes.maxOrNull() ?: 0.0
+      if (maxAmp > 0) {
+        for (i in amplitudes.indices) amplitudes[i] = amplitudes[i] / maxAmp
+      }
+    }
+
+    return amplitudes
+  }
+
+  private fun processPcmSamples(
+    samples: ShortArray,
+    channelCount: Int,
+    barCount: Int,
+    totalSamples: Long,
+    sumSquares: DoubleArray,
+    counts: IntArray,
+    collectedSamples: ArrayList<Short>?,
+    startSampleIndex: Long
+  ): Long {
+    var sampleIndex = startSampleIndex
+    var i = 0
+    while (i < samples.size) {
+      val channels = max(1, channelCount)
+      var sum = 0
+      var ch = 0
+      while (ch < channels && i + ch < samples.size) {
+        sum += samples[i + ch].toInt()
+        ch++
+      }
+      val avgSample = (sum / channels).toShort()
+      val normalized = avgSample.toDouble() / 32768.0
+
+      if (collectedSamples != null) {
+        collectedSamples.add(avgSample)
+      } else if (totalSamples > 0) {
+        val bin = ((sampleIndex * barCount) / totalSamples)
+          .toInt()
+          .coerceIn(0, barCount - 1)
+        sumSquares[bin] += normalized * normalized
+        counts[bin] += 1
+      }
+
+      sampleIndex++
+      i += channels
+    }
+    return sampleIndex
+  }
+
+  private fun processPcmSamples(
+    samples: FloatArray,
+    channelCount: Int,
+    barCount: Int,
+    totalSamples: Long,
+    sumSquares: DoubleArray,
+    counts: IntArray,
+    collectedSamples: ArrayList<Short>?,
+    startSampleIndex: Long
+  ): Long {
+    var sampleIndex = startSampleIndex
+    var i = 0
+    while (i < samples.size) {
+      val channels = max(1, channelCount)
+      var sum = 0.0
+      var ch = 0
+      while (ch < channels && i + ch < samples.size) {
+        sum += samples[i + ch].toDouble()
+        ch++
+      }
+      val avgSample = (sum / channels).toFloat()
+      val normalized = avgSample.toDouble()
+
+      if (collectedSamples != null) {
+        collectedSamples.add((avgSample * 32767.0f).toInt().toShort())
+      } else if (totalSamples > 0) {
+        val bin = ((sampleIndex * barCount) / totalSamples)
+          .toInt()
+          .coerceIn(0, barCount - 1)
+        sumSquares[bin] += normalized * normalized
+        counts[bin] += 1
+      }
+
+      sampleIndex++
+      i += channels
+    }
+    return sampleIndex
   }
 }

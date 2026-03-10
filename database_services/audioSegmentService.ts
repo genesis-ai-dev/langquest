@@ -6,6 +6,7 @@ import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
 const { db } = system;
+type LocalDbTx = Parameters<Parameters<typeof system.db.transaction>[0]>[0];
 
 export interface AudioSegmentData {
   id: string;
@@ -13,6 +14,59 @@ export interface AudioSegmentData {
   duration: number;
   waveformData: number[];
   name: string;
+}
+
+/**
+ * Resolve local asset IDs to delete for a given root asset:
+ * immediate children first, then root.
+ */
+export async function getLocalAssetCascadeIds(
+  assetId: string
+): Promise<string[]> {
+  const resolvedAsset = resolveTable('asset', { localOverride: true });
+  const childAssets = await system.db
+    .select({ id: resolvedAsset.id })
+    .from(resolvedAsset)
+    .where(eq(resolvedAsset.source_asset_id, assetId));
+
+  return [...childAssets.map((c) => c.id), assetId];
+}
+
+/**
+ * Delete all local DB rows tied to each asset ID, in-place.
+ * Order is caller-controlled; children should be deleted before parents.
+ */
+export async function deleteLocalAssetRecordsInTx(
+  tx: LocalDbTx,
+  assetIds: string[]
+): Promise<void> {
+  const resolvedAsset = resolveTable('asset', { localOverride: true });
+  const resolvedAssetContent = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+  const resolvedQuestAssetLink = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const resolvedVote = resolveTable('vote', { localOverride: true });
+  const resolvedAssetTagLink = resolveTable('asset_tag_link', {
+    localOverride: true
+  });
+
+  for (const currentAssetId of assetIds) {
+    await tx
+      .delete(resolvedVote)
+      .where(eq(resolvedVote.asset_id, currentAssetId));
+    await tx
+      .delete(resolvedAssetTagLink)
+      .where(eq(resolvedAssetTagLink.asset_id, currentAssetId));
+    await tx
+      .delete(resolvedQuestAssetLink)
+      .where(eq(resolvedQuestAssetLink.asset_id, currentAssetId));
+    await tx
+      .delete(resolvedAssetContent)
+      .where(eq(resolvedAssetContent.asset_id, currentAssetId));
+    await tx.delete(resolvedAsset).where(eq(resolvedAsset.id, currentAssetId));
+  }
 }
 
 export class AudioSegmentService {
@@ -152,26 +206,8 @@ export class AudioSegmentService {
   ): Promise<void> {
     const { preserveAudioFiles = false } = options ?? {};
     try {
-      const resolvedAsset = resolveTable('asset', { localOverride: true });
-      const resolvedAssetContent = resolveTable('asset_content_link', {
-        localOverride: true
-      });
-      const resolvedQuestAssetLink = resolveTable('quest_asset_link', {
-        localOverride: true
-      });
-      const resolvedVote = resolveTable('vote', { localOverride: true });
-      const resolvedAssetTagLink = resolveTable('asset_tag_link', {
-        localOverride: true
-      });
-
-      // Find all child assets (translations/transcriptions) that reference this asset
-      const childAssets = await system.db
-        .select({ id: resolvedAsset.id })
-        .from(resolvedAsset)
-        .where(eq(resolvedAsset.source_asset_id, assetId));
-
       // Collect all asset IDs to delete (children + parent)
-      const allAssetIds = [...childAssets.map((c) => c.id), assetId];
+      const allAssetIds = await getLocalAssetCascadeIds(assetId);
 
       // Collect audio files to delete from attachment queue BEFORE transaction
       const allAssetContent = await db
@@ -180,11 +216,11 @@ export class AudioSegmentService {
         .where(eq(asset_content_link.asset_id, assetId));
 
       // Also get content from child assets
-      for (const child of childAssets) {
+      for (const childId of allAssetIds.slice(0, -1)) {
         const childContent = await db
           .select()
           .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, child.id));
+          .where(eq(asset_content_link.asset_id, childId));
         allAssetContent.push(...childContent);
       }
 
@@ -204,39 +240,12 @@ export class AudioSegmentService {
         );
       }
 
-      // CRITICAL: Delete all related records in a single transaction
-      // Order matters: delete children before parent to maintain referential integrity
       await system.db.transaction(async (tx) => {
-        for (const currentAssetId of allAssetIds) {
-          // 1. Delete votes (references asset_id)
-          await tx
-            .delete(resolvedVote)
-            .where(eq(resolvedVote.asset_id, currentAssetId));
-
-          // 2. Delete asset_tag_links (references asset_id)
-          await tx
-            .delete(resolvedAssetTagLink)
-            .where(eq(resolvedAssetTagLink.asset_id, currentAssetId));
-
-          // 3. Delete quest_asset_links (references asset_id)
-          await tx
-            .delete(resolvedQuestAssetLink)
-            .where(eq(resolvedQuestAssetLink.asset_id, currentAssetId));
-
-          // 4. Delete asset_content_links (references asset_id)
-          await tx
-            .delete(resolvedAssetContent)
-            .where(eq(resolvedAssetContent.asset_id, currentAssetId));
-
-          // 5. Delete the asset itself (must be last for this asset)
-          await tx
-            .delete(resolvedAsset)
-            .where(eq(resolvedAsset.id, currentAssetId));
-        }
+        await deleteLocalAssetRecordsInTx(tx, allAssetIds);
       });
 
       console.log(
-        `✅ Deleted asset ${assetId.slice(0, 8)} and ${childAssets.length} child assets`
+        `✅ Deleted asset ${assetId.slice(0, 8)} and ${Math.max(0, allAssetIds.length - 1)} child assets`
       );
     } catch (error) {
       console.error('Failed to delete audio segment:', error);

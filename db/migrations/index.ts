@@ -23,6 +23,7 @@ import { migration_1_0_to_2_0 } from './1.0-to-2.0';
 import { migration_2_0_to_2_1 } from './2.0-to-2.1';
 import { migration_2_1_to_2_2 } from './2.1-to-2.2';
 import { migration_2_2_to_2_3 } from './2.2-to-2.3';
+import { migration_2_3_to_2_4 } from './2.3-to-2.4';
 import { updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
@@ -84,7 +85,9 @@ export const migrations: Migration[] = [
   // Add content_type column to asset table
   migration_2_1_to_2_2,
   // Add order_index to asset_content_link for segment ordering
-  migration_2_2_to_2_3
+  migration_2_2_to_2_3,
+  // Add metadata to asset_content_link for per-segment trim
+  migration_2_3_to_2_4
   // Add future migrations here:
 ];
 
