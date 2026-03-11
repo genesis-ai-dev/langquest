@@ -2,10 +2,10 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
-import { useQuery } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { useHybridData } from '@/views/new/useHybridData';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { and, eq, sql } from 'drizzle-orm';
 import React from 'react';
-import { useNetworkStatus } from './useNetworkStatus';
 
 export interface BibleChapter {
   id: string;
@@ -34,215 +34,46 @@ interface BibleMetadata {
 }
 
 /**
- * Fetches chapter quests using metadata field from local database
- * NOTE: Uses Drizzle ORM to query the merged quest view (includes quest_local + quest_synced)
- * This ensures local-only chapters created offline are included
- * USES: metadata.bible.book and metadata.bible.chapter for identification
- */
-async function fetchLocalChapters(
-  projectId: string,
-  bookId: string
-): Promise<QuestWithMetadata[]> {
-  console.log(
-    `[fetchLocalChapters] Querying for projectId: ${projectId}, bookId: ${bookId}`
-  );
-
-  // Use Drizzle ORM relational query API to query the merged quest view
-  // This ensures local-only chapters created offline are included
-  // Query all quests matching the criteria, then filter and transform
-  const allQuests = await system.db.query.quest.findMany({
-    where: eq(quest.project_id, projectId),
-    columns: {
-      id: true,
-      name: true,
-      source: true,
-      created_at: true,
-      download_profiles: true,
-      metadata: true
-    }
-  });
-
-  // Filter for chapters matching the bookId (have bible.chapter)
-  // Note: We filter in JS because Drizzle's query builder doesn't handle JSON extraction well
-  // This approach ensures we get all records including local-only ones
-  const results = allQuests
-    .filter((q) => {
-      if (!q.metadata) return false;
-
-      const metadata: BibleMetadata =
-        typeof q.metadata === 'string'
-          ? (JSON.parse(q.metadata) as BibleMetadata)
-          : (q.metadata as BibleMetadata);
-
-      const bibleBook = metadata?.bible?.book;
-      const bibleChapter = metadata?.bible?.chapter;
-
-      return bibleBook === bookId && bibleChapter != null;
-    })
-    .map((q) => {
-      const metadata: BibleMetadata =
-        typeof q.metadata === 'string'
-          ? (JSON.parse(q.metadata) as BibleMetadata)
-          : (q.metadata as BibleMetadata);
-
-      return {
-        quest_id: q.id,
-        quest_name: q.name,
-        quest_source: q.source,
-        quest_created_at: q.created_at,
-        quest_download_profiles: q.download_profiles,
-        chapter_number: metadata?.bible?.chapter! || null
-      };
-    });
-
-  console.log(
-    `[fetchLocalChapters] Query returned ${results.length} rows for projectId: ${projectId}, bookId: ${bookId}`
-  );
-
-  // Convert Drizzle results to QuestWithMetadata format
-  // download_profiles is already parsed by Drizzle (text mode: 'json')
-  const questResults: QuestWithMetadata[] = results.map((row) => {
-    // Parse download_profiles (stored as JSON)
-    let parsedDownloadProfiles: string[] | null = null;
-    const downloadProfiles = row.quest_download_profiles;
-
-    if (downloadProfiles) {
-      try {
-        if (typeof downloadProfiles === 'string') {
-          parsedDownloadProfiles = JSON.parse(downloadProfiles) as string[];
-        } else if (Array.isArray(downloadProfiles)) {
-          parsedDownloadProfiles = downloadProfiles;
-        }
-      } catch (e) {
-        console.warn('Failed to parse download_profiles:', e);
-      }
-    }
-
-    // Handle created_at - could be Date, string, or null
-    let createdAt: string;
-    const createdAtValue = row.quest_created_at;
-    if (
-      createdAtValue &&
-      typeof createdAtValue === 'object' &&
-      'toISOString' in createdAtValue
-    ) {
-      createdAt = (createdAtValue as Date).toISOString();
-    } else if (typeof createdAtValue === 'string') {
-      createdAt = createdAtValue;
-    } else {
-      createdAt = new Date().toISOString();
-    }
-
-    return {
-      quest_id: row.quest_id,
-      quest_name: row.quest_name,
-      quest_source: row.quest_source,
-      quest_created_at: createdAt,
-      quest_download_profiles: parsedDownloadProfiles,
-      chapter_number: row.chapter_number
-    };
-  });
-
-  console.log(
-    `[fetchLocalChapters] Processed ${questResults.length} chapter quests:`,
-    questResults.map((r) => ({
-      id: r.quest_id.slice(0, 8),
-      name: r.quest_name,
-      chapter: r.chapter_number,
-      source: r.quest_source
-    }))
-  );
-  return questResults;
-}
-
-/**
- * Fetches chapter quests from Supabase cloud using metadata field
+ * Fetches chapter quests from Supabase cloud using metadata field.
+ * Returns raw quest records — filtering/parsing is done by useHybridData's
+ * transformCloudData and the post-processing step in useBibleChapters.
  */
 async function fetchCloudChapters(
   projectId: string,
   bookId: string
-): Promise<QuestWithMetadata[]> {
-  console.log(
-    `[fetchCloudChapters] Fetching from Supabase for projectId: ${projectId}, bookId: ${bookId}`
-  );
-
+): Promise<(typeof quest.$inferSelect)[]> {
   try {
-    // In Supabase, metadata is stored as a JSON string (not JSONB object)
-    // So we can't use JSONB operators directly. Instead, fetch all quests and filter in JS
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
-      .select('id, name, created_at, download_profiles, metadata')
+      .select('*')
       .eq('project_id', projectId)
       .not('metadata', 'is', null)
-      .overrideTypes<
-        {
-          id: string;
-          name: string;
-          created_at: string;
-          download_profiles: string[] | null;
-          metadata:
-            | string
-            | { bible?: { book: string; chapter: number } }
-            | null;
-        }[]
-      >();
+      .overrideTypes<(typeof quest.$inferSelect)[]>();
 
-    if (error) {
-      console.error('[fetchCloudChapters] Supabase error:', error);
-      return [];
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
-    if (data.length === 0) {
-      console.log('[fetchCloudChapters] No quests found in cloud for project');
-      return [];
-    }
-
-    // Parse metadata and filter for matching book chapters
-    const results: QuestWithMetadata[] = [];
-    for (const quest of data) {
-      if (!quest.metadata) continue;
-
+    return data.filter((q) => {
+      if (!q.metadata) return false;
       try {
-        // Handle double-encoded JSON (stored as string)
-        let metadata: { bible?: { book: string; chapter?: number } };
-        if (typeof quest.metadata === 'string') {
-          // Parse once to get the inner JSON string, then parse again to get the object
-          const parsed: unknown = JSON.parse(quest.metadata);
+        let metadata: BibleMetadata;
+        if (typeof q.metadata === 'string') {
+          const parsed: unknown = JSON.parse(q.metadata);
           metadata =
             typeof parsed === 'string'
-              ? (JSON.parse(parsed) as {
-                  bible?: { book: string; chapter?: number };
-                })
-              : (parsed as { bible?: { book: string; chapter?: number } });
+              ? (JSON.parse(parsed) as BibleMetadata)
+              : (parsed as BibleMetadata);
         } else {
-          metadata = quest.metadata as {
-            bible?: { book: string; chapter?: number };
-          };
+          metadata = q.metadata as BibleMetadata;
         }
-
-        // Filter for matching book with chapter
-        if (
-          metadata.bible?.book === bookId &&
-          metadata.bible.chapter !== undefined
-        ) {
-          results.push({
-            quest_id: quest.id,
-            quest_name: quest.name,
-            quest_source: 'cloud' as HybridDataSource,
-            quest_created_at: quest.created_at,
-            quest_download_profiles: quest.download_profiles,
-            chapter_number: metadata.bible.chapter
-          });
-        }
-      } catch (e) {
-        console.warn(`Failed to parse metadata for quest ${quest.id}:`, e);
+        return (
+          metadata?.bible?.book === bookId &&
+          metadata?.bible?.chapter !== undefined
+        );
+      } catch {
+        return false;
       }
-    }
-
-    console.log(
-      `[fetchCloudChapters] Found ${results.length} cloud chapters out of ${data.length} quests`
-    );
-    return results;
+    });
   } catch (error) {
     console.error('[fetchCloudChapters] Exception:', error);
     return [];
@@ -364,43 +195,99 @@ function processChapterResults(
  * UI never blocks on cloud - only on local query
  */
 export function useBibleChapters(projectId: string, bookId: string) {
-  const isOnline = useNetworkStatus();
+  const offlineQuery = toCompilableQuery(
+    system.db
+      .select()
+      .from(quest)
+      .where(
+        and(
+          eq(quest.project_id, projectId),
+          sql`json_extract(json(${quest.metadata}), '$.bible.book') = ${bookId}`,
+          sql`json_extract(json(${quest.metadata}), '$.bible.chapter') IS NOT NULL`
+        )
+      )
+  );
 
-  // First query: Local data only (fast) - returns raw QuestWithMetadata
   const {
-    data: localResults = [],
-    isLoading: isLoadingLocal,
-    error: localError
-  } = useQuery({
-    queryKey: ['bible-chapters', 'local', projectId, bookId],
-    queryFn: () => fetchLocalChapters(projectId, bookId),
-    enabled: !!projectId && !!bookId,
-    staleTime: 30000 // Cache for 30 seconds
+    data: rawQuests = [],
+    isLoading,
+    isCloudLoading,
+    offlineError
+  } = useHybridData({
+    dataType: 'bible-chapters',
+    queryKeyParams: [projectId, bookId],
+    offlineQuery,
+    cloudQueryFn: () => fetchCloudChapters(projectId, bookId),
+    transformCloudData: (cloudQuest) => {
+      let parsedMetadata: BibleMetadata | null = null;
+      if (cloudQuest.metadata) {
+        try {
+          if (typeof cloudQuest.metadata === 'string') {
+            const parsed: unknown = JSON.parse(cloudQuest.metadata);
+            parsedMetadata =
+              typeof parsed === 'string'
+                ? (JSON.parse(parsed) as BibleMetadata)
+                : (parsed as BibleMetadata);
+          } else {
+            parsedMetadata = cloudQuest.metadata as BibleMetadata;
+          }
+        } catch (e) {
+          console.warn(
+            `Failed to parse metadata for cloud chapter ${cloudQuest.id}:`,
+            e
+          );
+        }
+      }
+      return {
+        ...cloudQuest,
+        metadata: parsedMetadata
+      } as typeof quest.$inferSelect;
+    },
+    enabled: !!projectId && !!bookId
   });
 
-  // Second query: Cloud data (runs in parallel, updates UI when complete) - returns raw QuestWithMetadata
-  const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
-    queryKey: ['bible-chapters', 'cloud', projectId, bookId],
-    queryFn: () => fetchCloudChapters(projectId, bookId),
-    enabled: !!projectId && !!bookId && isOnline, // Removed !isLoadingLocal - let it run in parallel
-    staleTime: 60000 // Cache for 1 minute
-  });
-
-  // Merge and process results once - updates immediately when either query completes
   const chapters = React.useMemo(() => {
-    // Combine raw results and process once
-    const allResults = [...localResults, ...cloudResults];
-    return processChapterResults(allResults);
-  }, [localResults, cloudResults]);
+    const questResults: QuestWithMetadata[] = rawQuests
+      .filter((q) => {
+        if (!q.metadata) return false;
+        const metadata: BibleMetadata =
+          typeof q.metadata === 'string'
+            ? (JSON.parse(q.metadata) as BibleMetadata)
+            : (q.metadata as BibleMetadata);
+        return (
+          metadata?.bible?.book === bookId && metadata?.bible?.chapter != null
+        );
+      })
+      .map((q) => {
+        const metadata: BibleMetadata =
+          typeof q.metadata === 'string'
+            ? (JSON.parse(q.metadata) as BibleMetadata)
+            : (q.metadata as BibleMetadata);
+        return {
+          quest_id: q.id,
+          quest_name: q.name,
+          quest_source: (q as { source?: HybridDataSource }).source ?? 'cloud',
+          quest_created_at:
+            typeof q.created_at === 'string'
+              ? q.created_at
+              : q.created_at instanceof Date
+                ? q.created_at.toISOString()
+                : new Date().toISOString(),
+          quest_download_profiles: q.download_profiles,
+          chapter_number: metadata?.bible?.chapter ?? null
+        };
+      });
 
-  // Get just the chapter numbers that exist
+    return processChapterResults(questResults);
+  }, [rawQuests, bookId]);
+
   const existingChapterNumbers = chapters.map((ch) => ch.chapterNumber);
 
   return {
     chapters,
     existingChapterNumbers,
-    isLoading: isLoadingLocal, // Only show loading for local query
-    isLoadingCloud,
-    error: localError
+    isLoading,
+    isLoadingCloud: isCloudLoading,
+    error: offlineError
   };
 }

@@ -87,70 +87,7 @@ export function useBibleBookCreation() {
           };
         }
 
-        // // FALLBACK: Try direct name-based query (for backward compatibility)
-        // console.log(`🔄 Falling back to name-based search...`);
-        // const [existing] = await tx
-        //     .select()
-        //     .from(quest)
-        //     .where(
-        //         and(
-        //             eq(quest.project_id, projectId),
-        //             eq(quest.name, bookName),
-        //             isNull(quest.parent_id)
-        //         )
-        //     )
-        // //     .limit(1);
-
-        // if (existing) {
-        //     console.log(
-        //         `✅ Found existing book by name: ${existing.name} (${existing.id})`
-        //     );
-        //     return {
-        //         id: existing.id,
-        //         name: existing.name,
-        //         project_id: existing.project_id
-        //     };
-        // }
-
-        // console.log(`❌ No existing book found in local tables`);
-
-        // LAST RESORT: Check Supabase directly
-        // This handles the case where the book was published but hasn't synced down yet
-        console.log(`🌐 Checking Supabase for published book...`);
-        try {
-          const { data: cloudBook, error: cloudError } =
-            await system.supabaseConnector.client
-              .from('quest')
-              .select('id, name, project_id')
-              .eq('project_id', projectId)
-              .eq('name', bookName)
-              .is('parent_id', null)
-              .limit(1)
-              .maybeSingle();
-
-          if (cloudError && cloudError.code !== 'PGRST116') {
-            console.warn('⚠️  Error checking Supabase:', cloudError);
-          }
-
-          if (cloudBook) {
-            console.log(
-              `✅ Found book in Supabase cloud: ${cloudBook.name} (${cloudBook.id})`
-            );
-            console.log(
-              `   → Will use this ID (PowerSync will sync it down soon)`
-            );
-            return {
-              id: cloudBook.id as string,
-              name: cloudBook.name as string,
-              project_id: cloudBook.project_id as string
-            };
-          }
-        } catch (cloudCheckError) {
-          console.warn('⚠️  Failed to check Supabase:', cloudCheckError);
-          // Continue to create new book
-        }
-
-        console.log(`❌ Book not found anywhere - creating new one`);
+        console.log(`❌ Book not found locally - creating new one`);
 
         // Book doesn't exist anywhere, create it in local
         console.log(`📚 Creating new book quest: ${bookName}`);

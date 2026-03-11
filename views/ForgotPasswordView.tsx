@@ -61,7 +61,6 @@ export default function ForgotPasswordView({
       RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
-          isPreferred: true,
           onPress: () =>
             safeNavigate(() =>
               onNavigate('sign-in', { email: form.getValues('email') })
@@ -138,7 +137,7 @@ export default function ForgotPasswordView({
                 )
               }
               disabled={isPending}
-              variant="plain"
+              variant="link"
             >
               <Text>{t('backToLogin')}</Text>
             </Button>
