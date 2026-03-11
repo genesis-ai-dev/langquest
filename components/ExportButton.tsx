@@ -5,14 +5,14 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useLocalStore } from '@/store/localStore';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
 import { useThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { ExportProgressModal } from './ExportProgressModal';
+import { ExportQuestList } from './ExportQuestList';
 import { ExportTypeSelector } from './ExportTypeSelector';
 
 interface ExportButtonProps {
@@ -39,11 +39,12 @@ export function ExportButton({
   const membership = passedMembership ?? fetchedMembership;
   const exportMutation = useChapterExport();
   const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showExportQuestList, setShowExportQuestList] = useState(false);
   const [currentExportId, setCurrentExportId] = useState<string | null>(null);
   const [isConcatenating, setIsConcatenating] = useState(false);
 
   // Check feature flag
-  const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
+  // const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
 
   // Fetch quest publish status
   const { isPublished: isQuestPublished } = useQuestPublishStatus(questId);
@@ -59,7 +60,7 @@ export function ExportButton({
   React.useEffect(() => {
     if (__DEV__) {
       console.log('[ExportButton] Debug:', {
-        enableQuestExport,
+        //enableQuestExport,
         membership,
         passedMembership,
         fetchedMembership,
@@ -73,7 +74,7 @@ export function ExportButton({
       });
     }
   }, [
-    enableQuestExport,
+    //enableQuestExport,
     membership,
     passedMembership,
     fetchedMembership,
@@ -88,7 +89,13 @@ export function ExportButton({
 
   // Don't show export button if feature flag is disabled or user doesn't have permissions
   // Wait for membership to load if we don't have passed membership
-  if (!enableQuestExport) {
+  // Feature is no longer experimental
+  // if (!enableQuestExport) {
+  //     return null;
+  // }
+
+  // Allow export only for local content  
+  if(isQuestPublished) {
     return null;
   }
 
@@ -165,7 +172,8 @@ export function ExportButton({
       <Button
         variant="outline"
         size="icon"
-        onPress={() => setShowTypeSelector(true)}
+        onPress={() => setShowExportQuestList(true)}
+        // onPress={() => setShowTypeSelector(true)}
         disabled={disabled || exportMutation.isPending || isConcatenating}
         className="border-[1.5px] border-primary"
       >
@@ -175,6 +183,13 @@ export function ExportButton({
           <Icon as={Share2Icon} className="text-primary" />
         )}
       </Button>
+
+      <ExportQuestList
+        isOpen={showExportQuestList}
+        onClose={() => setShowExportQuestList(false)}
+        currentProjectId={projectId}
+        currentQuestId={questId}
+      />
 
       <ExportTypeSelector
         visible={showTypeSelector}

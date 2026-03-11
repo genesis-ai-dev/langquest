@@ -10740,6 +10740,14 @@ export const localizations = {
     thai: 'การส่งออกพร้อมแล้ว!',
     mandarin: '导出已就绪！'
   },
+  contentShared: {
+    english: 'Content shared successfully',
+    spanish: 'Contenido compartido con éxito',
+    brazilian_portuguese: 'Conteúdo compartilhado com sucesso',
+    tok_pisin: 'Konten i bin share gut',
+    indonesian: 'Konten berhasil dibagikan',
+    nepali: 'सामग्री सफलतापूर्वक साझा भयो'
+  },
   share: {
     english: 'Share',
     spanish: 'Compartir',
