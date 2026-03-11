@@ -61,7 +61,7 @@ export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  const { goToProjects, goToAccountDeletion } = useNavigationHelpers();
+  const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
@@ -530,7 +530,7 @@ export default function ProfileView() {
                     <Button
                       variant="destructive"
                       onPress={() => {
-                        goToAccountDeletion();
+                        router.push('/(app)/account-deletion');
                       }}
                       className="mt-2"
                     >

@@ -55,7 +55,7 @@ export function ProjectListItem({
 }) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProject, goToNotifications } = useNavigationHelpers();
+  const { router } = useNavigationHelpers();
   const layerStatus = useStatusContext();
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
@@ -188,7 +188,7 @@ export function ProjectListItem({
   };
 
   function goToProjectHelper() {
-    goToProject({ id: project.id });
+    router.push(`/(app)/project/${project.id}`);
   }
 
   return (
@@ -295,7 +295,7 @@ export function ProjectListItem({
                     size="sm"
                     className="flex-1 flex-row items-center gap-2"
                     onPress={() => {
-                      goToNotifications();
+                      router.push('/(app)/notifications');
                     }}
                   >
                     <Icon

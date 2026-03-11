@@ -63,11 +63,6 @@ export default function AppDrawer({
   const { signOut, currentUser, isAuthenticated } = useAuth();
   const {
     goToProjects,
-    goToProfile,
-    goToNotifications,
-    goToSettings,
-    goToCorruptedAttachments,
-    goToDownloadStatus,
     pathname,
     router
   } = useNavigationHelpers();
@@ -243,24 +238,24 @@ export default function AppDrawer({
     [closeDrawerAndExecute, goToProjects]
   );
   const handleGoToNotifications = useCallback(
-    () => closeDrawerAndExecute(goToNotifications),
-    [closeDrawerAndExecute, goToNotifications]
+    () => closeDrawerAndExecute(() => router.push('/(app)/notifications')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToProfile = useCallback(
-    () => closeDrawerAndExecute(goToProfile),
-    [closeDrawerAndExecute, goToProfile]
+    () => closeDrawerAndExecute(() => router.push('/(app)/profile')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToSettings = useCallback(
-    () => closeDrawerAndExecute(goToSettings),
-    [closeDrawerAndExecute, goToSettings]
+    () => closeDrawerAndExecute(() => router.push('/(app)/settings')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToCorruptedAttachments = useCallback(
-    () => closeDrawerAndExecute(goToCorruptedAttachments),
-    [closeDrawerAndExecute, goToCorruptedAttachments]
+    () => closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToDownloadStatus = useCallback(
-    () => closeDrawerAndExecute(goToDownloadStatus),
-    [closeDrawerAndExecute, goToDownloadStatus]
+    () => closeDrawerAndExecute(() => router.push('/(app)/download-status')),
+    [closeDrawerAndExecute, router]
   );
   const handleSignIn = useCallback(() => {
     setDrawerIsVisible(false);

@@ -100,8 +100,7 @@ export default function ProjectDirectoryView() {
   const {
     projectId,
     router,
-    goToQuest,
-    goToSettings
+    goToQuest
   } = useNavigationHelpers();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
@@ -993,7 +992,7 @@ export default function ProjectDirectoryView() {
             <Text className="text-center text-muted-foreground">
               {t('fiaExperimentalDescription')}
             </Text>
-            <Button variant="default" onPress={goToSettings}>
+            <Button variant="default" onPress={() => router.push('/(app)/settings')}>
               <Icon as={SettingsIcon} size={16} />
               <Text>{t('openSettings')}</Text>
             </Button>

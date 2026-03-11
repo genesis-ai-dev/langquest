@@ -60,7 +60,7 @@ type Step = OnboardingStep | 'create-language';
 export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProject } = useNavigationHelpers();
+  const { router } = useNavigationHelpers();
   const enableFia = useLocalStore((s) => s.enableFia);
   const queryClient = useQueryClient();
   const _insets = useSafeAreaInsets();
@@ -218,7 +218,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
         });
 
         // Navigate to the project
-        goToProject({ id: newProject.id });
+        router.push(`/(app)/project/${newProject.id}`);
 
         // Close onboarding and reset state
         handleClose();
@@ -296,7 +296,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
 
   const handleProjectSelect = (project: (typeof projectsByLanguage)[0]) => {
     // Navigate to existing project
-    goToProject({ id: project.id });
+    router.push(`/(app)/project/${project.id}`);
     handleClose();
   };
 

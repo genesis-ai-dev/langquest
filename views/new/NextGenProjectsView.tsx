@@ -615,7 +615,7 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
-  const { goToProject } = useNavigationHelpers();
+  const { router } = useNavigationHelpers();
 
   // Get the first project for onboarding navigation
   const firstProject = React.useMemo(() => {
@@ -741,7 +741,7 @@ export default function NextGenProjectsView() {
 
   const _handleOnboardingCreateQuest = () => {
     if (firstProject) {
-      goToProject({ id: firstProject.id });
+      router.push(`/(app)/project/${firstProject.id}`);
       // The onboarding will close and user can create quest in ProjectDirectoryView
     }
   };
@@ -749,14 +749,14 @@ export default function NextGenProjectsView() {
   const _handleOnboardingStartRecording = () => {
     if (firstProject) {
       // Navigate to project - user can then navigate to a quest and start recording
-      goToProject({ id: firstProject.id });
+      router.push(`/(app)/project/${firstProject.id}`);
       // The recording view will be shown when user navigates to a quest
     }
   };
 
   const _handleOnboardingInviteCollaborators = () => {
     if (firstProject) {
-      goToProject({ id: firstProject.id });
+      router.push(`/(app)/project/${firstProject.id}`);
       // User can access project membership modal from project settings
     }
   };
